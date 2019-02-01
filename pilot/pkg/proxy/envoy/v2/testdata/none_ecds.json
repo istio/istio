@@ -11,13 +11,13 @@
         "service_name": "outbound|2000||s1tcp.none"
       },
       "connect_timeout": 1000000000,
-      "load_assignment": {
-        "cluster_name": "outbound|2000||s1tcp.none",
-        "endpoints": null
-      },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "LbConfig": null
@@ -34,13 +34,13 @@
         "service_name": "outbound|2001||s1http.none"
       },
       "connect_timeout": 1000000000,
-      "load_assignment": {
-        "cluster_name": "outbound|2001||s1http.none",
-        "endpoints": null
-      },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "LbConfig": null
@@ -57,13 +57,13 @@
         "service_name": "outbound|2005||s2.external.test.istio.io"
       },
       "connect_timeout": 1000000000,
-      "load_assignment": {
-        "cluster_name": "outbound|2005||s2.external.test.istio.io",
-        "endpoints": null
-      },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "LbConfig": null
@@ -80,13 +80,13 @@
         "service_name": "outbound|2008||tcpmeshstatic.seexamples.svc"
       },
       "connect_timeout": 1000000000,
-      "load_assignment": {
-        "cluster_name": "outbound|2008||tcpmeshstatic.seexamples.svc",
-        "endpoints": null
-      },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "LbConfig": null
@@ -103,13 +103,13 @@
         "service_name": "outbound|2009||tcpmeshstaticint.seexamples.svc"
       },
       "connect_timeout": 1000000000,
-      "load_assignment": {
-        "cluster_name": "outbound|2009||tcpmeshstaticint.seexamples.svc",
-        "endpoints": null
-      },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "LbConfig": null

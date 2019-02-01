@@ -16,7 +16,13 @@
 package status
 
 import (
+	"net/http"
+
 	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/policy/v1beta1"
 )
 
 // OK represents a status with a code of rpc.OK
@@ -133,4 +139,69 @@ func String(status rpc.Status) string {
 		result = result + " (" + status.Message + ")"
 	}
 	return result
+}
+
+// GetDirectHTTPResponse extracts a client-facing error detail for HTTP or returns nil
+// if it is not present.
+func GetDirectHTTPResponse(status rpc.Status) *v1beta1.DirectHttpResponse {
+	for _, detail := range status.Details {
+		response := &v1beta1.DirectHttpResponse{}
+		if !types.Is(detail, response) {
+			continue
+		}
+		if types.UnmarshalAny(detail, response) != nil {
+			continue
+		}
+		return response
+	}
+	return nil
+}
+
+// PackErrorDetail packs an HTTP response error detail
+func PackErrorDetail(response proto.Message) *types.Any {
+	any, _ := types.MarshalAny(response)
+	return any
+}
+
+// HTTPStatusFromCode translates RPC status code to HTTP status code.
+func HTTPStatusFromCode(code rpc.Code) int {
+	switch code {
+	case rpc.OK:
+		return http.StatusOK
+	case rpc.CANCELLED:
+		return http.StatusRequestTimeout
+	case rpc.UNKNOWN:
+		return http.StatusInternalServerError
+	case rpc.INVALID_ARGUMENT:
+		return http.StatusBadRequest
+	case rpc.DEADLINE_EXCEEDED:
+		return http.StatusGatewayTimeout
+	case rpc.NOT_FOUND:
+		return http.StatusNotFound
+	case rpc.ALREADY_EXISTS:
+		return http.StatusConflict
+	case rpc.PERMISSION_DENIED:
+		return http.StatusForbidden
+	case rpc.UNAUTHENTICATED:
+		return http.StatusUnauthorized
+	case rpc.RESOURCE_EXHAUSTED:
+		return http.StatusTooManyRequests
+	case rpc.FAILED_PRECONDITION:
+		return http.StatusPreconditionFailed
+	case rpc.ABORTED:
+		return http.StatusConflict
+	case rpc.OUT_OF_RANGE:
+		return http.StatusBadRequest
+	case rpc.UNIMPLEMENTED:
+		return http.StatusNotImplemented
+	case rpc.INTERNAL:
+		return http.StatusInternalServerError
+	case rpc.UNAVAILABLE:
+		return http.StatusServiceUnavailable
+	case rpc.DATA_LOSS:
+		return http.StatusInternalServerError
+	}
+
+	// should not happen
+	return http.StatusInternalServerError
 }

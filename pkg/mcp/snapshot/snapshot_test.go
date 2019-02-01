@@ -17,11 +17,13 @@ package snapshot
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
@@ -77,13 +79,11 @@ func nextStrVersion(version *int64) string {
 
 }
 
-func createTestWatch(c source.Watcher, typeURL, version string, responseC chan *source.WatchResponse, wantResponse, wantCancel bool) (*source.WatchResponse, source.CancelWatchFunc, error) { // nolint: lll
+func createTestWatch(c source.Watcher, collection, version string, responseC chan *source.WatchResponse, wantResponse, wantCancel bool) (*source.WatchResponse, source.CancelWatchFunc, error) { // nolint: lll
 	req := &source.Request{
-		Collection:  typeURL,
+		Collection:  collection,
 		VersionInfo: version,
-		SinkNode: &mcp.SinkNode{
-			Id: DefaultGroup,
-		},
+		SinkNode:    test.Node,
 	}
 
 	cancel := c.Watch(req, func(response *source.WatchResponse) {
@@ -156,12 +156,14 @@ func TestCreateWatch(t *testing.T) {
 			if _, _, err := createTestWatch(c, collection, collectionVersion, responseC, false, true); err != nil {
 				t.Fatalf("CreateWatch() failed: %v", err)
 			}
+
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				t.Fatalf("open watch failed: received premature response: %v", gotResponse)
 			}
 
 			// verify async response
 			snapshot = snapshot.copy()
+			watchVersion := collectionVersion
 			collectionVersion = nextStrVersion(&versionInt)
 			snapshot.versions[collection] = collectionVersion
 			c.SetSnapshot(DefaultGroup, snapshot)
@@ -171,9 +173,14 @@ func TestCreateWatch(t *testing.T) {
 					Collection: collection,
 					Version:    collectionVersion,
 					Resources:  snapshot.Resources(collection),
+					Request: &source.Request{
+						Collection:  collection,
+						SinkNode:    test.Node,
+						VersionInfo: watchVersion,
+					},
 				}
-				if !reflect.DeepEqual(gotResponse, wantResponse) {
-					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
+				if diff := cmp.Diff(gotResponse, wantResponse, cmpopts.IgnoreUnexported(source.Request{})); diff != "" {
+					t.Fatalf("received bad WatchResponse: \n got %v \nwant %v \ndiff %v", gotResponse, wantResponse, diff)
 				}
 			} else {
 				t.Fatalf("watch response channel did not produce response after %v", asyncResponseTimeout)
@@ -258,9 +265,13 @@ func TestClearSnapshot(t *testing.T) {
 					Collection: collection,
 					Version:    typeVersion,
 					Resources:  snapshot.Resources(collection),
+					Request: &source.Request{
+						Collection: collection,
+						SinkNode:   test.Node,
+					},
 				}
-				if !reflect.DeepEqual(gotResponse, wantResponse) {
-					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
+				if diff := cmp.Diff(gotResponse, wantResponse, cmpopts.IgnoreUnexported(source.Request{})); diff != "" {
+					t.Fatalf("received bad WatchResponse: \n got %v \nwant %+v \ndiff %v", gotResponse, wantResponse, diff)
 				}
 			} else {
 				t.Fatalf("watch response channel did not produce response after %v", asyncResponseTimeout)

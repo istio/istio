@@ -95,7 +95,7 @@ import (
 )
 
 func main() {
-  snapshotCache := cache.NewSnapshotCache(false, hash{}, nil)
+	snapshotCache := cache.NewSnapshotCache(false, hash{}, nil)
 	server := xds.NewServer(snapshotCache, nil)
 	grpcServer := grpc.NewServer()
 	lis, _ := net.Listen("tcp", ":8080")

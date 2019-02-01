@@ -470,7 +470,7 @@ type InfrastructureBackendClient interface {
 	//
 	// Backend is allowed to return the same session id if given the same configuration block.
 	// This would happen when multiple instances of Mixer in a deployment all create sessions with the same configuration.
-	// Note that given individial instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
+	// Note that given individual instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
 	// assumes that the backend is doing reference counting.
 	//
 	// If the backend couldn't create a session for a specific handler configuration and
@@ -538,7 +538,7 @@ type InfrastructureBackendServer interface {
 	//
 	// Backend is allowed to return the same session id if given the same configuration block.
 	// This would happen when multiple instances of Mixer in a deployment all create sessions with the same configuration.
-	// Note that given individial instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
+	// Note that given individual instances of Mixer can call `CloseSession`, reusing `session_id` by the backend
 	// assumes that the backend is doing reference counting.
 	//
 	// If the backend couldn't create a session for a specific handler configuration and

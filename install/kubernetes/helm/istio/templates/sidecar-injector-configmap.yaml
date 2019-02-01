@@ -17,6 +17,7 @@ data:
       rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
+      {{ "[[ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"NONE\" ]]" }}
 {{- if not .Values.istio_cni.enabled }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
@@ -56,6 +57,7 @@ data:
           {{- end }}
         restartPolicy: Always
 {{- end }}
+      {{ "[[ end -]]" }}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:

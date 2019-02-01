@@ -16,9 +16,13 @@ package status
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/policy/v1beta1"
 )
 
 func TestStatus(t *testing.T) {
@@ -141,5 +145,41 @@ func TestStatus(t *testing.T) {
 	msg = String(s)
 	if msg == "" {
 		t.Errorf("Expecting valid string, got nothing")
+	}
+}
+
+func TestErrorDetail(t *testing.T) {
+	if response := GetDirectHTTPResponse(OK); response != nil {
+		t.Errorf("GetDirectHTTPResponse(OK) => got %#v, want nil", response)
+	}
+
+	response := &v1beta1.DirectHttpResponse{
+		Code:    v1beta1.MovedPermanently,
+		Body:    "istio.io/api",
+		Headers: map[string]string{"location": "istio.io/api"},
+	}
+	any := PackErrorDetail(response)
+
+	s := rpc.Status{Code: int32(rpc.UNAUTHENTICATED), Details: []*types.Any{
+		nil,
+		&types.Any{TypeUrl: "types.google.com/istio.policy.v1beta1.DirectHttpResponse", Value: []byte{1}},
+		any,
+	}}
+
+	if got := GetDirectHTTPResponse(s); !reflect.DeepEqual(got, response) {
+		t.Errorf("GetDirectHTTPResponse => got %#v, want %#v", got, response)
+	}
+}
+
+func TestStatusCode(t *testing.T) {
+	for code := range rpc.Code_name {
+		httpCode := HTTPStatusFromCode(rpc.Code(code))
+		if httpCode < 200 || httpCode > 600 {
+			t.Errorf("unexpected HTTP code after translation: %d", httpCode)
+		}
+	}
+
+	if code := HTTPStatusFromCode(rpc.Code(-1)); code != 500 {
+		t.Errorf("unexpected undefined HTTP code: %d", code)
 	}
 }

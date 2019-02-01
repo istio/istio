@@ -125,19 +125,24 @@ func (m *HttpService) Validate() error {
 
 	// no validation rules for PathPrefix
 
-	for idx, item := range m.GetAuthorizationHeadersToAdd() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return HttpServiceValidationError{
-					Field:  fmt.Sprintf("AuthorizationHeadersToAdd[%v]", idx),
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
+	if v, ok := interface{}(m.GetAuthorizationRequest()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpServiceValidationError{
+				Field:  "AuthorizationRequest",
+				Reason: "embedded message failed validation",
+				Cause:  err,
 			}
 		}
+	}
 
+	if v, ok := interface{}(m.GetAuthorizationResponse()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpServiceValidationError{
+				Field:  "AuthorizationResponse",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
 	}
 
 	return nil
@@ -173,6 +178,135 @@ func (e HttpServiceValidationError) Error() string {
 }
 
 var _ error = HttpServiceValidationError{}
+
+// Validate checks the field values on AuthorizationRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *AuthorizationRequest) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetAllowedHeaders()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AuthorizationRequestValidationError{
+				Field:  "AllowedHeaders",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	for idx, item := range m.GetHeadersToAdd() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AuthorizationRequestValidationError{
+					Field:  fmt.Sprintf("HeadersToAdd[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// AuthorizationRequestValidationError is the validation error returned by
+// AuthorizationRequest.Validate if the designated constraints aren't met.
+type AuthorizationRequestValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e AuthorizationRequestValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAuthorizationRequest.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = AuthorizationRequestValidationError{}
+
+// Validate checks the field values on AuthorizationResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *AuthorizationResponse) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetAllowedUpstreamHeaders()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AuthorizationResponseValidationError{
+				Field:  "AllowedUpstreamHeaders",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetAllowedClientHeaders()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AuthorizationResponseValidationError{
+				Field:  "AllowedClientHeaders",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// AuthorizationResponseValidationError is the validation error returned by
+// AuthorizationResponse.Validate if the designated constraints aren't met.
+type AuthorizationResponseValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e AuthorizationResponseValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAuthorizationResponse.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = AuthorizationResponseValidationError{}
 
 // Validate checks the field values on ExtAuthzPerRoute with the rules defined
 // in the proto definition for this message. If any rules are violated, an

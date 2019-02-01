@@ -52,6 +52,8 @@ var (
 		{"mongo-test", v1.ProtocolTCP, model.ProtocolMongo},
 		{"redis", v1.ProtocolTCP, model.ProtocolRedis},
 		{"redis-test", v1.ProtocolTCP, model.ProtocolRedis},
+		{"mysql", v1.ProtocolTCP, model.ProtocolMySQL},
+		{"mysql-test", v1.ProtocolTCP, model.ProtocolMySQL},
 	}
 )
 

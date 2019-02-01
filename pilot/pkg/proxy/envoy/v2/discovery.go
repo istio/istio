@@ -132,10 +132,9 @@ type DiscoveryServer struct {
 
 	// edsUpdates keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
-	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
-	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
+	// updated. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]*EndpointShards
+	edsUpdates map[string]struct{}
 
 	updateChannel chan *updateReq
 
@@ -173,9 +172,6 @@ type EndpointShards struct {
 type Workload struct {
 	// Labels
 	Labels map[string]string
-
-	// Annotations
-	Annotations map[string]string
 }
 
 func intEnv(envVal string, def int) int {
@@ -197,7 +193,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		ConfigController:        configCache,
 		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]*EndpointShards{},
+		edsUpdates:              map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
@@ -292,7 +288,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShards) {
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
@@ -372,7 +368,7 @@ func (s *DiscoveryServer) doPush(full bool) {
 	// The changes to the map are protected by ds.mutex.
 	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]*EndpointShards{}
+	s.edsUpdates = map[string]struct{}{}
 	s.mutex.Unlock()
 
 	s.Push(full, edsUpdates)

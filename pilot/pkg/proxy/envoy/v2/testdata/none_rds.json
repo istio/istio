@@ -22,6 +22,22 @@
                   },
                   "HostRewriteSpecifier": null,
                   "timeout": 0,
+                  "retry_policy": {
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
+                    "num_retries": {
+                      "value": 10
+                    },
+                    "retry_host_predicate": [
+                      {
+                        "name": "envoy.retry_host_predicates.previous_hosts",
+                        "ConfigType": null
+                      }
+                    ],
+                    "host_selection_retry_max_attempts": 3,
+                    "retriable_status_codes": [
+                      503
+                    ]
+                  },
                   "max_grpc_timeout": 0
                 }
               },
@@ -127,6 +143,22 @@
                   },
                   "HostRewriteSpecifier": null,
                   "timeout": 0,
+                  "retry_policy": {
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
+                    "num_retries": {
+                      "value": 10
+                    },
+                    "retry_host_predicate": [
+                      {
+                        "name": "envoy.retry_host_predicates.previous_hosts",
+                        "ConfigType": null
+                      }
+                    ],
+                    "host_selection_retry_max_attempts": 3,
+                    "retriable_status_codes": [
+                      503
+                    ]
+                  },
                   "max_grpc_timeout": 0
                 }
               },

@@ -114,6 +114,30 @@ func (m *HealthCheckEvent) Validate() error {
 			}
 		}
 
+	case *HealthCheckEvent_DegradedHealthyHost:
+
+		if v, ok := interface{}(m.GetDegradedHealthyHost()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckEventValidationError{
+					Field:  "DegradedHealthyHost",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *HealthCheckEvent_NoLongerDegradedHost:
+
+		if v, ok := interface{}(m.GetNoLongerDegradedHost()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckEventValidationError{
+					Field:  "NoLongerDegradedHost",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	default:
 		return HealthCheckEventValidationError{
 			Field:  "Event",
@@ -299,3 +323,87 @@ func (e HealthCheckFailureValidationError) Error() string {
 }
 
 var _ error = HealthCheckFailureValidationError{}
+
+// Validate checks the field values on DegradedHealthyHost with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *DegradedHealthyHost) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// DegradedHealthyHostValidationError is the validation error returned by
+// DegradedHealthyHost.Validate if the designated constraints aren't met.
+type DegradedHealthyHostValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e DegradedHealthyHostValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDegradedHealthyHost.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = DegradedHealthyHostValidationError{}
+
+// Validate checks the field values on NoLongerDegradedHost with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *NoLongerDegradedHost) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// NoLongerDegradedHostValidationError is the validation error returned by
+// NoLongerDegradedHost.Validate if the designated constraints aren't met.
+type NoLongerDegradedHostValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e NoLongerDegradedHostValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sNoLongerDegradedHost.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = NoLongerDegradedHostValidationError{}

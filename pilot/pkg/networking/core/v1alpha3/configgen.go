@@ -54,6 +54,7 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 	namespaceMap[""] = struct{}{}
 
 	// generate outbound clusters for all namespaces in parallel.
+	// TODO: for large number of clusters this may result in OOM, needs rate control !!!
 	wg := &sync.WaitGroup{}
 	mutex := &sync.Mutex{}
 	wg.Add(len(namespaceMap))

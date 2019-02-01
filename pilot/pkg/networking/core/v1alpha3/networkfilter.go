@@ -22,6 +22,7 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
+	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
@@ -54,21 +55,27 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 			Path: env.Mesh.AccessLogFile,
 		}
 
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.FileAccessLog,
+		}
 		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
 
-		config.AccessLog = []*accesslog.AccessLog{
-			{
-				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
-				Name:       xdsutil.FileAccessLog,
-			},
-		}
+		config.AccessLog = []*accesslog.AccessLog{acc}
+
 	}
 
 	tcpFilter := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+		Name: xdsutil.TCPProxy,
+	}
+	if util.IsProxyVersionGE11(node) {
+		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
 	}
 	return tcpFilter
 }
@@ -84,7 +91,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		// TODO: Need to set other fields such as Idle timeouts
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName, clusterName)
+	return buildOutboundNetworkFiltersStack(node, port, tcpFilter, clusterName, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -115,19 +122,29 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+	return buildOutboundNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildOutboundNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix, clusterName string) []listener.Filter {
+func buildOutboundNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix,
+	clusterName string) []listener.Filter {
+
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix))
-	case model.ProtocolRedis:
-		filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName))
+		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
 	}
+
+	if util.IsProxyVersionGE11(node) {
+		switch port.Protocol {
+		case model.ProtocolRedis:
+			filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
+		case model.ProtocolMySQL:
+			filterstack = append(filterstack, buildOutboundMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		}
+	}
+
 	filterstack = append(filterstack, *tcpFilter)
 	return filterstack
 }
@@ -139,7 +156,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-	if len(routes) == 1 {
+	if !util.IsProxyVersionGE11(node) || len(routes) == 1 {
 		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
@@ -148,7 +165,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 }
 
 // buildOutboundMongoFilter builds an outbound Envoy MongoProxy filter.
-func buildOutboundMongoFilter(statPrefix string) listener.Filter {
+func buildOutboundMongoFilter(statPrefix string, is11 bool) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -157,10 +174,16 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		// TODO enable faults in mongo
 	}
 
-	return listener.Filter{
-		Name:       xdsutil.MongoProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+	out := listener.Filter{
+		Name: xdsutil.MongoProxy,
 	}
+	if is11 {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
 }
 
 // buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp_proxy
@@ -181,7 +204,7 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 // buildOutboundRedisFilter builds an outbound Envoy RedisProxy filter.
 // Currently, if multiple clusters are defined, one of them will be picked for
 // configuring the Redis proxy.
-func buildOutboundRedisFilter(statPrefix, clusterName string) listener.Filter {
+func buildOutboundRedisFilter(statPrefix, clusterName string, is11 bool) listener.Filter {
 	config := &redis_proxy.RedisProxy{
 		StatPrefix: statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Cluster:    clusterName,
@@ -190,8 +213,33 @@ func buildOutboundRedisFilter(statPrefix, clusterName string) listener.Filter {
 		},
 	}
 
-	return listener.Filter{
-		Name:       xdsutil.RedisProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+	out := listener.Filter{
+		Name: xdsutil.RedisProxy,
 	}
+	if is11 {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
+}
+
+// buildOutboundMySQLFilter builds an outbound Envoy MySQLProxy filter.
+func buildOutboundMySQLFilter(statPrefix string, is11 bool) listener.Filter {
+	config := &mysql_proxy.MySQLProxy{
+		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
+	}
+
+	out := listener.Filter{
+		Name: xdsutil.MySQLProxy,
+	}
+
+	if is11 {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
 }

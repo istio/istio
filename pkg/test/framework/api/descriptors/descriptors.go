@@ -41,7 +41,6 @@ var (
 		Requires: []component.Requirement{
 			&ids.Mixer,
 			&ids.Environment,
-			&ids.Galley,
 		},
 	}
 
@@ -51,7 +50,6 @@ var (
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
-			&ids.Galley,
 		},
 	}
 
@@ -97,6 +95,15 @@ var (
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Mixer,
+			&ids.Environment,
+		},
+	}
+
+	// Echo component. Multiple of these may be created.
+	Echo = component.Descriptor{
+		ID:                ids.Echo,
+		IsSystemComponent: false,
+		Requires: []component.Requirement{
 			&ids.Environment,
 		},
 	}

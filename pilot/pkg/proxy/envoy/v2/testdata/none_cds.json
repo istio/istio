@@ -11,11 +11,11 @@
       "lb_policy": 4,
       "LbConfig": null
     },
-    "inbound|2001|httplocal|s1http.none": {
-      "name": "inbound|2001|httplocal|s1http.none",
+    "inbound|7070|tcplocal|s1tcp.none": {
+      "name": "inbound|7070|tcplocal|s1tcp.none",
       "connect_timeout": 1000000000,
       "load_assignment": {
-        "cluster_name": "inbound|2001|httplocal|s1http.none",
+        "cluster_name": "inbound|7070|tcplocal|s1tcp.none",
         "endpoints": [
           {
             "lb_endpoints": [
@@ -26,7 +26,40 @@
                       "SocketAddress": {
                         "address": "127.0.0.1",
                         "PortSpecifier": {
-                          "PortValue": 7071
+                          "PortValue": 17070
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "inbound|7071|httplocal|s1http.none": {
+      "name": "inbound|7071|httplocal|s1http.none",
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "inbound|7071|httplocal|s1http.none",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "127.0.0.1",
+                        "PortSpecifier": {
+                          "PortValue": 17071
                         }
                       }
                     }
@@ -79,7 +112,11 @@
       },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "dns_lookup_family": 1,
@@ -120,18 +157,22 @@
       },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "dns_lookup_family": 1,
       "LbConfig": null
     },
-    "outbound|443||api1.facebook.com": {
-      "name": "outbound|443||api1.facebook.com",
+    "outbound|2443||api1.facebook.com": {
+      "name": "outbound|2443||api1.facebook.com",
       "type": 1,
       "connect_timeout": 1000000000,
       "load_assignment": {
-        "cluster_name": "outbound|443||api1.facebook.com",
+        "cluster_name": "outbound|2443||api1.facebook.com",
         "endpoints": [
           {
             "lb_endpoints": null
@@ -145,7 +186,7 @@
                       "SocketAddress": {
                         "address": "api1.facebook.com",
                         "PortSpecifier": {
-                          "PortValue": 443
+                          "PortValue": 2443
                         }
                       }
                     }
@@ -161,18 +202,22 @@
       },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "dns_lookup_family": 1,
       "LbConfig": null
     },
-    "outbound|443||www1.googleapis.com": {
-      "name": "outbound|443||www1.googleapis.com",
+    "outbound|2443||www1.googleapis.com": {
+      "name": "outbound|2443||www1.googleapis.com",
       "type": 1,
       "connect_timeout": 1000000000,
       "load_assignment": {
-        "cluster_name": "outbound|443||www1.googleapis.com",
+        "cluster_name": "outbound|2443||www1.googleapis.com",
         "endpoints": [
           {
             "lb_endpoints": null
@@ -186,7 +231,7 @@
                       "SocketAddress": {
                         "address": "www1.googleapis.com",
                         "PortSpecifier": {
-                          "PortValue": 443
+                          "PortValue": 2443
                         }
                       }
                     }
@@ -202,7 +247,11 @@
       },
       "circuit_breakers": {
         "thresholds": [
-          {}
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
         ]
       },
       "dns_lookup_family": 1,

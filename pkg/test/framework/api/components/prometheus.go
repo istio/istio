@@ -43,5 +43,5 @@ type Prometheus interface {
 
 // GetPrometheus from the repository
 func GetPrometheus(e component.Repository, t testing.TB) Prometheus {
-	return e.GetComponentOrFail(ids.Prometheus, t).(Prometheus)
+	return e.GetComponentOrFail("", ids.Prometheus, t).(Prometheus)
 }

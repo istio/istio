@@ -131,6 +131,7 @@ func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseF
 				Collection: request.Collection,
 				Version:    version,
 				Resources:  snapshot.Resources(request.Collection),
+				Request:    request,
 			}
 			pushResponse(response)
 			return nil
@@ -183,6 +184,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 					Collection: watch.request.Collection,
 					Version:    version,
 					Resources:  snapshot.Resources(watch.request.Collection),
+					Request:    watch.request,
 				}
 				watch.pushResponse(response)
 
