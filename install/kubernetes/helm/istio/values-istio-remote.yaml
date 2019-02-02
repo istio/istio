@@ -35,3 +35,4 @@ global:
   #
   # Must match the names in the meshNetworks section in the Istio local.
   network: ""
+  
