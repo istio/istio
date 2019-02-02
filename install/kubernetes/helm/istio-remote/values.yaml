@@ -12,6 +12,7 @@ sidecarInjectorWebhook:
 security:
   enabled: true
   omitPostInstall: true
+  createMeshPolicy: false
 
 #
 # Gateways Configuration, refer to the charts/gateways/values.yaml
