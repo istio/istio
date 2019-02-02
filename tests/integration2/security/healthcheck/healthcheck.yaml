@@ -1,100 +1,81 @@
-{{- if eq .serviceAccount "true" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .service }}
+  name: healthcheck
 ---
-{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .service }}
+  name: healthcheck
   labels:
-    app: {{ .service }}
+    app: healthcheck
 spec:
-{{- if eq .headless "true" }}
-  clusterIP: None
-{{- end }}
   ports:
   - port: 80
-    targetPort: {{ .port1 }}
+    targetPort: 80
     name: http
   - port: 8080
-    targetPort: {{ .port2 }}
+    targetPort: 8080
     name: http-two
-{{- if eq .headless "true" }}
-  - port: 10090
-    targetPort: {{ .port3 }}
-    name: tcp
-{{- else }}
   - port: 90
-    targetPort: {{ .port3 }}
+    targetPort: 90
     name: tcp
   - port: 9090
-    targetPort: {{ .port4 }}
+    targetPort: 9090
     name: https
-{{- end }}
   - port: 70
-    targetPort: {{ .port5 }}
+    targetPort: 70
     name: http2-example
   - port: 7070
-    targetPort: {{ .port6 }}
+    targetPort: 7070
     name: grpc
   - port: 3333
     targetPort: 3333
     name: healthcheckport
   selector:
-    app: {{ .service }}
+    app: healthcheck
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ .deployment }}
+  name: healthcheck
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: {{ .service }}
-        version: {{ .version }}
-{{- if eq .injectProxy "false" }}
-      annotations:
-        sidecar.istio.io/inject: "false"
-{{- end }}
+        app: healthcheck
+        version: unversioned
     spec:
-{{- if eq .serviceAccount "true" }}
-      serviceAccountName: {{ .service }}
-{{- end }}
+      serviceAccountName: healthcheck
       containers:
       - name: app
         image: {{ .Hub }}/app:{{ .Tag }}
         imagePullPolicy: {{ .ImagePullPolicy }}
         args:
           - --port
-          - "{{ .port1 }}"
+          - "80"
           - --port
-          - "{{ .port2 }}"
+          - "8080"
           - --port
-          - "{{ .port3 }}"
+          - "90"
           - --port
-          - "{{ .port4 }}"
+          - "9090"
           - --grpc
-          - "{{ .port5 }}"
+          - "70"
           - --grpc
-          - "{{ .port6 }}"
-{{- if eq .healthPort "true" }}
+          - "7070"
           - --port
           - "3333"
-{{- end }}
           - --version
-          - "{{ .version }}"
+          - "unversioned"
         ports:
-        - containerPort: {{ .port1 }}
-        - containerPort: {{ .port2 }}
-        - containerPort: {{ .port3 }}
-        - containerPort: {{ .port4 }}
-        - containerPort: {{ .port5 }}
-        - containerPort: {{ .port6 }}
+        - containerPort: 80
+        - containerPort: 8080
+        - containerPort: 90
+        - containerPort: 9090
+        - containerPort: 70
+        - containerPort: 7070
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:

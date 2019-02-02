@@ -17,7 +17,6 @@ package apps
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"strconv"
@@ -613,15 +612,7 @@ type deploymentFactory struct {
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
 	helmValues := e.HelmValueMap(scope)
-	templateContent := template
-	if d.deployment == "healthcheck" {
-		b, err := ioutil.ReadFile("healthcheck.yaml")
-		if err != nil {
-			return nil, err
-		}
-		templateContent = string(b)
-	}
-	result, err := e.EvaluateWithParams(templateContent, map[string]string{
+	result, err := e.EvaluateWithParams(template, map[string]string{
 		"Hub":             helmValues[kube.HubValuesKey],
 		"Tag":             helmValues[kube.TagValuesKey],
 		"ImagePullPolicy": helmValues[kube.ImagePullPolicyValuesKey],

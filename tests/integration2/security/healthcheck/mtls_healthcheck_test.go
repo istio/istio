@@ -26,8 +26,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
@@ -52,8 +52,6 @@ func TestMtlsHealthCheck(t *testing.T) {
 	scopes.CI.SetOutputLevel(log.DebugLevel)
 	kube.RegisterHelmOverrides(lifecycle.System, map[string]string{
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
-		// TODO(incfly): without this mixer livenes probe failure, investigate...
-		"global.mtls.enabled": "false",
 	})
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
 	path := filepath.Join(ctx.WorkDir(), "mtls-strict-healthcheck.yaml")
@@ -78,7 +76,31 @@ spec:
 	}
 
 	// Deploy app now.
-	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.Apps)
-	apps := components.GetApps(ctx, t)
-	apps.GetAppOrFail("healthcheck", t)
+	_, err = newDeployment(env, lifecycle.Test)
+	if err != nil {
+		t.Errorf("failed to deploy %v", err)
+	}
+}
+
+func newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
+	helmValues := e.HelmValueMap(scope)
+	b, err := ioutil.ReadFile("healthcheck.yaml")
+	if err != nil {
+		return nil, err
+	}
+	templateContent := string(b)
+	result, err := e.EvaluateWithParams(templateContent, map[string]string{
+		"Hub":             helmValues[kube.HubValuesKey],
+		"Tag":             helmValues[kube.TagValuesKey],
+		"ImagePullPolicy": helmValues[kube.ImagePullPolicyValuesKey],
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := deployment.NewYamlContentDeployment(e.NamespaceForScope(scope), result)
+	if err = out.Deploy(e.Accessor, true); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
