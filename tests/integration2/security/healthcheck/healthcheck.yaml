@@ -78,13 +78,6 @@ spec:
         - containerPort: 7070
         - name: tcp-health-port
           containerPort: 3333
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 3333
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          failureThreshold: 10
         readinessProbe:
           httpGet:
             path: /healthz

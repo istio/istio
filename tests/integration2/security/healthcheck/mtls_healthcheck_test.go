@@ -22,7 +22,6 @@ package healthcheck
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/log"
@@ -45,36 +44,17 @@ func TestMain(m *testing.M) {
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
 	// Test requires this Helm flag to be enabled.
-	// TODO: instead trying to tear down the entire system for this test...
-	// might not make much sense to use helmValues by scope...
-
 	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	scopes.CI.SetOutputLevel(log.DebugLevel)
 	kube.RegisterHelmOverrides(lifecycle.System, map[string]string{
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
 	})
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
-	path := filepath.Join(ctx.WorkDir(), "mtls-strict-healthcheck.yaml")
-	err := ioutil.WriteFile(path, []byte(`apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: "mtls-strict-for-healthcheck"
-spec:
-  targets:
-  - name: "healthcheck"
-  peers:
-    - mtls:
-        mode: STRICT
-`), 0666)
-	if err != nil {
-		t.Errorf("failed to create authn policy in file %v", err)
-	}
 	env := kube.GetEnvironmentOrFail(ctx, t)
-	_, err = env.DeployYaml(path, lifecycle.Test)
+	_, err := env.DeployYaml("healthcheck_mtls.yaml", lifecycle.Test)
 	if err != nil {
 		t.Error(err)
 	}
-
 	// Deploy app now.
 	_, err = newDeployment(env, lifecycle.Test)
 	if err != nil {
