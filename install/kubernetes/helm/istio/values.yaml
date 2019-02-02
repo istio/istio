@@ -325,9 +325,12 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
-    minAvailable: 1
-    # maxUnavailable: 1
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
@@ -355,7 +358,20 @@ global:
   #   services or ServiceEntries for the destination port
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
-  
+
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
+  # configRootNamespace: istio-config
+
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
+  defaultConfigVisibilitySettings:
+  - '*'
+
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.

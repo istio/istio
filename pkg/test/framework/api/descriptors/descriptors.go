@@ -99,6 +99,15 @@ var (
 		},
 	}
 
+	// Echo component. Multiple of these may be created.
+	Echo = component.Descriptor{
+		ID:                ids.Echo,
+		IsSystemComponent: false,
+		Requires: []component.Requirement{
+			&ids.Environment,
+		},
+	}
+
 	// Apps component
 	Apps = component.Descriptor{
 		ID:                ids.Apps,

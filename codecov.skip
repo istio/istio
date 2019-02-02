@@ -1,3 +1,4 @@
+istio.io/istio/galley/pkg/testing
 istio.io/istio/mixer/pkg/adapter/test
 istio.io/istio/mixer/pkg/config/storetest
 istio.io/istio/mixer/pkg/mockapi
@@ -14,7 +15,6 @@ istio.io/istio/tests/codecov
 istio.io/istio/tests/e2e
 istio.io/istio/tests/integration2/examples
 istio.io/istio/tests/integration2/qualification
-istio.io/istio/tests/integration2
 istio.io/istio/tests/integration_old
 istio.io/istio/tests/local
 istio.io/istio/tests/util
