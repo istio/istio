@@ -49,6 +49,12 @@ func New(finder ast.AttributeDescriptorFinder, functions map[string]ast.Function
 // CompileExpression creates a new parameterless IL function, using the given expression text as its body. Upon success,
 // it returns the id of the generated function.
 func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType, error) {
+	name := fmt.Sprintf("$expression%d", c.nextFnID)
+	c.nextFnID++
+	return c.compileExpression(text, name)
+}
+
+func (c *Compiler) compileExpression(text, name string) (uint32, descriptor.ValueType, error) {
 	expression, err := ast.Parse(text)
 	if err != nil {
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
@@ -75,9 +81,6 @@ func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType,
 	g.builder.Ret()
 
 	body := g.builder.Build()
-
-	name := fmt.Sprintf("$expression%d", c.nextFnID)
-	c.nextFnID++
 
 	if err = g.program.AddFunction(name, []il.Type{}, returnType, body); err != nil {
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
@@ -115,52 +118,16 @@ const (
 	nmJmpOnValue
 )
 
-// Result is returned as the result of compilation.
-type Result struct {
-	Program    *il.Program
-	Expression *ast.Expression
-}
+// compile converts the given expression text, into an IL based program.
+func compile(text string, finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
+	c := New(finder, functions)
+	_, _, err := c.compileExpression(text, "eval")
 
-// Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
-	// TODO: This function should either be eliminated entirely, or use the Compiler struct, once we switch over to
-	// to using compiled expressions. Keeping this here in its current form to avoid generation of excessive garbage
-	// in the request path.
-
-	p := il.NewProgram()
-
-	expression, err := ast.Parse(text)
 	if err != nil {
 		return nil, err
 	}
 
-	exprType, err := expression.EvalType(finder, functions)
-	if err != nil {
-		return nil, err
-	}
-
-	g := generator{
-		program:   p,
-		builder:   il.NewBuilder(p.Strings()),
-		finder:    finder,
-		functions: functions,
-	}
-
-	returnType := g.toIlType(exprType)
-	g.generate(expression, 0, nmNone, "")
-	if g.err != nil {
-		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
-		return nil, g.err
-	}
-
-	g.builder.Ret()
-	body := g.builder.Build()
-	if err = g.program.AddFunction("eval", []il.Type{}, returnType, body); err != nil {
-		g.internalError(err.Error())
-		return nil, err
-	}
-
-	return p, nil
+	return c.program, nil
 }
 
 func (g *generator) toIlType(t descriptor.ValueType) il.Type {

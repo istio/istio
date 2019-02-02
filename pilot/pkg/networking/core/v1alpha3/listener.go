@@ -241,6 +241,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			transparent = proto.BoolTrue
 		}
 
+		filter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+
+		if util.IsProxyVersionGE11(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+		}
+
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
@@ -249,14 +259,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
 				{
-					Filters: []listener.Filter{
-						{
-							Name: xdsutil.TCPProxy,
-							ConfigType: &listener.Filter_Config{
-								Config: util.MessageToStruct(tcpProxy),
-							},
-						},
-					},
+					Filters: []listener.Filter{filter},
 				},
 			},
 		})
@@ -1315,6 +1318,7 @@ type httpListenerOpts struct {
 type filterChainOpts struct {
 	sniHosts         []string
 	destinationCIDRs []string
+	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
@@ -1397,16 +1401,18 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Path: env.Mesh.AccessLogFile,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.FileAccessLog,
 		}
 
-		connectionManager.AccessLog = []*accesslog.AccessLog{
-			{
-				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
-				Name:       xdsutil.FileAccessLog,
-			},
+		if util.IsProxyVersionGE11(node) {
+			buildAccessLog(fl, env)
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
+
+		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
 	}
 
 	if env.Mesh.EnableTracing {
@@ -1540,15 +1546,21 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
+		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])},
-			})
+			filter := listener.Filter{
+				Name: xdsutil.HTTPConnectionManager,
+			}
+			if util.IsProxyVersionGE11(pluginParams.Node) {
+				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+			} else {
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			}
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}
