@@ -67,7 +67,6 @@ var (
 
 var (
 	commonDataset []snapshot.Snapshot
-	commonRand    *rand.Rand
 )
 
 func TestMain(m *testing.M) {
@@ -86,8 +85,6 @@ func TestMain(m *testing.M) {
 	o.SetOutputLevel("mcp", log.NoneLevel)
 	o.SetOutputLevel("default", log.NoneLevel)
 	log.Configure(o)
-
-	commonRand = rand.New(rand.NewSource(*randomSeed))
 
 	fmt.Println("Generating common dataset ...")
 	initDataset()
@@ -231,6 +228,8 @@ type resource struct {
 }
 
 func initDataset() {
+	rnd := rand.New(rand.NewSource(*randomSeed))
+
 	b := snapshot.NewInMemoryBuilder()
 
 	resourcesByCollection := make(map[string][]*resource, len(defaultCollections))
@@ -247,9 +246,9 @@ func initDataset() {
 	for i := 1; i < *numDatasets; i++ { // iterate over data sets
 		b := prev.Builder()
 		for _, collection := range defaultCollections { // iterate over collection
-			max := commonRand.Intn(*maxChangesPerDataset)
+			max := rnd.Intn(*maxChangesPerDataset)
 			for j := 0; j < max; j++ { // for each collection, iterate and apply a certain number of changes.
-				switch commonRand.Intn(3) {
+				switch rnd.Intn(3) {
 				case 0: // Add a new resource
 					e := &resource{
 						name:       fmt.Sprintf("c_%v_%v", i, j),
@@ -263,7 +262,7 @@ func initDataset() {
 					if len(l) == 0 {
 						continue
 					}
-					e := l[commonRand.Intn(len(l))]
+					e := l[rnd.Intn(len(l))]
 					e.version = e.version.next() // bumping the version is sufficient. MCP doesn't inspect the body.
 					b.SetEntry(collection, e.name, e.version.String(), e.createTime, e.labels, e.annotations, e.body)
 				case 2: // Delete a resource
@@ -271,7 +270,7 @@ func initDataset() {
 					if len(l) == 0 {
 						continue
 					}
-					idx := commonRand.Intn(len(l))
+					idx := rnd.Intn(len(l))
 					e := l[idx]
 					b.DeleteEntry(collection, e.name)
 					l = append(l[:idx], l[idx+1:]...)
@@ -312,10 +311,13 @@ type clientState struct {
 	minApplyDelay time.Duration
 	maxApplyDelay time.Duration
 	nackRate      float64
+
+	rnd *rand.Rand
 }
 
 type driver struct {
 	options options
+	rnd     *rand.Rand
 
 	clientOpts *sink.Options
 	serverOpts *source.Options
@@ -352,7 +354,7 @@ type options struct {
 }
 
 func updateSnapshot(d *driver) {
-	time.Sleep(randomTimeInRange(d.options.minUpdateDelay, d.options.maxUpdateDelay))
+	time.Sleep(randomTimeInRange(d.rnd, d.options.minUpdateDelay, d.options.maxUpdateDelay))
 
 	sn := commonDataset[d.nextDataset]
 
@@ -379,6 +381,7 @@ func defaultOptions() options {
 func newDriver(o options) (*driver, error) {
 	d := &driver{
 		options: o,
+		rnd:     rand.New(rand.NewSource(*randomSeed)),
 	}
 
 	d.ctx, d.cancel = context.WithCancel(context.Background())
@@ -421,16 +424,16 @@ func (d *driver) initOptions() {
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	for i := range d.clientOpts.CollectionOptions {
-		if commonRand.Float64() <= *clientIncPercentage {
+		if d.rnd.Float64() <= *clientIncPercentage {
 			co := &d.clientOpts.CollectionOptions[i]
 			co.Incremental = true
 		}
 	}
 }
 
-func randomTimeInRange(min, max time.Duration) time.Duration {
+func randomTimeInRange(rand *rand.Rand, min, max time.Duration) time.Duration {
 	timeRange := float64((min - max).Nanoseconds())
-	return min + time.Duration(timeRange*commonRand.Float64())
+	return min + time.Duration(timeRange*rand.Float64())
 }
 
 // Close the driver
@@ -453,6 +456,7 @@ func (d *driver) initClient(id int) error {
 		minApplyDelay:             d.options.minApplyDelay,
 		maxApplyDelay:             d.options.maxApplyDelay,
 		nackRate:                  d.options.nackRate,
+		rnd:                       rand.New(rand.NewSource(*randomSeed)),
 	}
 	for _, collection := range d.clientOpts.CollectionOptions {
 		cs.resourcesByCollectionName[collection.Name] = make(map[string]*mcp.Metadata)
@@ -568,7 +572,7 @@ func (d *driver) run(t testing.TB) {
 }
 
 func (c *clientState) Apply(ch *sink.Change) error {
-	time.Sleep(randomTimeInRange(c.minApplyDelay, c.maxApplyDelay))
+	time.Sleep(randomTimeInRange(c.rnd, c.minApplyDelay, c.maxApplyDelay))
 
 	resourcesByName, ok := c.resourcesByCollectionName[ch.Collection]
 	if !ok || !ch.Incremental {
@@ -620,7 +624,7 @@ func (c *clientState) Apply(ch *sink.Change) error {
 
 	c.applied++
 
-	if commonRand.Float64() <= c.nackRate {
+	if c.rnd.Float64() <= c.nackRate {
 		c.nacked++
 		return errors.New("nack (fake)")
 	}
