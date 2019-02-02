@@ -156,48 +156,44 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
-func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
+func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespace string) *SidecarScope {
+	if sidecarConfig == nil {
+		return DefaultSidecarScopeForNamespace(ps, configNamespace)
+	}
+
 	r := sidecarConfig.Spec.(*networking.Sidecar)
+	out := &SidecarScope{}
 
-	var out *SidecarScope
+	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
+	for _, e := range r.Egress {
+		out.EgressListeners = append(out.EgressListeners,
+			convertIstioListenerToWrapper(ps, configNamespace, e))
+	}
 
-	// If there are no egress listeners but only ingress listeners, then infer from
-	// environment. This is same as the default egress listener setup above
-	if r.Egress == nil || len(r.Egress) == 0 {
-		out = DefaultSidecarScopeForNamespace(ps, sidecarConfig.Namespace)
-	} else {
-		out = &SidecarScope{}
+	// Now collect all the imported services across all egress listeners in
+	// this sidecar crd. This is needed to generate CDS output
+	out.services = make([]*Service, 0)
+	servicesAdded := make(map[string]struct{})
+	dummyNode := Proxy{
+		ConfigNamespace: configNamespace,
+	}
 
-		out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
-		for _, e := range r.Egress {
-			out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
-		}
-
-		// Now collect all the imported services across all egress listeners in
-		// this sidecar crd. This is needed to generate CDS output
-		out.services = make([]*Service, 0)
-		servicesAdded := make(map[string]struct{})
-		dummyNode := Proxy{
-			ConfigNamespace: sidecarConfig.Namespace,
-		}
-
-		for _, listener := range out.EgressListeners {
-			for _, s := range listener.services {
-				// TODO: port merging when each listener generates a partial service
-				if _, found := servicesAdded[string(s.Hostname)]; !found {
-					servicesAdded[string(s.Hostname)] = struct{}{}
-					out.services = append(out.services, s)
-				}
+	for _, listener := range out.EgressListeners {
+		for _, s := range listener.services {
+			// TODO: port merging when each listener generates a partial service
+			if _, found := servicesAdded[string(s.Hostname)]; !found {
+				servicesAdded[string(s.Hostname)] = struct{}{}
+				out.services = append(out.services, s)
 			}
 		}
+	}
 
-		// Now that we have all the services that sidecars using this scope (in
-		// this config namespace) will see, identify all the destinationRules
-		// that these services need
-		out.destinationRules = make(map[Hostname]*Config)
-		for _, s := range out.services {
-			out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
-		}
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	out.destinationRules = make(map[Hostname]*Config)
+	for _, s := range out.services {
+		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
 
 	out.Config = sidecarConfig
@@ -208,7 +204,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	return out
 }
 
-func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
+func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
 
 	out := &IstioEgressListenerWrapper{
@@ -220,7 +216,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
 			if parts[0] == currentNamespace {
-				parts[0] = sidecarConfig.Namespace
+				parts[0] = configNamespace
 			}
 			if _, exists := out.listenerHosts[parts[0]]; !exists {
 				out.listenerHosts[parts[0]] = make([]Hostname, 0)
@@ -231,7 +227,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 	}
 
 	dummyNode := Proxy{
-		ConfigNamespace: sidecarConfig.Namespace,
+		ConfigNamespace: configNamespace,
 	}
 
 	out.services = out.selectServices(ps.Services(&dummyNode))
