@@ -155,10 +155,6 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
 
-	// SDS options
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.SdsArgs.SdsK8sTokenPath, "sdsK8sTokenPath", "",
-		"The path to the SDS k8s token. If non-empty, this path is used to fetch the SDS k8s token.")
-
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 
