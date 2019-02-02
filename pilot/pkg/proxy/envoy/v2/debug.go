@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -27,25 +28,26 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
 
-// InitDebug initializes the debug handlers.
+// InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
-	//// For debugging and load testing v2 we add an memory registry.
-	//s.MemRegistry = NewMemServiceDiscovery(
-	//	map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
-	//	}, 2)
-	//s.MemRegistry.EDSUpdater = s
-	//s.MemRegistry.ClusterID = "v2-debug"
-	//
-	//sctl.AddRegistry(aggregate.Registry{
-	//	ClusterID:        "v2-debug",
-	//	Name:             serviceregistry.ServiceRegistry("memAdapter"),
-	//	ServiceDiscovery: s.MemRegistry,
-	//	ServiceAccounts:  s.MemRegistry,
-	//	Controller:       s.MemRegistry.controller,
-	//})
+	// For debugging and load testing v2 we add an memory registry.
+	s.MemRegistry = NewMemServiceDiscovery(
+		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		}, 2)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ClusterID = "v2-debug"
+
+	sctl.AddRegistry(aggregate.Registry{
+		ClusterID:        "v2-debug",
+		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ServiceDiscovery: s.MemRegistry,
+		ServiceAccounts:  s.MemRegistry,
+		Controller:       s.MemRegistry.controller,
+	})
 
 	mux.HandleFunc("/ready", s.ready)
 
@@ -119,21 +121,21 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
-	//_ = req.ParseForm()
-	//w.Header().Add("Content-Type", "application/json")
-	//svcName := req.Form.Get("svc")
-	//if svcName != "" {
-	//	data, err := ioutil.ReadAll(req.Body)
-	//	if err != nil {
-	//		return
-	//	}
-	//	svc := &model.Service{}
-	//	err = json.Unmarshal(data, svc)
-	//	if err != nil {
-	//		return
-	//	}
-	//	s.MemRegistry.AddService(model.Hostname(svcName), svc)
-	//}
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	svcName := req.Form.Get("svc")
+	if svcName != "" {
+		data, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		svc := &model.Service{}
+		err = json.Unmarshal(data, svc)
+		if err != nil {
+			return
+		}
+		s.MemRegistry.AddService(model.Hostname(svcName), svc)
+	}
 
 	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
@@ -175,20 +177,20 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
-	//w.Header().Add("Content-Type", "application/json")
-	//svcName := req.Form.Get("svc")
-	//if svcName != "" {
-	//	data, err := ioutil.ReadAll(req.Body)
-	//	if err != nil {
-	//		return
-	//	}
-	//	svc := &model.ServiceInstance{}
-	//	err = json.Unmarshal(data, svc)
-	//	if err != nil {
-	//		return
-	//	}
-	//	s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
-	//}
+	w.Header().Add("Content-Type", "application/json")
+	svcName := req.Form.Get("svc")
+	if svcName != "" {
+		data, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		svc := &model.ServiceInstance{}
+		err = json.Unmarshal(data, svc)
+		if err != nil {
+			return
+		}
+		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
+	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
 		svc, _ := s.Env.ServiceDiscovery.Services()
