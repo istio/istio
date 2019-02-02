@@ -146,7 +146,7 @@ func (node *Proxy) ServiceNode() string {
 
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
 	return version, found
 }
 
@@ -164,7 +164,7 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
+	if modestr, found := node.Metadata[NodeMetadataRouterMode]; found {
 		switch RouterMode(modestr) {
 		case SniDnatRouter:
 			return SniDnatRouter
@@ -214,7 +214,7 @@ func GetNetworkView(node *Proxy) map[string]bool {
 	}
 
 	nmap := make(map[string]bool)
-	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+	if networks, found := node.Metadata[NodeMetadataRequestedNetworkView]; found {
 		for _, n := range strings.Split(networks, ",") {
 			nmap[n] = true
 		}
@@ -265,7 +265,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Get all IP Addresses from Metadata
-	if ipstr, found := metadata["ISTIO_META_INSTANCE_IPS"]; found {
+	if ipstr, found := metadata[NodeMetadataInstanceIPs]; found {
 		ipAddresses, err := parseIPAddresses(ipstr)
 		if err == nil {
 			out.IPAddresses = ipAddresses
@@ -488,6 +488,9 @@ func isValidIPAddress(ip string) bool {
 // Pile all node metadata constants here
 const (
 
+	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
+	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
+
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
@@ -504,6 +507,16 @@ const (
 	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
 	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
 	NodeMetadataSidecarUID = "SIDECAR_UID"
+
+	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
+	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
+
+	// NodeMetadataRouterMode indicates whether the proxy is functioning as a SNI-DNAT router
+	// processing the AUTO_PASSTHROUGH gateway servers
+	NodeMetadataRouterMode = "ROUTER_MODE"
+
+	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
+	NodeMetadataInstanceIPs = "INSTANCE_IPS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
