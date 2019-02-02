@@ -14,16 +14,15 @@ _sym_db = _symbol_database.Default()
 
 
 from networking.v1alpha3 import gateway_pb2 as networking_dot_v1alpha3_dot_gateway__pb2
-from networking.v1alpha3 import sidecar_pb2 as networking_dot_v1alpha3_dot_sidecar__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='networking/v1alpha3/service_entry.proto',
   package='istio.networking.v1alpha3',
   syntax='proto3',
-  serialized_pb=_b('\n\'networking/v1alpha3/service_entry.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\x1a!networking/v1alpha3/sidecar.proto\"\x96\x06\n\x0cServiceEntry\x12\r\n\x05hosts\x18\x01 \x03(\t\x12\x11\n\taddresses\x18\x02 \x03(\t\x12.\n\x05ports\x18\x03 \x03(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x42\n\x08location\x18\x04 \x01(\x0e\x32\x30.istio.networking.v1alpha3.ServiceEntry.Location\x12\x46\n\nresolution\x18\x05 \x01(\x0e\x32\x32.istio.networking.v1alpha3.ServiceEntry.Resolution\x12\x43\n\tendpoints\x18\x06 \x03(\x0b\x32\x30.istio.networking.v1alpha3.ServiceEntry.Endpoint\x12<\n\x0c\x63onfig_scope\x18\x07 \x01(\x0e\x32&.istio.networking.v1alpha3.ConfigScope\x1a\xc5\x02\n\x08\x45ndpoint\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12J\n\x05ports\x18\x02 \x03(\x0b\x32;.istio.networking.v1alpha3.ServiceEntry.Endpoint.PortsEntry\x12L\n\x06labels\x18\x03 \x03(\x0b\x32<.istio.networking.v1alpha3.ServiceEntry.Endpoint.LabelsEntry\x12\x0f\n\x07network\x18\x04 \x01(\t\x12\x10\n\x08locality\x18\x05 \x01(\t\x12\x0e\n\x06weight\x18\x06 \x01(\r\x1a,\n\nPortsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\r:\x02\x38\x01\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"0\n\x08Location\x12\x11\n\rMESH_EXTERNAL\x10\x00\x12\x11\n\rMESH_INTERNAL\x10\x01\"+\n\nResolution\x12\x08\n\x04NONE\x10\x00\x12\n\n\x06STATIC\x10\x01\x12\x07\n\x03\x44NS\x10\x02\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
+  serialized_pb=_b('\n\'networking/v1alpha3/service_entry.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\"\xeb\x05\n\x0cServiceEntry\x12\r\n\x05hosts\x18\x01 \x03(\t\x12\x11\n\taddresses\x18\x02 \x03(\t\x12.\n\x05ports\x18\x03 \x03(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x42\n\x08location\x18\x04 \x01(\x0e\x32\x30.istio.networking.v1alpha3.ServiceEntry.Location\x12\x46\n\nresolution\x18\x05 \x01(\x0e\x32\x32.istio.networking.v1alpha3.ServiceEntry.Resolution\x12\x43\n\tendpoints\x18\x06 \x03(\x0b\x32\x30.istio.networking.v1alpha3.ServiceEntry.Endpoint\x12\x11\n\texport_to\x18\x07 \x03(\t\x1a\xc5\x02\n\x08\x45ndpoint\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12J\n\x05ports\x18\x02 \x03(\x0b\x32;.istio.networking.v1alpha3.ServiceEntry.Endpoint.PortsEntry\x12L\n\x06labels\x18\x03 \x03(\x0b\x32<.istio.networking.v1alpha3.ServiceEntry.Endpoint.LabelsEntry\x12\x0f\n\x07network\x18\x04 \x01(\t\x12\x10\n\x08locality\x18\x05 \x01(\t\x12\x0e\n\x06weight\x18\x06 \x01(\r\x1a,\n\nPortsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\r:\x02\x38\x01\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"0\n\x08Location\x12\x11\n\rMESH_EXTERNAL\x10\x00\x12\x11\n\rMESH_INTERNAL\x10\x01\"+\n\nResolution\x12\x08\n\x04NONE\x10\x00\x12\n\n\x06STATIC\x10\x01\x12\x07\n\x03\x44NS\x10\x02\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
   ,
-  dependencies=[networking_dot_v1alpha3_dot_gateway__pb2.DESCRIPTOR,networking_dot_v1alpha3_dot_sidecar__pb2.DESCRIPTOR,])
+  dependencies=[networking_dot_v1alpha3_dot_gateway__pb2.DESCRIPTOR,])
 
 
 
@@ -44,8 +43,8 @@ _SERVICEENTRY_LOCATION = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=838,
-  serialized_end=886,
+  serialized_start=760,
+  serialized_end=808,
 )
 _sym_db.RegisterEnumDescriptor(_SERVICEENTRY_LOCATION)
 
@@ -70,8 +69,8 @@ _SERVICEENTRY_RESOLUTION = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=888,
-  serialized_end=931,
+  serialized_start=810,
+  serialized_end=853,
 )
 _sym_db.RegisterEnumDescriptor(_SERVICEENTRY_RESOLUTION)
 
@@ -109,8 +108,8 @@ _SERVICEENTRY_ENDPOINT_PORTSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=745,
-  serialized_end=789,
+  serialized_start=667,
+  serialized_end=711,
 )
 
 _SERVICEENTRY_ENDPOINT_LABELSENTRY = _descriptor.Descriptor(
@@ -146,8 +145,8 @@ _SERVICEENTRY_ENDPOINT_LABELSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=791,
-  serialized_end=836,
+  serialized_start=713,
+  serialized_end=758,
 )
 
 _SERVICEENTRY_ENDPOINT = _descriptor.Descriptor(
@@ -211,8 +210,8 @@ _SERVICEENTRY_ENDPOINT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=511,
-  serialized_end=836,
+  serialized_start=433,
+  serialized_end=758,
 )
 
 _SERVICEENTRY = _descriptor.Descriptor(
@@ -265,9 +264,9 @@ _SERVICEENTRY = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='config_scope', full_name='istio.networking.v1alpha3.ServiceEntry.config_scope', index=6,
-      number=7, type=14, cpp_type=8, label=1,
-      has_default_value=False, default_value=0,
+      name='export_to', full_name='istio.networking.v1alpha3.ServiceEntry.export_to', index=6,
+      number=7, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
@@ -285,8 +284,8 @@ _SERVICEENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=141,
-  serialized_end=931,
+  serialized_start=106,
+  serialized_end=853,
 )
 
 _SERVICEENTRY_ENDPOINT_PORTSENTRY.containing_type = _SERVICEENTRY_ENDPOINT
@@ -298,7 +297,6 @@ _SERVICEENTRY.fields_by_name['ports'].message_type = networking_dot_v1alpha3_dot
 _SERVICEENTRY.fields_by_name['location'].enum_type = _SERVICEENTRY_LOCATION
 _SERVICEENTRY.fields_by_name['resolution'].enum_type = _SERVICEENTRY_RESOLUTION
 _SERVICEENTRY.fields_by_name['endpoints'].message_type = _SERVICEENTRY_ENDPOINT
-_SERVICEENTRY.fields_by_name['config_scope'].enum_type = networking_dot_v1alpha3_dot_sidecar__pb2._CONFIGSCOPE
 _SERVICEENTRY_LOCATION.containing_type = _SERVICEENTRY
 _SERVICEENTRY_RESOLUTION.containing_type = _SERVICEENTRY
 DESCRIPTOR.message_types_by_name['ServiceEntry'] = _SERVICEENTRY
