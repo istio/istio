@@ -74,15 +74,15 @@ func TestServiceNode(t *testing.T) {
 
 func TestSuperStrings(t *testing.T) {
 	data := []struct {
-		in []string
+		in  []string
 		out []string
 	}{
 		{
-			in: []string{"default.global", "istio-system.global", "kube-system.global", "global", "default.svc.kubernetes", "kube.default.svc.kubernetes"},
+			in:  []string{"default.global", "istio-system.global", "kube-system.global", "global", "default.svc.kubernetes", "kube.default.svc.kubernetes"},
 			out: []string{"default.global", "istio-system.global", "kube-system.global", "kube.default.svc.kubernetes"},
 		},
 		{
-			in: []string{"global", "istio-system.global", "istio-system.global", "global"},
+			in:  []string{"global", "istio-system.global", "istio-system.global", "global"},
 			out: []string{"istio-system.global"},
 		},
 	}
