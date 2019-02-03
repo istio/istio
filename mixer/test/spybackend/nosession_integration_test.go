@@ -256,7 +256,7 @@ func TestNoSessionBackend(t *testing.T) {
 
 	// We skip this test if it is being run as part of the racetest because
 	// it is intensive on memory and will cause the test to fail with no error
-	if len(os.Getenv("RACE_TEST"))>0 {
+	if len(os.Getenv("RACE_TEST")) > 0 {
 		t.Skip()
 	}
 
