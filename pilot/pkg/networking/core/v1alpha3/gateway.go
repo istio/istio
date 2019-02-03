@@ -410,7 +410,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			// SDS config for gateway to certificate validation context from gateway agent.
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
 					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
 						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
 				},

@@ -66,7 +66,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode:    networking.Server_TLSOptions_SIMPLE,
+					Mode:           networking.Server_TLSOptions_SIMPLE,
 					CredentialName: "ingress-sds-resource-name",
 				},
 			},
@@ -101,12 +101,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{ // Credential name and subject alternative names are specified, generate SDS configs for
-		  // key/cert and root cert.
+			// key/cert and root cert.
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode:    networking.Server_TLSOptions_SIMPLE,
-					CredentialName: "ingress-sds-resource-name",
+					Mode:            networking.Server_TLSOptions_SIMPLE,
+					CredentialName:  "ingress-sds-resource-name",
 					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
@@ -230,15 +230,15 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{ // Credential name and subject names are specified, SDS configs are generated for fetching
-		  // key/cert and root cert.
+			// key/cert and root cert.
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode:    networking.Server_TLSOptions_MUTUAL,
-					CredentialName: "ingress-sds-resource-name",
+					Mode:              networking.Server_TLSOptions_MUTUAL,
+					CredentialName:    "ingress-sds-resource-name",
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
-					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
+					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
 			enableSds: true,

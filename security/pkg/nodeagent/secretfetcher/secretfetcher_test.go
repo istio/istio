@@ -28,12 +28,12 @@ import (
 var (
 	k8sKeyA               = []byte("fake private k8sKeyA")
 	k8sCertChainA         = []byte("fake cert chain A")
-	k8sCaCertA             = []byte("fake root cert A")
+	k8sCaCertA            = []byte("fake root cert A")
 	k8sSecretNameA        = "test-scrtA"
 	k8sTestGenericSecretA = &v1.Secret{
 		Data: map[string][]byte{
-			genericScrtCert: k8sCertChainA,
-			genericScrtKey:  k8sKeyA,
+			genericScrtCert:   k8sCertChainA,
+			genericScrtKey:    k8sKeyA,
 			genericScrtCaCert: k8sCaCertA,
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -45,11 +45,11 @@ var (
 
 	k8sKeyB               = []byte("k8sKeyB private fake")
 	k8sCertChainB         = []byte("B chain cert fake")
-	k8sCaCertB             = []byte("B cert root fake")
+	k8sCaCertB            = []byte("B cert root fake")
 	k8sTestGenericSecretB = &v1.Secret{
 		Data: map[string][]byte{
-			genericScrtCert: k8sCertChainB,
-			genericScrtKey:  k8sKeyB,
+			genericScrtCert:   k8sCertChainB,
+			genericScrtKey:    k8sKeyB,
 			genericScrtCaCert: k8sCaCertB,
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,7 +90,7 @@ var (
 )
 
 type expectedSecret struct {
-	exist	bool
+	exist  bool
 	secret *model.SecretItem
 }
 
@@ -138,11 +138,11 @@ func TestSecretFetcher(t *testing.T) {
 	// Delete test secret and verify that key/cert pair in secret is removed from local store.
 	expectedDeletedSecrets := []expectedSecret{
 		{
-			exist: false,
+			exist:  false,
 			secret: &model.SecretItem{ResourceName: k8sSecretNameA},
 		},
 		{
-			exist: false,
+			exist:  false,
 			secret: &model.SecretItem{ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix},
 		},
 	}
@@ -223,11 +223,11 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	// Delete test secret and verify that key/cert pair in secret is removed from local store.
 	expectedDeletedSecret := []expectedSecret{
 		{
-			exist: false,
+			exist:  false,
 			secret: &model.SecretItem{ResourceName: k8sSecretNameC},
 		},
 		{
-			exist: false,
+			exist:  false,
 			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
 		},
 	}
@@ -247,7 +247,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 			},
 		},
 		{
-			exist: false,
+			exist:  false,
 			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
 		},
 	}

@@ -180,10 +180,10 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName:     rootCertResourceName,
-			RootCert:         newRoot,
-			CreatedTime:      t,
-			Version:          t.String(),
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			CreatedTime:  t,
+			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
 		log.Debugf("secret %s is added", rootCertResourceName)
@@ -233,9 +233,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	oldCert, oldKey, oldRoot:= extractCertAndKey(oscrt)
+	oldCert, oldKey, oldRoot := extractCertAndKey(oscrt)
 	newCert, newKey, newRoot := extractCertAndKey(nscrt)
-	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot){
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
 		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
@@ -260,10 +260,10 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	sf.secrets.Delete(rootCertResourceName)
 	if len(newRoot) > 0 {
 		nsRoot := &model.SecretItem{
-			ResourceName:     rootCertResourceName,
-			RootCert:         newRoot,
-			CreatedTime:      t,
-			Version:          t.String(),
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			CreatedTime:  t,
+			Version:      t.String(),
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
 		log.Debugf("secret %s is updated", rootCertResourceName)

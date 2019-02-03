@@ -1519,7 +1519,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "",
-				CredentialName: "sds-name",
+				CredentialName:    "sds-name",
 			},
 			""},
 		{"mutual",
