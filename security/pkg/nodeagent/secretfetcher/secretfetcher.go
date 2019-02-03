@@ -54,7 +54,8 @@ const (
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
 
-	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
+	// names for ingress gateway root certs end with "-cacert".
 	IngressGatewaySdsCaSuffix = "-cacert"
 )
 

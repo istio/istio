@@ -172,7 +172,9 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 
 	if resourceName != RootCertReqResourceName {
-		// Request for normal key/cert pair.
+		// If working as Citadel agent, send request for normal key/cert pair.
+		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
+		// root cert ends with "-cacert".
 		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
