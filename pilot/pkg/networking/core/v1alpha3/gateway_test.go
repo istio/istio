@@ -140,33 +140,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							},
 						},
 					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{
-								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
-							},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ingress-sds-resource-name-cacert",
-								SdsConfig: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.IngressGatewaySdsUdsPath,
-															StatPrefix: model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
 				},
 				RequireClientCertificate: proto.BoolFalse,
 			},
