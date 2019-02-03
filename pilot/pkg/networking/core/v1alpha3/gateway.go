@@ -404,34 +404,30 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		}
 	}
 
-	if len(server.Tls.SubjectAltNames) > 0 {
-		if enableSds && server.Tls.CredentialName != "" {
-			// If SDS is enabled at gateway, tls mode is MUTUAL, and credential name is specified at gateway config,
-			// create SDS config for gateway to fetch certificate validation context at gateway agent.
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
-				},
-			}
-		} else {
-			var trustedCa *core.DataSource
-			if len(server.Tls.CaCertificates) != 0 {
-				trustedCa = &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.CaCertificates,
-					},
-				}
-			}
-			if trustedCa != nil {
-				tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa:            trustedCa,
-						VerifySubjectAltName: server.Tls.SubjectAltNames,
-					},
-				}
-			}
+	var trustedCa *core.DataSource
+	if len(server.Tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: server.Tls.CaCertificates,
+			},
+		}
+	}
+	// If SDS is enabled at gateway, and credential name is specified, create SDS config for gateway to fetch
+	// certificate validation context at gateway agent. Otherwise, set up validation context in the original way.
+	if enableSds && server.Tls.CredentialName != "" {
+		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
+					server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+			},
+		}
+	} else if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+			ValidationContext: &auth.CertificateValidationContext{
+				TrustedCa:            trustedCa,
+				VerifySubjectAltName: server.Tls.SubjectAltNames,
+			},
 		}
 	}
 
