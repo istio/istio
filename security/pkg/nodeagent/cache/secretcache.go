@@ -436,11 +436,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 		if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
 			return &model.SecretItem{
-				ResourceName:     resourceName,
-				RootCert:         secretItem.RootCert,
-				Token:            token,
-				CreatedTime:      t,
-				Version:          t.String(),
+				ResourceName: resourceName,
+				RootCert:     secretItem.RootCert,
+				Token:        token,
+				CreatedTime:  t,
+				Version:      t.String(),
 			}, nil
 		}
 		return &model.SecretItem{
