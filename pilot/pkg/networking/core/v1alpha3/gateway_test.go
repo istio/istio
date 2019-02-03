@@ -29,7 +29,7 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name string
+		name      string
 		server    *networking.Server
 		enableSds bool
 		result    *auth.DownstreamTlsContext
