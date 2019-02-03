@@ -434,6 +434,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
 		}
 
+		if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+			return &model.SecretItem{
+				ResourceName:     resourceName,
+				RootCert:         secretItem.RootCert,
+				Token:            token,
+				CreatedTime:      t,
+				Version:          t.String(),
+			}, nil
+		}
 		return &model.SecretItem{
 			CertificateChain: secretItem.CertificateChain,
 			PrivateKey:       secretItem.PrivateKey,
