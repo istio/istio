@@ -404,14 +404,6 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		}
 	}
 
-	var trustedCa *core.DataSource
-	if len(server.Tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: server.Tls.CaCertificates,
-			},
-		}
-	}
 	// If SDS is enabled at gateway, and credential name is specified, create SDS config for gateway to fetch
 	// certificate validation context at gateway agent. Otherwise, set up validation context in the original way.
 	if enableSds && server.Tls.CredentialName != "" {
@@ -422,12 +414,22 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 					server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
 			},
 		}
-	} else if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa:            trustedCa,
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
-			},
+	} else {
+		var trustedCa *core.DataSource
+		if len(server.Tls.CaCertificates) != 0 {
+			trustedCa = &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: server.Tls.CaCertificates,
+				},
+			}
+		}
+		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa:            trustedCa,
+					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
 		}
 	}
 
