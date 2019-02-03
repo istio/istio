@@ -381,9 +381,9 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	// host.  How does the SDS server differentiate the right secret to
 	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
 	// SIMPLE, generate SDS config for gateway controller.
-	if enableSds && server.Tls.CredentialName != "" && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
+	if enableSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-		// SDS config for gateway to fetch credentials from gateway agent.
+		// SDS config for gateway to fetch credentials at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
 		}
@@ -405,9 +405,9 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	}
 
 	if len(server.Tls.SubjectAltNames) > 0 {
-		if enableSds && server.Tls.CredentialName != "" {
-			// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-			// SDS config for gateway to certificate validation context from gateway agent.
+		if enableSds && server.Tls.CredentialName != "" && server.Tls.GetMode() == networking.Server_TLSOptions_MUTUAL {
+			// If SDS is enabled at gateway, tls mode is MUTUAL, and credential name is specified at gateway config,
+			// create SDS config for gateway to fetch certificate validation context at gateway agent.
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
