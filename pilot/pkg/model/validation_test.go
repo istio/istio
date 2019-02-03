@@ -1548,7 +1548,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
-			"server certificate"},
+			""},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -1569,6 +1569,13 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				CaCertificates:    ""},
 			"client CA bundle"},
+		{"pass through sds no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CredentialName:    "sds-name"},
+			""},
 	}
 
 	for _, tt := range tests {

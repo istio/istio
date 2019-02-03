@@ -29,11 +29,13 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
+		name string
 		server    *networking.Server
 		enableSds bool
 		result    *auth.DownstreamTlsContext
 	}{
 		{ // No credential name is specified, generate file paths for key/cert.
+			name: "no credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -63,6 +65,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{ // Credential name is specified, SDS config is generated for fetching key/cert.
+			name: "credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -102,6 +105,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		},
 		{ // Credential name and subject alternative names are specified, generate SDS configs for
 			// key/cert and root cert.
+			name: "credential name subject alternative name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -168,6 +172,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
+			name: "no credential name key and cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -199,6 +204,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
+			name: "no credential name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -231,6 +237,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		},
 		{ // Credential name and subject names are specified, SDS configs are generated for fetching
 			// key/cert and root cert.
+			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -299,6 +306,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
+			name: "no credential name key and cert tls PASSTHROUGH",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -315,7 +323,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	for _, tc := range testCases {
 		ret := buildGatewayListenerTLSContext(tc.server, tc.enableSds)
 		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("expecting %v but got %v", tc.result, ret)
+			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
 	}
 }

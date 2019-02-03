@@ -405,7 +405,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	}
 
 	if len(server.Tls.SubjectAltNames) > 0 {
-		if enableSds && server.Tls.CredentialName != "" && server.Tls.GetMode() == networking.Server_TLSOptions_MUTUAL {
+		if enableSds && server.Tls.CredentialName != "" {
 			// If SDS is enabled at gateway, tls mode is MUTUAL, and credential name is specified at gateway config,
 			// create SDS config for gateway to fetch certificate validation context at gateway agent.
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{

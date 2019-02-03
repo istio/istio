@@ -501,8 +501,9 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.CredentialName != "" {
-		// If credential name is specified, credentials are fetched remotely.
+	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) &&
+		tls.CredentialName != "" {
+		// If tls mode is SIMPLE or MUTUAL, and credential name is specified, credentials are fetched remotely.
 		return
 	}
 	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
