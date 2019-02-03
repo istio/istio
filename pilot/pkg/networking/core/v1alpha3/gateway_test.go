@@ -104,7 +104,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{ // Credential name and subject alternative names are specified, generate SDS configs for
-			// key/cert and root cert.
+			// key/cert and static validation context config.
 			name: "credential name subject alternative name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
@@ -142,7 +142,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 						ValidationContext: &auth.CertificateValidationContext{
-							VerifySubjectAltName: []string{"httpbin.example.com", "bookinfo.example.com"},
+							VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
 						},
 					},
 				},
