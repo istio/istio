@@ -398,6 +398,7 @@ func TestRouteMirroring(t *testing.T) {
 
 // Inject a fault filter in a normal path and check if the filters are triggered
 func TestEnvoyFilterConfigViaCRD(t *testing.T) {
+	t.Skip()
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/networking/v1alpha3/envoyfilter-c.yaml"},
