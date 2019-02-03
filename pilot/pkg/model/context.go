@@ -352,7 +352,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return ""
 }
 
-// GetProxyMetadataDNSDomains returns a slice containing every DNS Domain that
+// getProxyMetadataDNSDomains returns a slice containing every DNS Domain that
 // has been injected into the proxy via the environment variable ISTIO_META_DNS_DOMAINS
 func getProxyMetadataDNSDomains(proxy *Proxy, parts string) []string {
 	if proxy == nil {
