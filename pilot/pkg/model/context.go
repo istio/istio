@@ -284,9 +284,49 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	out.ID = parts[2]
-	out.DNSDomains = append([]string{parts[3]}, getProxyMetadataDNSDomains(out)...)
+	out.DNSDomains = getProxyMetadataDNSDomains(out, parts[3])
 	out.ConfigNamespace = GetProxyConfigNamespace(out)
 	return out, nil
+}
+
+// getSuperStrings obtains a list of strings that is the longest string with a
+// matching suffix while ensuring that two domains that have a matching suffix
+// but only valid domain names are selected
+func getSuperStrings(stringSlice []string) []string {
+	stringMap := make(map[string]bool)
+
+	// Falisfy all strings in the map
+	for _, stringOne := range stringSlice {
+		stringMap[stringOne] = true
+	}
+
+	// Iterate the list O(n^2) - ineffecient however list is expected to be short
+	for _, stringOne := range stringSlice {
+		for _, stringTwo := range stringSlice {
+			// Potentially falisify matching strings
+			if stringOne != stringTwo {
+				// Potentially falsify different levels of domain resolution
+				if strings.Count(stringOne, ".") != strings.Count(stringTwo, ".") {
+					// Potentially falsify domains with the same suffix
+					if strings.HasSuffix(stringTwo, stringOne) {
+						// Potentially falsify the shortest string
+						if len(stringOne) < len(stringTwo) {
+							stringMap[stringOne] = false
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Produce a slice form the map of non-falified strings
+	out := []string{}
+	for superString, v := range stringMap {
+		if v == true {
+			out = append(out, superString)
+		}
+	}
+	return out
 }
 
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
@@ -314,18 +354,19 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 // GetProxyMetadataDNSDomains returns a slice containing every DNS Domain that
 // has been injected into the proxy via the environment variable ISTIO_META_DNS_DOMAINS
-func getProxyMetadataDNSDomains(proxy *Proxy) []string {
+func getProxyMetadataDNSDomains(proxy *Proxy, parts string) []string {
 	if proxy == nil {
 		return nil
 	}
 
-	// Return a slice of ISTIO_META_DNS_DOMAINS. The ISTIO_META_DNS_DOMAINS field is
-	// comma separated.
+	// First look for ISTIO_META_CONFIG_NAMESPACE
+	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
 	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
-		return strings.Split(nodeMetadataDNSDomains, ",")
+		nodeMetadataDNSDomainsSuper := getSuperStrings(strings.Split(nodeMetadataDNSDomains, ","))
+		return nodeMetadataDNSDomainsSuper
 	}
 
-	return nil
+	return []string{parts}
 }
 
 const (
