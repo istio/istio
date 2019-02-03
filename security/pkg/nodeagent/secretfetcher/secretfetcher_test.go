@@ -237,11 +237,19 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	testAddSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedAddedSecrets, &secretVersion)
 
 	// Update test secret and verify that key/cert pair is changed and version number is different.
-	expectedUpdateSecret := &model.SecretItem{
-		ResourceName:     k8sSecretNameC,
-		CertificateChain: k8sCertChainD,
-		PrivateKey:       k8sKeyD,
-		RootCert:         []byte{},
+	expectedUpdateSecret := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameC,
+				CertificateChain: k8sCertChainD,
+				PrivateKey:       k8sKeyD,
+			},
+		},
+		{
+			exist: false,
+			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
+		},
 	}
 	var newSecretVersion string
 	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTLSSecretD, expectedUpdateSecret, &newSecretVersion)
@@ -273,8 +281,10 @@ func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expect
 		if es.exist != ok {
 			t.Errorf("Unexpected secret %s, expected to exist: %v but got: %v", es.secret.ResourceName, es.exist, ok)
 		}
-		*version = secret.Version
-		compareSecret(t, &secret, es.secret)
+		if es.exist {
+			*version = secret.Version
+			compareSecret(t, &secret, es.secret)
+		}
 	}
 }
 
