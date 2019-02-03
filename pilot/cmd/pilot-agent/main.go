@@ -51,6 +51,7 @@ var (
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
+	waitForCerts     bool
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -311,7 +312,7 @@ var (
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
+			watcher := envoy.NewWatcher(certs, agent.ConfigCh(), waitForCerts)
 
 			go agent.Run(ctx)
 			go watcher.Run(ctx)
@@ -399,6 +400,8 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
 		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
+	proxyCmd.PersistentFlags().BoolVar(&waitForCerts, "waitForCerts", false,
+		"Whether Envoy should wait to bootstrap until at least one certificate/key file exists.")
 
 	// Flags for proxy configuration
 	values := model.DefaultProxyConfig()

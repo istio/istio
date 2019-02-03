@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
-	watcher := NewWatcher([]CertSource{{Directory: "random"}}, agent.ConfigCh())
+	watcher := NewWatcher([]CertSource{{Directory: "random"}}, agent.ConfigCh(), false)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update
@@ -59,6 +60,64 @@ func TestRunSendConfig(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Errorf("The callback is not called within time limit " + time.Now().String())
 		cancel()
+	}
+}
+
+func TestRunSendConfigWaitForCerts(t *testing.T) {
+	dirname, err := ioutil.TempDir(os.TempDir(), "certs")
+	if err != nil {
+		t.Errorf("failed to create a temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(dirname); err != nil {
+			t.Errorf("failed to remove temp dir: %v", err)
+		}
+	}()
+	// Create the certchain file.
+	file, err := ioutil.TempFile(dirname, "test.file")
+	if err != nil {
+		t.Errorf("failed to create file: %v", err)
+	}
+
+	testCases := map[string]struct {
+		certSources    []CertSource
+		expectConfigCh bool
+	}{
+		"Cert files do not exist": {
+			certSources:    []CertSource{{Directory: "random"}},
+			expectConfigCh: false,
+		},
+		"Cert file exists": {
+			certSources: []CertSource{CertSource{
+				Directory: dirname,
+				Files:     []string{filepath.Base(file.Name())},
+			}},
+			expectConfigCh: true,
+		},
+	}
+
+	for id, c := range testCases {
+		agent := &TestAgent{
+			configCh: make(chan interface{}),
+		}
+		watcher := NewWatcher(c.certSources, agent.ConfigCh(), true)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// watcher starts agent and schedules a config update
+		go watcher.Run(ctx)
+
+		select {
+		case <-agent.configCh:
+			if !c.expectConfigCh {
+				t.Errorf("Test case [%s]: The callback should not happen", id)
+			}
+			cancel()
+		case <-time.After(time.Millisecond * 200):
+			if c.expectConfigCh {
+				t.Errorf("Test case [%s]: The callback is not called within time limit", id)
+			}
+			cancel()
+		}
 	}
 }
 

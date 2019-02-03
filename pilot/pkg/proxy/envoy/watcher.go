@@ -48,24 +48,41 @@ type CertSource struct {
 }
 
 type watcher struct {
-	certs   []CertSource
-	updates chan<- interface{}
+	certs        []CertSource
+	updates      chan<- interface{}
+	waitForCerts bool
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(
-	certs []CertSource,
-	updates chan<- interface{}) Watcher {
+func NewWatcher(certs []CertSource, updates chan<- interface{}, waitForCerts bool) Watcher {
 	return &watcher{
-		certs:   certs,
-		updates: updates,
+		certs:        certs,
+		updates:      updates,
+		waitForCerts: waitForCerts,
 	}
 }
 
 func (w *watcher) Run(ctx context.Context) {
-	// kick start the proxy with partial state (in case there are no notifications coming)
-	w.SendConfig()
+	shouldKickStart := true
+	if w.waitForCerts {
+		// If none of the cert/key files exist, should not kick start.
+		shouldKickStart = false
+		for _, cert := range w.certs {
+			for _, filename := range cert.Files {
+				if _, err := os.Stat(path.Join(cert.Directory, filename)); err == nil || !os.IsNotExist(err) {
+					shouldKickStart = true
+					break
+				}
+			}
+			if shouldKickStart {
+				break
+			}
+		}
+	}
+	if shouldKickStart {
+		w.SendConfig()
+	}
 
 	// monitor certificates
 	certDirs := make([]string, 0, len(w.certs))
