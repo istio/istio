@@ -140,6 +140,11 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							},
 						},
 					},
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							VerifySubjectAltName: []string{"httpbin.example.com", "bookinfo.example.com"},
+						},
+					},
 				},
 				RequireClientCertificate: proto.BoolFalse,
 			},
