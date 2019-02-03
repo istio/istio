@@ -2,8 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
+// You may obtain a copy of the License at //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -17,6 +16,7 @@ package model_test
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -68,6 +68,32 @@ func TestServiceNode(t *testing.T) {
 		}
 		if !reflect.DeepEqual(in, node.in) {
 			t.Errorf("ParseServiceNode(%q) => Got %#v, want %#v", node.out, in, node.in)
+		}
+	}
+}
+
+func TestSuperStrings(t *testing.T) {
+	data := []struct {
+		in []string
+		out []string
+	}{
+		{
+			in: []string{"default.global", "istio-system.global", "kube-system.global", "global", "default.svc.kubernetes", "kube.default.svc.kubernetes"},
+			out: []string{"default.global", "istio-system.global", "kube-system.global", "kube.default.svc.kubernetes"},
+		},
+		{
+			in: []string{"global", "istio-system.global", "istio-system.global", "global"},
+			out: []string{"istio-system.global"},
+		},
+	}
+	for _, datum := range data {
+		in := datum.in
+		out := model.GetSuperStrings(in)
+		sort.Strings(in)
+		sort.Strings(out)
+		sort.Strings(datum.out)
+		if !reflect.DeepEqual(datum.out, out) {
+			t.Errorf("GetSuperString() =>\n Got %s\nwant %s", out, datum.out)
 		}
 	}
 }

@@ -289,10 +289,10 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	return out, nil
 }
 
-// getSuperStrings obtains a list of strings that is the longest string with a
+// GetSuperStrings obtains a list of strings that is the longest string with a
 // matching suffix while ensuring that two domains that have a matching suffix
 // but only valid domain names are selected
-func getSuperStrings(stringSlice []string) []string {
+func GetSuperStrings(stringSlice []string) []string {
 	stringMap := make(map[string]bool)
 
 	// Falisfy all strings in the map
@@ -362,7 +362,7 @@ func getProxyMetadataDNSDomains(proxy *Proxy, parts string) []string {
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
 	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
-		nodeMetadataDNSDomainsSuper := getSuperStrings(strings.Split(nodeMetadataDNSDomains, ","))
+		nodeMetadataDNSDomainsSuper := GetSuperStrings(strings.Split(nodeMetadataDNSDomains, ","))
 		return nodeMetadataDNSDomainsSuper
 	}
 
