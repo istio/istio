@@ -325,12 +325,13 @@ type DiscoveryServiceOptions struct {
 
 	EnableProfiling bool
 	EnableCaching   bool
+	Debug           bool
 	WebhookEndpoint string
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment *model.Environment, o DiscoveryServiceOptions, debug bool) (*DiscoveryService, error) {
+	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
@@ -338,11 +339,11 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 
 	container := restful.NewContainer()
 	if o.EnableProfiling {
-		if debug {
+		if o.Debug {
 			container.ServeMux.HandleFunc("/debug/pprof/", pprof.Index)
-			container.ServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		}
+		container.ServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		container.ServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		container.ServeMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	}
