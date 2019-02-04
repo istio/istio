@@ -418,10 +418,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 
-			if sdsTokenPath, found := con.modelNode.Metadata["SDS_K8S_TOKEN_PATH"]; found {
-				model.SdsArg = model.NewSdsArg(sdsTokenPath)
-			}
-
 			switch discReq.TypeUrl {
 			case ClusterType:
 				if con.CDSWatch {

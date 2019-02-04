@@ -57,22 +57,8 @@ const (
 	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
-// SdsArgs provides SDS related configuration
-type SdsArgs struct {
-	// SdsK8sTokenPath, if non-empty, is used as the path for k8s service account
-	SdsK8sTokenPath string
-}
-
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
-
-var SdsArg SdsArgs
-
-func NewSdsArg(sdsTokenPath string) SdsArgs {
-	return SdsArgs{
-		SdsK8sTokenPath: sdsTokenPath,
-	}
-}
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
@@ -119,7 +105,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool, metadata map[string]string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -143,8 +129,8 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 	} else if useK8sSANormalJwt {
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
 		var tokenPath string
-		if len(SdsArg.SdsK8sTokenPath) > 0 {
-			tokenPath = SdsArg.SdsK8sTokenPath
+		if sdsTokenPath, found := metadata[NodeMetadataSdsTokenPath]; found {
+			tokenPath = sdsTokenPath
 		} else {
 			tokenPath = K8sSAJwtFileName
 		}
