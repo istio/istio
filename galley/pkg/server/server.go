@@ -51,16 +51,17 @@ var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
 // Server is the main entry point into the Galley code.
 type Server struct {
-	serveWG    sync.WaitGroup
-	grpcServer *grpc.Server
-	processor  *runtime.Processor
-	mcp        *server.Server
-	mcpSource  *source.Server
-	reporter   monitoring.Reporter
-	listener   net.Listener
-	controlZ   *ctrlz.Server
-	stopCh     chan struct{}
-	callOut    *callout
+	serveWG       sync.WaitGroup
+	grpcServer    *grpc.Server
+	processor     *runtime.Processor
+	mcp           *server.Server
+	mcpSource     *source.Server
+	reporter      monitoring.Reporter
+	listenerMutex sync.Mutex
+	listener      net.Listener
+	controlZ      *ctrlz.Server
+	stopCh        chan struct{}
+	callOut       *callout
 }
 
 type patchTable struct {
@@ -238,10 +239,13 @@ func (s *Server) Run() {
 			return
 		}
 
-		// start serving
-		err = s.grpcServer.Serve(s.listener)
-		if err != nil {
-			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
+		l := s.getListener()
+		if l != nil {
+			// start serving
+			err = s.grpcServer.Serve(l)
+			if err != nil {
+				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
+			}
 		}
 	}()
 	if s.callOut != nil {
@@ -253,12 +257,19 @@ func (s *Server) Run() {
 	}
 }
 
+func (s *Server) getListener() net.Listener {
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
+	return s.listener
+}
+
 // Address returns the Address of the MCP service.
 func (s *Server) Address() net.Addr {
-	if s.listener == nil {
+	l := s.getListener()
+	if l == nil {
 		return nil
 	}
-	return s.listener.Addr()
+	return l.Addr()
 }
 
 // Close cleans up resources used by the server.
@@ -280,10 +291,12 @@ func (s *Server) Close() error {
 		s.processor.Stop()
 	}
 
+	s.listenerMutex.Lock()
 	if s.listener != nil {
 		_ = s.listener.Close()
 		s.listener = nil
 	}
+	s.listenerMutex.Unlock()
 
 	if s.reporter != nil {
 		_ = s.reporter.Close()
