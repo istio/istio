@@ -22,6 +22,7 @@ import (
 )
 
 func TestTLSMultiplexing(t *testing.T) {
+	t.Skip()
 	if tc.Kube.AuthEnabled {
 		t.Skip("Skipping because multiplexing is used when mesh config auth_enabled is turned off...")
 	}
