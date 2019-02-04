@@ -1521,7 +1521,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				CredentialName:    "sds-name",
 			},
-			""},
+			"server certificate"},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -1548,7 +1548,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
-			""},
+			"server certificate"},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,

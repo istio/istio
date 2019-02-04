@@ -331,7 +331,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
 		enableIngressSdsAgent := false
-		if enableSds, found := node.Metadata["USER_SDS"]; found {
+		// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+		// gateway listener.
+		if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
 			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 		}
 		for _, server := range servers {
@@ -383,9 +385,26 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	// SIMPLE, generate SDS config for gateway controller.
 	if enableSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-		// SDS config for gateway to fetch credentials at gateway agent.
+		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+		}
+		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
+		// at gateway agent.
+		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+				},
+			}
+		} else if len(server.Tls.SubjectAltNames) > 0 {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -402,19 +421,6 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 				},
 			},
 		}
-	}
-
-	// If SDS is enabled at gateway, credential name is specified, and tls mode is MUTUAL, create SDS config for gateway to fetch
-	// certificate validation context at gateway agent. Otherwise, set up validation context in the original way.
-	if enableSds && server.Tls.CredentialName != "" && server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
-					server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
-			},
-		}
-	} else {
 		var trustedCa *core.DataSource
 		if len(server.Tls.CaCertificates) != 0 {
 			trustedCa = &core.DataSource{
