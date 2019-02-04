@@ -333,7 +333,7 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, servic
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig)
+		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
 }
@@ -354,7 +354,7 @@ func buildInboundListeners(p plugin.Plugin, sidecarConfig *model.Config, service
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig)
+		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	return configgen.buildSidecarInboundListeners(&env, &proxy, env.PushContext, instances)
 }
