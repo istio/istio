@@ -269,7 +269,7 @@ func (a *agent) terminate() {
 	a.desiredConfig = DrainConfig{}
 	a.reconcile()
 	time.Sleep(a.gracefulTerminationPeriod)
-	log.Infof("Graceful termniation period complete, terminating remaining proxies.")
+	log.Infof("Graceful termination period complete, terminating remaining proxies.")
 	a.abortAll()
 }
 
