@@ -38,27 +38,35 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
 
+var (
+	// debugMode is set once during InitDebug. Setting to true enables mem registry and ability to write through
+	// handlers that should not be allowed in production.
+	debugMode = false
+)
+
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
 // In future (post 1.0) it may be used for representing remote pilots.
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
-	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
-		}, 2)
-	s.MemRegistry.EDSUpdater = s
-	s.MemRegistry.ConfigUpdater = cfg
-	s.MemRegistry.ClusterID = "v2-debug"
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater, debug bool) {
+	debugMode = debug
+	if debugMode {
+		// For debugging and load testing v2 we add an memory registry.
+		s.MemRegistry = NewMemServiceDiscovery(
+			map[model.Hostname]*model.Service{// mock.HelloService.Hostname: mock.HelloService,
+			}, 2)
+		s.MemRegistry.EDSUpdater = s
+		s.MemRegistry.ConfigUpdater = cfg
+		s.MemRegistry.ClusterID = "v2-debug"
 
-	sctl.AddRegistry(aggregate.Registry{
-		ClusterID:        "v2-debug",
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
-		ServiceDiscovery: s.MemRegistry,
-		ServiceAccounts:  s.MemRegistry,
-		Controller:       s.MemRegistry.controller,
-	})
-
+		sctl.AddRegistry(aggregate.Registry{
+			ClusterID:        "v2-debug",
+			Name:             serviceregistry.ServiceRegistry("memAdapter"),
+			ServiceDiscovery: s.MemRegistry,
+			ServiceAccounts:  s.MemRegistry,
+			Controller:       s.MemRegistry.controller,
+		})
+	}
 	mux.HandleFunc("/ready", s.ready)
 
 	mux.HandleFunc("/debug/edsz", s.edsz)
@@ -454,18 +462,20 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
+	if debugMode {
+		svcName := req.Form.Get("svc")
+		if svcName != "" {
+			data, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				return
+			}
+			svc := &model.Service{}
+			err = json.Unmarshal(data, svc)
+			if err != nil {
+				return
+			}
+			s.MemRegistry.AddService(model.Hostname(svcName), svc)
 		}
-		svc := &model.Service{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
 	all, err := s.Env.ServiceDiscovery.Services()
@@ -507,18 +517,20 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
+	if debugMode {
+		svcName := req.Form.Get("svc")
+		if svcName != "" {
+			data, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				return
+			}
+			svc := &model.ServiceInstance{}
+			err = json.Unmarshal(data, svc)
+			if err != nil {
+				return
+			}
+			s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
 		}
-		svc := &model.ServiceInstance{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {

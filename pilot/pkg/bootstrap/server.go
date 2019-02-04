@@ -152,6 +152,7 @@ type PilotArgs struct {
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 	Plugins          []string
+	Debug            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -234,7 +235,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	if args.CtrlZOptions != nil {
+	if args.CtrlZOptions != nil && !args.Debug {
 		go ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
@@ -765,6 +766,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.configController,
 		environment,
 		args.DiscoveryOptions,
+		args.Debug,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery service: %v", err)
@@ -794,7 +796,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		}
 	}
 
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, discovery)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, discovery, args.Debug)
 
 	s.EnvoyXdsServer.ConfigController = s.configController
 

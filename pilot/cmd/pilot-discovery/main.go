@@ -141,6 +141,8 @@ func init() {
 	// enable webhook for specific xDS config (cds/lds/etc).
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
 		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Debug, "debug", false,
+		"Enable all pilot debug endpoints (registryz, ctrlz, endpointsz etc.)")
 
 	// Deprecated flags.
 	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080,
