@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -78,6 +79,8 @@ var (
 
 	// pilot agent config
 	kubeAppHTTPProbers string
+
+	wg sync.WaitGroup
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -286,8 +289,11 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
+			defer func() {
+				log.Info("pilot-agent is terminating")
+				cancel()
+				wg.Wait()
+			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
@@ -304,25 +310,29 @@ var (
 				if err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
+				go waitForCompletion(ctx, statusServer.Run)
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, proxyConfig.ParentShutdownDuration)
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
-			go agent.Run(ctx)
-			go watcher.Run(ctx)
+			go waitForCompletion(ctx, agent.Run)
+			go waitForCompletion(ctx, watcher.Run)
 
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
+			cmd.WaitSignal(make(chan struct{}))
 			return nil
 		},
 	}
 )
+
+func waitForCompletion(ctx context.Context, fn func(context.Context)) {
+	wg.Add(1)
+	fn(ctx)
+	wg.Done()
+}
 
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
