@@ -62,7 +62,7 @@ const (
 
 	// EnvoyTextLogFormat format for envoy text based access logs
 	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
 		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
@@ -96,6 +96,7 @@ var (
 			"downstream_local_address":  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address": &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
 			"requested_server_name":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"istio_policy_status":       &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 		},
 	}
 )
@@ -1318,6 +1319,7 @@ type httpListenerOpts struct {
 type filterChainOpts struct {
 	sniHosts         []string
 	destinationCIDRs []string
+	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
@@ -1545,6 +1547,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
+		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
 		if opt.httpOpts != nil {

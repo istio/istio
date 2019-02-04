@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -106,7 +105,7 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	if probe == nil || probe.HTTPGet == nil {
 		return nil
 	}
-	c := proto.Clone(probe.HTTPGet).(*corev1.HTTPGetAction)
+	c := probe.HTTPGet.DeepCopy()
 	// Change the application container prober config.
 	c.Port = intstr.FromInt(statusPort)
 	c.Path = newURL
