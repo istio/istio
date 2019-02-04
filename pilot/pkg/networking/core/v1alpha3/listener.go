@@ -278,7 +278,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		httpOpts := &core.Http1ProtocolOptions{
 			AllowAbsoluteUrl: proto.BoolTrue,
 		}
-		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1" {
+		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
 			httpOpts.AcceptHttp_10 = true
 		}
 
@@ -809,7 +809,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				if pluginParams.ListenerProtocol == plugin.ListenerProtocolHTTP &&
-						(pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1") {
+					(pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1") {
 					listenerOpts.filterChainOpts = []*filterChainOpts{{
 						httpOpts: &httpListenerOpts{
 							connectionManager: &http_conn.HttpConnectionManager{
@@ -883,7 +883,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						}
 
 						if pluginParams.ListenerProtocol == plugin.ListenerProtocolHTTP &&
-								(pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1") {
+							(pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1") {
 							listenerOpts.filterChainOpts = []*filterChainOpts{{
 								httpOpts: &httpListenerOpts{
 									connectionManager: &http_conn.HttpConnectionManager{

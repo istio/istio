@@ -500,10 +500,10 @@ const (
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
 
-	// NodeMetadataHttp10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
+	// NodeMetadataHTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
 	// protocol. It will enable the "AcceptHttp_10" option on the http options for outbound HTTP listeners.
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
-	NodeMetadataHttp10 = "HTTP10"
+	NodeMetadataHTTP10 = "HTTP10"
 
 	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
