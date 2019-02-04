@@ -223,9 +223,9 @@ func generateMetadataListMatcher(filter string, keys []string, v string) *metada
 	}
 }
 
-func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
+func createStringMatcher(v string, forceRegexPattern, prependSpiffe bool) *metadata.StringMatcher {
 	extraPrefix := ""
-	if forTCPFilter {
+	if prependSpiffe {
 		extraPrefix = spiffePrefix
 	}
 	var stringMatcher *metadata.StringMatcher
@@ -743,13 +743,23 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				},
 			}, nil
 		}
-	case isKeyBinary(key) && !attributesEnforcedInPlugin(key):
-		// Split key of format a[b] to [a, b].
+	case strings.HasPrefix(key, "envoy.filters.") && isKeyBinary(key):
+		// Split key of format envoy.filters.a.b[c] to [envoy.filters.a.b, c].
 		parts := strings.SplitN(strings.TrimSuffix(key, "]"), "[", 2)
 		converter = func(v string) (*policyproto.Permission, error) {
+			// If value if of format [v], create a list matcher.
+			// Else, if value is of format v, create a string matcher.
+			var metadataMatcher *metadata.MetadataMatcher
+			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+				metadataMatcher = generateMetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"))
+			} else {
+				stringMatcher := createStringMatcher(v, false, false)
+				metadataMatcher = generateMetadataStringMatcher(parts[1], stringMatcher, parts[0])
+			}
+
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Metadata{
-					Metadata: generateMetadataListMatcher(parts[0], parts[1:], v),
+					Metadata: metadataMatcher,
 				},
 			}, nil
 		}

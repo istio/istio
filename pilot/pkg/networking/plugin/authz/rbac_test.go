@@ -412,7 +412,20 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					{
 						Services: []string{"mysql"},
 						Constraints: []*rbacproto.AccessRule_Constraint{
-							{Key: "envoy.filters.network.mysql_proxy[db.table]", Values: []string{"update"}},
+							{Key: "envoy.filters.network.mysql_proxy[db.table]", Values: []string{"[update]"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-8"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"dummy"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "envoy.filters.dummy[key]", Values: []string{"value"}},
 						},
 					},
 				},
@@ -529,6 +542,20 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				RoleRef: &rbacproto.RoleRef{
 					Kind: "ServiceRole",
 					Name: "service-role-7",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-8"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "*",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-8",
 				},
 			},
 		},
@@ -833,6 +860,38 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
+	policy8sm := createStringMatcher("value", false, false)
+	policy8 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{{
+						Rule: &policy.Permission_OrRules{
+							OrRules: &policy.Permission_Set{
+								Rules: []*policy.Permission{{
+									Rule: &policy.Permission_Metadata{
+										Metadata: generateMetadataStringMatcher("key", policy8sm, "envoy.filters.dummy"),
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+		}},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{{
+						Identifier: &policy.Principal_Any{
+							Any: true,
+						},
+					}},
+				},
+			},
+		}},
+	}
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -874,6 +933,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-7": policy7,
+		},
+	}
+	expectRbac8 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-8": policy8,
 		},
 	}
 
@@ -958,11 +1023,19 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			option: option,
 		},
 		{
-			name: "service with metadata constraints",
+			name: "service with metadata list constraints",
 			service: &serviceMetadata{
 				name: "mysql",
 			},
 			rbac:   expectRbac7,
+			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
+		},
+		{
+			name: "service with metadata value constraints",
+			service: &serviceMetadata{
+				name: "dummy",
+			},
+			rbac:   expectRbac8,
 			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
 		},
 	}
