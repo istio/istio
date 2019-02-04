@@ -87,7 +87,7 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{start, nil, nil}, testRetry, types.DurationProto(time.Duration(-10*time.Second)))
+	a := NewAgent(TestProxy{start, nil, nil}, testRetry, types.DurationProto(-10*time.Second))
 	go a.Run(ctx)
 	a.ConfigCh() <- startConfig
 	<-blockChan
