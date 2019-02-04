@@ -30,6 +30,7 @@ ingress:
 service:
   annotations: {}
   nodePort:
+    annotations: {}
     enabled: false
     port: 32090
 

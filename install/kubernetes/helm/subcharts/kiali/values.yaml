@@ -20,6 +20,14 @@ ingress:
     # - secretName: kiali-tls
     #   hosts:
     #     - kiali.local
+service:
+  annotations: {}
+  name: http-kiali
+  type: ClusterIP
+  externalPort: 20001
+  loadBalancerIP:
+  loadBalancerSourceRanges:
+
 gateway:
   enabled: false
 dashboard:
