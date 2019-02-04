@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 import os
 import sys
 
@@ -329,7 +330,7 @@ def main(args):
         data = xds.lds(pod, True)
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
-        print "Wrote ", output_file
+        print("Wrote ", output_file)
 
         if pilot_port_forward_pid:
             subprocess.call(["kill", "%s" % pilot_port_forward_pid])
@@ -345,20 +346,20 @@ def main(args):
         data = pr.routes()
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
-        print "Wrote ", output_file
+        print("Wrote ", output_file)
 
         output_file = output_dir + "/" + "proxy_listeners.yaml"
         op = open(output_file, "wt")
         data = pr.listeners()
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
-        print "Wrote ", output_file
+        print("Wrote ", output_file)
 
         output_file = output_dir + "/" + "proxy_clusters.yaml"
         op = open(output_file, "wt")
         data = pr.clusters()
         op.write(data)
-        print "Wrote ", output_file
+        print("Wrote ", output_file)
 
         if envoy_port_forward_pid:
             subprocess.call(["kill", "%s" % envoy_port_forward_pid])

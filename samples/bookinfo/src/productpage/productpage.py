@@ -15,6 +15,7 @@
 #   limitations under the License.
 
 
+from __future__ import print_function
 from flask import Flask, request, session, render_template, redirect, url_for
 from flask import _request_ctx_stack as stack
 from jaeger_client import Tracer, ConstSampler
@@ -344,12 +345,12 @@ class Writer(object):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "usage: %s port" % (sys.argv[0])
+        print("usage: %s port" % (sys.argv[0]))
         sys.exit(-1)
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
-    print "start at port %s" % (p)
+    print("start at port %s" % (p))
     app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
 
