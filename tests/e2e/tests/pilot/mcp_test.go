@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
@@ -67,7 +68,7 @@ func TestPilotMCPClient(t *testing.T) {
 	sn.SetEntry(model.Gateway.Collection, "some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
 	sn.SetEntry(model.Gateway.Collection, "some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
 
-	mcpServer.Cache.SetSnapshot(snapshot.DefaultGroup, sn.Build())
+	mcpServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
 	tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()

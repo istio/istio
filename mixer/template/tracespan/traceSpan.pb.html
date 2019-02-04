@@ -30,8 +30,6 @@ spec:
     http.url: request.path | &quot;&quot;
     request.size: request.size | 0
     response.size: response.size | 0
-    source.ip: source.ip | ip(&quot;0.0.0.0&quot;)
-    source.service: source.service | &quot;&quot;
     source.user: source.user | &quot;&quot;
     source.version: source.labels[&quot;version&quot;] | &quot;&quot;
 </code></pre>
@@ -168,6 +166,101 @@ incompatibility, deterministically rewriting both span id of client span and
 parent span id of server span to the same newly generated id.</p>
 
 <p>Optional</p>
+
+</td>
+</tr>
+<tr id="Template-source_name">
+<td><code>sourceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the source (client side) of this span.
+Should usually be set to <code>source.workload.name</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-source_ip">
+<td><code>sourceIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Client IP address. Should usually be set to <code>source.ip</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-destination_name">
+<td><code>destinationName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the destination (server side) of this span.
+Should usually be set to <code>destination.workload.name</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-destination_ip">
+<td><code>destinationIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
+<td>
+<p>Server IP address. Should usually be set to <code>destination.ip</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-request_size">
+<td><code>requestSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Request body size. Should usually be set to <code>request.size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-request_total_size">
+<td><code>requestTotalSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Total request size (headers and body).
+Should usually be set to <code>request.total_size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-response_size">
+<td><code>responseSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Response body size. Should usually be set to <code>response.size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-response_total_size">
+<td><code>responseTotalSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Response total size (headers and body).
+Should usually be set to <code>response.total_size</code>.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+<tr id="Template-api_protocol">
+<td><code>apiProtocol</code></td>
+<td><code>string</code></td>
+<td>
+<p>One of &ldquo;http&rdquo;, &ldquo;https&rdquo;, or &ldquo;grpc&rdquo; or any other value of
+the <code>api.protocol</code> attribute. Should usually be set to <code>api.protocol</code>.</p>
+
+<p>Optional.</p>
 
 </td>
 </tr>

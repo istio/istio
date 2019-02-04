@@ -15,7 +15,6 @@
 syntax = "proto3";
 
 import "networking/v1alpha3/gateway.proto";
-import "networking/v1alpha3/sidecar.proto";
 
 package istio.networking.v1alpha3;
 
@@ -135,15 +134,23 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
+// The 'export_to' field allows for control over the visibility of a service
+// declaration to other namespaces in the mesh. By default a service is exported
+// to all namespaces. The following example restricts the visibility to the
+// current namespace, represented by ".", so that it cannot be used by other
+// namespaces.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: ServiceEntry
 // metadata:
 //   name: external-svc-httpbin
+//   namespace : egress
 // spec:
 //   hosts:
 //   - httpbin.com
+//   export_to:
+//   - .
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
@@ -159,6 +166,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // kind: Gateway
 // metadata:
 //  name: istio-egressgateway
+//  namespace: egress
 // spec:
 //  selector:
 //    istio: egressgateway
@@ -173,16 +181,22 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // And the associated VirtualService to route from the sidecar to the
 // gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
-// well as route from the gateway to the external service.
+// well as route from the gateway to the external service. Note that the
+// virtual service is exported to all namespaces enabling them to route traffic
+// through the gateway to the external service. Forcing traffic to go through
+// a managed middle proxy like this is a common practice.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: VirtualService
 // metadata:
 //   name: gateway-routing
+//   namespace: egress
 // spec:
 //   hosts:
 //   - httpbin.com
+//   export_to:
+//   - *
 //   gateways:
 //   - mesh
 //   - istio-egressgateway
@@ -429,10 +443,22 @@ message ServiceEntry {
   // One or more endpoints associated with the service.
   repeated Endpoint endpoints = 6;
 
-  // The visibility setting associated with this service entry. Set to
-  // PRIVATE if this service should not be visible outside the namespace
-  // where the service entry was added. The default scope is public,
-  // i.e. the service added by the service entry will be visible to
-  // workloads in the entire mesh.
-  ConfigScope config_scope = 7;
+  // $hide_from_docs
+  // A list of namespaces to which this service is exported. Exporting a service
+  // allows it to used by sidecars, gateways and virtual services defined in
+  // other namespaces. This feature provides a mechanism for service owners
+  // and mesh administrators to control the visibility of services across
+  // namespace boundaries.
+  //
+  // If no namespaces are specified then the service is exported to all
+  // namespaces by default.
+  //
+  // The value "." is reserved and defines an export to the same namespace that
+  // the service is declared in, similarly the value "*" is reserved and
+  // defines an export to all namespaces.
+  //
+  // For a Kubernetes Service the equivalent effect can be achieved by setting
+  // the annotation "networking.istio.io/export_to" to a comma-separated list
+  // of namespace names.
+  repeated string export_to = 7;
 }

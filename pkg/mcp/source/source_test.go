@@ -63,6 +63,7 @@ type sourceTestHarness struct {
 	watchResponses    map[string]*WatchResponse
 	pushResponseFuncs map[string][]PushResponseFunc
 	watchCreated      map[string]int
+	client            bool
 }
 
 func newSourceTestHarness(t *testing.T) *sourceTestHarness {
@@ -89,6 +90,11 @@ func (h *sourceTestHarness) resetStream() {
 }
 
 func (h *sourceTestHarness) Send(resources *mcp.Resources) error {
+	if h.client == true {
+		// Swallow trigger send for source client
+		h.client = false
+		return nil
+	}
 	// check that nonce is monotonically incrementing
 	h.nonce++
 	if resources.Nonce != fmt.Sprintf("%d", h.nonce) {
