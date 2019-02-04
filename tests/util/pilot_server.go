@@ -153,6 +153,7 @@ func setup() error {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
+		Debug: true,
 	}
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
