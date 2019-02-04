@@ -20,6 +20,7 @@ ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 
 RUN chmod 755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
 
