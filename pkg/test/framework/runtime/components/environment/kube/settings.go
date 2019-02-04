@@ -78,7 +78,7 @@ var (
 		"galley.enabled":              "true",
 	}
 
-	helmOverridesByTest = map[lifecycle.Scope]map[string]string{}
+	helmOverridesByTest = map[string]string{}
 )
 
 // settings provide kube-specific settings from flags.
@@ -131,25 +131,17 @@ func (s *settings) Values(scope lifecycle.Scope) map[string]string {
 	for k, v := range s.values {
 		out[k] = v
 	}
-	values, exists := helmOverridesByTest[scope]
-	if exists {
-		for k, v := range values {
-			out[k] = v
-		}
+	for k, v := range helmOverridesByTest {
+		out[k] = v
 	}
 	return out
 }
 
 // RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
 // This allows some test to specify a customized Istio deployment by specifying additional Helm values.
-// TODO(incfly): remove the flag value overrides.
-func RegisterHelmOverrides(scope lifecycle.Scope, values map[string]string) error {
-	_, exists := helmOverridesByTest[scope]
-	if exists {
-		return fmt.Errorf("Unable to register overrides, already exists scope = %v, values = %v", scope, values)
-	}
-	helmOverridesByTest[scope] = values
-	return nil
+// TODO(incfly): flag overrides should take higher priority?
+func RegisterHelmOverrides(scope lifecycle.Scope, values map[string]string) {
+	helmOverridesByTest = values
 }
 
 // New returns settings built from flags and environment variables.
