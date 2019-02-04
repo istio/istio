@@ -611,7 +611,7 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
-	helmValues := e.HelmValueMap(scope)
+	helmValues := e.HelmValueMap()
 	result, err := e.EvaluateWithParams(template, map[string]string{
 		"Hub":             helmValues[kube.HubValuesKey],
 		"Tag":             helmValues[kube.TagValuesKey],

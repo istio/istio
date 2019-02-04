@@ -46,7 +46,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	// Test requires this Helm flag to be enabled.
 	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	scopes.CI.SetOutputLevel(log.DebugLevel)
-	kube.RegisterHelmOverrides(lifecycle.System, map[string]string{
+	kube.RegisterHelmOverrides(map[string]string{
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
 	})
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
@@ -63,7 +63,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 }
 
 func newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
-	helmValues := e.HelmValueMap(scope)
+	helmValues := e.HelmValueMap()
 	b, err := ioutil.ReadFile("healthcheck.yaml")
 	if err != nil {
 		return nil, err

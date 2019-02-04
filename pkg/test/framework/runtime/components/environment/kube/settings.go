@@ -24,7 +24,6 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -126,7 +125,7 @@ type settings struct {
 }
 
 // Values returns the helm value overrides given a lifecycle scope.
-func (s *settings) Values(scope lifecycle.Scope) map[string]string {
+func (s *settings) Values() map[string]string {
 	out := map[string]string{}
 	for k, v := range s.values {
 		out[k] = v
@@ -140,7 +139,7 @@ func (s *settings) Values(scope lifecycle.Scope) map[string]string {
 // RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
 // This allows some test to specify a customized Istio deployment by specifying additional Helm values.
 // TODO(incfly): flag overrides should take higher priority?
-func RegisterHelmOverrides(scope lifecycle.Scope, values map[string]string) {
+func RegisterHelmOverrides(values map[string]string) {
 	helmOverridesByTest = values
 }
 

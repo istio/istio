@@ -134,7 +134,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		}
 	}()
 
-	values := env.HelmValueMap(scope)
+	values := env.HelmValueMap()
 	yamlContent, err := env.EvaluateWithParams(template, map[string]interface{}{
 		"Hub":             values[kube.HubValuesKey],
 		"Tag":             values[kube.TagValuesKey],

@@ -15,6 +15,8 @@
 package deployment
 
 import (
+	"fmt"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/kube"
