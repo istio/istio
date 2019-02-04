@@ -127,7 +127,11 @@ func (s *Server) Run(ctx context.Context) {
 			log.Errora(err)
 			// If the server errors then pilot-agent can never pass readiness or liveness probes
 			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
-			syscall.Kill(os.Getpid(), syscall.SIGTERM)
+			p, err := os.FindProcess(os.Getpid())
+			if err != nil {
+				log.Errora(err)
+			}
+			log.Errora(p.Signal(syscall.SIGTERM))
 		}
 	}()
 
