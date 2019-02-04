@@ -268,6 +268,7 @@ func (a *agent) terminate() {
 	log.Infof("Agent draining Proxy")
 	a.desiredConfig = DrainConfig{}
 	a.reconcile()
+	log.Infof("Graceful termination period is %v, starting...", a.gracefulTerminationPeriod)
 	time.Sleep(a.gracefulTerminationPeriod)
 	log.Infof("Graceful termination period complete, terminating remaining proxies.")
 	a.abortAll()
