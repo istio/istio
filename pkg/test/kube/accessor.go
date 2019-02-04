@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -44,7 +43,7 @@ const (
 )
 
 var (
-	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
+	defaultRetryTimeout = retry.Timeout(time.Minute * 3)
 	defaultRetryDelay   = retry.Delay(time.Second * 10)
 )
 
@@ -125,8 +124,6 @@ func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (ku
 	}
 
 	if len(list) == 0 {
-		fmt.Println("jianfeih debug find pod failure ")
-		debug.PrintStack()
 		return kubeApiCore.Pod{}, fmt.Errorf("no matching pod found for selectors: %v", selectors)
 	}
 
