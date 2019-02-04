@@ -709,3 +709,31 @@ func TestCreateInitialRequests(t *testing.T) {
 		t.Errorf("wrong requests with incemental enabled: \n got %v \nwant %v diff %v", got, want, diff)
 	}
 }
+
+func TestRequestRateLimitError(t *testing.T) {
+	fakeLimiter := newFakeRateLimiter()
+	options := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           NewInMemoryUpdater(),
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	sink := New(options)
+	sink.requestLimiter = fakeLimiter
+
+	h := newSinkTestHarness()
+
+	errC := make(chan error)
+	go func() {
+		errC <- sink.processStream(h)
+	}()
+
+	expectedErr := "rate limiting went wrong"
+	fakeLimiter.waitErr <- errors.New(expectedErr)
+
+	err := <-errC
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("rateLimiter error: expected %v got %v", expectedErr, err)
+	}
+}

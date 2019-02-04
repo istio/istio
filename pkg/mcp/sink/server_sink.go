@@ -62,10 +62,10 @@ type ServerOptions struct {
 }
 
 // NewServer creates a new instance of a MCP sink server.
-func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
+func NewServer(sinkOptions *Options, serverOptions *ServerOptions) *Server {
 	limiter := rate.NewLimiter(rate.Every(serverOptions.NewConnectionFreq), serverOptions.NewConnectionBurstSize)
 	s := &Server{
-		sink:                 New(srcOptions),
+		sink:                 New(sinkOptions),
 		newConnectionLimiter: limiter,
 		authCheck:            serverOptions.AuthChecker,
 	}

@@ -64,10 +64,10 @@ type ServerOptions struct {
 }
 
 // NewServer creates a new instance of a MCP source server.
-func NewServer(options *Options, serverOptions *ServerOptions) *Server {
+func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 	limiter := rate.NewLimiter(rate.Every(serverOptions.NewConnectionFreq), serverOptions.NewConnectionBurstSize)
 	s := &Server{
-		src:                  New(options),
+		src:                  New(srcOptions),
 		newConnectionLimiter: limiter,
 		authCheck:            serverOptions.AuthChecker,
 	}

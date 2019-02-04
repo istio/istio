@@ -15,13 +15,16 @@
 package sink
 
 import (
+	"context"
 	"io"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -49,11 +52,12 @@ type Sink struct {
 	mu    sync.Mutex
 	state map[string]*perCollectionState
 
-	nodeInfo *mcp.SinkNode
-	updater  Updater
-	journal  *RecentRequestsJournal
-	metadata map[string]string
-	reporter monitoring.Reporter
+	nodeInfo       *mcp.SinkNode
+	updater        Updater
+	journal        *RecentRequestsJournal
+	metadata       map[string]string
+	reporter       monitoring.Reporter
+	requestLimiter RateLimiter
 }
 
 // New creates a new resource sink.
@@ -78,6 +82,9 @@ func New(options *Options) *Sink { // nolint: lll
 		metadata: options.Metadata,
 		reporter: options.Reporter,
 		journal:  NewRequestJournal(),
+		requestLimiter: rate.NewLimiter(
+			rate.Every(options.PerConnRequestFreq),
+			options.PerConnRequestBurstSize),
 	}
 }
 
@@ -194,6 +201,9 @@ func (sink *Sink) processStream(stream Stream) error {
 			req = initialRequests[0]
 			initialRequests = initialRequests[1:]
 		} else {
+			if err := sink.requestLimiter.Wait(stream.Context()); err != nil {
+				return err
+			}
 			resources, err := stream.Recv()
 			if err != nil {
 				if err != io.EOF {
@@ -340,15 +350,18 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 
 // Options contains options for configuring MCP sinks.
 type Options struct {
-	CollectionOptions []CollectionOptions
-	Updater           Updater
-	ID                string
-	Metadata          map[string]string
-	Reporter          monitoring.Reporter
+	CollectionOptions       []CollectionOptions
+	Updater                 Updater
+	ID                      string
+	Metadata                map[string]string
+	Reporter                monitoring.Reporter
+	PerConnRequestBurstSize int
+	PerConnRequestFreq      time.Duration
 }
 
 // Stream is for sending RequestResources messages and receiving Resource messages.
 type Stream interface {
 	Send(*mcp.RequestResources) error
 	Recv() (*mcp.Resources, error)
+	Context() context.Context
 }

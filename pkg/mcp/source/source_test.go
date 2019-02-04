@@ -385,12 +385,16 @@ func TestRateLimitError(t *testing.T) {
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
 
-	expectedErr := "rate limiting went wrong"
+	errC := make(chan error)
 	go func() {
-		fakeLimiter.waitErr <- errors.New(expectedErr)
+		errC <- s.processStream(h)
 	}()
 
-	if err := s.processStream(h); err == nil || err.Error() != expectedErr {
+	expectedErr := "rate limiting went wrong"
+	fakeLimiter.waitErr <- errors.New(expectedErr)
+
+	err := <-errC
+	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Stream() => expected %v got %v", expectedErr, err)
 	}
 }
