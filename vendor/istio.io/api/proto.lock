@@ -207,6 +207,16 @@
                 "type": "PortSelector",
                 "is_repeated": true
               }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
             ]
           },
           {
@@ -581,6 +591,11 @@
                 "id": 5,
                 "name": "error_detail",
                 "type": "google.rpc.Status"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ],
             "maps": [
@@ -623,6 +638,11 @@
                 "id": 5,
                 "name": "nonce",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ]
           }
@@ -952,6 +972,34 @@
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
+              },
+              {
+                "id": 31,
+                "name": "default_service_export_to",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 32,
+                "name": "default_virtual_service_export_to",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 33,
+                "name": "default_destination_rule_export_to",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 34,
+                "name": "root_namespace",
+                "type": "string"
+              },
+              {
+                "id": 35,
+                "name": "locality_lb_setting",
+                "type": "LocalityLoadBalancerSetting"
               }
             ],
             "reserved_ids": [
@@ -983,6 +1031,60 @@
                 "id": 2,
                 "name": "tls_settings",
                 "type": "istio.networking.v1alpha3.TLSSettings"
+              }
+            ]
+          },
+          {
+            "name": "LocalityLoadBalancerSetting",
+            "fields": [
+              {
+                "id": 1,
+                "name": "distribute",
+                "type": "Distribute",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "failover",
+                "type": "Failover",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "Distribute",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "to",
+                      "type": "uint32"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Failover",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "to",
+                    "type": "string"
+                  }
+                ]
               }
             ]
           }
@@ -2576,8 +2678,9 @@
               },
               {
                 "id": 4,
-                "name": "config_scope",
-                "type": "ConfigScope"
+                "name": "export_to",
+                "type": "string",
+                "is_repeated": true
               }
             ]
           },
@@ -2681,12 +2784,6 @@
                 "id": 2,
                 "name": "consistent_hash",
                 "type": "ConsistentHashLB"
-              },
-              {
-                "id": 3,
-                "name": "locality_weight_settings",
-                "type": "LocalityWeightSetting",
-                "is_repeated": true
               }
             ],
             "messages": [
@@ -2734,26 +2831,6 @@
                         "type": "google.protobuf.Duration"
                       }
                     ]
-                  }
-                ]
-              },
-              {
-                "name": "LocalityWeightSetting",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "from",
-                    "type": "string"
-                  }
-                ],
-                "maps": [
-                  {
-                    "key_type": "string",
-                    "field": {
-                      "id": 2,
-                      "name": "to",
-                      "type": "uint32"
-                    }
                   }
                 ]
               }
@@ -3249,6 +3326,11 @@
                     "name": "cipher_suites",
                     "type": "string",
                     "is_repeated": true
+                  },
+                  {
+                    "id": 10,
+                    "name": "sds_name",
+                    "type": "string"
                   }
                 ]
               }
@@ -3352,8 +3434,9 @@
               },
               {
                 "id": 7,
-                "name": "config_scope",
-                "type": "ConfigScope"
+                "name": "export_to",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "messages": [
@@ -3409,19 +3492,6 @@
       "protopath": "networking:/:v1alpha3:/:sidecar.proto",
       "def": {
         "enums": [
-          {
-            "name": "ConfigScope",
-            "enum_fields": [
-              {
-                "name": "PUBLIC",
-                "integer": 0
-              },
-              {
-                "name": "PRIVATE",
-                "integer": 1
-              }
-            ]
-          },
           {
             "name": "CaptureMode",
             "enum_fields": [
@@ -3569,8 +3639,9 @@
               },
               {
                 "id": 6,
-                "name": "config_scope",
-                "type": "ConfigScope"
+                "name": "export_to",
+                "type": "string",
+                "is_repeated": true
               }
             ]
           },
@@ -4610,6 +4681,273 @@
       }
     },
     {
+      "protopath": "policy:/:v1beta1:/:http_response.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "HttpStatusCode",
+            "enum_fields": [
+              {
+                "name": "Empty",
+                "integer": 0
+              },
+              {
+                "name": "Continue",
+                "integer": 100
+              },
+              {
+                "name": "OK",
+                "integer": 200
+              },
+              {
+                "name": "Created",
+                "integer": 201
+              },
+              {
+                "name": "Accepted",
+                "integer": 202
+              },
+              {
+                "name": "NonAuthoritativeInformation",
+                "integer": 203
+              },
+              {
+                "name": "NoContent",
+                "integer": 204
+              },
+              {
+                "name": "ResetContent",
+                "integer": 205
+              },
+              {
+                "name": "PartialContent",
+                "integer": 206
+              },
+              {
+                "name": "MultiStatus",
+                "integer": 207
+              },
+              {
+                "name": "AlreadyReported",
+                "integer": 208
+              },
+              {
+                "name": "IMUsed",
+                "integer": 226
+              },
+              {
+                "name": "MultipleChoices",
+                "integer": 300
+              },
+              {
+                "name": "MovedPermanently",
+                "integer": 301
+              },
+              {
+                "name": "Found",
+                "integer": 302
+              },
+              {
+                "name": "SeeOther",
+                "integer": 303
+              },
+              {
+                "name": "NotModified",
+                "integer": 304
+              },
+              {
+                "name": "UseProxy",
+                "integer": 305
+              },
+              {
+                "name": "TemporaryRedirect",
+                "integer": 307
+              },
+              {
+                "name": "PermanentRedirect",
+                "integer": 308
+              },
+              {
+                "name": "BadRequest",
+                "integer": 400
+              },
+              {
+                "name": "Unauthorized",
+                "integer": 401
+              },
+              {
+                "name": "PaymentRequired",
+                "integer": 402
+              },
+              {
+                "name": "Forbidden",
+                "integer": 403
+              },
+              {
+                "name": "NotFound",
+                "integer": 404
+              },
+              {
+                "name": "MethodNotAllowed",
+                "integer": 405
+              },
+              {
+                "name": "NotAcceptable",
+                "integer": 406
+              },
+              {
+                "name": "ProxyAuthenticationRequired",
+                "integer": 407
+              },
+              {
+                "name": "RequestTimeout",
+                "integer": 408
+              },
+              {
+                "name": "Conflict",
+                "integer": 409
+              },
+              {
+                "name": "Gone",
+                "integer": 410
+              },
+              {
+                "name": "LengthRequired",
+                "integer": 411
+              },
+              {
+                "name": "PreconditionFailed",
+                "integer": 412
+              },
+              {
+                "name": "PayloadTooLarge",
+                "integer": 413
+              },
+              {
+                "name": "URITooLong",
+                "integer": 414
+              },
+              {
+                "name": "UnsupportedMediaType",
+                "integer": 415
+              },
+              {
+                "name": "RangeNotSatisfiable",
+                "integer": 416
+              },
+              {
+                "name": "ExpectationFailed",
+                "integer": 417
+              },
+              {
+                "name": "MisdirectedRequest",
+                "integer": 421
+              },
+              {
+                "name": "UnprocessableEntity",
+                "integer": 422
+              },
+              {
+                "name": "Locked",
+                "integer": 423
+              },
+              {
+                "name": "FailedDependency",
+                "integer": 424
+              },
+              {
+                "name": "UpgradeRequired",
+                "integer": 426
+              },
+              {
+                "name": "PreconditionRequired",
+                "integer": 428
+              },
+              {
+                "name": "TooManyRequests",
+                "integer": 429
+              },
+              {
+                "name": "RequestHeaderFieldsTooLarge",
+                "integer": 431
+              },
+              {
+                "name": "InternalServerError",
+                "integer": 500
+              },
+              {
+                "name": "NotImplemented",
+                "integer": 501
+              },
+              {
+                "name": "BadGateway",
+                "integer": 502
+              },
+              {
+                "name": "ServiceUnavailable",
+                "integer": 503
+              },
+              {
+                "name": "GatewayTimeout",
+                "integer": 504
+              },
+              {
+                "name": "HTTPVersionNotSupported",
+                "integer": 505
+              },
+              {
+                "name": "VariantAlsoNegotiates",
+                "integer": 506
+              },
+              {
+                "name": "InsufficientStorage",
+                "integer": 507
+              },
+              {
+                "name": "LoopDetected",
+                "integer": 508
+              },
+              {
+                "name": "NotExtended",
+                "integer": 510
+              },
+              {
+                "name": "NetworkAuthenticationRequired",
+                "integer": 511
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "DirectHttpResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "code",
+                "type": "HttpStatusCode"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "headers",
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "protopath": "policy:/:v1beta1:/:type.proto",
       "def": {
         "messages": [
@@ -4832,6 +5170,35 @@
         ],
         "messages": [
           {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationPolicy",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "allow",
+                "type": "ServiceRoleBinding",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "ServiceRole",
             "fields": [
               {
@@ -4852,8 +5219,26 @@
                 "is_repeated": true
               },
               {
+                "id": 5,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "not_hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "paths",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_paths",
                 "type": "string",
                 "is_repeated": true
               },
@@ -4861,6 +5246,24 @@
                 "id": 3,
                 "name": "methods",
                 "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "not_methods",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "ports",
+                "type": "int32",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "not_ports",
+                "type": "int32",
                 "is_repeated": true
               },
               {
@@ -4919,9 +5322,57 @@
                 "type": "string"
               },
               {
+                "id": 4,
+                "name": "principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "not_principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "group",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "not_namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "ips",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 11,
+                "name": "not_ips",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "maps": [
@@ -4982,6 +5433,12 @@
                     "id": 1,
                     "name": "services",
                     "type": "string",
+                    "is_repeated": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "workload_selectors",
+                    "type": "WorkloadSelector",
                     "is_repeated": true
                   },
                   {

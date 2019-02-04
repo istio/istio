@@ -27,25 +27,25 @@ import (
 func TestSchema_All(t *testing.T) {
 	// Test schema.All in isolation, as the rest of the tests depend on it.
 	s := Schema{
-		byURL: make(map[string]Info),
+		byCollection: make(map[string]Info),
 	}
 
-	foo := Info{TypeURL: TypeURL{"zoo.tar.com/foo"}}
-	bar := Info{TypeURL: TypeURL{"zoo.tar.com/bar"}}
-	s.byURL[foo.TypeURL.String()] = foo
-	s.byURL[bar.TypeURL.String()] = bar
+	foo := Info{Collection: Collection{"zoo/tar/com/foo"}}
+	bar := Info{Collection: Collection{"zoo/tar/com/bar"}}
+	s.byCollection[foo.Collection.String()] = foo
+	s.byCollection[bar.Collection.String()] = bar
 
 	infos := s.All()
 	sort.Slice(infos, func(i, j int) bool {
-		return strings.Compare(infos[i].TypeURL.String(), infos[j].TypeURL.String()) < 0
+		return strings.Compare(infos[i].Collection.String(), infos[j].Collection.String()) < 0
 	})
 
 	expected := []Info{
 		{
-			TypeURL: TypeURL{"zoo.tar.com/bar"},
+			Collection: bar.Collection,
 		},
 		{
-			TypeURL: TypeURL{"zoo.tar.com/foo"},
+			Collection: foo.Collection,
 		},
 	}
 
@@ -56,10 +56,10 @@ func TestSchema_All(t *testing.T) {
 
 func TestSchemaBuilder_Register_Success(t *testing.T) {
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
-	if _, found := s.byURL["type.googleapis.com/google.protobuf.Empty"]; !found {
+	if _, found := s.byCollection["foo"]; !found {
 		t.Fatalf("Empty type should have been registered")
 	}
 }
@@ -72,8 +72,8 @@ func TestRegister_DoubleRegistrationPanic(t *testing.T) {
 	}()
 
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 }
 
 func TestRegister_UnknownProto_Panic(t *testing.T) {
@@ -84,10 +84,10 @@ func TestRegister_UnknownProto_Panic(t *testing.T) {
 	}()
 
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/unknown")
+	b.Register("unknown", "type.googleapis.com/unknown")
 }
 
-func TestRegister_BadTypeURL(t *testing.T) {
+func TestRegister_BadCollection(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Fatal("should have panicked")
@@ -95,25 +95,25 @@ func TestRegister_BadTypeURL(t *testing.T) {
 	}()
 
 	b := NewSchemaBuilder()
-	b.Register("ftp://type.googleapis.com/google.protobuf.Empty")
+	b.Register("badCollection", "ftp://type.googleapis.com/google.protobuf.Empty")
 }
 
 func TestSchema_Lookup(t *testing.T) {
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
-	_, ok := s.Lookup("type.googleapis.com/google.protobuf.Empty")
+	_, ok := s.Lookup("foo")
 	if !ok {
 		t.Fatal("Should have found the info")
 	}
 
-	_, ok = s.Lookup("type.googleapis.com/Foo")
+	_, ok = s.Lookup("bar")
 	if ok {
 		t.Fatal("Shouldn't have found the info")
 	}
 
-	if _, found := s.byURL["type.googleapis.com/google.protobuf.Empty"]; !found {
+	if _, found := s.byCollection["foo"]; !found {
 		t.Fatalf("Empty type should have been registered")
 	}
 }
@@ -126,11 +126,11 @@ func TestSchema_Get_Success(t *testing.T) {
 	}()
 
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
-	i := s.Get("type.googleapis.com/google.protobuf.Empty")
-	if i.TypeURL.String() != "type.googleapis.com/google.protobuf.Empty" {
+	i := s.Get("foo")
+	if i.Collection.String() != "foo" {
 		t.Fatalf("Unexpected info: %v", i)
 	}
 }
@@ -143,62 +143,27 @@ func TestSchema_Get_Panic(t *testing.T) {
 	}()
 
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("panic", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
 	_ = s.Get("type.googleapis.com/foo")
 }
 
-func TestSchema_TypeURLs(t *testing.T) {
+func TestSchema_Collections(t *testing.T) {
 	b := NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	b.Register("type.googleapis.com/google.protobuf.Struct")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("bar", "type.googleapis.com/google.protobuf.Struct")
 	s := b.Build()
 
-	actual := s.TypeURLs()
+	actual := s.Collections()
 	sort.Strings(actual)
 
 	expected := []string{
-		"type.googleapis.com/google.protobuf.Empty",
-		"type.googleapis.com/google.protobuf.Struct",
+		"bar",
+		"foo",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("Mismatch\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
 }
-
-//
-//func TestSchema_NewProtoInstance(t *testing.T) {
-//	for _, info := range Types.All() {
-//		p := info.NewProtoInstance()
-//		name := plang.MessageName(p)
-//		if name != info.TypeURL.MessageName() {
-//			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.TypeURL, name)
-//		}
-//	}
-//}
-//
-//func TestSchema_LookupByTypeURL(t *testing.T) {
-//	for _, info := range Types.All() {
-//		i, found := Types.Lookup(info.TypeURL.string)
-//
-//		if !found {
-//			t.Fatalf("Expected info not found: %v", info)
-//		}
-//
-//		if i != info {
-//			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
-//		}
-//	}
-//}
-//
-//func TestSchema_TypeURLs(t *testing.T) {
-//	for _, url := range Types.TypeURLs() {
-//		_, found := Types.Lookup(url)
-//
-//		if !found {
-//			t.Fatalf("Expected info not found: %v", url)
-//		}
-//	}
-//}

@@ -1,0 +1,230 @@
+# Examples from the doc and site, in namespace examples
+# The 'egress' example conflicts, it's in separate namespace
+#
+# Ports:
+# - 27018 (mongo) - with VIP
+# - 443 - SNI routing
+# - 80 - *.bar.com resolution:NONE example
+#
+# - 8000 - virtual entry backed by multiple DNS-based services
+# - 8001 - unix domain socket
+#
+# - 1200 - the inbound service and
+# - 21200 - the inbound container
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: seexamples
+spec:
+  egress:
+  - hosts:
+      - seexamples/* # Doesn't work without this - should be default
+
+---
+# Test workload entry
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: workload
+  namespace: seexamples
+spec:
+  hosts:
+  - test.seexamples
+
+  ports:
+  - number: 1200
+    name: tcplocal
+    protocol: TCP
+
+  location: MESH_INTERNAL
+  resolution: STATIC
+
+  endpoints:
+  - address: 10.12.0.1
+    ports:
+      tcplocal: 21200
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+   name: external-svc-mongocluster
+   namespace: seexamples
+spec:
+  hosts:
+  - mymongodb.somedomain # not used
+ 
+  addresses:
+  - 192.192.192.192/24 # VIPs
+ 
+  ports:
+  - number: 27018
+    name: mongodb
+    protocol: MONGO
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+    
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: mtls-mongocluster
+  namespace: seexamples
+spec:
+  host: mymongodb.somedomain
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      # Envoy test runs in pilot/pkg/proxy/envoy/v2 directory, but envoy process base dir is set to IstioSrc
+      clientCertificate: tests/testdata/certs/default/cert-chain.pem
+      privateKey: tests/testdata/certs/default/key.pem
+      caCertificates: tests/testdata/certs/default/root-cert.pem
+      # Not included in the example, added for testing
+      sni: v1.mymongodb.somedomain
+      subjectAltNames:
+      - service.mongodb.somedomain
+
+---
+#The following example uses a combination of service entry and TLS
+#routing in virtual service to demonstrate the use of SNI routing to
+#forward unterminated TLS traffic from the application to external
+#services via the sidecar. The sidecar inspects the SNI value in the
+#ClientHello message to route to the appropriate external service.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-https
+  namespace: seexamples
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: TLS
+  resolution: DNS
+  
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+  namespace: seexamples
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - api.dropboxapi.com
+    route:
+    - destination:
+        host: api.dropboxapi.com
+  - match:
+    - port: 443
+      sniHosts:
+      - www.googleapis.com
+    route:
+    - destination:
+        host: www.googleapis.com
+  - match:
+    - port: 443
+      sniHosts:
+      - api.facebook.com
+    route:
+    - destination:
+        host: api.facebook.com
+---
+#The following example demonstrates the use of wildcards in the hosts for
+#external services. If the connection has to be routed to the IP address
+#requested by the application (i.e. application resolves DNS and attempts
+#to connect to a specific IP), the discovery mode must be set to `NONE`.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-wildcard-example
+  namespace: seexamples
+spec:
+  hosts:
+  - "*.bar.com"
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: NONE
+
+---
+# The following example demonstrates a service that is available via a
+# Unix Domain Socket on the host of the client. The resolution must be
+# set to STATIC to use unix address endpoints.
+
+# Modified to use port 8001
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+  namespace: seexamples
+spec:
+  hosts:
+  - "example.unix.local"
+  location: MESH_EXTERNAL
+  ports:
+  - number: 8001
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
+
+---
+
+# For HTTP based services, it is possible to create a VirtualService
+# backed by multiple DNS addressable endpoints. In such a scenario, the
+# application can use the HTTP_PROXY environment variable to transparently
+# reroute API calls for the VirtualService to a chosen backend. For
+# example, the following configuration creates a non-existent external
+# service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
+# uk.foo.bar.com:9080, and in.foo.bar.com:7080
+
+# Modified to use port 8000
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-dns
+  namespace: seexamples
+spec:
+  hosts:
+  - foo.bar.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 8000
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: us.foo.bar.com
+    ports:
+      # TODO: example uses 'https', which is rejected currently
+      http: 8080
+  - address: uk.foo.bar.com
+    ports:
+      http: 9080
+  - address: in.foo.bar.com
+    ports:
+      http: 7080
+
+---

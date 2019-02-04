@@ -20,3 +20,4 @@ nodeagent:
   env:
     CA_PROVIDER: "Citadel"
     CA_ADDR: "istio-citadel:8060"
+    VALID_TOKEN: true

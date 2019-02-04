@@ -33,6 +33,7 @@ var (
 	timeout   time.Duration
 	qps       int
 	url       string
+	uds       string
 	headerKey string
 	headerVal string
 	headers   string
@@ -46,6 +47,7 @@ func init() {
 	flag.IntVar(&qps, "qps", 0, "Queries per second")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
+	flag.StringVar(&uds, "uds", "", "Specify the Unix Domain Socket to connect to")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority) - deprecated user headers instead")
 	flag.StringVar(&headerVal, "val", "", "Header value - deprecated")
 	flag.StringVar(&headers, "headers", "", "A list of http headers (use Host for authority) - name:value[,name:value]*")
@@ -56,6 +58,7 @@ func init() {
 func newBatchOptions() (echo.BatchOptions, error) {
 	ops := echo.BatchOptions{
 		URL:     url,
+		UDS:     uds,
 		Timeout: timeout,
 		Count:   count,
 		QPS:     qps,

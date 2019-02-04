@@ -138,7 +138,6 @@ func (fx *FakeXdsUpdater) Clear() {
 		case <-fx.Events:
 		default:
 			wait = false
-			break
 		}
 	}
 }
@@ -838,17 +837,6 @@ func TestController_ExternalNameService(t *testing.T) {
 			MeshExternal: true,
 			Resolution:   model.DNSLB,
 		},
-	}
-	var expectedInstanceList []*model.ServiceInstance
-	for i, svc := range expectedSvcList {
-		expectedInstanceList = append(expectedInstanceList, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     k8sSvcs[i].Spec.ExternalName,
-				Port:        svc.Ports[0].Port,
-				ServicePort: svc.Ports[0],
-			},
-			Service: svc,
-		})
 	}
 
 	svcList, _ := controller.Services()

@@ -323,7 +323,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:0eccf960582d063e2835e55697536a14d479a4e7c4c785504021d56b938c22a9"
+  digest = "1:cd72afc3a00653fbd8b3e64169e4e444641dc1e0077df43aa41a5986f46ec0f6"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -343,6 +343,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/mysql_proxy/v1alpha1",
     "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/redis_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
@@ -361,8 +362,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "8a91fb26f4e6553d2e21fa76e07d33b93a4f66e7"
-  version = "v0.6.6"
+  revision = "eb553e72ac8724721a99ed85fcb116467c7a2bac"
+  version = "v0.6.7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -541,6 +542,20 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
+
+[[projects]]
+  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/cmpopts",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
+  pruneopts = "NUT"
+  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:51bee9f1987dcdb9f9a1b4c20745d78f6bf6f5f14ad4e64ca883eb64df4c0045"
@@ -947,6 +962,21 @@
   version = "v1.0.2"
 
 [[projects]]
+  digest = "1:38700b9492e4aff021a743577a57f450cbaa1dc375cf02c27cee54ed399c14cb"
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "model",
+    "propagation",
+    "reporter",
+    "reporter/http",
+  ]
+  pruneopts = "NUT"
+  revision = "d455a5674050831c1e187644faa4046d653433c2"
+  version = "v0.1.1"
+
+[[projects]]
   digest = "1:cce3a18fb0b96b5015cd8ca03a57d20a662679de03c4dc4b6ff5f17ea2050fa6"
   name = "github.com/pborman/uuid"
   packages = ["."]
@@ -1256,12 +1286,13 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
+  digest = "1:df8a68ff3f75ec4103510fe3d7ce9797c0d43c3cbd5fcef2bb2a13c70419de5b"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exporter/prometheus",
     "exporter/stackdriver/propagation",
+    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "plugin/ocgrpc",
@@ -1437,7 +1468,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
+  digest = "1:95537015f7ca5a9c4be766141b18bd9bf262ea0c247f47f58a8b7bb1bc368d46"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
@@ -1449,7 +1480,6 @@
     "iterator",
     "monitoring/v3",
     "option",
-    "servicecontrol/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -1612,7 +1642,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:4734fa874273984ca6e9ace462e73e7c775ca16e1ecf988e5aa7ae73c023fbb0"
+  digest = "1:e3cf579adaf530f319f3b11463f7513a0e28151bc6860a1d9f99b64513043300"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1628,7 +1658,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "aa7083e8826b9dd1dbb4a5f718ac470dbc5bda0a"
+  revision = "b524b1eb292237dfe01889b8049dca10310999db"
 
 [[projects]]
   branch = "release-1.11"
@@ -2011,6 +2041,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
@@ -2043,6 +2074,8 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
+    "github.com/google/go-cmp/cmp",
+    "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
     "github.com/google/uuid",
     "github.com/googleapis/gax-go",
@@ -2066,7 +2099,10 @@
     "github.com/opentracing/opentracing-go/ext",
     "github.com/opentracing/opentracing-go/log",
     "github.com/opentracing/opentracing-go/mocktracer",
-    "github.com/pborman/uuid",
+    "github.com/openzipkin/zipkin-go",
+    "github.com/openzipkin/zipkin-go/model",
+    "github.com/openzipkin/zipkin-go/reporter",
+    "github.com/openzipkin/zipkin-go/reporter/http",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/api",
@@ -2092,6 +2128,7 @@
     "github.com/uber/jaeger-client-go/zipkin",
     "github.com/yl2chen/cidranger",
     "go.opencensus.io/exporter/prometheus",
+    "go.opencensus.io/exporter/zipkin",
     "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/plugin/ochttp/propagation/b3",
@@ -2108,16 +2145,13 @@
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
     "golang.org/x/net/publicsuffix",
-    "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
     "google.golang.org/api/cloudtrace/v1",
-    "google.golang.org/api/googleapi",
     "google.golang.org/api/iterator",
     "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
-    "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
@@ -2129,6 +2163,7 @@
     "google.golang.org/grpc/balancer",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
+    "google.golang.org/grpc/credentials/oauth",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
     "google.golang.org/grpc/keepalive",
@@ -2164,6 +2199,7 @@
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/fields",
@@ -2171,6 +2207,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -2206,6 +2243,7 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
+    "k8s.io/client-go/util/jsonpath",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",

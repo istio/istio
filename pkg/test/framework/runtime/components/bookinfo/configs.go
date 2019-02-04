@@ -20,6 +20,8 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.
@@ -32,8 +34,14 @@ const (
 	// NetworkingDestinationRuleAll uses "networking/destination-rule-all.yaml"
 	NetworkingDestinationRuleAll ConfigFile = "networking/destination-rule-all.yaml"
 
+	// NetworkingDestinationRuleAllMtls uses "networking/destination-rule-all-mtls.yaml"
+	NetworkingDestinationRuleAllMtls ConfigFile = "networking/destination-rule-all-mtls.yaml"
+
 	// NetworkingVirtualServiceAllV1 uses "networking/virtual-service-all-v1.yaml"
 	NetworkingVirtualServiceAllV1 ConfigFile = "networking/virtual-service-all-v1.yaml"
+
+	// NetworkingTcpDbRule uses "networking/virtual-service-ratings-db.yaml"
+	NetworkingTCPDbRule ConfigFile = "networking/virtual-service-ratings-db.yaml"
 
 	// MixerRuleRatingsRatelimit uses "policy/mixer-rule-ratings-ratelimit.yaml"
 	MixerRuleRatingsRatelimit ConfigFile = "policy/mixer-rule-ratings-ratelimit.yaml"
@@ -56,4 +64,15 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	}
 
 	return content
+}
+
+func GetDestinationRuleConfigFile(t testing.TB, ctx component.Repository) ConfigFile {
+	env, err := kube.GetEnvironment(ctx)
+	if err != nil {
+		t.Fatalf("Could not get test environment: %v", err)
+	}
+	if env.IsMtlsEnabled() {
+		return NetworkingDestinationRuleAllMtls
+	}
+	return NetworkingDestinationRuleAll
 }

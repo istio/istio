@@ -20,9 +20,7 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "80"
+            path: /app-health/hello/livez
             port: 15020
         name: hello
         ports:
@@ -30,17 +28,13 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "3333"
+            path: /app-health/hello/readyz
             port: 15020
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "90"
+            path: /app-health/world/livez
             port: 15020
         name: world
         ports:
@@ -79,6 +73,10 @@ spec:
         - "15020"
         - --applicationPorts
         - 80,90
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
+        - '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         env:
         - name: POD_NAME
           valueFrom:

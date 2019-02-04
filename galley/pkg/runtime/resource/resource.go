@@ -25,21 +25,24 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// Collection of the resource.
+type Collection struct{ string }
+
 // TypeURL of the resource.
 type TypeURL struct{ string }
 
 // Version is the version identifier of a resource.
 type Version string
 
-// FullName of the resource. It is unique within a given set of resource of the same TypeUrl.
+// FullName of the resource. It is unique within a given set of resource of the same collection.
 type FullName struct {
 	string
 }
 
 // Key uniquely identifies a (mutable) config resource in the config space.
 type Key struct {
-	// TypeURL of the resource.
-	TypeURL TypeURL
+	// Collection of the resource.
+	Collection Collection
 
 	// Fully qualified name of the resource.
 	FullName FullName
@@ -74,10 +77,11 @@ type Entry struct {
 
 // Info is the type metadata for an Entry.
 type Info struct {
-	// TypeURL of the resource that this info is about
-	TypeURL TypeURL
+	// Collection of the resource that this info is about
+	Collection Collection
 
-	goType reflect.Type
+	goType  reflect.Type
+	TypeURL TypeURL
 }
 
 // newTypeURL validates the passed in url as a type url, and returns a strongly typed version.
@@ -110,6 +114,16 @@ func (t TypeURL) String() string {
 	return t.string
 }
 
+// newCollection returns a strongly typed collection.
+func newCollection(collection string) Collection {
+	return Collection{collection}
+}
+
+// String interface method implementation.
+func (t Collection) String() string {
+	return t.string
+}
+
 // FullNameFromNamespaceAndName returns a FullName from namespace and name.
 func FullNameFromNamespaceAndName(namespace, name string) FullName {
 	if namespace == "" {
@@ -136,12 +150,12 @@ func (n FullName) InterpretAsNamespaceAndName() (string, string) {
 
 // String interface method implementation.
 func (k Key) String() string {
-	return fmt.Sprintf("[Key](%s:%s)", k.TypeURL, k.FullName)
+	return fmt.Sprintf("[Key](%s:%s)", k.Collection, k.FullName)
 }
 
 // String interface method implementation.
 func (k VersionedKey) String() string {
-	return fmt.Sprintf("[VKey](%s:%s @%s)", k.TypeURL, k.FullName, k.Version)
+	return fmt.Sprintf("[VKey](%s:%s @%s)", k.Collection, k.FullName, k.Version)
 }
 
 // IsEmpty returns true if the resource Entry.Item is nil.
@@ -151,7 +165,7 @@ func (r *Entry) IsEmpty() bool {
 
 // String interface method implementation.
 func (i *Info) String() string {
-	return fmt.Sprintf("[Info](%s,%s)", i.TypeURL, i.TypeURL)
+	return fmt.Sprintf("[Info](%s,%s)", i.Collection, i.Collection)
 }
 
 // NewProtoInstance returns a new instance of the underlying proto for this resource.
@@ -162,7 +176,7 @@ func (i *Info) NewProtoInstance() proto.Message {
 	if p, ok := instance.(proto.Message); !ok {
 		panic(fmt.Sprintf(
 			"NewProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
-			i.TypeURL, i.goType, instance))
+			i.Collection, i.goType, instance))
 	} else {
 		return p
 	}

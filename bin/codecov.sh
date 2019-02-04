@@ -47,6 +47,7 @@ function cleanup() {
 trap cleanup EXIT
 
 # Setup environment needed by some tests.
+make sync
 make localTestEnv
 
 # coverage test needs to run one package per command.

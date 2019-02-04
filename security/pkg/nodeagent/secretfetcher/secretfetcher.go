@@ -21,40 +21,33 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/log"
-
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
-
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-
-	"istio.io/istio/security/pkg/nodeagent/model"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	ca "istio.io/istio/security/pkg/nodeagent/caclient"
+	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 const (
 	secretResyncPeriod = 15 * time.Second
 
-	// IngressSecretType the type of kubernetes secrets for ingress gateway.
-	IngressSecretType = "istio.io/ingress-key-cert"
+	// The ID/name for the certificate chain in kubernetes generic secret.
+	genericScrtCert = "cert"
+	// The ID/name for the k8sKey in kubernetes generic secret.
+	genericScrtKey = "key"
 
-	// KubeConfigFile the config file name for kubernetes client.
-	// Specifies empty file name to use InClusterConfig.
-	KubeConfigFile = ""
-
-	// The ID/name for the certificate chain in kubernetes secret.
-	ScrtCert = "cert"
-	// The ID/name for the k8sKey in kubernetes secret.
-	ScrtKey = "key"
+	// The ID/name for the certificate chain in kubernetes tls secret.
+	tlsScrtCert = "tls.crt"
+	// The ID/name for the k8sKey in kubernetes tls secret.
+	tlsScrtKey = "tls.key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
@@ -88,19 +81,6 @@ func fatalf(template string, args ...interface{}) {
 	os.Exit(-1)
 }
 
-// createClientset creates kubernetes client to watch kubernetes secrets.
-func createClientset() *kubernetes.Clientset {
-	c, err := clientcmd.BuildConfigFromFlags("", KubeConfigFile)
-	if err != nil {
-		fatalf("Failed to create a config for kubernetes client (error: %s)", err)
-	}
-	cs, err := kubernetes.NewForConfig(c)
-	if err != nil {
-		fatalf("Failed to create a clientset (error: %s)", err)
-	}
-	return cs
-}
-
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
 func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
 	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
@@ -108,7 +88,10 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
-		cs := createClientset()
+		cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			fatalf("Could not create k8s clientset: %v", err)
+		}
 		ret.Init(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
@@ -133,7 +116,7 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 // Init initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
 	namespace := os.Getenv(ingressSecretNameSpace)
-	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
+	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
@@ -152,6 +135,17 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		})
 }
 
+func extractCertAndKey(scrt *v1.Secret) (cert, key []byte) {
+	if len(scrt.Data[genericScrtCert]) > 0 {
+		cert = scrt.Data[genericScrtCert]
+		key = scrt.Data[genericScrtKey]
+	} else {
+		cert = scrt.Data[tlsScrtCert]
+		key = scrt.Data[tlsScrtKey]
+	}
+	return cert, key
+}
+
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
@@ -161,12 +155,13 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
+	newCert, newKey := extractCertAndKey(scrt)
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
-		CertificateChain: scrt.Data[ScrtCert],
-		PrivateKey:       scrt.Data[ScrtKey],
+		CertificateChain: newCert,
+		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
@@ -202,30 +197,32 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	okey := oscrt.GetName()
-	nkey := nscrt.GetName()
-	if okey != nkey {
-		log.Warnf("Failed to update secret: name does not match (%s vs %s).", okey, nkey)
+	oldScrtName := oscrt.GetName()
+	newScrtName := nscrt.GetName()
+	if oldScrtName != newScrtName {
+		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	if bytes.Equal(oscrt.Data[ScrtCert], nscrt.Data[ScrtCert]) && bytes.Equal(oscrt.Data[ScrtKey], nscrt.Data[ScrtKey]) {
-		log.Debugf("secret %s does not change, skip update", okey)
+	oldCert, oldKey := extractCertAndKey(oscrt)
+	newCert, newKey := extractCertAndKey(nscrt)
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) {
+		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
-	sf.secrets.Delete(okey)
+	sf.secrets.Delete(oldScrtName)
 
 	t := time.Now()
 	ns := &model.SecretItem{
-		ResourceName:     nkey,
-		CertificateChain: nscrt.Data[ScrtCert],
-		PrivateKey:       nscrt.Data[ScrtKey],
+		ResourceName:     newScrtName,
+		CertificateChain: newCert,
+		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
-	sf.secrets.Store(nkey, *ns)
+	sf.secrets.Store(newScrtName, *ns)
 	log.Debugf("secret %s is updated", nscrt.GetName())
 	if sf.UpdateCache != nil {
-		sf.UpdateCache(nkey, *ns)
+		sf.UpdateCache(newScrtName, *ns)
 	}
 }
 

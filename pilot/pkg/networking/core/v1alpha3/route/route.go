@@ -17,6 +17,7 @@ package route
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
@@ -108,7 +110,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -246,19 +248,17 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	vsName := virtualService.ConfigMeta.Name
-
 	out := make([]route.Route, 0, len(vs.Http))
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
@@ -300,7 +300,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	vsName string,
+	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
@@ -319,8 +319,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:           translateRouteMatch(match),
-		PerFilterConfig: make(map[string]*types.Struct),
+		Match:    translateRouteMatch(match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+	}
+
+	if util.IsProxyVersionGE11(node) {
+		out.TypedPerFilterConfig = make(map[string]*types.Any)
+	} else {
+		out.PerFilterConfig = make(map[string]*types.Struct)
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -334,7 +340,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	} else {
 		action := &route.RouteAction{
 			Cors:        translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy: translateRetryPolicy(in.Retries),
+			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
 		if in.Timeout != nil {
@@ -423,7 +429,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			weighted = append(weighted, clusterWeight)
 
-			hashPolicy := getHashPolicy(push, node, dst)
+			var configNamespace string
+			if serviceRegistry[hostname] != nil {
+				configNamespace = serviceRegistry[hostname].Attributes.Namespace
+			}
+			hashPolicy := getHashPolicy(push, node, dst, configNamespace)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -446,10 +456,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, vsName, port),
+		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
+		if util.IsProxyVersionGE11(node) {
+			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(node, in.Fault))
+		} else {
+			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
+		}
 	}
 
 	return out
@@ -561,32 +575,6 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 	return out
 }
 
-// translateRetryPolicy translates retry policy
-func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
-	if in != nil && in.Attempts > 0 {
-		d := util.GogoDurationToDuration(in.PerTryTimeout)
-		// default retry on condition
-		retryOn := "gateway-error,connect-failure,refused-stream,unavailable,cancelled,resource-exhausted"
-		if in.RetryOn != "" {
-			retryOn = in.RetryOn
-		}
-		return &route.RouteAction_RetryPolicy{
-			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
-			RetryOn:       retryOn,
-			PerTryTimeout: &d,
-			RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
-				{
-					// to configure retries to prefer hosts that haven’t been attempted already,
-					// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
-					Name: "envoy.retry_host_predicates.previous_hosts",
-				},
-			},
-			HostSelectionRetryMaxAttempts: 3,
-		}
-	}
-	return nil
-}
-
 // translateCORSPolicy translates CORS policy
 func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
@@ -595,14 +583,16 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		Enabled:     proto.BoolTrue,
+		EnabledSpecifier: &route.CorsPolicy_Enabled{
+			Enabled: proto.BoolTrue,
+		},
 	}
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
 	if in.MaxAge != nil {
-		out.MaxAge = in.MaxAge.String()
+		out.MaxAge = strconv.FormatInt(in.MaxAge.GetSeconds(), 10)
 	}
 	return &out
 }
@@ -634,8 +624,8 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	return fmt.Sprintf("%s:%d%s", vsName, port, path)
 }
 
-// BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+// BuildDefaultHTTPInboundRoute builds a default inbound route.
+func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 
 	return &route.Route{
@@ -651,6 +641,16 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 			},
 		},
 	}
+}
+
+// BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
+func BuildDefaultHTTPOutboundRoute(clusterName string, operation string) *route.Route {
+	// Start with the same configuration as for inbound.
+	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
+
+	// Add a default retry policy for outbound routes.
+	out.GetRoute().RetryPolicy = retry.DefaultPolicy()
+	return out
 }
 
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance
@@ -758,13 +758,18 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
+	configNamespace string) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node, model.Hostname(destination.GetHost()))
+	destinationRule := push.DestinationRule(node,
+		&model.Service{
+			Hostname:   model.Hostname(destination.Host),
+			Attributes: model.ServiceAttributes{Namespace: configNamespace},
+		})
 	if destinationRule == nil {
 		return nil
 	}

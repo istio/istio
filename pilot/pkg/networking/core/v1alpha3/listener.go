@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 )
@@ -176,11 +177,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	mesh := env.Mesh
 
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
+	proxyInstances := node.ServiceInstances
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -196,7 +194,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		generateManagementListeners := true
 
 		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners {
+		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+			noneMode {
 			generateManagementListeners = false
 		}
 
@@ -225,15 +224,31 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			}
 		}
 
-		// We need a passthrough filter to fill in the filter stack for orig_dst listener
-		passthroughTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.PassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+		tcpProxy := &tcp_proxy.TcpProxy{
+			StatPrefix:       util.BlackHoleCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		}
 
+		if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			// We need a passthrough filter to fill in the filter stack for orig_dst listener
+			tcpProxy = &tcp_proxy.TcpProxy{
+				StatPrefix:       util.PassthroughCluster,
+				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+			}
+		}
 		var transparent *google_protobuf.BoolValue
 		if node.GetInterceptionMode() == model.InterceptionTproxy {
 			transparent = proto.BoolTrue
+		}
+
+		filter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+
+		if util.IsProxyVersionGE11(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -244,21 +259,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
 				{
-					Filters: []listener.Filter{
-						{
-							Name: xdsutil.TCPProxy,
-							ConfigType: &listener.Filter_Config{
-								Config: util.MessageToStruct(passthroughTCPProxy),
-							},
-						},
-					},
+					Filters: []listener.Filter{filter},
 				},
 			},
 		})
 	}
 
+	httpProxyPort := mesh.ProxyHttpPort
+	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
+		httpProxyPort = int32(pilot.DefaultPortHTTPProxy)
+	}
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if mesh.ProxyHttpPort > 0 {
+	if httpProxyPort > 0 {
 		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
@@ -268,7 +280,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			bind:           listenAddress,
-			port:           int(mesh.ProxyHttpPort),
+			port:           int(httpProxyPort),
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
@@ -326,6 +338,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	}
 
 	sidecarScope := node.SidecarScope
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
@@ -356,6 +369,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
+				proxyLabels:    proxyLabels,
 				bind:           bind,
 				port:           endpoint.Port,
 				bindToPort:     bindToPort,
@@ -380,11 +394,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			if node.GetInterceptionMode() == model.InterceptionNone {
+			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -405,39 +418,35 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				Name:     ingressListener.Port.Name,
 			}
 
+			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
+			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
+			// Sidecar doesn't include all the info needed to configure a port.
+			instance := configgen.findServiceInstanceForIngressListener(proxyInstances, ingressListener)
+
+			if instance == nil {
+				// We didn't find a matching service instance. Skip this ingress listener
+				continue
+			}
+
 			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to 127.0.0.1
+			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
 			if len(bind) == 0 && bindToPort {
-				bind = LocalhostAddress
+				bind = WildcardAddress
 			} else if len(bind) == 0 {
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
 				// as they should all be pointing to the same network endpoint
-				bind = proxyInstances[0].Endpoint.Address
+				bind = instance.Endpoint.Address
 			}
 
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
+				proxyLabels:    proxyLabels,
 				bind:           bind,
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
-			}
-
-			// Construct a dummy service instance for this port so that the rest of the code doesn't freak out
-			// due to a missing instance. Technically this instance is not a service instance as it corresponds to
-			// some workload listener. But given that we force all workloads to be part of atleast one service,
-			// lets create a service instance for this workload based on the first service associated with the workload.
-			// TODO: We are arbitrarily using the first proxyInstance. When a workload has multiple services bound to it,
-			// what happens? We could run the loop for every instance but we would have the same listeners.
-
-			// First create a copy of a service instance
-			instance := &model.ServiceInstance{
-				Endpoint:       proxyInstances[0].Endpoint,
-				Service:        proxyInstances[0].Service,
-				Labels:         proxyInstances[0].Labels,
-				ServiceAccount: proxyInstances[0].ServiceAccount,
 			}
 
 			// Update the values here so that the plugins use the right ports
@@ -662,6 +671,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := node.SidecarScope
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -673,23 +683,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		virtualServices := push.VirtualServices(node, meshGateway)
 
-		// determine the bindToPort setting for listeners
-		bindToPort := false
-		if node.GetInterceptionMode() == model.InterceptionNone {
-			bindToPort = true
-		}
-
-		bind := ""
-		if bindToPort {
-			bind = LocalhostAddress
-		}
 		for _, service := range services {
 			for _, servicePort := range service.Ports {
-				// if the workload has NONE mode interception, then we generate TCP ports only
-				// Skip generating HTTP listeners, as we will generate a single HTTP proxy
-				if bindToPort && servicePort.Protocol.IsHTTP() {
-					continue
-				}
 
 				listenerOpts := buildListenerOpts{
 					env:            env,
@@ -697,8 +692,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
 					port:           servicePort.Port,
-					bind:           bind,
-					bindToPort:     bindToPort,
+					bind:           "",
+					bindToPort:     false,
 				}
 
 				pluginParams := &plugin.InputParams{
@@ -708,7 +703,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Node:             node,
 					ProxyInstances:   proxyInstances,
 					Push:             push,
-					Bind:             bind,
+					Bind:             "",
 					Port:             servicePort,
 					Service:          service,
 				}
@@ -737,7 +732,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			if node.GetInterceptionMode() == model.InterceptionNone {
+			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -769,19 +764,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Name:     egressListener.IstioListener.Port.Name,
 				}
 
-				// user can specify a Port without a bind address. If IPtables capture mode
-				// (i.e bind to port is false) we bind to 0.0.0.0. Else, for NONE mode we bind to 127.0.0.1
+				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
+				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
+				// we will bind to user specified IP (if any) or to 0.0.0.0
 				// We cannot auto infer bind IPs here from the imported services as the user could specify
 				// some random port and import 100s of multi-port services. Our behavior for HTTP is that
 				// when the user explicitly specifies a port, we establish a HTTP proxy on that port for
 				// the imported services. For TCP, the user would have to specify a virtualService for the
 				// imported Service, mapping from the listenPort to some specific service port
-				bind := egressListener.IstioListener.Bind
-				// if bindToPort is true, we set the bind address if empty to 127.0.0.1
-				if len(bind) == 0 {
-					if bindToPort {
-						bind = LocalhostAddress
-					} else {
+				bind := ""
+				if bindToPort {
+					bind = LocalhostAddress
+				} else {
+					bind = egressListener.IstioListener.Bind
+					if len(bind) == 0 {
 						bind = WildcardAddress
 					}
 				}
@@ -840,6 +836,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 				for _, service := range services {
 					for _, servicePort := range service.Ports {
+						// check if this node is capable of starting a listener on this service port
+						// if bindToPort is true. Else Envoy will crash
+						if !validatePort(node, servicePort.Port, bindToPort) {
+							continue
+						}
+
 						listenerOpts := buildListenerOpts{
 							env:            env,
 							proxy:          node,
@@ -885,6 +887,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
+}
+
+// validatePort checks if the sidecar proxy is capable of listening on a
+// given port in a particular bind mode for a given UID. Sidecars not running
+// as root wont be able to listen on ports <1024 when using bindToPort = true
+func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
+	if !bindToPort {
+		return true // all good, iptables doesn't care
+	}
+
+	if i > 1024 {
+		return true
+	}
+
+	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
+	if proxyProcessUID == "0" {
+		return true
+	}
+
+	return false
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1227,7 +1249,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolMySQL:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
@@ -1296,6 +1318,7 @@ type httpListenerOpts struct {
 type filterChainOpts struct {
 	sniHosts         []string
 	destinationCIDRs []string
+	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
@@ -1378,16 +1401,18 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Path: env.Mesh.AccessLogFile,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.FileAccessLog,
 		}
 
-		connectionManager.AccessLog = []*accesslog.AccessLog{
-			{
-				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
-				Name:       xdsutil.FileAccessLog,
-			},
+		if util.IsProxyVersionGE11(node) {
+			buildAccessLog(fl, env)
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
+
+		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
 	}
 
 	if env.Mesh.EnableTracing {
@@ -1521,15 +1546,21 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
+		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])},
-			})
+			filter := listener.Filter{
+				Name: xdsutil.HTTPConnectionManager,
+			}
+			if util.IsProxyVersionGE11(pluginParams.Node) {
+				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+			} else {
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			}
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}

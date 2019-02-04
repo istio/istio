@@ -127,11 +127,8 @@ global:
   proxy:
     image: proxyv2
 
-    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
-    proxyDomain: ""
-
-    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
-    discoveryDomain: ""
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
 
     # Resources for the sidecar.
     resources:
@@ -201,7 +198,7 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc.istio-system
       port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
@@ -280,7 +277,7 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
-  # Default node selector to be applied to all deployments so that all pos can be 
+  # Default node selector to be applied to all deployments so that all pods can be 
   # constrained to run a particular nodes. Each component can overwrite these default 
   # values by adding its node selector block in the relevant section below and setting 
   # the desired values.
@@ -328,9 +325,12 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
-    minAvailable: 1
-    # maxUnavailable: 1
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
@@ -338,13 +338,6 @@ global:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
-
-  # Include the crd definition when generating the template.
-  # For 'helm template' and helm install > 2.10 it should be true.
-  # For helm < 2.9, crds must be installed ahead of time with
-  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-  # and this options must be set off.
-  crds: true
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
@@ -357,6 +350,27 @@ global:
   #   kubernetes: cluster.local
   #   else:  default dns domain
   trustDomain: ""
+
+  # Set the default behavior of the sidecar for handling outbound traffic from the application:
+  # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+  #   as those defined through ServiceEntries
+  # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
+  #   services or ServiceEntries for the destination port
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
+  # configRootNamespace: istio-config
+
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
+  defaultConfigVisibilitySettings:
+  - '*'
 
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be

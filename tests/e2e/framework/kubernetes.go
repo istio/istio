@@ -30,16 +30,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
 )
 
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
+	initInstallFile                = "istio-init.yaml"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	authSdsInstallFile             = "istio-auth-sds.yaml"
@@ -47,6 +47,7 @@ const (
 	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	trustDomainFileNamespace       = "istio-one-namespace-trust-domain.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
 	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
 	mcRemoteInstallFile            = "istio-remote.yaml"
@@ -58,7 +59,7 @@ const (
 	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
-	maxDeploymentRolloutTime       = 480 * time.Second
+	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
@@ -96,6 +97,7 @@ var (
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
+	trustDomainEnable  = flag.Bool("trust_domain_enable", false, "Enable different trust domains (e.g. test.local)")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
@@ -175,12 +177,12 @@ type KubeInfo struct {
 	appPods  map[string]*appPodsInfo
 	Clusters map[string]string
 
-	KubeConfig       string
-	KubeClient       kubernetes.Interface
-	RemoteKubeConfig string
-	RemoteKubeClient kubernetes.Interface
-	RemoteAppManager *AppManager
-	RemoteIstioctl   *Istioctl
+	KubeConfig         string
+	KubeAccessor       *testKube.Accessor
+	RemoteKubeConfig   string
+	RemoteKubeAccessor *testKube.Accessor
+	RemoteAppManager   *AppManager
+	RemoteIstioctl     *Istioctl
 }
 
 func getClusterWideInstallFile() string {
@@ -201,6 +203,9 @@ func getClusterWideInstallFile() string {
 		} else {
 			istioYaml = nonAuthWithoutMCPInstallFile
 		}
+	}
+	if *trustDomainEnable {
+		istioYaml = trustDomainFileNamespace
 	}
 	return istioYaml
 }
@@ -241,7 +246,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
-	var kubeClient, remoteKubeClient kubernetes.Interface
+	var remoteKubeAccessor *testKube.Accessor
 	var aRemote *AppManager
 	var remoteI *Istioctl
 	if *multiClusterDir != "" {
@@ -260,10 +265,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
-		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
-			return nil, err
-		}
-		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeAccessor, err = testKube.NewAccessor(remoteKubeConfig, tmpDir); err != nil {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
@@ -280,6 +282,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	kubeAccessor, err := testKube.NewAccessor(kubeConfig, tmpDir)
+	if err != nil {
+		return nil, err
+	}
+
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
 	clusters[PrimaryCluster] = kubeConfig
@@ -291,26 +298,26 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
-		Namespace:        *namespace,
-		namespaceCreated: false,
-		TmpDir:           tmpDir,
-		yamlDir:          yamlDir,
-		localCluster:     *localCluster,
-		Istioctl:         i,
-		RemoteIstioctl:   remoteI,
-		AppManager:       a,
-		RemoteAppManager: aRemote,
-		AuthEnabled:      *authEnable,
-		AuthSdsEnabled:   *authSdsEnable,
-		RBACEnabled:      *rbacEnable,
-		ReleaseDir:       releaseDir,
-		BaseVersion:      baseVersion,
-		KubeConfig:       kubeConfig,
-		KubeClient:       kubeClient,
-		RemoteKubeConfig: remoteKubeConfig,
-		RemoteKubeClient: remoteKubeClient,
-		appPods:          appPods,
-		Clusters:         clusters,
+		Namespace:          *namespace,
+		namespaceCreated:   false,
+		TmpDir:             tmpDir,
+		yamlDir:            yamlDir,
+		localCluster:       *localCluster,
+		Istioctl:           i,
+		RemoteIstioctl:     remoteI,
+		AppManager:         a,
+		RemoteAppManager:   aRemote,
+		AuthEnabled:        *authEnable,
+		AuthSdsEnabled:     *authSdsEnable,
+		RBACEnabled:        *rbacEnable,
+		ReleaseDir:         releaseDir,
+		BaseVersion:        baseVersion,
+		KubeConfig:         kubeConfig,
+		KubeAccessor:       kubeAccessor,
+		RemoteKubeConfig:   remoteKubeConfig,
+		RemoteKubeAccessor: remoteKubeAccessor,
+		appPods:            appPods,
+		Clusters:           clusters,
 	}, nil
 }
 
@@ -645,22 +652,43 @@ func (k *KubeInfo) deployIstio() error {
 				istioYaml = mcAuthInstallFileNamespace
 			}
 		}
+		if *trustDomainEnable {
+			istioYaml = trustDomainFileNamespace
+		}
 		if *useGalleyConfigValidator {
 			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
 
-	yamlDir := filepath.Join(istioInstallDir, istioYaml)
+	// Create istio-system namespace
+	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+	// Apply istio-init
+	yamlDir := filepath.Join(istioInstallDir, initInstallFile)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		log.Errorf("Generating yaml %s failed", testIstioYaml)
+		log.Errorf("Generating istio-init.yaml")
 		return err
 	}
 
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+		log.Errorf("istio-init.yaml  %s deployment failed", testIstioYaml)
+		return err
+	}
+
+	// TODO(sdake): need a better synchronization
+	time.Sleep(20 * time.Second)
+
+	// Apply main manifest
+	yamlDir = filepath.Join(istioInstallDir, istioYaml)
+	baseIstioYaml = filepath.Join(k.ReleaseDir, yamlDir)
+	testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
 
@@ -860,11 +888,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	if !*clusterWide {
-		setValue += " --set istiotesting.oneNameSpace=true"
+		setValue += " --set global.oneNamespace=true"
 	}
-
-	// CRDs installed ahead of time with 2.9.x
-	setValue += " --set global.crds=false"
 
 	// enable helm test for istio
 	setValue += " --set global.enableHelmTest=true"

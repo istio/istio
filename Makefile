@@ -233,8 +233,8 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 # Ensure expected GOPATH setup
 .PHONY: check-tree
 check-tree:
-	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
+	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
+		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root="$(ISTIO_GO)", GO_TOP="$(GO_TOP)" ; \
 		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
@@ -450,7 +450,7 @@ test: | $(JUNIT_REPORT)
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
-GOTEST_PARALLEL ?= '-test.parallel=4'
+GOTEST_PARALLEL ?= '-test.parallel=1'
 # This is passed to mixer and other tests to limit how many builds are used.
 # In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
 GOTEST_P ?=
@@ -491,7 +491,7 @@ istioctl-test: istioctl
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
+	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -564,7 +564,7 @@ istioctl-racetest: istioctl
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
+	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
@@ -651,7 +651,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
-# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
+# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
@@ -667,7 +667,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -703,7 +703,7 @@ generate_yaml_coredump:
 # TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -795,6 +795,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \
                 install/kubernetes/istio-citadel-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
+                install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \

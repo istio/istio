@@ -21,7 +21,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/security/pkg/pki/util"
@@ -31,7 +33,7 @@ import (
 type AllowAllChecker struct{}
 
 // NewAllowAllChecker creates a new AllowAllChecker.
-func NewAllowAllChecker() AuthChecker { return &AllowAllChecker{} }
+func NewAllowAllChecker() *AllowAllChecker { return &AllowAllChecker{} }
 
 // Check is an implementation of AuthChecker.Check that allows all check requests.
 func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
@@ -53,18 +55,45 @@ type ListAuthChecker struct {
 	idsMutex sync.RWMutex
 	ids      map[string]struct{}
 
+	checkFailureRecordLimiter   *rate.Limiter
+	failureCountSinceLastRecord int
+
 	// overridable functions for testing
 	extractIDsFn func(exts []pkix.Extension) ([]string, error)
 }
 
-var _ AuthChecker = &ListAuthChecker{}
+type ListAuthCheckerOptions struct {
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// many authz failures are logged in a burst every AuthzFailureLogFreq.
+	AuthzFailureLogBurstSize int
+
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// frequently bursts of authz failures are logged.
+	AuthzFailureLogFreq time.Duration
+
+	// AuthMode indicates the list checking mode
+	AuthMode AuthListMode
+}
+
+func DefaultListAuthCheckerOptions() *ListAuthCheckerOptions {
+	return &ListAuthCheckerOptions{
+		AuthzFailureLogBurstSize: 1,
+		AuthzFailureLogFreq:      time.Minute,
+		AuthMode:                 AuthWhiteList,
+	}
+}
 
 // NewListAuthChecker returns a new instance of ListAuthChecker
-func NewListAuthChecker() *ListAuthChecker {
+func NewListAuthChecker(options *ListAuthCheckerOptions) *ListAuthChecker {
+	// Initialize record limiter for the auth checker.
+	limit := rate.Every(options.AuthzFailureLogFreq)
+	limiter := rate.NewLimiter(limit, options.AuthzFailureLogBurstSize)
+
 	return &ListAuthChecker{
-		mode:         AuthWhiteList,
-		ids:          make(map[string]struct{}),
-		extractIDsFn: util.ExtractIDs,
+		mode:                      options.AuthMode,
+		ids:                       make(map[string]struct{}),
+		extractIDsFn:              util.ExtractIDs,
+		checkFailureRecordLimiter: limiter,
 	}
 }
 
@@ -109,15 +138,10 @@ func (l *ListAuthChecker) Allowed(id string) bool {
 	l.idsMutex.RLock()
 	defer l.idsMutex.RUnlock()
 
-	switch l.mode {
-	case AuthWhiteList:
+	if l.mode == AuthWhiteList {
 		return l.contains(id)
-	case AuthBlackList:
-		return !l.contains(id)
-	default:
-		scope.Errorf("Unrecognized list auth check mode encountered: %v", l.mode)
-		return false
 	}
+	return !l.contains(id) // AuthBlackList
 }
 
 func (l *ListAuthChecker) contains(id string) bool {
@@ -142,8 +166,6 @@ func (l *ListAuthChecker) String() string {
 		result += "Mode: whitelist\n"
 	case AuthBlackList:
 		result += "Mode: blacklist\n"
-	default:
-		result += "Mode: unknown\n"
 	}
 
 	result += "Known ids:\n"
@@ -152,8 +174,21 @@ func (l *ListAuthChecker) String() string {
 	return result
 }
 
-// Check is an implementation of AuthChecker.Check.
 func (l *ListAuthChecker) Check(authInfo credentials.AuthInfo) error {
+	if err := l.check(authInfo); err != nil {
+		l.failureCountSinceLastRecord++
+		if l.checkFailureRecordLimiter.Allow() {
+			scope.Warnf("NewConnection: auth check failed: %v (repeated %d times).",
+				err, l.failureCountSinceLastRecord)
+			l.failureCountSinceLastRecord = 0
+		}
+		return err
+	}
+	return nil
+}
+
+// Check is an implementation of AuthChecker.Check.
+func (l *ListAuthChecker) check(authInfo credentials.AuthInfo) error {
 	l.idsMutex.RLock()
 	defer l.idsMutex.RUnlock()
 
@@ -188,22 +223,14 @@ func (l *ListAuthChecker) Check(authInfo credentials.AuthInfo) error {
 					case AuthBlackList:
 						scope.Infof("Blocking access from peer with id: %s", id)
 						return fmt.Errorf("id is blacklisted: %s", id)
-					default:
-						scope.Errorf("unrecognized mode in listchecker: %v", l.mode)
-						return fmt.Errorf("unrecognized mode in listchecker: %v", l.mode)
 					}
 				}
 			}
 		}
 	}
 
-	switch l.mode {
-	case AuthWhiteList:
+	if l.mode == AuthWhiteList {
 		return errors.New("no allowed identity found in peer's authentication info")
-	case AuthBlackList:
-		return nil
-	default:
-		scope.Errorf("unrecognized mode in listchecker: %v", l.mode)
-		return fmt.Errorf("unrecognized mode in listchecker: %v", l.mode)
 	}
+	return nil // AuthBlackList
 }

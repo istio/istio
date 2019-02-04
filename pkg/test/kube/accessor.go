@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	defaultRetryTimeout = retry.Timeout(time.Minute * 3)
+	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
 	defaultRetryDelay   = retry.Delay(time.Second * 10)
 )
 
@@ -111,6 +111,11 @@ func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
 		Pods(namespace).Get(name, kubeApiMeta.GetOptions{})
 }
 
+// DeletePod deletes the given pod.
+func (a *Accessor) DeletePod(namespace, name string) error {
+	return a.set.CoreV1().Pods(namespace).Delete(name, &kubeApiMeta.DeleteOptions{})
+}
+
 // FindPodBySelectors returns the first matching pod, given a namespace and a set of selectors.
 func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (kubeApiCore.Pod, error) {
 	list, err := a.GetPods(namespace, selectors...)
@@ -164,7 +169,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 		for i, p := range pods {
 			msg := "Ready"
-			if e := checkPodReady(&p); e != nil {
+			if e := CheckPodReady(&p); e != nil {
 				msg = e.Error()
 				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
 			}
@@ -288,6 +293,11 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
+// GetEndpoints returns the endpoints for the given service.
+func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
+	return a.set.CoreV1().Endpoints(ns).Get(service, options)
+}
+
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
 func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
@@ -376,7 +386,8 @@ func (a *Accessor) Exec(namespace, pod, container, command string) (string, erro
 	return a.ctl.exec(namespace, pod, container, command)
 }
 
-func checkPodReady(pod *kubeApiCore.Pod) error {
+// CheckPodReady returns nil if the given pod and all of its containers are ready.
+func CheckPodReady(pod *kubeApiCore.Pod) error {
 	switch pod.Status.Phase {
 	case kubeApiCore.PodSucceeded:
 		return nil

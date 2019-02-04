@@ -355,18 +355,18 @@ func getApps() []framework.App {
 	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
-		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
+		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
-func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
+func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
 	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
@@ -379,6 +379,7 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"Tag":             tc.Kube.PilotTag(),
 			"service":         serviceName,
 			"deployment":      deploymentName,
+			"replicas":        strconv.Itoa(replicas),
 			"port1":           strconv.Itoa(port1),
 			"port2":           strconv.Itoa(port2),
 			"port3":           strconv.Itoa(port3),

@@ -35,3 +35,6 @@ service:
 
 gateway:
   enabled: false
+
+security:
+  enabled: true

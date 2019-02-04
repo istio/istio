@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  creationTimestamp: 2018-02-12T15:48:44Z
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: KubeDNS
+  name: kube-dns
+  namespace: kube-system
+  resourceVersion: "50573380"
+  selfLink: /api/v1/namespaces/kube-system/endpoints/kube-dns
+  uid: 34991433-100c-11e8-a600-42010a8002c3
+subsets:
+- addresses:
+  - ip: 10.40.0.5
+    nodeName: gke-istio-test-default-pool-866a0405-420r
+    targetRef:
+      kind: Pod
+      name: kube-dns-548976df6c-kxnhb
+      namespace: kube-system
+      resourceVersion: "50573379"
+      uid: 66b0ca7d-f71d-11e8-af4f-42010a800072
+  - ip: 10.40.1.4
+    nodeName: gke-istio-test-default-pool-866a0405-ftch
+    targetRef:
+      kind: Pod
+      name: kube-dns-548976df6c-d9kkv
+      namespace: kube-system
+      resourceVersion: "50572715"
+      uid: dd4bbbd4-f71c-11e8-af4f-42010a800072
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP

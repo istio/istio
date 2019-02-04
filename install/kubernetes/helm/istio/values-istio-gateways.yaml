@@ -1,12 +1,5 @@
 # Common settings.
 global:
-  # Include the crd definition when generating the template.
-  # For 'helm template' and helm install > 2.10 it should be true.
-  # For helm < 2.9, crds must be installed ahead of time with
-  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-  # and this options must be set off.
-  crds: false
-
   # Omit the istio-sidecar-injector configmap when generate a
   # standalone gateway. Gateways may be created in namespaces other
   # than `istio-system` and we don't want to re-create the injector
@@ -26,7 +19,7 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc.istio-system
       port: # example: 9125
 
 
@@ -86,7 +79,8 @@ gateways:
     # Addon ports for kiali are enabled in gateway - but will only redirect if
     # the gateway configuration for the various components are enabled.
     - port: 15029
-    - targetPort: 15029
+      targetPort: 15029
+      name: http2-kiali
     # Telemetry-related ports are enabled in gateway - but will only redirect if
     # the gateway configuration for the various components are enabled.
     - port: 15030
@@ -120,7 +114,10 @@ galley:
   enabled: false
 
 mixer:
-  enabled: false
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
 
 pilot:
   enabled: false

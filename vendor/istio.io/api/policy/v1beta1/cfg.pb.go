@@ -6,6 +6,7 @@
 
 	It is generated from these files:
 		policy/v1beta1/cfg.proto
+		policy/v1beta1/http_response.proto
 		policy/v1beta1/type.proto
 		policy/v1beta1/value_type.proto
 
@@ -24,6 +25,7 @@
 		Tls
 		OAuth
 		Mutual
+		DirectHttpResponse
 		Value
 		IPAddress
 		Duration
@@ -267,7 +269,7 @@ func (m *AttributeManifest_AttributeInfo) GetValueType() ValueType {
 // instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml
-// - match: destination.service == "*"
+// - match: match(destination.service.host, "*")
 //   actions:
 //   - handler: prometheus-handler
 //     instances:
@@ -282,17 +284,17 @@ type Rule struct {
 	//
 	// * an empty match evaluates to `true`
 	// * `true`, a boolean literal; a rule with this match will always be executed
-	// * `destination.service == ratings*` selects any request targeting a service whose
+	// * `match(destination.service.host, "ratings.*)` selects any request targeting a service whose
 	// name starts with "ratings"
 	// * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
 	Match string `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
 	// Optional. The actions that will be executed when match evaluates to `true`.
 	Actions []*Action `protobuf:"bytes,2,rep,name=actions" json:"actions,omitempty"`
 	// Optional. Templatized operations on the request headers using values produced by the
-	// rule actions.
+	// rule actions. Require the check action result to be OK.
 	RequestHeaderOperations []*Rule_HeaderOperationTemplate `protobuf:"bytes,3,rep,name=request_header_operations,json=requestHeaderOperations" json:"request_header_operations,omitempty"`
 	// Optional. Templatized operations on the response headers using values produced by the
-	// rule actions.
+	// rule actions. Require the check action result to be OK.
 	ResponseHeaderOperations []*Rule_HeaderOperationTemplate `protobuf:"bytes,4,rep,name=response_header_operations,json=responseHeaderOperations" json:"response_header_operations,omitempty"`
 	// $hide_from_docs
 	// Optional. Provides the ability to add a sampling configuration for Mixer rules. This sampling
@@ -346,12 +348,17 @@ func (m *Rule) GetSampling() *Sampling {
 // that may reference action outputs by name. For example, if an action `x` produces an output
 // with a field `f`, then the header value expressions may use attribute `x.output.f` to reference
 // the field value:
+//
 // ```yaml
 // request_header_operations:
 // - name: x-istio-header
 //   values:
 //   - x.output.f
 // ```
+//
+// If the header value expression evaluates to an empty string, and the operation is to either replace
+// or append a header, then the operation is not applied. This permits conditional behavior on behalf of the
+// adapter to optionally modify the headers.
 type Rule_HeaderOperationTemplate struct {
 	// Required. Header name literal value.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -453,7 +460,7 @@ func (m *Action) GetName() string {
 //   params:
 //     value: 1
 //     dimensions:
-//       source: source.service
+//       source: source.name
 //       destination_ip: destination.ip
 // ```
 type Instance struct {

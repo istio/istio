@@ -13,7 +13,7 @@ metadata:
     istio: citadel
 spec:
   hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-citadel.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -21,7 +21,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-citadel.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 8060
 ---
@@ -40,7 +40,7 @@ metadata:
     istio: citadel
 spec:
   hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-citadel.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -48,7 +48,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-citadel.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 8060
 ---

@@ -39,7 +39,7 @@ metadata:
 spec:
   dimensions:
     source: request.headers["x-forwarded-for"] | "unknown"
-    destination: destination.labels["app"] | destination.service | "unknown"
+    destination: destination.labels["app"] | destination.service.name | "unknown"
     destinationVersion: destination.labels["version"] | "unknown"
 ---
 apiVersion: config.istio.io/v1alpha2

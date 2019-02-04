@@ -31,6 +31,8 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
+make sync
+
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
 T="-v" \
 make test.integration.local

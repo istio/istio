@@ -24,10 +24,7 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "8000"
-            path: /ip
+            path: /app-health/hello/readyz
             port: 15020
         resources: {}
       - args:
@@ -57,6 +54,10 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
+        - '{"/app-health/hello/readyz":{"path":"/ip","port":8000}}'
         env:
         - name: POD_NAME
           valueFrom:

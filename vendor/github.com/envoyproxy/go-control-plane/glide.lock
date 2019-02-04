@@ -1,8 +1,8 @@
-hash: 848ee6cec6eb07c9f25f8ba7711d34f8690ebc74b673b001c2480ecaed889069
-updated: 2019-01-03T15:13:47.274325-06:00
+hash: e84546e07298e70d632d9a327cb87af1239a8607eca3daed94901aec9e96641c
+updated: 2019-01-24T08:03:52.528311785-08:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 6ad6c651384df9743caf5126c4878db646b767ac
+  version: 392777ff3b87412810bed2bc04da6cfb5a8edc9b
 - name: github.com/gogo/googleapis
   version: 8558fb44d2f1fc223118afc694129d2c2d2924d1
   subpackages:
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus
-  version: bcd833dfe83d3cebad139e4a29ed79cb2318bf95
+  version: e1e72e9de974bd926e5c56f83753fba2df402ce5
 - name: golang.org/x/crypto
   version: 0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb
   subpackages:
@@ -68,7 +68,7 @@ imports:
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: df014850f6dee74ba2fc94874043a9f3f75fbfd8
+  version: a02b0774206b209466313a0b525d2c738fe407eb
   subpackages:
   - balancer
   - balancer/base
@@ -101,7 +101,7 @@ imports:
   - status
   - tap
 - name: istio.io/gogo-genproto
-  version: e7e4d094a5f0fc3c2245f37ce54ccbbd83fd4355
+  version: 6d926a6e6feb2c0a1a72234b4aafa638dca29956
   subpackages:
   - opencensus/proto/trace
   - prometheus

@@ -58,15 +58,15 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 	b := NewInMemoryBuilder()
 
 	items := []*mcp.Resource{{Body: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
-	b.Set("type", "v1", items)
+	b.Set("collection", "v1", items)
 	sn := b.Build()
 
-	if sn.Version("type") != "v1" {
+	if sn.Version("collection") != "v1" {
 		t.Fatalf("Unexpected version: %v", sn.Version("type"))
 	}
 
-	actual := sn.Resources("type")
-	if !reflect.DeepEqual(items, sn.Resources("type")) {
+	actual := sn.Resources("collection")
+	if !reflect.DeepEqual(items, sn.Resources("collection")) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, items)
 	}
 }
@@ -74,7 +74,7 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
@@ -87,10 +87,11 @@ func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
+
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources("collection")
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -99,8 +100,8 @@ func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
@@ -113,10 +114,10 @@ func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources("collection")
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -125,7 +126,7 @@ func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	err := b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, nil)
+	err := b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, nil)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -134,8 +135,8 @@ func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.DeleteEntry("type", "bar")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.DeleteEntry("collection", "bar")
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
@@ -147,10 +148,10 @@ func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources("collection")
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -159,7 +160,7 @@ func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	b.DeleteEntry("type", "bar")
+	b.DeleteEntry("collection", "bar")
 	sn := b.Build()
 
 	if len(sn.resources) != 0 {
@@ -174,8 +175,8 @@ func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.DeleteEntry("type", "foo")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.DeleteEntry("collection", "foo")
 	sn := b.Build()
 
 	if len(sn.resources) != 0 {
@@ -190,9 +191,9 @@ func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.DeleteEntry("type", "foo")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.DeleteEntry("collection", "foo")
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
@@ -204,10 +205,10 @@ func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources("collection")
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -216,11 +217,11 @@ func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 func TestInMemoryBuilder_SetVersion(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
-	if sn.Version("type") != "v1" {
+	if sn.Version("collection") != "v1" {
 		t.Fatalf("Unexpected version: %s", sn.Version("type"))
 	}
 }
@@ -228,9 +229,9 @@ func TestInMemoryBuilder_SetVersion(t *testing.T) {
 func TestInMemory_Clone(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
 	sn2 := sn.Clone()
@@ -244,7 +245,7 @@ func TestInMemory_Clone(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 		{
 			Metadata: &mcp.Metadata{
@@ -254,11 +255,11 @@ func TestInMemory_Clone(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 	}
 
-	actual := sn2.Resources("type")
+	actual := sn2.Resources("collection")
 
 	sort.Slice(actual, func(i, j int) bool {
 		return strings.Compare(
@@ -270,7 +271,7 @@ func TestInMemory_Clone(t *testing.T) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
 
-	if sn2.Version("type") != "v1" {
+	if sn2.Version("collection") != "v1" {
 		t.Fatalf("Unexpected version: %s", sn2.Version("type"))
 	}
 }
@@ -278,9 +279,9 @@ func TestInMemory_Clone(t *testing.T) {
 func TestInMemory_Builder(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
 	b = sn.Builder()
@@ -296,7 +297,7 @@ func TestInMemory_Builder(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 		{
 			Metadata: &mcp.Metadata{
@@ -306,11 +307,11 @@ func TestInMemory_Builder(t *testing.T) {
 				Labels:      fakeLabels,
 				Annotations: fakeAnnotations,
 			},
-			Body: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 	}
 
-	actual := sn2.Resources("type")
+	actual := sn2.Resources("collection")
 
 	sort.Slice(actual, func(i, j int) bool {
 		return strings.Compare(
@@ -322,7 +323,7 @@ func TestInMemory_Builder(t *testing.T) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
 
-	if sn2.Version("type") != "v1" {
+	if sn2.Version("collection") != "v1" {
 		t.Fatalf("Unexpected version: %s", sn2.Version("type"))
 	}
 }
@@ -330,9 +331,9 @@ func TestInMemory_Builder(t *testing.T) {
 func TestInMemory_String(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
 	// Shouldn't crash

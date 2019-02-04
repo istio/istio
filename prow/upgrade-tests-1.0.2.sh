@@ -21,6 +21,12 @@ set -u
 # Print commands
 set -x
 
+# Local run example:
+# UPGRADE_TEST_LOCAL="true" HUB=gcr.io/istio-release \
+#   ISTIO_REL_URL=https://storage.googleapis.com/istio-release-pipeline-data/daily-build/master-20190107-09-15 \
+#   TAG=master-20190107-09-15 \
+#   prow/upgrade-tests-1.0.2.sh
+
 # Set up inputs needed by test_upgrade.sh
 export SOURCE_VERSION=1.0.2
 export SOURCE_RELEASE_PATH="https://github.com/istio/istio/releases/download/${SOURCE_VERSION}"

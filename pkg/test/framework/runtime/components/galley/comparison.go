@@ -42,12 +42,12 @@ func (r *comparisonResult) generateError() (err error) {
 	}
 
 	for _, n := range r.extraActual {
-		js, er := json.MarshalIndent(r.expected[n], "", "  ")
+		js, er := json.MarshalIndent(r.actual[n], "", "  ")
 		if er != nil {
 			return er
 		}
 
-		err = multierror.Append(err, fmt.Errorf("extra resource not found: %s\n%v", n, string(js)))
+		err = multierror.Append(err, fmt.Errorf("extra resource found: %s\n%v", n, string(js)))
 	}
 
 	for _, n := range r.conflicting {
@@ -65,7 +65,7 @@ func (r *comparisonResult) generateError() (err error) {
 			A:        difflib.SplitLines(string(ejs)),
 			ToFile:   fmt.Sprintf("Actual %q", n),
 			B:        difflib.SplitLines(string(ajs)),
-			Context:  10,
+			Context:  100,
 		}
 		text, er := difflib.GetUnifiedDiffString(diff)
 		if er != nil {

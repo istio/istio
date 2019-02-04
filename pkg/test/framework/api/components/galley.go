@@ -35,11 +35,11 @@ type Galley interface {
 	SetMeshConfig(yamlText string) error
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
-	WaitForSnapshot(typeURL string, snapshot ...map[string]interface{}) error
+	WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error
 }
 
 // GetGalley from the repository
 func GetGalley(e component.Repository, t testing.TB) Galley {
 	t.Helper()
-	return e.GetComponentOrFail(ids.Galley, t).(Galley)
+	return e.GetComponentOrFail("", ids.Galley, t).(Galley)
 }

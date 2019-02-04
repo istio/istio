@@ -105,6 +105,8 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
 		KeepaliveOptions:  keepalive.DefaultOption(),
 		ForceStop:         true,
+		// TODO: add the plugins, so local tests are closer to reality and test full generation
+		// Plugins:           bootstrap.DefaultPlugins,
 	}
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"

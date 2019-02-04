@@ -74,9 +74,11 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/version"
 )
 
@@ -388,7 +390,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				s.mesh = mesh
+				if s.EnvoyXdsServer != nil {
+					s.EnvoyXdsServer.Env.Mesh = mesh
+					s.EnvoyXdsServer.ConfigUpdate(true)
+				}
 			}
 		})
 	}
@@ -447,7 +453,13 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			if s.kubeRegistry != nil {
+				s.kubeRegistry.InitNetworkLookup(meshNetworks)
+			}
+			if s.EnvoyXdsServer != nil {
+				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
+				s.EnvoyXdsServer.ConfigUpdate(true)
+			}
 		}
 	})
 
@@ -497,19 +509,36 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		collections[i] = sink.CollectionOptions{
+			Name: model.Collection,
+		}
 	}
 
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		ClearDiscoveryServerCache: func() {
+			s.EnvoyXdsServer.ConfigUpdate(true)
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var clients []*mcpclient.Client
+	var clients []*client.Client
+	var clients2 []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
+
+	// TODO - temporarily support both the new and old stack during transition
+	var useLegacyMCPStack bool
+	if os.Getenv("USE_MCP_LEGACY") == "1" {
+		useLegacyMCPStack = true
+		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+	} else {
+		log.Infof("Using new MCP client sink stack")
+	}
+
+	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
@@ -601,12 +630,27 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-		mcpController := coredatamodel.NewController(options)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
-		configz.Register(mcpClient)
 
-		clients = append(clients, mcpClient)
+		mcpController := coredatamodel.NewController(options)
+		sinkOptions := &sink.Options{
+			CollectionOptions: collections,
+			Updater:           mcpController,
+			ID:                clientNodeID,
+			Reporter:          reporter,
+		}
+
+		if useLegacyMCPStack {
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpClient := client.New(cl, sinkOptions)
+			configz.Register(mcpClient)
+			clients = append(clients, mcpClient)
+		} else {
+			cl2 := mcpapi.NewResourceSourceClient(conn)
+			mcpClient2 := sink.NewClient(cl2, sinkOptions)
+			configz.Register(mcpClient2)
+			clients2 = append(clients2, mcpClient2)
+		}
+
 		conns = append(conns, conn)
 		configStores = append(configStores, mcpController)
 	}
@@ -660,12 +704,27 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				cancel()
 				return err
 			}
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-			mcpController := coredatamodel.NewController(options)
-			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
-			configz.Register(mcpClient)
 
-			clients = append(clients, mcpClient)
+			mcpController := coredatamodel.NewController(options)
+			sinkOptions := &sink.Options{
+				CollectionOptions: collections,
+				Updater:           mcpController,
+				ID:                clientNodeID,
+				Reporter:          reporter,
+			}
+
+			if useLegacyMCPStack {
+				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+				mcpClient := client.New(cl, sinkOptions)
+				configz.Register(mcpClient)
+				clients = append(clients, mcpClient)
+			} else {
+				cl2 := mcpapi.NewResourceSourceClient(conn)
+				mcpClient2 := sink.NewClient(cl2, sinkOptions)
+				configz.Register(mcpClient2)
+				clients2 = append(clients2, mcpClient2)
+			}
+
 			conns = append(conns, conn)
 			configStores = append(configStores, mcpController)
 		}
@@ -674,13 +733,24 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		var wg sync.WaitGroup
 
-		for i := range clients {
-			client := clients[i]
-			wg.Add(1)
-			go func() {
-				client.Run(ctx)
-				wg.Done()
-			}()
+		if useLegacyMCPStack {
+			for i := range clients {
+				client := clients[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
+		} else {
+			for i := range clients2 {
+				client := clients2[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
 		}
 
 		go func() {
@@ -695,6 +765,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			for _, conn := range conns {
 				_ = conn.Close() // nolint: errcheck
 			}
+
+			reporter.Close()
 		}()
 
 		return nil
@@ -1148,8 +1220,10 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    options.Time,
-			Timeout: options.Timeout,
+			Time:                  options.Time,
+			Timeout:               options.Timeout,
+			MaxConnectionAge:      options.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
 		}),
 	}
 

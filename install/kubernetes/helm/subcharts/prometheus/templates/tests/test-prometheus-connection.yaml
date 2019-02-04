@@ -22,8 +22,7 @@ spec:
     - name: "{{ template "prometheus.fullname" . }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
-      command: ['curl']
-      args: ['http://prometheus:9090']
+      command: ['sh', '-c', 'for i in 1 2 3; do curl http://prometheus:9090/-/ready && break || sleep 15; done']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}

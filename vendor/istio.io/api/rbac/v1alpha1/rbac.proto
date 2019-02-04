@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,9 +84,42 @@ package istio.rbac.v1alpha1;
 
 option go_package="istio.io/api/rbac/v1alpha1";
 
+// $hide_from_docs
+// This is forked from the networking/v1alpha3/sidecar.proto to avoid a direct
+// dependency from the rbac API on networking API.
+// TODO: Move the WorkloadSelector to a common place to be shared by other packages.
+// WorkloadSelector specifies the criteria used to determine if the Gateway
+// or Sidecar resource can be applied to a proxy. The matching criteria
+// includes the metadata associated with a proxy, workload info such as
+// labels attached to the pod/VM, or any other info that the proxy provides
+// to Istio during the initial handshake. If multiple conditions are
+// specified, all conditions need to match in order for the workload to be
+// selected. Currently, only label based selection mechanism is supported.
+message WorkloadSelector {
+  // One or more labels that indicate a specific set of pods/VMs on which
+  // this sidecar configuration should be applied. The scope of label
+  // search is restricted to the configuration namespace in which the the
+  // resource is present.
+  map<string, string> labels = 1;
+}
+
+// $hide_from_docs
+// AuthorizationPolicy to enforce access control on a selected workload.
+message AuthorizationPolicy {
+  // $hide_from_docs
+  // Optional. One or more labels that indicate a specific set of pods/VMs
+  // on which this authorization policy should be applied. Leave this empty to
+  // select all pods/VMs.
+  // The scope of label search is platform dependent. On Kubernetes, for example,
+  // the scope includes pods running in the same namespace as the authorization policy itself.
+  WorkloadSelector workload_selector = 1;
+
+  // $hide_from_docs
+  // A list of bindings that specify the subjects and permissions to the selected workload.
+  repeated ServiceRoleBinding allow = 2;
+}
+
 // ServiceRole specification contains a list of access rules (permissions).
-// This represent the "Spec" part of the ServiceRole object. The name and namespace
-// of the ServiceRole is specified in "metadata" section of the ServiceRole object.
 message ServiceRole {
   // Required. The set of access rules (permissions) that the role has.
   repeated AccessRule rules = 1;
@@ -102,20 +135,51 @@ message AccessRule {
   // If set to ["*"], it refers to all services in the namespace.
   repeated string services = 1;
 
+  // $hide_from_docs
+  // Optional. A list of HTTP hosts. This is matched against the HOST header in
+  // a HTTP request. Exact match, prefix match and suffix match are supported.
+  // For example, the host "test.abc.com" matches "test.abc.com" (exact match),
+  // or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
+  // If not specified, it matches to any host.
+  repeated string hosts = 5;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP hosts that must not be matched.
+  repeated string not_hosts = 6;
+
   // Optional. A list of HTTP paths or gRPC methods.
   // gRPC methods must be presented as fully-qualified name in the form of
   // "/packageName.serviceName/methodName" and are case sensitive.
-  // Exact match, prefix match, and suffix match are supported for paths.
-  // For example, the path "/books/review" matches
-  // "/books/review" (exact match), or "/books/*" (prefix match),
-  // or "*/review" (suffix match).
-  // If not specified, it applies to any path.
+  // Exact match, prefix match, and suffix match are supported. For example,
+  // the path "/books/review" matches "/books/review" (exact match),
+  // or "/books/*" (prefix match), or "*/review" (suffix match).
+  // If not specified, it matches to any path.
   repeated string paths = 2;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP paths or gRPC methods that must not be matched.
+  repeated string not_paths = 7;
 
   // Optional. A list of HTTP methods (e.g., "GET", "POST").
   // It is ignored in gRPC case because the value is always "POST".
-  // If set to ["*"] or not specified, it applies to any method.
+  // If not specified, it matches to any methods.
   repeated string methods = 3;
+
+  // $hide_from_docs
+  // Optional. A list of HTTP methods that must not be matched.
+  // Note: It's an error to set methods and not_methods at the same time.
+  repeated string not_methods = 8;
+
+  // $hide_from_docs
+  // Optional. A list of port numbers of the request. If not specified, it matches
+  // to any port number.
+  // Note: It's an error to set ports and not_ports at the same time.
+  repeated int32 ports = 9;
+
+  // $hide_from_docs
+  // Optional.  A list of port numbers that must not be matched.
+  // Note: It's an error to set ports and not_ports at the same time.
+  repeated int32 not_ports = 10;
 
   // Definition of a custom constraint. The supported keys are listed in the "constraint and properties" page.
   message Constraint {
@@ -123,16 +187,17 @@ message AccessRule {
     string key = 1;
 
     // List of valid values for the constraint.
-    // Exact match, prefix match, and suffix match are supported for constraint values.
-    // For example, the value "v1alpha2" matches
-    // "v1alpha2" (exact match), or "v1*" (prefix match),
-    // or "*alpha2" (suffix match).
+    // Exact match, prefix match, and suffix match are supported.
+    // For example, the value "v1alpha2" matches "v1alpha2" (exact match),
+    // or "v1*" (prefix match), or "*alpha2" (suffix match).
     repeated string values = 2;
   }
 
   // Optional. Extra constraints in the ServiceRole specification.
-  // The above ServiceRole example shows an example of constraint "version".
   repeated Constraint constraints = 4;
+
+  // $hide_from_docs
+  // Next available field number: 11
 }
 
 // $hide_from_docs
@@ -148,12 +213,9 @@ enum EnforcementMode {
   // Policy in PERMISSIVE mode isn't enforced and has no impact on users.
   // RBAC engine run policies in PERMISSIVE mode and logs stats.
   PERMISSIVE = 1;
- }
+}
 
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
-// This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
-// of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
-// object.
 message ServiceRoleBinding {
   // Required. List of subjects that are assigned the ServiceRole object.
   repeated Subject subjects = 1;
@@ -173,12 +235,51 @@ message Subject {
   string user = 1;
 
   // $hide_from_docs
+  // Optional. A list of principals that the subject represents. This is matched to the
+  // `source.principal` attribute. If not specified, it applies to any principals.
+  repeated string principals = 4;
+
+  // $hide_from_docs
+  // Optional. A list of principals that must not be matched.
+  repeated string not_principals = 5;
+
+  // $hide_from_docs
   // Optional. The group that the subject belongs to.
-  string group = 2;
+  // Deprecated. Use groups and not_groups instead.
+  string group = 2 [deprecated = true];
+
+  // $hide_from_docs
+  // Optional. A list of groups that the subject represents. This is matched to the
+  // `request.auth.claims[groups]` attribute. If not specified, it applies to any groups.
+  repeated string groups = 6;
+
+  // $hide_from_docs
+  // Optional. A list of groups that must not be matched.
+  repeated string not_groups = 7;
+
+  // $hide_from_docs
+  // Optional. A list of namespaces that the subject represents. This is matched to
+  // the `source.namespace` attribute. If not specified, it applies to any namespaces.
+  repeated string namespaces = 8;
+
+  // $hide_from_docs
+  // Optional. A list of namespaces that must not be matched.
+  repeated string not_namespaces = 9;
+
+  // $hide_from_docs
+  // Optional. A list of IP address or CIDR ranges that the subject represents.
+  // E.g. 192.168.100.2 or 10.1.0.0/16. If not specified, it applies to any IP addresses.
+  repeated string ips = 10;
+
+  // $hide_from_docs
+  // Optional. A list of IP addresses or CIDR ranges that must not be matched.
+  repeated string not_ips = 11;
 
   // Optional. The set of properties that identify the subject.
-  // The above ServiceRoleBinding example shows an example of property "source.namespace".
   map<string, string> properties = 3;
+
+  // $hide_from_docs
+  // Next available field number: 12
 }
 
 // RoleRef refers to a role object.
@@ -188,8 +289,7 @@ message RoleRef {
   string kind = 1;
 
   // Required. The name of the ServiceRole object being referenced.
-  // The ServiceRole object must be in the same namespace as the ServiceRoleBinding
-  // object.
+  // The ServiceRole object must be in the same namespace as the ServiceRoleBinding object.
   string name = 2;
 }
 
@@ -235,6 +335,10 @@ message RbacConfig {
   message Target {
     // A list of services.
     repeated string services = 1;
+
+    // $hide_from_docs
+    // A list of workloads.
+    repeated WorkloadSelector workload_selectors = 3;
 
     // A list of namespaces.
     repeated string namespaces = 2;

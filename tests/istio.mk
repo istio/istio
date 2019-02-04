@@ -139,6 +139,8 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
+e2e_bookinfo_trustdomain: | istioctl test/local/auth/e2e_bookinfo_trustdomain
+
 e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_sds_pilotv2
 
 # This is used to keep a record of the test results.
@@ -210,6 +212,11 @@ test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
+test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
+		--auth_enable=true --trust_domain_enable --egress=true --ingress=false --rbac_enable=false \
+		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
@@ -258,8 +265,6 @@ helm/upgrade:
 	  istio-system install/kubernetes/helm/istio
 
 # Delete istio installed with helm
-# Note that for Helm 2.10, the CRDs are not cleared
 helm/delete:
 	${HELM} delete --purge istio-system
 	for i in install/kubernetes/helm/istio-init/files/crd-*; do kubectl delete -f $i; done
-	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

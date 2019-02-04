@@ -34,7 +34,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -139,16 +138,16 @@ type PortList []*Port
 type Protocol string
 
 const (
-	// ProtocolGRPC declares that the port carries gRPC traffic
+	// ProtocolGRPC declares that the port carries gRPC traffic.
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolGRPCWeb declares that the port carries gRPC traffic
+	// ProtocolGRPCWeb declares that the port carries gRPC traffic.
 	ProtocolGRPCWeb Protocol = "GRPC-Web"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic.
 	ProtocolHTTP2 Protocol = "HTTP2"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	// ProtocolHTTPS declares that the port carries HTTPS traffic.
 	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
@@ -159,11 +158,13 @@ const (
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
-	// ProtocolMongo declares that the port carries mongoDB traffic
+	// ProtocolMongo declares that the port carries MongoDB traffic.
 	ProtocolMongo Protocol = "Mongo"
-	// ProtocolRedis declares that the port carries redis traffic
+	// ProtocolRedis declares that the port carries Redis traffic.
 	ProtocolRedis Protocol = "Redis"
-	// ProtocolUnsupported - value to signify that the protocol is unsupported
+	// ProtocolMySQL declares that the port carries MySQL traffic.
+	ProtocolMySQL Protocol = "MySQL"
+	// ProtocolUnsupported - value to signify that the protocol is unsupported.
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
@@ -200,6 +201,18 @@ const (
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
+// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
+type Visibility string
+
+const (
+	// VisibilityPrivate implies namespace local config
+	VisibilityPrivate Visibility = "."
+	// VisibilityPublic implies config is visible to all
+	VisibilityPublic Visibility = "*"
+	// VisibilityNone implies config is visible to none
+	VisibilityNone Visibility = "~"
+)
+
 // ParseProtocol from string ignoring case
 func ParseProtocol(s string) Protocol {
 	switch strings.ToLower(s) {
@@ -223,6 +236,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMongo
 	case "redis":
 		return ProtocolRedis
+	case "mysql":
+		return ProtocolMySQL
 	}
 
 	return ProtocolUnsupported
@@ -251,7 +266,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis, ProtocolMySQL:
 		return true
 	default:
 		return false
@@ -439,9 +454,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
-	// ConfigScope defines the visibility of Service in
+	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ConfigScope networking.ConfigScope
+	ExportTo map[Visibility]bool
 }
 
 // ServiceDiscovery enumerates Istio service instances.

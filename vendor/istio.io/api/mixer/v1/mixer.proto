@@ -202,7 +202,7 @@ message HeaderOperation {
 }
 
 // Expresses the routing manipulation actions to be performed on behalf of
-// Mixer in response to a successful precondition check.
+// Mixer in response to a precondition check.
 message RouteDirective {
   // Operations on the request headers.
   repeated HeaderOperation request_header_operations = 1 [(gogoproto.nullable) = false];

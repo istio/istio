@@ -205,6 +205,10 @@ func TestParseProtocol(t *testing.T) {
 		{"Redis", ProtocolRedis},
 		{"redis", ProtocolRedis},
 		{"REDIS", ProtocolRedis},
+		{"Mysql", ProtocolMySQL},
+		{"mysql", ProtocolMySQL},
+		{"MYSQL", ProtocolMySQL},
+		{"MySQL", ProtocolMySQL},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
 	}

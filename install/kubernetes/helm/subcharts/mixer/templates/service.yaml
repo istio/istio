@@ -6,6 +6,8 @@ kind: Service
 metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
+  annotations:
+   networking.istio.io/exportTo: "*"
   labels:
     app: {{ template "mixer.name" $ }}
     chart: {{ template "mixer.chart" $ }}
@@ -23,6 +25,9 @@ spec:
 {{- if eq $key "telemetry" }}
   - name: prometheus
     port: 42422
+{{- if $spec.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}
 {{- end }}
   selector:
     istio: mixer

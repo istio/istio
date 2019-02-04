@@ -15,6 +15,5 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
-istiotesting:
-  oneNameSpace: true
-
+  # Restrict the applications in one namespace the controller manages
+  oneNamespace: true

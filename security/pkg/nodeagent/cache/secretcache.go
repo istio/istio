@@ -22,10 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/model"
@@ -49,6 +53,12 @@ const (
 
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
+	// For REST APIs between envoy->nodeagent, default value of 1s is used.
+	envoyDefaultTimeoutInMilliSec = 1000
+
+	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	initialBackOffIntervalInMilliSec = 50
 )
 
 type k8sJwtPayload struct {
@@ -76,6 +86,9 @@ type Options struct {
 
 	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
+
+	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -85,6 +98,9 @@ type SecretManager interface {
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, resourceName, token, version string) bool
+
+	// DeleteSecret deletes a secret by its key from cache.
+	DeleteSecret(proxyID, resourceName string)
 }
 
 // ConnKey is the key of one SDS connection.
@@ -184,7 +200,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 
 	if sc.rootCert == nil {
 		log.Errorf("Failed to get root cert for proxy %q", proxyID)
-		return nil, errors.New("faied to get root cert")
+		return nil, errors.New("failed to get root cert")
 
 	}
 
@@ -198,6 +214,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *SecretCache) DeleteSecret(proxyID, resourceName string) {
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	sc.secrets.Delete(key)
 }
 
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
@@ -362,6 +387,8 @@ func (sc *SecretCache) rotate() {
 					return
 				}
 
+				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", e.ResourceName, proxyID)
+
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
@@ -447,10 +474,33 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
-	if err != nil {
-		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
-		return nil, err
+	startTime := time.Now()
+	retry := 0
+	backOffInMilliSec := initialBackOffIntervalInMilliSec
+	var certChainPEM []string
+	for true {
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		if err == nil {
+			break
+		}
+
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err)) {
+			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
+			return nil, err
+		}
+
+		retry++
+		backOffInMilliSec = retry * backOffInMilliSec
+		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
+		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
 	certChain := []byte{}
@@ -485,6 +535,11 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
+	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
+	if sc.configOptions.AlwaysValidTokenFlag {
+		return false
+	}
+
 	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}
@@ -527,4 +582,12 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 
 	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
+}
+
+func isRetryableErr(c codes.Code) bool {
+	switch c {
+	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
+		return true
+	}
+	return false
 }

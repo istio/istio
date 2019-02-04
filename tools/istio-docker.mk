@@ -78,6 +78,10 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 
 docker.proxy_init: pilot/docker/Dockerfile.proxy_init
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
+	# Ensure ubuntu:xenial, the base image for proxy_init, is present so build doesn't fail on network hiccup
+	if [[ "$(docker images -q ubuntu:xenial 2> /dev/null)" == "" ]]; then \
+		docker pull ubuntu:xenial || (sleep 15 ; docker pull ubuntu:xenial) || (sleep 45 ; docker pull ubuntu:xenial) \
+	fi
 	$(DOCKER_RULE)
 
 docker.sidecar_injector: pilot/docker/Dockerfile.sidecar_injector
@@ -261,6 +265,18 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 # You can run it first to use local changes (or guarantee it is built from scratch)
 docker.basedebug:
 	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
+
+# Run this target to generate images based on Bionic Ubuntu
+# This must be run as a first step, before the 'docker' step.
+docker.basedebug_bionic:
+	docker build -t istionightly/base_debug_bionic -f docker/Dockerfile.bionic_debug docker/
+	docker tag istionightly/base_debug_bionic istionightly/base_debug
+
+# Run this target to generate images based on Debian Slim
+# This must be run as a first step, before the 'docker' step.
+docker.basedebug_deb:
+	docker build -t istionightly/base_debug_deb -f docker/Dockerfile.deb_debug docker/
+	docker tag istionightly/base_debug_deb istionightly/base_debug
 
 # Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
 docker.push.basedebug: docker.basedebug

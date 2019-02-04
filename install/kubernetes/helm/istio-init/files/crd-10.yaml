@@ -83,28 +83,7 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3 
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: sidecars.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: networking.istio.io
-  names:
-    kind: Sidecar
-    plural: sidecars
-    singular: sidecar
-    categories:
-    - istio-io
-    - networking-istio-io
-  scope: Namespaced
-  version: v1alpha3 
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -597,29 +576,6 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: servicecontrols.config.istio.io
-  labels:
-    app: mixer
-    package: servicecontrol
-    istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: config.istio.io
-  names:
-    kind: servicecontrol
-    plural: servicecontrols
-    singular: servicecontrol
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
   name: signalfxs.config.istio.io
   labels:
     app: mixer
@@ -956,29 +912,6 @@ spec:
     kind: reportnothing
     plural: reportnothings
     singular: reportnothing
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: servicecontrolreports.config.istio.io
-  labels:
-    app: mixer
-    package: servicecontrolreport
-    istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: config.istio.io
-  names:
-    kind: servicecontrolreport
-    plural: servicecontrolreports
-    singular: servicecontrolreport
     categories:
     - istio-io
     - policy-istio-io

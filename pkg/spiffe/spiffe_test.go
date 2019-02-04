@@ -6,8 +6,12 @@ import (
 )
 
 func TestGenSpiffeURI(t *testing.T) {
+	oldTrustDomain := GetTrustDomain()
+	defer SetTrustDomain(oldTrustDomain)
+
 	testCases := []struct {
 		namespace      string
+		trustDomain    string
 		serviceAccount string
 		expectedError  string
 		expectedURI    string
@@ -25,8 +29,25 @@ func TestGenSpiffeURI(t *testing.T) {
 			serviceAccount: "service-bar",
 			expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
 		},
+		{
+			namespace:      "foo",
+			serviceAccount: "bar",
+			expectedURI:    "spiffe://cluster.local/ns/foo/sa/bar",
+		},
+		{
+			namespace:      "foo",
+			serviceAccount: "bar",
+			trustDomain:    "kube-federating-id@testproj.iam.gserviceaccount.com",
+			expectedURI:    "spiffe://kube-federating-id.testproj.iam.gserviceaccount.com/ns/foo/sa/bar",
+		},
 	}
 	for id, tc := range testCases {
+		if tc.trustDomain == "" {
+			SetTrustDomain(defaultTrustDomain)
+		} else {
+			SetTrustDomain(tc.trustDomain)
+		}
+
 		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)

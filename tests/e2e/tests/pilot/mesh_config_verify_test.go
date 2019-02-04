@@ -68,7 +68,7 @@ func deleteRemoteCluster() error {
 
 func deployApp(cluster string, deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
 	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) (*framework.App, error) {
-	tmpApp := getApp(deploymentName, serviceName, port1, port2, port3, port4, port5, port6, version, injectProxy, headless, serviceAccount, createService)
+	tmpApp := getApp(deploymentName, serviceName, 1, port1, port2, port3, port4, port5, port6, version, injectProxy, headless, serviceAccount, createService)
 
 	var appMgr *framework.AppManager
 	if cluster == primaryCluster {

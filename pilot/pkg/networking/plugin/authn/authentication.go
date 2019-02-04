@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -87,7 +88,7 @@ func GetMutualTLS(policy *authn.Policy) *authn.MutualTls {
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool) []plugin.FilterChain {
+func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
@@ -110,17 +111,19 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
-		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
+		base := meta[pilot.BaseDir] + model.AuthCertsPath
+
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(base+model.RootCertFilename, []string{} /*subjectAltNames*/)
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: model.AuthCertsPath + model.CertChainFilename,
+						Filename: base + model.CertChainFilename,
 					},
 				},
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: model.AuthCertsPath + model.KeyFilename,
+						Filename: base + model.KeyFilename,
 					},
 				},
 			},
@@ -173,7 +176,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt)
+	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt, in.Node.Metadata)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
@@ -294,28 +297,38 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 }
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
-func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
+func BuildJwtFilter(policy *authn.Policy, is11 bool) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
 	filterConfigProto := ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
-	return &http_conn.HttpFilter{
-		Name:       JwtFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+	out := &http_conn.HttpFilter{
+		Name: JwtFilterName,
 	}
+	if is11 {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	}
+	return out
 }
 
 // BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
-func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn.HttpFilter {
+func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType, is11 bool) *http_conn.HttpFilter {
 	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
-	return &http_conn.HttpFilter{
-		Name:       AuthnFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+	out := &http_conn.HttpFilter{
+		Name: AuthnFilterName,
 	}
+	if is11 {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	}
+	return out
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -355,10 +368,10 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
-			if filter := BuildJwtFilter(authnPolicy); filter != nil {
+			if filter := BuildJwtFilter(authnPolicy, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := BuildAuthNFilter(authnPolicy, in.Node.Type); filter != nil {
+			if filter := BuildAuthNFilter(authnPolicy, in.Node.Type, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}

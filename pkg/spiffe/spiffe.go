@@ -2,6 +2,7 @@ package spiffe
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 )
@@ -23,18 +24,15 @@ func GetTrustDomain() string {
 	return trustDomain
 }
 
-func DetermineTrustDomain(commandLineTrustDomain string, domain string, isKubernetes bool) string {
+func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) string {
 
 	if len(commandLineTrustDomain) != 0 {
 		return commandLineTrustDomain
 	}
-	if len(domain) != 0 {
-		return domain
-	}
 	if isKubernetes {
 		return defaultTrustDomain
 	}
-	return domain
+	return ""
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate.
@@ -44,6 +42,9 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 		err = fmt.Errorf(
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
+
+	// replace specifial character in spiffe
+	trustDomain = strings.Replace(trustDomain, "@", ".", -1)
 	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), err
 }
 

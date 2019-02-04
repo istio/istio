@@ -796,7 +796,7 @@ func (m *ResponseFlagFilter) Validate() error {
 		if _, ok := _ResponseFlagFilter_Flags_InLookup[item]; !ok {
 			return ResponseFlagFilterValidationError{
 				Field:  fmt.Sprintf("Flags[%v]", idx),
-				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC]",
+				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC URX]",
 			}
 		}
 
@@ -852,4 +852,5 @@ var _ResponseFlagFilter_Flags_InLookup = map[string]struct{}{
 	"UAEX": {},
 	"RLSE": {},
 	"DC":   {},
+	"URX":  {},
 }

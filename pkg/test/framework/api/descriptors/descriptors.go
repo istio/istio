@@ -92,9 +92,18 @@ var (
 	// PolicyBackend component
 	PolicyBackend = component.Descriptor{
 		ID:                ids.PolicyBackend,
-		IsSystemComponent: false,
+		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Mixer,
+			&ids.Environment,
+		},
+	}
+
+	// Echo component. Multiple of these may be created.
+	Echo = component.Descriptor{
+		ID:                ids.Echo,
+		IsSystemComponent: false,
+		Requires: []component.Requirement{
 			&ids.Environment,
 		},
 	}

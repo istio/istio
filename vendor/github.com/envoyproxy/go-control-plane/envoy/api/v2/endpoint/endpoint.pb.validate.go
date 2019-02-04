@@ -102,16 +102,6 @@ func (m *LbEndpoint) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return LbEndpointValidationError{
-				Field:  "Endpoint",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for HealthStatus
 
 	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
@@ -132,6 +122,25 @@ func (m *LbEndpoint) Validate() error {
 				Reason: "value must be inside range [1, 128]",
 			}
 		}
+
+	}
+
+	switch m.HostIdentifier.(type) {
+
+	case *LbEndpoint_Endpoint:
+
+		if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LbEndpointValidationError{
+					Field:  "Endpoint",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *LbEndpoint_EndpointName:
+		// no validation rules for EndpointName
 
 	}
 

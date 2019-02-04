@@ -39,6 +39,11 @@ const (
 	FullSync
 )
 
+var (
+	// FullSyncEvent is a special event representing a FullSync.
+	FullSyncEvent = Event{Kind: FullSync}
+)
+
 // Event represents a change that occurred against a resource in the source config system.
 type Event struct {
 	Kind EventKind
@@ -46,6 +51,9 @@ type Event struct {
 	// A single entry, in case the event is Added, Updated or Deleted.
 	Entry Entry
 }
+
+// EventHandler function.
+type EventHandler func(event Event)
 
 // String implements Stringer.String
 func (k EventKind) String() string {
