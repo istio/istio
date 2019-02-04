@@ -275,6 +275,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
 
+		httpOpts := &core.Http1ProtocolOptions{
+			AllowAbsoluteUrl: proto.BoolTrue,
+		}
+		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1" {
+			httpOpts.AcceptHttp_10 = true
+		}
+
 		opts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -287,9 +294,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: proto.BoolTrue,
-						},
+						HttpProtocolOptions: httpOpts,
 					},
 				},
 			}},
@@ -803,6 +808,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Port:             listenPort,
 				}
 
+				if pluginParams.ListenerProtocol == plugin.ListenerProtocolHTTP &&
+						(pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1") {
+					listenerOpts.filterChainOpts = []*filterChainOpts{{
+						httpOpts: &httpListenerOpts{
+							connectionManager: &http_conn.HttpConnectionManager{
+								HttpProtocolOptions: &core.Http1ProtocolOptions{
+									AcceptHttp_10: true,
+								},
+							},
+						},
+					}}
+				}
+
 				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 
 			} else {
@@ -862,6 +880,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							Bind:             bind,
 							Port:             servicePort,
 							Service:          service,
+						}
+
+						if pluginParams.ListenerProtocol == plugin.ListenerProtocolHTTP &&
+								(pilot.HTTP10 || node.Metadata[model.NodeMetadataHttp10] == "1") {
+							listenerOpts.filterChainOpts = []*filterChainOpts{{
+								httpOpts: &httpListenerOpts{
+									connectionManager: &http_conn.HttpConnectionManager{
+										HttpProtocolOptions: &core.Http1ProtocolOptions{
+											AcceptHttp_10: true,
+										},
+									},
+								},
+							}}
 						}
 
 						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)

@@ -78,6 +78,11 @@ var (
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
 	// be used, "/"
 	BaseDir = "BASE"
+
+	// HTTP10 enables the use of HTTP10 in the outbound HTTP listeners, to support legacy applications.
+	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting.
+	// Will add "accept_http_10" to http outbound listeners.
+	HTTP10 = os.Getenv("PILOT_HTTP10") == "1"
 )
 
 var (
