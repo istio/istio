@@ -31,7 +31,7 @@ data:
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
 
-    {{- if and .Values.global.istioRemote }}
+    {{- if .Values.global.istioRemote }}
     
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
