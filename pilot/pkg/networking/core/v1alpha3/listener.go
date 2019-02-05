@@ -1007,16 +1007,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 
 		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
 			httpOpts.connectionManager = &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AcceptHttp_10: true,
-						},
+				HttpProtocolOptions: &core.Http1ProtocolOptions{
+					AcceptHttp_10: true,
+				},
 			}
 		}
 
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
 			httpOpts: httpOpts,
 		}}
-
 
 	case plugin.ListenerProtocolTCP:
 		// first identify the bind if its not set. Then construct the key

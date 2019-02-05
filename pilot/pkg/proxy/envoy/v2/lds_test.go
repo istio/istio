@@ -43,7 +43,7 @@ func TestLDSIsolated(t *testing.T) {
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 			Meta: map[string]string{
 				model.NodeMetadataInterceptionMode: string(model.InterceptionNone),
-				model.NodeMetadataHTTP10: "1",
+				model.NodeMetadataHTTP10:           "1",
 			},
 			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
 			Namespace: "none",
