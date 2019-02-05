@@ -165,7 +165,7 @@ ISTIO_PROXY_DEPS_URL="https://raw.githubusercontent.com/istio/proxy/${PROXY_REPO
 ISTIO_PROXY_DEPS_FILE="${ISTIO_OUT}/istio_proxy.deps"
 echo "Downloading istio.deps from ${ISTIO_PROXY_DEPS_URL} to ${ISTIO_PROXY_DEPS_FILE}"
 ${DOWNLOAD_COMMAND} "${ISTIO_PROXY_DEPS_URL}" | sed -n '/name/,/lastStableSHA/{//p}' \
-    | cut -d: -f2 | sed 'N;s/\n/ /' |sed 's/[" ]//g' | sed 's/,/=/' > "${ISTIO_PROXY_DEPS_FILE}"
+    | cut -d: -f2 | sed 'N;s/\n/ /' | sed 's/[" ]//g' | sed 's/,/=/' > "${ISTIO_PROXY_DEPS_FILE}"
 export ISTIO_PROXY_ISTIO_API_SHA_LABEL=`grep ISTIO_API "${ISTIO_PROXY_DEPS_FILE}" | cut -d= -f2`
 export ISTIO_PROXY_ENVOY_SHA_LABEL=`grep ENVOY_SHA "${ISTIO_PROXY_DEPS_FILE}" | cut -d= -f2`
 
