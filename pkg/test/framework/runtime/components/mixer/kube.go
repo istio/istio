@@ -101,7 +101,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 	}()
 
 	ns := c.env.NamespaceForScope(scope)
-	fmt.Println("jianfeih test ", scope, ns)
+
 	for _, serviceType := range []string{telemetryService, policyService} {
 		fetchFn := c.env.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
 		if err := c.env.WaitUntilPodsAreReady(fetchFn); err != nil {

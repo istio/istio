@@ -260,20 +260,6 @@ var (
 			headless:       true,
 			serviceAccount: true,
 		},
-		{
-			deployment:     "healthcheck",
-			service:        "healthcheck",
-			version:        "unversioned",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-		},
 	}
 
 	_ components.Apps = &kubeComponent{}

@@ -124,7 +124,7 @@ type settings struct {
 	values map[string]string
 }
 
-// Values returns the helm value overrides given a lifecycle scope.
+// Values returns the helm values.
 func (s *settings) Values() map[string]string {
 	out := map[string]string{}
 	for k, v := range s.values {
