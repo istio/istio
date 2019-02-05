@@ -55,7 +55,7 @@ const (
 )
 
 var (
-	helmValues string
+	helmValuesFromFlag string
 
 	globalSettings = &settings{
 		KubeConfig:      ISTIO_TEST_KUBE_CONFIG.Value(),
@@ -120,17 +120,20 @@ type settings struct {
 	// The Helm values file to be used.
 	ValuesFile string
 
-	// Overrides for the Helm values file.
-	values map[string]string
+	// Helm values specified by test, applied after ValuesFiles.
+	valuesByTest map[string]string
+
+	// Overrides for the Helm values file, highest priority.
+	valuesByFlag map[string]string
 }
 
 // Values returns the helm values.
 func (s *settings) Values() map[string]string {
 	out := map[string]string{}
-	for k, v := range s.values {
+	for k, v := range helmOverridesByTest {
 		out[k] = v
 	}
-	for k, v := range helmOverridesByTest {
+	for k, v := range s.valuesByFlag {
 		out[k] = v
 	}
 	return out
@@ -138,7 +141,6 @@ func (s *settings) Values() map[string]string {
 
 // RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
 // This allows some test to specify a customized Istio deployment by specifying additional Helm values.
-// TODO(incfly): flag overrides should take higher priority?
 func RegisterHelmOverrides(values map[string]string) {
 	helmOverridesByTest = values
 }
@@ -167,7 +169,7 @@ func newSettings() (*settings, error) {
 	}
 
 	var err error
-	s.values, err = newHelmValues()
+	s.valuesByFlag, err = newHelmValues()
 	if err != nil {
 		return nil, err
 	}
@@ -217,15 +219,15 @@ func newHelmValues() (map[string]string, error) {
 
 func parseHelmValues() (map[string]string, error) {
 	out := make(map[string]string)
-	if helmValues == "" {
+	if helmValuesFromFlag == "" {
 		return out, nil
 	}
 
-	values := strings.Split(helmValues, ",")
+	values := strings.Split(helmValuesFromFlag, ",")
 	for _, v := range values {
 		parts := strings.Split(v, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed parsing helm values: %s", helmValues)
+			return nil, fmt.Errorf("failed parsing helm values: %s", helmValuesFromFlag)
 		}
 		out[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
@@ -243,7 +245,7 @@ func (s *settings) String() string {
 	result += fmt.Sprintf("DeployTimeout:   %ds\n", s.DeployTimeout/time.Second)
 	result += fmt.Sprintf("UndeployTimeout: %ds\n", s.UndeployTimeout/time.Second)
 	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
-	result += fmt.Sprintf("Values:          %v\n", s.values)
+	result += fmt.Sprintf("Values:          %v\n", s.Values())
 
 	return result
 }
