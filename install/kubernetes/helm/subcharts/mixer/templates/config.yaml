@@ -981,6 +981,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  exportTo:
+  - '*'
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
@@ -1008,6 +1010,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  exportTo:
+  - '*'
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
