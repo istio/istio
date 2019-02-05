@@ -23,12 +23,14 @@ import (
 )
 
 const (
-	DefaultTimeout = 2 * time.Second
-	DefaultPeriod  = 100 * time.Millisecond
+	defaultPositiveTimeout = 10 * time.Second
+	defaultNegativeTimeout = 3 * time.Second
+	defaultRetryPeriod     = 100 * time.Millisecond
 )
 
 var (
-	defaultOptions = []retry.Option{retry.Timeout(DefaultTimeout), retry.Delay(DefaultPeriod)}
+	defaultPositiveOptions = []retry.Option{retry.Timeout(defaultPositiveTimeout), retry.Delay(defaultRetryPeriod)}
+	defaultNegativeOptions = []retry.Option{retry.Timeout(defaultNegativeTimeout), retry.Delay(defaultRetryPeriod)}
 )
 
 // ChannelHandler creates an EventHandler that adds the event to the provided channel.
@@ -46,13 +48,16 @@ func ExpectOne(t *testing.T, ch chan resource.Event, options ...retry.Option) re
 
 	// Use the default options for checking for none. This is to avoid long delays when the caller
 	// increases the polling timeout.
-	ExpectNone(t, ch, defaultOptions...)
+	ExpectNone(t, ch, options...)
 	return e
 }
 
 // Expect polls the channel for the next event and returns it. Fails the test if no event found.
 func Expect(t *testing.T, ch chan resource.Event, options ...retry.Option) resource.Event {
 	t.Helper()
+
+	// Add sensible default retry options for assumed success, but let caller override.
+	options = concat(options, defaultPositiveOptions)
 
 	e := Poll(ch, options...)
 	if e == nil {
@@ -64,6 +69,10 @@ func Expect(t *testing.T, ch chan resource.Event, options ...retry.Option) resou
 // ExpectNone polls the channel and fails the test if any events are available.
 func ExpectNone(t *testing.T, ch chan resource.Event, options ...retry.Option) {
 	t.Helper()
+
+	// Add sensible default retry options for assumed failure, but let caller override.
+	options = concat(options, defaultNegativeOptions)
+
 	e := Poll(ch, options...)
 	if e != nil {
 		t.Fatalf("expected no events, found: %v", e)
@@ -72,9 +81,6 @@ func ExpectNone(t *testing.T, ch chan resource.Event, options ...retry.Option) {
 
 // Poll polls the channel to see if there is an event waiting. Returns either the next event or nil.
 func Poll(ch chan resource.Event, options ...retry.Option) *resource.Event {
-	// Add the default options first, then the arguments (if provided). Since options are applied
-	// in-order, this allows the defaults to be overridden.
-	options = append(append([]retry.Option{}, defaultOptions...), options...)
 	e, err := retry.Do(func() (result interface{}, completed bool, err error) {
 		select {
 		case e := <-ch:
@@ -89,4 +95,8 @@ func Poll(ch chan resource.Event, options ...retry.Option) *resource.Event {
 	}
 
 	return e.(*resource.Event)
+}
+
+func concat(part1 []retry.Option, part2 []retry.Option) []retry.Option {
+	return append(append([]retry.Option{}, part1...), part2...)
 }

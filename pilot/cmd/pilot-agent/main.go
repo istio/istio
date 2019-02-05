@@ -77,9 +77,6 @@ var (
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
 
-	// pilot agent config
-	kubeAppHTTPProbers string
-
 	wg sync.WaitGroup
 
 	rootCmd = &cobra.Command{
@@ -301,11 +298,12 @@ var (
 					return err
 				}
 
+				prober := os.Getenv(status.KubeAppProberEnvName)
 				statusServer, err := status.NewServer(status.Config{
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: kubeAppHTTPProbers,
+					KubeAppHTTPProbers: prober,
 				})
 				if err != nil {
 					return err
@@ -445,11 +443,6 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
-		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
-			`For example, --kubeAppProberConfig='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}'`+
-			" indicates that httpbin container liveness prober port is 8080 and probing path is /hello. "+
-			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
