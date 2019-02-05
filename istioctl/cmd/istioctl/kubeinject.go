@@ -374,6 +374,8 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
+	// TODO(incfly): deprecate this flag once hardcoded injection template is gone. By then, everything
+	// comes from configmap injector, whose template already contains rewriteAppHTTPProbe control switch.
 	injectCmd.PersistentFlags().BoolVar(&rewriteAppHTTPProbe, "rewriteAppProbe", false, "Whether injector "+
 		"rewrites the liveness health check to let kubelet health check the app when mtls is on.")
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
