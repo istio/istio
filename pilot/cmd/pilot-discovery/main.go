@@ -168,6 +168,10 @@ func init() {
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
 	}))
+
+	if os.Getenv("DEBUG_MODE") != "" {
+		serverArgs.Debug = true
+	}
 }
 
 func main() {
