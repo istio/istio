@@ -29,8 +29,10 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
@@ -74,21 +76,39 @@ func GetDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Clu
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*apiv2.Cluster, error) {
 	clusters := make([]*apiv2.Cluster, 0)
+	instances := proxy.ServiceInstances
+
+	// compute the proxy's locality. See if we have a CDS cache for that locality.
+	// If not, compute one.
+	locality := proxy.Locality
+	if locality == nil {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(instances) > 0 {
+			locality = util.ConvertLocality(instances[0].GetLocality())
+		}
+	}
 
 	switch proxy.Type {
 	case model.SidecarProxy:
-		instances := proxy.ServiceInstances
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
-			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
-				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
+			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
+				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
+				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
 				recomputeOutboundClusters = false
+				if locality != nil {
+					applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, true)
+				}
 			}
 		}
 
 		if recomputeOutboundClusters {
 			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+			if locality != nil {
+				applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+			}
 		}
 
 		// Let ServiceDiscovery decide which IP and Port are used for management if
@@ -102,15 +122,22 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	default: // Gateways
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
-			if configgen.PrecomputedOutboundClustersForGateways != nil &&
-				configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
-				clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
-				recomputeOutboundClusters = false
+			if configgen.PrecomputedOutboundClustersForGateways != nil {
+				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
+					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)
+					recomputeOutboundClusters = false
+					if locality != nil {
+						applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, true)
+					}
+				}
 			}
 		}
 
 		if recomputeOutboundClusters {
 			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+			if locality != nil {
+				applyLocalityLBSetting(locality, clusters, env.Mesh.LocalityLbSetting, false)
+			}
 		}
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
@@ -573,6 +600,9 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSe
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
+	if policy == nil {
+		return nil, nil, nil, nil
+	}
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
@@ -619,9 +649,6 @@ const (
 // listenerOpts
 func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
 	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode, direction model.TrafficDirection) {
-	if policy == nil {
-		return
-	}
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
 
 	applyConnectionPool(env, cluster, connectionPool, direction)
@@ -785,6 +812,41 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
 				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
 			},
+		}
+	}
+
+	if cluster.OutlierDetection != nil {
+		// Locality weighted load balancing
+		cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
+			LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+			},
+		}
+	}
+}
+
+func applyLocalityLBSetting(
+	locality *core.Locality,
+	clusters []*apiv2.Cluster,
+	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	shared bool,
+) {
+	// TODO: there is a complicated lock dance involved. But it improves perf when
+	// locality LB is being used. For now, we sacrifice memory and create clones of
+	// clusters for every proxy that asks for locality specific clusters
+	for i, cluster := range clusters {
+		if shared {
+			// update the locality settings only if the cluster has
+			// outlier detection settings
+			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
+				clone := util.CloneCluster(cluster)
+				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB)
+				clusters[i] = &clone
+			}
+		} else {
+			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
+				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB)
+			}
 		}
 	}
 }
