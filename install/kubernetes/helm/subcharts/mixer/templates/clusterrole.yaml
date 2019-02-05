@@ -1,5 +1,5 @@
 {{- if or (.Values.policy.enabled) (.Values.telemetry.enabled) }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-mixer-{{ .Release.Namespace }}
