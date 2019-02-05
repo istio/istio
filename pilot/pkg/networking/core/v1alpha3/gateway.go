@@ -382,13 +382,14 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
 	// SIMPLE, generate SDS config for gateway controller.
 	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
+		/* Temporary until https://github.com/istio/istio/pull/11541 is merged
 		sdsName := server.Hosts[0]
 		if server.Tls.SdsName != "" {
 			sdsName = server.Tls.SdsName
 		}
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
-		}
+		}*/
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
