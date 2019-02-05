@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -36,8 +37,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -501,4 +504,29 @@ func (c *clientState) Apply(ch *sink.Change) error {
 
 	c.acked++
 	return nil
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+
+	// reduce logging from grpc library
+	var (
+		infoW    = ioutil.Discard
+		warningW = ioutil.Discard
+		errorW   = os.Stderr
+	)
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(infoW, warningW, errorW))
+
+	// reduce logging from MCP library
+	o := log.DefaultOptions()
+	o.SetOutputLevel("mcp", log.NoneLevel)
+	o.SetOutputLevel("default", log.NoneLevel)
+	log.Configure(o)
+
+	fmt.Println("Generating common dataset ...")
+	initDataset()
+	fmt.Println("Finished generating common dataset")
+
+	// call flag.Parse() here if TestMain uses flags
+	os.Exit(m.Run())
 }

@@ -15,16 +15,9 @@
 package stress
 
 import (
-	"flag"
-	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
-	"google.golang.org/grpc/grpclog"
-
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -130,29 +123,4 @@ func BenchmarkUnknownCollection_10Clients(b *testing.B) {
 
 func BenchmarkUnknownCollection_100Clients(b *testing.B) {
 	benchmarkUnknownCollection(100, b)
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-
-	// reduce logging from grpc library
-	var (
-		infoW    = ioutil.Discard
-		warningW = ioutil.Discard
-		errorW   = os.Stderr
-	)
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(infoW, warningW, errorW))
-
-	// reduce logging from MCP library
-	o := log.DefaultOptions()
-	o.SetOutputLevel("mcp", log.NoneLevel)
-	o.SetOutputLevel("default", log.NoneLevel)
-	log.Configure(o)
-
-	fmt.Println("Generating common dataset ...")
-	initDataset()
-	fmt.Println("Finished generating common dataset")
-
-	// call flag.Parse() here if TestMain uses flags
-	os.Exit(m.Run())
 }
