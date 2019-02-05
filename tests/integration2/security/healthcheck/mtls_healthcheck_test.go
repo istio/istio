@@ -13,10 +13,7 @@
 //  limitations under the License.
 
 // Package healthcheck contains a test to support kubernetes app health check when mTLS is turned on.
-// go test -v ./tests/integration2/security/healthcheck -istio.test.env  kubernetes \
-// -istio.test.kube.helm.values "global.hub=gcr.io/jianfeih-test,global.tag=0130a"  \
-// --istio.test.kube.suiteNamespace  istio-suite   --istio.test.kube.testNamespace istio-test  \
-// --log_output_level CI:info | tee somefile
+// https://github.com/istio/istio/issues/9150.
 package healthcheck
 
 import (
@@ -43,26 +40,31 @@ func TestMain(m *testing.M) {
 
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
-	// Test requires this Helm flag to be enabled.
 	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	scopes.CI.SetOutputLevel(log.DebugLevel)
+
+	// Test requires this Helm flag to be enabled.
 	kube.RegisterHelmOverrides(map[string]string{
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
 	})
+
+	// Kube environment only used for this test since it requires istio installed with specific helm
+	// values.
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
 	env := kube.GetEnvironmentOrFail(ctx, t)
 	_, err := env.DeployYaml("healthcheck_mtls.yaml", lifecycle.Test)
 	if err != nil {
 		t.Error(err)
 	}
+
 	// Deploy app now.
-	_, err = newDeployment(env, lifecycle.Test)
+	_, err = deployTestApp(env, lifecycle.Test)
 	if err != nil {
 		t.Errorf("failed to deploy %v", err)
 	}
 }
 
-func newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
+func deployTestApp(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
 	helmValues := e.HelmValueMap()
 	b, err := ioutil.ReadFile("healthcheck.yaml")
 	if err != nil {
