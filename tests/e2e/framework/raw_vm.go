@@ -80,6 +80,7 @@ func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
 			return nil, err
 		}
 		g, err := resourceInfoToGCPRawVM(*info, namespace)
+		fmt.Printf("file path %v and content %v", filePath, string(data))
 		if err != nil {
 			return nil, err
 		}
