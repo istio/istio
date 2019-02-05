@@ -54,6 +54,7 @@ func TestClientSink(t *testing.T) {
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
+		RateLimiter:       newFakeRateLimiter(),
 	}
 	c := NewClient(h, options)
 

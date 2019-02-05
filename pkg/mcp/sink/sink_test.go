@@ -194,6 +194,7 @@ func newHarness() *sinkHarness {
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
+		RateLimiter:       newFakeRateLimiter(),
 	}
 	h.sink = New(options)
 
@@ -718,9 +719,10 @@ func TestRequestRateLimitError(t *testing.T) {
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
+		RateLimiter:       fakeLimiter,
 	}
+
 	sink := New(options)
-	sink.requestLimiter = fakeLimiter
 
 	h := newSinkTestHarness()
 

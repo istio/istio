@@ -248,6 +248,7 @@ func makeSourceUnderTest(w Watcher) *Source {
 		Watcher:            w,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		RateLimiter:        newFakeRateLimiter(),
 	}
 	return New(options)
 }

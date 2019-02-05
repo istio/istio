@@ -17,9 +17,7 @@ package source
 import (
 	"context"
 	"io"
-	"time"
 
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
@@ -58,18 +56,16 @@ var _ mcp.ResourceSourceServer = &Server{}
 
 // ServerOptions contains sink server specific options
 type ServerOptions struct {
-	NewConnectionFreq      time.Duration
-	NewConnectionBurstSize int
-	AuthChecker            AuthChecker
+	AuthChecker AuthChecker
+	RateLimiter RateLimiter
 }
 
 // NewServer creates a new instance of a MCP source server.
 func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
-	limiter := rate.NewLimiter(rate.Every(serverOptions.NewConnectionFreq), serverOptions.NewConnectionBurstSize)
 	s := &Server{
 		src:                  New(srcOptions),
-		newConnectionLimiter: limiter,
 		authCheck:            serverOptions.AuthChecker,
+		newConnectionLimiter: serverOptions.RateLimiter,
 	}
 	return s
 }

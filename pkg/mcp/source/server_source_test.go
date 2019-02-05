@@ -105,6 +105,7 @@ func TestServerSource(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		RateLimiter:        newFakeRateLimiter(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
 	s.newConnectionLimiter = newFakeRateLimiter()

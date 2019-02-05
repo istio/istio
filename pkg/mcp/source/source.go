@@ -104,13 +104,18 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 	return options
 }
 
+// DefaultRateLimiter is a standard library rate limiter
+// with default valuse of 10ms frequency and burst size of 10 tokens
+func DefaultRateLimiter() *rate.Limiter {
+	return rate.NewLimiter(rate.Every(10*time.Millisecond), 10)
+}
+
 // Options contains options for configuring MCP sources.
 type Options struct {
-	Watcher                 Watcher
-	CollectionsOptions      []CollectionOptions
-	Reporter                monitoring.Reporter
-	PerConnRequestBurstSize int
-	PerConnRequestFreq      time.Duration
+	Watcher            Watcher
+	CollectionsOptions []CollectionOptions
+	Reporter           monitoring.Reporter
+	RateLimiter        RateLimiter
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -165,12 +170,10 @@ type connection struct {
 // New creates a new resource source.
 func New(options *Options) *Source {
 	s := &Source{
-		watcher:     options.Watcher,
-		collections: options.CollectionsOptions,
-		reporter:    options.Reporter,
-		requestLimiter: rate.NewLimiter(
-			rate.Every(options.PerConnRequestFreq),
-			options.PerConnRequestBurstSize),
+		watcher:        options.Watcher,
+		collections:    options.CollectionsOptions,
+		reporter:       options.Reporter,
+		requestLimiter: options.RateLimiter,
 	}
 	return s
 }

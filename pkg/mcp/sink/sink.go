@@ -76,15 +76,13 @@ func New(options *Options) *Sink { // nolint: lll
 	}
 
 	return &Sink{
-		state:    state,
-		nodeInfo: nodeInfo,
-		updater:  options.Updater,
-		metadata: options.Metadata,
-		reporter: options.Reporter,
-		journal:  NewRequestJournal(),
-		requestLimiter: rate.NewLimiter(
-			rate.Every(options.PerConnRequestFreq),
-			options.PerConnRequestBurstSize),
+		state:          state,
+		nodeInfo:       nodeInfo,
+		updater:        options.Updater,
+		metadata:       options.Metadata,
+		reporter:       options.Reporter,
+		journal:        NewRequestJournal(),
+		requestLimiter: options.RateLimiter,
 	}
 }
 
@@ -348,15 +346,20 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 	return options
 }
 
+// DefaultRateLimiter is a standard library rate limiter
+// with default valuse of 10ms frequency and burst size of 10 tokens
+func DefaultRateLimiter() *rate.Limiter {
+	return rate.NewLimiter(rate.Every(10*time.Millisecond), 10)
+}
+
 // Options contains options for configuring MCP sinks.
 type Options struct {
-	CollectionOptions       []CollectionOptions
-	Updater                 Updater
-	ID                      string
-	Metadata                map[string]string
-	Reporter                monitoring.Reporter
-	PerConnRequestBurstSize int
-	PerConnRequestFreq      time.Duration
+	CollectionOptions []CollectionOptions
+	Updater           Updater
+	ID                string
+	Metadata          map[string]string
+	Reporter          monitoring.Reporter
+	RateLimiter       RateLimiter
 }
 
 // Stream is for sending RequestResources messages and receiving Resource messages.

@@ -66,20 +66,24 @@ func TestServerSinkRateLimitter(t *testing.T) {
 		sinkTestHarness: newSinkTestHarness(),
 	}
 
-	fakeLimiter := newFakeRateLimiter()
-	authChecker := test.NewFakeAuthChecker()
-	options := &Options{
+	sinkOptions := &Options{
 		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
+		RateLimiter:       newFakeRateLimiter(),
 	}
+
+	authChecker := test.NewFakeAuthChecker()
+
+	fakeLimiter := newFakeRateLimiter()
 	serverOpts := &ServerOptions{
 		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
 	}
-	s := NewServer(options, serverOpts)
-	s.newConnectionLimiter = fakeLimiter
+
+	s := NewServer(sinkOptions, serverOpts)
 
 	// when rate limit returns an error
 	errc := make(chan error)
@@ -131,17 +135,18 @@ func TestServerSink(t *testing.T) {
 	}
 
 	authChecker := test.NewFakeAuthChecker()
-	options := &Options{
+	sinkOptions := &Options{
 		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
+		RateLimiter:       newFakeRateLimiter(),
 	}
 	serverOpts := &ServerOptions{
 		AuthChecker: authChecker,
 	}
-	s := NewServer(options, serverOpts)
+	s := NewServer(sinkOptions, serverOpts)
 	s.newConnectionLimiter = newFakeRateLimiter()
 
 	errc := make(chan error)
