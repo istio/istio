@@ -15,7 +15,7 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-  - name: {{ .Values.service.name }}
+  - name: http-kiali
     protocol: TCP
     port: {{ .Values.service.externalPort }}
     targetPort: 20001

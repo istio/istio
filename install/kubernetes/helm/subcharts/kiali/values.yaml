@@ -22,7 +22,6 @@ ingress:
     #     - kiali.local
 service:
   annotations: {}
-  name: http-kiali
   type: ClusterIP
   externalPort: 20001
   loadBalancerIP:
