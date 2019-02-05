@@ -152,6 +152,7 @@ type SidecarInjectionSpec struct {
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
 	Volumes             []corev1.Volume               `yaml:"volumes"`
+	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
 	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
@@ -700,6 +701,8 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
+
+	podSpec.DNSConfig = spec.DNSConfig
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.

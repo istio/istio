@@ -77,9 +77,6 @@ var (
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
 
-	// pilot agent config
-	kubeAppHTTPProbers string
-
 	wg sync.WaitGroup
 
 	rootCmd = &cobra.Command{
