@@ -378,11 +378,6 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	// TODO: BUG. Server.Hosts could be a format like ns/*, ns/hostname, *,
-	// etc. Two different servers on different ports could have the same
-	// host.  How does the SDS server differentiate the right secret to
-	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
-	// SIMPLE, generate SDS config for gateway controller.
 	if enableSds && server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
@@ -390,7 +385,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
 		}
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
-		// at gateway agent.
+		// at gateway agent. Otherwise, use the static certificate validation context config.
 		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
@@ -407,6 +402,7 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 			}
 		}
 	} else {
+		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
