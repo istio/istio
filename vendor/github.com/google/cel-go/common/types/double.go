@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
-// Double type that implements ref.Value, comparison, and mathematical
+// Double type that implements ref.Val, comparison, and mathematical
 // operations.
 type Double float64
 
@@ -39,7 +39,7 @@ var (
 )
 
 // Add implements traits.Adder.Add.
-func (d Double) Add(other ref.Value) ref.Value {
+func (d Double) Add(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -47,7 +47,7 @@ func (d Double) Add(other ref.Value) ref.Value {
 }
 
 // Compare implements traits.Comparer.Compare.
-func (d Double) Compare(other ref.Value) ref.Value {
+func (d Double) Compare(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -60,7 +60,7 @@ func (d Double) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Float32:
@@ -89,8 +89,8 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Double to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (d Double) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (d Double) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
 		return Int(float64(d))
@@ -107,7 +107,7 @@ func (d Double) ConvertToType(typeVal ref.Type) ref.Value {
 }
 
 // Divide implements traits.Divider.Divide.
-func (d Double) Divide(other ref.Value) ref.Value {
+func (d Double) Divide(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -117,8 +117,8 @@ func (d Double) Divide(other ref.Value) ref.Value {
 	return d / other.(Double)
 }
 
-// Equal implements ref.Value.Equal.
-func (d Double) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (d Double) Equal(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -127,7 +127,7 @@ func (d Double) Equal(other ref.Value) ref.Value {
 }
 
 // Multiply implements traits.Multiplier.Multiply.
-func (d Double) Multiply(other ref.Value) ref.Value {
+func (d Double) Multiply(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -135,24 +135,24 @@ func (d Double) Multiply(other ref.Value) ref.Value {
 }
 
 // Negate implements traits.Negater.Negate.
-func (d Double) Negate() ref.Value {
+func (d Double) Negate() ref.Val {
 	return -d
 }
 
 // Subtract implements traits.Subtractor.Subtract.
-func (d Double) Subtract(subtrahend ref.Value) ref.Value {
+func (d Double) Subtract(subtrahend ref.Val) ref.Val {
 	if DoubleType != subtrahend.Type() {
 		return ValOrErr(subtrahend, "no such overload")
 	}
 	return d - subtrahend.(Double)
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (d Double) Type() ref.Type {
 	return DoubleType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (d Double) Value() interface{} {
 	return float64(d)
 }

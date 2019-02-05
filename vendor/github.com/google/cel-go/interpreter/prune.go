@@ -240,7 +240,7 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	return node, false
 }
 
-func (p *astPruner) value(id int64) (ref.Value, bool) {
+func (p *astPruner) value(id int64) (ref.Val, bool) {
 	val, found := p.state.Value(id)
 	return val, (found && val != nil)
 }

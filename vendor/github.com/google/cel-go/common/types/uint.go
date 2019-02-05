@@ -43,7 +43,7 @@ const (
 )
 
 // Add implements traits.Adder.Add.
-func (i Uint) Add(other ref.Value) ref.Value {
+func (i Uint) Add(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -51,7 +51,7 @@ func (i Uint) Add(other ref.Value) ref.Value {
 }
 
 // Compare implements traits.Comparer.Compare.
-func (i Uint) Compare(other ref.Value) ref.Value {
+func (i Uint) Compare(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -64,7 +64,7 @@ func (i Uint) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	value := i.Value()
 	switch typeDesc.Kind() {
@@ -94,8 +94,8 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported type conversion from 'uint' to %v", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (i Uint) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
 		return Int(i)
@@ -112,7 +112,7 @@ func (i Uint) ConvertToType(typeVal ref.Type) ref.Value {
 }
 
 // Divide implements traits.Divider.Divide.
-func (i Uint) Divide(other ref.Value) ref.Value {
+func (i Uint) Divide(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -123,8 +123,8 @@ func (i Uint) Divide(other ref.Value) ref.Value {
 	return i / otherUint
 }
 
-// Equal implements ref.Value.Equal.
-func (i Uint) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (i Uint) Equal(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -132,7 +132,7 @@ func (i Uint) Equal(other ref.Value) ref.Value {
 }
 
 // Modulo implements traits.Modder.Modulo.
-func (i Uint) Modulo(other ref.Value) ref.Value {
+func (i Uint) Modulo(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -144,7 +144,7 @@ func (i Uint) Modulo(other ref.Value) ref.Value {
 }
 
 // Multiply implements traits.Multiplier.Multiply.
-func (i Uint) Multiply(other ref.Value) ref.Value {
+func (i Uint) Multiply(other ref.Val) ref.Val {
 	if UintType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -152,19 +152,19 @@ func (i Uint) Multiply(other ref.Value) ref.Value {
 }
 
 // Subtract implements traits.Subtractor.Subtract.
-func (i Uint) Subtract(subtrahend ref.Value) ref.Value {
+func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
 	if UintType != subtrahend.Type() {
 		return ValOrErr(subtrahend, "no such overload")
 	}
 	return i - subtrahend.(Uint)
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (i Uint) Type() ref.Type {
 	return UintType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (i Uint) Value() interface{} {
 	return uint64(i)
 }

@@ -29,33 +29,33 @@ var (
 	UnknownType = NewTypeValue("unknown")
 )
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (u Unknown) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return u.Value(), nil
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (u Unknown) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (u Unknown) ConvertToType(typeVal ref.Type) ref.Val {
 	return u
 }
 
-// Equal implements ref.Value.Equal.
-func (u Unknown) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (u Unknown) Equal(other ref.Val) ref.Val {
 	return u
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (u Unknown) Type() ref.Type {
 	return UnknownType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (u Unknown) Value() interface{} {
 	return []int64(u)
 }
 
-// IsUnknown returns whether the element ref.Type or ref.Value is equal to the
+// IsUnknown returns whether the element ref.Type or ref.Val is equal to the
 // UnknownType singleton.
-func IsUnknown(val ref.Value) bool {
+func IsUnknown(val ref.Val) bool {
 	return val.Type() == UnknownType
 }

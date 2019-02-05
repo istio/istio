@@ -18,7 +18,7 @@ import "github.com/google/cel-go/common/types/ref"
 
 // Lister interface which aggregates the traits of a list.
 type Lister interface {
-	ref.Value
+	ref.Val
 	Adder
 	Container
 	Indexer

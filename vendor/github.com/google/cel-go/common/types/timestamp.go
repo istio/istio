@@ -45,7 +45,7 @@ var (
 )
 
 // Add implements traits.Adder.Add.
-func (t Timestamp) Add(other ref.Value) ref.Value {
+func (t Timestamp) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		return other.(Duration).Add(t)
@@ -54,7 +54,7 @@ func (t Timestamp) Add(other ref.Value) ref.Value {
 }
 
 // Compare implements traits.Comparer.Compare.
-func (t Timestamp) Compare(other ref.Value) ref.Value {
+func (t Timestamp) Compare(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -76,7 +76,7 @@ func (t Timestamp) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc == timestampValueType {
 		return t.Value(), nil
@@ -89,8 +89,8 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
 		return String(ptypes.TimestampString(t.Timestamp))
@@ -107,8 +107,8 @@ func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", TimestampType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (t Timestamp) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (t Timestamp) Equal(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -116,7 +116,7 @@ func (t Timestamp) Equal(other ref.Value) ref.Value {
 }
 
 // Receive implements traits.Reciever.Receive.
-func (t Timestamp) Receive(function string, overload string, args []ref.Value) ref.Value {
+func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref.Val {
 	ts := t.Timestamp
 	tstamp, err := ptypes.Timestamp(ts)
 	if err != nil {
@@ -136,7 +136,7 @@ func (t Timestamp) Receive(function string, overload string, args []ref.Value) r
 }
 
 // Subtract implements traits.Subtractor.Subtract.
-func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
+func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
 		ts, err := ptypes.Timestamp(t.Timestamp)
@@ -166,12 +166,12 @@ func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
 	return ValOrErr(subtrahend, "no such overload")
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (t Timestamp) Type() ref.Type {
 	return TimestampType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (t Timestamp) Value() interface{} {
 	return t.Timestamp
 }
@@ -179,7 +179,7 @@ func (t Timestamp) Value() interface{} {
 var (
 	timestampValueType = reflect.TypeOf(&tpb.Timestamp{})
 
-	timestampZeroArgOverloads = map[string]func(time.Time) ref.Value{
+	timestampZeroArgOverloads = map[string]func(time.Time) ref.Val{
 		overloads.TimeGetFullYear:     timestampGetFullYear,
 		overloads.TimeGetMonth:        timestampGetMonth,
 		overloads.TimeGetDayOfYear:    timestampGetDayOfYear,
@@ -191,7 +191,7 @@ var (
 		overloads.TimeGetSeconds:      timestampGetSeconds,
 		overloads.TimeGetMilliseconds: timestampGetMilliseconds}
 
-	timestampOneArgOverloads = map[string]func(time.Time, ref.Value) ref.Value{
+	timestampOneArgOverloads = map[string]func(time.Time, ref.Val) ref.Val{
 		overloads.TimeGetFullYear:     timestampGetFullYearWithTz,
 		overloads.TimeGetMonth:        timestampGetMonthWithTz,
 		overloads.TimeGetDayOfYear:    timestampGetDayOfYearWithTz,
@@ -204,72 +204,72 @@ var (
 		overloads.TimeGetMilliseconds: timestampGetMillisecondsWithTz}
 )
 
-type timestampVisitor func(time.Time) ref.Value
+type timestampVisitor func(time.Time) ref.Val
 
-func timestampGetFullYear(t time.Time) ref.Value {
+func timestampGetFullYear(t time.Time) ref.Val {
 	return Int(t.Year())
 }
-func timestampGetMonth(t time.Time) ref.Value {
+func timestampGetMonth(t time.Time) ref.Val {
 	return Int(t.Month())
 }
-func timestampGetDayOfYear(t time.Time) ref.Value {
+func timestampGetDayOfYear(t time.Time) ref.Val {
 	return Int(t.YearDay())
 }
-func timestampGetDayOfMonthZeroBased(t time.Time) ref.Value {
+func timestampGetDayOfMonthZeroBased(t time.Time) ref.Val {
 	return Int(t.Day() - 1)
 }
-func timestampGetDayOfMonthOneBased(t time.Time) ref.Value {
+func timestampGetDayOfMonthOneBased(t time.Time) ref.Val {
 	return Int(t.Day())
 }
-func timestampGetDayOfWeek(t time.Time) ref.Value {
+func timestampGetDayOfWeek(t time.Time) ref.Val {
 	return Int(t.Weekday())
 }
-func timestampGetHours(t time.Time) ref.Value {
+func timestampGetHours(t time.Time) ref.Val {
 	return Int(t.Hour())
 }
-func timestampGetMinutes(t time.Time) ref.Value {
+func timestampGetMinutes(t time.Time) ref.Val {
 	return Int(t.Minute())
 }
-func timestampGetSeconds(t time.Time) ref.Value {
+func timestampGetSeconds(t time.Time) ref.Val {
 	return Int(t.Second())
 }
-func timestampGetMilliseconds(t time.Time) ref.Value {
+func timestampGetMilliseconds(t time.Time) ref.Val {
 	return Int(t.Nanosecond() / 1000000)
 }
 
-func timestampGetFullYearWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetFullYearWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetFullYear)(t)
 }
-func timestampGetMonthWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetMonthWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetMonth)(t)
 }
-func timestampGetDayOfYearWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetDayOfYearWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetDayOfYear)(t)
 }
-func timestampGetDayOfMonthZeroBasedWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetDayOfMonthZeroBasedWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetDayOfMonthZeroBased)(t)
 }
-func timestampGetDayOfMonthOneBasedWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetDayOfMonthOneBasedWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetDayOfMonthOneBased)(t)
 }
-func timestampGetDayOfWeekWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetDayOfWeekWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetDayOfWeek)(t)
 }
-func timestampGetHoursWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetHoursWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetHours)(t)
 }
-func timestampGetMinutesWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetMinutesWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetMinutes)(t)
 }
-func timestampGetSecondsWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetSecondsWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetSeconds)(t)
 }
-func timestampGetMillisecondsWithTz(t time.Time, tz ref.Value) ref.Value {
+func timestampGetMillisecondsWithTz(t time.Time, tz ref.Val) ref.Val {
 	return timeZone(tz, timestampGetMilliseconds)(t)
 }
 
-func timeZone(tz ref.Value, visitor timestampVisitor) timestampVisitor {
-	return func(t time.Time) ref.Value {
+func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
+	return func(t time.Time) ref.Val {
 		if StringType != tz.Type() {
 			return ValOrErr(tz, "no such overload")
 		}

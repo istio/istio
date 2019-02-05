@@ -25,102 +25,242 @@ import (
 
 // TODO: Consider moving macros to common.
 
-// Macros type alias for a collection of Macros.
-type Macros []Macro
+// NewGlobalMacro creates a Macro for a global function with the specified arg count.
+func NewGlobalMacro(function string, argCount int, expander MacroExpander) Macro {
+	return &macro{
+		function: function,
+		argCount: argCount,
+		expander: expander}
+}
+
+// NewReceiverMacro creates a Macro for a receiver function matching the specified arg count.
+func NewReceiverMacro(function string, argCount int, expander MacroExpander) Macro {
+	return &macro{
+		function:      function,
+		argCount:      argCount,
+		expander:      expander,
+		receiverStyle: true}
+}
+
+// NewGlobalVarArgMacro creates a Macro for a global function with a variable arg count.
+func NewGlobalVarArgMacro(function string, expander MacroExpander) Macro {
+	return &macro{
+		function:    function,
+		expander:    expander,
+		varArgStyle: true}
+}
+
+// NewReceiverVarArgMacro creates a Macro for a receiver function matching a variable arg
+// count.
+func NewReceiverVarArgMacro(function string, expander MacroExpander) Macro {
+	return &macro{
+		function:      function,
+		expander:      expander,
+		receiverStyle: true,
+		varArgStyle:   true}
+}
+
+// Macro interface for describing the function signature to match and the MacroExpander to apply.
+//
+// Note: when a Macro should apply to multiple overloads (based on arg count) of a given function,
+// a Macro should be created per arg-count.
+type Macro interface {
+	// Function name to match.
+	Function() string
+
+	// ArgCount for the function call.
+	//
+	// When the macro is a var-arg style macro, the return value will be zero, but the MacroKey
+	// will contain a `*` where the arg count would have been.
+	ArgCount() int
+
+	// IsReceiverStyle returns true if the macro matches a receiver style call.
+	IsReceiverStyle() bool
+
+	// MacroKey returns the macro signatures accepted by this macro.
+	//
+	// Format: `<function>:<arg-count>:<is-receiver>`.
+	//
+	// When the macros is a var-arg style macro, the `arg-count` value is represented as a `*`.
+	MacroKey() string
+
+	// Expander returns the MacroExpander to apply when the macro key matches the parsed call
+	// signature.
+	Expander() MacroExpander
+}
 
 // Macro type which declares the function name and arg count expected for the
 // macro, as well as a macro expansion function.
-type Macro struct {
-	name          string
-	instanceStyle bool
-	args          int
-	expander      func(*parserHelper, interface{}, *exprpb.Expr, []*exprpb.Expr) (*exprpb.Expr, *common.Error)
+type macro struct {
+	function      string
+	receiverStyle bool
+	varArgStyle   bool
+	argCount      int
+	expander      MacroExpander
 }
 
-// AllMacros includes the list of all spec-supported macros.
-var AllMacros = []Macro{
-	// The macro "has(m.f)" which tests the presence of a field, avoiding the need to specify
-	// the field as a string.
-	{
-		name:          operators.Has,
-		instanceStyle: false,
-		args:          1,
-		expander:      makeHas,
-	},
-	// The macro "range.all(var, predicate)", which is true if for all elements in range the  predicate holds.
-	{
-		name:          operators.All,
-		instanceStyle: true,
-		args:          2,
-		expander:      makeAll,
-	},
-	// The macro "range.exists(var, predicate)", which is true if for at least one element in
-	// range the predicate holds.
-	{
-		name:          operators.Exists,
-		instanceStyle: true,
-		args:          2,
-		expander:      makeExists,
-	},
-	// The macro "range.exists_one(var, predicate)", which is true if for exactly one element
-	// in range the predicate holds.
-	{
-		name:          operators.ExistsOne,
-		instanceStyle: true,
-		args:          2,
-		expander:      makeExistsOne,
-	},
-	// The macro "range.map(var, function)", applies the function to the vars in the range.
-	{
-		name:          operators.Map,
-		instanceStyle: true,
-		args:          2,
-		expander:      makeMap,
-	},
-	// The macro "range.map(var, predicate, function)", applies the function to the vars in
-	// the range for which the predicate holds true. The other variables are filtered out.
-	{
-		name:          operators.Map,
-		instanceStyle: true,
-		args:          3,
-		expander:      makeMap,
-	},
-	// The macro "range.filter(var, predicate)", filters out the variables for which the
-	// predicate is false.
-	{
-		name:          operators.Filter,
-		instanceStyle: true,
-		args:          2,
-		expander:      makeFilter,
-	},
+// Function returns the macro's function name (i.e. the function whose syntax it mimics).
+func (m *macro) Function() string {
+	return m.function
 }
 
-// NoMacros list.
-var NoMacros = []Macro{}
-
-// GetName returns the macro's name (i.e. the function whose syntax it mimics).
-func (m *Macro) GetName() string {
-	return m.name
+// ArgCount returns the number of arguments the macro expects.
+func (m *macro) ArgCount() int {
+	return m.argCount
 }
 
-// GetArgCount returns the number of arguments the macro expects.
-func (m *Macro) GetArgCount() int {
-	return m.args
+// IsReceiverStyle returns whether the macro is receiver style.
+func (m *macro) IsReceiverStyle() bool {
+	return m.receiverStyle
 }
 
-// GetIsInstanceStyle returns whether the macro is "instance" (reciever) style.
-func (m *Macro) GetIsInstanceStyle() bool {
-	return m.instanceStyle
+// Expander implements the Macro interface method.
+func (m *macro) Expander() MacroExpander {
+	return m.expander
 }
 
-func makeHas(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	if s, ok := args[0].ExprKind.(*exprpb.Expr_SelectExpr); ok {
-		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field), nil
+// MacroKey implements the Macro interface method.
+func (m *macro) MacroKey() string {
+	if m.varArgStyle {
+		return makeVarArgMacroKey(m.function, m.receiverStyle)
 	}
-	return nil, &common.Error{Message: "invalid argument to has() macro"}
+	return makeMacroKey(m.function, m.argCount, m.receiverStyle)
 }
 
-const accumulatorName = "__result__"
+func makeMacroKey(name string, args int, receiverStyle bool) string {
+	return fmt.Sprintf("%s:%d:%v", name, args, receiverStyle)
+}
+
+func makeVarArgMacroKey(name string, receiverStyle bool) string {
+	return fmt.Sprintf("%s:*:%v", name, receiverStyle)
+}
+
+// MacroExpander converts the target and args of a function call that matches a Macro.
+//
+// Note: when the Macros.IsReceiverStyle() is true, the target argument will be nil.
+type MacroExpander func(eh ExprHelper,
+	target *exprpb.Expr,
+	args []*exprpb.Expr) (*exprpb.Expr, *common.Error)
+
+// ExprHelper assists with the manipulation of proto-based Expr values in a manner which is
+// consistent with the source position and expression id generation code leveraged by both
+// the parser and type-checker.
+type ExprHelper interface {
+	// LiteralBool creates an Expr value for a bool literal.
+	LiteralBool(value bool) *exprpb.Expr
+
+	// LiteralBytes creates an Expr value for a byte literal.
+	LiteralBytes(value []byte) *exprpb.Expr
+
+	// LiteralDouble creates an Expr value for double literal.
+	LiteralDouble(value float64) *exprpb.Expr
+
+	// LiteralInt creates an Expr value for an int literal.
+	LiteralInt(value int64) *exprpb.Expr
+
+	// LiteralString creates am Expr value for a string literal.
+	LiteralString(value string) *exprpb.Expr
+
+	// LiteralUint creates an Expr value for a uint literal.
+	LiteralUint(value uint64) *exprpb.Expr
+
+	// NewList creates a CreateList instruction where the list is comprised of the optional set
+	// of elements provided as arguments.
+	NewList(elems ...*exprpb.Expr) *exprpb.Expr
+
+	// NewMap creates a CreateStruct instruction for a map where the map is comprised of the
+	// optional set of key, value entries.
+	NewMap(entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr
+
+	// NewMapEntry creates a Map Entry for the key, value pair.
+	NewMapEntry(key *exprpb.Expr, val *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry
+
+	// NewObject creates a CreateStruct instruction for an object with a given type name and
+	// optional set of field initializers.
+	NewObject(typeName string, fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr
+
+	// NewObjectFieldInit creates a new Object field initializer from the field name and value.
+	NewObjectFieldInit(field string, init *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry
+
+	// Fold creates a fold comprehension instruction.
+	//
+	// - iterVar is the iteration variable name.
+	// - iterRange represents the expression that resolves to a list or map where the elements or
+	//   keys (repsectively) will be iterated over.
+	// - accuVar is the accumulation variable name, typically parser.AccumulatorName.
+	// - accuInit is the initial expression whose value will be set for the accuVar prior to
+	//   folding.
+	// - condition is the expression to test to determine whether to continue folding.
+	// - step is the expression to evaluation at the conclusion of a single fold iteration.
+	// - result is the computation to evaluate at the conclusion of the fold.
+	//
+	// The accuVar should not shadow variable names that you would like to reference within the
+	// environment in the step and condition expressions. Presently, the name __result__ is commonly
+	// used by built-in macros but this may change in the future.
+	Fold(iterVar string,
+		iterRange *exprpb.Expr,
+		accuVar string,
+		accuInit *exprpb.Expr,
+		condition *exprpb.Expr,
+		step *exprpb.Expr,
+		result *exprpb.Expr) *exprpb.Expr
+
+	// Ident creates an identifier Expr value.
+	Ident(name string) *exprpb.Expr
+
+	// GlobalCall creates a function call Expr value for a global (free) function.
+	GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr
+
+	// ReceiverCall creates a function call Expr value for a receiver-style function.
+	ReceiverCall(function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr
+
+	// PresenceTest creates a Select TestOnly Expr value for modelling has() semantics.
+	PresenceTest(operand *exprpb.Expr, field string) *exprpb.Expr
+
+	// Select create a field traversal Expr value.
+	Select(operand *exprpb.Expr, field string) *exprpb.Expr
+
+	// OffsetLocation returns the Location of the expression identifier.
+	OffsetLocation(exprID int64) common.Location
+}
+
+var (
+	// AllMacros includes the list of all spec-supported macros.
+	AllMacros = []Macro{
+		// The macro "has(m.f)" which tests the presence of a field, avoiding the need to specify
+		// the field as a string.
+		NewGlobalMacro(operators.Has, 1, makeHas),
+
+		// The macro "range.all(var, predicate)", which is true if for all elements in range the
+		// predicate holds.
+		NewReceiverMacro(operators.All, 2, makeAll),
+
+		// The macro "range.exists(var, predicate)", which is true if for at least one element in
+		// range the predicate holds.
+		NewReceiverMacro(operators.Exists, 2, makeExists),
+
+		// The macro "range.exists_one(var, predicate)", which is true if for exactly one element
+		// in range the predicate holds.
+		NewReceiverMacro(operators.ExistsOne, 2, makeExistsOne),
+
+		// The macro "range.map(var, function)", applies the function to the vars in the range.
+		NewReceiverMacro(operators.Map, 2, makeMap),
+
+		// The macro "range.map(var, predicate, function)", applies the function to the vars in
+		// the range for which the predicate holds true. The other variables are filtered out.
+		NewReceiverMacro(operators.Map, 3, makeMap),
+
+		// The macro "range.filter(var, predicate)", filters out the variables for which the
+		// predicate is false.
+		NewReceiverMacro(operators.Filter, 2, makeFilter),
+	}
+
+	// NoMacros list.
+	NoMacros = []Macro{}
+)
+
+// AccumulatorName is the traditional variable name assigned to the fold accumulator variable.
+const AccumulatorName = "__result__"
 
 type quantifierKind int
 
@@ -130,29 +270,28 @@ const (
 	quantifierExistsOne
 )
 
-func makeAll(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	return makeQuantifier(quantifierAll, p, ctx, target, args)
+func makeAll(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return makeQuantifier(quantifierAll, eh, target, args)
 }
 
-func makeExists(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	return makeQuantifier(quantifierExists, p, ctx, target, args)
+func makeExists(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return makeQuantifier(quantifierExists, eh, target, args)
 }
 
-func makeExistsOne(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	return makeQuantifier(quantifierExistsOne, p, ctx, target, args)
+func makeExistsOne(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return makeQuantifier(quantifierExistsOne, eh, target, args)
 }
 
-func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+func makeQuantifier(kind quantifierKind, eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
-		offset := p.positions[args[0].Id]
-		location, _ := p.source.OffsetLocation(offset)
+		location := eh.OffsetLocation(args[0].Id)
 		return nil, &common.Error{
 			Message:  "argument must be a simple name",
 			Location: location}
 	}
 	accuIdent := func() *exprpb.Expr {
-		return p.newIdent(ctx, accumulatorName)
+		return eh.Ident(AccumulatorName)
 	}
 
 	var init *exprpb.Expr
@@ -161,33 +300,33 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	var result *exprpb.Expr
 	switch kind {
 	case quantifierAll:
-		init = p.newLiteralBool(ctx, true)
-		condition = p.newGlobalCall(ctx, operators.NotStrictlyFalse, accuIdent())
-		step = p.newGlobalCall(ctx, operators.LogicalAnd, accuIdent(), args[1])
+		init = eh.LiteralBool(true)
+		condition = eh.GlobalCall(operators.NotStrictlyFalse, accuIdent())
+		step = eh.GlobalCall(operators.LogicalAnd, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExists:
-		init = p.newLiteralBool(ctx, false)
-		condition = p.newGlobalCall(ctx,
+		init = eh.LiteralBool(false)
+		condition = eh.GlobalCall(
 			operators.NotStrictlyFalse,
-			p.newGlobalCall(ctx, operators.LogicalNot, accuIdent()))
-		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
+			eh.GlobalCall(operators.LogicalNot, accuIdent()))
+		step = eh.GlobalCall(operators.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:
 		// TODO: make consistent with the CEL semantics.
-		zeroExpr := p.newLiteralInt(ctx, 0)
-		oneExpr := p.newLiteralInt(ctx, 1)
+		zeroExpr := eh.LiteralInt(0)
+		oneExpr := eh.LiteralInt(1)
 		init = zeroExpr
-		condition = p.newGlobalCall(ctx, operators.LessEquals, accuIdent(), oneExpr)
-		step = p.newGlobalCall(ctx, operators.Conditional, args[1],
-			p.newGlobalCall(ctx, operators.Add, accuIdent(), oneExpr), accuIdent())
-		result = p.newGlobalCall(ctx, operators.Equals, accuIdent(), oneExpr)
+		condition = eh.GlobalCall(operators.LessEquals, accuIdent(), oneExpr)
+		step = eh.GlobalCall(operators.Conditional, args[1],
+			eh.GlobalCall(operators.Add, accuIdent(), oneExpr), accuIdent())
+		result = eh.GlobalCall(operators.Equals, accuIdent(), oneExpr)
 	default:
 		return nil, &common.Error{Message: fmt.Sprintf("unrecognized quantifier '%v'", kind)}
 	}
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result), nil
+	return eh.Fold(v, target, AccumulatorName, init, condition, step, result), nil
 }
 
-func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+func makeMap(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
 		return nil, &common.Error{Message: "argument is not an identifier"}
@@ -204,32 +343,32 @@ func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*expr
 		fn = args[1]
 	}
 
-	accuExpr := p.newIdent(ctx, accumulatorName)
-	init := p.newList(ctx)
-	condition := p.newLiteralBool(ctx, true)
+	accuExpr := eh.Ident(AccumulatorName)
+	init := eh.NewList()
+	condition := eh.LiteralBool(true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, fn))
+	step := eh.GlobalCall(operators.Add, accuExpr, eh.NewList(fn))
 
 	if filter != nil {
-		step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
+		step = eh.GlobalCall(operators.Conditional, filter, step, accuExpr)
 	}
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr), nil
+	return eh.Fold(v, target, AccumulatorName, init, condition, step, accuExpr), nil
 }
 
-func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+func makeFilter(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
 		return nil, &common.Error{Message: "argument is not an identifier"}
 	}
 
 	filter := args[1]
-	accuExpr := p.newIdent(ctx, accumulatorName)
-	init := p.newList(ctx)
-	condition := p.newLiteralBool(ctx, true)
+	accuExpr := eh.Ident(AccumulatorName)
+	init := eh.NewList()
+	condition := eh.LiteralBool(true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, args[0]))
-	step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr), nil
+	step := eh.GlobalCall(operators.Add, accuExpr, eh.NewList(args[0]))
+	step = eh.GlobalCall(operators.Conditional, filter, step, accuExpr)
+	return eh.Fold(v, target, AccumulatorName, init, condition, step, accuExpr), nil
 }
 
 func extractIdent(e *exprpb.Expr) (string, bool) {
@@ -238,4 +377,11 @@ func extractIdent(e *exprpb.Expr) (string, bool) {
 		return e.GetIdentExpr().Name, true
 	}
 	return "", false
+}
+
+func makeHas(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	if s, ok := args[0].ExprKind.(*exprpb.Expr_SelectExpr); ok {
+		return eh.PresenceTest(s.SelectExpr.Operand, s.SelectExpr.Field), nil
+	}
+	return nil, &common.Error{Message: "invalid argument to has() macro"}
 }

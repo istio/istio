@@ -17,9 +17,8 @@ package cel
 import (
 	"fmt"
 
-	"github.com/google/cel-go/checker"
+	celgo "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/debug"
-	"github.com/google/cel-go/interpreter"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	descriptor "istio.io/api/policy/v1beta1"
@@ -41,16 +40,15 @@ const (
 
 // ExpressionBuilder creates a CEL interpreter from an attribute manifest.
 type ExpressionBuilder struct {
-	mode        LanguageMode
-	provider    *attributeProvider
-	env         *checker.Env
-	interpreter interpreter.Interpreter
+	mode     LanguageMode
+	provider *attributeProvider
+	env      celgo.Env
 }
 
 type expression struct {
-	expr          *exprpb.Expr
-	provider      *attributeProvider
-	interpretable interpreter.Interpretable
+	expr     *exprpb.Expr
+	provider *attributeProvider
+	program  celgo.Program
 }
 
 func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
@@ -60,7 +58,10 @@ func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
 		}
 	}()
 
-	result := ex.interpretable.Eval(ex.provider.newActivation(bag))
+	result, _, err := ex.program.Eval(ex.provider.newActivation(bag))
+	if err != nil {
+		return nil, err
+	}
 	out, err = recoverValue(result)
 	return
 }
@@ -95,16 +96,23 @@ func (ex *expression) String() string {
 // NewBuilder returns a new ExpressionBuilder
 func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageMode) *ExpressionBuilder {
 	provider := newAttributeProvider(finder.Attributes())
+	env := provider.newEnvironment()
+
 	return &ExpressionBuilder{
-		mode:        mode,
-		provider:    provider,
-		env:         provider.newEnvironment(),
-		interpreter: provider.newInterpreter(),
+		mode:     mode,
+		provider: provider,
+		env:      env,
 	}
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (exb *ExpressionBuilder) check(text string) (checked *exprpb.CheckedExpr, typ descriptor.ValueType, err error) {
+func (exb *ExpressionBuilder) check(text string) (checked celgo.Ast, typ descriptor.ValueType, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during CEL parsing of expression %q", text)
+		}
+	}()
+
 	typ = descriptor.VALUE_TYPE_UNSPECIFIED
 
 	if exb.mode == LegacySyntaxCEL {
@@ -114,17 +122,19 @@ func (exb *ExpressionBuilder) check(text string) (checked *exprpb.CheckedExpr, t
 		}
 	}
 
-	expr, err := Parse(text)
-	if err != nil {
+	parsed, iss := exb.env.Parse(text)
+	if iss != nil && iss.Err() != nil {
+		err = iss.Err()
 		return
 	}
 
-	checked, err = Check(expr, exb.env)
-	if err != nil {
+	checked, iss = exb.env.Check(parsed)
+	if iss != nil && iss.Err() != nil {
+		err = iss.Err()
 		return
 	}
 
-	typ = recoverType(checked.TypeMap[expr.Id])
+	typ = recoverType(checked.ResultType())
 	return
 }
 
@@ -135,15 +145,15 @@ func (exb *ExpressionBuilder) Compile(text string) (compiled.Expression, descrip
 		return nil, typ, err
 	}
 
-	interpretable, err := exb.interpreter.NewInterpretable(checked)
+	program, err := exb.env.Program(checked, standardOverloads)
 	if err != nil {
 		return nil, typ, err
 	}
 
 	return &expression{
-		provider:      exb.provider,
-		expr:          checked.Expr,
-		interpretable: interpretable,
+		provider: exb.provider,
+		expr:     checked.Expr(),
+		program:  program,
 	}, typ, nil
 }
 

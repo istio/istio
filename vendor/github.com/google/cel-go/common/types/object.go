@@ -36,7 +36,7 @@ type protoObj struct {
 // NewObject returns an object based on a proto.Message value which handles
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
-func NewObject(value proto.Message) ref.Value {
+func NewObject(value proto.Message) ref.Val {
 	typeDesc, err := pb.DescribeValue(value)
 	if err != nil {
 		panic(err)
@@ -63,7 +63,7 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		o.refValue.Type(), typeDesc)
 }
 
-func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
+func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	default:
 		if o.Type().TypeName() == typeVal.TypeName() {
@@ -76,7 +76,7 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
 		o.typeDesc.Name(), typeVal)
 }
 
-func (o *protoObj) Equal(other ref.Value) ref.Value {
+func (o *protoObj) Equal(other ref.Val) ref.Val {
 	if o.typeDesc.Name() != other.Type().TypeName() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -84,7 +84,7 @@ func (o *protoObj) Equal(other ref.Value) ref.Value {
 }
 
 // IsSet tests whether a field which is defined is set to a non-default value.
-func (o *protoObj) IsSet(field ref.Value) ref.Value {
+func (o *protoObj) IsSet(field ref.Val) ref.Val {
 	if field.Type() != StringType {
 		return ValOrErr(field, "illegal object field type '%s'", field.Type())
 	}
@@ -105,7 +105,7 @@ func (o *protoObj) IsSet(field ref.Value) ref.Value {
 	return NewErr("no such field '%s'", field)
 }
 
-func (o *protoObj) Get(index ref.Value) ref.Value {
+func (o *protoObj) Get(index ref.Val) ref.Val {
 	if index.Type() != StringType {
 		return ValOrErr(index, "illegal object field type '%s'", index.Type())
 	}
@@ -150,11 +150,11 @@ type msgIterator struct {
 	len      int
 }
 
-func (it *msgIterator) HasNext() ref.Value {
+func (it *msgIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.typeDesc.FieldCount())
 }
 
-func (it *msgIterator) Next() ref.Value {
+func (it *msgIterator) Next() ref.Val {
 	if it.HasNext() == False {
 		return nil
 	}
@@ -164,17 +164,17 @@ func (it *msgIterator) Next() ref.Value {
 }
 
 var (
-	protoDefaultInstanceMap = make(map[reflect.Type]ref.Value)
+	protoDefaultInstanceMap = make(map[reflect.Type]ref.Val)
 )
 
-func isFieldSet(refVal reflect.Value) ref.Value {
+func isFieldSet(refVal reflect.Value) ref.Val {
 	if refVal.Kind() == reflect.Ptr && refVal.IsNil() {
 		return False
 	}
 	return True
 }
 
-func getOrDefaultInstance(refVal reflect.Value) ref.Value {
+func getOrDefaultInstance(refVal reflect.Value) ref.Val {
 	if isFieldSet(refVal) == True {
 		value := refVal.Interface()
 		return NativeToValue(value)
@@ -182,7 +182,7 @@ func getOrDefaultInstance(refVal reflect.Value) ref.Value {
 	return getDefaultInstance(refVal.Type())
 }
 
-func getDefaultInstance(refType reflect.Type) ref.Value {
+func getDefaultInstance(refType reflect.Type) ref.Val {
 	if refType.Kind() == reflect.Ptr {
 		refType = refType.Elem()
 	}

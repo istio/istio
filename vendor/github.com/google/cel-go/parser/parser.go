@@ -22,10 +22,11 @@ import (
 	"strconv"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser/gen"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -37,10 +38,10 @@ func Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
 }
 
 // ParseWithMacros converts a source input and macros set to a parsed expression.
-func ParseWithMacros(source common.Source, macros Macros) (*exprpb.ParsedExpr, *common.Errors) {
+func ParseWithMacros(source common.Source, macros []Macro) (*exprpb.ParsedExpr, *common.Errors) {
 	macroMap := make(map[string]Macro)
 	for _, m := range macros {
-		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
+		macroMap[m.MacroKey()] = m
 	}
 	p := parser{
 		errors: &parseErrors{common.NewErrors(source)},
@@ -249,7 +250,7 @@ func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 	}
 	id := ctx.GetId().GetText()
 	if ctx.GetOpen() != nil {
-		return p.memberCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
+		return p.receiverCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
@@ -289,6 +290,7 @@ func (p *parser) VisitCreateMessage(ctx *gen.CreateMessageContext) interface{} {
 	return p.helper.newExpr(ctx)
 }
 
+// Visit a parse tree of field initializers.
 func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext) interface{} {
 	if ctx == nil || ctx.GetFields() == nil {
 		return []*exprpb.Expr_CreateStruct_Entry{}
@@ -551,27 +553,31 @@ func (p *parser) globalCallOrMacro(ctx interface{}, function string, args ...*ex
 	return p.helper.newGlobalCall(ctx, function, args...)
 }
 
-func (p *parser) memberCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+func (p *parser) receiverCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	if expr, found := p.expandMacro(ctx, function, target, args...); found {
 		return expr
 	}
-	return p.helper.newMemberCall(ctx, function, target, args...)
+	return p.helper.newReceiverCall(ctx, function, target, args...)
 }
 
 func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {
-	if macro, found := p.macros[makeMacroKey(function, len(args), target != nil)]; found {
-		expr, err := macro.expander(p.helper, ctx, target, args)
-		if err != nil {
-			if err.Location != nil {
-				return p.reportError(err.Location, err.Message), true
-			}
-			return p.reportError(ctx, err.Message), true
+	macro, found := p.macros[makeMacroKey(function, len(args), target != nil)]
+	if !found {
+		macro, found = p.macros[makeVarArgMacroKey(function, target != nil)]
+		if !found {
+			return nil, false
 		}
-		return expr, true
 	}
-	return nil, false
-}
-
-func makeMacroKey(name string, args int, instanceStyle bool) string {
-	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
+	eh := exprHelperPool.Get().(*exprHelper)
+	defer exprHelperPool.Put(eh)
+	eh.parserHelper = p.helper
+	eh.ctx = ctx
+	expr, err := macro.Expander()(eh, target, args)
+	if err != nil {
+		if err.Location != nil {
+			return p.reportError(err.Location, err.Message), true
+		}
+		return p.reportError(ctx, err.Message), true
+	}
+	return expr, true
 }

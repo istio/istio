@@ -111,7 +111,7 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 	return v1beta1.VALUE_TYPE_UNSPECIFIED
 }
 
-func convertValue(typ v1beta1.ValueType, value interface{}) ref.Value {
+func convertValue(typ v1beta1.ValueType, value interface{}) ref.Val {
 	switch typ {
 	case v1beta1.STRING, v1beta1.INT64, v1beta1.DOUBLE, v1beta1.BOOL:
 		return types.NativeToValue(value)
@@ -136,7 +136,7 @@ func convertValue(typ v1beta1.ValueType, value interface{}) ref.Value {
 	return types.NewErr("cannot convert value %#v of type %q", value, typ)
 }
 
-func recoverValue(value ref.Value) (interface{}, error) {
+func recoverValue(value ref.Val) (interface{}, error) {
 	switch value.Type() {
 	case types.ErrType:
 		if err, ok := value.Value().(error); ok {
@@ -163,7 +163,7 @@ func recoverValue(value ref.Value) (interface{}, error) {
 	return nil, fmt.Errorf("failed to recover of type %s", value.Type())
 }
 
-var defaultValues = map[v1beta1.ValueType]ref.Value{
+var defaultValues = map[v1beta1.ValueType]ref.Val{
 	v1beta1.STRING:        types.String(""),
 	v1beta1.INT64:         types.Int(0),
 	v1beta1.DOUBLE:        types.Double(0),
@@ -177,7 +177,7 @@ var defaultValues = map[v1beta1.ValueType]ref.Value{
 	v1beta1.DNS_NAME:      wrapperValue{typ: v1beta1.DNS_NAME, s: ""},
 }
 
-func defaultValue(typ v1beta1.ValueType) ref.Value {
+func defaultValue(typ v1beta1.ValueType) ref.Val {
 	if out, ok := defaultValues[typ]; ok {
 		return out
 	}
@@ -209,10 +209,10 @@ type stringMapValue struct {
 func (v stringMapValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, errors.New("cannot convert stringmap to native types")
 }
-func (v stringMapValue) ConvertToType(typeValue ref.Type) ref.Value {
+func (v stringMapValue) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("cannot convert stringmap to CEL types")
 }
-func (v stringMapValue) Equal(other ref.Value) ref.Value {
+func (v stringMapValue) Equal(other ref.Val) ref.Val {
 	return types.NewErr("stringmap does not support equality")
 }
 func (v stringMapValue) Type() ref.Type {
@@ -221,7 +221,7 @@ func (v stringMapValue) Type() ref.Type {
 func (v stringMapValue) Value() interface{} {
 	return v.value
 }
-func (v stringMapValue) Get(index ref.Value) ref.Value {
+func (v stringMapValue) Get(index ref.Val) ref.Val {
 	if index.Type() != types.StringType {
 		return types.NewErr("index should be a string")
 	}
@@ -233,7 +233,7 @@ func (v stringMapValue) Get(index ref.Value) ref.Value {
 	}
 	return types.NewErr("no such key: '%s'", field)
 }
-func (v stringMapValue) Contains(index ref.Value) ref.Value {
+func (v stringMapValue) Contains(index ref.Val) ref.Val {
 	if index.Type() != types.StringType {
 		return types.NewErr("index should be a string")
 	}
@@ -242,7 +242,7 @@ func (v stringMapValue) Contains(index ref.Value) ref.Value {
 	_, found := v.value.Get(field)
 	return types.Bool(found)
 }
-func (v stringMapValue) Size() ref.Value {
+func (v stringMapValue) Size() ref.Val {
 	return types.NewErr("size not implemented on stringmaps")
 }
 
@@ -255,10 +255,10 @@ type wrapperValue struct {
 func (v wrapperValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, errors.New("cannot convert wrapper value to native types")
 }
-func (v wrapperValue) ConvertToType(typeValue ref.Type) ref.Value {
+func (v wrapperValue) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("cannot convert wrapper value  to CEL types")
 }
-func (v wrapperValue) Equal(other ref.Value) ref.Value {
+func (v wrapperValue) Equal(other ref.Val) ref.Val {
 	if other.Type() != wrapperType {
 		return types.NewErr("cannot compare types")
 	}

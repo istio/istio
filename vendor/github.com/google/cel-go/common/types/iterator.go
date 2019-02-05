@@ -30,7 +30,7 @@ var (
 // baseIterator is the basis for list, map, and object iterators.
 //
 // An iterator in and of itself should not be a valid value for comparison, but
-// must implement the ref.Value methods in order to be well-supported within
+// must implement the ref.Val methods in order to be well-supported within
 // instruction arguments processed by the interpreter.
 type baseIterator struct{}
 
@@ -38,11 +38,11 @@ func (it *baseIterator) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 	return nil, fmt.Errorf("type conversion on iterators not supported")
 }
 
-func (it *baseIterator) ConvertToType(typeVal ref.Type) ref.Value {
+func (it *baseIterator) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("no such overload")
 }
 
-func (it *baseIterator) Equal(other ref.Value) ref.Value {
+func (it *baseIterator) Equal(other ref.Val) ref.Val {
 	return NewErr("no such overload")
 }
 

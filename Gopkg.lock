@@ -553,10 +553,10 @@
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
 
 [[projects]]
-  branch = "master"
-  digest = "1:37372f503be7f27124eb1a96377b72b94677c7c4f50c016a0cb66d753dc89e73"
+  digest = "1:eb97836c12a177bf479aa00c3c2247590eebfc252fce6d953e2cbc2405e2643c"
   name = "github.com/google/cel-go"
   packages = [
+    "cel",
     "checker",
     "checker/decls",
     "common",
@@ -574,7 +574,8 @@
     "parser/gen",
   ]
   pruneopts = "NUT"
-  revision = "0ffb3c395b331ca40da2f8bd5b75b9b24d8fefae"
+  revision = "81d826ac4515a47311b5e8734449e3a6ac7afceb"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
@@ -2110,6 +2111,7 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
+    "github.com/google/cel-go/cel",
     "github.com/google/cel-go/checker",
     "github.com/google/cel-go/checker/decls",
     "github.com/google/cel-go/common",

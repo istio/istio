@@ -18,7 +18,7 @@ import "github.com/google/cel-go/common/types/ref"
 
 // Mapper interface which aggregates the traits of a maps.
 type Mapper interface {
-	ref.Value
+	ref.Val
 	Container
 	Indexer
 	Iterable

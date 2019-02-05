@@ -23,34 +23,29 @@ import (
 
 // Activation used to resolve identifiers by name and references by id.
 //
-// An Activation is the primary mechanism by which a caller supplies input
-// into a CEL program.
+// An Activation is the primary mechanism by which a caller supplies input into a CEL program.
 type Activation interface {
-	// ResolveName returns a value from the activation by qualified name, or
-	// false if the name could not be found.
-	ResolveName(name string) (ref.Value, bool)
+	// ResolveName returns a value from the activation by qualified name, or false if the name
+	// could not be found.
+	ResolveName(name string) (ref.Val, bool)
 
 	// Parent returns the parent of the current activation, may be nil.
 	// If non-nil, the parent will be searched during resolve calls.
 	Parent() Activation
 }
 
-// NewActivation returns an activation based on a map-based binding where the
-// map keys are expected to be qualified names used with ResolveName calls.
-// TODO: supply references from checkedpb.proto.
+// NewActivation returns an activation based on a map-based binding where the map keys are
+// expected to be qualified names used with ResolveName calls.
 func NewActivation(bindings map[string]interface{}) Activation {
 	return &mapActivation{bindings: bindings}
 }
 
-// mapActivation which implements Activation and maps of named and referenced
-// values.
+// mapActivation which implements Activation and maps of named values.
 //
-// Named bindings may lazily supply values by providing a function which
-// accepts no arguments and produces an interface value.
-// TODO: consider passing the current activation to the supplier.
+// Named bindings may lazily supply values by providing a function which accepts no arguments and
+// produces an interface value.
 type mapActivation struct {
-	references map[int64]ref.Value
-	bindings   map[string]interface{}
+	bindings map[string]interface{}
 }
 
 // Parent implements the Activation interface method.
@@ -59,15 +54,17 @@ func (a *mapActivation) Parent() Activation {
 }
 
 // ResolveName implements the Activation interface method.
-func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
+func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
 		// Resolve a lazily bound value.
-		case func() ref.Value:
-			return object.(func() ref.Value)(), true
+		case func() ref.Val:
+			val := object.(func() ref.Val)()
+			a.bindings[name] = val
+			return val, true
 		// Otherwise, return the bound value.
-		case ref.Value:
-			return object.(ref.Value), true
+		case ref.Val:
+			return object.(ref.Val), true
 		default:
 			return types.NativeToValue(object), true
 		}
@@ -88,7 +85,7 @@ func (a *hierarchicalActivation) Parent() Activation {
 }
 
 // ResolveName implements the Activation interface method.
-func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
+func (a *hierarchicalActivation) ResolveName(name string) (ref.Val, bool) {
 	if object, found := a.child.ResolveName(name); found {
 		return object, found
 	}
@@ -101,6 +98,7 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
 
+// newVarActivation returns a new varActivation instance.
 func newVarActivation(parent Activation, name string) *varActivation {
 	return &varActivation{
 		parent: parent,
@@ -115,7 +113,7 @@ func newVarActivation(parent Activation, name string) *varActivation {
 type varActivation struct {
 	parent Activation
 	name   string
-	val    ref.Value
+	val    ref.Val
 }
 
 // Parent implements the Activation interface method.
@@ -124,7 +122,7 @@ func (v *varActivation) Parent() Activation {
 }
 
 // ResolveName implements the Activation interface method.
-func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
+func (v *varActivation) ResolveName(name string) (ref.Val, bool) {
 	if name == v.name {
 		return v.val, true
 	}

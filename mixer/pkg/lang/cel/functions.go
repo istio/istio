@@ -15,6 +15,7 @@
 package cel
 
 import (
+	celgo "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -25,8 +26,8 @@ import (
 	"istio.io/istio/mixer/pkg/lang"
 )
 
-func standardFunctions() []*exprpb.Decl {
-	return []*exprpb.Decl{
+var (
+	standardFunctions = []*exprpb.Decl{
 		decls.NewFunction("match",
 			decls.NewOverload("match",
 				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
@@ -55,19 +56,17 @@ func standardFunctions() []*exprpb.Decl {
 			decls.NewOverload("emptyStringMap",
 				[]*exprpb.Type{}, stringMapType)),
 	}
-}
 
-func standardOverloads() []*functions.Overload {
-	return []*functions.Overload{
+	standardOverloads = celgo.Functions([]*functions.Overload{
 		{Operator: "match",
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				if lhs.Type() != types.StringType || rhs.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to argument types")
 				}
 				return types.Bool(lang.ExternMatch(lhs.Value().(string), rhs.Value().(string)))
 			}},
 		{Operator: "reverse",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
@@ -79,14 +78,14 @@ func standardOverloads() []*functions.Overload {
 				return types.String(string(runes))
 			}},
 		{Operator: "toLower",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
 				return types.String(lang.ExternToLower(v.Value().(string)))
 			}},
 		{Operator: "email",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
@@ -97,7 +96,7 @@ func standardOverloads() []*functions.Overload {
 				return wrapperValue{typ: v1beta1.EMAIL_ADDRESS, s: out}
 			}},
 		{Operator: "dnsName",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
@@ -108,7 +107,7 @@ func standardOverloads() []*functions.Overload {
 				return wrapperValue{typ: v1beta1.DNS_NAME, s: out}
 			}},
 		{Operator: "uri",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
@@ -119,7 +118,7 @@ func standardOverloads() []*functions.Overload {
 				return wrapperValue{typ: v1beta1.URI, s: out}
 			}},
 		{Operator: "ip",
-			Unary: func(v ref.Value) ref.Value {
+			Unary: func(v ref.Val) ref.Val {
 				if v.Type() != types.StringType {
 					return types.NewErr("overload cannot be applied to '%s'", v.Type())
 				}
@@ -130,11 +129,11 @@ func standardOverloads() []*functions.Overload {
 				return wrapperValue{typ: v1beta1.IP_ADDRESS, bytes: out}
 			}},
 		{Operator: "emptyStringMap",
-			Function: func(args ...ref.Value) ref.Value {
+			Function: func(args ...ref.Val) ref.Val {
 				if len(args) != 0 {
 					return types.NewErr("emptyStringMap takes no arguments")
 				}
 				return emptyStringMap
 			}},
-	}
-}
+	}...)
+)

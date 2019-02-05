@@ -55,7 +55,7 @@ var fMap = map[string]string{
 
 	"_[_]": "INDEX",
 
-	elvis: "OR",
+	pick: "OR",
 }
 
 func exprCELtoCEXL(in *exprpb.Expr, out *cexl.Expression) error {
@@ -183,7 +183,7 @@ func rewriteCEXL(cursor *astutil.Cursor) bool {
 
 		args := make([]ast.Expr, 0, 2)
 		if left, ok := n.X.(*ast.CallExpr); ok {
-			if lf, ok := left.Fun.(*ast.Ident); ok && lf.Name == elvis {
+			if lf, ok := left.Fun.(*ast.Ident); ok && lf.Name == pick {
 				args = append(args, left.Args...)
 			} else {
 				args = append(args, n.X)
@@ -193,7 +193,7 @@ func rewriteCEXL(cursor *astutil.Cursor) bool {
 		}
 
 		if right, ok := n.Y.(*ast.CallExpr); ok {
-			if rf, ok := right.Fun.(*ast.Ident); ok && rf.Name == elvis {
+			if rf, ok := right.Fun.(*ast.Ident); ok && rf.Name == pick {
 				args = append(args, right.Args...)
 			} else {
 				args = append(args, n.Y)
@@ -202,7 +202,7 @@ func rewriteCEXL(cursor *astutil.Cursor) bool {
 			args = append(args, n.Y)
 		}
 		cursor.Replace(&ast.CallExpr{
-			Fun:  &ast.Ident{Name: elvis},
+			Fun:  &ast.Ident{Name: pick},
 			Args: args,
 		})
 

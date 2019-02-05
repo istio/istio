@@ -29,7 +29,7 @@ func StandardOverloads() []*Overload {
 		{
 			Operator:     operators.LogicalNot,
 			OperandTrait: traits.NegatorType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Negater).Negate()
 			}},
 		// Not strictly false: IsBool(a) ? a : true
@@ -44,7 +44,7 @@ func StandardOverloads() []*Overload {
 		// Less than operator
 		{Operator: operators.Less,
 			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntNegOne {
 					return types.True
@@ -58,7 +58,7 @@ func StandardOverloads() []*Overload {
 		// Less than or equal operator
 		{Operator: operators.LessEquals,
 			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntNegOne || cmp == types.IntZero {
 					return types.True
@@ -72,7 +72,7 @@ func StandardOverloads() []*Overload {
 		// Greater than operator
 		{Operator: operators.Greater,
 			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntOne {
 					return types.True
@@ -86,7 +86,7 @@ func StandardOverloads() []*Overload {
 		// Greater than equal operators
 		{Operator: operators.GreaterEquals,
 			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntOne || cmp == types.IntZero {
 					return types.True
@@ -102,56 +102,56 @@ func StandardOverloads() []*Overload {
 		// Add operator
 		{Operator: operators.Add,
 			OperandTrait: traits.AdderType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Adder).Add(rhs)
 			}},
 
 		// Subtract operators
 		{Operator: operators.Subtract,
 			OperandTrait: traits.SubtractorType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Subtractor).Subtract(rhs)
 			}},
 
 		// Multiply operator
 		{Operator: operators.Multiply,
 			OperandTrait: traits.MultiplierType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Multiplier).Multiply(rhs)
 			}},
 
 		// Divide operator
 		{Operator: operators.Divide,
 			OperandTrait: traits.DividerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Divider).Divide(rhs)
 			}},
 
 		// Modulo operator
 		{Operator: operators.Modulo,
 			OperandTrait: traits.ModderType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Modder).Modulo(rhs)
 			}},
 
 		// Negate operator
 		{Operator: operators.Negate,
 			OperandTrait: traits.NegatorType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Negater).Negate()
 			}},
 
 		// Index operator
 		{Operator: operators.Index,
 			OperandTrait: traits.IndexerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Indexer).Get(rhs)
 			}},
 
 		// Size function
 		{Operator: overloads.Size,
 			OperandTrait: traits.SizerType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Sizer).Size()
 			}},
 
@@ -163,7 +163,7 @@ func StandardOverloads() []*Overload {
 		// Matches function
 		{Operator: overloads.Matches,
 			OperandTrait: traits.MatcherType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Matcher).Match(rhs)
 			}},
 
@@ -172,87 +172,87 @@ func StandardOverloads() []*Overload {
 
 		// Int conversions.
 		{Operator: overloads.TypeConvertInt,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.IntType)
 			}},
 
 		// Uint conversions.
 		{Operator: overloads.TypeConvertUint,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.UintType)
 			}},
 
 		// Double conversions.
 		{Operator: overloads.TypeConvertDouble,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.DoubleType)
 			}},
 
 		// Bool conversions.
 		{Operator: overloads.TypeConvertBool,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.BoolType)
 			}},
 
 		// Bytes conversions.
 		{Operator: overloads.TypeConvertBytes,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.BytesType)
 			}},
 
 		// String conversions.
 		{Operator: overloads.TypeConvertString,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.StringType)
 			}},
 
 		// Timestamp conversions.
 		{Operator: overloads.TypeConvertTimestamp,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.TimestampType)
 			}},
 
 		// Duration conversions.
 		{Operator: overloads.TypeConvertDuration,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.DurationType)
 			}},
 
 		// Type operations.
 		{Operator: overloads.TypeConvertType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.TypeType)
 			}},
 
 		{Operator: overloads.Iterator,
 			OperandTrait: traits.IterableType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterable).Iterator()
 			}},
 
 		{Operator: overloads.HasNext,
 			OperandTrait: traits.IteratorType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterator).HasNext()
 			}},
 
 		{Operator: overloads.Next,
 			OperandTrait: traits.IteratorType,
-			Unary: func(value ref.Value) ref.Value {
+			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterator).Next()
 			}},
 	}
 
 }
 
-func notStrictlyFalse(value ref.Value) ref.Value {
+func notStrictlyFalse(value ref.Val) ref.Val {
 	if types.IsBool(value) {
 		return value
 	}
 	return types.True
 }
 
-func inAggregate(lhs ref.Value, rhs ref.Value) ref.Value {
+func inAggregate(lhs ref.Val, rhs ref.Val) ref.Val {
 	if rhs.Type().HasTrait(traits.ContainerType) {
 		return rhs.(traits.Container).Contains(lhs)
 	}

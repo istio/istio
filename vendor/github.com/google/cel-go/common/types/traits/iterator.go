@@ -26,11 +26,11 @@ type Iterable interface {
 
 // Iterator permits safe traversal over the contents of an aggregate type.
 type Iterator interface {
-	ref.Value
+	ref.Val
 
 	// HasNext returns true if there are unvisited elements in the Iterator.
-	HasNext() ref.Value
+	HasNext() ref.Val
 
 	// Next returns the next element.
-	Next() ref.Value
+	Next() ref.Val
 }

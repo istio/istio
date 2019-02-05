@@ -28,7 +28,7 @@ import (
 	dpb "github.com/golang/protobuf/ptypes/duration"
 )
 
-// Duration type that implements ref.Value and supports add, compare, negate,
+// Duration type that implements ref.Val and supports add, compare, negate,
 // and subtract operators. This type is also a receiver which means it can
 // participate in dispatch to receiver functions.
 type Duration struct {
@@ -46,7 +46,7 @@ var (
 )
 
 // Add implements traits.Adder.Add.
-func (d Duration) Add(other ref.Value) ref.Value {
+func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		dur1, err := ptypes.Duration(d.Duration)
@@ -77,7 +77,7 @@ func (d Duration) Add(other ref.Value) ref.Value {
 }
 
 // Compare implements traits.Comparer.Compare.
-func (d Duration) Compare(other ref.Value) ref.Value {
+func (d Duration) Compare(other ref.Val) ref.Val {
 	if DurationType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -99,7 +99,7 @@ func (d Duration) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc == durationValueType {
 		return d.Value(), nil
@@ -112,8 +112,8 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (d Duration) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
 		if dur, err := ptypes.Duration(d.Duration); err == nil {
@@ -131,8 +131,8 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", DurationType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (d Duration) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (d Duration) Equal(other ref.Val) ref.Val {
 	if DurationType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -140,7 +140,7 @@ func (d Duration) Equal(other ref.Value) ref.Value {
 }
 
 // Negate implements traits.Negater.Negate.
-func (d Duration) Negate() ref.Value {
+func (d Duration) Negate() ref.Val {
 	dur, err := ptypes.Duration(d.Duration)
 	if err != nil {
 		return &Err{err}
@@ -149,7 +149,7 @@ func (d Duration) Negate() ref.Value {
 }
 
 // Receive implements traits.Receiver.Receive.
-func (d Duration) Receive(function string, overload string, args []ref.Value) ref.Value {
+func (d Duration) Receive(function string, overload string, args []ref.Val) ref.Val {
 	dur, err := ptypes.Duration(d.Duration)
 	if err != nil {
 		return &Err{err}
@@ -163,19 +163,19 @@ func (d Duration) Receive(function string, overload string, args []ref.Value) re
 }
 
 // Subtract implements traits.Subtractor.Subtract.
-func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
+func (d Duration) Subtract(subtrahend ref.Val) ref.Val {
 	if DurationType != subtrahend.Type() {
 		return ValOrErr(subtrahend, "no such overload")
 	}
 	return d.Add(subtrahend.(Duration).Negate())
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (d Duration) Type() ref.Type {
 	return DurationType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (d Duration) Value() interface{} {
 	return d.Duration
 }
@@ -183,17 +183,17 @@ func (d Duration) Value() interface{} {
 var (
 	durationValueType = reflect.TypeOf(&dpb.Duration{})
 
-	durationZeroArgOverloads = map[string]func(time.Duration) ref.Value{
-		overloads.TimeGetHours: func(dur time.Duration) ref.Value {
+	durationZeroArgOverloads = map[string]func(time.Duration) ref.Val{
+		overloads.TimeGetHours: func(dur time.Duration) ref.Val {
 			return Int(dur.Hours())
 		},
-		overloads.TimeGetMinutes: func(dur time.Duration) ref.Value {
+		overloads.TimeGetMinutes: func(dur time.Duration) ref.Val {
 			return Int(dur.Minutes())
 		},
-		overloads.TimeGetSeconds: func(dur time.Duration) ref.Value {
+		overloads.TimeGetSeconds: func(dur time.Duration) ref.Val {
 			return Int(dur.Seconds())
 		},
-		overloads.TimeGetMilliseconds: func(dur time.Duration) ref.Value {
+		overloads.TimeGetMilliseconds: func(dur time.Duration) ref.Val {
 			return Int(dur.Nanoseconds() / 1000000)
 		}}
 )

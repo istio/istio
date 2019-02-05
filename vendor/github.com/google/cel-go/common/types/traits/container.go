@@ -19,5 +19,5 @@ import "github.com/google/cel-go/common/types/ref"
 // Container interface which permits containment tests such as 'a in b'.
 type Container interface {
 	// Contains returns true if the value exists within the object.
-	Contains(value ref.Value) ref.Value
+	Contains(value ref.Val) ref.Val
 }

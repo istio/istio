@@ -24,7 +24,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
-// Bool type that implements ref.Value and supports comparison and negation.
+// Bool type that implements ref.Val and supports comparison and negation.
 type Bool bool
 
 var (
@@ -41,7 +41,7 @@ var (
 )
 
 // Compare implements traits.Comparer.Compare.
-func (b Bool) Compare(other ref.Value) ref.Value {
+func (b Bool) Compare(other ref.Val) ref.Val {
 	if BoolType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -55,7 +55,7 @@ func (b Bool) Compare(other ref.Value) ref.Value {
 	return IntOne
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Bool:
@@ -78,8 +78,8 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from bool to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (b Bool) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
 		return String(strconv.FormatBool(bool(b)))
@@ -91,8 +91,8 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%v' to '%v'", BoolType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (b Bool) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (b Bool) Equal(other ref.Val) ref.Val {
 	if BoolType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -100,27 +100,27 @@ func (b Bool) Equal(other ref.Value) ref.Value {
 }
 
 // Negate implements traits.Negater.Negate.
-func (b Bool) Negate() ref.Value {
+func (b Bool) Negate() ref.Val {
 	return !b
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (b Bool) Type() ref.Type {
 	return BoolType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (b Bool) Value() interface{} {
 	return bool(b)
 }
 
-// IsBool returns whether the input ref.Value or ref.Type is equal to BoolType.
+// IsBool returns whether the input ref.Val or ref.Type is equal to BoolType.
 func IsBool(elem interface{}) bool {
 	switch elem.(type) {
 	case ref.Type:
 		return elem == BoolType
-	case ref.Value:
-		return IsBool(elem.(ref.Value).Type())
+	case ref.Val:
+		return IsBool(elem.(ref.Val).Type())
 	}
 	return false
 }

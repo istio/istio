@@ -39,7 +39,7 @@ func NewJSONList(l *structpb.ListValue) traits.Lister {
 	return &jsonListValue{l}
 }
 
-func (l *jsonListValue) Add(other ref.Value) ref.Value {
+func (l *jsonListValue) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
 	}
@@ -54,7 +54,7 @@ func (l *jsonListValue) Add(other ref.Value) ref.Value {
 		nextList: other.(traits.Lister)}
 }
 
-func (l *jsonListValue) Contains(elem ref.Value) ref.Value {
+func (l *jsonListValue) Contains(elem ref.Val) ref.Val {
 	for i := Int(0); i < l.Size().(Int); i++ {
 		if l.Get(i).Equal(elem) == True {
 			return True
@@ -100,7 +100,7 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 		" list elem: google.protobuf.Value, native type: %v", typeDesc)
 }
 
-func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {
+func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case ListType:
 		return l
@@ -110,7 +110,7 @@ func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
-func (l *jsonListValue) Equal(other ref.Value) ref.Value {
+func (l *jsonListValue) Equal(other ref.Val) ref.Val {
 	if ListType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -129,7 +129,7 @@ func (l *jsonListValue) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (l *jsonListValue) Get(index ref.Value) ref.Value {
+func (l *jsonListValue) Get(index ref.Val) ref.Val {
 	if IntType != index.Type() {
 		return ValOrErr(index, "unsupported index type: '%v", index.Type())
 	}
@@ -148,7 +148,7 @@ func (l *jsonListValue) Iterator() traits.Iterator {
 		len:          len(l.GetValues())}
 }
 
-func (l *jsonListValue) Size() ref.Value {
+func (l *jsonListValue) Size() ref.Val {
 	return Int(len(l.GetValues()))
 }
 
@@ -167,11 +167,11 @@ type jsonValueListIterator struct {
 	len    int
 }
 
-func (it *jsonValueListIterator) HasNext() ref.Value {
+func (it *jsonValueListIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *jsonValueListIterator) Next() ref.Value {
+func (it *jsonValueListIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++

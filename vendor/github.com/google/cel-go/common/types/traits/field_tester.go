@@ -26,5 +26,5 @@ type FieldTester interface {
 	// IsSet returns true if the field is defined and set to a non-default
 	// value. The method will return false if defined and not set, and an error
 	// if the field is not defined.
-	IsSet(field ref.Value) ref.Value
+	IsSet(field ref.Val) ref.Val
 }

@@ -39,7 +39,7 @@ func NewJSONStruct(st *structpb.Struct) traits.Mapper {
 	return &jsonStruct{st}
 }
 
-func (m *jsonStruct) Contains(index ref.Value) ref.Value {
+func (m *jsonStruct) Contains(index ref.Val) ref.Val {
 	return Bool(!IsError(m.Get(index)))
 }
 
@@ -91,7 +91,7 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			" map type: google.protobuf.Struct, native type: %v", typeDesc)
 }
 
-func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
+func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case MapType:
 		return m
@@ -101,7 +101,7 @@ func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
-func (m *jsonStruct) Equal(other ref.Value) ref.Value {
+func (m *jsonStruct) Equal(other ref.Val) ref.Val {
 	if MapType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -126,7 +126,7 @@ func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (m *jsonStruct) Get(key ref.Value) ref.Value {
+func (m *jsonStruct) Get(key ref.Val) ref.Val {
 	if StringType != key.Type() {
 		return ValOrErr(key, "unsupported key type: '%v", key.Type())
 	}
@@ -152,7 +152,7 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 		mapKeys:      keys}
 }
 
-func (m *jsonStruct) Size() ref.Value {
+func (m *jsonStruct) Size() ref.Val {
 	return Int(len(m.GetFields()))
 }
 
@@ -171,11 +171,11 @@ type jsonValueMapIterator struct {
 	mapKeys []string
 }
 
-func (it *jsonValueMapIterator) HasNext() ref.Value {
+func (it *jsonValueMapIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *jsonValueMapIterator) Next() ref.Value {
+func (it *jsonValueMapIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++

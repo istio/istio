@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
-// Bytes type that implements ref.Value and supports add, compare, and size
+// Bytes type that implements ref.Val and supports add, compare, and size
 // operations.
 type Bytes []byte
 
@@ -36,7 +36,7 @@ var (
 )
 
 // Add implements traits.Adder.Add by concatenating byte sequences.
-func (b Bytes) Add(other ref.Value) ref.Value {
+func (b Bytes) Add(other ref.Val) ref.Val {
 	if BytesType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -44,14 +44,14 @@ func (b Bytes) Add(other ref.Value) ref.Value {
 }
 
 // Compare implments traits.Comparer.Compare by lexicographic ordering.
-func (b Bytes) Compare(other ref.Value) ref.Value {
+func (b Bytes) Compare(other ref.Val) ref.Val {
 	if BytesType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
 	return Int(bytes.Compare(b, other.(Bytes)))
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
@@ -66,8 +66,8 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (b Bytes) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
 		return String(b)
@@ -79,8 +79,8 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", BytesType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (b Bytes) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (b Bytes) Equal(other ref.Val) ref.Val {
 	if BytesType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -88,16 +88,16 @@ func (b Bytes) Equal(other ref.Value) ref.Value {
 }
 
 // Size implements traits.Sizer.Size.
-func (b Bytes) Size() ref.Value {
+func (b Bytes) Size() ref.Val {
 	return Int(len(b))
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (b Bytes) Type() ref.Type {
 	return BytesType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (b Bytes) Value() interface{} {
 	return []byte(b)
 }

@@ -66,7 +66,7 @@ func NewProvider(types ...proto.Message) ref.TypeProvider {
 	return p
 }
 
-func (p *protoTypeProvider) EnumValue(enumName string) ref.Value {
+func (p *protoTypeProvider) EnumValue(enumName string) ref.Val {
 	enumVal, err := pb.DescribeEnum(enumName)
 	if err != nil {
 		return NewErr("unknown enum name '%s'", enumName)
@@ -95,9 +95,9 @@ func (p *protoTypeProvider) FindFieldType(t *exprpb.Type,
 	}
 }
 
-func (p *protoTypeProvider) FindIdent(identName string) (ref.Value, bool) {
+func (p *protoTypeProvider) FindIdent(identName string) (ref.Val, bool) {
 	if t, found := p.revTypeMap[identName]; found {
-		return t.(ref.Value), true
+		return t.(ref.Val), true
 	}
 	if enumVal, err := pb.DescribeEnum(identName); err == nil {
 		return Int(enumVal.Value()), true
@@ -120,7 +120,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 }
 
 func (p *protoTypeProvider) NewValue(typeName string,
-	fields map[string]ref.Value) ref.Value {
+	fields map[string]ref.Val) ref.Val {
 	td, err := pb.DescribeType(typeName)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
@@ -167,12 +167,12 @@ func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
 	return nil
 }
 
-// NativeToValue converts various "native" types to ref.Value.
-// It should be the inverse of ref.Value.ConvertToNative.
-func NativeToValue(value interface{}) ref.Value {
+// NativeToValue converts various "native" types to ref.Val.
+// It should be the inverse of ref.Val.ConvertToNative.
+func NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
-	case ref.Value:
-		return value.(ref.Value)
+	case ref.Val:
+		return value.(ref.Val)
 	case bool:
 		return Bool(value.(bool))
 	case *bool:

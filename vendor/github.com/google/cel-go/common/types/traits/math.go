@@ -21,7 +21,7 @@ type Adder interface {
 	// Add returns a combination of the current value and other value.
 	//
 	// If the other value is an unsupported type, an error is returned.
-	Add(other ref.Value) ref.Value
+	Add(other ref.Val) ref.Val
 }
 
 // Divider interface to support '/' operator overloads.
@@ -30,7 +30,7 @@ type Divider interface {
 	// denominator.
 	//
 	// A denominator value of zero results in an error.
-	Divide(denominator ref.Value) ref.Value
+	Divide(denominator ref.Val) ref.Val
 }
 
 // Modder interface to support '%' operator overloads.
@@ -39,24 +39,24 @@ type Modder interface {
 	// by the denominator.
 	//
 	// A denominator value of zero results in an error.
-	Modulo(denominator ref.Value) ref.Value
+	Modulo(denominator ref.Val) ref.Val
 }
 
 // Multiplier interface to support '*' operator overloads.
 type Multiplier interface {
 	// Multiply returns the result of multiplying the current and input value.
-	Multiply(other ref.Value) ref.Value
+	Multiply(other ref.Val) ref.Val
 }
 
 // Negater interface to support unary '-' and '!' operator overloads.
 type Negater interface {
 	// Negate returns the complement of the current value.
-	Negate() ref.Value
+	Negate() ref.Val
 }
 
 // Subtractor interface to support binary '-' operator overloads.
 type Subtractor interface {
 	// Subtract returns the result of subtracting the input from the current
 	// value.
-	Subtract(subtrahend ref.Value) ref.Value
+	Subtract(subtrahend ref.Val) ref.Val
 }

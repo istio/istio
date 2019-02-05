@@ -22,10 +22,10 @@ import (
 type EvalState interface {
 	// Value returns the observed value of the given expression id if found, and a nil false
 	// result if not.
-	Value(int64) (ref.Value, bool)
+	Value(int64) (ref.Val, bool)
 
 	// SetValue sets the observed value of the expression id.
-	SetValue(int64, ref.Value)
+	SetValue(int64, ref.Val)
 
 	// Reset clears the previously recorded expression values.
 	Reset()
@@ -33,28 +33,28 @@ type EvalState interface {
 
 // evalState permits the mutation of evaluation state for a given expression id.
 type evalState struct {
-	values map[int64]ref.Value
+	values map[int64]ref.Val
 }
 
 // NewEvalState returns an EvalState instanced used to observe the intermediate
 // evaluations of an expression.
 func NewEvalState() EvalState {
 	return &evalState{
-		values: make(map[int64]ref.Value),
+		values: make(map[int64]ref.Val),
 	}
 }
 
 // Value is an implementation of the EvalState interface method.
-func (s *evalState) Value(exprID int64) (ref.Value, bool) {
+func (s *evalState) Value(exprID int64) (ref.Val, bool) {
 	val, found := s.values[exprID]
 	return val, found
 }
 
 // SetValue is an implementation of the EvalState interface method.
-func (s *evalState) SetValue(exprID int64, val ref.Value) {
+func (s *evalState) SetValue(exprID int64, val ref.Val) {
 	s.values[exprID] = val
 }
 
 func (s *evalState) Reset() {
-	s.values = map[int64]ref.Value{}
+	s.values = map[int64]ref.Val{}
 }

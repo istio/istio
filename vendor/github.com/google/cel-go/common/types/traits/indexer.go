@@ -21,5 +21,5 @@ import (
 // Indexer permits random access of elements by index 'a[b()]'.
 type Indexer interface {
 	// Get the value at the specified index or error.
-	Get(index ref.Value) ref.Value
+	Get(index ref.Val) ref.Val
 }

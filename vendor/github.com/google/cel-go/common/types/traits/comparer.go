@@ -29,5 +29,5 @@ type Comparer interface {
 	//
 	// If the comparison cannot be made or is not supported, an error should
 	// be returned.
-	Compare(other ref.Value) ref.Value
+	Compare(other ref.Val) ref.Val
 }

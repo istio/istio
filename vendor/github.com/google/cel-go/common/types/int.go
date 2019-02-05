@@ -24,7 +24,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
-// Int type that implements ref.Value as well as comparison and math operators.
+// Int type that implements ref.Val as well as comparison and math operators.
 type Int int64
 
 // Int constants used for comparison results.
@@ -47,7 +47,7 @@ var (
 )
 
 // Add implements traits.Adder.Add.
-func (i Int) Add(other ref.Value) ref.Value {
+func (i Int) Add(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -55,7 +55,7 @@ func (i Int) Add(other ref.Value) ref.Value {
 }
 
 // Compare implements traits.Comparer.Compare.
-func (i Int) Compare(other ref.Value) ref.Value {
+func (i Int) Compare(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -68,7 +68,7 @@ func (i Int) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
@@ -97,8 +97,8 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported type conversion from 'int' to %v", typeDesc)
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
 		return i
@@ -115,7 +115,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
 }
 
 // Divide implements traits.Divider.Divide.
-func (i Int) Divide(other ref.Value) ref.Value {
+func (i Int) Divide(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -126,8 +126,8 @@ func (i Int) Divide(other ref.Value) ref.Value {
 	return i / otherInt
 }
 
-// Equal implements ref.Value.Equal.
-func (i Int) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (i Int) Equal(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -135,7 +135,7 @@ func (i Int) Equal(other ref.Value) ref.Value {
 }
 
 // Modulo implements traits.Modder.Modulo.
-func (i Int) Modulo(other ref.Value) ref.Value {
+func (i Int) Modulo(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -147,7 +147,7 @@ func (i Int) Modulo(other ref.Value) ref.Value {
 }
 
 // Multiply implements traits.Multiplier.Multiply.
-func (i Int) Multiply(other ref.Value) ref.Value {
+func (i Int) Multiply(other ref.Val) ref.Val {
 	if IntType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -155,24 +155,24 @@ func (i Int) Multiply(other ref.Value) ref.Value {
 }
 
 // Negate implements traits.Negater.Negate.
-func (i Int) Negate() ref.Value {
+func (i Int) Negate() ref.Val {
 	return -i
 }
 
 // Subtract implements traits.Subtractor.Subtract.
-func (i Int) Subtract(subtrahend ref.Value) ref.Value {
+func (i Int) Subtract(subtrahend ref.Val) ref.Val {
 	if IntType != subtrahend.Type() {
 		return ValOrErr(subtrahend, "no such overload")
 	}
 	return i - subtrahend.(Int)
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (i Int) Type() ref.Type {
 	return IntType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (i Int) Value() interface{} {
 	return int64(i)
 }

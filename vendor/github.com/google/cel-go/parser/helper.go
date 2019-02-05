@@ -15,6 +15,8 @@
 package parser
 
 import (
+	"sync"
+
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/google/cel-go/common"
 
@@ -104,7 +106,7 @@ func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*
 	return exprNode
 }
 
-func (p *parserHelper) newMemberCall(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+func (p *parserHelper) newReceiverCall(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_CallExpr{
 		CallExpr: &exprpb.Expr_Call{Function: function, Target: target, Args: args}}
@@ -264,3 +266,120 @@ func (b *balancer) balancedTree(lo, hi int) *exprpb.Expr {
 	}
 	return b.helper.newGlobalCall(b.ops[mid], b.function, left, right)
 }
+
+type exprHelper struct {
+	*parserHelper
+	ctx interface{}
+}
+
+// LiteralBool implements the ExprHelper interface method.
+func (e *exprHelper) LiteralBool(value bool) *exprpb.Expr {
+	return e.parserHelper.newLiteralBool(e.ctx, value)
+}
+
+// LiteralBytes implements the ExprHelper interface method.
+func (e *exprHelper) LiteralBytes(value []byte) *exprpb.Expr {
+	return e.parserHelper.newLiteralBytes(e.ctx, value)
+}
+
+// LiteralDouble implements the ExprHelper interface method.
+func (e *exprHelper) LiteralDouble(value float64) *exprpb.Expr {
+	return e.parserHelper.newLiteralDouble(e.ctx, value)
+}
+
+// LiteralInt implements the ExprHelper interface method.
+func (e *exprHelper) LiteralInt(value int64) *exprpb.Expr {
+	return e.parserHelper.newLiteralInt(e.ctx, value)
+}
+
+// LiteralString implements the ExprHelper interface method.
+func (e *exprHelper) LiteralString(value string) *exprpb.Expr {
+	return e.parserHelper.newLiteralString(e.ctx, value)
+}
+
+// LiteralUint implements the ExprHelper interface method.
+func (e *exprHelper) LiteralUint(value uint64) *exprpb.Expr {
+	return e.parserHelper.newLiteralUint(e.ctx, value)
+}
+
+// NewList implements the ExprHelper interface method.
+func (e *exprHelper) NewList(elems ...*exprpb.Expr) *exprpb.Expr {
+	return e.parserHelper.newList(e.ctx, elems...)
+}
+
+// NewMap implements the ExprHelper interface method.
+func (e *exprHelper) NewMap(entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+	return e.parserHelper.newMap(e.ctx, entries...)
+}
+
+// NewMapEntry implements the ExprHelper interface method.
+func (e *exprHelper) NewMapEntry(key *exprpb.Expr,
+	val *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return e.parserHelper.newMapEntry(e.ctx, key, val)
+}
+
+// NewObject implements the ExprHelper interface method.
+func (e *exprHelper) NewObject(typeName string,
+	fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+	return e.parserHelper.newObject(e.ctx, typeName, fieldInits...)
+}
+
+// NewObjectFieldInit implements the ExprHelper interface method.
+func (e *exprHelper) NewObjectFieldInit(field string,
+	init *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return e.parserHelper.newObjectField(e.ctx, field, init)
+}
+
+// Fold implements the ExprHelper interface method.
+func (e *exprHelper) Fold(iterVar string,
+	iterRange *exprpb.Expr,
+	accuVar string,
+	accuInit *exprpb.Expr,
+	condition *exprpb.Expr,
+	step *exprpb.Expr,
+	result *exprpb.Expr) *exprpb.Expr {
+	return e.parserHelper.newComprehension(
+		e.ctx, iterVar, iterRange, accuVar, accuInit, condition, step, result)
+}
+
+// Ident implements the ExprHelper interface method.
+func (e *exprHelper) Ident(name string) *exprpb.Expr {
+	return e.parserHelper.newIdent(e.ctx, name)
+}
+
+// GlobalCall implements the ExprHelper interface method.
+func (e *exprHelper) GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr {
+	return e.parserHelper.newGlobalCall(e.ctx, function, args...)
+}
+
+// ReceiverCall implements the ExprHelper interface method.
+func (e *exprHelper) ReceiverCall(function string,
+	target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+	return e.parserHelper.newReceiverCall(e.ctx, function, target, args...)
+}
+
+// PresenceTest implements the ExprHelper interface method.
+func (e *exprHelper) PresenceTest(operand *exprpb.Expr, field string) *exprpb.Expr {
+	return e.parserHelper.newPresenceTest(e.ctx, operand, field)
+}
+
+// Select implements the ExprHelper interface method.
+func (e *exprHelper) Select(operand *exprpb.Expr, field string) *exprpb.Expr {
+	return e.parserHelper.newSelect(e.ctx, operand, field)
+}
+
+// OffsetLocation implements the ExprHelper interface method.
+func (e *exprHelper) OffsetLocation(exprID int64) common.Location {
+	offset := e.parserHelper.positions[exprID]
+	location, _ := e.parserHelper.source.OffsetLocation(offset)
+	return location
+}
+
+var (
+	// Thread-safe pool of ExprHelper values to minimize alloc overhead of ExprHelper creations.
+	exprHelperPool = &sync.Pool{
+		New: func() interface{} {
+			return &exprHelper{}
+		},
+	}
+)

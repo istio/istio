@@ -58,7 +58,7 @@ var (
 		traits.SizerType)
 )
 
-func (m *baseMap) Contains(index ref.Value) ref.Value {
+func (m *baseMap) Contains(index ref.Val) ref.Val {
 	return Bool(m.Get(index).Type() != ErrType)
 }
 
@@ -127,7 +127,7 @@ func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	return m.baseMap.ConvertToNative(refType)
 }
 
-func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
+func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case MapType:
 		return m
@@ -137,7 +137,7 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
-func (m *baseMap) Equal(other ref.Value) ref.Value {
+func (m *baseMap) Equal(other ref.Val) ref.Val {
 	if MapType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -162,14 +162,14 @@ func (m *baseMap) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (m *stringMap) Equal(other ref.Value) ref.Value {
+func (m *stringMap) Equal(other ref.Val) ref.Val {
 	if !m.baseMap.refValue.IsValid() {
 		m.baseMap.refValue = reflect.ValueOf(m.value)
 	}
 	return m.baseMap.Equal(other)
 }
 
-func (m *baseMap) Get(key ref.Value) ref.Value {
+func (m *baseMap) Get(key ref.Val) ref.Val {
 	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
 	// does not exist in the map; however, it's possible that the value cannot be converted to
 	// the desired type. Refine this strategy to disambiguate these cases.
@@ -189,7 +189,7 @@ func (m *baseMap) Get(key ref.Value) ref.Value {
 	return NativeToValue(value.Interface())
 }
 
-func (m *stringMap) Get(key ref.Value) ref.Value {
+func (m *stringMap) Get(key ref.Val) ref.Val {
 	strKey, ok := key.(String)
 	if !ok {
 		return ValOrErr(key, "no such key: %v", key)
@@ -218,11 +218,11 @@ func (m *stringMap) Iterator() traits.Iterator {
 	return m.baseMap.Iterator()
 }
 
-func (m *baseMap) Size() ref.Value {
+func (m *baseMap) Size() ref.Val {
 	return Int(m.refValue.Len())
 }
 
-func (m *stringMap) Size() ref.Value {
+func (m *stringMap) Size() ref.Val {
 	return Int(len(m.mapStrStr))
 }
 
@@ -242,11 +242,11 @@ type mapIterator struct {
 	len      int
 }
 
-func (it *mapIterator) HasNext() ref.Value {
+func (it *mapIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *mapIterator) Next() ref.Value {
+func (it *mapIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++

@@ -33,7 +33,7 @@ type TypeValue struct {
 	traitMask int
 }
 
-// NewTypeValue returns *TypeValue which is both a ref.Type and ref.Value.
+// NewTypeValue returns *TypeValue which is both a ref.Type and ref.Val.
 func NewTypeValue(name string, traits ...int) *TypeValue {
 	traitMask := 0
 	for _, trait := range traits {
@@ -53,14 +53,14 @@ func NewObjectTypeValue(name string) *TypeValue {
 		traits.IterableType)
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (t *TypeValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// TODO: replace the internal type representation with a proto-value.
 	return nil, fmt.Errorf("type conversion not supported for 'type'")
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case TypeType:
 		return t
@@ -70,8 +70,8 @@ func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", TypeType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (t *TypeValue) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (t *TypeValue) Equal(other ref.Val) ref.Val {
 	if TypeType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -89,7 +89,7 @@ func (t *TypeValue) String() string {
 	return t.name
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (t *TypeValue) Type() ref.Type {
 	return TypeType
 }
@@ -99,7 +99,7 @@ func (t *TypeValue) TypeName() string {
 	return t.name
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (t *TypeValue) Value() interface{} {
 	return t.name
 }

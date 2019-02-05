@@ -21,7 +21,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-// Err type which extends the built-in go error and implements ref.Value.
+// Err type which extends the built-in go error and implements ref.Val.
 type Err struct {
 	error
 }
@@ -33,13 +33,13 @@ var (
 
 // NewErr creates a new Err described by the format string and args.
 // TODO: Audit the use of this function and standardize the error messages and codes.
-func NewErr(format string, args ...interface{}) ref.Value {
+func NewErr(format string, args ...interface{}) ref.Val {
 	return &Err{fmt.Errorf(format, args...)}
 }
 
 // ValOrErr either returns the existing error or create a new one.
 // TODO: Audit the use of this function and standardize the error messages and codes.
-func ValOrErr(val ref.Value, format string, args ...interface{}) ref.Value {
+func ValOrErr(val ref.Val, format string, args ...interface{}) ref.Val {
 	switch val.Type() {
 	case ErrType, UnknownType:
 		return val
@@ -48,19 +48,19 @@ func ValOrErr(val ref.Value, format string, args ...interface{}) ref.Value {
 	}
 }
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (e *Err) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, e.error
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (e *Err) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (e *Err) ConvertToType(typeVal ref.Type) ref.Val {
 	// Errors are not convertible to other representations.
 	return e
 }
 
-// Equal implements ref.Value.Equal.
-func (e *Err) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (e *Err) Equal(other ref.Val) ref.Val {
 	// An error cannot be equal to any other value, so it returns itself.
 	return e
 }
@@ -70,18 +70,18 @@ func (e *Err) String() string {
 	return e.error.Error()
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (e *Err) Type() ref.Type {
 	return ErrType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (e *Err) Value() interface{} {
 	return e.error
 }
 
-// IsError returns whether the input element ref.Type or ref.Value is equal to
+// IsError returns whether the input element ref.Type or ref.Val is equal to
 // the ErrType singleton.
-func IsError(val ref.Value) bool {
+func IsError(val ref.Val) bool {
 	return val.Type() == ErrType
 }

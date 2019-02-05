@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
-
-import "github.com/google/cel-go/common/types/ref"
-
-var (
-	// DynType singleton.
-	DynType = NewTypeValue("dyn")
-)
-
-// IsDyn indicates whether the input ref.Val or ref.Type is equal to DynType.
-func IsDyn(elem interface{}) bool {
-	switch elem.(type) {
-	case ref.Type:
-		return elem == DynType
-	case ref.Val:
-		return IsDyn(elem.(ref.Val).Type())
-	}
-	return false
-}
+// Package cel defines the top-level interface for the Common Expression Language (CEL).
+//
+// CEL is a non-Turing complete expression language designed to parse, check, and evaluate
+// expressions against user-defined environments.
+package cel

@@ -33,7 +33,7 @@ type Interpretable interface {
 	ID() int64
 
 	// Eval an Activation to produce an output.
-	Eval(activation Activation) ref.Value
+	Eval(activation Activation) ref.Val
 }
 
 // InterpretableDecorator is a functional interface for decorating or replacing
@@ -58,7 +58,7 @@ type Interpreter interface {
 // This decorator is not thread-safe, and the EvalState must be reset between Eval()
 // calls.
 func TrackState(state EvalState) InterpretableDecorator {
-	observer := func(id int64, val ref.Value) {
+	observer := func(id int64, val ref.Val) {
 		state.SetValue(id, val)
 	}
 	return decObserveEval(observer)

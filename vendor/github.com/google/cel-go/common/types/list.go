@@ -35,7 +35,7 @@ var (
 
 // NewDynamicList returns a traits.Lister with heterogenous elements.
 // value should be an array of "native" types, i.e. any type that
-// NativeToValue() can convert to a ref.Value.
+// NativeToValue() can convert to a ref.Val.
 func NewDynamicList(value interface{}) traits.Lister {
 	return &baseList{value, reflect.ValueOf(value)}
 }
@@ -47,8 +47,8 @@ func NewStringList(elems []string) traits.Lister {
 		elems:    elems}
 }
 
-// NewValueList returns a traits.Lister with ref.Value elements.
-func NewValueList(elems []ref.Value) traits.Lister {
+// NewValueList returns a traits.Lister with ref.Val elements.
+func NewValueList(elems []ref.Val) traits.Lister {
 	return &valueList{
 		baseList: NewDynamicList(elems).(*baseList),
 		elems:    elems}
@@ -61,7 +61,7 @@ type baseList struct {
 	refValue reflect.Value
 }
 
-func (l *baseList) Add(other ref.Value) ref.Value {
+func (l *baseList) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
 	}
@@ -76,7 +76,7 @@ func (l *baseList) Add(other ref.Value) ref.Value {
 		nextList: other.(traits.Lister)}
 }
 
-func (l *baseList) Contains(elem ref.Value) ref.Value {
+func (l *baseList) Contains(elem ref.Val) ref.Val {
 	for i := Int(0); i < l.Size().(Int); i++ {
 		if l.Get(i).Equal(elem) == True {
 			return True
@@ -136,7 +136,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nativeList.Interface(), nil
 }
 
-func (l *baseList) ConvertToType(typeVal ref.Type) ref.Value {
+func (l *baseList) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case ListType:
 		return l
@@ -146,7 +146,7 @@ func (l *baseList) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
-func (l *baseList) Equal(other ref.Value) ref.Value {
+func (l *baseList) Equal(other ref.Val) ref.Val {
 	if ListType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
@@ -165,7 +165,7 @@ func (l *baseList) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (l *baseList) Get(index ref.Value) ref.Value {
+func (l *baseList) Get(index ref.Val) ref.Val {
 	if index.Type() != IntType {
 		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
 	}
@@ -185,7 +185,7 @@ func (l *baseList) Iterator() traits.Iterator {
 		len:          l.Size().(Int)}
 }
 
-func (l *baseList) Size() ref.Value {
+func (l *baseList) Size() ref.Val {
 	return Int(l.refValue.Len())
 }
 
@@ -204,7 +204,7 @@ type concatList struct {
 	nextList traits.Lister
 }
 
-func (l *concatList) Add(other ref.Value) ref.Value {
+func (l *concatList) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
 	}
@@ -219,7 +219,7 @@ func (l *concatList) Add(other ref.Value) ref.Value {
 		nextList: other.(traits.Lister)}
 }
 
-func (l *concatList) Contains(elem ref.Value) ref.Value {
+func (l *concatList) Contains(elem ref.Val) ref.Val {
 	return Bool(l.prevList.Contains(elem) == True ||
 		l.nextList.Contains(elem) == True)
 }
@@ -231,7 +231,7 @@ func (l *concatList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 	return combined.ConvertToNative(typeDesc)
 }
 
-func (l *concatList) ConvertToType(typeVal ref.Type) ref.Value {
+func (l *concatList) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case ListType:
 		return l
@@ -241,7 +241,7 @@ func (l *concatList) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
-func (l *concatList) Equal(other ref.Value) ref.Value {
+func (l *concatList) Equal(other ref.Val) ref.Val {
 	if ListType != other.Type() {
 		return False
 	}
@@ -259,7 +259,7 @@ func (l *concatList) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (l *concatList) Get(index ref.Value) ref.Value {
+func (l *concatList) Get(index ref.Val) ref.Val {
 	if index.Type() != IntType {
 		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
 	}
@@ -279,7 +279,7 @@ func (l *concatList) Iterator() traits.Iterator {
 		len:          l.Size().(Int)}
 }
 
-func (l *concatList) Size() ref.Value {
+func (l *concatList) Size() ref.Val {
 	return l.prevList.Size().(Int).Add(l.nextList.Size())
 }
 
@@ -311,7 +311,7 @@ type stringList struct {
 	elems []string
 }
 
-func (l *stringList) Add(other ref.Value) ref.Value {
+func (l *stringList) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
 	}
@@ -362,7 +362,7 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 		" list elem: string, native type: %v", typeDesc)
 }
 
-func (l *stringList) Get(index ref.Value) ref.Value {
+func (l *stringList) Get(index ref.Val) ref.Val {
 	if index.Type() != IntType {
 		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
 	}
@@ -373,17 +373,17 @@ func (l *stringList) Get(index ref.Value) ref.Value {
 	return String(l.elems[i])
 }
 
-func (l *stringList) Size() ref.Value {
+func (l *stringList) Size() ref.Val {
 	return Int(len(l.elems))
 }
 
-// valueList is a specialization of traits.Lister for ref.Value.
+// valueList is a specialization of traits.Lister for ref.Val.
 type valueList struct {
 	*baseList
-	elems []ref.Value
+	elems []ref.Val
 }
 
-func (l *valueList) Add(other ref.Value) ref.Value {
+func (l *valueList) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
 	}
@@ -404,7 +404,7 @@ func (l *valueList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) 
 	return natives, nil
 }
 
-func (l *valueList) Get(index ref.Value) ref.Value {
+func (l *valueList) Get(index ref.Val) ref.Val {
 	if index.Type() != IntType {
 		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
 	}
@@ -415,7 +415,7 @@ func (l *valueList) Get(index ref.Value) ref.Value {
 	return l.elems[i]
 }
 
-func (l *valueList) Size() ref.Value {
+func (l *valueList) Size() ref.Val {
 	return Int(len(l.elems))
 }
 
@@ -426,11 +426,11 @@ type listIterator struct {
 	len       Int
 }
 
-func (it *listIterator) HasNext() ref.Value {
+func (it *listIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *listIterator) Next() ref.Value {
+func (it *listIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++

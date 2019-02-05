@@ -33,7 +33,7 @@ var (
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
 )
 
-// ConvertToNative implements ref.Value.ConvertToNative.
+// ConvertToNative implements ref.Val.ConvertToNative.
 func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Ptr:
@@ -59,8 +59,8 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return structpb.NullValue_NULL_VALUE, nil
 }
 
-// ConvertToType implements ref.Value.ConvertToType.
-func (n Null) ConvertToType(typeVal ref.Type) ref.Value {
+// ConvertToType implements ref.Val.ConvertToType.
+func (n Null) ConvertToType(typeVal ref.Type) ref.Val {
 	if typeVal == StringType {
 		return String("null")
 	}
@@ -70,20 +70,20 @@ func (n Null) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", NullType, typeVal)
 }
 
-// Equal implements ref.Value.Equal.
-func (n Null) Equal(other ref.Value) ref.Value {
+// Equal implements ref.Val.Equal.
+func (n Null) Equal(other ref.Val) ref.Val {
 	if NullType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
 	return True
 }
 
-// Type implements ref.Value.Type.
+// Type implements ref.Val.Type.
 func (n Null) Type() ref.Type {
 	return NullType
 }
 
-// Value implements ref.Value.Value.
+// Value implements ref.Val.Value.
 func (n Null) Value() interface{} {
 	return structpb.NullValue_NULL_VALUE
 }

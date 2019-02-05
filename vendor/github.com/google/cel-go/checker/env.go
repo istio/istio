@@ -145,9 +145,9 @@ func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Ove
 	}
 
 	for _, macro := range parser.AllMacros {
-		if macro.GetName() == f.Name && macro.GetIsInstanceStyle() == overload.GetIsInstanceFunction() &&
-			macro.GetArgCount() == len(overload.GetParams()) {
-			errMsgs = append(errMsgs, overlappingMacroError(f.Name, macro.GetArgCount()))
+		if macro.Function() == f.Name && macro.IsReceiverStyle() == overload.GetIsInstanceFunction() &&
+			macro.ArgCount() == len(overload.GetParams()) {
+			errMsgs = append(errMsgs, overlappingMacroError(f.Name, macro.ArgCount()))
 		}
 	}
 	if len(errMsgs) > 0 {

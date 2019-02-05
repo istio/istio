@@ -22,11 +22,11 @@ import (
 // resolving enum values by name.
 type TypeProvider interface {
 	// EnumValue returns the numeric value of the given enum value name.
-	EnumValue(enumName string) Value
+	EnumValue(enumName string) Val
 
 	// FindIdent takes a qualified identifier name and returns a Value if one
 	// exists.
-	FindIdent(identName string) (Value, bool)
+	FindIdent(identName string) (Val, bool)
 
 	// FindType looks up the Type given a qualified typeName. Returns false
 	// if not found.
@@ -42,7 +42,7 @@ type TypeProvider interface {
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
-	NewValue(typeName string, fields map[string]Value) Value
+	NewValue(typeName string, fields map[string]Val) Val
 
 	// RegisterType registers a type value with the provider which ensures the
 	// provider is aware of how to map the type to an identifier.

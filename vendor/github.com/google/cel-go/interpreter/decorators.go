@@ -21,7 +21,7 @@ import (
 )
 
 // evalObserver is a functional interface that accepts an expression id and an observed value.
-type evalObserver func(int64, ref.Value)
+type evalObserver func(int64, ref.Val)
 
 // decObserveEval records evaluation state into an EvalState object.
 func decObserveEval(observer evalObserver) InterpretableDecorator {
@@ -130,7 +130,7 @@ func (e *evalWatch) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalWatch) Eval(ctx Activation) ref.Value {
+func (e *evalWatch) Eval(ctx Activation) ref.Val {
 	val := e.inst.Eval(ctx)
 	e.observer(e.inst.ID(), val)
 	return val
@@ -149,7 +149,7 @@ func (or *evalExhaustiveOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Value {
+func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	lVal := or.lhs.Eval(ctx)
 	rVal := or.rhs.Eval(ctx)
 	lBool, lok := lVal.(types.Bool)
@@ -185,7 +185,7 @@ func (and *evalExhaustiveAnd) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Value {
+func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	lVal := and.lhs.Eval(ctx)
 	rVal := and.rhs.Eval(ctx)
 	lBool, lok := lVal.(types.Bool)
@@ -223,7 +223,7 @@ func (cond *evalExhaustiveConditional) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Value {
+func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
 	cVal := cond.expr.Eval(ctx)
 	tVal := cond.truthy.Eval(ctx)
 	fVal := cond.falsy.Eval(ctx)
@@ -255,7 +255,7 @@ func (fold *evalExhaustiveFold) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Value {
+func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
 	foldRange := fold.iterRange.Eval(ctx)
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)

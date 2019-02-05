@@ -538,8 +538,8 @@ func (p *planner) planConst(expr *exprpb.Expr) (Interpretable, error) {
 	}, nil
 }
 
-// constValue converts a proto Constant value to a ref.Value.
-func (p *planner) constValue(c *exprpb.Constant) (ref.Value, error) {
+// constValue converts a proto Constant value to a ref.Val.
+func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 	switch c.ConstantKind.(type) {
 	case *exprpb.Constant_BoolValue:
 		return types.Bool(c.GetBoolValue()), nil
@@ -561,7 +561,7 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Value, error) {
 
 // idResolver returns a function that resolves a Select expression to an identifier or field
 // selection based on the operand being of Unknown type.
-func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Value, bool) {
+func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val, bool) {
 	// TODO: ensure id resolution prefers the most specific identifier rather than the least
 	// specific to be consistent with the check id resolution.
 	validIdent := true
@@ -582,7 +582,7 @@ func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Valu
 			validIdent = false
 		}
 	}
-	return func(ctx Activation) (ref.Value, bool) {
+	return func(ctx Activation) (ref.Val, bool) {
 		for _, id := range p.pkg.ResolveCandidateNames(ident) {
 			if object, found := ctx.ResolveName(id); found {
 				return object, found
@@ -607,7 +607,7 @@ func (id *evalIdent) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (id *evalIdent) Eval(ctx Activation) ref.Value {
+func (id *evalIdent) Eval(ctx Activation) ref.Val {
 	val, found := ctx.ResolveName(id.name)
 	if found {
 		return val
@@ -624,7 +624,7 @@ type evalSelect struct {
 	id        int64
 	op        Interpretable
 	field     types.String
-	resolveID func(Activation) (ref.Value, bool)
+	resolveID func(Activation) (ref.Val, bool)
 }
 
 // ID implements the Interpretable interface method.
@@ -633,7 +633,7 @@ func (sel *evalSelect) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (sel *evalSelect) Eval(ctx Activation) ref.Value {
+func (sel *evalSelect) Eval(ctx Activation) ref.Val {
 	obj := sel.op.Eval(ctx)
 	indexer, ok := obj.(traits.Indexer)
 	if !ok {
@@ -658,7 +658,7 @@ func (test *evalTestOnly) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (test *evalTestOnly) Eval(ctx Activation) ref.Value {
+func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 	obj := test.op.Eval(ctx)
 	tester, ok := obj.(traits.FieldTester)
 	if ok {
@@ -674,7 +674,7 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Value {
 
 type evalConst struct {
 	id  int64
-	val ref.Value
+	val ref.Val
 }
 
 // ID implements the Interpretable interface method.
@@ -683,7 +683,7 @@ func (cons *evalConst) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cons *evalConst) Eval(ctx Activation) ref.Value {
+func (cons *evalConst) Eval(ctx Activation) ref.Val {
 	return cons.val
 }
 
@@ -699,7 +699,7 @@ func (or *evalOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalOr) Eval(ctx Activation) ref.Value {
+func (or *evalOr) Eval(ctx Activation) ref.Val {
 	// short-circuit lhs.
 	lVal := or.lhs.Eval(ctx)
 	lBool, lok := lVal.(types.Bool)
@@ -740,7 +740,7 @@ func (and *evalAnd) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (and *evalAnd) Eval(ctx Activation) ref.Value {
+func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	// short-circuit lhs.
 	lVal := and.lhs.Eval(ctx)
 	lBool, lok := lVal.(types.Bool)
@@ -782,7 +782,7 @@ func (cond *evalConditional) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cond *evalConditional) Eval(ctx Activation) ref.Value {
+func (cond *evalConditional) Eval(ctx Activation) ref.Val {
 	condVal := cond.expr.Eval(ctx)
 	condBool, ok := condVal.(types.Bool)
 	if !ok {
@@ -806,7 +806,7 @@ func (eq *evalEq) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (eq *evalEq) Eval(ctx Activation) ref.Value {
+func (eq *evalEq) Eval(ctx Activation) ref.Val {
 	lVal := eq.lhs.Eval(ctx)
 	rVal := eq.rhs.Eval(ctx)
 	return lVal.Equal(rVal)
@@ -824,7 +824,7 @@ func (ne *evalNe) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (ne *evalNe) Eval(ctx Activation) ref.Value {
+func (ne *evalNe) Eval(ctx Activation) ref.Val {
 	lVal := ne.lhs.Eval(ctx)
 	rVal := ne.rhs.Eval(ctx)
 	eqVal := lVal.Equal(rVal)
@@ -849,7 +849,7 @@ func (zero *evalZeroArity) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (zero *evalZeroArity) Eval(ctx Activation) ref.Value {
+func (zero *evalZeroArity) Eval(ctx Activation) ref.Val {
 	return zero.impl()
 }
 
@@ -868,7 +868,7 @@ func (un *evalUnary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (un *evalUnary) Eval(ctx Activation) ref.Value {
+func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	argVal := un.arg.Eval(ctx)
 	// Early return if the argument to the function is unknown or error.
 	if types.IsUnknownOrError(argVal) {
@@ -882,7 +882,7 @@ func (un *evalUnary) Eval(ctx Activation) ref.Value {
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
 	if argVal.Type().HasTrait(traits.ReceiverType) {
-		return argVal.(traits.Receiver).Receive(un.function, un.overload, []ref.Value{})
+		return argVal.(traits.Receiver).Receive(un.function, un.overload, []ref.Val{})
 	}
 	return types.NewErr("no such overload: %s", un.function)
 }
@@ -903,7 +903,7 @@ func (bin *evalBinary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (bin *evalBinary) Eval(ctx Activation) ref.Value {
+func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 	lVal := bin.lhs.Eval(ctx)
 	rVal := bin.rhs.Eval(ctx)
 	// Early return if any argument to the function is unknown or error.
@@ -921,7 +921,7 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Value {
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
 	if lVal.Type().HasTrait(traits.ReceiverType) {
-		return lVal.(traits.Receiver).Receive(bin.function, bin.overload, []ref.Value{rVal})
+		return lVal.(traits.Receiver).Receive(bin.function, bin.overload, []ref.Val{rVal})
 	}
 	return types.NewErr("no such overload: %s", bin.function)
 }
@@ -941,8 +941,8 @@ func (fn *evalVarArgs) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fn *evalVarArgs) Eval(ctx Activation) ref.Value {
-	argVals := make([]ref.Value, len(fn.args), len(fn.args))
+func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
+	argVals := make([]ref.Val, len(fn.args), len(fn.args))
 	// Early return if any argument to the function is unknown or error.
 	for i, arg := range fn.args {
 		argVals[i] = arg.Eval(ctx)
@@ -975,8 +975,8 @@ func (l *evalList) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (l *evalList) Eval(ctx Activation) ref.Value {
-	elemVals := make([]ref.Value, len(l.elems), len(l.elems))
+func (l *evalList) Eval(ctx Activation) ref.Val {
+	elemVals := make([]ref.Val, len(l.elems), len(l.elems))
 	// If any argument is unknown or error early terminate.
 	for i, elem := range l.elems {
 		elemVal := elem.Eval(ctx)
@@ -1000,8 +1000,8 @@ func (m *evalMap) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (m *evalMap) Eval(ctx Activation) ref.Value {
-	entries := make(map[ref.Value]ref.Value)
+func (m *evalMap) Eval(ctx Activation) ref.Val {
+	entries := make(map[ref.Val]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, key := range m.keys {
 		keyVal := key.Eval(ctx)
@@ -1031,8 +1031,8 @@ func (o *evalObj) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (o *evalObj) Eval(ctx Activation) ref.Value {
-	fieldVals := make(map[string]ref.Value)
+func (o *evalObj) Eval(ctx Activation) ref.Val {
+	fieldVals := make(map[string]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, field := range o.fields {
 		val := o.vals[i].Eval(ctx)
@@ -1061,7 +1061,7 @@ func (fold *evalFold) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fold *evalFold) Eval(ctx Activation) ref.Value {
+func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	foldRange := fold.iterRange.Eval(ctx)
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
