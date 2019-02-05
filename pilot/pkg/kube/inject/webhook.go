@@ -388,6 +388,15 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 	return patch
 }
 
+func addPodDNSConfig(target *corev1.PodDNSConfig, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
+	return patch
+}
+
 // escape JSON Pointer value per https://tools.ietf.org/html/rfc6901
 func escapeJSONPointerValue(in string) string {
 	step := strings.Replace(in, "~", "~0", -1)
@@ -434,6 +443,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
+
+	if sic.DNSConfig != nil {
+		patch = append(patch, addPodDNSConfig(sic.DNSConfig, "/spec/dnsConfig")...)
+	}
 
 	if pod.Spec.SecurityContext != nil {
 		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
