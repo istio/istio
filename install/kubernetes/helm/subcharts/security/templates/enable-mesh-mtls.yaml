@@ -30,6 +30,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "*.local"
+  exportTo:
+  - '*'
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
@@ -47,6 +49,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "kubernetes.default.svc.{{ .Values.global.proxy.clusterDomain }}"
+  exportTo:
+  - '*'
   trafficPolicy:
     tls:
       mode: DISABLE
