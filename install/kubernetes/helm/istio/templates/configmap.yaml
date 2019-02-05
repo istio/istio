@@ -26,7 +26,7 @@ data:
     # If AccessLogEncoding is JSON, value will be parsed as map[string]string
     # example: '{"start_time": "%START_TIME%", "req_method": "%REQ(:METHOD)%"}'
     # Leave empty to use default log format
-    accessLogFormat: '{{ .Values.global.proxy.accessLogFormat }}'
+    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
 
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
@@ -84,6 +84,30 @@ data:
     #   services or ServiceEntries for the destination port
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
+
+    {{- if .Values.global.configRootNamespace }}
+    # The namespace to treat as the administrative root namespace for istio
+    # configuration. Set this field to a dedicated namespace if you want to
+    # all sidecars to be able to communicate with services in their
+    # namespace alone. This dedicated namespace should have a default
+    # Sidecar config
+    rootNamespace: {{ .Values.global.configRootNamespace }}
+    {{- end }}
+
+    {{- if .Values.global.defaultConfigVisibilitySettings }}
+    defaultServiceExportTo:
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . | quote }}
+      {{- end }}
+    defaultVirtualServiceExportTo:
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . | quote }}
+      {{- end }}
+    defaultDestinationRuleExportTo:
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
 
     defaultConfig:
       #

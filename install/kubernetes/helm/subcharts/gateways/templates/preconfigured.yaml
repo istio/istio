@@ -180,6 +180,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "*.global"
+  exportTo:
+  - '*'
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL

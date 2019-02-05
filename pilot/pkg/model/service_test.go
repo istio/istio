@@ -228,8 +228,6 @@ func TestHostnameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
-		{"first empty", "", "foo.com", false},
-		{"second empty", "foo.com", "", false},
 
 		{"non-wildcard domain",
 			"foo.com", "foo.com", true},

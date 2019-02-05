@@ -21,9 +21,11 @@ istio-ingressgateway:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   resources: {}
     # limits:
     #  cpu: 100m
@@ -33,9 +35,6 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalIPs: []
@@ -112,14 +111,13 @@ istio-egressgateway:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -163,14 +161,13 @@ istio-ilbgateway:
   labels:
     app: istio-ilbgateway
     istio: ilbgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   resources:
     requests:
       cpu: 800m
