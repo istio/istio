@@ -120,9 +120,6 @@ type settings struct {
 	// The Helm values file to be used.
 	ValuesFile string
 
-	// Helm values specified by test, applied after ValuesFiles.
-	valuesByTest map[string]string
-
 	// Overrides for the Helm values file, highest priority.
 	valuesByFlag map[string]string
 }
