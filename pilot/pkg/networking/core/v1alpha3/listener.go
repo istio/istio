@@ -809,19 +809,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Port:             listenPort,
 				}
 
-				if pluginParams.ListenerProtocol == plugin.ListenerProtocolHTTP &&
-					(pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1") {
-					listenerOpts.filterChainOpts = []*filterChainOpts{{
-						httpOpts: &httpListenerOpts{
-							connectionManager: &http_conn.HttpConnectionManager{
-								HttpProtocolOptions: &core.Http1ProtocolOptions{
-									AcceptHttp_10: true,
-								},
-							},
-						},
-					}}
-				}
-
 				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 
 			} else {
@@ -1012,13 +999,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		} else {
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
+		httpOpts := &httpListenerOpts{
+			useRemoteAddress: false,
+			direction:        http_conn.EGRESS,
+			rds:              rdsName,
+		}
+
+		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{
+							AcceptHttp_10: true,
+						},
+			}
+		}
+
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
-			httpOpts: &httpListenerOpts{
-				useRemoteAddress: false,
-				direction:        http_conn.EGRESS,
-				rds:              rdsName,
-			},
+			httpOpts: httpOpts,
 		}}
+
 
 	case plugin.ListenerProtocolTCP:
 		// first identify the bind if its not set. Then construct the key
