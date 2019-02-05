@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -124,12 +125,19 @@ func (s *Server) Run(ctx context.Context) {
 	go func() {
 		if err := http.Serve(l, nil); err != nil {
 			log.Errora(err)
-			os.Exit(-1)
+			// If the server errors then pilot-agent can never pass readiness or liveness probes
+			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
+			p, err := os.FindProcess(os.Getpid())
+			if err != nil {
+				log.Errora(err)
+			}
+			log.Errora(p.Signal(syscall.SIGTERM))
 		}
 	}()
 
 	// Wait for the agent to be shut down.
 	<-ctx.Done()
+	log.Info("Status server has successfully terminated")
 }
 
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
