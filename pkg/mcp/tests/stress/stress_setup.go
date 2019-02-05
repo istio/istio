@@ -242,7 +242,7 @@ func defaultOptions() options {
 		maxUpdateDelay:      *maxUpdateDelay,
 		nackRate:            *nackRate,
 		iterations:          *iterations,
-		serverIncSupported:  true,
+		serverIncSupported:  *serverIncSupported,
 		serverStepFn:        updateSnapshot,
 		clientIncPercentage: *clientIncPercentage,
 	}
