@@ -651,7 +651,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
-# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
+# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
@@ -667,7 +667,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -703,7 +703,7 @@ generate_yaml_coredump:
 # TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -795,6 +795,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \
                 install/kubernetes/istio-citadel-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
+                install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \

@@ -501,7 +501,11 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
+		if tls.ServerCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+		}
+	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -525,6 +529,23 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 
 	for _, subset := range rule.Subsets {
 		errs = appendErrors(errs, validateSubset(subset))
+	}
+
+	errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+	return
+}
+
+func validateExportTo(exportTo []string) (errs error) {
+	if len(exportTo) > 0 {
+		if len(exportTo) > 1 {
+			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
+		} else {
+			switch Visibility(exportTo[0]) {
+			case VisibilityPrivate, VisibilityPublic:
+			default:
+				errs = appendErrors(errs, fmt.Errorf("only . or * is allowed in the exportTo in the current release"))
+			}
+		}
 	}
 
 	return
@@ -602,10 +623,19 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
 	}
 
-	// namespace can be * or . or a valid DNS label
-	if parts[0] != "*" && parts[0] != "." {
-		if !IsDNS1123Label(parts[0]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+	if !isGateway {
+		// namespace can be * or . or ~ or a valid DNS label in sidecars
+		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
+			}
+		}
+	} else {
+		// namespace can be * or . or a valid DNS label in gateways
+		if parts[0] != "*" && parts[0] != "." {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
+			}
 		}
 	}
 	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
@@ -625,9 +655,8 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: pending discussion on API default behavior.
-	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
-		return fmt.Errorf("sidecar: missing ingress/egress")
+	if len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing egress")
 	}
 
 	portMap := make(map[uint32]struct{})
@@ -680,8 +709,6 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: complete bind address+port or UDS uniqueness across ingress and egress
-	// after the whole listener implementation is complete
 	portMap = make(map[uint32]struct{})
 	udsMap = make(map[string]struct{})
 	catchAllEgressListenerFound := false
@@ -851,7 +878,6 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 			}
 		}
 	}
-
 	return
 }
 
@@ -1068,6 +1094,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if mesh.DefaultConfig == nil {
 		errs = multierror.Append(errs, errors.New("missing default config"))
 	} else if err := ValidateProxyConfig(mesh.DefaultConfig); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if err := validateLocalityLbSetting(mesh.LocalityLbSetting); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -1602,6 +1632,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 	}
 
+	errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
 	return
 }
 
@@ -1775,8 +1806,6 @@ func validateGatewayNames(gateways []string) (errs error) {
 		parts := strings.SplitN(gateway, "/", 2)
 		if len(parts) != 2 {
 			// deprecated
-			log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
-				"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
 			return
@@ -1794,8 +1823,6 @@ func validateGatewayNames(gateways []string) (errs error) {
 		if !IsDNS1123Label(parts[1]) {
 			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
-
-		return
 	}
 	return
 }
@@ -2208,6 +2235,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			ValidatePort(int(port.Number)))
 	}
 
+	errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
 	return
 }
 
@@ -2259,5 +2287,113 @@ func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
+	return nil
+}
+
+// validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
+func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+	if lb == nil {
+		return nil
+	}
+
+	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
+		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
+	}
+
+	srcLocalities := []string{}
+	for _, locality := range lb.GetDistribute() {
+		srcLocalities = append(srcLocalities, locality.From)
+		var totalWeight uint32
+		destLocalities := []string{}
+		for loc, weight := range locality.To {
+			destLocalities = append(destLocalities, loc)
+			if weight == 0 {
+				return fmt.Errorf("locality weight must not be in range [1, 100]")
+			}
+			totalWeight += weight
+		}
+		if totalWeight != 100 {
+			return fmt.Errorf("total locality weight %v != 100", totalWeight)
+		}
+		if err := validateLocalities(destLocalities); err != nil {
+			return err
+		}
+	}
+
+	if err := validateLocalities(srcLocalities); err != nil {
+		return err
+	}
+
+	for _, failover := range lb.GetFailover() {
+		if failover.From == failover.To {
+			return fmt.Errorf("locality lb failover settings must specify different regions")
+		}
+		if strings.Contains(failover.To, "*") {
+			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
+		}
+	}
+
+	return nil
+}
+
+func validateLocalities(localities []string) error {
+	regionZoneSubZoneMap := map[string]map[string]map[string]bool{}
+
+	for _, locality := range localities {
+		if n := strings.Count(locality, "*"); n > 0 {
+			if n > 1 || !strings.HasSuffix(locality, "*") {
+				return fmt.Errorf("locality %s wildcard '*' number can not exceed 1 and must be in the end", locality)
+			}
+		}
+
+		items := strings.SplitN(locality, "/", 3)
+		for _, item := range items {
+			if item == "" {
+				return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
+			}
+		}
+		if _, ok := regionZoneSubZoneMap["*"]; ok {
+			return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+		}
+		switch len(items) {
+		case 1:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+			}
+			regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{"*": {"*": true}}
+		case 2:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
+			}
+		case 3:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					if regionZoneSubZoneMap[items[0]][items[1]]["*"] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					if regionZoneSubZoneMap[items[0]][items[1]][items[2]] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					regionZoneSubZoneMap[items[0]][items[1]][items[2]] = true
+				} else {
+					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{items[2]: true}
+				}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {items[2]: true}}
+			}
+		}
+	}
+
 	return nil
 }
