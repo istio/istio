@@ -272,7 +272,7 @@ func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	for _, authn := range s.authenticators {
 		if u, err := authn.Authenticate(ctx); u != nil && err == nil {
-			log.Infof("Authenticated %v through auth source %v", u.Identities, u.AuthSource)
+			log.Infof("Authentication successful through auth source %v", u.AuthSource)
 			return u
 		}
 	}
