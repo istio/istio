@@ -1,5 +1,6 @@
 # External Services
 
+By default
 Istio-enabled services are unable to access services and URLs outside of the cluster. Pods use <i>iptables</i> to transparently redirect all outbound traffic to the sidecar proxy, which only handles intra-cluster destinations.
 
 See [the Egress Task](https://istio.io/docs/tasks/traffic-management/egress/) for
@@ -26,3 +27,9 @@ It is not a best practice to enable pods to update libraries dynamically.
 We are providing these samples
 because they have proven to be helpful with interactive troubleshooting.  Security minded clusters should only allow traffic to service dependencies such as cloud
 services.
+
+### Enable communication by default
+
+Note that [this note](https://istio.io/docs/tasks/traffic-management/egress/#install-istio-with-access-to-all-external-services-by-default) shows how to configure Istio to contact services by default.  The technique
+discussed there does not allow HTTP on port 80 or SSH on port 22.  These examples will
+allow external communication for ports 80 and 22.
