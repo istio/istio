@@ -74,6 +74,7 @@ rules:
   - statsds
   - stdios
   verbs:
+  - create
   - delete
   - get
   - list
@@ -86,6 +87,17 @@ rules:
   - serviceentries
   - virtualservices
   verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups: ["authentication.istio.io"]
+  resources:
+  - policies
+  verbs:
+  - create
   - delete
   - get
   - list
