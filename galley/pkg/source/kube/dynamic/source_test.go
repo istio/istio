@@ -158,11 +158,12 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("Add", func(t *testing.T) {
-		w.Send(watch.Event{Type: watch.Added, Object: obj})
+		obj = obj.DeepCopy()
 		expected := resource.Event{
 			Kind:  resource.Added,
 			Entry: toEntry(obj),
 		}
+		w.Send(watch.Event{Type: watch.Added, Object: obj})
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -171,20 +172,16 @@ func TestEvents(t *testing.T) {
 	expectFullSync(t, ch)
 
 	t.Run("Update", func(t *testing.T) {
-		// Make a copy so we can change it without affecting the original.
-		objCopy := obj.DeepCopy()
-		objCopy.SetResourceVersion("rv2")
+		obj = obj.DeepCopy()
+		obj.SetResourceVersion("rv2")
 
-		w.Send(watch.Event{Type: watch.Modified, Object: objCopy})
 		expected := resource.Event{
 			Kind:  resource.Updated,
-			Entry: toEntry(objCopy),
+			Entry: toEntry(obj),
 		}
+		w.Send(watch.Event{Type: watch.Modified, Object: obj})
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
-
-		// Update the original object to the new version.
-		obj = objCopy.DeepCopy()
 	})
 
 	t.Run("UpdateSameVersion", func(t *testing.T) {
@@ -197,13 +194,13 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 		expected := resource.Event{
 			Kind: resource.Deleted,
 			Entry: resource.Entry{
 				ID: getID(obj),
 			},
 		}
+		w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -321,9 +318,6 @@ func TestSource_MangledNames(t *testing.T) {
 		},
 	}
 
-	// Trigger an Added event.
-	w.Send(watch.Event{Type: watch.Added, Object: &obj})
-
 	// Expect an Added event for the resource.
 	expected := resource.Event{
 		Kind: resource.Added,
@@ -342,6 +336,9 @@ func TestSource_MangledNames(t *testing.T) {
 			Item: &types.Struct{},
 		},
 	}
+
+	// Trigger an Added event.
+	w.Send(watch.Event{Type: watch.Added, Object: &obj})
 
 	// The mangled name foo/ns/f1 should appear.
 	actual := events.Expect(t, ch)
