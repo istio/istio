@@ -77,9 +77,10 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[Hostname]*Config
 
-	// XDSOutboundClusters is the CDS output for sidecars that map to this
-	// sidecarScope object. Contains the outbound clusters only
-	XDSOutboundClusters []*xdsapi.Cluster
+	// CDSOutboundClusters is the CDS output for sidecars that map to this
+	// sidecarScope object. Contains the outbound clusters only, indexed
+	// by localities
+	CDSOutboundClusters map[string][]*xdsapi.Cluster
 }
 
 // IstioEgressListenerWrapper is a wrapper for
