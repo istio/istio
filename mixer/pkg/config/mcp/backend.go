@@ -36,14 +36,15 @@ import (
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
 
 var scope = log.RegisterScope("mcp", "Mixer MCP client stack", 0)
 
 const (
-	mixerNodeID           = snapshot.DefaultGroup
+	// TODO(nmittler): Need to decide the correct NodeID for mixer.
+	mixerNodeID = "default"
+
 	eventChannelSize      = 4096
 	requiredCertCheckFreq = 500 * time.Millisecond
 )

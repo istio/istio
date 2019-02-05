@@ -79,6 +79,7 @@ func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
+	h.client = true
 
 	options := &Options{
 		Watcher:            h,
@@ -115,6 +116,7 @@ func TestClientSource(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
+	h.requestsChan <- test.MakeRequest("", "", codes.Unimplemented)
 	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(test.FakeType1Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(test.FakeType2Collection, "", codes.OK)
@@ -134,13 +136,32 @@ func TestClientSource(t *testing.T) {
 		}
 	}
 
-	reconnectChan := make(chan struct{}, 10)
+	waiting := make(chan bool)
+	proceed := make(chan bool)
 	reconnectTestProbe = func() {
-		reconnectChan <- struct{}{}
+		waiting <- true
+		<-proceed
 	}
 	defer func() { reconnectTestProbe = nil }()
 
 	h.setOpenError(errors.New("fake connection error"))
 	h.recvErrorChan <- errRecv
-	<-reconnectChan
+	<-waiting
+	proceed <- true
+
+	<-waiting
+	h.setOpenError(nil)
+	h.client = true
+	h.requestsChan <- test.MakeRequest("", "", codes.OK)
+	proceed <- true
+
+	<-waiting
+	h.client = true
+	h.requestsChan <- test.MakeRequest("", "", codes.InvalidArgument)
+	proceed <- true
+
+	<-waiting
+	h.setRecvError(errors.New("fake recv error"))
+	h.client = true
+	proceed <- true
 }

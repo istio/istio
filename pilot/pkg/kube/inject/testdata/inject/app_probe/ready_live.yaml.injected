@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5e477e1f27e622d0eb2611698e9c0a77f7eee69bb873ddf8586b7431ae637249","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -18,6 +18,10 @@ spec:
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            path: /app-health/hello/livez
+            port: 15020
         name: hello
         ports:
         - containerPort: 80
@@ -28,14 +32,19 @@ spec:
             port: 15020
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            path: /app-health/world/livez
+            port: 15020
         name: world
         ports:
         - containerPort: 90
           name: http
         readinessProbe:
-          httpGet:
-            path: /app-health/world/readyz
-            port: 15020
+          exec:
+            command:
+            - cat
+            - /tmp/healthy
         resources: {}
       - args:
         - proxy
@@ -67,7 +76,7 @@ spec:
         - --concurrency
         - "1"
         - --kubeAppProberConfig
-        - '{"/app-health/hello/readyz":{"path":"/ip","port":8000},"/app-health/world/readyz":{"path":"/ipv6","port":9000}}'
+        - '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         env:
         - name: POD_NAME
           valueFrom:
@@ -87,6 +96,8 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

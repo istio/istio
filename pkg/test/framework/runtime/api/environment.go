@@ -32,7 +32,7 @@ type Environment interface {
 
 // GetEnvironment from the repository
 func GetEnvironment(r component.Repository) Environment {
-	e := r.GetComponent(ids.Environment)
+	e := r.GetComponent("", ids.Environment)
 	if e == nil {
 		return nil
 	}
