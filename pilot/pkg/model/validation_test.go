@@ -1523,7 +1523,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
-			    PrivateKey:        ""},
+				PrivateKey:        ""},
 			"private key"},
 		{"simple sds no server cert",
 			&networking.Server_TLSOptions{
