@@ -58,10 +58,10 @@ func makeFakeClient() *fake.Clientset {
 		&v1.PodList{Items: []v1.Pod{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: testNamespace,
+					Name:      "ingressgateway",
+					Namespace: "istio-system",
 					Labels: map[string]string{
-						"lable_sig": "test",
+						"app": "ingressgateway",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -233,6 +233,7 @@ func TestRunningAddressesWithHostname(t *testing.T) {
 }
 
 func TestRunningAddressesWithPod(t *testing.T) {
+	ingressNamespace = "istio-system" // it is set in real pilot on newController.
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
@@ -247,6 +248,6 @@ func TestRunningAddressesWithPod(t *testing.T) {
 	}
 
 	if len(address) != 1 || address[0] != nodeIP {
-		t.Errorf("Address is not correctly set to node ip")
+		t.Errorf("Address is not correctly set to node ip %v %v", address, nodeIP)
 	}
 }

@@ -55,7 +55,7 @@ type StatusSyncer struct {
 	defaultIngressClass string
 
 	// Name of service (ingressgateway default) to find the IP
-	ingressService      string
+	ingressService string
 
 	queue    kube.Queue
 	informer cache.SharedIndexInformer
@@ -239,7 +239,7 @@ func (s *StatusSyncer) runningAddresses() ([]string, error) {
 	// get information about all the pods running the ingress controller (gateway)
 	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(meta_v1.ListOptions{
 		// TODO: make it a const or maybe setting ( unless we remove k8s ingress support first)
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app":"ingressgateway"}).String(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}).String(),
 	})
 	if err != nil {
 		return nil, err

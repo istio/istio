@@ -140,7 +140,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			host = "*"
 		}
 		virtualService := &networking.VirtualService{
-			Hosts:    []string{},
+			Hosts: []string{},
 			// Note the name of the gateway is fixed - this is the Gateway that needs to be created by user (via helm
 			// or manually) with TLS secrets and explicit namespace (for security).
 			Gateways: []string{model.IstioIngressGatewayName},
