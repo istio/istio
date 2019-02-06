@@ -170,7 +170,11 @@ func (e *Environment) MinikubeIngress() bool {
 
 // HelmValueMap returns the overrides for helm values.
 func (e *Environment) HelmValueMap() map[string]string {
-	return e.s.Values
+	out := make(map[string]string)
+	for k, v := range e.s.Values {
+		out[k] = v
+	}
+	return out
 }
 
 // Start implements the api.Environment interface
