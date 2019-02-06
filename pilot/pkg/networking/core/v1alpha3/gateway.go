@@ -331,7 +331,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
 		enableIngressSdsAgent := false
-		if enableSds, found := node.Metadata["USER_SDS"]; found {
+		// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+		// gateway listener.
+		if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
 			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 		}
 		for _, server := range servers {
@@ -376,20 +378,31 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	// TODO: BUG. Server.Hosts could be a format like ns/*, ns/hostname, *,
-	// etc. Two different servers on different ports could have the same
-	// host.  How does the SDS server differentiate the right secret to
-	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
-	// SIMPLE, generate SDS config for gateway controller.
-	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
-		sdsName := server.Hosts[0]
-		if server.Tls.SdsName != "" {
-			sdsName = server.Tls.SdsName
-		}
+	if enableSds && server.Tls.CredentialName != "" {
+		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+		// SDS config for gateway to fetch key/cert at gateway agent.
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
+			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
+		}
+		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
+		// at gateway agent. Otherwise, use the static certificate validation context config.
+		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfigForGatewayListener(
+						server.Tls.CredentialName+model.IngressGatewaySdsCaSuffix, model.IngressGatewaySdsUdsPath),
+				},
+			}
+		} else if len(server.Tls.SubjectAltNames) > 0 {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
 		}
 	} else {
+		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
@@ -404,24 +417,24 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 				},
 			},
 		}
+		var trustedCa *core.DataSource
+		if len(server.Tls.CaCertificates) != 0 {
+			trustedCa = &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: server.Tls.CaCertificates,
+				},
+			}
+		}
+		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa:            trustedCa,
+					VerifySubjectAltName: server.Tls.SubjectAltNames,
+				},
+			}
+		}
 	}
 
-	var trustedCa *core.DataSource
-	if len(server.Tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: server.Tls.CaCertificates,
-			},
-		}
-	}
-	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa:            trustedCa,
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
-			},
-		}
-	}
 	tls.RequireClientCertificate = proto.BoolFalse
 	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		tls.RequireClientCertificate = proto.BoolTrue

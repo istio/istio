@@ -482,7 +482,7 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 }
 
 // edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
+// It is mapped to /debug/edsz on the monitor port (15014).
 func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")

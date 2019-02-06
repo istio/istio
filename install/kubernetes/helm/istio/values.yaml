@@ -11,6 +11,9 @@ gateways:
 #
 sidecarInjectorWebhook:
   enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
   rewriteAppHTTPProbe: false
 
 #
@@ -108,7 +111,7 @@ global:
   tag: master-latest-daily
 
   # monitoring port used by mixer, pilot, galley
-  monitoringPort: 9093
+  monitoringPort: 15014
 
   k8sIngress:
     enabled: false
