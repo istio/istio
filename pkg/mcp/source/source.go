@@ -20,10 +20,8 @@ import (
 	"io"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/gogo/status"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
@@ -104,18 +102,12 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 	return options
 }
 
-// DefaultRateLimiter is a standard library rate limiter
-// with default valuse of 10ms frequency and burst size of 10 tokens
-func DefaultRateLimiter() *rate.Limiter {
-	return rate.NewLimiter(rate.Every(10*time.Millisecond), 10)
-}
-
 // Options contains options for configuring MCP sources.
 type Options struct {
 	Watcher            Watcher
 	CollectionsOptions []CollectionOptions
 	Reporter           monitoring.Reporter
-	RateLimiter        RateLimiter
+	RateLimiter        internal.ConnectionRateLimit
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -133,7 +125,7 @@ type Source struct {
 	nextStreamID   int64
 	reporter       monitoring.Reporter
 	connections    int64
-	requestLimiter RateLimiter
+	requestLimiter internal.ConnectionRateLimit
 }
 
 // watch maintains local push state of the most recent watch per-type.
@@ -163,6 +155,7 @@ type connection struct {
 	watcher  Watcher
 
 	reporter monitoring.Reporter
+	limiter  internal.RateLimit
 
 	queue *internal.UniqueQueue
 }
@@ -197,6 +190,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 		watcher:  s.watcher,
 		id:       atomic.AddInt64(&s.nextStreamID, 1),
 		reporter: s.reporter,
+		limiter:  s.requestLimiter.Create(),
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
@@ -250,7 +244,7 @@ func (s *Source) processStream(stream Stream) error {
 			if !more {
 				return con.reqError
 			}
-			if err := s.requestLimiter.Wait(stream.Context()); err != nil {
+			if err := con.limiter.Wait(stream.Context()); err != nil {
 				return err
 			}
 			if err := con.processClientRequest(req); err != nil {

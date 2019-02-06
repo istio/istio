@@ -15,7 +15,6 @@
 package source
 
 import (
-	"context"
 	"io"
 
 	"google.golang.org/grpc/codes"
@@ -24,14 +23,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/internal"
 )
 
 // TODO: consolidate common interfaces in source/server_source.go and sink/server_sink.go
-
-// RateLimiter is partially representing standard lib's rate limiter
-type RateLimiter interface {
-	Wait(ctx context.Context) (err error)
-}
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
 // returns nil, then the connection will be allowed. If the function returns an error, then it will be
@@ -48,7 +43,7 @@ type AuthChecker interface {
 // configuration to the client.
 type Server struct {
 	authCheck            AuthChecker
-	newConnectionLimiter RateLimiter
+	newConnectionLimiter internal.RateLimit
 	src                  *Source
 }
 
@@ -57,7 +52,7 @@ var _ mcp.ResourceSourceServer = &Server{}
 // ServerOptions contains sink server specific options
 type ServerOptions struct {
 	AuthChecker AuthChecker
-	RateLimiter RateLimiter
+	RateLimiter internal.RateLimit
 }
 
 // NewServer creates a new instance of a MCP source server.

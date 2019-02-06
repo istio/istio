@@ -632,7 +632,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			Updater:           mcpController,
 			ID:                clientNodeID,
 			Reporter:          reporter,
-			RateLimiter:       sink.DefaultRateLimiter(),
 		}
 		mcpClient := client.New(cl, sinkOptions)
 		configz.Register(mcpClient)
@@ -698,7 +697,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				Updater:           mcpController,
 				ID:                clientNodeID,
 				Reporter:          reporter,
-				RateLimiter:       sink.DefaultRateLimiter(),
 			}
 			mcpClient := client.New(cl, sinkOptions)
 			configz.Register(mcpClient)

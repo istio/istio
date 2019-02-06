@@ -31,25 +31,6 @@ import (
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-type fakeRateLimiter struct {
-	waitErr chan error
-}
-
-func newFakeRateLimiter() *fakeRateLimiter {
-	return &fakeRateLimiter{
-		waitErr: make(chan error),
-	}
-}
-
-func (f *fakeRateLimiter) Wait(ctx context.Context) error {
-	select {
-	case err := <-f.waitErr:
-		return err
-	default:
-		return nil
-	}
-}
-
 type serverHarness struct {
 	grpc.ServerStream
 	*sourceTestHarness
@@ -69,7 +50,7 @@ func TestServerSinkRateLimitter(t *testing.T) {
 		sourceTestHarness: newSourceTestHarness(t),
 	}
 
-	fakeLimiter := newFakeRateLimiter()
+	fakeLimiter := test.NewFakeRateLimiter()
 	authChecker := test.NewFakeAuthChecker()
 	options := &Options{
 		Watcher:            h,
@@ -87,7 +68,7 @@ func TestServerSinkRateLimitter(t *testing.T) {
 
 	expectedErr := "something went wrong while waiting"
 
-	fakeLimiter.waitErr <- errors.New(expectedErr)
+	fakeLimiter.WaitErr <- errors.New(expectedErr)
 
 	err := <-errc
 	if err == nil || err.Error() != expectedErr {
@@ -105,10 +86,10 @@ func TestServerSource(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        newFakeRateLimiter(),
+		RateLimiter:        NewFakePerConnLimiter(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
-	s.newConnectionLimiter = newFakeRateLimiter()
+	s.newConnectionLimiter = test.NewFakeRateLimiter()
 
 	errc := make(chan error)
 	go func() {

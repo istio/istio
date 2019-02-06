@@ -194,7 +194,6 @@ func newHarness() *sinkHarness {
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
-		RateLimiter:       newFakeRateLimiter(),
 	}
 	h.sink = New(options)
 
@@ -708,34 +707,5 @@ func TestCreateInitialRequests(t *testing.T) {
 
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("wrong requests with incemental enabled: \n got %v \nwant %v diff %v", got, want, diff)
-	}
-}
-
-func TestRequestRateLimitError(t *testing.T) {
-	fakeLimiter := newFakeRateLimiter()
-	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Updater:           NewInMemoryUpdater(),
-		ID:                test.NodeID,
-		Metadata:          test.NodeMetadata,
-		Reporter:          monitoring.NewInMemoryStatsContext(),
-		RateLimiter:       fakeLimiter,
-	}
-
-	sink := New(options)
-
-	h := newSinkTestHarness()
-
-	errC := make(chan error)
-	go func() {
-		errC <- sink.processStream(h)
-	}()
-
-	expectedErr := "rate limiting went wrong"
-	fakeLimiter.waitErr <- errors.New(expectedErr)
-
-	err := <-errC
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("rateLimiter error: expected %v got %v", expectedErr, err)
 	}
 }

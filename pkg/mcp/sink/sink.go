@@ -15,16 +15,13 @@
 package sink
 
 import (
-	"context"
 	"io"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -52,12 +49,11 @@ type Sink struct {
 	mu    sync.Mutex
 	state map[string]*perCollectionState
 
-	nodeInfo       *mcp.SinkNode
-	updater        Updater
-	journal        *RecentRequestsJournal
-	metadata       map[string]string
-	reporter       monitoring.Reporter
-	requestLimiter RateLimiter
+	nodeInfo *mcp.SinkNode
+	updater  Updater
+	journal  *RecentRequestsJournal
+	metadata map[string]string
+	reporter monitoring.Reporter
 }
 
 // New creates a new resource sink.
@@ -76,13 +72,12 @@ func New(options *Options) *Sink { // nolint: lll
 	}
 
 	return &Sink{
-		state:          state,
-		nodeInfo:       nodeInfo,
-		updater:        options.Updater,
-		metadata:       options.Metadata,
-		reporter:       options.Reporter,
-		journal:        NewRequestJournal(),
-		requestLimiter: options.RateLimiter,
+		state:    state,
+		nodeInfo: nodeInfo,
+		updater:  options.Updater,
+		metadata: options.Metadata,
+		reporter: options.Reporter,
+		journal:  NewRequestJournal(),
 	}
 }
 
@@ -199,9 +194,6 @@ func (sink *Sink) processStream(stream Stream) error {
 			req = initialRequests[0]
 			initialRequests = initialRequests[1:]
 		} else {
-			if err := sink.requestLimiter.Wait(stream.Context()); err != nil {
-				return err
-			}
 			resources, err := stream.Recv()
 			if err != nil {
 				if err != io.EOF {
@@ -346,12 +338,6 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 	return options
 }
 
-// DefaultRateLimiter is a standard library rate limiter
-// with default valuse of 10ms frequency and burst size of 10 tokens
-func DefaultRateLimiter() *rate.Limiter {
-	return rate.NewLimiter(rate.Every(10*time.Millisecond), 10)
-}
-
 // Options contains options for configuring MCP sinks.
 type Options struct {
 	CollectionOptions []CollectionOptions
@@ -359,12 +345,10 @@ type Options struct {
 	ID                string
 	Metadata          map[string]string
 	Reporter          monitoring.Reporter
-	RateLimiter       RateLimiter
 }
 
 // Stream is for sending RequestResources messages and receiving Resource messages.
 type Stream interface {
 	Send(*mcp.RequestResources) error
 	Recv() (*mcp.Resources, error)
-	Context() context.Context
 }

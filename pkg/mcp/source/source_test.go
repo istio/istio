@@ -32,6 +32,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -248,7 +249,7 @@ func makeSourceUnderTest(w Watcher) *Source {
 		Watcher:            w,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        newFakeRateLimiter(),
+		RateLimiter:        NewFakePerConnLimiter(),
 	}
 	return New(options)
 }
@@ -377,11 +378,48 @@ func TestSourceWatchClosed(t *testing.T) {
 	}
 }
 
-func TestRateLimitError(t *testing.T) {
+func TestConnRateLimit(t *testing.T) {
 	h := newSourceTestHarness(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	type key int
+	const ctxKey key = 0
+	expectedCtx := "expectedCtx"
+	h.ctx = context.WithValue(ctx, ctxKey, expectedCtx)
+
 	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
 
-	fakeLimiter := newFakeRateLimiter()
+	fakeLimiter := NewFakePerConnLimiter()
+
+	s := makeSourceUnderTest(h)
+	s.requestLimiter = fakeLimiter
+
+	go s.processStream(h)
+
+	<-fakeLimiter.CreateCh
+	c := <-fakeLimiter.WaitCh
+	cancel()
+
+	if len(fakeLimiter.CreateCh) != 0 {
+		t.Error("Stream() => expected create to only get called once")
+	}
+
+	ctxVal := c.Value(ctxKey).(string)
+	if ctxVal != expectedCtx {
+		t.Errorf("Wait received wrong context: got %v want %v", ctxVal, expectedCtx)
+	}
+
+	if len(fakeLimiter.WaitCh) != 0 {
+		t.Error("Stream() => expected Wait to only get called once")
+	}
+}
+
+func TestConnRateLimitError(t *testing.T) {
+	h := newSourceTestHarness(t)
+
+	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+
+	fakeLimiter := NewFakePerConnLimiter()
 
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
@@ -392,7 +430,7 @@ func TestRateLimitError(t *testing.T) {
 	}()
 
 	expectedErr := "rate limiting went wrong"
-	fakeLimiter.waitErr <- errors.New(expectedErr)
+	fakeLimiter.ErrCh <- errors.New(expectedErr)
 
 	err := <-errC
 	if err == nil || err.Error() != expectedErr {
@@ -435,6 +473,7 @@ func TestSourceReceiveError(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		RateLimiter:        NewFakePerConnLimiter(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
@@ -662,4 +701,30 @@ func TestCalculateDelta(t *testing.T) {
 			}
 		})
 	}
+}
+
+type FakePerConnLimiter struct {
+	fakeLimiter *test.FakeRateLimiter
+	CreateCh    chan struct{}
+	WaitCh      chan context.Context
+	ErrCh       chan error
+}
+
+func NewFakePerConnLimiter() *FakePerConnLimiter {
+	waitErr := make(chan error)
+	fakeLimiter := test.NewFakeRateLimiter()
+	fakeLimiter.WaitErr = waitErr
+
+	f := &FakePerConnLimiter{
+		fakeLimiter: fakeLimiter,
+		CreateCh:    make(chan struct{}, 10),
+		WaitCh:      fakeLimiter.WaitCh,
+		ErrCh:       waitErr,
+	}
+	return f
+}
+
+func (f *FakePerConnLimiter) Create() internal.RateLimit {
+	f.CreateCh <- struct{}{}
+	return f.fakeLimiter
 }
