@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/apps"
 	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/runtime/components/citadel"
+	"istio.io/istio/pkg/test/framework/runtime/components/echo"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 	"istio.io/istio/pkg/test/framework/runtime/components/galley"
@@ -47,6 +48,7 @@ var (
 func init() {
 	// Register native components.
 	Native.Register(descriptors.Apps, true, apps.NewNativeComponent)
+	Native.Register(descriptors.Echo, true, echo.NewNativeComponent)
 	Native.Register(descriptors.Galley, true, galley.NewNativeComponent)
 	Native.Register(descriptors.Mixer, true, mixer.NewNativeComponent)
 	Native.Register(descriptors.Pilot, true, pilot.NewNativeComponent)

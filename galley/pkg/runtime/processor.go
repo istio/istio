@@ -20,12 +20,12 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
-	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -62,7 +62,7 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
-	state := newState(sn.DefaultGroup, metadata.Types, cfg, publish.NewStrategyWithDefaults(), distributor)
+	state := newState(groups.Default, metadata.Types, cfg, publish.NewStrategyWithDefaults(), distributor)
 	return newProcessor(state, src, nil)
 }
 

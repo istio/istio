@@ -22,7 +22,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -271,52 +271,31 @@ func TestBuildJwtFilter(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "jwt-auth",
-				ConfigType: &http_conn.HttpFilter_Config{
-					&types.Struct{
-						Fields: map[string]*types.Value{
-							"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
-							"rules": {
-								Kind: &types.Value_ListValue{
-									ListValue: &types.ListValue{
-										Values: []*types.Value{
-											{
-												Kind: &types.Value_StructValue{
-													StructValue: &types.Struct{
-														Fields: map[string]*types.Value{
-															"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
-															"forward_payload_header": {
-																Kind: &types.Value_StringValue{
-																	StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-																},
-															},
-															"local_jwks": {
-																Kind: &types.Value_StructValue{
-																	StructValue: &types.Struct{
-																		Fields: map[string]*types.Value{
-																			"inline_string": {
-																				Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
-																			},
-																		},
-																	},
-																},
-															},
-														},
-													},
-												},
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&jwtfilter.JwtAuthentication{
+							AllowMissingOrFailed: true,
+							Rules: []*jwtfilter.JwtRule{
+								{
+									Forward:              true,
+									ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+									JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
+										LocalJwks: &jwtfilter.DataSource{
+											Specifier: &jwtfilter.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
 								},
 							},
-						},
-					},
+						}),
 				},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := BuildJwtFilter(c.in, true); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
@@ -497,7 +476,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in, model.SidecarProxy)
+		got := BuildAuthNFilter(c.in, model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -510,7 +489,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 					t.Errorf("BuildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
 				}
 				filterConfig := &authn_filter.FilterConfig{}
-				if err := util.StructToMessage(got.GetConfig(), filterConfig); err != nil {
+				if err := filterConfig.Unmarshal(got.GetTypedConfig().GetValue()); err != nil {
 					t.Errorf("BuildAuthNFilter(%#v), bad filter config: %v", c.in, err)
 				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
 					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
