@@ -57,9 +57,9 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 	cache := snapshot.New(groups.DefaultIndexFn)
 
 	options := &source.Options{
-		Watcher:            cache,
-		CollectionsOptions: collections,
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           cache,
+		CollectionOptions: collections,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 
 	checker := server.NewAllowAllChecker()
