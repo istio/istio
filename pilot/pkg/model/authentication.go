@@ -52,6 +52,9 @@ const (
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
+
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
+	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.

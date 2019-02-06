@@ -41,8 +41,10 @@ const (
 
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
-	// The ID/name for the k8sKey in kubernetes generic secret.
+	// The ID/name for the private key in kubernetes generic secret.
 	genericScrtKey = "key"
+	// The ID/name for the CA certificate in kubernetes generic secret.
+	genericScrtCaCert = "cacert"
 
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	tlsScrtCert = "tls.crt"
@@ -51,6 +53,10 @@ const (
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
+
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
+	// names for ingress gateway root certs end with "-cacert".
+	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -135,15 +141,17 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		})
 }
 
-func extractCertAndKey(scrt *v1.Secret) (cert, key []byte) {
+func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte) {
 	if len(scrt.Data[genericScrtCert]) > 0 {
 		cert = scrt.Data[genericScrtCert]
 		key = scrt.Data[genericScrtKey]
+		root = scrt.Data[genericScrtCaCert]
 	} else {
 		cert = scrt.Data[tlsScrtCert]
 		key = scrt.Data[tlsScrtKey]
+		root = []byte{}
 	}
-	return cert, key
+	return cert, key, root
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -155,7 +163,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
-	newCert, newKey := extractCertAndKey(scrt)
+	newCert, newKey, newRoot := extractCertAndKey(scrt)
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
@@ -166,7 +174,21 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Debugf("secret %s is added", scrt.GetName())
+	log.Debugf("secret %s is added", resourceName)
+
+	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
+	// If there is root cert secret with the same resource name, delete that secret now.
+	sf.secrets.Delete(rootCertResourceName)
+	if len(newRoot) > 0 {
+		nsRoot := &model.SecretItem{
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sf.secrets.Store(rootCertResourceName, *nsRoot)
+		log.Debugf("secret %s is added", rootCertResourceName)
+	}
 }
 
 func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
@@ -178,10 +200,19 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	log.Debugf("secret %s is deleted", scrt.GetName())
+	log.Debugf("secret %s is deleted", key)
 	// Delete all cache entries that match the deleted key.
 	if sf.DeleteCache != nil {
 		sf.DeleteCache(key)
+	}
+
+	rootCertResourceName := key + IngressGatewaySdsCaSuffix
+	// If there is root cert secret with the same resource name, delete that secret now.
+	sf.secrets.Delete(rootCertResourceName)
+	log.Debugf("secret %s is deleted", rootCertResourceName)
+	// Delete all cache entries that match the deleted key.
+	if sf.DeleteCache != nil {
+		sf.DeleteCache(rootCertResourceName)
 	}
 }
 
@@ -203,9 +234,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	oldCert, oldKey := extractCertAndKey(oscrt)
-	newCert, newKey := extractCertAndKey(nscrt)
-	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) {
+	oldCert, oldKey, oldRoot := extractCertAndKey(oscrt)
+	newCert, newKey, newRoot := extractCertAndKey(nscrt)
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
 		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
@@ -220,9 +251,26 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(newScrtName, *ns)
-	log.Debugf("secret %s is updated", nscrt.GetName())
+	log.Debugf("secret %s is updated", newScrtName)
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrtName, *ns)
+	}
+
+	rootCertResourceName := newScrtName + IngressGatewaySdsCaSuffix
+	// If there is root cert secret with the same resource name, delete that secret now.
+	sf.secrets.Delete(rootCertResourceName)
+	if len(newRoot) > 0 {
+		nsRoot := &model.SecretItem{
+			ResourceName: rootCertResourceName,
+			RootCert:     newRoot,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sf.secrets.Store(rootCertResourceName, *nsRoot)
+		log.Debugf("secret %s is updated", rootCertResourceName)
+		if sf.UpdateCache != nil {
+			sf.UpdateCache(rootCertResourceName, *nsRoot)
+		}
 	}
 }
 

@@ -48,6 +48,10 @@ const (
 	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt, which is set in
 	// https://github.com/istio/istio/blob/master/pilot/pkg/model/authentication.go
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All SDS requests
+	// for root CA sent by ingress gateway have suffix -cacert.
+	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 var (
