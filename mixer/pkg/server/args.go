@@ -111,7 +111,7 @@ type Args struct {
 func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                9091,
-		MonitoringPort:         9093,
+		MonitoringPort:         15014,
 		MaxMessageSize:         1024 * 1024,
 		MaxConcurrentStreams:   1024,
 		APIWorkerPoolSize:      1024,
