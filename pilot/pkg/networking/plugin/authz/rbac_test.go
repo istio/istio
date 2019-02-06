@@ -404,6 +404,17 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-7"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services:   []string{"backup_service"},
+						NotMethods: []string{"DELETE"},
+					},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -501,6 +512,22 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				RoleRef: &rbacproto.RoleRef{
 					Kind: "ServiceRole",
 					Name: "service-role-6",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-7"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Properties: map[string]string{
+							"request.auth.claims[groups]": "group*",
+						},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-7",
 				},
 			},
 		},
@@ -774,6 +801,42 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
+	policy7 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "DELETE"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, "group*"),
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -809,6 +872,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-6": policy6,
+		},
+	}
+	expectRbac7 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-7": policy7,
 		},
 	}
 
@@ -890,6 +959,14 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "service_empty",
 			},
 			rbac:   expectRbac6,
+			option: option,
+		},
+		{
+			name: "not methods rule",
+			service: &serviceMetadata{
+				name: "backup_service",
+			},
+			rbac:   expectRbac7,
 			option: option,
 		},
 	}

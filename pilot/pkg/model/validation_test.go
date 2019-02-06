@@ -3544,6 +3544,17 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 service must be specified for rule 1",
 		},
 		{
+			name: "has both methods and not_methods",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services:   []string{"service0"},
+					Methods:    []string{"GET", "POST"},
+					NotMethods: []string{"DELETE"},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (e.g. methods and not_methods) for rule 0",
+		},
+		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
