@@ -76,12 +76,12 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs = append(startupArgs, e.extraArgs...)
 
 	if bootstrapConfig != "" {
-	  bytes, err := ioutil.ReadFile(bootstrapConfig)
-	  if err != nil {
-		log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
-	  } else {
-		startupArgs = append(startupArgs, "--config-yaml", string(bytes))
-	  }
+		bytes, err := ioutil.ReadFile(bootstrapConfig)
+		if err != nil {
+			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+		} else {
+			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
+		}
 	}
 
 	if e.config.Concurrency > 0 {
