@@ -136,9 +136,9 @@ func TestDashboards(t *testing.T) {
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 15014},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 15014},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 15014},
 		{"Performance", performanceDashboard, performanceQueryFilterFn, nil, "istio-telemetry", 42422},
 	}
 
