@@ -325,17 +325,17 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl/cmd
 	${ISTIO_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/tools
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl/cmd
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl/cmd
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl/cmd
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
@@ -419,7 +419,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
 istioctl-install:
-	go install istio.io/istio/istioctl/cmd/istioctl
+	go install istio.io/istio/istioctl/cmd
 
 #-----------------------------------------------------------------------------
 # Target: test

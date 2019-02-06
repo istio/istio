@@ -14,7 +14,7 @@
 
 // DEPRECATED - These commands are deprecated and will be removed in future releases.
 
-package main
+package cmd
 
 import (
 	"errors"

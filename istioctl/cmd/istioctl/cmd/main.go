@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,14 @@
 package main
 
 import (
-	"strings"
+	"os"
+
+	"istio.io/istio/istioctl/pkg/cmd"
 )
 
-// Uses proxyName to infer namespace if the passed proxyName contains namespace information.
-// Otherwise uses the namespace value passed into the function
-func inferPodInfo(proxyName, namespace string) (string, string) {
-	parsedProxy := strings.Split(proxyName, ".")
-
-	if len(parsedProxy) == 1 {
-		return proxyName, namespace
+func main() {
+	rootCmd := cmd.GetRootCmd()
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
 	}
-	return parsedProxy[0], parsedProxy[1]
 }

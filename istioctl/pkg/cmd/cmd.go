@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -26,7 +25,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
+	"istio.io/istio/istioctl/pkg/cmd/gendeployment"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -35,6 +34,11 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
+
+// GetRootCmd returns the main command line flags object for istioctl
+func GetRootCmd() *cobra.Command {
+	return rootCmd
+}
 
 var (
 	kubeconfig       string
@@ -133,12 +137,6 @@ func getRemoteInfo() (*version.MeshInfo, error) {
 	}
 
 	return kubeClient.GetIstioVersions(istioNamespace)
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
 }
 
 func getDefaultNamespace(kubeconfig string) string {
