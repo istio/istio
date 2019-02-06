@@ -22,7 +22,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 )
@@ -78,8 +80,9 @@ type Envoy struct {
 	// LogEntryPrefix (optional) if provided, sets the prefix for every log line from this Envoy. Defaults to DefaultLogPrefix.
 	LogEntryPrefix string
 
-	cmd    *exec.Cmd
-	baseID uint32
+	cmd               *exec.Cmd
+	baseID            uint32
+	stderrInterceptor *logInterceptor
 }
 
 // Start starts the Envoy process.
@@ -111,9 +114,65 @@ func (e *Envoy) Start() (err error) {
 	// Run the envoy binary
 	args := e.getCommandArgs()
 	e.cmd = exec.Command(envoyPath, args...)
-	e.cmd.Stderr = os.Stderr
+
+	// Start the log interceptor for Envoy stderr
+	startMutex := sync.Mutex{}
+	starting := true
+	logCh := make(chan string)
+	errorCh := make(chan error)
+	startComplete := func() {
+		startMutex.Lock()
+		defer startMutex.Unlock()
+		starting = false
+		close(logCh)
+		close(errorCh)
+	}
+	defer startComplete()
+	runIfStarting := func(fn func()) {
+		startMutex.Lock()
+		defer startMutex.Unlock()
+		if starting {
+			fn()
+		}
+	}
+	e.stderrInterceptor, err = newLogInterceptor(os.Stderr,
+		func(logLine string) {
+			runIfStarting(func() {
+				logCh <- logLine
+			})
+		},
+		func(err error) {
+			runIfStarting(func() {
+				errorCh <- err
+			})
+		})
+	if err != nil {
+		return err
+	}
+	e.stderrInterceptor.start()
+
+	// Redirect stderr from Envoy to the interceptor
+	e.cmd.Stderr = e.stderrInterceptor.Writer()
 	e.cmd.Stdout = os.Stdout
-	return e.cmd.Start()
+	if err := e.cmd.Start(); err != nil {
+		return err
+	}
+
+	// Wait for a period, checking the Envoy logs for any startup errors.
+	timer := time.NewTimer(1 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			return nil
+		case logLine := <-logCh:
+			// For now, address binding is the main issue. We can expand this in the future as needed.
+			if strings.Contains(logLine, "Address already in use") {
+				return fmt.Errorf("envoy failed to start: %s", logLine)
+			}
+		case err := <-errorCh:
+			return err
+		}
+	}
 }
 
 // Stop kills the Envoy process.
@@ -121,6 +180,13 @@ func (e *Envoy) Start() (err error) {
 func (e *Envoy) Stop() error {
 	// Make sure we return the base ID.
 	defer e.returnBaseID()
+
+	defer func() {
+		if e.stderrInterceptor != nil {
+			e.stderrInterceptor.stop()
+			e.stderrInterceptor = nil
+		}
+	}()
 
 	if e.cmd == nil || e.cmd.Process == nil {
 		// Wasn't previously started - nothing to do.
