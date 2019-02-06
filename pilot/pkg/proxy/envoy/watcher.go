@@ -64,6 +64,14 @@ func NewWatcher(certs []CertSource, updates chan<- interface{}, waitForCerts boo
 }
 
 func (w *watcher) Run(ctx context.Context) {
+	// monitor certificates
+	certDirs := make([]string, 0, len(w.certs))
+	for _, cert := range w.certs {
+		certDirs = append(certDirs, cert.Directory)
+	}
+
+	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
+
 	shouldKickStart := true
 	if w.waitForCerts {
 		// If none of the cert/key files exist, should not kick start.
@@ -83,14 +91,6 @@ func (w *watcher) Run(ctx context.Context) {
 	if shouldKickStart {
 		w.SendConfig()
 	}
-
-	// monitor certificates
-	certDirs := make([]string, 0, len(w.certs))
-	for _, cert := range w.certs {
-		certDirs = append(certDirs, cert.Directory)
-	}
-
-	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
 
 	<-ctx.Done()
 	log.Info("Watcher has successfully terminated")
