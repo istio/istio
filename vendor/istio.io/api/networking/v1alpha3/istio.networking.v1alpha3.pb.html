@@ -2956,6 +2956,23 @@ client side certificate.</p>
 
 </td>
 </tr>
+<tr id="Server-TLSOptions-credential_name">
+<td><code>credentialName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The credentialName stands for a unique identifier that can be used
+to identify the serverCertificate, the privateKey and the
+CaCertificates associated with this server. Gateway workloads
+capable of fetching credentials from a remote credential store will
+be configured to retrive the credentials using this name, instead of
+using the file system paths specified above. The semantics of the
+name are platform dependent. In Kubernetes, the default Istio
+supplied credentail server expects the credentialName to match the
+name of the Kubernetes secret that holds the server certificate, the
+private key, and the CA certificate (if using mutual TLS).</p>
+
+</td>
+</tr>
 <tr id="Server-TLSOptions-subject_alt_names">
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
@@ -2987,18 +3004,6 @@ certificate presented by the client.</p>
 <td>
 <p>Optional: If specified, only support the specified cipher list.
 Otherwise default to the default cipher list supported by Envoy.</p>
-
-</td>
-</tr>
-<tr id="Server-TLSOptions-sds_name">
-<td><code>sdsName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Optional: If specified, the gateway controllers (with SDS enabled)
-use the specified name as the SDS secret config name to call the SDS
-server, to retrieve the key and certificates. Otherwise, the gateway
-controllers (with SDS enabled) use the first value in the hosts as
-the SDS secret config name to call the SDS server.</p>
 
 </td>
 </tr>
