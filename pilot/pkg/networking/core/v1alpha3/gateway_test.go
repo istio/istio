@@ -28,7 +28,7 @@ import (
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/pull/11496")
+	t.Skip("https://github.com/istio/istio/issues/11397")
 	testCases := []struct {
 		server    *networking.Server
 		enableSds bool
