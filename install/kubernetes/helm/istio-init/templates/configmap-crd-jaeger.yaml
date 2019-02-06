@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-crd-jaeger
+data:
+  crd-jaeger.yaml: |-
+{{.Files.Get "files/crd-jaeger.yaml" | printf "%s" | indent 4}}

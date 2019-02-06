@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-init-crd-jaeger
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-init-service-account
+      containers:
+      - name: istio-init-crd-jaeger
+        image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        volumeMounts:
+        - name: crd-jaeger
+          mountPath: /etc/istio/crd-jaeger
+          readOnly: true
+        command: ["kubectl",  "apply", "-f", "/etc/istio/crd-jaeger/crd-jaeger.yaml"]
+      volumes:
+      - name: crd-jaeger
+        configMap:
+          name: istio-crd-jaeger
+      restartPolicy: OnFailure
