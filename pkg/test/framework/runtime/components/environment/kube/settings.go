@@ -120,20 +120,8 @@ type settings struct {
 	// The Helm values file to be used.
 	ValuesFile string
 
-	// Overrides for the Helm values file, highest priority.
-	valuesByFlag map[string]string
-}
-
-// Values returns the helm values.
-func (s *settings) Values() map[string]string {
-	out := map[string]string{}
-	for k, v := range helmOverridesByTest {
-		out[k] = v
-	}
-	for k, v := range s.valuesByFlag {
-		out[k] = v
-	}
-	return out
+	// Overrides for the Helm values file.
+	Values map[string]string
 }
 
 // RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
@@ -166,7 +154,7 @@ func newSettings() (*settings, error) {
 	}
 
 	var err error
-	s.valuesByFlag, err = newHelmValues()
+	s.Values, err = newHelmValues()
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +181,7 @@ func checkFileExists(path string) error {
 }
 
 func newHelmValues() (map[string]string, error) {
-	userValues, err := parseHelmValues()
+	valuesByFlag, err := parseHelmValues()
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +191,15 @@ func newHelmValues() (map[string]string, error) {
 	for k, v := range defaultHelmValues {
 		values[k] = v
 	}
+	// Copy the values specified by the test.
+	for k, v := range helmOverridesByTest {
+		values[k] = v
+	}
+	// Reset the value overrides by the test.
+	helmOverridesByTest = map[string]string{}
+
 	// Copy the user values.
-	for k, v := range userValues {
+	for k, v := range valuesByFlag {
 		values[k] = v
 	}
 	// Always pull Docker images if using the "latest".
@@ -242,7 +237,7 @@ func (s *settings) String() string {
 	result += fmt.Sprintf("DeployTimeout:   %ds\n", s.DeployTimeout/time.Second)
 	result += fmt.Sprintf("UndeployTimeout: %ds\n", s.UndeployTimeout/time.Second)
 	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
-	result += fmt.Sprintf("Values:          %v\n", s.Values())
+	result += fmt.Sprintf("Values:          %v\n", s.Values)
 
 	return result
 }

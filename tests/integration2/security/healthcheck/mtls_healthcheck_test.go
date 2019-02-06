@@ -21,13 +21,11 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 func TestMain(m *testing.M) {
@@ -40,8 +38,6 @@ func TestMain(m *testing.M) {
 
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
-	scopes.Framework.SetOutputLevel(log.DebugLevel)
-	scopes.CI.SetOutputLevel(log.DebugLevel)
 
 	// Test requires this Helm flag to be enabled.
 	kube.RegisterHelmOverrides(map[string]string{

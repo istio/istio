@@ -97,9 +97,9 @@ func (e *Environment) Scope() lifecycle.Scope {
 	return e.scope
 }
 
-// Is mtls enabled. Check in Values flag and Values file.
+// IsMtlsEnabled checks in Values flag and Values file.
 func (e *Environment) IsMtlsEnabled() bool {
-	if e.s.Values()["global.mtls.enabled"] == "true" {
+	if e.s.Values["global.mtls.enabled"] == "true" {
 		return true
 	}
 
@@ -170,7 +170,7 @@ func (e *Environment) MinikubeIngress() bool {
 
 // HelmValueMap returns the overrides for helm values.
 func (e *Environment) HelmValueMap() map[string]string {
-	return e.s.Values()
+	return e.s.Values
 }
 
 // Start implements the api.Environment interface
@@ -248,7 +248,7 @@ func (e *Environment) deployIstio() (err error) {
 		ChartDir:     e.s.ChartDir,
 		CrdsFilesDir: e.s.CrdsFilesDir,
 		ValuesFile:   e.s.ValuesFile,
-		Values:       e.s.Values(),
+		Values:       e.s.Values,
 	})
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))
