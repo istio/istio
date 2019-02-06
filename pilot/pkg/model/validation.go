@@ -505,9 +505,15 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
+		if tls.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
+		}
 	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+		}
+		if tls.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a private key"))
 		}
 		if tls.CaCertificates == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))

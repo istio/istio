@@ -2348,6 +2348,19 @@
                 "integer": 2
               }
             ]
+          },
+          {
+            "name": "ReportRequest.RepeatedAttributesSemantics",
+            "enum_fields": [
+              {
+                "name": "DELTA_ENCODING",
+                "integer": 0
+              },
+              {
+                "name": "INDEPENDENT_ENCODING",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -2572,6 +2585,11 @@
                 "name": "attributes",
                 "type": "CompressedAttributes",
                 "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "repeated_attributes_semantics",
+                "type": "RepeatedAttributesSemantics"
               },
               {
                 "id": 2,
@@ -3306,6 +3324,11 @@
                     "type": "string"
                   },
                   {
+                    "id": 10,
+                    "name": "credential_name",
+                    "type": "string"
+                  },
+                  {
                     "id": 6,
                     "name": "subject_alt_names",
                     "type": "string",
@@ -3326,11 +3349,6 @@
                     "name": "cipher_suites",
                     "type": "string",
                     "is_repeated": true
-                  },
-                  {
-                    "id": 10,
-                    "name": "sds_name",
-                    "type": "string"
                   }
                 ]
               }

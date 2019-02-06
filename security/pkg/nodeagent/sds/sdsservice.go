@@ -47,7 +47,11 @@ const (
 
 	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt, which is set in
 	// https://github.com/istio/istio/blob/master/pilot/pkg/model/authentication.go
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All SDS requests
+	// for root CA sent by ingress gateway have suffix -cacert.
+	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 var (
@@ -263,7 +267,7 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("unable to get metadata from incoming context")
 	}
 
-	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentials_header`) if it exists;
+	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentail_header`) if it exists;
 	// otherwise fallback to credentialTokenHeader('authorization').
 	if h, ok := metadata[k8sSAJwtTokenHeaderKey]; ok {
 		if len(h) != 1 {
