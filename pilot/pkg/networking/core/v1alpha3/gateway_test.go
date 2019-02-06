@@ -28,7 +28,6 @@ import (
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/11397")
 	testCases := []struct {
 		server    *networking.Server
 		enableSds bool
@@ -75,9 +74,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_SIMPLE,
-					// TODO temporarily
-					//SdsName: "ingress-sds-resource-name",
+					Mode:    networking.Server_TLSOptions_SIMPLE,
+					SdsName: "ingress-sds-resource-name",
 				},
 			},
 			enableSds: true,
