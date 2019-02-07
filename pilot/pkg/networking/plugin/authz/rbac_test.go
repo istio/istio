@@ -526,38 +526,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-7"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Subjects: []*rbacproto.Subject{
-					{
-						Properties: map[string]string{
-							"request.auth.claims[groups]": "group*",
-						},
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-7",
-				},
-			},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-8"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Subjects: []*rbacproto.Subject{
-					{
-						Properties: map[string]string{
-							"request.auth.claims[groups]": "group*",
-						},
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-8",
-				},
-			},
-		},
+		generateSimpleServiceRoleBindingForNotRule("7"),
+		generateSimpleServiceRoleBindingForNotRule("8"),
 	}
 
 	policy1 := &policy.Policy{
@@ -828,77 +798,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
-	policy7 := &policy.Policy{
-		Permissions: []*policy.Permission{
-			{
-				Rule: &policy.Permission_AndRules{
-					AndRules: &policy.Permission_Set{
-						Rules: []*policy.Permission{
-							{
-								Rule: &policy.Permission_NotRule{
-									NotRule: &policy.Permission{
-										Rule: generateHeaderRule([]*route.HeaderMatcher{
-											{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "DELETE"}},
-										}),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
-									[]string{attrRequestClaims, "groups"}, "group*"),
-							},
-						},
-					},
-				},
-			},
-		}},
-	}
-
-	policy8 := &policy.Policy{
-		Permissions: []*policy.Permission{
-			{
-				Rule: &policy.Permission_AndRules{
-					AndRules: &policy.Permission_Set{
-						Rules: []*policy.Permission{
-							{
-								Rule: &policy.Permission_NotRule{
-									NotRule: &policy.Permission{
-										Rule: generateHeaderRule([]*route.HeaderMatcher{
-											{Name: ":path", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "/secret_path"}},
-										}),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
-									[]string{attrRequestClaims, "groups"}, "group*"),
-							},
-						},
-					},
-				},
-			},
-		}},
-	}
+	policy7 := generateSimplePolicyForNotRuleWithHeader(methodHeader, "DELETE")
+	policy8 := generateSimplePolicyForNotRuleWithHeader(pathHeader, "/secret_path")
 
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
@@ -907,48 +808,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			"service-role-2": policy2,
 		},
 	}
-	expectRbac2 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-2": policy2,
-		},
-	}
-	expectRbac3 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-3": policy3,
-		},
-	}
-	expectRbac4 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-4": policy4,
-		},
-	}
-	expectRbac5 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-5": policy5,
-		},
-	}
-	expectRbac6 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-6": policy6,
-		},
-	}
-	expectRbac7 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-7": policy7,
-		},
-	}
-	expectRbac8 := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-8": policy8,
-		},
-	}
+	expectRbac2 := generateExpectRBACForSinglePolicy( /*serviceRoleID*/ "2", policy2)
+	expectRbac3 := generateExpectRBACForSinglePolicy("3", policy3)
+	expectRbac4 := generateExpectRBACForSinglePolicy("4", policy4)
+	expectRbac5 := generateExpectRBACForSinglePolicy("5", policy5)
+	expectRbac6 := generateExpectRBACForSinglePolicy("6", policy6)
+	expectRbac7 := generateExpectRBACForSinglePolicy("7", policy7)
+	expectRbac8 := generateExpectRBACForSinglePolicy("8", policy8)
 
 	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)
 	option := rbacOption{authzPolicies: authzPolicies}

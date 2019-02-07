@@ -20,6 +20,7 @@ import (
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/model"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -181,6 +182,76 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataListMatcher(
 									[]string{attrRequestClaims, "groups"}, claimName),
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+}
+
+// nolint:deadcode
+func generateExpectRBACForSinglePolicy(serviceRoleID string, rbacPolicy *policy.Policy) *policy.RBAC {
+	return &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-" + serviceRoleID: rbacPolicy,
+		},
+	}
+}
+
+// nolint:deadcode
+// serviceRoleOrBindingID: A number represent ServiceRole or ServiceRoleBinding number.
+func generateSimpleServiceRoleBindingForNotRule(serviceRoleOrBindingID string) model.Config {
+	return model.Config{
+		ConfigMeta: model.ConfigMeta{Name: "service-role-binding-" + serviceRoleOrBindingID},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{
+				{
+					Properties: map[string]string{
+						"request.auth.claims[groups]": "group*",
+					},
+				},
+			},
+			RoleRef: &rbacproto.RoleRef{
+				Kind: "ServiceRole",
+				Name: "service-role-" + serviceRoleOrBindingID,
+			},
+		},
+	}
+}
+
+// nolint: deadcode
+func generateSimplePolicyForNotRuleWithHeader(header string, exactMatch string) *policy.Policy {
+	return &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: header, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: exactMatch}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, "group*"),
 							},
 						},
 					},
