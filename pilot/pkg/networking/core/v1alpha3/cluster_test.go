@@ -16,6 +16,7 @@ package v1alpha3_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -120,6 +121,11 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata(serviceHostname, nodeType, mesh, destRule, make(map[string]string))
+}
+
+func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
+	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -164,7 +170,7 @@ func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh mes
 			Type:        model.SidecarProxy,
 			IPAddresses: []string{"6.6.6.6"},
 			DNSDomain:   "com",
-			Metadata:    make(map[string]string),
+			Metadata:    meta,
 		}
 	case model.Router:
 		proxy = &model.Proxy{
@@ -172,11 +178,13 @@ func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh mes
 			Type:        model.Router,
 			IPAddresses: []string{"6.6.6.6"},
 			DNSDomain:   "default.example.org",
-			Metadata:    make(map[string]string),
+			Metadata:    meta,
 		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
 	}
+
+	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
 	return configgen.BuildClusters(env, proxy, env.PushContext)
 }
@@ -239,7 +247,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err := buildSniTestClusters("foo.com")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(4))
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -248,7 +256,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err = buildSniTestClusters("")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(5))
+	g.Expect(len(clusters)).To(Equal(4))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -256,7 +264,15 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 }
 
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildTestClusters("foo.example.org", model.SidecarProxy, testMesh,
+	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
+}
+
+func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
+	return buildSniTestClustersWithMetadata(sniValue, map[string]string{"ROUTER_MODE": string(model.SniDnatRouter)})
+}
+
+func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) ([]*apiv2.Cluster, error) {
+	return buildTestClustersWithProxyMetadata("foo.example.org", model.Router, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -278,7 +294,9 @@ func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
 					},
 				},
 			},
-		})
+		},
+		meta,
+	)
 }
 
 func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
@@ -380,4 +398,62 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 				},
 			},
 		})
+}
+
+func TestClusterMetadata(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: "*.example.org",
+		Subsets: []*networking.Subset{
+			&networking.Subset{Name: "Subset 1"},
+			&networking.Subset{Name: "Subset 2"},
+		},
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh, destRule)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	clustersWithMetadata := 0
+
+	for _, cluster := range clusters {
+		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
+			clustersWithMetadata++
+			g.Expect(cluster.Metadata).NotTo(BeNil())
+			md := cluster.Metadata
+			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
+			istio := md.FilterMetadata["istio"]
+			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			dr := istio.Fields["config"]
+			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+		} else {
+			g.Expect(cluster.Metadata).To(BeNil())
+		}
+	}
+
+	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 2)) // outbound  outbound subsets  inbound
+
+	sniClusters, err := buildSniDnatTestClusters("test-sni")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, cluster := range sniClusters {
+		if strings.HasPrefix(cluster.Name, "outbound") {
+			g.Expect(cluster.Metadata).NotTo(BeNil())
+			md := cluster.Metadata
+			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
+			istio := md.FilterMetadata["istio"]
+			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			dr := istio.Fields["config"]
+			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
+		} else {
+			g.Expect(cluster.Metadata).To(BeNil())
+		}
+	}
 }

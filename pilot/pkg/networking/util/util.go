@@ -44,7 +44,13 @@ const (
 	PassthroughCluster = "PassthroughCluster"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-
+	// NoProxyLocality represents the locality associated with a proxy that doesn't have locality settings
+	// since all our localities are in region/zone/subzone format, the empty locality will be of form
+	// '///'
+	NoProxyLocality = "///"
+	// IstioMetadataKey is the key under which metadata is added to a route or cluster
+	// regarding the virtual service or destination rule used for each
+	IstioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 )
@@ -188,6 +194,16 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *types.Any {
+	s, err := types.MarshalAny(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return nil
+	}
+	return s
+}
+
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
@@ -256,22 +272,108 @@ func ConvertLocality(locality string) *core.Locality {
 		return nil
 	}
 
+	region, zone, subzone := SplitLocality(locality)
+	return &core.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
+	}
+}
+
+func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
+	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
+	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
+	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
+
+	if regionMatch && zoneMatch && subzoneMatch {
+		return true
+	}
+	return false
+}
+
+func SplitLocality(locality string) (region, zone, subzone string) {
 	items := strings.Split(locality, "/")
 	switch len(items) {
 	case 1:
-		return &core.Locality{
-			Region: items[0],
-		}
+		return items[0], "", ""
 	case 2:
-		return &core.Locality{
-			Region: items[0],
-			Zone:   items[1],
-		}
+		return items[0], items[1], ""
 	default:
-		return &core.Locality{
-			Region:  items[0],
-			Zone:    items[1],
-			SubZone: items[2],
+		return items[0], items[1], items[2]
+	}
+}
+
+func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
+	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
+		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
+			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
+				return 0
+			}
+			return 1
 		}
+		return 2
+	}
+	return 3
+}
+
+// return a shallow copy cluster
+func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
+	out := xdsapi.Cluster{}
+	if cluster == nil {
+		return out
+	}
+
+	out = *cluster
+	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
+	out.LoadAssignment = &loadAssignment
+
+	return out
+}
+
+// return a shallow copy ClusterLoadAssignment
+func CloneClusterLoadAssignment(endpoint *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
+	out := xdsapi.ClusterLoadAssignment{}
+	if endpoint == nil {
+		return out
+	}
+
+	out = *endpoint
+	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
+
+	return out
+}
+
+// return a shallow copy LocalityLbEndpoints
+func cloneLocalityLbEndpoints(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	out := make([]endpoint.LocalityLbEndpoints, 0, len(endpoints))
+	for _, ep := range endpoints {
+		clone := ep
+		if ep.LoadBalancingWeight != nil {
+			clone.LoadBalancingWeight = &types.UInt32Value{
+				Value: ep.GetLoadBalancingWeight().GetValue(),
+			}
+		}
+		out = append(out, clone)
+	}
+	return out
+}
+
+// BuildConfigInfoMetadata builds core.Metadata struct containing the
+// name.namespace of the config, the type, etc. Used by Mixer client
+// to generate attributes for policy and telemetry.
+func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+	return &core.Metadata{
+		FilterMetadata: map[string]*types.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*types.Value{
+					"config": {
+						Kind: &types.Value_StringValue{
+							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
+						},
+					},
+				},
+			},
+		},
 	}
 }

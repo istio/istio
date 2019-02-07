@@ -57,11 +57,6 @@ function test_helm_files() {
   tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio/values.yaml" | head -n 1 | cut -c 8-)
   [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
-
-  hub=$(grep hub: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
-  tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
-  [ "${hub}" == "${expected_hub}" ]
-  [ "${tag}" == "${expected_tag}" ]
 }
 
 

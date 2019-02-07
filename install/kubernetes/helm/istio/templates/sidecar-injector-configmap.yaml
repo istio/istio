@@ -46,8 +46,8 @@ data:
             cpu: 10m
             memory: 10Mi
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
         securityContext:
           capabilities:
             add:
@@ -276,7 +276,7 @@ data:
       - name: {{ "\"[[ $index ]]\"" }}
         {{ "[[ toYaml $value | indent 2 ]]" }}
         {{ "[[ end ]]" }}
-        {{ "[[ end -]]" }}
+        {{ "[[ end ]]" }}
       {{- end }}
       {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs

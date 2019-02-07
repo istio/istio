@@ -42,13 +42,13 @@ import (
 )
 
 const (
-	istioMeshDashboard   = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-mesh-dashboard.json"
-	serviceDashboard     = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-service-dashboard.json"
-	workloadDashboard    = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-workload-dashboard.json"
-	performanceDashboard = "install/kubernetes/helm/subcharts/grafana/dashboards/istio-performance-dashboard.json"
-	mixerDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard       = "install/kubernetes/helm/subcharts/grafana/dashboards/pilot-dashboard.json"
-	galleyDashboard      = "install/kubernetes/helm/subcharts/grafana/dashboards/galley-dashboard.json"
+	istioMeshDashboard   = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard     = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard    = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-workload-dashboard.json"
+	performanceDashboard = "install/kubernetes/helm/istio/charts/grafana/dashboards/istio-performance-dashboard.json"
+	mixerDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard       = "install/kubernetes/helm/istio/charts/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard      = "install/kubernetes/helm/istio/charts/grafana/dashboards/galley-dashboard.json"
 	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -136,9 +136,9 @@ func TestDashboards(t *testing.T) {
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 9093},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 15014},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 15014},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 15014},
 		{"Performance", performanceDashboard, performanceQueryFilterFn, nil, "istio-telemetry", 42422},
 	}
 

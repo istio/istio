@@ -71,7 +71,9 @@ spec:
         - --statusPort
         - "15020"
         - --applicationPorts
-        - 80,90
+        - "80,90"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:
@@ -142,8 +144,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
