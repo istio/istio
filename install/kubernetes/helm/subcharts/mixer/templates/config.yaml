@@ -27,6 +27,10 @@ spec:
       valueType: STRING
     request.path:
       valueType: STRING
+    request.url_path:
+      valueType: STRING
+    request.query_params:
+      valueType: STRING_MAP
     request.reason:
       valueType: STRING
     request.referer:
@@ -126,6 +130,14 @@ spec:
       valueType: STRING
     rbac.permissive.effective_policy_id:
       valueType: STRING
+    check.error_code:
+      valueType: INT64
+    check.error_message:
+      valueType: STRING
+    check.cache_hit:
+      valueType: BOOL
+    quota.cache_hit:
+      valueType: BOOL
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
