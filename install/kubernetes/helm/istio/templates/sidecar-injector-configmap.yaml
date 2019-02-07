@@ -276,7 +276,7 @@ data:
       - name: {{ "\"[[ $index ]]\"" }}
         {{ "[[ toYaml $value | indent 2 ]]" }}
         {{ "[[ end ]]" }}
-        {{ "[[ end -]]" }}
+        {{ "[[ end ]]" }}
       {{- end }}
       {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
