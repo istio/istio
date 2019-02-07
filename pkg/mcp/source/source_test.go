@@ -238,10 +238,16 @@ func verifySentResources(t *testing.T, h *sourceTestHarness, want *mcp.Resources
 	}
 }
 
-func makeWatchResponse(collection string, version string, fakes ...*test.Fake) *WatchResponse { // nolint: unparam
+func makeWatchResponse(collection string, version string, incremental bool, fakes ...*test.Fake) *WatchResponse { // nolint: unparam
 	r := &WatchResponse{
 		Collection: collection,
 		Version:    version,
+		Request: &Request{
+			Collection:  collection,
+			VersionInfo: version,
+			SinkNode:    test.Node,
+			incremental: incremental,
+		},
 	}
 	for _, fake := range fakes {
 		r.Resources = append(r.Resources, fake.Resource)
@@ -251,9 +257,9 @@ func makeWatchResponse(collection string, version string, fakes ...*test.Fake) *
 
 func makeSourceUnderTest(w Watcher) *Source {
 	options := &Options{
-		Watcher:            w,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           w,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	return New(options)
 }
@@ -287,44 +293,50 @@ func TestSourceACKAddUpdateDelete(t *testing.T) {
 	}{
 		{
 			name:          "ack add A0",
-			inject:        makeWatchResponse(test.FakeType0Collection, "1", test.Type0A[0]),
-			wantResources: test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
-			request:       test.MakeRequest(test.FakeType0Collection, "1", codes.OK),
+			inject:        makeWatchResponse(test.FakeType0Collection, "1", false, test.Type0A[0]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "1", codes.OK),
 		},
 		{
 			name:          "nack update A0",
-			inject:        makeWatchResponse(test.FakeType0Collection, "2", test.Type0A[1]),
-			wantResources: test.MakeResources(test.FakeType0Collection, "2", "2", nil, test.Type0A[1]),
-			request:       test.MakeRequest(test.FakeType0Collection, "2", codes.InvalidArgument),
+			inject:        makeWatchResponse(test.FakeType0Collection, "2", false, test.Type0A[1]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "2", "2", nil, test.Type0A[1]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "2", codes.InvalidArgument),
 		},
 		{
 			name:          "ack update A0",
-			inject:        makeWatchResponse(test.FakeType0Collection, "3", test.Type0A[1]),
-			wantResources: test.MakeResources(test.FakeType0Collection, "3", "3", nil, test.Type0A[1]),
-			request:       test.MakeRequest(test.FakeType0Collection, "3", codes.OK),
+			inject:        makeWatchResponse(test.FakeType0Collection, "3", false, test.Type0A[1]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "3", "3", nil, test.Type0A[1]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "3", codes.OK),
 		},
 		{
 			name:          "delete A0",
-			inject:        makeWatchResponse(test.FakeType0Collection, "4"),
-			wantResources: test.MakeResources(test.FakeType0Collection, "4", "4", nil),
-			request:       test.MakeRequest(test.FakeType0Collection, "4", codes.OK),
+			inject:        makeWatchResponse(test.FakeType0Collection, "4", false),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "4", "4", nil),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "4", codes.OK),
 		},
 		{
 			name:          "ack add A1 and A2",
-			inject:        makeWatchResponse(test.FakeType0Collection, "5", test.Type1A[0], test.Type2A[0]),
-			wantResources: test.MakeResources(test.FakeType0Collection, "5", "5", nil, test.Type1A[0], test.Type2A[0]),
-			request:       test.MakeRequest(test.FakeType0Collection, "5", codes.OK),
+			inject:        makeWatchResponse(test.FakeType0Collection, "5", false, test.Type0B[0], test.Type0C[0]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "5", "5", nil, test.Type0B[0], test.Type0C[0]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "5", codes.OK),
 		},
 		{
 			name:          "ack add0, update A1, keep A2",
-			inject:        makeWatchResponse(test.FakeType0Collection, "6", test.Type0A[2], test.Type1A[1], test.Type2A[0]),
-			wantResources: test.MakeResources(test.FakeType0Collection, "6", "6", nil, test.Type0A[2], test.Type1A[1], test.Type2A[0]),
-			request:       test.MakeRequest(test.FakeType0Collection, "6", codes.OK),
+			inject:        makeWatchResponse(test.FakeType0Collection, "6", false, test.Type0A[2], test.Type0B[1], test.Type0C[0]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "6", "6", nil, test.Type0A[2], test.Type0B[1], test.Type0C[0]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "6", codes.OK),
+		},
+		{
+			name:          "remove add A0 and update A1/A2 (incremental requested but source decides to use full-state)",
+			inject:        makeWatchResponse(test.FakeType0Collection, "7", false, test.Type0B[2], test.Type0C[1]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "7", "7", nil, test.Type0B[2], test.Type0C[1]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "7", codes.OK),
 		},
 	}
 
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	for i, step := range steps {
 		passed := t.Run(fmt.Sprintf("[%v] %s", i, step.name), func(tt *testing.T) {
@@ -353,7 +365,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	}()
 
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	// wait for watch to be created before injecting the response
 	<-h.watchesCreatedChan[test.FakeType0Collection]
@@ -364,7 +376,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
-	verifySentResources(t, h, test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]))
+	verifySentResources(t, h, test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]))
 
 	h.setRecvError(io.EOF)
 	wg.Wait()
@@ -373,7 +385,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 func TestSourceWatchClosed(t *testing.T) {
 	h := newSourceTestHarness(t)
 	h.setCloseWatch(true)
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
@@ -392,7 +404,7 @@ func TestSourceSendError(t *testing.T) {
 
 	h.setSendError(errSend)
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
@@ -411,12 +423,12 @@ func TestSourceReceiveError(t *testing.T) {
 
 	h.setRecvError(status.Error(codes.Internal, "internal receive error"))
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
 	options := &Options{
-		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           h,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
@@ -434,7 +446,7 @@ func TestSourceUnsupportedTypeError(t *testing.T) {
 	})
 
 	// initial watch with bad type
-	h.requestsChan <- test.MakeRequest("unsupportedtype", "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, "unsupportedtype", "", codes.OK)
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
@@ -463,9 +475,9 @@ func TestSourceStaleNonce(t *testing.T) {
 	})
 
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
-	verifySentResources(t, h, test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]))
+	verifySentResources(t, h, test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]))
 
 	h.injectWatchResponse(&WatchResponse{
 		Collection: test.FakeType0Collection,
@@ -473,11 +485,11 @@ func TestSourceStaleNonce(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type0A[1].Resource},
 	})
 
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "stale0", codes.OK)              // stale ACK
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "stale1", codes.InvalidArgument) // stale NACK
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "1", codes.OK)                   // valid ACK
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "stale0", codes.OK)              // stale ACK
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "stale1", codes.InvalidArgument) // stale NACK
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "1", codes.OK)                   // valid ACK
 
-	verifySentResources(t, h, test.MakeResources(test.FakeType0Collection, "2", "2", nil, test.Type0A[1]))
+	verifySentResources(t, h, test.MakeResources(false, test.FakeType0Collection, "2", "2", nil, test.Type0A[1]))
 
 	h.setRecvError(io.EOF)
 	wg.Wait()
@@ -518,15 +530,15 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 	})
 
 	// initial watch
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType1Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType2Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType1Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType2Collection, "", codes.OK)
 
 	verifySentResourcesMultipleTypes(t, h,
 		map[string]*mcp.Resources{
-			test.FakeType0Collection: test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
-			test.FakeType1Collection: test.MakeResources(test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
-			test.FakeType2Collection: test.MakeResources(test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
+			test.FakeType0Collection: test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			test.FakeType1Collection: test.MakeResources(false, test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
+			test.FakeType2Collection: test.MakeResources(false, test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
 		},
 	)
 
@@ -643,5 +655,107 @@ func TestCalculateDelta(t *testing.T) {
 					gotRemoved, c.wantRemoved, diff)
 			}
 		})
+	}
+}
+
+func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
+	h := newSourceTestHarness(t)
+	h.setContext(peer.NewContext(context.Background(), &peer.Peer{
+		Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
+	}))
+
+	options := &Options{
+		Watcher:           h,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	for i := range options.CollectionOptions {
+		co := &options.CollectionOptions[i]
+		co.Incremental = true
+	}
+	s := New(options)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		if err := s.processStream(h); err != nil {
+			t.Errorf("Stream() => got %v, want no error", err)
+		}
+		wg.Done()
+	}()
+
+	defer func() {
+		h.setRecvError(io.EOF)
+		wg.Wait()
+	}()
+
+	steps := []struct {
+		name          string
+		request       *mcp.RequestResources
+		wantResources *mcp.Resources
+		inject        *WatchResponse
+	}{
+		{
+			name:          "ack add A0",
+			inject:        makeWatchResponse(test.FakeType0Collection, "1", true, test.Type0A[0]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "1", codes.OK),
+		},
+		{
+			name:          "nack update A0",
+			inject:        makeWatchResponse(test.FakeType0Collection, "2", true, test.Type0A[1]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "2", "2", nil, test.Type0A[1]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "2", codes.InvalidArgument),
+		},
+		{
+			name:          "ack update A0",
+			inject:        makeWatchResponse(test.FakeType0Collection, "3", true, test.Type0A[1]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "3", "3", nil, test.Type0A[1]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "3", codes.OK),
+		},
+		{
+			name:          "delete A0",
+			inject:        makeWatchResponse(test.FakeType0Collection, "4", true),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "4", "4", []string{test.Type0A[1].Metadata.Name}),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "4", codes.OK),
+		},
+		{
+			name:          "ack add A1 and A2",
+			inject:        makeWatchResponse(test.FakeType0Collection, "5", true, test.Type0B[0], test.Type0C[0]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "5", "5", nil, test.Type0B[0], test.Type0C[0]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "5", codes.OK),
+		},
+		{
+			name:          "ack add A0, update A1, keep A2",
+			inject:        makeWatchResponse(test.FakeType0Collection, "6", true, test.Type0A[2], test.Type0B[1], test.Type0C[0]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "6", "6", nil, test.Type0A[2], test.Type0B[1]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "6", codes.OK),
+		},
+		{
+			name:          "keep A0, update A1, delete A2 (sink requested full-state)",
+			inject:        makeWatchResponse(test.FakeType0Collection, "7", false, test.Type0A[2], test.Type0B[2]),
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "7", "7", nil, test.Type0A[2], test.Type0B[2]),
+			request:       test.MakeRequest(false, test.FakeType0Collection, "7", codes.OK),
+		},
+		{
+			name:          "remove A0, keep A1, add A2 (incremental after full-state)",
+			inject:        makeWatchResponse(test.FakeType0Collection, "8", true, test.Type0B[2], test.Type0C[1]),
+			wantResources: test.MakeResources(true, test.FakeType0Collection, "8", "8", []string{test.Type0A[2].Metadata.Name}, test.Type0C[1]),
+			request:       test.MakeRequest(true, test.FakeType0Collection, "8", codes.OK),
+		},
+	}
+
+	// initial watch
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+
+	for i, step := range steps {
+		passed := t.Run(fmt.Sprintf("[%v] %s", i, step.name), func(tt *testing.T) {
+			h.injectWatchResponse(step.inject)
+			verifySentResources(tt, h, step.wantResources)
+			h.requestsChan <- step.request
+		})
+		if !passed {
+			t.Fatal("subtest failed")
+		}
 	}
 }
