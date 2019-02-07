@@ -149,10 +149,6 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
-	// Package the chart dir.
-	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
-		return "", err
-	}
 	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s %s",
 		helmRepoDir, chartDir, deploymentName, namespace, valuesFileString, valuesString))
 }
