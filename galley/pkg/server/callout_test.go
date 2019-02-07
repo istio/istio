@@ -19,27 +19,34 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/source"
 )
 
 func TestCallout(t *testing.T) {
-	co, err := newCallout("foo", "NONE", &source.Options{})
+	co, err := newCallout("foo", "NONE", make([]string, 0), &source.Options{})
 	if err != nil {
 		t.Errorf("Callout creation failed: %v", err)
 	}
 	if co.address != "foo" {
 		t.Error("Callout address not set")
 	}
+	co, err = newCallout("foo", "NONE", make([]string, 1), &source.Options{})
+	if err == nil {
+		t.Error("did not error with odd length metadata")
+	}
 }
 
 type mockMcpClient struct {
 	RunCalled bool
+	ctx       context.Context
 }
 
 func (m *mockMcpClient) Run(ctx context.Context) {
 	m.RunCalled = true
+	m.ctx = ctx
 }
 
 func TestCalloutRun(t *testing.T) {
@@ -62,6 +69,7 @@ func TestCalloutRun(t *testing.T) {
 			sourceNewClient: sourceNewClient,
 			connClose:       connClose,
 		},
+		meta: make([]string, 2),
 	}
 	co.Run()
 
@@ -73,5 +81,8 @@ func TestCalloutRun(t *testing.T) {
 	}
 	if connClosed == false {
 		t.Error("Did not close connection")
+	}
+	if _, ok := metadata.FromOutgoingContext(m.ctx); ok != true {
+		t.Error("Metadata not added")
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/authplugins"
@@ -31,6 +32,7 @@ type callout struct {
 	do      []grpc.DialOption
 	cancel  context.CancelFunc
 	pt      calloutPatchTable
+	meta    []string
 }
 
 // Test override types
@@ -56,11 +58,13 @@ func defaultCalloutPT() calloutPatchTable {
 	}
 }
 
-func newCallout(address, auth string, so *source.Options) (*callout, error) {
-	return newCalloutPT(address, auth, so, defaultCalloutPT())
+func newCallout(address, auth string, meta []string,
+	so *source.Options) (*callout, error) {
+	return newCalloutPT(address, auth, meta, so, defaultCalloutPT())
 }
 
-func newCalloutPT(address, auth string, so *source.Options, pt calloutPatchTable) (*callout, error) {
+func newCalloutPT(address, auth string, meta []string, so *source.Options,
+	pt calloutPatchTable) (*callout, error) {
 	auths := authplugins.AuthMap()
 
 	f, ok := auths[auth]
@@ -73,11 +77,17 @@ func newCalloutPT(address, auth string, so *source.Options, pt calloutPatchTable
 		return nil, err
 	}
 
+	if len(meta)%2 != 0 {
+		return nil, fmt.Errorf("sinkMeta length must be even, "+
+			"in key value pairs, len: %v", len(meta))
+	}
+
 	return &callout{
 		address: address,
 		so:      so,
 		do:      opts,
 		pt:      pt,
+		meta:    meta,
 	}, nil
 }
 
@@ -96,6 +106,7 @@ func (c *callout) Run() {
 
 	mcpClient := c.pt.sourceNewClient(client, c.so)
 	scope.Infof("Starting MCP Source Client connection to: %v", c.address)
+	ctx = metadata.AppendToOutgoingContext(ctx, c.meta...)
 	mcpClient.Run(ctx)
 }
 
