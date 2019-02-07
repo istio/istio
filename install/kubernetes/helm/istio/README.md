@@ -111,6 +111,11 @@ The chart deploys pods that consume minimum resources as specified in the resour
     $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
     ```
 
+1. Build the Helm dependencies:
+    ```
+    $ helm dep update install/kubernetes/helm/istio
+    ```
+
 1. To install the chart with the release name `istio` in namespace $NAMESPACE you defined above:
 
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):

@@ -635,6 +635,7 @@ helm-repo-add:
 istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	$(HELM) template --name=istio --namespace=istio-system \
 		--values install/kubernetes/helm/istio/values-istio-remote.yaml \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
@@ -654,6 +655,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
@@ -667,6 +669,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
@@ -702,6 +705,7 @@ generate_yaml_coredump:
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
 generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
