@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -45,7 +44,7 @@ import (
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[model.Hostname]*model.Service{// mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ConfigUpdater = cfg
@@ -454,19 +453,6 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.Service{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddService(model.Hostname(svcName), svc)
-	}
 
 	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
@@ -507,19 +493,6 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.ServiceInstance{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
-	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
 		svc, _ := s.Env.ServiceDiscovery.Services()
