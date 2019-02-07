@@ -164,7 +164,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// First send upgrade headers
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Warna("websocket-echo upgrade failed:", err)
+		log.Warna("websocket-echo upgrade failed: ", err)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// ping
 	mt, message, err := c.ReadMessage()
 	if err != nil {
-		log.Warna("websocket-echo read failed:", err)
+		log.Warna("websocket-echo read failed: ", err)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	body.Write(message)
 	err = c.WriteMessage(mt, body.Bytes())
 	if err != nil {
-		log.Warna("websocket-echo write failed:", err)
+		log.Warna("websocket-echo write failed: ", err)
 		return
 	}
 }
