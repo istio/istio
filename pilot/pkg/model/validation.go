@@ -1456,6 +1456,9 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		if len(rule.Paths) > 0 && len(rule.NotPaths) > 0 {
 			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. paths and not_paths", i))
 		}
+		if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
+		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
