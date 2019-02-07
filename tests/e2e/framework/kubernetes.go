@@ -911,6 +911,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		valFile = filepath.Join(workDir, *valueFile)
 	}
 
+	err = util.HelmDepUpdate(workDir)
 	if err != nil {
 		// helm dep upgrade
 		log.Errorf("Helm dep update failed %s", workDir)

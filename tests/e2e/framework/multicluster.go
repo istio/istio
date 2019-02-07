@@ -121,6 +121,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		return err
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
+	err = util.HelmDepUpdate(chartDir)
 	if err != nil {
 		log.Errorf("cannot run helm dep update for istio %v", err)
 		return err
