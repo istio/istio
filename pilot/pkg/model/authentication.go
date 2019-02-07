@@ -105,7 +105,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool, metadata map[string]string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -120,10 +120,15 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 		},
 	}
 
-	// If useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
+	// If metadata[NodeMetadataSdsTokenPath] is non-empty, envoy will fetch tokens from metadata[NodeMetadataSdsTokenPath].
+	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
 	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
 	// request key/cert.
-	if useK8sSATrustworthyJwt {
+	if sdsTokenPath, found := metadata[NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
+		log.Debugf("SDS token path is (%v)", sdsTokenPath)
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(sdsTokenPath, k8sSAJwtTokenHeaderKey)
+	} else if useK8sSATrustworthyJwt {
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
 	} else if useK8sSANormalJwt {
