@@ -56,6 +56,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 	serverCmd.PersistentFlags().Int32VarP(&sa.NumCheckCacheEntries, "numCheckCacheEntries", "", sa.NumCheckCacheEntries,
 		"Max number of entries in the check result cache")
+	serverCmd.PersistentFlags().BoolVarP(&sa.EnableCheckCache, "enableCheckCache", "", sa.EnableCheckCache,
+		"Enable the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
 		"URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcps://<address> for MCP/Galley. "+

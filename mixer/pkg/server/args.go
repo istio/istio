@@ -98,6 +98,9 @@ type Args struct {
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
 
+	// EnableCheckCache enables Mixer server-side check cache
+	EnableCheckCache bool
+
 	// Maximum number of entries in the check cache
 	NumCheckCacheEntries int32
 
