@@ -39,10 +39,10 @@ func parseInfoFile(filePath string) (*resourceInfo, error) {
 	var info resourceInfo
 
 	data, err := ioutil.ReadFile(filePath)
+	fmt.Printf("file path %v and content %v", filePath, string(data))
 	if err != nil {
 		return nil, err
 	}
-
 	if err = yaml.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}
