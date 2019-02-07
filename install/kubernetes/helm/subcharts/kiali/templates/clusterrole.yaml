@@ -8,22 +8,39 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
-- apiGroups: ["", "apps", "autoscaling", "batch"]
+- apiGroups: [""]
   resources:
   - configmaps
-  - cronjobs
-  - deployments
   - endpoints
-  - horizontalpodautoscalers
-  - jobs
   - namespaces
   - nodes
   - pods
-  - projects
   - services
+  - replicationcontrollers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["extensions", "apps"]
+  resources:
+  - deployments
   - statefulsets
   - replicasets
-  - replicationcontrollers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["batch"]
+  resources:
+  - cronjobs
+  - jobs
   verbs:
   - get
   - list
