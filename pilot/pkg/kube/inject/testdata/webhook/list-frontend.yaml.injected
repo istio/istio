@@ -57,7 +57,7 @@ spec:
         - --applicationPorts
         - ""
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -81,6 +81,9 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"hello","tier":"frontend","track":"stable"}
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -96,8 +99,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337

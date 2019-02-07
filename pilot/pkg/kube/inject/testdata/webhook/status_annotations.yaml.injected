@@ -56,7 +56,7 @@ spec:
         - --applicationPorts
         - 1,2,3
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -80,6 +80,12 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_ANNOTATIONS
+          value: |
+            {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"123"}
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"status"}
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -95,8 +101,12 @@ spec:
           initialDelaySeconds: 100
           periodSeconds: 200
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
