@@ -80,8 +80,10 @@ const (
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
+	// attributes that could be used in a ServiceRole rules.
 	methodHeader = ":method"
 	pathHeader   = ":path"
+	port         = "port"
 
 	spiffePrefix = spiffe.Scheme + "://"
 )
@@ -600,6 +602,13 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		}
 	}
 
+	if len(rule.Ports) > 0 {
+		portRule := permissionForKeyValues(port, convertPortInIntToString(rule.Ports))
+		if portRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules, portRule)
+		}
+	}
+
 	if len(rule.Constraints) > 0 {
 		// Constraint rule is matched with AND semantics, it's invalid if 2 constraints have the same
 		// key and this should already be caught in validation stage.
@@ -737,14 +746,14 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
 			}, nil
 		}
-	case key == attrDestPort:
+	case key == attrDestPort || key == port:
 		converter = func(v string) (*policyproto.Permission, error) {
-			port, err := convertToPort(v)
+			portValue, err := convertToPort(v)
 			if err != nil {
 				return nil, err
 			}
 			return &policyproto.Permission{
-				Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
+				Rule: &policyproto.Permission_DestinationPort{DestinationPort: portValue},
 			}, nil
 		}
 	case key == pathHeader || key == methodHeader:
