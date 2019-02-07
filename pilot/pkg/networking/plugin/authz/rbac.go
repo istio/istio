@@ -590,6 +590,16 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		}
 	}
 
+	if len(rule.NotPaths) > 0 {
+		notPathRule := permissionForKeyValues(pathHeader, rule.NotPaths)
+		if notPathRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules,
+				&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
+					NotRule: notPathRule,
+				}})
+		}
+	}
+
 	if len(rule.Constraints) > 0 {
 		// Constraint rule is matched with AND semantics, it's invalid if 2 constraints have the same
 		// key and this should already be caught in validation stage.

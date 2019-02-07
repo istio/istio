@@ -3552,7 +3552,18 @@ func TestValidateServiceRole(t *testing.T) {
 					NotMethods: []string{"DELETE"},
 				},
 			}},
-			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (e.g. methods and not_methods) for rule 0",
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. methods and not_methods) for rule 0",
+		},
+		{
+			name: "has both paths and not_paths",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Paths:    []string{"/prod"},
+					NotPaths: []string{"/secret"},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. paths and not_paths) for rule 0",
 		},
 		{
 			name: "no key in constraint",

@@ -1449,9 +1449,12 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
 		}
 		// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
-		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (e.g. methods and not_methods) for rule %d"
+		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
 		if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
-			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, i))
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
+		}
+		if len(rule.Paths) > 0 && len(rule.NotPaths) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. paths and not_paths", i))
 		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
