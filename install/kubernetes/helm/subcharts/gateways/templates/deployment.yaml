@@ -27,7 +27,6 @@ spec:
         chart: {{ template "gateway.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
-        version: {{ $.Chart.Version }}
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
@@ -127,6 +126,8 @@ spec:
         {{- end }}
           - --proxyAdminPort
           - "15000"
+          - --statusPort
+          - "15020"
         {{- if $.Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
@@ -149,6 +150,16 @@ spec:
         {{- if $.Values.global.trustDomain }}
           - --trust-domain={{ $.Values.global.trustDomain }}
         {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}

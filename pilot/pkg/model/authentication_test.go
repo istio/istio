@@ -114,6 +114,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		expected          *auth.SdsSecretConfig
 		useTrustworthyJwt bool
 		useNormalJwt      bool
+		metadata          map[string]string
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -175,7 +176,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, c.metadata); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
