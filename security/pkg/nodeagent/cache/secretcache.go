@@ -514,6 +514,8 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
+	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)
+
 	certChain := []byte{}
 	for _, c := range certChainPEM {
 		certChain = append(certChain, []byte(c)...)
