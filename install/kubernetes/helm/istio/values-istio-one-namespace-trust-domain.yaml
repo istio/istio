@@ -16,4 +16,4 @@ global:
   trustDomain: test.local
 
   # Restrict the applications in one namespace the controller manages
-  oneNameSpace: true
+  oneNamespace: true
