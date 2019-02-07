@@ -46,8 +46,8 @@ data:
             cpu: 10m
             memory: 10Mi
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
         securityContext:
           capabilities:
             add:

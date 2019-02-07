@@ -1,10 +1,12 @@
 {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
-kind: Service
+kind: Endpoints
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-spec:
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
   ports:
   - port: 15003
     name: http-old-discovery # mTLS or non-mTLS depending on auth setting
@@ -18,43 +20,44 @@ spec:
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
-  - port: 9093
+  - port: 15014
     name: http-monitoring
-  clusterIP: None
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
-kind: Service
+kind: Endpoints
 metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
-spec:
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePolicyAddress }}
   ports:
   - name: grpc-mixer
     port: 9091
   - name: grpc-mixer-mtls
     port: 15004
   - name: http-monitoring
-    port: 9093
-  clusterIP: None
+    port: 15014
 {{- end }}
 {{- if and .Values.global.remoteTelemetryAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
-kind: Service
+kind: Endpoints
 metadata:
   name: istio-telemetry
-  namespace: {{ .Release.Namespace }}
-spec:
+  namespace: istio-system
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remoteTelemetryAddress }}
   ports:
   - name: grpc-mixer
     port: 9091
   - name: grpc-mixer-mtls
     port: 15004
   - name: http-monitoring
-    port: 9093
+    port: 15014
   - name: prometheus
     port: 42422
-  clusterIP: None
 {{- end }}

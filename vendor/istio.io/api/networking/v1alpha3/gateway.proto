@@ -304,6 +304,18 @@ message Server {
     // client side certificate.
     string ca_certificates = 5;
 
+    // The credentialName stands for a unique identifier that can be used
+    // to identify the serverCertificate, the privateKey and the
+    // CaCertificates associated with this server. Gateway workloads
+    // capable of fetching credentials from a remote credential store will
+    // be configured to retrive the credentials using this name, instead of
+    // using the file system paths specified above. The semantics of the
+    // name are platform dependent. In Kubernetes, the default Istio
+    // supplied credentail server expects the credentialName to match the
+    // name of the Kubernetes secret that holds the server certificate, the
+    // private key, and the CA certificate (if using mutual TLS).
+    string credential_name = 10;
+
     // A list of alternate names to verify the subject identity in the
     // certificate presented by the client.
     repeated string subject_alt_names = 6;
@@ -335,13 +347,6 @@ message Server {
     // Optional: If specified, only support the specified cipher list.
     // Otherwise default to the default cipher list supported by Envoy.
     repeated string cipher_suites = 9;
-
-    // Optional: If specified, the gateway controllers (with SDS enabled)
-    // use the specified name as the SDS secret config name to call the SDS
-    // server, to retrieve the key and certificates. Otherwise, the gateway
-    // controllers (with SDS enabled) use the first value in the hosts as
-    // the SDS secret config name to call the SDS server.
-    string sds_name = 10;
   }
 
   // Set of TLS related options that govern the server's behavior. Use

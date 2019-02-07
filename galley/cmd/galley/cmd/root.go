@@ -122,7 +122,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Path to the file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().DurationVar(&readinessProbeOptions.UpdateInterval, "readinessProbeInterval", server.DefaultProbeCheckInterval,
 		"Interval of updating file for the Galley readiness probe.")
-	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
+	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 15014,
 		"Port to use for exposing self-monitoring information")
 	rootCmd.PersistentFlags().UintVar(&pprofPort, "pprofPort", 9094, "Port to use for exposing profiling")
 	rootCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", false,
