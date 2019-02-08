@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -354,6 +355,8 @@ func TestHandleLogEntry(t *testing.T) {
 
 			time.Sleep(100 * time.Millisecond)
 
+			mf.mutex.RLock()
+			defer mf.mutex.RUnlock()
 			if got, want := mf.Batches, c.expected; got != want {
 				t.Errorf("Got %d batches; want %d", got, want)
 			}
@@ -443,6 +446,7 @@ type message struct {
 type mockFluentd struct {
 	bytes   bytes.Buffer
 	Batches int
+	mutex   sync.RWMutex
 }
 
 func (l *mockFluentd) Close() error {
@@ -455,7 +459,9 @@ func (l *mockFluentd) EncodeData(tag string, ts time.Time, msg interface{}) ([]b
 
 func (l *mockFluentd) PostRawData(data []byte) {
 	l.bytes.Write(data)
+	l.mutex.Lock()
 	l.Batches = l.Batches + 1
+	l.mutex.Unlock()
 }
 
 func (l *mockFluentd) Reset() {
