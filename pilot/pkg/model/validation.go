@@ -2093,7 +2093,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	for _, host := range serviceEntry.Hosts {
 		// Full wildcard is not allowed in the service entry.
 		if host == "*" {
-			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
+			errs = appendErrors(errs, fmt.Errorf("wildcard host %s not allowed in ServiceEntry", host))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
 		}
