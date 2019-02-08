@@ -743,9 +743,9 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				},
 			}, nil
 		}
-	case strings.HasPrefix(key, "envoy.filters.") && isKeyBinary(key):
-		// Split key of format envoy.filters.a.b[c] to [envoy.filters.a.b, c].
-		parts := strings.SplitN(strings.TrimSuffix(key, "]"), "[", 2)
+	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
+		// Split key of format experimental.envoy.filters.a.b[c] to [envoy.filters.a.b, c].
+		parts := strings.SplitN(strings.TrimSuffix(strings.TrimPrefix(key, "experimental."), "]"), "[", 2)
 		converter = func(v string) (*policyproto.Permission, error) {
 			// If value if of format [v], create a list matcher.
 			// Else, if value is of format v, create a string matcher.

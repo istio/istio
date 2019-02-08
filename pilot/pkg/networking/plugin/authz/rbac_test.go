@@ -412,7 +412,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					{
 						Services: []string{"mysql"},
 						Constraints: []*rbacproto.AccessRule_Constraint{
-							{Key: "envoy.filters.network.mysql_proxy[db.table]", Values: []string{"[update]"}},
+							{Key: "experimental.envoy.filters.network.mysql_proxy[db.table]", Values: []string{"[update]"}},
 						},
 					},
 				},
@@ -425,7 +425,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					{
 						Services: []string{"dummy"},
 						Constraints: []*rbacproto.AccessRule_Constraint{
-							{Key: "envoy.filters.dummy[key]", Values: []string{"value"}},
+							{Key: "experimental.envoy.filters.dummy[key]", Values: []string{"value"}},
 						},
 					},
 				},
