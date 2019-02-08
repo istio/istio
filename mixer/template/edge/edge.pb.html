@@ -38,6 +38,8 @@ spec:
   destinationOwner: destination.owner | &quot;Unknown&quot;
   destinationWorkloadName: destination.workload.name | &quot;Unknown&quot;
   destinationWorkloadNamespace: destination.workload.namespace | &quot;Unknown&quot;
+  destinationServiceName: destination.service.name | &quot;Unknown&quot;
+  destinationServiceNamespace: destination.service.namespace | &quot;Unknown&quot;
   apiProtocol: api.protocol | &quot;Unknown&quot;
   contextProtocol: context.protocol | &quot;Unknown&quot;
 </code></pre>
@@ -120,6 +122,22 @@ spec:
 <td><code>string</code></td>
 <td>
 <p>UID of the destination workload</p>
+
+</td>
+</tr>
+<tr id="Template-destination_service_namespace">
+<td><code>destinationServiceNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace of the destination Service</p>
+
+</td>
+</tr>
+<tr id="Template-destination_service_name">
+<td><code>destinationServiceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the destination Service</p>
 
 </td>
 </tr>
