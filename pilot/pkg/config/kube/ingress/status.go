@@ -167,7 +167,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 
 	// Register handler at the beginning
 	handler.Append(func(obj interface{}, event model.Event) error {
-		addrs, err := st.runningAddresses()
+		addrs, err := st.runningAddresses(ingressNamespace)
 		if err != nil {
 			return err
 		}
@@ -210,11 +210,11 @@ func (s *StatusSyncer) updateStatus(status []v1.LoadBalancerIngress) error {
 
 // runningAddresses returns a list of IP addresses and/or FQDN where the
 // ingress controller is currently running
-func (s *StatusSyncer) runningAddresses() ([]string, error) {
+func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	addrs := []string{}
 
 	if s.ingressService != "" {
-		svc, err := s.client.CoreV1().Services(ingressNamespace).Get(s.ingressService, meta_v1.GetOptions{})
+		svc, err := s.client.CoreV1().Services(ingressNs).Get(s.ingressService, meta_v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

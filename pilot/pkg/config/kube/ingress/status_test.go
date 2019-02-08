@@ -196,14 +196,19 @@ func TestConvertIngressControllerMode(t *testing.T) {
 	}
 }
 
-func TestRunningAddressesWithService(t *testing.T) {
+func TestRunningAddresses(t *testing.T) {
+	t.Run("service", testRunningAddressesWithService)
+	t.Run("hostname", testRunningAddressesWithHostname)
+}
+
+func testRunningAddressesWithService(t *testing.T) {
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(testNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +218,7 @@ func TestRunningAddressesWithService(t *testing.T) {
 	}
 }
 
-func TestRunningAddressesWithHostname(t *testing.T) {
+func testRunningAddressesWithHostname(t *testing.T) {
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
@@ -222,7 +227,7 @@ func TestRunningAddressesWithHostname(t *testing.T) {
 
 	syncer.ingressService = "istio-ingress-hostname"
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(testNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +247,7 @@ func TestRunningAddressesWithPod(t *testing.T) {
 
 	syncer.ingressService = ""
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(ingressNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}

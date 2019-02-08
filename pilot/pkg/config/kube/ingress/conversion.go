@@ -127,6 +127,9 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
 	// host.
+	if ingressNamespace == "" {
+		ingressNamespace = model.IstioIngressNamespace
+	}
 
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
@@ -143,7 +146,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			Hosts: []string{},
 			// Note the name of the gateway is fixed - this is the Gateway that needs to be created by user (via helm
 			// or manually) with TLS secrets and explicit namespace (for security).
-			Gateways: []string{model.IstioIngressGatewayName},
+			Gateways: []string{ingressNamespace + "/" + model.IstioIngressGatewayName},
 		}
 
 		virtualService.Hosts = []string{host}
@@ -171,7 +174,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				Group:     model.VirtualService.Group,
 				Version:   model.VirtualService.Version,
 				Name:      namePrefix + "-" + ingress.Name + "-" + model.IstioIngressGatewayName,
-				Namespace: ingressNamespace,
+				Namespace: ingress.Namespace,
 				Domain:    domainSuffix,
 			},
 			Spec: virtualService,
