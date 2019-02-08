@@ -20,9 +20,9 @@ import (
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
-	"istio.io/istio/pilot/pkg/model"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
