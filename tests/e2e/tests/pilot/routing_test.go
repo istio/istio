@@ -408,24 +408,23 @@ func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, "v1alpha3", 5, func() error {
-			reqURL := "http://c/a"
-			resp := ClientRequest(cluster, "a", reqURL, 1, "-key envoyfilter-test -val foobar123")
+	cluster := tc.Kube.Clusters[primaryCluster]
+	runRetriableTest(t, "v1alpha3", 5, func() error {
+		reqURL := "http://c/a"
+		resp := ClientRequest(cluster, "a", reqURL, 1, "-key envoyfilter-test -val foobar123")
 
-			statusCode := ""
-			if len(resp.Code) > 0 {
-				statusCode = resp.Code[0]
-			}
+		statusCode := ""
+		if len(resp.Code) > 0 {
+			statusCode = resp.Code[0]
+		}
 
-			expectedRespCode := 444
-			if strconv.Itoa(expectedRespCode) != statusCode {
-				return fmt.Errorf("test configuration of envoy filters via CRD (EnvoyFilter) failed."+
-					"Expected %d response code from the manually configured fault filter. Got %s", expectedRespCode, statusCode)
-			}
-			return nil
-		})
-	}
+		expectedRespCode := 444
+		if strconv.Itoa(expectedRespCode) != statusCode {
+			return fmt.Errorf("test configuration of envoy filters via CRD (EnvoyFilter) failed."+
+				"Expected %d response code from the manually configured fault filter. Got %s", expectedRespCode, statusCode)
+		}
+		return nil
+	})
 }
 
 func TestHeadersManipulations(t *testing.T) {
