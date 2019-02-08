@@ -89,7 +89,10 @@ func (w *watcher) Run(ctx context.Context) {
 		}
 	}
 	if shouldKickStart {
+		log.Info("Try to start Envoy...")
 		w.SendConfig()
+	} else {
+		log.Info("Cert files not ready, wait until cert files exist to start Envoy.")
 	}
 
 	<-ctx.Done()
