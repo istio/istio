@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/fluent/fluent-logger-golang/fluent"
+
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -432,12 +433,6 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 		})
 	}
 
-}
-
-type message struct {
-	Tag string
-	TS  time.Time
-	Msg interface{}
 }
 
 type mockFluentd struct {

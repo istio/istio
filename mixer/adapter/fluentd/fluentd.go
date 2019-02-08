@@ -89,7 +89,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	return b.build(ctx, env, fluent.New)
 }
 
-func (b *builder) build(ctx context.Context, env adapter.Env, newFluentd func(fluent.Config) (*fluent.Fluent, error)) (adapter.Handler, error) {
+func (b *builder) build(_ context.Context, env adapter.Env, newFluentd func(fluent.Config) (*fluent.Fluent, error)) (adapter.Handler, error) {
 	h, pStr, err := net.SplitHostPort(b.adpCfg.Address)
 	if err != nil {
 		return nil, err
