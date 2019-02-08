@@ -117,6 +117,9 @@ func copyValue(v interface{}) interface{} {
 
 // Done indicates the bag can be reclaimed.
 func (mb *MutableBag) Done() {
+	if mb == nil {
+		return
+	}
 	// prevent use of a bag that's in the pool
 	if mb.parent == nil {
 		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
