@@ -1228,6 +1228,8 @@ type TLSSettings struct {
 	// A list of alternate names to verify the subject identity in the
 	// certificate. If specified, the proxy will verify that the server
 	// certificate's subject alt name matches one of the specified values.
+	// If specified, this list overrides the value of subject_alt_names
+	// from the ServiceEntry.
 	SubjectAltNames []string `protobuf:"bytes,5,rep,name=subject_alt_names,json=subjectAltNames" json:"subject_alt_names,omitempty"`
 	// SNI string to present to the server during TLS handshake.
 	Sni string `protobuf:"bytes,6,opt,name=sni,proto3" json:"sni,omitempty"`

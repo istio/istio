@@ -587,42 +587,42 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 
 	if len(rule.Hosts) > 0 {
 		hostRule := permissionForKeyValues(hostHeader, rule.Hosts)
-		addToRules(rules, hostRule /*isNotRule*/, false)
+		addToRules(rules, hostRule, false /*isNotRule*/)
 	}
 
 	if len(rule.NotHosts) > 0 {
 		notHostRule := permissionForKeyValues(hostHeader, rule.NotHosts)
-		addToRules(rules, notHostRule /*isNotRule*/, true)
+		addToRules(rules, notHostRule, true /*isNotRule*/)
 	}
 
 	if len(rule.Methods) > 0 {
 		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
-		addToRules(rules, methodRule /*isNotRule*/, false)
+		addToRules(rules, methodRule, false /*isNotRule*/)
 	}
 
 	if len(rule.NotMethods) > 0 {
 		notMethodRule := permissionForKeyValues(methodHeader, rule.NotMethods)
-		addToRules(rules, notMethodRule /*isNotRule*/, true)
+		addToRules(rules, notMethodRule, true /*isNotRule*/)
 	}
 
 	if len(rule.Paths) > 0 {
 		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
-		addToRules(rules, pathRule /*isNotRule*/, false)
+		addToRules(rules, pathRule, false /*isNotRule*/)
 	}
 
 	if len(rule.NotPaths) > 0 {
 		notPathRule := permissionForKeyValues(pathHeader, rule.NotPaths)
-		addToRules(rules, notPathRule /*isNotRule*/, true)
+		addToRules(rules, notPathRule, true /*isNotRule*/)
 	}
 
 	if len(rule.Ports) > 0 {
 		portRule := permissionForKeyValues(port, convertPortInIntToString(rule.Ports))
-		addToRules(rules, portRule /*isNotRule*/, false)
+		addToRules(rules, portRule, false /*isNotRule*/)
 	}
 
 	if len(rule.NotPorts) > 0 {
 		notPortRule := permissionForKeyValues(port, convertPortInIntToString(rule.NotPorts))
-		addToRules(rules, notPortRule /*isNotRule*/, true)
+		addToRules(rules, notPortRule, true /*isNotRule*/)
 	}
 
 	if len(rule.Constraints) > 0 {
@@ -630,7 +630,7 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		// key and this should already be caught in validation stage.
 		for _, constraint := range rule.Constraints {
 			p := permissionForKeyValues(constraint.Key, constraint.Values)
-			addToRules(rules, p /*isNotRule*/, false)
+			addToRules(rules, p, false /*isNotRule*/)
 		}
 	}
 

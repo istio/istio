@@ -559,7 +559,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-		generateSimpleServiceRoleBindingForNotRule( /*serviceRoleOrBindingID*/ "7"),
+		generateSimpleServiceRoleBindingForNotRule("7" /*serviceRoleOrBindingID*/),
 		generateSimpleServiceRoleBindingForNotRule("8"),
 		generateSimpleServiceRoleBindingForNotRule("9"),
 		generateSimpleServiceRoleBindingForNotRule("10"),
@@ -908,7 +908,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			"service-role-2": policy2,
 		},
 	}
-	expectRbac2 := generateExpectRBACForSinglePolicy( /*serviceRoleID*/ "2", policy2)
+	expectRbac2 := generateExpectRBACForSinglePolicy("2" /*serviceRoleID*/, policy2)
 	expectRbac3 := generateExpectRBACForSinglePolicy("3", policy3)
 	expectRbac4 := generateExpectRBACForSinglePolicy("4", policy4)
 	expectRbac5 := generateExpectRBACForSinglePolicy("5", policy5)
