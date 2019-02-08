@@ -80,6 +80,8 @@ var (
 
 	wg sync.WaitGroup
 
+	gracefulShutdownFeatureFlag bool
+
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",
@@ -298,7 +300,9 @@ var (
 			defer func() {
 				log.Info("pilot-agent is terminating")
 				cancel()
-				wg.Wait()
+				if gracefulShutdownFeatureFlag {
+					wg.Wait()
+				}
 			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -466,6 +470,10 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
+
+	// Feature flags
+	proxyCmd.PersistentFlags().BoolVar(&gracefulShutdownFeatureFlag, "gracefulShutdown", false,
+		"Drains Envoy connections when SIGTERM is received. Drain duration is equal to Parent Shutdown duration.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
