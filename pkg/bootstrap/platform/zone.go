@@ -16,6 +16,7 @@ package platform
 
 import (
 	"cloud.google.com/go/compute/metadata"
+
 	"istio.io/istio/pkg/log"
 )
 
