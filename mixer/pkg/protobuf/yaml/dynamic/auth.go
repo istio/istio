@@ -74,7 +74,7 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 		caCertPool.AppendCertsFromPEM(publicCerts)
 	}
 
-	// load ca file provided by file.
+	// load ca provided by file, such as istio CA certs.
 	if caFile != "" {
 		caCerts, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -94,7 +94,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.Dial
 		return nil, errors.Errorf("load peer cert/key error: %v", err)
 	}
 
-	// Load certificates, include public certs and certs from config.
+	// Load certificates, include public certs and certs from config (such as istio CA certs).
 	caCertPool, err := loadCerts(mtlsCfg.GetCaCertificates())
 	if err != nil {
 		return nil, fmt.Errorf("failed build tls dial option: ca cert cannot be load %v", err)
@@ -181,7 +181,7 @@ func buildPerRPCCredentials(tlsCfg *policypb.Tls) (credentials.PerRPCCredentials
 
 func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOption, error) {
 	var opts []grpc.DialOption
-	// Load certificates, include system certs, istio certs and additional certs from config.
+	// Load certificates, include system certs and additional certs (such as istio CA certs) from file.
 	caCertPool, err := loadCerts(tlsCfg.GetCaCertificates())
 	if err != nil {
 		return nil, fmt.Errorf("failed build tls dial option: ca cert cannot be load %v", err)
