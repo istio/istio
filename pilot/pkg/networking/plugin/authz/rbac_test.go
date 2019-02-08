@@ -437,6 +437,17 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-10"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"service-10"},
+						Hosts:    []string{"104.198.191.125"},
+					},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -540,6 +551,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		generateSimpleServiceRoleBindingForNotRule( /*serviceRoleOrBindingID*/ "7"),
 		generateSimpleServiceRoleBindingForNotRule("8"),
 		generateSimpleServiceRoleBindingForNotRule("9"),
+		generateSimpleServiceRoleBindingForNotRule("10"),
 	}
 
 	policy1 := &policy.Policy{
@@ -843,6 +855,38 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
+	policy10 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: generateHeaderRule([]*route.HeaderMatcher{
+									{Name: hostHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "104.198.191.125"}},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, "group*"),
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -858,6 +902,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	expectRbac7 := generateExpectRBACForSinglePolicy("7", policy7)
 	expectRbac8 := generateExpectRBACForSinglePolicy("8", policy8)
 	expectRbac9 := generateExpectRBACForSinglePolicy("9", policy9)
+	expectRbac10 := generateExpectRBACForSinglePolicy("10", policy10)
 
 	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)
 	option := rbacOption{authzPolicies: authzPolicies}
@@ -961,6 +1006,14 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				name: "service-9",
 			},
 			rbac:   expectRbac9,
+			option: option,
+		},
+		{
+			name: "hosts rule",
+			service: &serviceMetadata{
+				name: "service-10",
+			},
+			rbac:   expectRbac10,
 			option: option,
 		},
 	}

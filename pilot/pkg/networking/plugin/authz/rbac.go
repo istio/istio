@@ -83,6 +83,7 @@ const (
 	// attributes that could be used in a ServiceRole rules.
 	methodHeader = ":method"
 	pathHeader   = ":path"
+	hostHeader   = ":authority"
 	port         = "port"
 
 	spiffePrefix = spiffe.Scheme + "://"
@@ -567,6 +568,13 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		},
 	}
 
+	if len(rule.Hosts) > 0 {
+		hostRule := permissionForKeyValues(hostHeader, rule.Hosts)
+		if hostRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules, hostRule)
+		}
+	}
+
 	if len(rule.Methods) > 0 {
 		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
 		if methodRule != nil {
@@ -766,7 +774,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationPort{DestinationPort: portValue},
 			}, nil
 		}
-	case key == pathHeader || key == methodHeader:
+	case key == pathHeader || key == methodHeader || key == hostHeader:
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Header{
