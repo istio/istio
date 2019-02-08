@@ -336,7 +336,9 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 	return reportResp, nil
 }
 
-func dispatchSingleReport(ctx context.Context, preprocessor dispatcher.Dispatcher, reporter dispatcher.Reporter, attributesBag attribute.Bag, reportBag *attribute.MutableBag) error {
+func dispatchSingleReport(ctx context.Context, preprocessor dispatcher.Dispatcher, reporter dispatcher.Reporter,
+	attributesBag attribute.Bag, reportBag *attribute.MutableBag) error {
+
 	lg.Debug("Dispatching Preprocess")
 
 	if err := preprocessor.Preprocess(ctx, attributesBag, reportBag); err != nil {
