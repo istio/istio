@@ -521,6 +521,10 @@ const (
 
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
 	NodeMetadataInstanceIPs = "INSTANCE_IPS"
+
+	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
+	// If not set, Pilot uses the default SDS token path.
+	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
