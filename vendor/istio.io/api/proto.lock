@@ -3455,6 +3455,12 @@
                 "name": "export_to",
                 "type": "string",
                 "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "subject_alt_names",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "messages": [
