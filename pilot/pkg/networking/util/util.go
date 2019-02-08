@@ -285,7 +285,6 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 	if locality == nil || (len(locality.GetRegion()) == 0) {
 		return true
 	}
-
 	return false;
 }
 
