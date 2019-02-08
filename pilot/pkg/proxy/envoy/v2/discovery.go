@@ -231,10 +231,12 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	defer ticker.Stop()
 	for range ticker.C {
 		push := s.globalPushContext()
+		push.Mutex.Lock()
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
 		push.UpdateMetrics()
+		push.Mutex.Unlock()
 		// TODO: env to customize
 		//if time.Since(push.Start) > 30*time.Second {
 		// Reset the stats, some errors may still be stale.
