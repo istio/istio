@@ -50,7 +50,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	logEntryHandler := handler.(logentry.Handler)
-	err := logEntryHandler.HandleLogEntry(context.Background(), nil)
+	err = logEntryHandler.HandleLogEntry(context.Background(), nil)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
