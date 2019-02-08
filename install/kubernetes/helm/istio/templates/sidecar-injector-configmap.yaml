@@ -164,6 +164,11 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+{{- if .Values.global.podDNSSearchNamespaces }}
+        - name: ISTIO_META_DNS_DOMAINS
+{{- $local := dict "first" true }}
+          value: {{ range $k, $v := .Values.global.podDNSSearchNamespaces }}{{- if not $local.first }},{{ end }}{{- $v }}{{- $_ := set $local "first" false }}{{- end }}
+{{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         {{- if .Values.global.network }}

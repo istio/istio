@@ -39,7 +39,7 @@ var (
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
+		DNSDomains:  []string{"default.example.org"},
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
 			"ISTIO_PROXY_VERSION":             "1.1",
