@@ -95,10 +95,10 @@ func hasKubeRegistry() bool {
 }
 
 func init() {
-	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
-		[]string{string(serviceregistry.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MCPRegistry, serviceregistry.MockRegistry))
+	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries", []string{},
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s}).  "+
+			"Choosing none will default to service registry backed by MCP ServiceEntries.",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",

@@ -925,8 +925,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCPRegistry:
-			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
