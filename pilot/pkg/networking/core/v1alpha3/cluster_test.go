@@ -169,7 +169,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.SidecarProxy,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomain:   "com",
+			DNSDomains:  []string{"com"},
 			Metadata:    meta,
 		}
 	case model.Router:
@@ -177,7 +177,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.Router,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomain:   "default.example.org",
+			DNSDomains:  []string{"default.example.org"},
 			Metadata:    meta,
 		}
 	default:
