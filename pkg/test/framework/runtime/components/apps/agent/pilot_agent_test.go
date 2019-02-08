@@ -59,6 +59,8 @@ func TestMinimal(t *testing.T) {
 }
 
 func TestFull(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/11561")
+
 	testForApps(t, &echo.Factory{
 		Ports: model.PortList{
 			{

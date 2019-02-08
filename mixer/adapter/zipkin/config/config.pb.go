@@ -4,10 +4,10 @@
 /*
 	Package config is a generated protocol buffer package.
 
-	The `zipkin` adapter enables Istio to deliver tracingn data to the
+	The `zipkin` adapter enables Istio to deliver tracing data to the
 	[Zipkin](https://cloud.google.com/zipkin/) tracing backend.
 
-	This adapter supports the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html).
+	This adapter supports the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
 
 	It is generated from these files:
 		mixer/adapter/zipkin/config/config.proto
