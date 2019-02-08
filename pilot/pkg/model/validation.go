@@ -1450,6 +1450,9 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		}
 		// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
 		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
+		if len(rule.Hosts) > 0 && len(rule.NotHosts) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. hosts and not_hosts", i))
+		}
 		if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
 			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
 		}

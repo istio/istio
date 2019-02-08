@@ -31,6 +31,9 @@ func validateRuleForTCPFilter(rule *rbacproto.AccessRule) error {
 	if len(rule.Hosts) != 0 {
 		return fmt.Errorf("hosts(%v) not supported", rule.Hosts)
 	}
+	if len(rule.NotHosts) != 0 {
+		return fmt.Errorf("hosts(%v) not supported", rule.NotHosts)
+	}
 	if len(rule.Paths) != 0 {
 		return fmt.Errorf("paths(%v) not supported", rule.Paths)
 	}

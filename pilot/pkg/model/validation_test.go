@@ -3577,6 +3577,17 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
 		},
 		{
+			name: "has both hosts and not_hosts",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Hosts:    []string{"*"},
+					NotHosts: []string{"104.198.191.125"},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. hosts and not_hosts) for rule 0",
+		},
+		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
@@ -3626,6 +3637,7 @@ func TestValidateServiceRole(t *testing.T) {
 				{
 					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
+					NotHosts: []string{"104.198.191.125"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
