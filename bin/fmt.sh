@@ -48,7 +48,6 @@ fi
 GO_IMPORTS_DOCKER="gcr.io/istio-testing/goimports:92cdcd90bf52"
 if [ $GO_FMT_TOOL = "goimportsdocker" ]; then
   tool="docker run -i --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
     -v $(pwd):/go/src/istio.io/istio \
     -w /go/src/istio.io/istio ${GO_IMPORTS_DOCKER} /goimports"
   check_args="-d -local istio.io"
