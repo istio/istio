@@ -1795,7 +1795,7 @@ func validateGatewayNames(gateways []string) (errs error) {
 				"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
-			return
+			continue
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {

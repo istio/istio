@@ -1327,6 +1327,24 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
+func TestValidateGatewayNames(t *testing.T) {
+	tests := []struct {
+		name  string
+		names []string
+	}{
+		{"name1", []string{"myname", "##mn"}},
+		{"name2", []string{"mynamespace/myname"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGatewayNames(tt.names)
+			if err == nil {
+				t.Errorf("Expected to detect bad gateway name but did not")
+			}
+		})
+	}
+}
+
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
