@@ -19,6 +19,7 @@
 Example:
 ./gen-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.pem -listclaim key1 val2 val3 -listclaim key2 val3 val4
 """
+from __future__ import print_function
 import argparse
 import time
 
@@ -102,4 +103,4 @@ if __name__ == '__main__':
                          help="JWT expiration time in second. Default is 1 hour.")
     parser.add_argument("-listclaim", "--listclaim", action='append', nargs='+',
                         help="A list claim in format key1 value2 value3... Only string values are supported. Multiple list claims can be specified, e.g., -listclaim key1 val2 val3 -listclaim key2 val3 val4.")
-    print main(parser.parse_args())
+    print(main(parser.parse_args()))

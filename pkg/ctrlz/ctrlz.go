@@ -189,13 +189,13 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	}
 
 	s.shutdown.Add(1)
-	go s.listen(o.Port)
+	go s.listen()
 
 	return s, nil
 }
 
-func (s *Server) listen(port uint16) {
-	log.Infof("ControlZ available at %s:%d", getLocalIP(), port)
+func (s *Server) listen() {
+	log.Infof("ControlZ available at %s", s.listener.Addr().String())
 
 	if listeningTestProbe != nil {
 		listeningTestProbe()

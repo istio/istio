@@ -17,6 +17,7 @@ package route
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -572,18 +572,16 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		return nil
 	}
 
+	// CORS filter is enabled by default
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_Enabled{
-			Enabled: proto.BoolTrue,
-		},
 	}
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
 	if in.MaxAge != nil {
-		out.MaxAge = in.MaxAge.String()
+		out.MaxAge = strconv.FormatInt(in.MaxAge.GetSeconds(), 10)
 	}
 	return &out
 }

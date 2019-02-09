@@ -169,6 +169,23 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 								},
 							},
 						},
+						{
+							Rule: &policy.Permission_NotRule{
+								NotRule: &policy.Permission{
+									Rule: &policy.Permission_OrRules{
+										OrRules: &policy.Permission_Set{
+											Rules: []*policy.Permission{
+												{
+													Rule: &policy.Permission_Header{
+														Header: convertToHeaderMatcher(":method", "*"),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},

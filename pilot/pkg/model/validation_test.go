@@ -1327,6 +1327,23 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
+func TestValidateGatewayNames(t *testing.T) {
+	tests := []struct {
+		name  string
+		names []string
+	}{
+		{"name1", []string{"myname", "##mn"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGatewayNames(tt.names)
+			if err == nil {
+				t.Errorf("Expected to detect bad gateway name but did not")
+			}
+		})
+	}
+}
+
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1505,9 +1522,10 @@ func TestValidateTlsOptions(t *testing.T) {
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
-				Mode: networking.Server_TLSOptions_SIMPLE,
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "",
 			},
-			""},
+			"server certificate"},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,

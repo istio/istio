@@ -508,7 +508,11 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
+		if tls.ServerCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+		}
+	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -1791,7 +1795,7 @@ func validateGatewayNames(gateways []string) (errs error) {
 				"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
-			return
+			continue
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {

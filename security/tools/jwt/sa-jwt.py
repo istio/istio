@@ -19,6 +19,7 @@
 Example:
 ./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json 
 """
+from __future__ import print_function
 import argparse
 import time
 
@@ -76,4 +77,4 @@ if __name__ == '__main__':
                         help="sub claim. If not provided, it is set to the same as iss claim.")
     parser.add_argument("-claims", "--claims",
                          help="Other claims in format name1:value1,name2:value2 etc. Only string values are supported.")
-    print main(parser.parse_args())
+    print(main(parser.parse_args()))
