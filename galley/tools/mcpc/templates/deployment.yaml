@@ -1,0 +1,43 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+spec:
+  replicas: {{ .Values.replicaCount}}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      # TODO use pilot certs
+      serviceAccount: istio-pilot-service-account
+      containers:
+      - image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        name: {{ .Values.name }}
+        args:
+        - -id=${MY_POD_NAMESPACE}/${MY_POD_NAME}
+        - -output=stats
+        - -use-source-service
+        - -use-wkt
+        - -server={{ .Values.mcpServer }}
+        - -cert-file=/etc/certs/cert-chain.pem
+        - -key-file=/etc/certs/key.pem
+        - -ca-cert-file=/etc/certs/root-cert.pem
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default

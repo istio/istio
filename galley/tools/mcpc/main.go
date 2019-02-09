@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	_ "istio.io/istio/galley/pkg/metadata" // Import the resource package to pull in all proto types.
 	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -50,6 +51,10 @@ var (
 	useResourceSourceService = flag.Bool("use-source-service", true, "use the new resource source service")
 	output                   = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
 	labels                   = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
+
+	certFile   = flag.String("cert-file", "", "ca file")
+	keyFile    = flag.String("key-file", "", "key file")
+	caCertFile = flag.String("ca-cert-file", "", "ca cert file")
 )
 
 var (
@@ -379,7 +384,41 @@ func main() {
 
 	sort.Strings(collections)
 
-	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	ctx := context.Background()
+
+	securityOption := grpc.WithInsecure()
+	server := *serverAddr
+	idx := strings.Index(server, "://")
+	if idx >= 0 {
+		scheme := server[:idx+3]
+		server = server[idx+3:]
+
+		switch scheme {
+		case "mcps://":
+			options := &creds.Options{
+				CertificateFile:   *certFile,
+				KeyFile:           *keyFile,
+				CACertificateFile: *caCertFile,
+			}
+			watcher, err := creds.WatchFiles(ctx.Done(), options)
+			if err != nil {
+				fmt.Printf("cannot load certs: %v\n", err)
+				os.Exit(-1)
+			}
+
+			credentials := creds.CreateForClient(server, watcher)
+			securityOption = grpc.WithTransportCredentials(credentials)
+
+			fmt.Println("Using secure MCP with mTLS")
+		case "mcp://":
+			fmt.Println("Using insecure MCP")
+		default:
+			fmt.Printf("unknown server scheme %q", scheme)
+			os.Exit(-1)
+		}
+	}
+
+	conn, err := grpc.Dial(server, grpc.WithBlock(), securityOption)
 	if err != nil {
 		fmt.Printf("Error connecting to server: %v\n", err)
 		os.Exit(-1)
@@ -401,8 +440,6 @@ func main() {
 		Metadata:          sinkMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
-
-	ctx := context.Background()
 
 	if *useResourceSourceService {
 		cl := mcp.NewResourceSourceClient(conn)

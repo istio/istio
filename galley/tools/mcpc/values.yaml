@@ -1,0 +1,11 @@
+# image name
+image: gcr.io/mixologist-142215/mcpc:latest
+
+# deployment and pod name and app label
+name: mcpc
+
+# MCP source server address to connect to
+mcpServer: mcp://istio-galley.istio-system.svc:9901
+
+imagePullPolicy: Always
+replicaCount: 1
