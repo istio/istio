@@ -86,6 +86,10 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
 			},
+			// Bump up the number of connections (default to 2) kept in the pool for
+			// re-use. This can greatly improve the connection re-use with heavy
+			// traffic.
+			MaxIdleConnsPerHost: 100,
 		},
 	}
 	resp, err := httpClient.Do(req)
