@@ -495,7 +495,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	}
 
 	// FIXME: this code should be removed once the EDS issue is fixed
-    var myconfig *Config
+	var myconfig *Config
 	if proxy == nil {
 		// look for dest rules across all namespaces public/private
 		matchLen := 0
