@@ -86,6 +86,9 @@ type sdsConnection struct {
 
 	// The secret associated with the proxy.
 	secret *model.SecretItem
+
+	// Mutex to protect read/write to this connection
+	mutex sync.RWMutex
 }
 
 type sdsservice struct {
@@ -243,7 +246,9 @@ func NotifyProxy(proxyID, resourceName string, secret *model.SecretItem) error {
 		log.Errorf("No connection with id %q can be found", proxyID)
 		return fmt.Errorf("no connection with id %q can be found", proxyID)
 	}
+	conn.mutex.Lock()
 	conn.secret = secret
+	conn.mutex.Unlock()
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
@@ -299,12 +304,6 @@ func removeConn(k cache.ConnKey) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	if con.secret.RootCert != nil {
-		log.Infof("SDS: push root cert from node agent to proxy:%q", con.proxyID)
-	} else {
-		log.Infof("SDS: push key/cert pair from node agent to proxy:%q", con.proxyID)
-	}
-
 	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
@@ -315,6 +314,16 @@ func pushSDS(con *sdsConnection) error {
 		log.Errorf("SDS: Send response failure %v", err)
 		return err
 	}
+
+	con.mutex.RLock()
+	if con.secret.RootCert != nil {
+		log.Infof("SDS: push root cert from node agent to proxy: %q\n", con.proxyID)
+		log.Debugf("SDS: push root cert %+v to proxy: %q\n", string(con.secret.RootCert), con.proxyID)
+	} else {
+		log.Infof("SDS: push key/cert pair from node agent to proxy: %q\n", con.proxyID)
+		log.Debugf("SDS: push certificate chain %+v to proxy: %q\n", string(con.secret.CertificateChain), con.proxyID)
+	}
+	con.mutex.RUnlock()
 
 	return nil
 }

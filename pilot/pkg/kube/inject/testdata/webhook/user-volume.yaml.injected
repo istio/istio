@@ -35,7 +35,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - user-volume.default
+        - user-volume.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
