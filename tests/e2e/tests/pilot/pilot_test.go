@@ -299,9 +299,7 @@ func (c *deployableConfig) TeardownNoDelay() error {
 
 func (c *deployableConfig) propagationDelay() time.Duration {
 	// With multiple clusters, it takes more time to propagate.
-	log.Debugf("DEBUG: %v %v", defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters)), len(tc.Kube.Clusters))
-	return defaultPropagationDelay
-	//return defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters))
+	return defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters))
 }
 
 type testConfig struct {
