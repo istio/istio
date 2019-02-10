@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/test"
@@ -60,6 +61,8 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	deploymentName := fmt.Sprintf("%s-%v", c.Namespace, time.Now().UnixNano())
 	scopes.CI.Infof("Generated Helm Instance name: %s", deploymentName)
 
+
+
 	yamlFilePath := path.Join(c.WorkDir, deploymentName+".yaml")
 
 	// Convert the valuesFile to an absolute file path.
@@ -71,17 +74,19 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		}
 	}
 
-	var err error
-	var generatedYaml string
-	if generatedYaml, err = HelmTemplate(
+	generatedYaml, err := HelmTemplate(
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
 		c.WorkDir,
 		valuesFile,
-		c.Values); err != nil {
+		c.Values)
+
+	if err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
+
+	generatedYaml = strings.Replace(generatedYaml, "IfNotPresent", "Always", -1)
 
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
 	// when we support Helm deployment of non-Istio artifacts.
