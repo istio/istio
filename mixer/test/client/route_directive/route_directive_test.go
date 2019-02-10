@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/mixer/v1"
+	v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
 

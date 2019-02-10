@@ -44,7 +44,7 @@ import (
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{// mock.HelloService.Hostname: mock.HelloService,
+		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ConfigUpdater = cfg
