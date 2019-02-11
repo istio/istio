@@ -80,8 +80,6 @@ var (
 
 	wg sync.WaitGroup
 
-	gracefulShutdownFeatureFlag bool
-
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",
