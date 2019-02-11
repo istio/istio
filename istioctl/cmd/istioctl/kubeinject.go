@@ -72,7 +72,7 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	}
 	cfg, err := model.ApplyMeshConfigDefaults(configYaml)
 	if err != nil {
-		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Check Istio control plane version",
+		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
 			version.Info.Version), err)
 	}
 	return cfg, err
