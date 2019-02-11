@@ -620,12 +620,12 @@ func TestReportIndependent(t *testing.T) {
 		}
 
 		if callCount == 0 {
-			if i1 != 25.0 || i2 != 26 || i3 != 27 {
+			if i1 != 25 || i2 != 26 || i3 != 27 {
 				t.Errorf("Got %d %d %d, expected 25 26 27", i1, i2, i3)
 			}
 		} else if callCount == 1 {
 			if v1 != nil || i2 != 42 || v3 != nil {
-				t.Errorf("Got %d %d %d, expected 0 42 0", i1, i2, i3)
+				t.Errorf("Got %d %d %d, expected nil 42 nil", i1, i2, i3)
 			}
 		} else if callCount == 2 {
 			if v1 != nil || v2 != nil || v3 != nil || i4 != 31415692 {
