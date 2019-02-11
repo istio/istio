@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"time"
 	"fmt"
 	"testing"
 
@@ -54,8 +53,6 @@ func TestTLSMultiplexing(t *testing.T) {
 	}{
 		{"t", "d", "7070"},
 	}
-
-	time.Sleep(30*time.Second)
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
