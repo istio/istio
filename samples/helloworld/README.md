@@ -64,5 +64,6 @@ value > 1.
 
 ```bash
 kubectl delete -f helloworld-istio.yaml
+kubectl delete -f helloworld-gateway.yaml
 kubectl delete hpa helloworld-v1 helloworld-v2
 ```
