@@ -214,7 +214,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// proxy's config namespace. As such, this code searches through all
 	// destination rules, public and private and returns a completely
 	// arbitrary destination rule's subset labels!
-	labels := push.SubsetToLabels(subsetName, hostname)
+	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
 	portMap, f := push.ServicePort2Name[string(hostname)]
 	if !f {
@@ -383,7 +383,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
-		labels := push.SubsetToLabels(subsetName, hostname)
+		labels := push.SubsetToLabels(nil, subsetName, hostname)
 		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
