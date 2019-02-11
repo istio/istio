@@ -324,7 +324,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, getTerminationDrainDuration())
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -340,22 +340,6 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 	wg.Add(1)
 	fn(ctx)
 	wg.Done()
-}
-
-// TODO: move this to API in 1.2
-// This retrieves the duration for draining the active envoy instance on pilot-agent termination.
-// If there is no env var set or it is not parsable into a number, it defaults to 5 seconds.
-func getTerminationDrainDuration() time.Duration {
-	defaultDuration := time.Second * 5
-	if pilot.TerminationDrainDuration == "" {
-		return defaultDuration
-	}
-	duration, err := strconv.Atoi(pilot.TerminationDrainDuration)
-	if err != nil {
-		log.Warnf("unable to parse env var %v, using default of %v.", pilot.TerminationDrainDuration, defaultDuration)
-		return defaultDuration
-	}
-	return time.Second * time.Duration(duration)
 }
 
 func getPilotSAN(domain string, ns string) []string {

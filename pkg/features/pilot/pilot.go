@@ -16,6 +16,10 @@ package pilot
 
 import (
 	"os"
+	"strconv"
+	"time"
+
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -83,7 +87,18 @@ var (
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
 	// sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.
-	TerminationDrainDuration = os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS")
+	TerminationDrainDuration = func() time.Duration {
+		defaultDuration := time.Second * 5
+		if os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS") == "" {
+			return defaultDuration
+		}
+		duration, err := strconv.Atoi(os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS"))
+		if err != nil {
+			log.Warnf("unable to parse env var %v, using default of %v.", os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS"), defaultDuration)
+			return defaultDuration
+		}
+		return time.Second * time.Duration(duration)
+	}
 )
 
 var (
