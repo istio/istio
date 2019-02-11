@@ -16,6 +16,7 @@ package components
 
 import (
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
@@ -27,6 +28,8 @@ import (
 type Pilot interface {
 	component.Instance
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
 }
 
 // GetPilot from the repository
