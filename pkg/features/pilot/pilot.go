@@ -78,6 +78,12 @@ var (
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
 	// be used, "/"
 	BaseDir = "BASE"
+
+	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-sagent shutdown.
+	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
+	// preventing any new connections and allowing existing connections to complete. It then
+	// sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.
+	TerminationDrainDuration = os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS")
 )
 
 var (

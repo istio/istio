@@ -207,9 +207,11 @@ func Test_handleTDDEnvVar(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setEnvVar {
 				os.Setenv("TERMINATION_DRAIN_DURATION_SECONDS", tt.envVar)
+			} else {
+				os.Unsetenv("TERMINATION_DRAIN_DURATION_SECONDS")
 			}
-			if got := handleTDDEnvVar(); got != tt.want {
-				t.Errorf("handleTDDEnvVar() = %v, want %v", got, tt.want)
+			if got := getTerminationDrainDuration(); got != tt.want {
+				t.Errorf("getTerminationDrainDuration() = %v, want %v", got, tt.want)
 			}
 		})
 	}

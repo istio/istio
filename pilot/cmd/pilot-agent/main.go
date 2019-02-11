@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -323,7 +324,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, handleTDDEnvVar())
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, getTerminationDrainDuration())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -342,17 +343,19 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 }
 
 // TODO: move this to API in 1.2
-func handleTDDEnvVar() time.Duration {
-	tddEnvVar, found := os.LookupEnv("TERMINATION_DRAIN_DURATION_SECONDS")
-	if !found || tddEnvVar == "" {
-		return time.Second * 5
+// This retrieves the duration for draining the active envoy instance on pilot-agent termination.
+// If there is no env var set or it is not parsable into a number, it defaults to 5 seconds.
+func getTerminationDrainDuration() time.Duration {
+	defaultDuration := time.Second * 5
+	if pilot.TerminationDrainDuration == "" {
+		return defaultDuration
 	}
-	tdd, err := strconv.Atoi(tddEnvVar)
+	duration, err := strconv.Atoi(pilot.TerminationDrainDuration)
 	if err != nil {
-		log.Warnf("unable to parse env var TERMINATION_DRAIN_DURATION_SECONDS, using default of 5 seconds.")
-		return time.Second * 5
+		log.Warnf("unable to parse env var %v, using default of %v.", pilot.TerminationDrainDuration, defaultDuration)
+		return defaultDuration
 	}
-	return time.Second * time.Duration(tdd)
+	return time.Second * time.Duration(duration)
 }
 
 func getPilotSAN(domain string, ns string) []string {
