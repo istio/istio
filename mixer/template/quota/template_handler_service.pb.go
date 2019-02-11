@@ -8,7 +8,7 @@
 
 	Example config:
 
-	```
+	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: quota
 	metadata:

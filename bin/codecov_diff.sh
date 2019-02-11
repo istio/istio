@@ -65,7 +65,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   go test -v istio.io/istio/tests/codecov/... \
     --report_file="${REPORT_PATH}/coverage.html" \
     --baseline_file="${BASELINE_PATH}/coverage.html" \
-    --threshold_file="${THRESHOLD_FILE}" \
+    --threshold_files="${THRESHOLD_FILE},${CODECOV_SKIP}" \
     | tee "${GOPATH}"/out/codecov/out.log \
     | tee >(go-junit-report > "${GOPATH}"/out/tests/junit.xml)
 else

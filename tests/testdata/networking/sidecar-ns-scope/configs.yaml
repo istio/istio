@@ -1,0 +1,242 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default-sidecar-scope
+  namespace: istio-config
+spec:
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/istio-telemetry.istio-system.svc.cluster.local"
+    - "istio-system/istio-policy.istio-system.svc.cluster.local"
+---
+# Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: default
+  namespace: istio-config
+spec:
+  peers:
+  - mtls: {}
+---
+# Corresponding destination rule to configure client side to use mutual TLS when talking to
+# any service (host) in the mesh.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: istio-config
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+# Service entries for istio-policy and telemetry
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  hosts:
+  - istio-telemetry.istio-system.svc.cluster.local
+  addresses:
+  - 1.1.1.1
+  ports:
+  - number: 15004
+    name: mtls
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: DNS
+  exportTo:
+  - '*'
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: istio-policy
+  namespace: istio-system
+spec:
+  hosts:
+  - istio-policy.istio-system.svc.cluster.local
+  addresses:
+  - 1.1.1.2
+  ports:
+  - number: 15004
+    name: mtls
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: DNS
+  exportTo:
+  - '*'
+---
+# Services and configs in ns1 namespace
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http1
+  namespace: ns1
+spec:
+  hosts:
+  - http1.ns1.svc.cluster.local
+  addresses:
+  - 2.1.1.1
+  ports:
+  - number: 8080
+    name: http
+    protocol: HTTP2
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 100.1.1.1
+    labels:
+      version: v1
+    ports:
+      http: 8080
+  - address: 100.1.2.1
+    labels:
+      version: v2
+    ports:
+      http: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http2
+  namespace: ns1
+spec:
+  hosts:
+  - http2.ns1.svc.cluster.local
+  addresses:
+  - 2.1.1.2
+  ports:
+  - number: 8080
+    name: http
+    protocol: HTTP2
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 100.1.1.2
+    ports:
+      http: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcp1
+  namespace: ns1
+spec:
+  hosts:
+  - tcp1.ns1.svc.cluster.local
+  addresses:
+  - 2.1.1.3
+  ports:
+  - number: 3306
+    name: tcp
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 100.1.1.3
+    ports:
+      tcp: 3306
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: http1
+  namespace: ns1
+spec:
+  host: http1.ns1.svc.cluster.local
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: http1
+  namespace: ns1
+spec:
+  hosts:
+  - http1.ns1.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: http1.ns1.svc.cluster.local
+        subset: v1
+      weight: 70
+    - destination:
+        host: http1.ns1.svc.cluster.local
+        subset: v2
+      weight: 30
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http1
+  namespace: ns2
+spec:
+  hosts:
+  - http1.ns2.svc.cluster.local
+  addresses:
+  - 3.1.1.1
+  ports:
+  - number: 8080
+    name: http
+    protocol: HTTP2
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 200.1.1.1
+    ports:
+      http: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http2
+  namespace: ns2
+spec:
+  hosts:
+  - http2.ns2.svc.cluster.local
+  addresses:
+  - 3.1.1.2
+  ports:
+  - number: 8080
+    name: http
+    protocol: HTTP2
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 200.1.1.2
+    ports:
+      http: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcp1
+  namespace: ns2
+spec:
+  hosts:
+  - tcp1.ns2.svc.cluster.local
+  addresses:
+  - 3.1.1.3
+  ports:
+  - number: 3306
+    name: tcp
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 200.1.1.3
+    ports:
+      tcp: 3306
+---

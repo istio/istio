@@ -32,9 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-
 	multierror "github.com/hashicorp/go-multierror"
-
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,6 +152,7 @@ type SidecarInjectionSpec struct {
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
 	Volumes             []corev1.Volume               `yaml:"volumes"`
+	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
 	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
@@ -535,6 +534,9 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		return nil, "", err
 	}
 
+	// set sidecar --concurrency
+	applyConcurrency(sic.Containers)
+
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {
 		status.InitContainers = append(status.InitContainers, c.Name)
@@ -700,9 +702,11 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
+	podSpec.DNSConfig = spec.DNSConfig
+
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(spec, podSpec)
+	rewriteAppHTTPProbe(podSpec, spec)
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).

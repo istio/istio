@@ -7,6 +7,3 @@ image: galley
 nodeSelector: {}
 tolerations: []
 
-podDisruptionBudget: {}
-  # minAvailable: 1
-  # maxUnavailable: 1

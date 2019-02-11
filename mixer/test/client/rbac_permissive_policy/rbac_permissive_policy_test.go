@@ -38,7 +38,6 @@ const reportAttributes = `
   "rbac.permissive.response_code" : "allowed",
   "mesh1.ip": "*",
   "mesh2.ip": "*",
-  "mesh3.ip": "*",
   "origin.ip": "[127 0 0 1]",
   "request.headers": {
       ":method": "GET",

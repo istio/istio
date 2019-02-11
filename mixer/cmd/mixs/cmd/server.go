@@ -43,7 +43,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().StringVarP(&sa.APIAddress, "address", "", sa.APIAddress,
 		"Address to use for Mixer's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", sa.MonitoringPort,
-		"HTTP port to use for the exposing mixer self-monitoring information")
+		"HTTP port to use for Mixer self-monitoring information")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize,
 		"Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams,

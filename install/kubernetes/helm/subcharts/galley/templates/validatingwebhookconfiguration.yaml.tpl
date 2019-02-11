@@ -92,7 +92,6 @@ webhooks:
         - opas
         - prometheuses
         - rbacs
-        - servicecontrols
         - solarwindses
         - stackdrivers
         - cloudwatches
@@ -108,7 +107,6 @@ webhooks:
         - metrics
         - quotas
         - reportnothings
-        - servicecontrolreports
         - tracespans
     failurePolicy: Fail
 {{- end }}

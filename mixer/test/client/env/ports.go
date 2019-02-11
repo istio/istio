@@ -61,6 +61,7 @@ const (
 	RbacGlobalPermissiveTest
 	RbacPolicyPermissiveTest
 	GatewayTest
+	SidecarTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

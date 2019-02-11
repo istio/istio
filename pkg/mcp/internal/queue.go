@@ -199,6 +199,9 @@ type dump struct {
 	MaxDepth  int                    `json:"max_depth"`
 }
 
+// hook for unit tests
+var jsonMarshalDumpHook = json.Marshal
+
 // Dump returns a JSON formatted dump of the internal queue state. This is intended
 // for debug purposes only.
 func (q *UniqueQueue) Dump() string {
@@ -221,7 +224,7 @@ func (q *UniqueQueue) Dump() string {
 		d.QueuedSet[entry.key] = entry.val
 	}
 
-	out, err := json.Marshal(d)
+	out, err := jsonMarshalDumpHook(d)
 	if err != nil {
 		return ""
 	}
