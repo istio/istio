@@ -552,6 +552,7 @@ jobs:
       - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
           name: markJobFinishesOnGCS
+          when: always
           command: |
             bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
       - store_artifacts:
