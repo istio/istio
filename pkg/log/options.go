@@ -119,6 +119,9 @@ type Options struct {
 	outputLevels     string
 	logCallers       string
 	stackTraceLevels string
+
+	// If not nil, called instead of os.Exit.
+	testonlyExit func()
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults

@@ -89,8 +89,6 @@ static_resources:
         port_value: {{.Ports.MixerPort}}
 `
 
-	// TODO(mandarjog): source.uid below should be in-mesh-app
-
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
@@ -102,7 +100,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
-  "source.uid": "kubernetes://pod.ns",
+  "source.uid": "%s",
   "source.namespace": "ns",
   "request.headers": {
      ":method": "GET",
@@ -134,7 +132,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
-  "source.uid": "kubernetes://pod.ns",
+  "source.uid": "%s",
   "source.namespace": "ns",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -196,6 +194,15 @@ func TestGateway(t *testing.T) {
 
 	s.WaitEnvoyReady()
 
+	// verify that bootstrap source.uid is present
+	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
+		t.Errorf("Failed in request: %v", err)
+	}
+
+	sourceUID := "kubernetes://pod.ns"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
+
 	// Issues a GET echo request with 0 size body, forward some random source.uid
 	attrs := mixerpb.Attributes{
 		Attributes: map[string]*mixerpb.Attributes_AttributeValue{
@@ -211,8 +218,9 @@ func TestGateway(t *testing.T) {
 	if _, _, err := env.HTTPGetWithHeaders(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort), headers); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	s.VerifyCheck("http-outbound", checkAttributesOkOutbound)
-	s.VerifyReport("http", reportAttributesOkOutbound)
+	sourceUID = "in-mesh-app"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
 }
 
 type mock struct{}
@@ -222,9 +230,6 @@ func (mock) ID(*core.Node) string {
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
-}
-func (mock) GetProxyLocality(_ *model.Proxy) string {
-	return ""
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -318,7 +323,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
 		Name:       util.HTTPConnectionManager,
-		ConfigType: &listener.Filter_Config{Config: pilotutil.MessageToStruct(clientManager)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}
 
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)

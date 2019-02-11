@@ -285,11 +285,14 @@ metadata:
     helm.sh/chart: {{ template "mixer.chart" $ }}
     app.kubernetes.io/managed-by: {{ $.Release.Service }}
     app.kubernetes.io/instance: {{ $.Release.Name }}
-    app.kubernetes.io/version: {{ $.Chart.Version }}
     istio: mixer
 spec:
 {{- if not $spec.autoscaleEnabled }}
+{{- if $spec.replicaCount }}
   replicas: {{ $spec.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
 {{- end }}
   strategy:
     rollingUpdate:
@@ -301,7 +304,6 @@ spec:
       helm.sh/chart: {{ template "mixer.chart" $ }}
       app.kubernetes.io/managed-by: {{ $.Release.Service }}
       app.kubernetes.io/instance: {{ $.Release.Name }}
-      app.kubernetes.io/version: {{ $.Chart.Version }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
@@ -311,7 +313,6 @@ spec:
         helm.sh/chart: {{ template "mixer.chart" $ }}
         app.kubernetes.io/managed-by: {{ $.Release.Service }}
         app.kubernetes.io/instance: {{ $.Release.Name }}
-        app.kubernetes.io/version: {{ $.Chart.Version }}
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

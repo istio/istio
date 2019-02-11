@@ -123,6 +123,44 @@ func TestBuilder_ControllerCache(t *testing.T) {
 	}
 }
 
+// tests closing and rebuilding a handler
+func TestHandler_Close(t *testing.T) {
+	b := newFakeBuilder()
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	err = handler.Close()
+	if err != nil {
+		t.Fatalf("Close() returned unexpected error: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 0; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	_, err = b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+}
+
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 	testConf := *conf
 	testConf.KubeconfigPath = "please/override"

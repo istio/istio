@@ -251,7 +251,7 @@ func TestPods(t *testing.T) {
 		if pod, err = client.CoreV1().Pods(namespace).Create(pod); err != nil {
 			t.Fatalf("failed creating pod: %v", err)
 		}
-		expected := toEvent(resource.Added, spec, pod, &pod.Spec)
+		expected := toEvent(resource.Added, spec, pod, pod)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -264,7 +264,7 @@ func TestPods(t *testing.T) {
 		if _, err := client.CoreV1().Pods(namespace).Update(pod); err != nil {
 			t.Fatalf("failed updating pod: %v", err)
 		}
-		expected := toEvent(resource.Updated, spec, pod, &pod.Spec)
+		expected := toEvent(resource.Updated, spec, pod, pod)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})

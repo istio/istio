@@ -79,7 +79,8 @@ gateways:
     # Addon ports for kiali are enabled in gateway - but will only redirect if
     # the gateway configuration for the various components are enabled.
     - port: 15029
-    - targetPort: 15029
+      targetPort: 15029
+      name: http2-kiali
     # Telemetry-related ports are enabled in gateway - but will only redirect if
     # the gateway configuration for the various components are enabled.
     - port: 15030
@@ -113,7 +114,10 @@ galley:
   enabled: false
 
 mixer:
-  enabled: false
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
 
 pilot:
   enabled: false

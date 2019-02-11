@@ -43,17 +43,11 @@ type Cache struct {
 	groupIndex GroupIndexFn
 }
 
-// GroupIndexFn returns a stable group index for the given MCP node.
-type GroupIndexFn func(node *mcp.SinkNode) string
-
-// DefaultGroup is the default group when using the DefaultGroupIndex() function.
-const DefaultGroup = "default"
-
-// DefaultGroupIndex provides a default GroupIndexFn function that
-// is usable for testing and simple deployments.
-func DefaultGroupIndex(_ *mcp.SinkNode) string {
-	return DefaultGroup
-}
+// GroupIndexFn returns a stable group index for the given MCP collection and node.
+// This is how an MCP server partitions snapshots to different clients. The index
+// function is an implementation detail of the MCP server and Istio does not
+// depend on any particular mapping.
+type GroupIndexFn func(collection string, node *mcp.SinkNode) string
 
 // New creates a new cache of resource snapshots.
 func New(groupIndex GroupIndexFn) *Cache {
@@ -96,7 +90,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 
 // Watch returns a watch for an MCP request.
 func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc { // nolint: lll
-	group := c.groupIndex(request.SinkNode)
+	group := c.groupIndex(request.Collection, request.SinkNode)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

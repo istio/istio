@@ -28,7 +28,7 @@
 	   method: request.method | "post"
 	   properties:
 	     version: destination.labels[version] | destination[app.kubernetes.io/version] | ""
-	 ```
+	```
 
 	The `authorization` template defines parameters for performing policy
 	enforcement within Istio. It is primarily concerned with enabling Mixer

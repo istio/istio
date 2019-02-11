@@ -44,7 +44,7 @@ syntax = "proto3";
 //    method: request.method | "post"
 //    properties:
 //      version: destination.labels[version] | destination[app.kubernetes.io/version] | ""
-//  ```
+// ```
 package authorization;
 
 import "policy/v1beta1/type.proto";

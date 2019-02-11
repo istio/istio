@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -37,8 +38,12 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// KubeAppProberCmdFlagName is the name of the command line flag for pilot agent to pass app prober config.
-	KubeAppProberCmdFlagName = "kubeAppProberConfig"
+	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
+	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
+	// For example, --ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
+	// This environment variable should never be set manually.
+	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 )
 
 var (
@@ -96,6 +101,13 @@ func NewServer(config Config) (*Server, error) {
 	return s, nil
 }
 
+// FormatProberURL returns a pair of HTTP URLs that pilot agent will serve to take over Kubernetes
+// app probers.
+func FormatProberURL(container string) (string, string) {
+	return fmt.Sprintf("/app-health/%v/readyz", container),
+		fmt.Sprintf("/app-health/%v/livez", container)
+}
+
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d\n", s.statusPort)
@@ -124,12 +136,19 @@ func (s *Server) Run(ctx context.Context) {
 	go func() {
 		if err := http.Serve(l, nil); err != nil {
 			log.Errora(err)
-			os.Exit(-1)
+			// If the server errors then pilot-agent can never pass readiness or liveness probes
+			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
+			p, err := os.FindProcess(os.Getpid())
+			if err != nil {
+				log.Errora(err)
+			}
+			log.Errora(p.Signal(syscall.SIGTERM))
 		}
 	}()
 
 	// Wait for the agent to be shut down.
 	<-ctx.Done()
+	log.Info("Status server has successfully terminated")
 }
 
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {

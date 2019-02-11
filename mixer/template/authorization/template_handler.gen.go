@@ -46,7 +46,7 @@ import (
 //    method: request.method | "post"
 //    properties:
 //      version: destination.labels[version] | destination[app.kubernetes.io/version] | ""
-//  ```
+// ```
 
 // Fully qualified name of the template
 const TemplateName = "authorization"
