@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -77,9 +78,15 @@ func newCalloutPT(address, auth string, meta []string, so *source.Options,
 		return nil, err
 	}
 
-	if len(meta)%2 != 0 {
-		return nil, fmt.Errorf("sinkMeta length must be even, "+
-			"in key value pairs, len: %v", len(meta))
+	m := make([]string, 0)
+
+	for _, v := range meta {
+		kv := strings.Split(v, "=")
+		if len(kv) != 2 {
+			return nil, fmt.Errorf(
+				"sinkMeta not in key=value format: %v", v)
+		}
+		m = append(m, kv[0], kv[1])
 	}
 
 	return &callout{
@@ -87,7 +94,7 @@ func newCalloutPT(address, auth string, meta []string, so *source.Options,
 		so:      so,
 		do:      opts,
 		pt:      pt,
-		meta:    meta,
+		meta:    m,
 	}, nil
 }
 

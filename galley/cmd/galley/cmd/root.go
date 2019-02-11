@@ -155,7 +155,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
 	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.SinkMeta, "sinkMeta",
-		serverArgs.SinkMeta, "Comma-separated list of key values to attach as metadata to outgoing sink connections. Ex: 'key,value,key2,value2'")
+		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
