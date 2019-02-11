@@ -67,7 +67,7 @@ var (
 
 	// DisableEDSIsolation provides an option to disable the feature
 	// of EDS isolation which is enabled by default from Istio 1.1 and
-	// go back to the legacy behaviour of previous releases.
+	// go back to the legacy behavior of previous releases.
 	// If not set, Pilot will return the endpoints for a proxy in an isolated namespace.
 	// Set the environment variable to any value to disable.
 	DisableEDSIsolation = os.Getenv("PILOT_DISABLE_EDS_ISOLATION")
