@@ -580,10 +580,6 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	if err = ps.initServiceAccounts(env); err != nil {
-		return err
-	}
-
 	if err = ps.initVirtualServices(env); err != nil {
 		return err
 	}
@@ -633,6 +629,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
+
+	ps.initServiceAccounts(env, allServices)
+
 	return nil
 }
 
@@ -645,12 +644,7 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 }
 
 // Caches list of service accounts in the registry
-func (ps *PushContext) initServiceAccounts(env *Environment) error {
-	services, err := env.Services()
-	if err != nil {
-		return err
-	}
-
+func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
 		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		for _, port := range svc.Ports {
@@ -660,7 +654,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment) error {
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
 		}
 	}
-	return nil
 }
 
 // Caches list of virtual services
