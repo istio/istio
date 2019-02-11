@@ -744,7 +744,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
-	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
@@ -759,15 +758,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			}
 		}
 
-		var l *xdsapi.ClusterLoadAssignment
-		var ok bool
-		// decide which to use based on presence of Sidecar.
-		if sidecarScope == nil || sidecarScope.Config == nil {
-			l, ok = s.loadAssignmentsForClusterLegacy(push, clusterName)
-		} else {
-			l, ok = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
-		}
-
+		l, ok := s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
 		if !ok {
 			continue
 		}
