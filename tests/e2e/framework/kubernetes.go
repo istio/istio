@@ -641,16 +641,17 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
-		istioYaml = mcNonAuthInstallFileNamespace
+		if *authEnable {
+			istioYaml = mcAuthInstallFileNamespace
+		} else {
+			istioYaml = mcNonAuthInstallFileNamespace
+		}
 	}
 	if *clusterWide {
 		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
-			if *multiClusterDir != "" {
-				istioYaml = mcAuthInstallFileNamespace
-			}
 		}
 		if *trustDomainEnable {
 			istioYaml = trustDomainFileNamespace
