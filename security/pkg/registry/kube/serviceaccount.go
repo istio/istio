@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/security/pkg/registry"
 )
 
 // ServiceAccountController monitors service account definition changes in a namespace.

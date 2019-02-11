@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/security/pkg/registry"
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
