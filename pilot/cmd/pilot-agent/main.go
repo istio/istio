@@ -341,6 +341,7 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 	wg.Done()
 }
 
+// TODO: move this to API in 1.2
 func handleTDDEnvVar() time.Duration {
 	tddEnvVar, found := os.LookupEnv("TERMINATION_DRAIN_DURATION_SECONDS")
 	if !found || tddEnvVar == "" {
