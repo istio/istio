@@ -313,10 +313,10 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 		}
 	}
 
-	protoBag.Done()
 	if req.RepeatedAttributesSemantics == mixerpb.DELTA_ENCODING {
 		accumBag.Done()
 		reportBag.Done()
+		protoBag.Done()
 	}
 
 	if err := reporter.Flush(); err != nil {
