@@ -16,19 +16,21 @@ package pilot
 
 import (
 	"context"
+	"errors"
 	"net"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"google.golang.org/grpc"
-
 	multierror "github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
 )
 
 type client struct {
 	discoveryAddr *net.TCPAddr
 	conn          *grpc.ClientConn
 	stream        adsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	lastRequest   *xdsapi.DiscoveryRequest
 }
 
 func newClient(discoveryAddr *net.TCPAddr) (*client, error) {
@@ -51,11 +53,61 @@ func newClient(discoveryAddr *net.TCPAddr) (*client, error) {
 }
 
 func (c *client) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+	c.lastRequest = req
 	err := c.stream.Send(req)
 	if err != nil {
 		return nil, err
 	}
 	return c.stream.Recv()
+}
+
+func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
+	c.lastRequest = req
+	err := c.stream.Send(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) WatchDiscovery(timeout time.Duration,
+	accept func(*xdsapi.DiscoveryResponse) (bool, error)) error {
+	c1 := make(chan error, 1)
+	go func() {
+		for {
+			result, err := c.stream.Recv()
+			if err != nil {
+				c1 <- err
+				break
+			}
+			// ACK all responses so that when an update arrives we can receive it
+			err = c.stream.Send(&xdsapi.DiscoveryRequest{
+				Node:          c.lastRequest.Node,
+				ResponseNonce: result.Nonce,
+				VersionInfo:   result.VersionInfo,
+				TypeUrl:       c.lastRequest.TypeUrl,
+			})
+			if err != nil {
+				c1 <- err
+				break
+			}
+			accepted, err := accept(result)
+			if err != nil {
+				c1 <- err
+				break
+			}
+			if accepted {
+				c1 <- nil
+				break
+			}
+		}
+	}()
+	select {
+	case err := <-c1:
+		return err
+	case <-time.After(timeout):
+		return errors.New("timed out")
+	}
 }
 
 func (c *client) Close() (err error) {
