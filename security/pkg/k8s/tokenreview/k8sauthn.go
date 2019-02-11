@@ -86,6 +86,10 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
 			},
+			// Bump up the number of connections (default to 2) kept in the pool for
+			// re-use. This can greatly improve the connection re-use with heavy
+			// traffic.
+			MaxIdleConnsPerHost: 100,
 		},
 	}
 	resp, err := httpClient.Do(req)
@@ -105,13 +109,13 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
 	}
+	defer resp.Body.Close()
 	// Check that the JWT is valid
 	if !(resp.StatusCode == http.StatusOK ||
 		resp.StatusCode == http.StatusCreated ||
 		resp.StatusCode == http.StatusAccepted) {
 		return nil, fmt.Errorf("invalid review response status code %v", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from the response body: %v", err)
