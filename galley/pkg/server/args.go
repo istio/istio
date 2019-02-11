@@ -93,8 +93,8 @@ type Args struct {
 	// see the istio.io/istio/galley/pkg/autplugins package.
 	SinkAuthMode string
 
-	// SinkMeta list of key values to attach as gRPC stream metadata to
-	// outgoing Sink connections. Must be even length
+	// SinkMeta list of key=values to attach as gRPC stream metadata to
+	// outgoing Sink connections.
 	SinkMeta []string
 }
 
@@ -150,6 +150,7 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
+	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
 
 	return buf.String()
 }
