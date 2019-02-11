@@ -56,6 +56,7 @@ func TestTLSMultiplexing(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
+		cluster := tc.Kube.Clusters[primaryCluster]
 		for _, src := range srcPods {
 			for _, dst := range dstPods {
 				for _, port := range ports {
@@ -74,7 +75,7 @@ func TestTLSMultiplexing(t *testing.T) {
 							if !expectOK {
 								count = 15
 							}
-							resp := ClientRequest(primaryCluster, src, reqURL, count, "")
+							resp := ClientRequest(cluster, src, reqURL, count, "")
 							if resp.IsHTTPOk() && expectOK {
 								return nil
 							}
