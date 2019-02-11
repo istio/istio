@@ -109,13 +109,13 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
 	}
+	defer resp.Body.Close()
 	// Check that the JWT is valid
 	if !(resp.StatusCode == http.StatusOK ||
 		resp.StatusCode == http.StatusCreated ||
 		resp.StatusCode == http.StatusAccepted) {
 		return nil, fmt.Errorf("invalid review response status code %v", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from the response body: %v", err)
