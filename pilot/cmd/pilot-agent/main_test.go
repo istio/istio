@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
