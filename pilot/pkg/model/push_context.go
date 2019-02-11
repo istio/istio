@@ -562,9 +562,7 @@ func (ps *PushContext) SubsetToLabelsIsolated(proxy *Proxy, subsetName string, h
 		return nil
 	}
 
-	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
-	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(proxy, hostname)
+	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
