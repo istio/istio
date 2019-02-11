@@ -189,41 +189,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		// Do not generate any management port listeners if the user has specified a SidecarScope object
-		// with ingress listeners. Specifying the ingress listener implies that the user wants
-		// to only have those specific listeners and nothing else, in the inbound path.
-		generateManagementListeners := true
-
-		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-			noneMode {
-			generateManagementListeners = false
-		}
-
-		if generateManagementListeners {
-			// Let ServiceDiscovery decide which IP and Port are used for management if
-			// there are multiple IPs
-			mgmtListeners := make([]*xdsapi.Listener, 0)
-			for _, ip := range node.IPAddresses {
-				managementPorts := env.ManagementPorts(ip)
-				management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-				mgmtListeners = append(mgmtListeners, management...)
-			}
-
-			// If management listener port and service port are same, bad things happen
-			// when running in kubernetes, as the probes stop responding. So, append
-			// non overlapping listeners only.
-			for i := range mgmtListeners {
-				m := mgmtListeners[i]
-				l := util.GetByAddress(listeners, m.Address.String())
-				if l != nil {
-					log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-						m.Name, m.Address.String(), l.Name, l.Address.String())
-					continue
-				}
-				listeners = append(listeners, m)
-			}
-		}
+		listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
@@ -1220,7 +1186,47 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
-// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
+// Deprecated: To be removed from code in 1.2. Likely redudant prior to 1.1 and turned off
+// when the Sidecar resource is explicitly used.
+func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
+	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
+	// Do not generate any management port listeners if the user has specified a SidecarScope object
+	// with ingress listeners. Specifying the ingress listener implies that the user wants
+	// to only have those specific listeners and nothing else, in the inbound path.
+	generateManagementListeners := true
+	sidecarScope := node.SidecarScope
+	if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+		noneMode {
+		generateManagementListeners = false
+	}
+	if generateManagementListeners {
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		mgmtListeners := make([]*xdsapi.Listener, 0)
+		for _, ip := range node.IPAddresses {
+			managementPorts := env.ManagementPorts(ip)
+			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+			mgmtListeners = append(mgmtListeners, management...)
+		}
+
+		// If management listener port and service port are same, bad things happen
+		// when running in kubernetes, as the probes stop responding. So, append
+		// non overlapping listeners only.
+		for i := range mgmtListeners {
+			m := mgmtListeners[i]
+			l := util.GetByAddress(listeners, m.Address.String())
+			if l != nil {
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+					m.Name, m.Address.String(), l.Name, l.Address.String())
+				continue
+			}
+			listeners = append(listeners, m)
+		}
+	}
+	return listeners
+}
+
+// Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
