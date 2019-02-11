@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -762,7 +763,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		var l *xdsapi.ClusterLoadAssignment
 		var ok bool
 		// decide which to use based on presence of Sidecar.
-		if sidecarScope == nil || sidecarScope.Config == nil {
+		if sidecarScope == nil || sidecarScope.Config == nil || len(pilot.DisableEDSIsolation) != 0 {
 			l, ok = s.loadAssignmentsForClusterLegacy(push, clusterName)
 		} else {
 			l, ok = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
