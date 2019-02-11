@@ -33,6 +33,9 @@ import (
 const (
 	// epochFileTemplate is a template for the root config JSON
 	epochFileTemplate = "envoy-rev%d.json"
+
+	// drainFile is the location of the bootstrap config used for draining on istio-proxy termination
+	drainFile = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
 )
 
 type envoy struct {
@@ -91,6 +94,8 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if len(e.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
+	} else if _, ok := config.(proxy.DrainConfig); ok {
+		fname = drainFile
 	} else {
 		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
 		if err != nil {

@@ -122,7 +122,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Path to the file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().DurationVar(&readinessProbeOptions.UpdateInterval, "readinessProbeInterval", server.DefaultProbeCheckInterval,
 		"Interval of updating file for the Galley readiness probe.")
-	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
+	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 15014,
 		"Port to use for exposing self-monitoring information")
 	rootCmd.PersistentFlags().UintVar(&pprofPort, "pprofPort", 9094, "Port to use for exposing profiling")
 	rootCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", false,
@@ -150,6 +150,10 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
 	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.ExcludedResourceKinds, "excludedResourceKinds",
 		serverArgs.ExcludedResourceKinds, "Comma-separated list of resource kinds that should not generate source events")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAddress, "sinkAddress",
+		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
+		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

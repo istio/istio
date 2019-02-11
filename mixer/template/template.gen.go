@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -459,7 +460,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -494,7 +495,7 @@ var (
 			CreateOutputExpressions: func(
 				instanceParam proto.Message,
 				finder ast.AttributeDescriptorFinder,
-				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+				expb lang.Compiler) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_policy_v1beta1.ValueType
 
@@ -643,7 +644,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -871,7 +872,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -971,7 +972,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1115,6 +1116,24 @@ var (
 						}
 					}
 
+					if param.DestinationServiceNamespace != "" {
+						if t, e := tEvalFn(param.DestinationServiceNamespace); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationServiceNamespace", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationServiceNamespace", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
+					if param.DestinationServiceName != "" {
+						if t, e := tEvalFn(param.DestinationServiceName); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationServiceName", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationServiceName", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
 					if param.ContextProtocol != "" {
 						if t, e := tEvalFn(param.ContextProtocol); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
@@ -1176,7 +1195,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1282,7 +1301,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1435,7 +1454,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1576,7 +1595,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1686,7 +1705,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1792,7 +1811,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1946,6 +1965,87 @@ var (
 						}
 					}
 
+					if param.SourceName != "" {
+						if t, e := tEvalFn(param.SourceName); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceName", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceName", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
+					if param.SourceIp != "" {
+						if t, e := tEvalFn(param.SourceIp); e != nil || t != istio_policy_v1beta1.IP_ADDRESS {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceIp", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceIp", t, istio_policy_v1beta1.IP_ADDRESS)
+						}
+					}
+
+					if param.DestinationName != "" {
+						if t, e := tEvalFn(param.DestinationName); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationName", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationName", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
+					if param.DestinationIp != "" {
+						if t, e := tEvalFn(param.DestinationIp); e != nil || t != istio_policy_v1beta1.IP_ADDRESS {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationIp", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationIp", t, istio_policy_v1beta1.IP_ADDRESS)
+						}
+					}
+
+					if param.RequestSize != "" {
+						if t, e := tEvalFn(param.RequestSize); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"RequestSize", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestSize", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
+					if param.RequestTotalSize != "" {
+						if t, e := tEvalFn(param.RequestTotalSize); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"RequestTotalSize", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestTotalSize", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
+					if param.ResponseSize != "" {
+						if t, e := tEvalFn(param.ResponseSize); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"ResponseSize", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ResponseSize", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
+					if param.ResponseTotalSize != "" {
+						if t, e := tEvalFn(param.ResponseTotalSize); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"ResponseTotalSize", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ResponseTotalSize", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
+					if param.ApiProtocol != "" {
+						if t, e := tEvalFn(param.ApiProtocol); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"ApiProtocol", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiProtocol", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
 					return infrdType, err
 
 				}
@@ -1989,7 +2089,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -2049,7 +2149,7 @@ type builder_adapter_template_kubernetes_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_adapter_template_kubernetes_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2240,7 +2340,7 @@ type builder_apikey_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_apikey_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2424,7 +2524,7 @@ type builder_authorization_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_authorization_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *authorization.InstanceParam) (*builder_authorization_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2516,7 +2616,7 @@ type builder_authorization_Subject struct {
 
 // Instantiates and returns a new builder for Subject, based on the provided instance parameter.
 func newBuilder_authorization_Subject(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *authorization.SubjectInstanceParam) (*builder_authorization_Subject, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2664,7 +2764,7 @@ type builder_authorization_Action struct {
 
 // Instantiates and returns a new builder for Action, based on the provided instance parameter.
 func newBuilder_authorization_Action(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *authorization.ActionInstanceParam) (*builder_authorization_Action, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2842,7 +2942,7 @@ type builder_checknothing_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_checknothing_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2931,6 +3031,14 @@ type builder_edge_Template struct {
 
 	bldDestinationUid compiled.Expression
 
+	// builder for field destination_service_namespace: string.
+
+	bldDestinationServiceNamespace compiled.Expression
+
+	// builder for field destination_service_name: string.
+
+	bldDestinationServiceName compiled.Expression
+
 	// builder for field context_protocol: string.
 
 	bldContextProtocol compiled.Expression
@@ -2942,7 +3050,7 @@ type builder_edge_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_edge_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *edge.InstanceParam) (*builder_edge_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3087,6 +3195,36 @@ func newBuilder_edge_Template(
 		if expType != istio_policy_v1beta1.STRING {
 			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationUid)
 			return nil, template.NewErrorPath("DestinationUid", err)
+		}
+
+	}
+
+	if param.DestinationServiceNamespace == "" {
+		b.bldDestinationServiceNamespace = nil
+	} else {
+		b.bldDestinationServiceNamespace, expType, err = expb.Compile(param.DestinationServiceNamespace)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationServiceNamespace", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationServiceNamespace)
+			return nil, template.NewErrorPath("DestinationServiceNamespace", err)
+		}
+
+	}
+
+	if param.DestinationServiceName == "" {
+		b.bldDestinationServiceName = nil
+	} else {
+		b.bldDestinationServiceName, expType, err = expb.Compile(param.DestinationServiceName)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationServiceName", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationServiceName)
+			return nil, template.NewErrorPath("DestinationServiceName", err)
 		}
 
 	}
@@ -3239,6 +3377,26 @@ func (b *builder_edge_Template) build(
 
 	}
 
+	if b.bldDestinationServiceNamespace != nil {
+
+		vString, err = b.bldDestinationServiceNamespace.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationServiceNamespace", err)
+		}
+		r.DestinationServiceNamespace = vString
+
+	}
+
+	if b.bldDestinationServiceName != nil {
+
+		vString, err = b.bldDestinationServiceName.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationServiceName", err)
+		}
+		r.DestinationServiceName = vString
+
+	}
+
 	if b.bldContextProtocol != nil {
 
 		vString, err = b.bldContextProtocol.EvaluateString(attrs)
@@ -3272,7 +3430,7 @@ type builder_listentry_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_listentry_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3368,7 +3526,7 @@ type builder_logentry_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_logentry_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3554,7 +3712,7 @@ type builder_metric_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_metric_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3703,7 +3861,7 @@ type builder_quota_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_quota_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3781,7 +3939,7 @@ type builder_reportnothing_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_reportnothing_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3873,11 +4031,47 @@ type builder_tracespan_Template struct {
 	// builder for field rewrite_client_span_id: bool.
 
 	bldRewriteClientSpanId compiled.Expression
+
+	// builder for field source_name: string.
+
+	bldSourceName compiled.Expression
+
+	// builder for field source_ip: net.IP.
+
+	bldSourceIp compiled.Expression
+
+	// builder for field destination_name: string.
+
+	bldDestinationName compiled.Expression
+
+	// builder for field destination_ip: net.IP.
+
+	bldDestinationIp compiled.Expression
+
+	// builder for field request_size: int64.
+
+	bldRequestSize compiled.Expression
+
+	// builder for field request_total_size: int64.
+
+	bldRequestTotalSize compiled.Expression
+
+	// builder for field response_size: int64.
+
+	bldResponseSize compiled.Expression
+
+	// builder for field response_total_size: int64.
+
+	bldResponseTotalSize compiled.Expression
+
+	// builder for field api_protocol: string.
+
+	bldApiProtocol compiled.Expression
 } // builder_tracespan_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_tracespan_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -4031,6 +4225,131 @@ func newBuilder_tracespan_Template(
 
 	}
 
+	if param.SourceName == "" {
+		b.bldSourceName = nil
+	} else {
+		b.bldSourceName, expType, err = expb.Compile(param.SourceName)
+		if err != nil {
+			return nil, template.NewErrorPath("SourceName", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceName)
+			return nil, template.NewErrorPath("SourceName", err)
+		}
+
+	}
+
+	if param.SourceIp == "" {
+		b.bldSourceIp = nil
+	} else {
+		b.bldSourceIp, expType, err = expb.Compile(param.SourceIp)
+		if err != nil {
+			return nil, template.NewErrorPath("SourceIp", err)
+		}
+
+	}
+
+	if param.DestinationName == "" {
+		b.bldDestinationName = nil
+	} else {
+		b.bldDestinationName, expType, err = expb.Compile(param.DestinationName)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationName", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationName)
+			return nil, template.NewErrorPath("DestinationName", err)
+		}
+
+	}
+
+	if param.DestinationIp == "" {
+		b.bldDestinationIp = nil
+	} else {
+		b.bldDestinationIp, expType, err = expb.Compile(param.DestinationIp)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationIp", err)
+		}
+
+	}
+
+	if param.RequestSize == "" {
+		b.bldRequestSize = nil
+	} else {
+		b.bldRequestSize, expType, err = expb.Compile(param.RequestSize)
+		if err != nil {
+			return nil, template.NewErrorPath("RequestSize", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.RequestSize)
+			return nil, template.NewErrorPath("RequestSize", err)
+		}
+
+	}
+
+	if param.RequestTotalSize == "" {
+		b.bldRequestTotalSize = nil
+	} else {
+		b.bldRequestTotalSize, expType, err = expb.Compile(param.RequestTotalSize)
+		if err != nil {
+			return nil, template.NewErrorPath("RequestTotalSize", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.RequestTotalSize)
+			return nil, template.NewErrorPath("RequestTotalSize", err)
+		}
+
+	}
+
+	if param.ResponseSize == "" {
+		b.bldResponseSize = nil
+	} else {
+		b.bldResponseSize, expType, err = expb.Compile(param.ResponseSize)
+		if err != nil {
+			return nil, template.NewErrorPath("ResponseSize", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.ResponseSize)
+			return nil, template.NewErrorPath("ResponseSize", err)
+		}
+
+	}
+
+	if param.ResponseTotalSize == "" {
+		b.bldResponseTotalSize = nil
+	} else {
+		b.bldResponseTotalSize, expType, err = expb.Compile(param.ResponseTotalSize)
+		if err != nil {
+			return nil, template.NewErrorPath("ResponseTotalSize", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.ResponseTotalSize)
+			return nil, template.NewErrorPath("ResponseTotalSize", err)
+		}
+
+	}
+
+	if param.ApiProtocol == "" {
+		b.bldApiProtocol = nil
+	} else {
+		b.bldApiProtocol, expType, err = expb.Compile(param.ApiProtocol)
+		if err != nil {
+			return nil, template.NewErrorPath("ApiProtocol", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.ApiProtocol)
+			return nil, template.NewErrorPath("ApiProtocol", err)
+		}
+
+	}
+
 	return b, template.ErrorPath{}
 }
 
@@ -4158,6 +4477,96 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("RewriteClientSpanId", err)
 		}
 		r.RewriteClientSpanId = vBool
+
+	}
+
+	if b.bldSourceName != nil {
+
+		vString, err = b.bldSourceName.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("SourceName", err)
+		}
+		r.SourceName = vString
+
+	}
+
+	if b.bldSourceIp != nil {
+
+		if vIface, err = b.bldSourceIp.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("SourceIp", err)
+		}
+
+		r.SourceIp = net.IP(vIface.([]byte))
+
+	}
+
+	if b.bldDestinationName != nil {
+
+		vString, err = b.bldDestinationName.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationName", err)
+		}
+		r.DestinationName = vString
+
+	}
+
+	if b.bldDestinationIp != nil {
+
+		if vIface, err = b.bldDestinationIp.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("DestinationIp", err)
+		}
+
+		r.DestinationIp = net.IP(vIface.([]byte))
+
+	}
+
+	if b.bldRequestSize != nil {
+
+		vInt, err = b.bldRequestSize.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("RequestSize", err)
+		}
+		r.RequestSize = vInt
+
+	}
+
+	if b.bldRequestTotalSize != nil {
+
+		vInt, err = b.bldRequestTotalSize.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("RequestTotalSize", err)
+		}
+		r.RequestTotalSize = vInt
+
+	}
+
+	if b.bldResponseSize != nil {
+
+		vInt, err = b.bldResponseSize.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("ResponseSize", err)
+		}
+		r.ResponseSize = vInt
+
+	}
+
+	if b.bldResponseTotalSize != nil {
+
+		vInt, err = b.bldResponseTotalSize.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("ResponseTotalSize", err)
+		}
+		r.ResponseTotalSize = vInt
+
+	}
+
+	if b.bldApiProtocol != nil {
+
+		vString, err = b.bldApiProtocol.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("ApiProtocol", err)
+		}
+		r.ApiProtocol = vString
 
 	}
 

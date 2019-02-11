@@ -174,9 +174,6 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) GetProxyLocality(_ *model.Proxy) string {
-	return ""
-}
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
@@ -241,8 +238,8 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		FilterChains: []listener.FilterChain{{Filters: []listener.Filter{{
 			Name: util.TCPProxy,
-			ConfigType: &listener.Filter_Config{
-				pilotutil.MessageToStruct(&tcp_proxy.TcpProxy{
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: pilotutil.MessageToAny(&tcp_proxy.TcpProxy{
 					StatPrefix:       "tcp",
 					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: cluster},
 				}),

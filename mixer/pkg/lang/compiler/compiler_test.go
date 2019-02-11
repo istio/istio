@@ -172,7 +172,7 @@ func TestCompile(t *testing.T) {
 			if test.Fns != nil {
 				fns = append(fns, test.Fns...)
 			}
-			program, err := Compile(test.E, finder, ast.FuncMap(fns))
+			program, err := compile(test.E, finder, ast.FuncMap(fns))
 			if err != nil {
 				if err.Error() != test.CompileErr {
 					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)

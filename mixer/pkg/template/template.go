@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 )
 
 type (
@@ -122,7 +123,7 @@ type (
 	//       return nil, err
 	//     }
 	//  }
-	CreateInstanceBuilderFn func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (InstanceBuilderFn, error)
+	CreateInstanceBuilderFn func(instanceName string, instanceParam proto.Message, builder lang.Compiler) (InstanceBuilderFn, error)
 
 	// CreateOutputExpressionsFn builds and returns a map of attribute names to the expression for calculating them.
 	//
@@ -144,7 +145,7 @@ type (
 	CreateOutputExpressionsFn func(
 		instanceParam proto.Message,
 		finder ast.AttributeDescriptorFinder,
-		expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error)
+		expb lang.Compiler) (map[string]compiled.Expression, error)
 
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
 	// AttributeBindings.

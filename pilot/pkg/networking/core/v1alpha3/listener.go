@@ -62,7 +62,7 @@ const (
 
 	// EnvoyTextLogFormat format for envoy text based access logs
 	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
 		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
@@ -96,6 +96,7 @@ var (
 			"downstream_local_address":  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address": &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
 			"requested_server_name":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"istio_policy_status":       &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 		},
 	}
 )
@@ -177,11 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	mesh := env.Mesh
 
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
+	proxyInstances := node.ServiceInstances
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -192,41 +189,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		// Do not generate any management port listeners if the user has specified a SidecarScope object
-		// with ingress listeners. Specifying the ingress listener implies that the user wants
-		// to only have those specific listeners and nothing else, in the inbound path.
-		generateManagementListeners := true
-
-		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-			noneMode {
-			generateManagementListeners = false
-		}
-
-		if generateManagementListeners {
-			// Let ServiceDiscovery decide which IP and Port are used for management if
-			// there are multiple IPs
-			mgmtListeners := make([]*xdsapi.Listener, 0)
-			for _, ip := range node.IPAddresses {
-				managementPorts := env.ManagementPorts(ip)
-				management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-				mgmtListeners = append(mgmtListeners, management...)
-			}
-
-			// If management listener port and service port are same, bad things happen
-			// when running in kubernetes, as the probes stop responding. So, append
-			// non overlapping listeners only.
-			for i := range mgmtListeners {
-				m := mgmtListeners[i]
-				l := util.GetByAddress(listeners, m.Address.String())
-				if l != nil {
-					log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-						m.Name, m.Address.String(), l.Name, l.Address.String())
-					continue
-				}
-				listeners = append(listeners, m)
-			}
-		}
+		listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
@@ -245,6 +208,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			transparent = proto.BoolTrue
 		}
 
+		filter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+
+		if util.IsProxyVersionGE11(node) {
+			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		} else {
+			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+		}
+
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
@@ -253,14 +226,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
 				{
-					Filters: []listener.Filter{
-						{
-							Name: xdsutil.TCPProxy,
-							ConfigType: &listener.Filter_Config{
-								Config: util.MessageToStruct(tcpProxy),
-							},
-						},
-					},
+					Filters: []listener.Filter{filter},
 				},
 			},
 		})
@@ -1220,7 +1186,47 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
-// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
+// Deprecated: To be removed from code in 1.2. Likely redudant prior to 1.1 and turned off
+// when the Sidecar resource is explicitly used.
+func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
+	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
+	// Do not generate any management port listeners if the user has specified a SidecarScope object
+	// with ingress listeners. Specifying the ingress listener implies that the user wants
+	// to only have those specific listeners and nothing else, in the inbound path.
+	generateManagementListeners := true
+	sidecarScope := node.SidecarScope
+	if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+		noneMode {
+		generateManagementListeners = false
+	}
+	if generateManagementListeners {
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		mgmtListeners := make([]*xdsapi.Listener, 0)
+		for _, ip := range node.IPAddresses {
+			managementPorts := env.ManagementPorts(ip)
+			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+			mgmtListeners = append(mgmtListeners, management...)
+		}
+
+		// If management listener port and service port are same, bad things happen
+		// when running in kubernetes, as the probes stop responding. So, append
+		// non overlapping listeners only.
+		for i := range mgmtListeners {
+			m := mgmtListeners[i]
+			l := util.GetByAddress(listeners, m.Address.String())
+			if l != nil {
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+					m.Name, m.Address.String(), l.Name, l.Address.String())
+				continue
+			}
+			listeners = append(listeners, m)
+		}
+	}
+	return listeners
+}
+
+// Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
@@ -1319,6 +1325,7 @@ type httpListenerOpts struct {
 type filterChainOpts struct {
 	sniHosts         []string
 	destinationCIDRs []string
+	metadata         *core.Metadata
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
@@ -1401,16 +1408,18 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Path: env.Mesh.AccessLogFile,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.FileAccessLog,
 		}
 
-		connectionManager.AccessLog = []*accesslog.AccessLog{
-			{
-				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
-				Name:       xdsutil.FileAccessLog,
-			},
+		if util.IsProxyVersionGE11(node) {
+			buildAccessLog(fl, env)
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
+
+		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
 	}
 
 	if env.Mesh.EnableTracing {
@@ -1544,15 +1553,21 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
+		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, listener.Filter{
-				Name:       xdsutil.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])},
-			})
+			filter := listener.Filter{
+				Name: xdsutil.HTTPConnectionManager,
+			}
+			if util.IsProxyVersionGE11(pluginParams.Node) {
+				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+			} else {
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			}
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}

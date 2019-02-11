@@ -15,6 +15,7 @@
 package components
 
 import (
+	"net"
 	"testing"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -34,6 +35,9 @@ type Mixer interface {
 
 	// TODO(nmittler): Remove this
 	Configure(t testing.TB, scope lifecycle.Scope, yaml string)
+
+	GetCheckAddress() net.Addr
+	GetReportAddress() net.Addr
 }
 
 // CheckResponse that is returned from a Mixer Check call.
@@ -48,5 +52,5 @@ func (c *CheckResponse) Succeeded() bool {
 
 // GetMixer from the repository
 func GetMixer(e component.Repository, t testing.TB) Mixer {
-	return e.GetComponentOrFail(ids.Mixer, t).(Mixer)
+	return e.GetComponentOrFail("", ids.Mixer, t).(Mixer)
 }
