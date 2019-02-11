@@ -203,7 +203,7 @@ func generateExpectRBACForSinglePolicy(serviceRoleID string, rbacPolicy *policy.
 
 // nolint:deadcode
 // serviceRoleOrBindingID: A number represent ServiceRole or ServiceRoleBinding number.
-func generateSimpleServiceRoleBindingForNotRule(serviceRoleOrBindingID string) model.Config {
+func generateSimpleServiceRoleBindingAllGroups(serviceRoleOrBindingID string) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{Name: "service-role-binding-" + serviceRoleOrBindingID},
 		Spec: &rbacproto.ServiceRoleBinding{

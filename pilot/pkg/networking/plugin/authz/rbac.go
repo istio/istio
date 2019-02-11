@@ -84,7 +84,7 @@ const (
 	methodHeader = ":method"
 	pathHeader   = ":path"
 	hostHeader   = ":authority"
-	port         = "port"
+	portKey      = "port"
 
 	spiffePrefix = spiffe.Scheme + "://"
 )
@@ -616,12 +616,12 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	}
 
 	if len(rule.Ports) > 0 {
-		portRule := permissionForKeyValues(port, convertPortInIntToString(rule.Ports))
+		portRule := permissionForKeyValues(portKey, convertPortInIntToString(rule.Ports))
 		addToRules(rules, portRule, false /*isNotRule*/)
 	}
 
 	if len(rule.NotPorts) > 0 {
-		notPortRule := permissionForKeyValues(port, convertPortInIntToString(rule.NotPorts))
+		notPortRule := permissionForKeyValues(portKey, convertPortInIntToString(rule.NotPorts))
 		addToRules(rules, notPortRule, true /*isNotRule*/)
 	}
 
@@ -760,7 +760,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
 			}, nil
 		}
-	case key == attrDestPort || key == port:
+	case key == attrDestPort || key == portKey:
 		converter = func(v string) (*policyproto.Permission, error) {
 			portValue, err := convertToPort(v)
 			if err != nil {

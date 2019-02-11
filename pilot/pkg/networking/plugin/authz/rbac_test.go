@@ -559,11 +559,11 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-		generateSimpleServiceRoleBindingForNotRule("7" /*serviceRoleOrBindingID*/),
-		generateSimpleServiceRoleBindingForNotRule("8"),
-		generateSimpleServiceRoleBindingForNotRule("9"),
-		generateSimpleServiceRoleBindingForNotRule("10"),
-		generateSimpleServiceRoleBindingForNotRule("11"),
+		generateSimpleServiceRoleBindingAllGroups("7" /*serviceRoleOrBindingID*/),
+		generateSimpleServiceRoleBindingAllGroups("8"),
+		generateSimpleServiceRoleBindingAllGroups("9"),
+		generateSimpleServiceRoleBindingAllGroups("10"),
+		generateSimpleServiceRoleBindingAllGroups("11"),
 	}
 
 	policy1 := &policy.Policy{
