@@ -280,7 +280,7 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
-// isEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
+// IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
 func IsLocalityEmpty(locality *core.Locality) bool {
 	if locality == nil || (len(locality.GetRegion()) == 0) {
 		return true
