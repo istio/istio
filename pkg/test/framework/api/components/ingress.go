@@ -43,5 +43,5 @@ type IngressCallResponse struct {
 
 // GetIngress from the repository
 func GetIngress(e component.Repository, t testing.TB) Ingress {
-	return e.GetComponentOrFail(ids.Ingress, t).(Ingress)
+	return e.GetComponentOrFail("", ids.Ingress, t).(Ingress)
 }

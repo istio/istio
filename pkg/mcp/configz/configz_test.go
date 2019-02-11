@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 
 	"github.com/gogo/protobuf/types"
@@ -66,7 +67,7 @@ func TestConfigZ(t *testing.T) {
 	options := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{{Name: testEmptyCollection}},
 		Updater:           u,
-		ID:                snapshot.DefaultGroup,
+		ID:                groups.Default,
 		Metadata:          map[string]string{"foo": "bar"},
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
@@ -84,7 +85,7 @@ func TestConfigZ(t *testing.T) {
 
 	// wait for client to make first watch request
 	for {
-		if status := s.Cache.Status(snapshot.DefaultGroup); status != nil {
+		if status := s.Cache.Status(groups.Default); status != nil {
 			if status.Watches() > 0 {
 				break
 			}
@@ -101,11 +102,11 @@ func TestConfigZ(t *testing.T) {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
 	prevSnapshotTime := time.Now()
-	s.Cache.SetSnapshot(snapshot.DefaultGroup, b.Build())
+	s.Cache.SetSnapshot(groups.Default, b.Build())
 
 	// wait for client to ACK the pushed snapshot
 	for {
-		if status := s.Cache.Status(snapshot.DefaultGroup); status != nil {
+		if status := s.Cache.Status(groups.Default); status != nil {
 			if status.LastWatchRequestTime().After(prevSnapshotTime) {
 				break
 			}
@@ -121,7 +122,7 @@ func TestConfigZ(t *testing.T) {
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	// First, test configz, with no recent requests.
 	data := request(t, baseURL+"/configz")
-	if !strings.Contains(data, snapshot.DefaultGroup) {
+	if !strings.Contains(data, groups.Default) {
 		t.Fatalf("Node id should have been displayed: %q", data)
 	}
 	if !strings.Contains(data, "foo") || !strings.Contains(data, "bar") {
@@ -162,7 +163,7 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 		t.Fatalf("Should have unmarshalled json: %v", err)
 	}
 
-	if m["ID"] != snapshot.DefaultGroup {
+	if m["ID"] != groups.Default {
 		t.Fatalf("Should have contained id: %v", data)
 	}
 

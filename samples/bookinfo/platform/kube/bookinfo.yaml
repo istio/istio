@@ -21,6 +21,7 @@ metadata:
   name: details
   labels:
     app: details
+    service: details
 spec:
   ports:
   - port: 9080
@@ -32,6 +33,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: details-v1
+  labels:
+    app: details
+    version: v1
 spec:
   replicas: 1
   template:
@@ -56,6 +60,7 @@ metadata:
   name: ratings
   labels:
     app: ratings
+    service: ratings
 spec:
   ports:
   - port: 9080
@@ -67,6 +72,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: ratings-v1
+  labels:
+    app: ratings
+    version: v1
 spec:
   replicas: 1
   template:
@@ -91,6 +99,7 @@ metadata:
   name: reviews
   labels:
     app: reviews
+    service: reviews
 spec:
   ports:
   - port: 9080
@@ -102,6 +111,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v1
+  labels:
+    app: reviews
+    version: v1
 spec:
   replicas: 1
   template:
@@ -121,6 +133,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v2
+  labels:
+    app: reviews
+    version: v2
 spec:
   replicas: 1
   template:
@@ -140,6 +155,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v3
+  labels:
+    app: reviews
+    version: v3
 spec:
   replicas: 1
   template:
@@ -164,6 +182,7 @@ metadata:
   name: productpage
   labels:
     app: productpage
+    service: productpage
 spec:
   ports:
   - port: 9080
@@ -175,6 +194,9 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: productpage-v1
+  labels:
+    app: productpage
+    version: v1
 spec:
   replicas: 1
   template:

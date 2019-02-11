@@ -23,7 +23,7 @@ metadata:
   namespace: istio-system
 spec:
   #FIXME match: destination.labels["app"]=="productpage" && request.headers["x-user"] == ""
-  match: request.headers["x-user"] == "john"
+  match: (request.headers["x-user"] | "") == "john"
   actions:
   - handler: handler.denier.istio-system
     instances: [ denyrequest.checknothing.istio-system ]

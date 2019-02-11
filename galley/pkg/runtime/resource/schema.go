@@ -73,9 +73,37 @@ func (b *SchemaBuilder) Register(rawCollection, rawTypeURL string) Info {
 		TypeURL:    typeURL,
 	}
 
-	b.schema.byCollection[info.Collection.String()] = info
+	b.RegisterInfo(info)
 
 	return info
+}
+
+// Register a proto into the schema.
+func (b *SchemaBuilder) RegisterInfo(info Info) *SchemaBuilder {
+	b.schema.byCollection[info.Collection.String()] = info
+	return b
+}
+
+// Register all protos in the given Schema
+func (b *SchemaBuilder) RegisterSchema(schema *Schema) *SchemaBuilder {
+	for _, info := range schema.All() {
+		b.RegisterInfo(info)
+	}
+	return b
+}
+
+// Unregister all protos in the given Schema
+func (b *SchemaBuilder) UnregisterSchema(schema *Schema) *SchemaBuilder {
+	for _, info := range schema.All() {
+		b.UnregisterInfo(info)
+	}
+	return b
+}
+
+// Unregister a proto from the schema.
+func (b *SchemaBuilder) UnregisterInfo(info Info) *SchemaBuilder {
+	delete(b.schema.byCollection, info.Collection.String())
+	return b
 }
 
 // Build a new schema from this SchemaBuilder.

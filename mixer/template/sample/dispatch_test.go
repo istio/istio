@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
@@ -166,7 +167,7 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 	}
 
 	bag := attribute.GetMutableBagForTesting(defaultApaAttributes)
-	f := finder{combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...)}
+	f := ast.NewFinder(combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...))
 	builder := compiled.NewBuilder(f)
 	expressions, err := SupportedTmplInfo[sample_apa.TemplateName].CreateOutputExpressions(&sampleApaInstanceParam, f, builder)
 	if err != nil {
@@ -227,7 +228,7 @@ func executeDispatchGenAttrs(t *testing.T, h adapter.Handler, bag attribute.Bag,
 }
 
 func createInstance(t *testing.T, template string, instanceParam proto.Message, attrs map[string]interface{}) interface{} {
-	expb := compiled.NewBuilder(finder{defaultAttributeInfos})
+	expb := compiled.NewBuilder(ast.NewFinder(defaultAttributeInfos))
 	builder, e := SupportedTmplInfo[template].CreateInstanceBuilder(
 		"instance1", instanceParam, expb)
 	if e != nil {

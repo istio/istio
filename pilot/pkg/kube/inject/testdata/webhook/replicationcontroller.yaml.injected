@@ -32,7 +32,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - nginx.default
+        - nginx.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -51,6 +51,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:
@@ -121,8 +123,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
