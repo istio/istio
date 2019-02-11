@@ -17,9 +17,9 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
@@ -163,4 +163,47 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	pilotSAN := getPilotSAN(DNSDomain, "anything")
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
+}
+
+func Test_handleTDDEnvVar(t *testing.T) {
+	tests := []struct {
+		name      string
+		setEnvVar bool
+		envVar    string
+		want      time.Duration
+	}{
+		{
+			name:      "Returns 5 seconds when no env var set",
+			setEnvVar: false,
+			want:      time.Second * 5,
+		},
+		{
+			name:      "Returns 5 seconds when env var is empty string",
+			setEnvVar: true,
+			envVar:    "",
+			want:      time.Second * 5,
+		},
+		{
+			name:      "Returns 5 seconds when env var is not an integer",
+			setEnvVar: true,
+			envVar:    "NaN",
+			want:      time.Second * 5,
+		},
+		{
+			name:      "Returns 20 seconds when env var is set to 20",
+			setEnvVar: true,
+			envVar:    "20",
+			want:      time.Second * 20,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setEnvVar {
+				os.Setenv("TERMINATION_DRAIN_DURATION_SECONDS", tt.envVar)
+			}
+			if got := handleTDDEnvVar(); got != tt.want {
+				t.Errorf("handleTDDEnvVar() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

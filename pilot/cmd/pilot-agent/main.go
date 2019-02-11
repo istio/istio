@@ -300,9 +300,7 @@ var (
 			defer func() {
 				log.Info("pilot-agent is terminating")
 				cancel()
-				if gracefulShutdownFeatureFlag {
-					wg.Wait()
-				}
+				wg.Wait()
 			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
@@ -327,7 +325,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, proxyConfig.ParentShutdownDuration)
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, handleTDDEnvVar())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -343,6 +341,19 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 	wg.Add(1)
 	fn(ctx)
 	wg.Done()
+}
+
+func handleTDDEnvVar() time.Duration {
+	tddEnvVar, found := os.LookupEnv("TERMINATION_DRAIN_DURATION_SECONDS")
+	if !found || tddEnvVar == "" {
+		return time.Second * 5
+	}
+	tdd, err := strconv.Atoi(tddEnvVar)
+	if err != nil {
+		log.Warnf("unable to parse env var TERMINATION_DRAIN_DURATION_SECONDS, using default of 5 seconds.")
+		return time.Second * 5
+	}
+	return time.Second * time.Duration(tdd)
 }
 
 func getPilotSAN(domain string, ns string) []string {
@@ -470,10 +481,6 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-
-	// Feature flags
-	proxyCmd.PersistentFlags().BoolVar(&gracefulShutdownFeatureFlag, "gracefulShutdown", false,
-		"Drains Envoy connections when SIGTERM is received. Drain duration is equal to Parent Shutdown duration.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
