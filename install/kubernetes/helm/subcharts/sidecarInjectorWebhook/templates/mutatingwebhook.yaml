@@ -25,6 +25,10 @@ webhooks:
     namespaceSelector:
 {{- if .Values.enableNamespacesByDefault }}
       matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
       - key: istio-injection
         operator: NotIn
         values:
