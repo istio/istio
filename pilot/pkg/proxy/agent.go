@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 
 	"istio.io/istio/pkg/log"
@@ -87,17 +86,15 @@ const (
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, retry Retry, parentShutdownDuration *types.Duration) Agent {
-	parentDrain, _ := types.DurationFromProto(parentShutdownDuration)
-	gtp := parentDrain + (time.Second * 10) // add 10 second buffer
+func NewAgent(proxy Proxy, retry Retry, terminationDrainDuration time.Duration) Agent {
 	return &agent{
-		proxy:                     proxy,
-		retry:                     retry,
-		epochs:                    make(map[int]interface{}),
-		configCh:                  make(chan interface{}),
-		statusCh:                  make(chan exitStatus),
-		abortCh:                   make(map[int]chan error),
-		gracefulTerminationPeriod: gtp,
+		proxy:                    proxy,
+		retry:                    retry,
+		epochs:                   make(map[int]interface{}),
+		configCh:                 make(chan interface{}),
+		statusCh:                 make(chan exitStatus),
+		abortCh:                  make(map[int]chan error),
+		terminationDrainDuration: terminationDrainDuration,
 	}
 }
 
@@ -159,7 +156,7 @@ type agent struct {
 	abortCh map[int]chan error
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
-	gracefulTerminationPeriod time.Duration
+	terminationDrainDuration time.Duration
 }
 
 type exitStatus struct {
@@ -268,8 +265,8 @@ func (a *agent) terminate() {
 	log.Infof("Agent draining Proxy")
 	a.desiredConfig = DrainConfig{}
 	a.reconcile()
-	log.Infof("Graceful termination period is %v, starting...", a.gracefulTerminationPeriod)
-	time.Sleep(a.gracefulTerminationPeriod)
+	log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
+	time.Sleep(a.terminationDrainDuration)
 	log.Infof("Graceful termination period complete, terminating remaining proxies.")
 	a.abortAll()
 }
