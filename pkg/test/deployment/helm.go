@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -161,7 +163,8 @@ func exec(cmd string) (string, error) {
 	scopes.CI.Infof("executing: %s", cmd)
 	str, err := shell.Execute(cmd)
 	if err != nil {
-		scopes.CI.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
+		err = errors.Wrapf(err, "error (%s) executing command: %s", str, cmd)
+		scopes.CI.Errorf("%v", err)
 	}
 	return str, err
 }

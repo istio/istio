@@ -92,7 +92,7 @@ type Proxy struct {
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
-	DNSDomain string
+	DNSDomains []string
 
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
@@ -143,7 +143,7 @@ func (node *Proxy) ServiceNode() string {
 		ip = node.IPAddresses[0]
 	}
 	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomain,
+		string(node.Type), ip, node.ID, node.DNSDomains[0],
 	}, serviceNodeSeparator)
 
 }
@@ -288,7 +288,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	out.ID = parts[2]
-	out.DNSDomain = parts[3]
+	out.DNSDomains = getProxyMetadataDNSDomains(out, parts[3])
 	return out, nil
 }
 
@@ -307,12 +307,30 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
-	parts := strings.Split(proxy.DNSDomain, ".")
+	parts := strings.Split(proxy.DNSDomains[0], ".")
 	if len(parts) > 1 { // k8s will have namespace.<domain>
 		return parts[0]
 	}
 
 	return ""
+}
+
+// getProxyMetadataDNSDomains returns a slice containing every DNS Domain that
+// has been injected into the proxy via the environment variable ISTIO_META_DNS_DOMAINS
+func getProxyMetadataDNSDomains(proxy *Proxy, parts string) []string {
+	if proxy == nil {
+		return nil
+	}
+
+	// If ISTIO_META_DNS_DOMAINS contains a list, produce and return a
+	//  list of unique suffixes
+	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
+		nodeMetadataDNSDomainsUnique := GetUniqueSuffixes(strings.Split(nodeMetadataDNSDomains, ","))
+		return nodeMetadataDNSDomainsUnique
+	}
+
+	// Otherwise just return the DNSDomain
+	return []string{parts}
 }
 
 const (
@@ -525,6 +543,9 @@ const (
 	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
+
+	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
+	NodeMetadataDNSDomains = "DNS_DOMAINS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
@@ -562,4 +583,30 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
+}
+
+// GetUniqueSuffixes Return a slice containing the strings with the longesest
+// unique suffixes
+func GetUniqueSuffixes(stringSlice []string) []string {
+	out := []string{}
+
+	// Iterate through the slice finding longest strings with unique suffixes
+	for _, stringOne := range stringSlice {
+		workString := ""
+		for _, stringTwo := range stringSlice {
+			// If strings have same suffix
+			if strings.HasSuffix(stringOne, stringTwo) {
+				// Keep the longest string from the first range
+				if len(stringOne) > len(stringTwo) {
+					workString = stringOne
+				}
+			}
+		}
+
+		// Append first range working string if a new one was found
+		if workString != "" {
+			out = append(out, workString)
+		}
+	}
+	return out
 }
