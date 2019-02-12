@@ -73,18 +73,17 @@ func (w *watcher) Run(ctx context.Context) {
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
 
 	shouldKickStart := true
+
 	if w.waitForCerts {
 		// If none of the cert/key files exist, should not kick start.
 		shouldKickStart = false
+	OuterLoop:
 		for _, cert := range w.certs {
 			for _, filename := range cert.Files {
 				if _, err := os.Stat(path.Join(cert.Directory, filename)); err == nil || !os.IsNotExist(err) {
 					shouldKickStart = true
-					break
+					break OuterLoop
 				}
-			}
-			if shouldKickStart {
-				break
 			}
 		}
 	}
