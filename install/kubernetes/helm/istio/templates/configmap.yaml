@@ -53,8 +53,7 @@ data:
     {{- end }}
     
     {{- else }}
-    #
-    # Deprecated: mixer is using EDS
+
     {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
