@@ -532,15 +532,13 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
-	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, &Service{Hostname: hostname})
+	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
