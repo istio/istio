@@ -10,6 +10,8 @@ pilot:
   traceSampling: 100.0
 
 mixer:
+  policy:
+    enabled: true
   adapters:
     stdio:
       enabled: true
