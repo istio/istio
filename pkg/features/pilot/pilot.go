@@ -65,6 +65,13 @@ var (
 	// Default is 10s, Example: "300ms", "10s" or "2h45m".
 	DebounceMax = os.Getenv("PILOT_DEBOUNCE_MAX")
 
+	// DisableEDSIsolation provides an option to disable the feature
+	// of EDS isolation which is enabled by default from Istio 1.1 and
+	// go back to the legacy behavior of previous releases.
+	// If not set, Pilot will return the endpoints for a proxy in an isolated namespace.
+	// Set the environment variable to any value to disable.
+	DisableEDSIsolation = os.Getenv("PILOT_DISABLE_EDS_ISOLATION")
+
 	// AzDebug indicates whether to log service registry az info.
 	AzDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 
