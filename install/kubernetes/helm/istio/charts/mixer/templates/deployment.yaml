@@ -9,6 +9,20 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       affinity:
@@ -132,6 +146,14 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -144,6 +166,20 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       affinity:
@@ -271,6 +307,14 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
