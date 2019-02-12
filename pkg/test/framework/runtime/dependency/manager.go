@@ -30,11 +30,13 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-var _ component.Factory = &Manager{}
-var _ component.Repository = &Manager{}
-var _ component.Resolver = &Manager{}
-var _ api.Resettable = &Manager{}
-var _ io.Closer = &Manager{}
+var (
+	_ component.Factory    = &Manager{}
+	_ component.Repository = &Manager{}
+	_ component.Resolver   = &Manager{}
+	_ api.Resettable       = &Manager{}
+	_ io.Closer            = &Manager{}
+)
 
 // Manager for the dependencies for all deployments.
 type Manager struct {
@@ -45,11 +47,20 @@ type Manager struct {
 	// The underlying Factory used for creating new component instances.
 	registry *registry.Instance
 
-	// A map of all component instances
-	compMap map[component.ID]api.Component
+	// A map of all component entries
+	compMap map[component.Key]*compEntry
 
-	// A list of all deployments in creation order.
-	all []api.Component
+	// A list of all components in creation order.
+	all []*compEntry
+}
+
+type compEntry struct {
+	key  component.Key
+	comp api.Component
+}
+
+func (c compEntry) String() string {
+	return "{" + c.key.String() + ": " + c.comp.Descriptor().String() + "}"
 }
 
 // NewManager creates a new Manager instance.
@@ -58,47 +69,21 @@ func NewManager(ctx context.Instance, registry *registry.Instance) *Manager {
 		Defaults: registry,
 		ctx:      ctx,
 		registry: registry,
-		compMap:  make(map[component.ID]api.Component),
+		compMap:  make(map[component.Key]*compEntry),
 	}
 }
 
 // Require implements the component.Resolver interface
 func (m *Manager) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {
-	// Gather the descriptors and component IDs.
-	idMap := make(map[component.ID]bool)
+	// Two phase processing, first gather all the requirements then create them.
 	depMgr := newCreationProcessor(m, scope)
-	for _, req := range reqs {
-		if desc, ok := req.(*component.Descriptor); ok {
-			if err := depMgr.Add(*desc); err != nil {
-				return err
-			}
-		} else if id, ok := req.(*component.ID); ok {
-			idMap[*id] = true
-		} else {
-			return resolutionError(fmt.Errorf("unsupported requirement type: %v", req))
-		}
-	}
-
-	// Create any explicit dependencies first.
-	if err := depMgr.CreateComponents(); err != nil {
+	if err := depMgr.ProcessRequirements(reqs); err != nil {
 		return err
 	}
-
-	// Now for any required component IDs, create default component as necessary.
-	for compID := range idMap {
-		if c := m.GetComponent(compID); c == nil {
-			desc, err := m.GetDefaultDescriptor(compID)
-			if err != nil {
-				return resolutionError(err)
-			}
-
-			if _, err := m.requireComponent(desc, scope); err != nil {
-				return err
-			}
-		}
+	if err := depMgr.ApplyDefaults(); err != nil {
+		return err
 	}
-
-	return nil
+	return depMgr.CreateComponents()
 }
 
 // RequireOrFail implements the component.Resolver interface
@@ -123,7 +108,13 @@ func (m *Manager) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...com
 
 // NewComponent implements the component.Factory interface
 func (m *Manager) NewComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
-	return m.requireComponent(desc, scope)
+	// Require all of the children to be loaded first.
+	if err := m.Require(scope, desc.Requires...); err != nil {
+		return nil, err
+	}
+	// Now we can load the component itself.
+	reqEntry := createEntry(&desc)
+	return m.requireComponent(reqEntry, scope)
 }
 
 // NewComponentOrFail implements the component.Factory interface
@@ -145,90 +136,114 @@ func normalizeScope(desc component.Descriptor, scope lifecycle.Scope) lifecycle.
 	return scope
 }
 
-func (m *Manager) requireComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, component.RequirementError) {
+func (m *Manager) requireComponent(entry *reqEntry, s lifecycle.Scope) (component.Instance, component.RequirementError) {
 	// Make sure that system components are always created with suite scope.
-	scope = normalizeScope(desc, scope)
+	s = normalizeScope(*entry.desc, s)
 
 	// First, check if we've already created this component.
-	if c, ok := m.compMap[desc.ID]; ok {
-		if !reflect.DeepEqual(c.Descriptor(), desc) {
-			return nil, resolutionError(fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()))
+	if cEntry, ok := m.compMap[entry.key]; ok {
+		descName := entry.desc.FriendlyName()
+		if !reflect.DeepEqual(cEntry.comp.Descriptor(), *entry.desc) {
+			err := fmt.Errorf("cannot add component `%s`, already running with `%s`", descName, cEntry.comp.Descriptor().FriendlyName())
+			return nil, resolutionError(err)
 		}
-		if c.Scope().IsLower(scope) {
-			return nil, resolutionError(fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()))
+		if cEntry.comp.Scope().IsLower(s) {
+			err := fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", descName, cEntry.comp.Scope())
+			return nil, resolutionError(err)
 		}
 		// The component was already added.
-		return c, nil
+		return cEntry.comp, nil
 	}
 
-	// Create any dependencies.
-	if err := m.Require(scope, desc.Requires...); err != nil {
-		return nil, err
+	// Verify all of the child dependencies were already created, as they should have been by callers
+	// of this function. Otherwise report an error.
+	for _, childReq := range entry.desc.Requires {
+		childEntry := createEntry(childReq)
+		if _, ok := m.compMap[childEntry.key]; !ok {
+			err := fmt.Errorf("missing child component %v while trying to create component %v", childEntry, entry)
+			return nil, resolutionError(err)
+		}
 	}
 
 	// Now create the component.
 	// Get the component factory function.
-	fn, err := m.registry.GetFactory(desc)
+	fn, err := m.registry.GetFactory(*entry.desc)
 	if err != nil {
 		return nil, resolutionError(err)
 	}
 
 	// Create the component.
-	c, err := fn()
+	comp, err := fn()
 	if err != nil {
 		return nil, startError(err)
 	}
 
+	// Configure the component if configuration is non-nil and the component takes configuration.
+	if entry.desc.Configuration != nil {
+		if configurable, ok := comp.(api.Configurable); ok {
+			if err = configurable.Configure(entry.desc.Configuration); err != nil {
+				return nil, startError(err)
+			}
+		} else {
+			err = fmt.Errorf("component %v does not accept configuration yet one was provided (%v)", entry.key, entry)
+			return nil, startError(err)
+		}
+	}
+
 	// Start the component.
-	if err := c.Start(m.ctx, scope); err != nil {
+	if err := comp.Start(m.ctx, s); err != nil {
 		// Close the component if we can.
-		if cl, ok := c.(io.Closer); ok {
+		if cl, ok := comp.(io.Closer); ok {
 			err = multierror.Append(err, cl.Close())
 		}
 		return nil, startError(err)
 	}
 
-	// Store the deployment in the map.
-	m.compMap[desc.ID] = c
-	m.all = append(m.all, c)
+	// Store the component entry in the manager.
+	cEntry := compEntry{
+		key:  entry.key,
+		comp: comp,
+	}
+	m.compMap[entry.key] = &cEntry
+	if entry.key.Variant != "" {
+		// If there is not yet a default variant stored, store one.
+		baseKey := entry.key.ID.GetKey()
+		if _, ok := m.compMap[baseKey]; !ok {
+			m.compMap[baseKey] = &cEntry
+		}
+	}
+	m.all = append(m.all, &cEntry)
 
-	return c, nil
+	return comp, nil
 }
 
 // GetComponent implements the component.Repository interface
-func (m *Manager) GetComponent(id component.ID) component.Instance {
-	return m.compMap[id]
+func (m *Manager) GetComponent(req component.Requirement) component.Instance {
+	return m.getComponentByKey(req.GetKey())
 }
 
 // GetComponentOrFail implements the component.Repository interface
-func (m *Manager) GetComponentOrFail(id component.ID, t testing.TB) component.Instance {
+func (m *Manager) GetComponentOrFail(req component.Requirement, t testing.TB) component.Instance {
 	t.Helper()
-	c := m.GetComponent(id)
+	c := m.GetComponent(req)
 	if c == nil {
-		t.Fatalf("component %s has not been created", id)
+		t.Fatalf("component %s has not been created", req)
 	}
 	return c
 }
 
-// GetComponentForDescriptor implements the component.Repository interface
-func (m *Manager) GetComponentForDescriptor(d component.Descriptor) component.Instance {
-	return m.GetComponent(d.ID)
-}
-
-// GetComponentForDescriptorOrFail implements the component.Repository interface
-func (m *Manager) GetComponentForDescriptorOrFail(d component.Descriptor, t testing.TB) component.Instance {
-	c := m.GetComponentForDescriptor(d)
-	if c == nil {
-		t.Fatalf("component does not exist: %v", d)
+func (m *Manager) getComponentByKey(key component.Key) component.Instance {
+	if compEntry, ok := m.compMap[key]; ok {
+		return compEntry.comp
 	}
-	return c
+	return nil
 }
 
 // GetAllComponents implements the component.Repository interface
 func (m *Manager) GetAllComponents() []component.Instance {
 	all := make([]component.Instance, 0, len(m.all))
 	for _, c := range m.all {
-		all = append(all, c)
+		all = append(all, c.comp)
 	}
 	return all
 }
@@ -238,12 +253,12 @@ func (m *Manager) Reset() (err error) {
 
 	// Close and remove any Test-scoped components.
 	// Iterate in reverse, traversing from newest to oldest component.
-	newAll := make([]api.Component, 0, len(m.all))
+	newAll := make([]*compEntry, 0, len(m.all))
 	for i := len(m.all) - 1; i >= 0; i-- {
 		c := m.all[i]
-		if c.Scope() == lifecycle.Test {
-			err = multierror.Append(err, closeComponent(c)).ErrorOrNil()
-			delete(m.compMap, c.Descriptor().ID)
+		if c.comp.Scope() == lifecycle.Test {
+			err = multierror.Append(err, closeComponent(c.comp)).ErrorOrNil()
+			delete(m.compMap, c.key)
 			continue
 		}
 		newAll = append(newAll, c)
@@ -254,7 +269,7 @@ func (m *Manager) Reset() (err error) {
 	// Iterate in reverse, traversing from newest to oldest component.
 	for i := len(m.all) - 1; i >= 0; i-- {
 		c := m.all[i]
-		err = multierror.Append(err, resetComponent(c)).ErrorOrNil()
+		err = multierror.Append(err, resetComponent(c.comp)).ErrorOrNil()
 	}
 	return
 }
@@ -263,7 +278,7 @@ func (m *Manager) Reset() (err error) {
 func (m *Manager) Close() (err error) {
 	// Iterate in reverse, traversing from newest to oldest component.
 	for i := len(m.all) - 1; i >= 0; i-- {
-		err = multierror.Append(err, closeComponent(m.all[i])).ErrorOrNil()
+		err = multierror.Append(err, closeComponent(m.all[i].comp)).ErrorOrNil()
 	}
 	// Clear the array.
 	m.all = m.all[:0]
@@ -277,9 +292,9 @@ func (m *Manager) Close() (err error) {
 
 func closeComponent(c api.Component) error {
 	if cl, ok := c.(io.Closer); ok {
-		scopes.Framework.Debugf("Cleaning up state for dependency: %s", c.Descriptor().ID)
+		scopes.Framework.Debugf("Cleaning up state for dependency: %s", c.Descriptor().GetKey())
 		if err := cl.Close(); err != nil {
-			scopes.Framework.Errorf("Error cleaning up dependency state: %s: %v", c.Descriptor().ID, err)
+			scopes.Framework.Errorf("Error cleaning up dependency state: %s: %v", c.Descriptor().GetKey(), err)
 			return err
 		}
 	}
@@ -288,9 +303,9 @@ func closeComponent(c api.Component) error {
 
 func resetComponent(c api.Component) error {
 	if cl, ok := c.(api.Resettable); ok {
-		scopes.Framework.Debugf("Resetting state for component: %s", c.Descriptor().ID)
+		scopes.Framework.Debugf("Resetting state for component: %s", c.Descriptor().GetKey())
 		if err := cl.Reset(); err != nil {
-			scopes.Framework.Errorf("Error resetting component state: %s: %v", c.Descriptor().ID, err)
+			scopes.Framework.Errorf("Error resetting component state: %s: %v", c.Descriptor().GetKey(), err)
 			return err
 		}
 	}

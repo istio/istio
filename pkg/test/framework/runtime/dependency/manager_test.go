@@ -16,7 +16,6 @@ package dependency_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"istio.io/istio/pkg/log"
@@ -54,6 +53,7 @@ func TestRequireIDs(t *testing.T) {
 
 	// Creating component a should create b and c.
 	scope := lifecycle.Suite
+
 	m.RequireOrFail(t, scope, &aID, &bID, &cID)
 
 	m.assertCount(3)
@@ -121,7 +121,7 @@ func TestOverrideDefault(t *testing.T) {
 	bOverride := m.registerVariant(bID, "b-variant", &cID)
 	c := m.registerDefault(cID)
 
-	// Creating component a should create b and c.
+	// Creating component a should create b-variant and c.
 	scope := lifecycle.Suite
 	m.RequireOrFail(t, scope, &aID, &bOverride, &cID)
 
@@ -171,24 +171,6 @@ func TestRequireExistingComponentSucceeds(t *testing.T) {
 	m.RequireOrFail(t, scope, &a)
 	m.assertCount(2)
 	m.assertDescriptor(a, scope)
-}
-
-func TestRequireConflictingExistingComponentFails(t *testing.T) {
-	m := newManager(t)
-
-	// Creating component a should create b and c.
-	scope := lifecycle.Suite
-
-	v1 := m.registerVariant(aID, "v1")
-	v2 := m.registerVariant(aID, "v2")
-
-	// First create v1
-	m.RequireOrFail(t, scope, &v1)
-	m.assertCount(1)
-	m.assertDescriptor(v1, scope)
-
-	// Now create v2
-	expect(t).resolutionError(m.Require(scope, &v2))
 }
 
 func TestRequireGreaterScopeThanExistingComponentFails(t *testing.T) {
@@ -281,13 +263,73 @@ func TestDependencyWithLesserScopeFails(t *testing.T) {
 	expect(t).resolutionError(m.Require(lifecycle.Suite, &a))
 }
 
+func TestVariantsCreateMultipleComponents(t *testing.T) {
+	m := newManager(t)
+
+	_ = m.registerDefault(aID)
+	req1 := component.NewDescriptor(aID, "one")
+	req2 := component.NewDescriptor(aID, "two")
+
+	m.RequireOrFail(t, lifecycle.Test, req1, req2)
+	m.assertCount(2)
+	m.assertDescriptor(*req1, lifecycle.Test)
+	m.assertDescriptor(*req2, lifecycle.Test)
+}
+
+type testConfig struct {
+	content string
+}
+
+func (c testConfig) String() string {
+	return c.content
+}
+
+func TestMismatchedConfiguration(t *testing.T) {
+	m := newManager(t)
+
+	_ = m.registerDefault(aID)
+
+	req1 := component.NewDescriptor(aID, "")
+	req1.Configuration = testConfig{"one"}
+
+	req2 := component.NewDescriptor(aID, "")
+	req2.Configuration = testConfig{"two"}
+
+	expect(t).resolutionError(m.Require(lifecycle.Test, req1, req2))
+}
+
+func TestConfigOverride(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+
+	req := component.NewDescriptor(aID, "")
+	req.Configuration = testConfig{"one"}
+
+	m.RequireOrFail(t, lifecycle.Test, &a, req)
+	m.assertCount(1)
+	m.assertDescriptor(a, lifecycle.Test)
+	m.assertConfiguration(a, req.Configuration)
+}
+
 func assertDescriptor(c component.Instance, desc component.Descriptor, scope lifecycle.Scope, t *testing.T) {
 	t.Helper()
 	if c.Scope() != scope {
 		t.Fatalf("expected %v, found %v", scope, c.Scope())
 	}
-	if !reflect.DeepEqual(c.Descriptor(), desc) {
-		t.Fatalf("expected %v, found %v", desc, c.Descriptor())
+	if c.Descriptor().Key.ID != desc.Key.ID {
+		t.Fatalf("expected %v, found %v", desc.Key.ID, c.Descriptor().Key.ID)
+	}
+}
+
+func assertConfiguration(c component.Instance, config component.Configuration, t *testing.T) {
+	t.Helper()
+	if co, ok := c.(*comp); ok {
+		if co.config != config {
+			t.Fatalf("expected %v, found %v", config, co.config)
+		}
+	} else {
+		t.Fatalf("Unable to cast component %v (%T) to local comp type.", c, c)
 	}
 }
 
@@ -328,16 +370,26 @@ func (m *manager) assertCount(expected int) {
 }
 
 func (m *manager) assertDescriptor(desc component.Descriptor, scope lifecycle.Scope) {
-	c := m.GetComponentForDescriptor(desc)
+	c := m.GetComponent(&desc)
 	if c == nil {
 		m.t.Fatalf("component not found for descriptor: %v", desc)
 	}
 	assertDescriptor(c, desc, scope, m.t)
 }
 
+func (m *manager) assertConfiguration(desc component.Descriptor, config component.Configuration) {
+	c := m.GetComponent(&desc)
+	if c == nil {
+		m.t.Fatalf("component not found for descriptor: %v", desc)
+	}
+	assertConfiguration(c, config, m.t)
+}
+
 type comp struct {
-	desc  component.Descriptor
-	scope lifecycle.Scope
+	name   string
+	desc   component.Descriptor
+	config component.Configuration
+	scope  lifecycle.Scope
 }
 
 func (c *comp) Descriptor() component.Descriptor {
@@ -346,6 +398,11 @@ func (c *comp) Descriptor() component.Descriptor {
 
 func (c *comp) Scope() lifecycle.Scope {
 	return c.scope
+}
+
+func (c *comp) Configure(config component.Configuration) error {
+	c.config = config
+	return nil
 }
 
 func (c *comp) Start(ctx context.Instance, scope lifecycle.Scope) error {
@@ -390,20 +447,11 @@ func (c *mockContext) Evaluate(t testing.TB, tmpl string) string {
 	return ""
 }
 
-func (c *mockContext) GetComponent(id component.ID) component.Instance {
+func (c *mockContext) GetComponent(req component.Requirement) component.Instance {
 	return nil
 }
 
-func (c *mockContext) GetComponentOrFail(id component.ID, t testing.TB) component.Instance {
-	t.Fatalf("unsupported")
-	return nil
-}
-
-func (c *mockContext) GetComponentForDescriptor(d component.Descriptor) component.Instance {
-	return nil
-}
-
-func (c *mockContext) GetComponentForDescriptorOrFail(d component.Descriptor, t testing.TB) component.Instance {
+func (c *mockContext) GetComponentOrFail(req component.Requirement, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
 }
@@ -415,6 +463,7 @@ func (c *mockContext) GetAllComponents() []component.Instance {
 func (c *mockContext) NewComponent(d component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
 	return nil, fmt.Errorf("unsupported")
 }
+
 func (c *mockContext) NewComponentOrFail(d component.Descriptor, scope lifecycle.Scope, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
@@ -443,8 +492,7 @@ func (c *mockContext) GetDefaultDescriptorOrFail(id component.ID, t testing.TB) 
 
 func descriptor(cid component.ID, variant component.Variant, reqs ...component.Requirement) component.Descriptor {
 	return component.Descriptor{
-		ID:       cid,
-		Variant:  variant,
+		Key:      component.Key{ID: cid, Variant: variant},
 		Requires: reqs,
 	}
 }

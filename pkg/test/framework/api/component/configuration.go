@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,20 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package key
+package component
 
-import "istio.io/istio/pkg/test/framework/api/component"
+import "fmt"
 
-// Instance of a key for component descriptors.
-type Instance struct {
-	ID      component.ID
-	Variant component.Variant
-}
-
-// For creates a key for the given descriptor.
-func For(d component.Descriptor) Instance {
-	return Instance{
-		ID:      d.ID,
-		Variant: d.Variant,
-	}
-}
+// Configuration is a marker interface for configuration objects that components take.
+type Configuration fmt.Stringer

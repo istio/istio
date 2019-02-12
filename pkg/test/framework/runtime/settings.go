@@ -53,7 +53,7 @@ func defaultSettings() *settings {
 	o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
 
 	return &settings{
-		Environment: descriptors.NativeEnvironment.Variant,
+		Environment: descriptors.NativeEnvironment.Key.Variant,
 		LogOptions:  o,
 	}
 }
