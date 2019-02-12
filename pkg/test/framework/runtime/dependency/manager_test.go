@@ -386,7 +386,6 @@ func (m *manager) assertConfiguration(desc component.Descriptor, config componen
 }
 
 type comp struct {
-	name   string
 	desc   component.Descriptor
 	config component.Configuration
 	scope  lifecycle.Scope
