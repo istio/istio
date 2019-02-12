@@ -42,7 +42,7 @@ func TestSidecarListeners(t *testing.T) {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"10.2.0.1"},
 		ID:          "app3.testns",
-		DNSDomain:   "testns.cluster.local",
+		DNSDomains:  []string{"testns.cluster.local"},
 	}
 
 	// ... and get listeners from Pilot for that proxy

@@ -280,6 +280,14 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
+// IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
+func IsLocalityEmpty(locality *core.Locality) bool {
+	if locality == nil || (len(locality.GetRegion()) == 0) {
+		return true
+	}
+	return false
+}
+
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
