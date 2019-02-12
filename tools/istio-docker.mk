@@ -96,6 +96,8 @@ docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REP
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: tools/deb/envoy_bootstrap_drain.json
+docker.proxy_debug: install/gcp/bootstrap/gcp_envoy_bootstrap.json
+docker.proxy_debug: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
@@ -113,6 +115,8 @@ ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION}
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: tools/deb/envoy_bootstrap_drain.json
+docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
+docker.proxyv2: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
@@ -126,6 +130,8 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION}
 docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
 docker.proxytproxy: tools/deb/envoy_bootstrap_drain.json
+docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
+docker.proxytproxy: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
