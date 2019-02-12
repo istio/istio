@@ -16,6 +16,7 @@ package components
 
 import (
 	"testing"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
@@ -27,6 +28,8 @@ import (
 type Pilot interface {
 	component.Instance
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
 }
 
 // GetPilot from the repository

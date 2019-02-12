@@ -186,6 +186,7 @@ func (c *nativeComponent) restart() error {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
 		return err
 	}
+	scopes.Framework.Infof("Started Galley with args: %v", a)
 
 	c.server = s
 

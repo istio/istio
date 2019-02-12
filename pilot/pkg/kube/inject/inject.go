@@ -514,6 +514,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
@@ -522,7 +523,11 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var tmpl bytes.Buffer
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
-	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
+	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
+		return nil, "", err
+	}
 	if err := t.Execute(&tmpl, &data); err != nil {
 		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
