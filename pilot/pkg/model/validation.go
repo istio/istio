@@ -1456,6 +1456,9 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
 			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
 		}
+		if !arePortsInRange(rule.Ports) || !arePortsInRange(rule.NotPorts) {
+			errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
+		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
@@ -1466,6 +1469,16 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// arePortsInRange checks if all ports in range [0, 65535]
+func arePortsInRange(ports []int32) bool {
+	for _, port := range ports {
+		if port < 0 || port > 65535 {
+			return false
+		}
+	}
+	return true
 }
 
 // ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.

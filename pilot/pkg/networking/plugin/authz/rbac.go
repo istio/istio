@@ -560,21 +560,24 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 	return &http_config.RBAC{Rules: rbac}
 }
 
-// addToRules adds a |rule| to |rules| if |rule| is not nil.
-// |rule| can be a regular rule (e.g. methods) or a not rule (e.g. not_methods).
-func addToRules(rules *policyproto.Permission_AndRules, rule *policyproto.Permission, isNotRule bool) {
+// appendRule appends a |rule| to |rules| if |rule| is not nil.
+func appendRule(rules *policyproto.Permission_AndRules, rule *policyproto.Permission) {
 	if rule == nil {
 		return
 	}
-	if isNotRule {
-		rules.AndRules.Rules = append(rules.AndRules.Rules,
-			&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
-				NotRule: rule,
-			},
-			})
-	} else {
-		rules.AndRules.Rules = append(rules.AndRules.Rules, rule)
+	rules.AndRules.Rules = append(rules.AndRules.Rules, rule)
+}
+
+// appendNotRule appends a |notRule| to |rules| if |notRule| is not nil.
+func appendNotRule(rules *policyproto.Permission_AndRules, notRule *policyproto.Permission) {
+	if notRule == nil {
+		return
 	}
+	rules.AndRules.Rules = append(rules.AndRules.Rules,
+		&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
+			NotRule: notRule,
+		},
+		})
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
@@ -587,42 +590,42 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 
 	if len(rule.Hosts) > 0 {
 		hostRule := permissionForKeyValues(hostHeader, rule.Hosts)
-		addToRules(rules, hostRule, false /*isNotRule*/)
+		appendRule(rules, hostRule)
 	}
 
 	if len(rule.NotHosts) > 0 {
 		notHostRule := permissionForKeyValues(hostHeader, rule.NotHosts)
-		addToRules(rules, notHostRule, true /*isNotRule*/)
+		appendNotRule(rules, notHostRule)
 	}
 
 	if len(rule.Methods) > 0 {
 		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
-		addToRules(rules, methodRule, false /*isNotRule*/)
+		appendRule(rules, methodRule)
 	}
 
 	if len(rule.NotMethods) > 0 {
 		notMethodRule := permissionForKeyValues(methodHeader, rule.NotMethods)
-		addToRules(rules, notMethodRule, true /*isNotRule*/)
+		appendNotRule(rules, notMethodRule)
 	}
 
 	if len(rule.Paths) > 0 {
 		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
-		addToRules(rules, pathRule, false /*isNotRule*/)
+		appendRule(rules, pathRule)
 	}
 
 	if len(rule.NotPaths) > 0 {
 		notPathRule := permissionForKeyValues(pathHeader, rule.NotPaths)
-		addToRules(rules, notPathRule, true /*isNotRule*/)
+		appendNotRule(rules, notPathRule)
 	}
 
 	if len(rule.Ports) > 0 {
 		portRule := permissionForKeyValues(portKey, convertPortInIntToString(rule.Ports))
-		addToRules(rules, portRule, false /*isNotRule*/)
+		appendRule(rules, portRule)
 	}
 
 	if len(rule.NotPorts) > 0 {
 		notPortRule := permissionForKeyValues(portKey, convertPortInIntToString(rule.NotPorts))
-		addToRules(rules, notPortRule, true /*isNotRule*/)
+		appendNotRule(rules, notPortRule)
 	}
 
 	if len(rule.Constraints) > 0 {
@@ -630,7 +633,7 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		// key and this should already be caught in validation stage.
 		for _, constraint := range rule.Constraints {
 			p := permissionForKeyValues(constraint.Key, constraint.Values)
-			addToRules(rules, p, false /*isNotRule*/)
+			appendRule(rules, p)
 		}
 	}
 
