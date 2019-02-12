@@ -204,6 +204,7 @@ function startPilot() {
   "${ISTIO_OUT}/pilot-discovery" discovery --httpAddr ":18080" \
                                          --monitoringAddr ":19093" \
                                          --log_target "${LOG_DIR}/pilot.log" \
+                                         --registries "Kubernetes" \
                                          --kubeconfig "${ISTIO_GO}/.circleci/config" &
   echo $! > "$LOG_DIR/pilot.pid"
 }
