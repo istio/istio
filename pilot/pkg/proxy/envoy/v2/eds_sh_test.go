@@ -206,7 +206,6 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 		ClusterID:        id,
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: memRegistry,
-		ServiceAccounts:  memRegistry,
 		Controller:       &v2.MemServiceController{},
 	})
 
