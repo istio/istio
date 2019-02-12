@@ -368,14 +368,14 @@ func setSpiffeTrustDomain(domain string) {
 
 }
 
-func getSAN(ns string, defaultSA string, overrideIdentitu string) []string {
+func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 	var san []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 
-		if overrideIdentitu == "" {
+		if overrideIdentity == "" {
 			san = append(san, envoy.GetSAN(ns, defaultSA))
 		} else {
-			san = append(san, envoy.GetSAN("", overrideIdentitu))
+			san = append(san, envoy.GetSAN("", overrideIdentity))
 		}
 	}
 	return san
