@@ -89,9 +89,14 @@ func GetMutualTLS(policy *authn.Policy) *authn.MutualTls {
 
 // setupFilterChains sets up filter chains based on authentication policy.
 func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
+	log.Info("***** Enter setupFilterChains()")
+	log.Infof("***** metadata is %v", meta)
+
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
+
+	log.Info("***** authn policy is not null")
 	alpnIstioMatch := &ldsv2.FilterChainMatch{
 		ApplicationProtocols: util.ALPNInMesh,
 	}
@@ -111,6 +116,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
+		log.Info("***** sdsUdsPath is empty")
 		base := meta[pilot.BaseDir] + model.AuthCertsPath
 
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(base+model.RootCertFilename, []string{} /*subjectAltNames*/)
@@ -129,6 +135,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 			},
 		}
 	} else {
+		log.Infof("***** call model.ConstructSdsSecretConfig(), metadata %v", meta)
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
 		}

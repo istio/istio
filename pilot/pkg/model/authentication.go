@@ -106,6 +106,8 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool, metadata map[string]string) *auth.SdsSecretConfig {
+ 	log.Infof("Enter ConstructSdsSecretConfig (%v, %v, %v, %v, %v)", name, sdsUdsPath, useK8sSATrustworthyJwt, useK8sSANormalJwt,
+                  metadata)
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}

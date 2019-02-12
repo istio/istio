@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"path"
 	"strconv"
 	"strings"
@@ -165,6 +166,8 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
 
+	log.Debugf("Enter buildOutboundClusters(), metadata is %v", proxy.Metadata)
+
 	inputParams := &plugin.InputParams{
 		Env:  env,
 		Push: push,
@@ -196,6 +199,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+              	log.Infof("1. call applyTrafficPolicy(), %v, %v",
+					proto.MarshalTextString(destinationRule.TrafficPolicy), port)
 				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts,
 					defaultSni, DefaultClusterMode, model.TrafficDirectionOutbound, proxy.Metadata)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
@@ -212,6 +217,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy.Metadata)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
+                   	log.Infof("2. call applyTrafficPolicy(), %v, %v",
+						proto.MarshalTextString(destinationRule.TrafficPolicy), port)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound, proxy.Metadata)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
@@ -372,6 +379,8 @@ func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityL
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
 	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*apiv2.Cluster {
 
+	log.Infof("***** Enter buildInboundClusters(), metadata: %v", proxy.Metadata) 
+
 	clusters := make([]*apiv2.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -516,6 +525,8 @@ func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(inst
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *apiv2.Cluster {
+    log.Infof("Enter buildInboundClusterForPortOrUDS(), %v, metadata: %v", pluginParams, pluginParams.Node.Metadata)
+
 	instance := pluginParams.ServiceInstance
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
@@ -525,6 +536,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 	// call plugins
 	for _, p := range configgen.Plugins {
+       	log.Infof("OnInboundCluster() %v, %v", pluginParams, localCluster)
 		p.OnInboundCluster(pluginParams, localCluster)
 	}
 
@@ -562,7 +574,10 @@ func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType 
 
 // conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, sni string) *networking.TLSSettings {
+	log.Info("***** Enter conditionallyConvertToIstioMtls()")
+
 	if tls == nil {
+		log.Info("***** tls is nil")
 		return nil
 	}
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -596,9 +611,15 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSe
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
+	log.Info("***** Enter SelectTrafficPolicyComponents()")
+
 	if policy == nil {
+		log.Infof("***** policy is nil")
 		return nil, nil, nil, nil
 	}
+	log.Infof("***** policy is %v", proto.MarshalTextString(policy))
+	log.Infof("***** policy.tls is %v", proto.MarshalTextString(policy.GetTls()))
+	log.Infof("***** port is %v", port)
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
@@ -646,6 +667,10 @@ const (
 func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
 	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode, direction model.TrafficDirection,
 	metadata map[string]string) {
+
+	log.Info("***** Enter applyTrafficPolicy()")
+	log.Infof("***** metadata is %v", metadata)
+
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
 
 	applyConnectionPool(env, cluster, connectionPool, direction)
@@ -849,7 +874,10 @@ func applyLocalityLBSetting(
 }
 
 func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, metadata map[string]string) {
+    log.Infof("***** Enter applyUpstreamTLSSettings(), metadata: %v, tls: %v", metadata, tls)
+
 	if tls == nil {
+		log.Info("***** tls is nil")
 		return
 	}
 
@@ -868,6 +896,8 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			VerifySubjectAltName: tls.SubjectAltNames,
 		}
 	}
+
+	log.Infof("***** tls.Mode is %v", tls.Mode)
 
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
@@ -901,6 +931,8 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
 		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+			log.Infof("***** env.Mesh.SdsUdsPath is: %v, tls.Mode is: %v", env.Mesh.SdsUdsPath, tls.Mode)
+
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -919,6 +951,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				},
 			}
 		} else {
+            log.Infof("***** call model.ConstructSdsSecretConfig(), metadata: %v", metadata)
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt, metadata))
 
@@ -988,6 +1021,9 @@ func buildDefaultPassthroughCluster() *apiv2.Cluster {
 // change all other callsites accordingly
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
 	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, metadata map[string]string) *apiv2.Cluster {
+
+	log.Infof("Enter buildDefaultCluster(), metadata is %v", metadata)
+
 	cluster := &apiv2.Cluster{
 		Name: name,
 		Type: discoveryType,
@@ -1008,6 +1044,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, nil, "",
 		DefaultClusterMode, direction, metadata)
+    log.Infof("cluster built: %v", proto.MarshalTextString(cluster))
 	return cluster
 }
 
