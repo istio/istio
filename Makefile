@@ -666,10 +666,12 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
+		--set global.tag=${TAG} \
 		--set global.hub=${HUB} \
+		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
@@ -716,7 +718,7 @@ generate_yaml_coredump:
 #             as a followup PR.
 generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	#./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
@@ -724,12 +726,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
-		--values install/kubernetes/helm/istio/values.yaml \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -739,14 +736,9 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.mtls.enabled=true \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--values install/kubernetes/helm/istio/values.yaml \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-non-mcp.yaml
@@ -756,13 +748,8 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
 		--set global.useMCP=false \
-		--values install/kubernetes/helm/istio/values.yaml \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-non-mcp.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-non-mcp.yaml
@@ -772,15 +759,10 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.mtls.enabled=true \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
 		--set global.useMCP=false \
-		--values install/kubernetes/helm/istio/values.yaml \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-non-mcp.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-sds.yaml
