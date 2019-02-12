@@ -659,7 +659,6 @@ func (k *KubeInfo) deployIstio() error {
 			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
-	log.Infof("istioYaml: %s", istioYaml)
 
 	// Create istio-system namespace
 	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
