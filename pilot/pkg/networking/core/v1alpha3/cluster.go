@@ -81,7 +81,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-	if locality == nil {
+	if util.IsLocalityEmpty(locality) {
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
 		if len(instances) > 0 {
