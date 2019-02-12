@@ -735,7 +735,7 @@ func adsClientCount() int {
 	return n
 }
 
-// AdsPushAll is used only by tests (after refactoring)
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
