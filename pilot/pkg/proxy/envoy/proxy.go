@@ -62,7 +62,7 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 	}
 }
 
-func (e *envoy) args(fname string, epoch int) []string {
+func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
@@ -74,6 +74,15 @@ func (e *envoy) args(fname string, epoch int) []string {
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
+
+	if bootstrapConfig != "" {
+		bytes, err := ioutil.ReadFile(bootstrapConfig)
+		if err != nil {
+			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+		} else {
+			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
+		}
+	}
 
 	if e.config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.config.Concurrency))
@@ -102,7 +111,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch)
+	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE"))
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
