@@ -104,7 +104,6 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
@@ -168,7 +167,6 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},

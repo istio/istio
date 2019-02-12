@@ -112,6 +112,8 @@ type ServiceDiscovery struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+
+	ServiceAccounts
 }
 
 func (fake *ServiceDiscovery) Services() ([]*model.Service, error) {

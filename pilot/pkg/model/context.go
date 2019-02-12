@@ -33,10 +33,6 @@ type Environment struct {
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery
 
-	// Accounts interface for listing service accounts
-	// Deprecated - use PushContext.ServiceAccounts
-	ServiceAccounts
-
 	// Config interface for listing routing rules
 	IstioConfigStore
 
