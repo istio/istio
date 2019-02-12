@@ -46,8 +46,8 @@ data:
             cpu: 10m
             memory: 10Mi
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
         securityContext:
           capabilities:
             add:
@@ -98,7 +98,7 @@ data:
         - {{ "[[ .ProxyConfig.BinaryPath ]]" }}
         - --serviceCluster
         {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
-        - {{ "[[ index .ObjectMeta.Labels \"app\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app\" ]]." }}$(POD_NAMESPACE)
         {{ "[[ else -]]" }}
         - {{ "[[ valueOrDefault .DeploymentMeta.Name \"istio-proxy\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ end -]]" }}
@@ -164,6 +164,11 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+{{- if .Values.global.podDNSSearchNamespaces }}
+        - name: ISTIO_META_DNS_DOMAINS
+{{- $local := dict "first" true }}
+          value: {{ range $k, $v := .Values.global.podDNSSearchNamespaces }}{{- if not $local.first }},{{ end }}{{- $v }}{{- $_ := set $local "first" false }}{{- end }}
+{{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         {{- if .Values.global.network }}

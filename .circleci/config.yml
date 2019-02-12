@@ -241,8 +241,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_mixer
           command: |
             make test/local/noauth/e2e_mixer_envoyv2
@@ -277,8 +275,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_mixer (non-mcp)
           command: |
             E2E_ARGS="--use_mcp=false" \
@@ -318,8 +314,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_galley
           command: |
             make test/local/e2e_galley
@@ -343,7 +337,6 @@ jobs:
       - run: make sync
       - run:
           no_output_timeout: 20m
-          when: always
           command: |
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
@@ -381,8 +374,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 make test/local/noauth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
@@ -420,8 +411,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 E2E_ARGS="--use_mcp=false" \
                 make test/local/noauth/e2e_pilotv2
@@ -456,8 +445,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 make test/local/auth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
@@ -515,8 +502,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 E2E_ARGS="--use_mcp=false" \
                 make test/local/auth/e2e_pilotv2
