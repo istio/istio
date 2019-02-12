@@ -418,15 +418,18 @@ type Server_TLSOptions struct {
 	// client side certificate.
 	CaCertificates string `protobuf:"bytes,5,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
 	// The credentialName stands for a unique identifier that can be used
-	// to identify the serverCertificate, the privateKey and the
-	// CaCertificates associated with this server. Gateway workloads
-	// capable of fetching credentials from a remote credential store will
-	// be configured to retrive the credentials using this name, instead of
-	// using the file system paths specified above. The semantics of the
-	// name are platform dependent. In Kubernetes, the default Istio
-	// supplied credentail server expects the credentialName to match the
-	// name of the Kubernetes secret that holds the server certificate, the
-	// private key, and the CA certificate (if using mutual TLS).
+	// to identify the serverCertificate and the privateKey. The credentialName
+	// appended with suffix "-cacert" is used to identify the CaCertificates
+	// associated with this server. Gateway workloads capable of fetching
+	// credentials from a remote credential store will be configured to retrieve
+	// the serverCertificate and the privateKey using credentialName, instead of
+	// using the file system paths specified above. If using mutual TLS,
+	// gateway workloads will retrieve the CaCertificates using
+	// credentialName-cacert. The semantics of the name are platform dependent.
+	// In Kubernetes, the default Istio supplied credential server expects the
+	// credentialName to match the name of the Kubernetes secret that holds the
+	// server certificate, the private key, and the CA certificate
+	// (if using mutual TLS).
 	CredentialName string `protobuf:"bytes,10,opt,name=credential_name,json=credentialName,proto3" json:"credential_name,omitempty"`
 	// A list of alternate names to verify the subject identity in the
 	// certificate presented by the client.
