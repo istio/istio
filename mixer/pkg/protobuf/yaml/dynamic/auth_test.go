@@ -36,9 +36,9 @@ import (
 type AuthMode int
 
 const (
-	PLAINTEXT AuthMode = 0
-	TLS       AuthMode = 1
-	MTLS      AuthMode = 2
+	PLAINTEXT AuthMode = iota
+	TLS
+	MTLS
 )
 
 func TestAuth(t *testing.T) {
@@ -51,6 +51,16 @@ func TestAuth(t *testing.T) {
 	}()
 	// start oauth server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request
+		cn, cs, ok := r.BasicAuth()
+		wn := "clientid"
+		ws := "test-token"
+		if !ok {
+			t.Fatal("cannot parse oauth request basic auth header")
+		}
+		if cn != wn || cs != ws {
+			t.Errorf("client name and client secret are not expected, want %v and %v, got %v and %v", wn, ws, cn, cs)
+		}
 		w.Write([]byte("access_token=test-token&token_type=bearer"))
 	}))
 	defer ts.Close()
@@ -73,8 +83,8 @@ func TestAuth(t *testing.T) {
 			authCfg: &policypb.Authentication{
 				AuthType: &policypb.Authentication_Mutual{
 					Mutual: &policypb.Mutual{
-						PrivateKey:        "../testdata/auth/private.key",
-						ClientCertificate: "../testdata/auth/cert.pem",
+						PrivateKey:        "../testdata/auth/private1.key",
+						ClientCertificate: "../testdata/auth/cert1.pem",
 						CaCertificates:    "../testdata/auth/ca.pem",
 					},
 				},
@@ -262,8 +272,8 @@ func getServerArgs(auth AuthMode, headerKey, headerToken string) *spy.Args {
 		args.Behavior.RequireMTls = true
 		args.Behavior.InsecureSkipVerification = true
 	}
-	args.Behavior.KeyPath = "../testdata/auth/private.key"
-	args.Behavior.CredsPath = "../testdata/auth/cert.pem"
+	args.Behavior.KeyPath = "../testdata/auth/private2.key"
+	args.Behavior.CredsPath = "../testdata/auth/cert2.pem"
 	args.Behavior.CertPath = "../testdata/auth/ca.pem"
 	return args
 }

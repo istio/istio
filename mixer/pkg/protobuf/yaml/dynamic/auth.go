@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	//
+	// file path to the public CA certs
 	publicCACertsFile = "/etc/ssl/certs/ca-certificates.crt"
 )
 
@@ -69,7 +69,7 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 	// load public root cert.
 	publicCerts, err := ioutil.ReadFile(publicCACertsFile)
 	if err != nil {
-		log.Warnf("Cannot load public root cert: %v", err)
+		log.Warnf("cannot load public root cert: %v", err)
 	} else {
 		caCertPool.AppendCertsFromPEM(publicCerts)
 	}
@@ -97,9 +97,10 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.Dial
 	// Load certificates, include public certs and certs from config (such as istio CA certs).
 	caCertPool, err := loadCerts(mtlsCfg.GetCaCertificates())
 	if err != nil {
-		return nil, fmt.Errorf("failed build tls dial option: ca cert cannot be load %v", err)
+		return nil, fmt.Errorf("failed to build TLS dial option: CA certificate cannot be loaded: %v", err)
 	}
 
+	// TODO(bianpengyuan) add server name option here for proxy-fronted backend.
 	tc := credentials.NewTLS(&tls.Config{
 		Certificates:       []tls.Certificate{peerCert},
 		RootCAs:            caCertPool,
@@ -187,6 +188,7 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 		return nil, fmt.Errorf("failed build tls dial option: ca cert cannot be load %v", err)
 	}
 
+	// TODO(bianpengyuan) add server name option here for proxy-fronted backend.
 	tc := credentials.NewTLS(&tls.Config{
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: skipVerify,
@@ -203,6 +205,7 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 }
 
 func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
+	// TODO(bianpengyuan) pass in grpc connection context so that oauth client would share the same context.
 	if a.authCfg == nil {
 		opts = append(opts)
 		return []grpc.DialOption{grpc.WithInsecure()}, nil
