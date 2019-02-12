@@ -56,6 +56,7 @@ func addRemoteCluster() error {
 		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
 		return err
 	}
+	time.Sleep(5*time.Second)
 	return nil
 }
 
@@ -63,6 +64,7 @@ func deleteRemoteCluster() error {
 	if err := util.DeleteMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
 		return err
 	}
+	time.Sleep(5*time.Second)
 	return nil
 }
 
