@@ -421,7 +421,7 @@ func TestCheckQuota(t *testing.T) {
 	}
 }
 
-func TestReport(t *testing.T) {
+func TestReportDelta(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
@@ -508,6 +508,137 @@ func TestReport(t *testing.T) {
 	}
 
 	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attr0, *attr1, *attr2}}
+	_, _ = ts.client.Report(context.Background(), &request)
+
+	if callCount != 3 {
+		t.Errorf("Got %d, expected call count of 3", callCount)
+	}
+
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		responseBag.Set("genAttrGen", "genAttrGenValue")
+		return nil
+	}
+
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
+			return errors.New("generated attribute via preproc not part of report attributes")
+		}
+		return nil
+	}
+
+	if _, err = ts.client.Report(context.Background(), &request); err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	badAttr := mixerpb.CompressedAttributes{
+		Words: []string{"A4"},
+		Int64S: map[int32]int64{
+			4646464: 31415692,
+		},
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attr0, badAttr}}
+	if _, err = ts.client.Report(context.Background(), &request); err == nil {
+		t.Errorf("Got success, expected failure")
+	}
+}
+
+func TestReportIndependent(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("Unable to prep test state: %v", err)
+	}
+	defer ts.cleanupTestState()
+
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		return nil
+	}
+
+	request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{}}
+	_, err = ts.client.Report(context.Background(), &request)
+	if err != nil {
+		t.Errorf("Expected success, got error: %v", err)
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}}
+	_, err = ts.client.Report(context.Background(), &request)
+	if err != nil {
+		t.Errorf("Expected success, got error: %v", err)
+	}
+
+	ts.flushError = errors.New("BADFOOD")
+	_, err = ts.client.Report(context.Background(), &request)
+	if err == nil {
+		t.Errorf("Expected error, got success")
+	}
+	ts.flushError = nil
+
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		return errors.New("not Implemented")
+	}
+
+	_, err = ts.client.Report(context.Background(), &request)
+	if err == nil {
+		t.Errorf("Got success, expected failure")
+	}
+
+	// test out delta encoding of attributes
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": int64(25),
+		"A2": int64(26),
+		"A3": int64(27),
+		"A4": int64(28),
+	})
+
+	attr1 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A2": int64(42),
+	})
+
+	attr2 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A4": int64(31415692),
+	})
+
+	callCount := 0
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		v1, _ := requestBag.Get("A1")
+		v2, _ := requestBag.Get("A2")
+		v3, _ := requestBag.Get("A3")
+		v4, _ := requestBag.Get("A4")
+
+		var i1, i2, i3, i4 int64
+		if v1 != nil {
+			i1 = v1.(int64)
+		}
+		if v2 != nil {
+			i2 = v2.(int64)
+		}
+		if v3 != nil {
+			i3 = v3.(int64)
+		}
+		if v4 != nil {
+			i4 = v4.(int64)
+		}
+
+		if callCount == 0 {
+			if i1 != 25 || i2 != 26 || i3 != 27 {
+				t.Errorf("Got %d %d %d, expected 25 26 27", i1, i2, i3)
+			}
+		} else if callCount == 1 {
+			if v1 != nil || i2 != 42 || v3 != nil {
+				t.Errorf("Got %d %d %d, expected nil 42 nil", i1, i2, i3)
+			}
+		} else if callCount == 2 {
+			if v1 != nil || v2 != nil || v3 != nil || i4 != 31415692 {
+				t.Errorf("Got %d %d %d %d, expected nil nil nil 31415692", i1, i2, i3, i4)
+			}
+		} else {
+			t.Errorf("Dispatched to Report method more often than expected")
+		}
+		callCount++
+		return nil
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attr0, *attr1, *attr2}, RepeatedAttributesSemantics: mixerpb.INDEPENDENT_ENCODING}
 	_, _ = ts.client.Report(context.Background(), &request)
 
 	if callCount != 3 {

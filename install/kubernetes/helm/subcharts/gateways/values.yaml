@@ -83,6 +83,9 @@ istio-ingressgateway:
   - port: 15011
     targetPort: 15011
     name: tcp-pilot-grpc-tls
+  - port: 15004
+    targetPort: 15004
+    name: tcp-mixer-grpc-tls
   - port: 8060
     targetPort: 8060
     name: tcp-citadel-grpc-tls
