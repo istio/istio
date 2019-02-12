@@ -188,14 +188,14 @@ var (
 
 			// Parse the DNSDomain based upon service registry type into a registry specific domain.
 			DNSDomain = getDNSDomain(DNSDomain)
-
+			setSpiffeTrustDomain(DNSDomain)
 			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
 			role.DNSDomains = make([]string, 1)
 			role.DNSDomains[0] = DNSDomain
 			setSpiffeTrustDomain(DNSDomain)
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getPilotSAN(ns)
-
+			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
+			log.Infof("PilotSAN %#v", pilotSAN)
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
@@ -264,14 +264,13 @@ var (
 					opts["PodName"] = os.Getenv("POD_NAME")
 					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
 
-					if role.MixerIdentity == "" {
-						opts["MixerSubjectAltName"] = envoy.GetSAN(opts["PodNamespace"], envoy.MixerSvcAccName)
-					} else {
-						opts["MixerSubjectAltName"] = envoy.GetSAN("", role.MixerIdentity)
-					}
+				mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+				log.Infof("MixerSAN %#v", mixerSAN)
 
-					// protobuf encoding of IP_ADDRESS type
-					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+				opts["MixerSubjectAltName"] = mixerSAN[0]
+
+				// protobuf encoding of IP_ADDRESS type
+				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
 					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 						opts["ControlPlaneAuth"] = "enable"
@@ -369,18 +368,17 @@ func setSpiffeTrustDomain(domain string) {
 
 }
 
-func getPilotSAN(ns string) []string {
-	var pilotSAN []string
+func getSAN(ns string, defaultSA string, overrideIdentitu string) []string {
+	var san []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 
-		if role.PilotIdentity == "" {
-			pilotSAN = append(pilotSAN, envoy.GetSAN(ns, envoy.PilotSvcAccName))
+		if overrideIdentitu == "" {
+			san = append(san, envoy.GetSAN(ns, defaultSA))
 		} else {
-			pilotSAN = append(pilotSAN, envoy.GetSAN("", role.PilotIdentity))
+			san = append(san, envoy.GetSAN("", overrideIdentitu))
 		}
 	}
-	log.Infof("PilotSAN %#v", pilotSAN)
-	return pilotSAN
+	return san
 }
 
 func getDNSDomain(domain string) string {
