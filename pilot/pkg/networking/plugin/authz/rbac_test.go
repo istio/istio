@@ -491,7 +491,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "admin",
+						User:       "admin",
+						Namespaces: []string{"default"},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -732,6 +733,25 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 										PrincipalName: &metadata.StringMatcher{
 											MatchPattern: &metadata.StringMatcher_Exact{
 												Exact: "spiffe://admin",
+											},
+										},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_OrIds{
+									OrIds: &policy.Principal_Set{
+										Ids: []*policy.Principal{
+											{
+												Identifier: &policy.Principal_Authenticated_{
+													Authenticated: &policy.Principal_Authenticated{
+														PrincipalName: &metadata.StringMatcher{
+															MatchPattern: &metadata.StringMatcher_Regex{
+																Regex: ".*/ns/default/.*",
+															},
+														},
+													},
+												},
 											},
 										},
 									},

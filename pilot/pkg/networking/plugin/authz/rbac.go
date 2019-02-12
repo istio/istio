@@ -667,6 +667,23 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
+	if len(subject.Namespaces) > 0 {
+		orIds := &policyproto.Principal_OrIds{
+			OrIds: &policyproto.Principal_Set{
+				Ids: make([]*policyproto.Principal, 0),
+			},
+		}
+		for _, namespace := range subject.Namespaces {
+			id := principalForKeyValue(attrSrcNamespace, namespace, forTCPFilter)
+			if id != nil {
+				orIds.OrIds.Ids = append(orIds.OrIds.Ids, id)
+			}
+		}
+		if orIds != nil {
+			ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{Identifier: orIds})
+		}
+	}
+
 	if len(subject.Properties) != 0 {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated
 		// config is stable.
