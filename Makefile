@@ -689,6 +689,8 @@ generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--set global.hub=${HUB} \
 		--set global.tag=${TAG} \
 		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set global.mtls.enabled=false \
+		--set global.controlPlaneSecurityEnabled=false \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
@@ -697,10 +699,12 @@ generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+    --set global.tag=${TAG} \
+		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \

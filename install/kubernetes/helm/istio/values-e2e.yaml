@@ -33,4 +33,7 @@ mixer:
   adapters:
     stdio:
       enabled: true
-  resources: {}
+  resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
