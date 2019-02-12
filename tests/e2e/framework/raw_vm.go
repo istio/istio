@@ -127,7 +127,7 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
-	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --command \"%s\"",
+	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --ssh-flag=\"-vvv\" --command \"%s\"",
 		vm.ProjectID, vm.Zone, vm.Name, cmd)
 	return u.Shell(ssh)
 }
