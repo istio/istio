@@ -207,6 +207,7 @@ func getClusterWideInstallFile() string {
 	if *trustDomainEnable {
 		istioYaml = trustDomainFileNamespace
 	}
+	log.Infof("istioYaml: %s", istioYaml)
 	return istioYaml
 }
 
