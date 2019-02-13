@@ -44,7 +44,7 @@ syntax = "proto3";
 //    method: request.method | "post"
 //    properties:
 //      version: destination.labels[version] | ""
-//  ```
+// ```
 package authorization;
 
 import "policy/v1beta1/type.proto";

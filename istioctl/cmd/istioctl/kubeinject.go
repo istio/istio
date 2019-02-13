@@ -70,7 +70,12 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	if !exists {
 		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
 	}
-	return model.ApplyMeshConfigDefaults(configYaml)
+	cfg, err := model.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+			version.Info.Version), err)
+	}
+	return cfg, err
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
@@ -254,10 +259,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 			}
-			err = model.ValidateMeshConfig(meshConfig)
-			if err != nil {
-				return err
-			}
 
 			var sidecarTemplate string
 
@@ -378,6 +379,8 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
+	// TODO(incfly): deprecate this flag once hardcoded injection template is gone. By then, everything
+	// comes from configmap injector, whose template already contains rewriteAppHTTPProbe control switch.
 	injectCmd.PersistentFlags().BoolVar(&rewriteAppHTTPProbe, "rewriteAppProbe", false, "Whether injector "+
 		"rewrites the liveness health check to let kubelet health check the app when mtls is on.")
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,

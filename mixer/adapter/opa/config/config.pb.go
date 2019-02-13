@@ -41,7 +41,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Configuration format for the `opa` adapter.
 //
 // Example configuration:
-// ```
+// ```yaml
 // policy:
 //   - |+
 //     package mixerauthz

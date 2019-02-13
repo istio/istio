@@ -16,7 +16,6 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
-import "networking/v1alpha3/sidecar.proto";
 
 // $title: Traffic Routing
 // $description: Configuration affecting traffic routing.
@@ -177,11 +176,20 @@ message VirtualService {
   // matching an incoming request is used.
   repeated TCPRoute tcp = 4;
 
-  // The visibility setting associated with this VirtualService. Set to
-  // PRIVATE if this virtual service should not be exported, i.e. restrict
-  // the applicability of this virtual service to only workloads in the same
-  // namespace as the virtual service.
-  ConfigScope config_scope = 6;
+  // $hide_from_docs
+  // A list of namespaces to which this virtual service is exported. Exporting a
+  // virtual service allows it to used by sidecars and gateways defined in
+  // other namespaces. This feature provides a mechanism for service owners
+  // and mesh administrators to control the visibility of virtual services
+  // across namespace boundaries.
+  //
+  // If no namespaces are specified then the virtual service is exported to all
+  // namespaces by default.
+  //
+  // The value "." is reserved and defines an export to the same namespace that
+  // the virtual service is declared in, similarly the value "*" is reserved and
+  // defines an export to all namespaces.
+  repeated string export_to = 6;
 }
 
 // Destination indicates the network addressable service to which the

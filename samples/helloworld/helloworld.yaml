@@ -15,6 +15,8 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: helloworld-v1
+  labels:
+    version: v1
 spec:
   replicas: 1
   template:
@@ -37,6 +39,8 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: helloworld-v2
+  labels:
+    version: v2
 spec:
   replicas: 1
   template:
@@ -54,37 +58,3 @@ spec:
         imagePullPolicy: IfNotPresent #Always
         ports:
         - containerPort: 5000
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: helloworld-gateway
-spec:
-  selector:
-    istio: ingressgateway # use istio default controller
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: helloworld
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - helloworld-gateway
-  http:
-  - match:
-    - uri:
-        exact: /hello
-    route:
-    - destination:
-        host: helloworld
-        port:
-          number: 5000
