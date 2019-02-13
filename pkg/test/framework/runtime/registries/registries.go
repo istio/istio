@@ -17,8 +17,6 @@ package registries
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/test/framework/runtime/components/echo"
-
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/runtime/api"
