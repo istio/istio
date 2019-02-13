@@ -173,32 +173,6 @@ func renderIstioTemplate(helmDir string, s *settings, context resource.Context) 
 	renderedYaml = strings.Replace(renderedYaml, "IfNotPresent", "Always", -1)
 
 	return renderedYaml, nil
-	//
-	//
-	//e, ok := scope.Environment().(*kube.Environment)
-	//if !ok {
-	//	return fmt.Errorf("unsupported environment: %q", scope.Environment().Name())
-	//}
-	//
-	//d, err := deployment.NewHelmDeployment(deployment.HelmConfig{
-	//	Accessor:     e.Accessor,
-	//	Namespace:    s.SystemNamespace,
-	//	RunDir:      scope.RunDir(),
-	//	ChartDir:     env.IstioChartDir,
-	//	CrdsFilesDir: env.CrdsFilesDir,
-	//	ValuesFile:   s.ValuesFile,
-	//	Values:       s.Values,
-	//})
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//scope.TrackResource(closerFromFn(func() error {
-	//	return d.Delete(e.Accessor, true, retry.Timeout(s.DeployTimeout))
-	//}))
-	//
-	//return d.Deploy(e.Accessor, true, retry.Timeout(s.DeployTimeout))
 }
 
 func splitIstioYaml(istioYaml string) (string, string) {

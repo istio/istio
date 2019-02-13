@@ -22,6 +22,7 @@ import (
 	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"istio.io/istio/pkg/test/framework2/common"
 
 	"istio.io/istio/pkg/test/env"
 
@@ -48,11 +49,18 @@ const (
 	LatestTag = "latest"
 
 	// DefaultDeployTimeout for Istio
-	DefaultDeployTimeout = time.Second * 480
+	DefaultDeployTimeout = time.Second * 300
+
+	// DefaultCIDeployTimeout for Istio
+	DefaultCIDeployTimeout = time.Second * 600
 
 	// DefaultUndeployTimeout for Istio.
-	DefaultUndeployTimeout = time.Second * 600
+	DefaultUndeployTimeout = time.Second * 300
 
+	// DefaultCIUndeployTimeout for Istio.
+	DefaultCIUndeployTimeout = time.Second * 600
+
+	// DefaultIstioChartRepo for Istio.
 	DefaultIstioChartRepo = "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts"
 )
 
@@ -63,8 +71,8 @@ var (
 		ChartRepo:       DefaultIstioChartRepo,
 		SystemNamespace: DefaultSystemNamespace,
 		DeployIstio:     true,
-		DeployTimeout:   DefaultDeployTimeout,
-		UndeployTimeout: DefaultUndeployTimeout,
+		DeployTimeout:   0,
+		UndeployTimeout: 0,
 		ChartDir:        env.IstioChartDir,
 		CrdsFilesDir:    env.CrdsFilesDir,
 		ValuesFile:      DefaultValuesFile,
@@ -85,16 +93,6 @@ type settings struct {
 	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
 	SystemNamespace string
 
-	// The namespace in which dependency components are deployed. If not specified, a new namespace will be generated
-	// with a UUID once per run. Test framework dependencies can deploy components here when they get initialized.
-	// They will get deployed only once.
-	SuiteNamespace string
-
-	// The namespace for each individual test. If not specified, the namespaces are created when an environment is acquired
-	// in a test, and the previous one gets deleted. This ensures that during a single test run, there is only
-	// one test namespace in the system.
-	TestNamespace string
-
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
 
@@ -107,7 +105,7 @@ type settings struct {
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
-
+	
 	ChartRepo string
 
 	// The top-level Helm chart dir.
@@ -124,7 +122,7 @@ type settings struct {
 }
 
 // Deploy returns settings built from flags and environment variables.
-func newSettings() (*settings, error) {
+func newSettings(c *common.Settings) (*settings, error) {
 	// Make a local copy.
 	s := &(*settingsFromCommandline)
 
@@ -144,6 +142,14 @@ func newSettings() (*settings, error) {
 	s.Values, err = newHelmValues()
 	if err != nil {
 		return nil, err
+	}
+
+	if c.CIMode() {
+		s.DeployTimeout = DefaultDeployTimeout
+		s.UndeployTimeout = DefaultUndeployTimeout
+	} else {
+		s.DeployTimeout = DefaultCIDeployTimeout
+		s.UndeployTimeout = DefaultCIUndeployTimeout
 	}
 
 	return s, nil
@@ -206,15 +212,14 @@ func parseHelmValues() (map[string]string, error) {
 	return out, nil
 }
 
+// String implements fmt.Stringer
 func (s *settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("SystemNamespace: %s\n", s.SystemNamespace)
-	result += fmt.Sprintf("SuiteNamespace:  %s\n", s.SuiteNamespace)
-	result += fmt.Sprintf("TestNamespace:   %s\n", s.TestNamespace)
 	result += fmt.Sprintf("DeployIstio:     %v\n", s.DeployIstio)
-	result += fmt.Sprintf("DeployTimeout:   %ds\n", s.DeployTimeout/time.Second)
-	result += fmt.Sprintf("UndeployTimeout: %ds\n", s.UndeployTimeout/time.Second)
+	result += fmt.Sprintf("DeployTimeout:   %s\n", s.DeployTimeout.String())
+	result += fmt.Sprintf("UndeployTimeout: %s\n", s.UndeployTimeout.String())
 	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
 	result += fmt.Sprintf("Values:          %v\n", s.Values)
 

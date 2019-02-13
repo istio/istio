@@ -14,7 +14,8 @@
 
 package resource
 
-// Resetter is an interface that is implemented by resources that can be reset between contexts.
+// Resetter is an interface that is implemented by resources that can be reset between executions within contexts.
 type Resetter interface {
 	Reset() error
 }
+

@@ -34,5 +34,6 @@ func (s *settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("KubeConfig:      %s\n", s.KubeConfig)
+
 	return result
 }

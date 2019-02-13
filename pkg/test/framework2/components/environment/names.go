@@ -12,37 +12,26 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package registry
+package environment
 
-import (
-	"fmt"
+const (
+	// Native environment
+	Native = "native"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
+	// Kube environment
+	Kube   = "kube"
 )
 
-// Names of currently registered environments
+// Names of known environments.
 func Names() []string {
-	return []string{
-		native.Name,
-		kube.Name,
+	return []string {
+		Native,
+		Kube,
 	}
 }
 
 // DefaultName is the name of the default environment.
 func DefaultName() string {
-	return native.Name
+	return Native
 }
 
-// New returns a new instance of the named environment.
-func New(name string, ctx environment.Context) (environment.Instance, error) {
-	switch name {
-	case native.Name:
-		return native.New(ctx)
-	case kube.Name:
-		return kube.New(ctx)
-	default:
-		return nil, fmt.Errorf("unknown environment: %q", name)
-	}
-}
