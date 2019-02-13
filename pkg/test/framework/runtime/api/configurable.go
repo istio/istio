@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,17 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package component
+package api
 
-var _ Requirement = ID("")
+import "istio.io/istio/pkg/test/framework/api/component"
 
-// ID for a component of the testing framework
-type ID string
-
-func (i ID) GetKey() Key {
-	return Key{ID: i}
-}
-
-func (i ID) String() string {
-	return string(i)
+// Configurable interface is implemented by Components that accept Configuration.
+type Configurable interface {
+	// Configure is called by the test framework to configure a component. It should not be called directly by test code.
+	// To configure a component, pass the configuration when requiring the component.
+	Configure(config component.Configuration) error
 }
