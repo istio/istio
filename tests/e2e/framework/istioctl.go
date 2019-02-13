@@ -183,7 +183,7 @@ func (i *Istioctl) DeleteRule(rule string) error {
 }
 
 // PortEPs is a map from port number to a list of endpoints
-type PortEPs map[string][]string
+type PortEPs map[string]map[string]int
 
 // GetProxyConfigEndpoints returns endpoints in the proxy config from a pod.
 func (i *Istioctl) GetProxyConfigEndpoints(podName string, services []string) (epInfo map[string]PortEPs, err error) {
@@ -231,7 +231,11 @@ func (i *Istioctl) GetProxyConfigEndpoints(podName string, services []string) (e
 					} else {
 						portEps = epInfo[appName]
 					}
-					portEps[port] = append(portEps[port], strings.Split(fields[0], ":")[0])
+					if portEps[port] == nil {
+						portEps[port] = make(map[string]int)
+					}
+					ip := strings.Split(fields[0], ":")[0]
+					portEps[port][ip]++
 				}
 			}
 		}

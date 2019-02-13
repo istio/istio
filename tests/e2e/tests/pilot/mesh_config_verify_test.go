@@ -17,7 +17,6 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -234,14 +233,12 @@ func verifyMeshConfig() error {
 	return nil
 }
 
-func verifyEndpoints(actualEps []string, proxyEps []string) bool {
-	sort.Strings(actualEps)
-	sort.Strings(proxyEps)
+func verifyEndpoints(actualEps []string, proxyEps map[string]int) bool {
 	if len(actualEps) != len(proxyEps) {
 		return false
 	}
-	for i, ip := range actualEps {
-		if ip != proxyEps[i] {
+	for _, ip := range actualEps {
+		if _, ok := proxyEps[ip]; !ok {
 			return false
 		}
 	}
