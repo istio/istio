@@ -5,6 +5,8 @@ global:
   proxy:
     accessLogFile: "/dev/stdout"
 
+  disablePolicyChecks: false
+
   controlPlaneSecurityEnabled: true
 
   mtls:

@@ -28,11 +28,11 @@ galley:
 #
 mixer:
   policy:
-    enabled: false
+    enabled: true
   telemetry:
     enabled: true
-    # based on measurements 50ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
-    averageLatencyThreshold: 50ms
+    # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
+    averageLatencyThreshold: 100ms
     # disabled, logonly or enforce
     loadsheddingMode: enforce
 
@@ -239,7 +239,7 @@ global:
 
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
-  disablePolicyChecks: false
+  disablePolicyChecks: true
 
   # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
   # Default is false which means the traffic is denied when the client is unable to connect to Mixer.

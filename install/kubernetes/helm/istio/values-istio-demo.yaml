@@ -5,6 +5,7 @@ global:
   proxy:
     accessLogFile: "/dev/stdout"
 
+  disablePolicyChecks: false
 
 pilot:
   traceSampling: 100.0

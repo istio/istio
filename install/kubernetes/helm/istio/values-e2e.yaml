@@ -1,7 +1,7 @@
 # This file overrides values for e2e testing.
 
 global:
- proxy:
+  proxy:
     concurrency: 1
     resources:
       requests:
@@ -10,6 +10,8 @@ global:
 
     accessLogFile: "/dev/stdout"
     enableCoreDump: true
+
+  disablePolicyChecks: false
 
 prometheus:
   scrapeInterval: 1s
@@ -30,6 +32,7 @@ mixer:
     autoscaleEnabled: false
   telemetry:
     enabled: true
+    loadsheddingMode: logonly
   adapters:
     stdio:
       enabled: true
