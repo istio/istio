@@ -52,5 +52,5 @@ func (c *CheckResponse) Succeeded() bool {
 
 // GetMixer from the repository
 func GetMixer(e component.Repository, t testing.TB) Mixer {
-	return e.GetComponentOrFail("", ids.Mixer, t).(Mixer)
+	return e.GetComponentOrFail(ids.Mixer, t).(Mixer)
 }
