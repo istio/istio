@@ -793,7 +793,7 @@ type TargetSelector struct {
 	Labels map[string]string `protobuf:"bytes,3,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
 	// For example, if a service is defined as below, then `8000` should be used, not `9000`.
-	// ```
+	// ```yaml
 	// kind: Service
 	// metadata:
 	//   ...
