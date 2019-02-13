@@ -14,15 +14,18 @@
 
 package component
 
-var _ Requirement = ID("")
+import "fmt"
 
-// ID for a component of the testing framework
-type ID string
-
-func (i ID) GetKey() Key {
-	return Key{ID: i}
+// Instance of a key for identifying component variants.
+type Key struct {
+	ID
+	Variant Variant
 }
 
-func (i ID) String() string {
-	return string(i)
+// String provides a brief one-liner containing ID and Variant. Useful for error messages.
+func (k Key) String() string {
+	if k.Variant != "" {
+		return fmt.Sprintf("%s(%s)", k.ID, k.Variant)
+	}
+	return string(k.ID)
 }

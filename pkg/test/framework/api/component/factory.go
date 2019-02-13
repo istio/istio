@@ -22,6 +22,9 @@ import (
 
 // Factory for new component instances
 type Factory interface {
+	// Creates a new component with the given descriptor and scope.
 	NewComponent(d Descriptor, scope lifecycle.Scope) (Instance, error)
+
+	// Creates a new component with the given descriptor and scope, failing if the component cannot be created.
 	NewComponentOrFail(d Descriptor, scope lifecycle.Scope, t testing.TB) Instance
 }
