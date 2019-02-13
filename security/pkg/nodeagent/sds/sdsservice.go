@@ -167,10 +167,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.proxyID = discReq.Node.Id
 			con.ResourceName = resourceName
 
+			key := cache.ConnKey{
+				ResourceName: resourceName,
+			}
 			con.mutex.Lock()
 			if con.conID == "" {
 				// first request
-				con.conID = connectionID(discReq.Node.Id)
+				con.conID = constructConnectionID(discReq.Node.Id)
+				key.ConnectionID = con.conID
+				addConn(key, con)
 			}
 			con.mutex.Unlock()
 
@@ -190,11 +195,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			con.secret = secret
 
-			key := cache.ConnKey{
-				ConnectionID: con.conID,
-				ResourceName: resourceName,
-			}
-			addConn(key, con)
 			defer func() {
 				removeConn(key)
 				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
@@ -422,7 +422,7 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 	}
 }
 
-func connectionID(proxyID string) string {
+func constructConnectionID(proxyID string) string {
 	id := atomic.AddInt64(&connectionNumber, 1)
 	return proxyID + "-" + strconv.FormatInt(id, 10)
 }

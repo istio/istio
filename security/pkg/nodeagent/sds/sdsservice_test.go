@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -231,6 +232,9 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func TestStreamSecretsPush(t *testing.T) {
+	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime, reset since it may be updated in other test case.
+	atomic.StoreInt64(&connectionNumber, 0)
+
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	arg := Options{
 		EnableIngressGatewaySDS: false,
@@ -242,7 +246,6 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	server, err := NewServer(arg, st, nil)
 	defer server.Stop()
-
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -277,19 +280,20 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
-	// simulate logic in connectionID() function.
+	// simulate logic in constructConnectionID() function.
 	conID := proxyID + "-1"
+
 	// Test push new secret to proxy.
 	if err = NotifyProxy(conID, req.ResourceNames[0], &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
 	}); err != nil {
-		t.Errorf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	resp, err = stream.Recv()
 	if err != nil {
-		t.Errorf("stream.Recv failed: %v", err)
+		t.Fatalf("stream.Recv failed: %v", err)
 	}
 
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
@@ -299,23 +303,24 @@ func TestStreamSecretsPush(t *testing.T) {
 		ResourceName: req.ResourceNames[0],
 	}
 	if _, found := st.secrets.Load(key); !found {
-		t.Errorf("Failed to find cached secret")
+		t.Fatalf("Failed to find cached secret")
 	}
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err = NotifyProxy(conID, req.ResourceNames[0], nil); err != nil {
-		t.Errorf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notificiation to proxy %q", conID)
 	}
 	if _, err = stream.Recv(); err == nil {
-		t.Errorf("stream.Recv failed, expected error")
+		t.Fatalf("stream.Recv failed, expected error")
 	}
 
 	if len(sdsClients) != 0 {
-		t.Errorf("sdsClients, got %d, expected 0", len(sdsClients))
+		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
 	if _, found := st.secrets.Load(key); found {
-		t.Errorf("Found cached secret after stream close, expected the secret to not exist")
+		t.Fatalf("Found cached secret after stream close, expected the secret to not exist")
 	}
+
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
