@@ -242,6 +242,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
 
+		httpOpts := &core.Http1ProtocolOptions{
+			AllowAbsoluteUrl: proto.BoolTrue,
+		}
+		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			httpOpts.AcceptHttp_10 = true
+		}
+
 		opts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -254,9 +261,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: proto.BoolTrue,
-						},
+						HttpProtocolOptions: httpOpts,
 					},
 				},
 			}},
@@ -947,12 +952,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		} else {
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
+		httpOpts := &httpListenerOpts{
+			useRemoteAddress: false,
+			direction:        http_conn.EGRESS,
+			rds:              rdsName,
+		}
+
+		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+				HttpProtocolOptions: &core.Http1ProtocolOptions{
+					AcceptHttp_10: true,
+				},
+			}
+		}
+
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
-			httpOpts: &httpListenerOpts{
-				useRemoteAddress: false,
-				direction:        http_conn.EGRESS,
-				rds:              rdsName,
-			},
+			httpOpts: httpOpts,
 		}}
 
 	case plugin.ListenerProtocolTCP:
