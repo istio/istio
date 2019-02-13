@@ -108,7 +108,7 @@ global:
   hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: master-latest-daily
+  tag: release-1.1-latest-daily
 
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
