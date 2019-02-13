@@ -388,8 +388,3 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		},
 	}
 }
-
-type updatedSas struct {
-	curSa *v1.ServiceAccount
-	oldSa *v1.ServiceAccount
-}
