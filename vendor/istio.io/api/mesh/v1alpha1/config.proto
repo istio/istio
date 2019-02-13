@@ -21,9 +21,8 @@ import "networking/v1alpha3/destination_rule.proto";
 // $title: Service Mesh
 // $description: Configuration affecting the service mesh as a whole.
 // $location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
-// $aliases:
-// $  - /docs/reference/config/service-mesh.html
 
+// Configuration affecting the service mesh as a whole.
 package istio.mesh.v1alpha1;
 
 option go_package="istio.io/api/mesh/v1alpha1";
