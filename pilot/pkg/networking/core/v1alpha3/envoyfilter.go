@@ -39,7 +39,7 @@ import (
 // If one or more filters are added to the HTTP connection manager, we will update the last filter in the listener
 // filter chain (which is the http connection manager) with the updated object.
 func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
-	httpConnectionManagers []*http_conn.HttpConnectionManager) error {
+	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
 	filterCRD := getUserFiltersForWorkload(in)
 	if filterCRD == nil {
 		return nil

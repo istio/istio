@@ -48,7 +48,7 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return remoteKube, nil
 }
