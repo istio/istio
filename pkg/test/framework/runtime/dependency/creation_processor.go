@@ -20,15 +20,18 @@ import (
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/key"
 )
 
 // creationProcessor is used by Manager to resolve creation order for components.
 type creationProcessor struct {
-	scope    lifecycle.Scope
-	mgr      *Manager
-	provided map[component.ID]component.Descriptor
-	required map[key.Instance]*requiredEntry
+	scope lifecycle.Scope
+	mgr   *Manager
+
+	// The IDs that are being provided by the required entries. This is used when processing variants.
+	provided map[component.ID]component.Key
+
+	// The entries that need to be processed.
+	required map[component.Key]*reqEntry
 }
 
 // newCreationProcessor creates a new creation processor for the Manager.
@@ -36,134 +39,226 @@ func newCreationProcessor(mgr *Manager, scope lifecycle.Scope) *creationProcesso
 	return &creationProcessor{
 		scope:    scope,
 		mgr:      mgr,
-		provided: make(map[component.ID]component.Descriptor),
-		required: make(map[key.Instance]*requiredEntry),
+		provided: make(map[component.ID]component.Key),
+		required: make(map[component.Key]*reqEntry),
 	}
 }
 
-type requiredEntry struct {
-	desc component.Descriptor
-	ids  map[component.ID]bool
+// A struct representing a single requirement that needs to be created.
+type reqEntry struct {
+	key  component.Key
+	desc *component.Descriptor
+
+	// Child entries that still need to be processed before this entry can be created.
+	children map[component.Key]bool
 }
 
-func newRequiredEntry(d component.Descriptor) *requiredEntry {
-	return &requiredEntry{
-		desc: d,
-		ids:  make(map[component.ID]bool),
+func (e reqEntry) String() string {
+	result := "Entry{\n"
+
+	result += fmt.Sprintf("Key:          %v\n", e.key)
+	if e.desc != nil {
+		result += fmt.Sprintf("Descriptor:   %v\n", e.desc)
 	}
+	if len(e.children) > 0 {
+		result += fmt.Sprintf("Children:     %v\n", e.children)
+	}
+	result += "}\n"
+
+	return result
 }
 
-// Add a new component to be created by this processor.
-func (p *creationProcessor) Add(desc component.Descriptor) component.RequirementError {
-	// Check if the component was already created.
-	if c := p.mgr.GetComponent(desc.ID); c != nil {
-		if !reflect.DeepEqual(c.Descriptor(), desc) {
-			return resolutionError(fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()))
+func (p *creationProcessor) ProcessRequirements(reqs []component.Requirement) component.RequirementError {
+	for _, req := range reqs {
+		entry := createEntry(req)
+		if err := p.addRequirement(entry); err != nil {
+			return err
 		}
-		if c.Scope().IsLower(p.scope) {
-			return resolutionError(fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()))
-		}
+	}
+	return nil
+}
 
-		// The same component was already created with the same scope.
+// CreateEntry wraps the requirement in an entry object that can track the state of child
+// dependencies that need to be resolved.
+func createEntry(req component.Requirement) *reqEntry {
+	r := &reqEntry{
+		key:      req.GetKey(),
+		children: make(map[component.Key]bool),
+	}
+	if d, ok := req.(*component.Descriptor); ok {
+		r.desc = d
+	}
+	return r
+}
+
+// Add requirement to our map of requirements. This verifies the requirement is not overwriting
+// a requirement of the same key with mismatched contents. We allow more specific overwrites.
+func (p *creationProcessor) addRequirement(entry *reqEntry) component.RequirementError {
+	// First load up the children into the entry if it has a descriptor.
+	if err := p.loadChildren(entry); err != nil {
+		return err
+	}
+
+	// Now check if there is an existing entry, and if so compare them.
+	if oldEntry, ok := p.required[entry.key]; ok {
+		override, err := compareEntries(oldEntry, entry)
+		if err != nil {
+			return err
+		}
+		if !override {
+			return nil
+		}
+	}
+
+	// If this entry was from an ID and not a descriptor, check if there is an existing descriptor
+	// providing this ID and if so we can just return.
+	_, ok := p.provided[entry.key.ID]
+	if entry.desc == nil && ok {
 		return nil
 	}
 
-	// Check if we've already processed this component.
-	if oldDesc, ok := p.provided[desc.ID]; ok {
-		if reflect.DeepEqual(oldDesc, desc) {
-			// The same deployment was required multiple times - just ignore it.
-			return nil
-		}
-		return resolutionError(fmt.Errorf("required duplicate components: %v, %v", oldDesc, desc))
+	// If this entry was a descriptor and there is not already a provider for the ID, register it as the provider.
+	// TODO(sven): If there are multiple descriptors for an ID a random one will become default, fix that.
+	if entry.desc != nil && !ok {
+		p.provided[entry.key.ID] = entry.key
 	}
 
-	p.provided[desc.ID] = desc
+	p.required[entry.key] = entry
 
-	// Add the requirements for this component.
-	k := key.For(desc)
-	entry := newRequiredEntry(desc)
-	for _, req := range desc.Requires {
-		if reqDesc, ok := req.(*component.Descriptor); ok {
-			if err := p.Add(*reqDesc); err != nil {
+	// If the entry has a descriptor, process all of the child requirements.
+	if entry.desc != nil {
+		return p.ProcessRequirements(entry.desc.Requires)
+	}
+	return nil
+}
+
+// CompareEntries compares two request entries, returning true if the new entry should override the old one,
+// or an error if they are incompatible.
+func compareEntries(oldEntry *reqEntry, entry *reqEntry) (override bool, err component.RequirementError) {
+	override = false
+	if reflect.DeepEqual(oldEntry, entry) {
+		return
+	}
+
+	// First compare descriptors, and check if we need to merge or override the descriptor.
+	if oldEntry.desc == nil {
+		if entry.desc != nil {
+			override = true
+		}
+	} else if entry.desc == nil {
+		entry.desc = oldEntry.desc
+	} else if !reflect.DeepEqual(oldEntry.desc, entry.desc) {
+		return compareDescriptors(oldEntry.desc, entry.desc)
+	}
+	return
+}
+
+func compareDescriptors(oldDesc *component.Descriptor, desc *component.Descriptor) (override bool, err component.RequirementError) {
+	if oldDesc.Configuration == nil {
+		if desc.Configuration != nil {
+			override = true
+		}
+	} else if desc.Configuration == nil {
+		desc.Configuration = oldDesc.Configuration
+	} else if !reflect.DeepEqual(oldDesc.Configuration, desc.Configuration) {
+		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", desc.Key, oldDesc, desc))
+	}
+
+	if len(oldDesc.Requires) == 0 {
+		if len(desc.Requires) > 0 {
+			override = true
+		}
+	} else if len(desc.Requires) == 0 {
+		desc.Requires = oldDesc.Requires
+	} else if !reflect.DeepEqual(oldDesc.Requires, desc.Requires) {
+		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", desc.Key, oldDesc, desc))
+	}
+
+	return
+}
+
+// LoadChildren loads up the given entry's children set with all the required child keys.
+func (p *creationProcessor) loadChildren(entry *reqEntry) component.RequirementError {
+	if entry.desc == nil {
+		return nil
+	}
+	for _, childReq := range entry.desc.Requires {
+		child := createEntry(childReq)
+		entry.children[child.key] = true
+	}
+	return nil
+}
+
+// For any required entry that does not have a descriptor, find a default and add that as a
+// requirement. This will replace the entry with just an ID with one with a descriptor, as well as
+// adding any child requirements.
+func (p *creationProcessor) ApplyDefaults() component.RequirementError {
+	done := false
+	var toProcess []component.Requirement
+	var toRemove []component.Key
+	for !done {
+		for _, entry := range p.required {
+			if entry.desc == nil {
+				// First check if we have a descriptor providing this ID, if so just use that.
+				if _, ok := p.provided[entry.key.ID]; ok {
+					toRemove = append(toRemove, entry.key)
+					continue
+				}
+				// No descriptor for the ID, lookup the default.
+				desc, err := p.mgr.GetDefaultDescriptor(entry.key.ID)
+				if err != nil {
+					return resolutionError(err)
+				}
+				toProcess = append(toProcess, &desc)
+			}
+		}
+		// Remove any items marked for removal.
+		if len(toRemove) > 0 {
+			for _, k := range toRemove {
+				delete(p.required, k)
+			}
+		}
+		done = len(toProcess) == 0
+		if !done {
+			err := p.ProcessRequirements(toProcess)
+			if err != nil {
 				return err
 			}
-			// Indicate it's required.
-			entry.ids[reqDesc.ID] = true
-		} else if cid, ok := req.(*component.ID); ok {
-			if c := p.mgr.GetComponent(*cid); c != nil {
-				if c.Scope().IsLower(p.scope) {
-					return resolutionError(
-						fmt.Errorf("previously created component %s (required by %s) has insufficient scope: %s, required: %s",
-							req, desc.ID, c.Scope(), p.scope))
-				}
-			} else {
-				// Indicate it's required.
-				entry.ids[*cid] = true
-			}
+			toProcess = nil
 		}
 	}
-	p.required[k] = entry
 	return nil
 }
 
 // CreateComponents contained in this processor in the appropriate order.
 func (p *creationProcessor) CreateComponents() component.RequirementError {
-	// Apply appropriate defaults for any missing components.
-	if err := p.applyDefaults(); err != nil {
-		return err
-	}
-
 	for len(p.required) > 0 {
 		progress := false
-		for desc, entry := range p.required {
+		for _, entry := range p.required {
 			// Remove requirements for any components that have been created.
-			for id := range entry.ids {
-				if p.mgr.GetComponent(id) != nil {
-					delete(entry.ids, id)
+			for childID := range entry.children {
+				if p.mgr.getComponentByKey(childID) != nil {
+					delete(entry.children, childID)
 				}
 			}
 
 			// If all the requirements have been satisified, create the component.
-			if len(entry.ids) == 0 {
+			if len(entry.children) == 0 {
 				progress = true
 
 				// Mark this requirement as satisfied.
-				delete(p.required, desc)
+				delete(p.required, entry.key)
 
 				// Create the component.
-				if _, err := p.mgr.requireComponent(entry.desc, p.scope); err != nil {
+				if _, err := p.mgr.requireComponent(entry, p.scope); err != nil {
 					return err
 				}
 			}
 		}
 
+		// If we failed to make progress on any of the required entries, report an error.
 		if !progress {
-			return resolutionError(fmt.Errorf("unable to determine creation order for required components"))
-		}
-	}
-	return nil
-}
-
-func (p *creationProcessor) applyDefaults() component.RequirementError {
-	done := false
-	for !done {
-		done = true
-		for _, entry := range p.required {
-			for compID := range entry.ids {
-				if _, ok := p.provided[compID]; !ok {
-					done = false
-
-					// Not found... Use a default.
-					desc, err := p.mgr.GetDefaultDescriptor(compID)
-					if err != nil {
-						return resolutionError(err)
-					}
-
-					if err := p.Add(desc); err != nil {
-						return err
-					}
-				}
-			}
+			return resolutionError(fmt.Errorf("unable to determine creation order for required components, remaining requirements: %v", p.required))
 		}
 	}
 	return nil

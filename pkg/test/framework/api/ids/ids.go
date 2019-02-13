@@ -31,6 +31,9 @@ var (
 	// Citadel component
 	Citadel = component.ID("citadel")
 
+	// Echo component
+	Echo = component.ID("echo")
+
 	// Ingress component
 	Ingress = component.ID("ingress")
 

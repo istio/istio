@@ -18,13 +18,9 @@ import "testing"
 
 // Repository of components.
 type Repository interface {
-	// Gets the component with the given ID, or null if not found.
-	GetComponent(id ID) Instance
-	GetComponentOrFail(id ID, t testing.TB) Instance
-
-	// Gets the component matching the given descriptor, or null if not found.
-	GetComponentForDescriptor(d Descriptor) Instance
-	GetComponentForDescriptorOrFail(d Descriptor, t testing.TB) Instance
+	// Gets the component for the given Requirement, or null if not found.
+	GetComponent(req Requirement) Instance
+	GetComponentOrFail(req Requirement, t testing.TB) Instance
 
 	// Gets all components currently active in the system.
 	GetAllComponents() []Instance
