@@ -197,6 +197,14 @@ spec:
             value: "true"
           {{- end }}
           {{- end }}
+          - name: ISTIO_META_WORKLOAD_SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
+          - name: ISTIO_META_K8S_JWT_PATH
+{{- if $.Values.global.sds.useTrustworthyJwt }}
+            value: "/var/run/secrets/tokens/istio-token"
+{{- else }}
+            value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+{{- end }}
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
