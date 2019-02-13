@@ -29,7 +29,6 @@ const reportAttributes = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "origin.ip": "[127 0 0 1]",
   "request.host": "*",
   "request.path": "/echo",

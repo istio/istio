@@ -83,6 +83,19 @@ type Args struct {
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// SinkAddress should be set to the address of a MCP Resource
+	// Sink service that Galley will dial out to. Leaving empty disables
+	// sink.
+	SinkAddress string
+
+	// SinkAuthMode should be set to a name of an authentication plugin,
+	// see the istio.io/istio/galley/pkg/autplugins package.
+	SinkAuthMode string
+
+	// SinkMeta list of key=values to attach as gRPC stream metadata to
+	// outgoing Sink connections.
+	SinkMeta []string
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -101,6 +114,7 @@ func DefaultArgs() *Args {
 		DomainSuffix:              defaultDomainSuffix,
 		DisableResourceReadyCheck: false,
 		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
+		SinkMeta:                  make([]string, 0),
 	}
 }
 
@@ -134,6 +148,9 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
+	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
+	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
+	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
 
 	return buf.String()
 }

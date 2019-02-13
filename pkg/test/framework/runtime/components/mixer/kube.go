@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"io"
+	"net"
 	"testing"
 	"time"
 
@@ -57,6 +58,14 @@ func (c *kubeComponent) Descriptor() component.Descriptor {
 
 func (c *kubeComponent) Scope() lifecycle.Scope {
 	return c.scope
+}
+
+func (c *kubeComponent) GetCheckAddress() net.Addr {
+	return c.client.server.Addr()
+}
+
+func (c *kubeComponent) GetReportAddress() net.Addr {
+	return c.client.server.Addr()
 }
 
 // TODO(nmittler): Remove this.

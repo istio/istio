@@ -66,10 +66,6 @@
 // testdata/config-v1alpha2-reportnothing-valid.yaml
 // testdata/config-v1alpha2-rule-invalid.yaml
 // testdata/config-v1alpha2-rule-valid.yaml
-// testdata/config-v1alpha2-servicecontrol-invalid.yaml
-// testdata/config-v1alpha2-servicecontrol-valid.yaml
-// testdata/config-v1alpha2-servicecontrolreport-invalid.yaml
-// testdata/config-v1alpha2-servicecontrolreport-valid.yaml
 // testdata/config-v1alpha2-solarwinds-invalid.yaml
 // testdata/config-v1alpha2-solarwinds-valid.yaml
 // testdata/config-v1alpha2-stackdriver-invalid.yaml
@@ -1670,119 +1666,6 @@ func testdataConfigV1alpha2RuleValidYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testdataConfigV1alpha2ServicecontrolInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: servicecontrol
-metadata:
-  name: invalid-servicecontrol
-spec:
-  badField: foo
-`)
-
-func testdataConfigV1alpha2ServicecontrolInvalidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicecontrolInvalidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicecontrolInvalidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicecontrolInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-servicecontrol-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServicecontrolValidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: servicecontrol
-metadata:
-  name: valid-servicecontrol
-spec:
-  runtime_config:
-    check_cache_size: 200
-    check_result_expiration: 60s
-  credential_path: "/etc/token/token.json"
-  service_configs:
-    - mesh_service_name: "productpage.default.svc.cluster.local"
-      google_service_name: "bookinfo.endpoints.istio-manlinl.cloud.goog"
-      quotas:
-        - name: read-requests.quota.istio-system
-          google_quota_metric_name: read-requests
-          expiration: 1m
-`)
-
-func testdataConfigV1alpha2ServicecontrolValidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicecontrolValidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicecontrolValidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicecontrolValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-servicecontrol-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServicecontrolreportInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: servicecontrolreport
-metadata:
-  name: invalid-servicecontrolreport
-spec:
-  badField: foo
-`)
-
-func testdataConfigV1alpha2ServicecontrolreportInvalidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicecontrolreportInvalidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicecontrolreportInvalidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicecontrolreportInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-servicecontrolreport-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testdataConfigV1alpha2ServicecontrolreportValidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
-kind: servicecontrolreport
-metadata:
-  name: valid-servicecontrolreport
-spec:
-  api_version : api.version | ""
-  api_operation : api.operation | ""
-  api_protocol : api.protocol | ""
-  api_service : api.service | ""
-  api_key : request.api_key | ""
-  request_time : request.time
-  request_method : request.method
-  request_path : request.path
-  request_bytes: request.size
-  response_time : response.time
-  response_code : response.code | 520
-  response_bytes : response.size | 0
-`)
-
-func testdataConfigV1alpha2ServicecontrolreportValidYamlBytes() ([]byte, error) {
-	return _testdataConfigV1alpha2ServicecontrolreportValidYaml, nil
-}
-
-func testdataConfigV1alpha2ServicecontrolreportValidYaml() (*asset, error) {
-	bytes, err := testdataConfigV1alpha2ServicecontrolreportValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "testdata/config-v1alpha2-servicecontrolreport-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _testdataConfigV1alpha2SolarwindsInvalidYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
 kind: solarwinds
 metadata:
@@ -2539,10 +2422,6 @@ var _bindata = map[string]func() (*asset, error){
 	"testdata/config-v1alpha2-reportnothing-valid.yaml":              testdataConfigV1alpha2ReportnothingValidYaml,
 	"testdata/config-v1alpha2-rule-invalid.yaml":                     testdataConfigV1alpha2RuleInvalidYaml,
 	"testdata/config-v1alpha2-rule-valid.yaml":                       testdataConfigV1alpha2RuleValidYaml,
-	"testdata/config-v1alpha2-servicecontrol-invalid.yaml":           testdataConfigV1alpha2ServicecontrolInvalidYaml,
-	"testdata/config-v1alpha2-servicecontrol-valid.yaml":             testdataConfigV1alpha2ServicecontrolValidYaml,
-	"testdata/config-v1alpha2-servicecontrolreport-invalid.yaml":     testdataConfigV1alpha2ServicecontrolreportInvalidYaml,
-	"testdata/config-v1alpha2-servicecontrolreport-valid.yaml":       testdataConfigV1alpha2ServicecontrolreportValidYaml,
 	"testdata/config-v1alpha2-solarwinds-invalid.yaml":               testdataConfigV1alpha2SolarwindsInvalidYaml,
 	"testdata/config-v1alpha2-solarwinds-valid.yaml":                 testdataConfigV1alpha2SolarwindsValidYaml,
 	"testdata/config-v1alpha2-stackdriver-invalid.yaml":              testdataConfigV1alpha2StackdriverInvalidYaml,
@@ -2661,10 +2540,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"config-v1alpha2-reportnothing-valid.yaml":              &bintree{testdataConfigV1alpha2ReportnothingValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-rule-invalid.yaml":                     &bintree{testdataConfigV1alpha2RuleInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-rule-valid.yaml":                       &bintree{testdataConfigV1alpha2RuleValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-servicecontrol-invalid.yaml":           &bintree{testdataConfigV1alpha2ServicecontrolInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-servicecontrol-valid.yaml":             &bintree{testdataConfigV1alpha2ServicecontrolValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-servicecontrolreport-invalid.yaml":     &bintree{testdataConfigV1alpha2ServicecontrolreportInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-servicecontrolreport-valid.yaml":       &bintree{testdataConfigV1alpha2ServicecontrolreportValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-solarwinds-invalid.yaml":               &bintree{testdataConfigV1alpha2SolarwindsInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-solarwinds-valid.yaml":                 &bintree{testdataConfigV1alpha2SolarwindsValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-stackdriver-invalid.yaml":              &bintree{testdataConfigV1alpha2StackdriverInvalidYaml, map[string]*bintree{}},

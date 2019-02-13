@@ -450,14 +450,7 @@ func validateServer(server *networking.Server) (errs error) {
 			if host != "*" && !strings.Contains(host, ".") {
 				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
 			}
-			if err := ValidateWildcardDomain(host); err != nil {
-				ipAddr := net.ParseIP(host) // Could also be an IP
-				if ipAddr == nil {
-					errs = appendErrors(errs, err)
-				}
-			}
-			// TODO: switch to this code once ns/name format support is added to gateway
-			//errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
+			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
@@ -512,9 +505,15 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
+		if tls.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
+		}
 	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+		}
+		if tls.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a private key"))
 		}
 		if tls.CaCertificates == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
@@ -536,6 +535,23 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 
 	for _, subset := range rule.Subsets {
 		errs = appendErrors(errs, validateSubset(subset))
+	}
+
+	errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+	return
+}
+
+func validateExportTo(exportTo []string) (errs error) {
+	if len(exportTo) > 0 {
+		if len(exportTo) > 1 {
+			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
+		} else {
+			switch Visibility(exportTo[0]) {
+			case VisibilityPrivate, VisibilityPublic:
+			default:
+				errs = appendErrors(errs, fmt.Errorf("only . or * is allowed in the exportTo in the current release"))
+			}
+		}
 	}
 
 	return
@@ -602,8 +618,6 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 	parts := strings.SplitN(host, "/", 2)
 	if len(parts) != 2 {
 		if isGateway {
-			// deprecated
-			log.Warn("Gateway host without namespace is deprecated. Use namespace/hostname format")
 			// Old style host in the gateway
 			return validateSidecarOrGatewayHostnamePart(host, true)
 		}
@@ -615,10 +629,19 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
 	}
 
-	// namespace can be * or . or a valid DNS label
-	if parts[0] != "*" && parts[0] != "." {
-		if !IsDNS1123Label(parts[0]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+	if !isGateway {
+		// namespace can be * or . or ~ or a valid DNS label in sidecars
+		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
+			}
+		}
+	} else {
+		// namespace can be * or . or a valid DNS label in gateways
+		if parts[0] != "*" && parts[0] != "." {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
+			}
 		}
 	}
 	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
@@ -638,9 +661,8 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: pending discussion on API default behavior.
-	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
-		return fmt.Errorf("sidecar: missing ingress/egress")
+	if len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing egress")
 	}
 
 	portMap := make(map[uint32]struct{})
@@ -693,8 +715,6 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: complete bind address+port or UDS uniqueness across ingress and egress
-	// after the whole listener implementation is complete
 	portMap = make(map[uint32]struct{})
 	udsMap = make(map[string]struct{})
 	catchAllEgressListenerFound := false
@@ -1618,6 +1638,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 	}
 
+	errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
 	return
 }
 
@@ -1791,8 +1812,6 @@ func validateGatewayNames(gateways []string) (errs error) {
 		parts := strings.SplitN(gateway, "/", 2)
 		if len(parts) != 2 {
 			// deprecated
-			log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
-				"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
 			continue
@@ -2222,6 +2241,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			ValidatePort(int(port.Number)))
 	}
 
+	errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
 	return
 }
 
