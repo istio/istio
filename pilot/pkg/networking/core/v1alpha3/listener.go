@@ -835,7 +835,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							Port:             servicePort,
 							Service:          service,
 						}
-						
+
 						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 					}
 				}
