@@ -277,13 +277,15 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
+	// simulate logic in connectionID() function.
+	conID := proxyID + "-1"
 	// Test push new secret to proxy.
-	if err = NotifyProxy(proxyID, req.ResourceNames[0], &model.SecretItem{
+	if err = NotifyProxy(conID, req.ResourceNames[0], &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
 	}); err != nil {
-		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
+		t.Errorf("failed to send push notificiation to proxy %q", conID)
 	}
 	resp, err = stream.Recv()
 	if err != nil {
@@ -293,7 +295,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
 
 	key := cache.ConnKey{
-		ProxyID:      proxyID,
+		ConnectionID: conID,
 		ResourceName: req.ResourceNames[0],
 	}
 	if _, found := st.secrets.Load(key); !found {
@@ -301,8 +303,8 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
-	if err = NotifyProxy(proxyID, req.ResourceNames[0], nil); err != nil {
-		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
+	if err = NotifyProxy(conID, req.ResourceNames[0], nil); err != nil {
+		t.Errorf("failed to send push notificiation to proxy %q", conID)
 	}
 	if _, err = stream.Recv(); err == nil {
 		t.Errorf("stream.Recv failed, expected error")
@@ -431,13 +433,13 @@ type mockSecretStore struct {
 	secrets    sync.Map
 }
 
-func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
+func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*model.SecretItem, error) {
 	if ms.checkToken && token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
 	key := cache.ConnKey{
-		ProxyID:      proxyID,
+		ConnectionID: conID,
 		ResourceName: resourceName,
 	}
 	if resourceName == testResourceName {
@@ -453,13 +455,13 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resource
 	return nil, fmt.Errorf("unexpected resourceName %q", resourceName)
 }
 
-func (*mockSecretStore) SecretExist(proxyID, spiffeID, token, version string) bool {
+func (*mockSecretStore) SecretExist(conID, spiffeID, token, version string) bool {
 	return spiffeID == fakeSecret.ResourceName && token == fakeSecret.Token && version == fakeSecret.Version
 }
 
-func (ms *mockSecretStore) DeleteSecret(proxyID, resourceName string) {
+func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 	key := cache.ConnKey{
-		ProxyID:      proxyID,
+		ConnectionID: conID,
 		ResourceName: resourceName,
 	}
 	ms.secrets.Delete(key)
