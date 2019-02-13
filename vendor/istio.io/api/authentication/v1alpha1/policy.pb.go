@@ -674,7 +674,7 @@ func (m *OriginAuthenticationMethod) GetJwt() *Jwt {
 //   name: mTLS_enable
 //   namespace: frod
 // spec:
-//   targets:
+//   target:
 //   - name: productpage
 //     ports:
 //     - number: 9000
