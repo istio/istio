@@ -90,6 +90,13 @@ var (
 	// be used, "/"
 	BaseDir = "BASE"
 
+	// HTTP10 enables the use of HTTP10 in the outbound HTTP listeners, to support legacy applications.
+	// Will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
+	//
+	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
+	// where Sidecar is enabled.
+	HTTP10 = os.Getenv("PILOT_HTTP10") == "1"
+
 	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-sagent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
