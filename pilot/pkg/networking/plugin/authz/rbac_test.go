@@ -551,7 +551,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "*",
+						User:   "*",
+						NotIps: []string{"192.1.2.0/24"},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -933,14 +934,35 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		}},
+
 		Principals: []*policy.Principal{{
 			Identifier: &policy.Principal_AndIds{
 				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{{
-						Identifier: &policy.Principal_Any{
-							Any: true,
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Any{
+								Any: true,
+							},
 						},
-					}},
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_SourceIp{SourceIp: &core.CidrRange{
+														AddressPrefix: "192.1.2.0",
+														PrefixLen:     &types.UInt32Value{Value: uint32(24)},
+													}},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		}},

@@ -620,6 +620,7 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding, forTCPFilter 
 	return enforcedPrincipals, permissivePrincipals
 }
 
+// TODO: Refactor first class fields.
 // convertToPrincipal converts a single subject to principal.
 func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policyproto.Principal {
 	ids := &policyproto.Principal_AndIds{
@@ -672,6 +673,9 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 
 	notNamespacesBinding := convertBindingField(subject.NotNamespaces, attrSrcNamespace, forTCPFilter)
 	appendNotID(notNamespacesBinding, ids)
+
+	notIpsBinding := convertBindingField(subject.NotIps, attrSrcIP, forTCPFilter)
+	appendNotID(notIpsBinding, ids)
 
 	if len(subject.Properties) != 0 {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated

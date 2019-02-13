@@ -1493,7 +1493,7 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 // isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
 func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
 	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
-		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0
+		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.NotIps) == 0
 }
 
 func checkRbacConfig(name, typ string, msg proto.Message) error {
