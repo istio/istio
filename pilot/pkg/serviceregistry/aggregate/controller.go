@@ -30,7 +30,6 @@ type Registry struct {
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
-	model.ServiceAccounts
 }
 
 var (
@@ -241,17 +240,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	}
 
 	return out, errs
-}
-
-// GetProxyLocality returns the locality where the proxy runs.
-func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
-	for _, r := range c.GetRegistries() {
-		locality := r.GetProxyLocality(proxy)
-		if len(locality) > 0 {
-			return locality
-		}
-	}
-	return ""
 }
 
 // Run starts all the controllers

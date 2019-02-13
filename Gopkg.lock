@@ -1468,7 +1468,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
+  digest = "1:95537015f7ca5a9c4be766141b18bd9bf262ea0c247f47f58a8b7bb1bc368d46"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
@@ -1480,7 +1480,6 @@
     "iterator",
     "monitoring/v3",
     "option",
-    "servicecontrol/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -1659,7 +1658,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "d0444f6849c3e442b5b1e818b29bd2c9dec8ca27"
+  revision = "92b7ddc0f30b3aab6a5e82a861e54bf55fe249bd"
 
 [[projects]]
   branch = "release-1.11"

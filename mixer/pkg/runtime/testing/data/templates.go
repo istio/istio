@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -216,7 +217,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return attribute.GetMutableBagForTesting(outputAttrs), nil
 
 		},
-		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder lang.Compiler) (template.InstanceBuilderFn, error) {
 			l.WriteFormat(name, "CreateInstanceBuilder => instanceName: '%+s'", instanceName)
 			l.WriteFormat(name, "CreateInstanceBuilder => instanceParam: '%s'", instanceParam)
 			if s.ErrorAtCreateInstanceBuilder {
@@ -270,7 +271,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		CreateOutputExpressions: func(
 			instanceParam proto.Message,
 			finder ast.AttributeDescriptorFinder,
-			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+			expb lang.Compiler) (map[string]compiled.Expression, error) {
 			l.WriteFormat(name, "CreateOutputExpressions => param:            '%+v'", instanceParam)
 			l.WriteFormat(name, "CreateOutputExpressions => finder exists:    '%+v'", finder != nil)
 			l.WriteFormat(name, "CreateOutputExpressions => expb exists:      '%+v'", expb != nil)

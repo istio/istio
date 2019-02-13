@@ -38,7 +38,7 @@ func TestConfigWriter_PrintEndpointSummary(t *testing.T) {
 		},
 		{
 			name:           "filter endpoints in the summary",
-			filter:         EndpointFilter{Cluster: "outbound|9093||istio-policy.istio-system.svc.cluster.local"},
+			filter:         EndpointFilter{Cluster: "outbound|15014||istio-policy.istio-system.svc.cluster.local"},
 			wantOutputFile: "testdata/clustersummaryfiltered.txt",
 			callPrime:      true,
 		},
@@ -50,7 +50,7 @@ func TestConfigWriter_PrintEndpointSummary(t *testing.T) {
 		},
 		{
 			name:           "handles port filtering",
-			filter:         EndpointFilter{Port: 9093},
+			filter:         EndpointFilter{Port: 15014},
 			wantOutputFile: "testdata/clustersummaryfiltered.txt",
 			callPrime:      true,
 		},
@@ -103,7 +103,7 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 		},
 		{
 			name:           "filter endpoints",
-			filter:         EndpointFilter{Cluster: "outbound|9093||istio-policy.istio-system.svc.cluster.local"},
+			filter:         EndpointFilter{Cluster: "outbound|15014||istio-policy.istio-system.svc.cluster.local"},
 			wantOutputFile: "testdata/clusterfiltered.txt",
 			callPrime:      true,
 		},
@@ -115,7 +115,7 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 		},
 		{
 			name:           "handles port filtering",
-			filter:         EndpointFilter{Port: 9093},
+			filter:         EndpointFilter{Port: 15014},
 			wantOutputFile: "testdata/clusterfiltered.txt",
 			callPrime:      true,
 		},

@@ -32,9 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-
 	multierror "github.com/hashicorp/go-multierror"
-
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -516,6 +514,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
@@ -524,7 +523,11 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var tmpl bytes.Buffer
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
-	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
+	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
+		return nil, "", err
+	}
 	if err := t.Execute(&tmpl, &data); err != nil {
 		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
@@ -535,6 +538,9 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
 		return nil, "", err
 	}
+
+	// set sidecar --concurrency
+	applyConcurrency(sic.Containers)
 
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {
@@ -705,7 +711,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(spec, podSpec)
+	rewriteAppHTTPProbe(podSpec, spec)
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).

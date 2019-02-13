@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -51,9 +53,11 @@ var (
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
+	DNSDomain        string
 
 	// proxy config flags (named identically)
 	configPath               string
+	controlPlaneBootstrap    bool
 	binaryPath               string
 	serviceCluster           string
 	drainDuration            time.Duration
@@ -75,8 +79,7 @@ var (
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
 
-	// pilot agent config
-	kubeAppHTTPProbers string
+	wg sync.WaitGroup
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -134,6 +137,8 @@ var (
 				}
 			}
 
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
+			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := model.DefaultProxyConfig()
@@ -180,8 +185,16 @@ var (
 					}
 				}
 			}
-			role.DNSDomain = getDNSDomain(role.DNSDomain)
-			pilotSAN = getPilotSAN(role.DNSDomain, ns)
+
+			// Parse the DNSDomain based upon service registry type into a registry specific domain.
+			DNSDomain = getDNSDomain(DNSDomain)
+
+			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
+			role.DNSDomains = make([]string, 1)
+			role.DNSDomains[0] = DNSDomain
+
+			// Obtain the SAN to later create a Envoy proxy.
+			pilotSAN = getPilotSAN(DNSDomain, ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -244,42 +257,50 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-				opts := make(map[string]string)
-				opts["PodName"] = os.Getenv("POD_NAME")
-				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
-				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
+			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
+			if controlPlaneBootstrap {
+				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+					opts := make(map[string]string)
+					opts["PodName"] = os.Getenv("POD_NAME")
+					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+					opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
-				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+					// protobuf encoding of IP_ADDRESS type
+					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
-				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-					opts["ControlPlaneAuth"] = "enable"
+					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+						opts["ControlPlaneAuth"] = "enable"
+					}
+					if disableInternalTelemetry {
+						opts["DisableReportCalls"] = "true"
+					}
+					tmpl, err := template.ParseFiles(templateFile)
+					if err != nil {
+						return err
+					}
+					var buffer bytes.Buffer
+					err = tmpl.Execute(&buffer, opts)
+					if err != nil {
+						return err
+					}
+					content := buffer.Bytes()
+					log.Infof("Static config:\n%s", string(content))
+					proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
+					err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
+					if err != nil {
+						return err
+					}
 				}
-				if disableInternalTelemetry {
-					opts["DisableReportCalls"] = "true"
-				}
-				tmpl, err := template.ParseFiles(templateFile)
-				if err != nil {
-					return err
-				}
-				var buffer bytes.Buffer
-				err = tmpl.Execute(&buffer, opts)
-				if err != nil {
-					return err
-				}
-				content := buffer.Bytes()
-				log.Infof("Static config:\n%s", string(content))
-				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
-				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
-				if err != nil {
-					return err
-				}
+			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
+			defer func() {
+				log.Info("pilot-agent is terminating")
+				cancel()
+				wg.Wait()
+			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
@@ -287,34 +308,39 @@ var (
 					return err
 				}
 
+				prober := os.Getenv(status.KubeAppProberEnvName)
 				statusServer, err := status.NewServer(status.Config{
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: kubeAppHTTPProbers,
+					KubeAppHTTPProbers: prober,
 				})
 				if err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
+				go waitForCompletion(ctx, statusServer.Run)
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
-			go agent.Run(ctx)
-			go watcher.Run(ctx)
+			go waitForCompletion(ctx, agent.Run)
+			go waitForCompletion(ctx, watcher.Run)
 
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
+			cmd.WaitSignal(make(chan struct{}))
 			return nil
 		},
 	}
 )
+
+func waitForCompletion(ctx context.Context, fn func(context.Context)) {
+	wg.Add(1)
+	fn(ctx)
+	wg.Done()
+}
 
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
@@ -383,7 +409,7 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
@@ -427,11 +453,6 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
-		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
-			`For example, --kubeAppProberConfig='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}'`+
-			" indicates that httpbin container liveness prober port is 8080 and probing path is /hello. "+
-			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
@@ -444,6 +465,8 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
+		"Process bootstrap provided via templateFile to be used by control plane components.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

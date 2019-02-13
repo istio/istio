@@ -115,9 +115,9 @@ function run_golangcilint() {
 }
 
 function run_helm_lint() {
-    echo 'Running helm lint on istio & istio-remote ....'
-    helm lint ./install/kubernetes/helm/{istio,istio-remote}
-    echo 'helm lint on istio & istio-remote OK'
+    echo 'Running helm lint on istio ....'
+    helm lint ./install/kubernetes/helm/istio
+    echo 'helm lint on istio OK'
 }
 
 function check_grafana_dashboards() {
@@ -133,7 +133,7 @@ function check_licenses() {
 }
 
 ensure_pilot_types
-format
+# format
 check_licenses
 check_spelling
 install_golangcilint
