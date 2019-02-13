@@ -1642,7 +1642,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b390629410b2cf04b4efc484f24edd872b7ba73bd02b77a44321abb695263321"
+  digest = "1:68c29ce2821098c6bf5ddac177baba24a85b3e2bf1df8fc01f435ee052169cfc"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -2103,7 +2103,6 @@
     "github.com/openzipkin/zipkin-go/model",
     "github.com/openzipkin/zipkin-go/reporter",
     "github.com/openzipkin/zipkin-go/reporter/http",
-    "github.com/pborman/uuid",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/api",
@@ -2146,16 +2145,13 @@
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
     "golang.org/x/net/publicsuffix",
-    "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
     "google.golang.org/api/cloudtrace/v1",
-    "google.golang.org/api/googleapi",
     "google.golang.org/api/iterator",
     "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
-    "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
@@ -2167,6 +2163,7 @@
     "google.golang.org/grpc/balancer",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
+    "google.golang.org/grpc/credentials/oauth",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
     "google.golang.org/grpc/keepalive",
@@ -2202,6 +2199,7 @@
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/fields",
@@ -2245,6 +2243,7 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
+    "k8s.io/client-go/util/jsonpath",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",
