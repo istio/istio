@@ -13,7 +13,11 @@ data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
+    {{- if .Values.mixer.policy.enabled }}
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+    {{- else }}
+    disablePolicyChecks: true
+    {{- end }}
 
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
@@ -49,14 +53,18 @@ data:
     {{- end }}
     
     {{- else }}
-    #
-    # Deprecated: mixer is using EDS
-    {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled }}
+
+    {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
+    {{- end }}
+    {{- end }}
+    {{- if .Values.mixer.telemetry.enabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
+    {{- else }}
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
