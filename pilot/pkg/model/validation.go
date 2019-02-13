@@ -1471,8 +1471,8 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
 	}
 	for i, subject := range in.Subjects {
-		if len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 of user, group or properties must be specified for subject %d", i))
+		if isFirstClassFieldEmpty(subject) {
+			errs = appendErrors(errs, fmt.Errorf("at least 1 first class field (e.g. properties) must be specified for subject %d", i))
 		}
 	}
 	if in.RoleRef == nil {
@@ -1488,6 +1488,12 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 		}
 	}
 	return errs
+}
+
+// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
+func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
+	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
+		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0
 }
 
 func checkRbacConfig(name, typ string, msg proto.Message) error {

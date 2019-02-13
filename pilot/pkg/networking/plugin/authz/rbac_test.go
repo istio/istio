@@ -491,8 +491,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User:       "admin",
-						Namespaces: []string{"default"},
+						User:          "admin",
+						Namespaces:    []string{"default"},
+						NotNamespaces: []string{"user", "deprecated"},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -748,6 +749,40 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 														PrincipalName: &metadata.StringMatcher{
 															MatchPattern: &metadata.StringMatcher_Regex{
 																Regex: ".*/ns/default/.*",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_NotId{
+									NotId: &policy.Principal{
+										Identifier: &policy.Principal_OrIds{
+											OrIds: &policy.Principal_Set{
+												Ids: []*policy.Principal{
+													{
+														Identifier: &policy.Principal_Authenticated_{
+															Authenticated: &policy.Principal_Authenticated{
+																PrincipalName: &metadata.StringMatcher{
+																	MatchPattern: &metadata.StringMatcher_Regex{
+																		Regex: ".*/ns/user/.*",
+																	},
+																},
+															},
+														},
+													},
+													{
+														Identifier: &policy.Principal_Authenticated_{
+															Authenticated: &policy.Principal_Authenticated{
+																PrincipalName: &metadata.StringMatcher{
+																	MatchPattern: &metadata.StringMatcher_Regex{
+																		Regex: ".*/ns/deprecated/.*",
+																	},
+																},
 															},
 														},
 													},

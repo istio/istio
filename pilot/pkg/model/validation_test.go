@@ -3648,7 +3648,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "at least 1 first class field (e.g. properties) must be specified for subject 1",
 		},
 		{
 			name: "no roleRef",

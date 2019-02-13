@@ -667,22 +667,11 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
-	if len(subject.Namespaces) > 0 {
-		orIds := &policyproto.Principal_OrIds{
-			OrIds: &policyproto.Principal_Set{
-				Ids: make([]*policyproto.Principal, 0),
-			},
-		}
-		for _, namespace := range subject.Namespaces {
-			id := principalForKeyValue(attrSrcNamespace, namespace, forTCPFilter)
-			if id != nil {
-				orIds.OrIds.Ids = append(orIds.OrIds.Ids, id)
-			}
-		}
-		if orIds != nil {
-			ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{Identifier: orIds})
-		}
-	}
+	namespacesBinding := convertBindingField(subject.Namespaces, attrSrcNamespace, forTCPFilter)
+	appendID(namespacesBinding, ids)
+
+	notNamespacesBinding := convertBindingField(subject.NotNamespaces, attrSrcNamespace, forTCPFilter)
+	appendNotID(notNamespacesBinding, ids)
 
 	if len(subject.Properties) != 0 {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated
@@ -718,6 +707,43 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 	}
 
 	return &policyproto.Principal{Identifier: ids}
+}
+
+// convertBindingField converts an Istio first class field to Envoy RBAC config to nil if the field
+// is empty.
+func convertBindingField(field []string, key string, forTCPFilter bool) *policyproto.Principal {
+	orIds := &policyproto.Principal_OrIds{
+		OrIds: &policyproto.Principal_Set{
+			Ids: make([]*policyproto.Principal, 0),
+		},
+	}
+	for _, value := range field {
+		id := principalForKeyValue(key, value, forTCPFilter)
+		if id != nil {
+			orIds.OrIds.Ids = append(orIds.OrIds.Ids, id)
+		}
+	}
+	if len(orIds.OrIds.Ids) > 0 {
+		return &policyproto.Principal{Identifier: orIds}
+	}
+	return nil
+}
+
+// appendId appends a list of orIds to andIds.
+func appendID(orIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if orIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids, orIds)
+	}
+}
+
+// appendNotId appends a list of *not* orIds to andIds.
+func appendNotID(notOrIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if notOrIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids,
+			&policyproto.Principal{Identifier: &policyproto.Principal_NotId{
+				NotId: notOrIds,
+			}})
+	}
 }
 
 func permissionForKeyValues(key string, values []string) *policyproto.Permission {
