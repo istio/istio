@@ -46,7 +46,7 @@ var (
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{HelloInstanceV0},
 		ID:          "v0.default",
-		DNSDomain:   "default.svc.cluster.local",
+		DNSDomains:  []string{"default.svc.cluster.local"},
 	}
 
 	// HelloProxyV1 is a mock proxy v1 of HelloService
@@ -54,7 +54,7 @@ var (
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{HelloInstanceV1},
 		ID:          "v1.default",
-		DNSDomain:   "default.svc.cluster.local",
+		DNSDomains:  []string{"default.svc.cluster.local"},
 	}
 
 	// Ingress is a mock proxy to IP 10.3.3.3
@@ -62,7 +62,7 @@ var (
 		Type:        model.Ingress,
 		IPAddresses: []string{"10.3.3.3"},
 		ID:          "ingress.default",
-		DNSDomain:   "default.svc.cluster.local",
+		DNSDomains:  []string{"default.svc.cluster.local"},
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services

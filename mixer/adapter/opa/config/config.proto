@@ -37,7 +37,7 @@ option (gogoproto.gostring_all) = false;
 // Configuration format for the `opa` adapter.
 //
 // Example configuration:
-// ```
+// ```yaml
 // policy:
 //   - |+
 //     package mixerauthz

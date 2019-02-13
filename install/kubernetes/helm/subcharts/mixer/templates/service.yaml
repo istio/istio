@@ -6,6 +6,8 @@ kind: Service
 metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
+  annotations:
+   networking.istio.io/exportTo: "*"
   labels:
     app: {{ template "mixer.name" $ }}
     chart: {{ template "mixer.chart" $ }}

@@ -49,6 +49,8 @@ spec:
             - "15020"
             - --applicationPorts
             - ""
+            - --concurrency
+            - "1"
             env:
             - name: POD_NAME
               valueFrom:
