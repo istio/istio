@@ -74,7 +74,8 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=false", " "),
 			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
+				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\", " +
+				"DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
 		},
 		{ // case 1 client-side only, short output
 			configs:        []model.Config{},
@@ -85,7 +86,7 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=false -o yaml", " "),
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9+?(\\.)?]+)\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\n" +
 				"  host: unknown\n" +
 				"  hub: unknown\n" +
 				"  revision: unknown\n" +
@@ -103,7 +104,7 @@ func TestVersion(t *testing.T) {
 				"    \"revision\": \"unknown\",\n" +
 				"    \"user\": \"unknown\",\n" +
 				"    \"host\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\",\n" +
 				"    \"hub\": \"unknown\",\n" +
 				"    \"status\": \"unknown\",\n" +
 				"    \"tag\": \"unknown\"\n" +
@@ -115,7 +116,8 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=true --short=false --output=", " "),
 			expectedRegexp: regexp.MustCompile("client version: version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}\n" +
+				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\", " +
+				"DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}\n" +
 				printMeshVersion(rawOutputMock)),
 		},
 		{ // case 5 remote, short output
@@ -127,7 +129,7 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=true -o yaml", " "),
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9+?(\\.)?]+)\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\n" +
 				"  host: unknown\n" +
 				"  hub: unknown\n" +
 				"  revision: unknown\n" +
@@ -145,7 +147,7 @@ func TestVersion(t *testing.T) {
 				"    \"revision\": \"unknown\",\n" +
 				"    \"user\": \"unknown\",\n" +
 				"    \"host\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\",\n" +
 				"    \"hub\": \"unknown\",\n" +
 				"    \"status\": \"unknown\",\n" +
 				"    \"tag\": \"unknown\"\n" +
