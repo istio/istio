@@ -60,7 +60,6 @@ func TestSecretController(t *testing.T) {
 		existingSecret   *v1.Secret
 		saToAdd          *v1.ServiceAccount
 		saToDelete       *v1.ServiceAccount
-		sasToUpdate      *updatedSas
 		expectedActions  []ktesting.Action
 		gracePeriodRatio float32
 		injectFailure    bool
@@ -86,27 +85,6 @@ func TestSecretController(t *testing.T) {
 			saToDelete: createServiceAccount("deleted", "deleted-ns"),
 			expectedActions: []ktesting.Action{
 				ktesting.NewDeleteAction(gvr, "deleted-ns", "istio.deleted"),
-			},
-			gracePeriodRatio: defaultGracePeriodRatio,
-			shouldFail:       false,
-		},
-		"updating service accounts does nothing if name and namespace are not changed": {
-			sasToUpdate: &updatedSas{
-				curSa: createServiceAccount("name", "ns"),
-				oldSa: createServiceAccount("name", "ns"),
-			},
-			gracePeriodRatio: defaultGracePeriodRatio,
-			expectedActions:  []ktesting.Action{},
-			shouldFail:       false,
-		},
-		"updating service accounts deletes old secret and creates a new one": {
-			sasToUpdate: &updatedSas{
-				curSa: createServiceAccount("new-name", "new-ns"),
-				oldSa: createServiceAccount("old-name", "old-ns"),
-			},
-			expectedActions: []ktesting.Action{
-				ktesting.NewDeleteAction(gvr, "old-ns", "istio.old-name"),
-				ktesting.NewCreateAction(gvr, "new-ns", ca.BuildSecret("new-name", "istio.new-name", "new-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
 			shouldFail:       false,
@@ -187,9 +165,6 @@ func TestSecretController(t *testing.T) {
 		}
 		if tc.saToDelete != nil {
 			controller.saDeleted(tc.saToDelete)
-		}
-		if tc.sasToUpdate != nil {
-			controller.saUpdated(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
 		}
 
 		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
