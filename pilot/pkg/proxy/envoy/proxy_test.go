@@ -33,7 +33,7 @@ func TestEnvoyArgs(t *testing.T) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
 
-	got := test.args("test.json", 5)
+	got := test.args("test.json", 5, "testdata/bootstrap.json")
 	want := []string{
 		"-c", "test.json",
 		"--restart-epoch", "5",
@@ -44,6 +44,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
 		"--allow-unknown-fields",
 		"-l", "trace",
+		"--config-yaml", `{"key": "value"}`,
 		"--concurrency", "8",
 	}
 	if !reflect.DeepEqual(got, want) {
