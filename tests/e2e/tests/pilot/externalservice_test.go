@@ -115,13 +115,13 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNCREACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_443",
+			name:              "UNREACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_443",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNCREACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_80",
+			name:              "UNREACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_80",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
 			url:               "http://www.wikipedia.org",
 			shouldBeReachable: false,
@@ -135,6 +135,42 @@ func TestServiceEntry(t *testing.T) {
 		{
 			name:              "UNREACHABLE_www.google.com_no_vs_over_wikipedia_wildcard_80",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "http://www.google.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_en.wikipedia.org_https_no_vs_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
+			url:               "https://en.wikipedia.org/wiki/Main_Page",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_de.wikipedia.org_https_no_vs_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
+			url:               "https://de.wikipedia.org/wiki/Wikipedia:Hauptseite",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.wikipedia.org_https_no_vs_over_wikipedia_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNCREACHABLE_www.wikipedia.org_https_no_vs_over_wikipedia_wildcard_80",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
+			url:               "http://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_https_no_vs_over_wikipedia_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com__https_no_vs_over_wikipedia_wildcard_80",
+			config:            "testdata/networking/v1alpha3/wildcard-https-wikipedia-no-vs.yaml",
 			url:               "http://www.google.org",
 			shouldBeReachable: false,
 		},
