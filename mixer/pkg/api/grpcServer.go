@@ -17,6 +17,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -116,6 +117,18 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 				return resp, nil
 			}
 		}
+	}
+
+	if !s.dispatcher.HasCheckDestinations(ctx, protoBag) {
+		protoBag.Get("destination.uid") // should always be set; make it referenced for cache-key construction
+		return &mixerpb.CheckResponse{
+			Precondition: mixerpb.CheckResponse_PreconditionResult{
+				Status:               status.OK,
+				ValidDuration:        24 * time.Hour, // TODO: make configurable?
+				ValidUseCount:        math.MaxInt32,
+				ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, int(req.GlobalWordCount)),
+			},
+		}, nil
 	}
 
 	// This holds the output state of preprocess operations

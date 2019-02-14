@@ -34,6 +34,10 @@ import (
 
 // Dispatcher dispatches incoming API calls to configured adapters.
 type Dispatcher interface {
+
+	// HasCheckDestinations...
+	HasCheckDestinations(ctx context.Context, requestBag attribute.Bag) bool
+
 	// Preprocess dispatches to the set of adapters that will run before any
 	// other adapters in Mixer (aka: the Check, Report, Quota adapters).
 	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
@@ -114,6 +118,12 @@ const (
 	defaultValidDuration = 1 * time.Minute
 	defaultValidUseCount = 10000
 )
+
+func (d *Impl) HasCheckDestinations(ctx context.Context, bag attribute.Bag) bool {
+	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
+	destinations := s.rc.Routes.GetDestinations(s.variety, getIdentityNamespace(s.bag))
+	return destinations.Count() > 0
+}
 
 // Check implementation of runtime.Impl.
 func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
