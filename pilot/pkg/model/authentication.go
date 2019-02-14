@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -55,6 +56,8 @@ const (
 
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
 	IngressGatewaySdsCaSuffix = "-cacert"
+
+    googleApis = "type.googleapis.com/"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -232,7 +235,14 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		},
 		HeaderKey: headerKey,
 	}
-	any, _ := types.MarshalAny(config)
+
+	configSize := proto.Size(config)
+	rawBytes := make([]byte, 0, configSize)
+	protoBuffer := proto.NewBuffer(rawBytes)
+	protoBuffer.SetDeterministic(true)
+	protoBuffer.Marshal(config)
+	any := &types.Any{TypeUrl: googleApis + proto.MessageName(config), Value: protoBuffer.Bytes()}
+
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
