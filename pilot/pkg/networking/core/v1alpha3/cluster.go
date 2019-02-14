@@ -1037,7 +1037,7 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 	}
 }
 
-func applyCommonHttpProtocolOptions(env *model.Environment, cluster *v2.Cluster) {
+func applyCommonHTTPProtocolOptions(env *model.Environment, cluster *v2.Cluster) {
 	if env.Mesh.IdleTimeout != nil {
 		MeshIdleTimeout := &types.Duration{
 			Seconds: env.Mesh.IdleTimeout.Seconds,
