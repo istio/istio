@@ -27,7 +27,7 @@ mixer:
     autoscaleEnabled: false
   telemetry:
     enabled: true
-    loadsheddingMode: logonly
+    loadsheddingMode: disabled
   adapters:
     stdio:
       enabled: true
