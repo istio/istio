@@ -630,8 +630,36 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-		generateSimpleServiceRoleBindingAllGroups("service-role-10", "service-role-binding-10"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-11", "service-role-binding-11"),
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-10"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Groups: []string{"admin-group", "testing-group"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-10",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-11"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Groups:    []string{"*-group"},
+						NotGroups: []string{"deprecated-group"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-11",
+				},
+			},
+		},
+
 		generateSimpleServiceRoleBindingAllGroups("service-role-12", "service-role-binding-12"),
 		generateSimpleServiceRoleBindingAllGroups("service-role-13", "service-role-binding-13"),
 	}
@@ -1110,9 +1138,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
-									[]string{attrRequestClaims, "groups"}, "group*"),
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "admin-group"),
+											},
+										},
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "testing-group"),
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -1121,7 +1163,68 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy11 := generateSimplePolicyForNotRuleWithHeader(hostHeader, "finances.google.com")
+	policy11 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: hostHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "finances.google.com"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "*-group"),
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_Metadata{
+														Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+															[]string{attrRequestClaims, "groups"}, "deprecated-group"),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
 	policy12 := generateSimplePolicyForNotRuleWithHeader(methodHeader, "DELETE")
 	policy13 := generateSimplePolicyForNotRuleWithHeader(pathHeader, "/secret_path")
 

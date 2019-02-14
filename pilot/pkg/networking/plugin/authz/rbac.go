@@ -720,6 +720,12 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 	notNamespacesBinding := convertBindingField(subject.NotNamespaces, attrSrcNamespace, forTCPFilter)
 	appendNotID(notNamespacesBinding, ids)
 
+	groupsBinding := convertBindingField(subject.Groups, attrRequestClaimGroups, forTCPFilter)
+	appendID(groupsBinding, ids)
+
+	notGroupsBinding := convertBindingField(subject.NotGroups, attrRequestClaimGroups, forTCPFilter)
+	appendNotID(notGroupsBinding, ids)
+
 	ipsBinding := convertBindingField(subject.Ips, attrSrcIP, forTCPFilter)
 	appendID(ipsBinding, ids)
 
