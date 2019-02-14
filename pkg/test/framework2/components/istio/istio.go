@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/resource"
@@ -159,12 +160,11 @@ func renderIstioTemplate(helmDir string, s *settings, context resource.Context) 
 		return "", err
 	}
 
-	if err := helm.DepUpdate(helmDir, "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio", true); err != nil { // TODO: make this a parameter
+	if err := helm.DepUpdate(helmDir, env.IstioChartDir, true); err != nil {
 		return "", err
 	}
 
-	// TODO: The right path here.
-	renderedYaml, err := helm.Template(helmDir, s.ChartDir, "istio", s.SystemNamespace, "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio/"+s.ValuesFile, s.Values)
+	renderedYaml, err := helm.Template(helmDir, s.ChartDir, "istio", s.SystemNamespace, path.Join(env.IstioChartDir, s.ValuesFile), s.Values)
 	if err != nil {
 		return "", err
 	}
