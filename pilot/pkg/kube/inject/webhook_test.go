@@ -1024,7 +1024,7 @@ func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 	return yaml
 }
 
-func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) error {
+func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
