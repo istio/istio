@@ -6,7 +6,7 @@ global:
     resources:
       requests:
         cpu: 10m
-        memory: 20Mi
+        memory: 40Mi
 
     accessLogFile: "/dev/stdout"
     enableCoreDump: true
@@ -14,7 +14,7 @@ global:
   disablePolicyChecks: false
 
 prometheus:
-  scrapeInterval: 1s
+  scrapeInterval: 5s
 
 gateways:
   istio-ingressgateway:
@@ -34,6 +34,7 @@ mixer:
   resources:
       requests:
         cpu: 10m
+        memory: 100Mi
       limits:
         cpu: 100m
         memory: 100Mi
