@@ -468,11 +468,11 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name	string
-		tls		*networking.TLSSettings
-		sans    []string
-		sni 	string
-		want	*networking.TLSSettings
+		name string
+		tls  *networking.TLSSettings
+		sans []string
+		sni  string
+		want *networking.TLSSettings
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
