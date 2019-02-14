@@ -64,7 +64,7 @@ type source struct {
 	mu sync.RWMutex
 
 	// map to store namespace/name : shas
-	shas map[fileResourceKey][sha1.Size]byte
+	shas map[resource.FullName][sha1.Size]byte
 
 	handler resource.EventHandler
 
@@ -80,8 +80,8 @@ type source struct {
 	watcher *fsnotify.Watcher
 }
 
-func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
-	results := map[fileResourceKey]*fileResource{}
+func (s *source) readFiles(root string) map[resource.FullName]*fileResource {
+	results := map[resource.FullName]*fileResource{}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -89,8 +89,8 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 		}
 		result := s.readFile(path, info, true)
 		if result != nil && len(result) != 0 {
-			for _, r := range result {
-				results[r.newKey()] = r
+			for k, r := range result {
+				results[k] = r
 			}
 		}
 		//add watcher for sub folders
@@ -105,8 +105,8 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 	return results
 }
 
-func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileResource {
-	result := []*fileResource{}
+func (s *source) readFile(path string, info os.FileInfo, initial bool) map[resource.FullName]*fileResource {
+	result := map[resource.FullName]*fileResource{}
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -117,14 +117,13 @@ func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileRe
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resourceKeyList := make([]*fileResourceKey, 0, 10)
+	resourceKeyList := make([]*fileResourceKey, 1)
 	for _, r := range s.parseFile(path, data) {
 		if !s.kinds[r.spec.Kind] {
 			continue
 		}
-		result = append(result, r)
-		key := r.newKey()
-		resourceKeyList = append(resourceKeyList, &key)
+		result[r.entry.Key] = r
+		resourceKeyList = append(resourceKeyList, r.newKey())
 	}
 	if initial {
 		s.fileResourceKeys[path] = resourceKeyList
@@ -133,42 +132,35 @@ func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileRe
 }
 
 //process delete part of the resources in a file
-func (s *source) processPartialDelete(fileName string, newData []*fileResource) {
+func (s *source) processPartialDelete(fileName string, newData *map[resource.FullName]*fileResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if resourceKeys, ok := s.fileResourceKeys[fileName]; ok {
-		for i := len(resourceKeys) - 1; i >= 0; i-- {
-			if resourceKeys[i] != nil {
-				found := false
-				for _, r := range newData {
-					if r.newKey() == *resourceKeys[i] {
-						found = true
-						break
-					}
-				}
-				if !found {
-					delete(s.shas, *resourceKeys[i])
-					s.process(resource.Deleted, *resourceKeys[i], nil)
-					resourceKeys = append(resourceKeys[:i], resourceKeys[i+1:]...)
+	if fileResorceKeys, ok := s.fileResourceKeys[fileName]; ok {
+		for i := len(fileResorceKeys) - 1; i >= 0; i-- {
+			if fileResorceKeys[i] != nil {
+				if _, ok := (*newData)[(*fileResorceKeys[i]).key]; !ok {
+					delete(s.shas, (*fileResorceKeys[i]).key)
+					s.process(resource.Deleted, (*fileResorceKeys[i]).key, (*fileResorceKeys[i]).kind, nil)
+					fileResorceKeys = append(fileResorceKeys[:i], fileResorceKeys[i+1:]...)
 				}
 			}
 		}
-		if len(resourceKeys) > 0 {
-			s.fileResourceKeys[fileName] = resourceKeys
-		} else {
+		if len(fileResorceKeys) > 0 {
+			s.fileResourceKeys[fileName] = fileResorceKeys
+		}
+		if len(fileResorceKeys) == 0 {
 			delete(s.fileResourceKeys, fileName)
 		}
 	}
 
 }
 
-func (s *source) processAddOrUpdate(fileName string, newData []*fileResource) {
+func (s *source) processAddOrUpdate(fileName string, newData *map[resource.FullName]*fileResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
 	versionUpdated := false
-	for _, r := range newData {
-		k := r.newKey()
+	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
 			if s.shas[k] != r.sha {
 				versionUpdated = true
@@ -182,21 +174,22 @@ func (s *source) processAddOrUpdate(fileName string, newData []*fileResource) {
 	if versionUpdated {
 		s.version++
 	}
-	for _, r := range newData {
-		k := r.newKey()
+	for k, r := range *newData {
 		if _, ok := s.shas[k]; ok {
 			if s.shas[k] != r.sha {
-				s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], &k)
-				s.process(resource.Updated, k, r)
+				s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], r.newKey())
+				s.process(resource.Updated, k, "", r)
 			}
 			s.shas[k] = r.sha
 			continue
 		}
 		if s.fileResourceKeys != nil {
-			s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], &k)
+			s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], r.newKey())
 		}
-		s.process(resource.Added, k, r)
-		s.shas[k] = r.sha
+		s.process(resource.Added, k, "", r)
+		if s.shas != nil {
+			s.shas[k] = r.sha
+		}
 	}
 }
 
@@ -207,8 +200,8 @@ func (s *source) processDelete(fileName string) {
 	if fileResourceKeys, ok := s.fileResourceKeys[fileName]; ok {
 		for _, fileResourceKey := range fileResourceKeys {
 			if fileResourceKey != nil {
-				delete(s.shas, *fileResourceKey)
-				s.process(resource.Deleted, *fileResourceKey, nil)
+				delete(s.shas, (*fileResourceKey).key)
+				s.process(resource.Deleted, (*fileResourceKey).key, (*fileResourceKey).kind, nil)
 			}
 		}
 		delete(s.fileResourceKeys, fileName)
@@ -220,7 +213,7 @@ func (s *source) initialCheck() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, r := range newData {
-		s.process(resource.Added, k, r)
+		s.process(resource.Added, k, "", r)
 		s.shas[k] = r.sha
 	}
 	s.handler(resource.FullSyncEvent)
@@ -232,7 +225,7 @@ func (s *source) Stop() {
 	_ = s.watcher.Close()
 }
 
-func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *fileResource) {
+func (s *source) process(eventKind resource.EventKind, key resource.FullName, resourceKind string, r *fileResource) {
 	version := resource.Version(fmt.Sprintf("v%d", s.version))
 
 	var event resource.Event
@@ -244,7 +237,7 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						Collection: r.spec.Target.Collection,
-						FullName:   key.fullName,
+						FullName:   key,
 					},
 					Version: version,
 				},
@@ -253,14 +246,14 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 			},
 		}
 	case resource.Deleted:
-		spec := kubeMeta.Types.Get(key.kind)
+		spec := kubeMeta.Types.Get(resourceKind)
 		event = resource.Event{
 			Kind: eventKind,
 			Entry: resource.Entry{
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						Collection: spec.Target.Collection,
-						FullName:   key.fullName,
+						FullName:   key,
 					},
 					Version: version,
 				},
@@ -303,7 +296,7 @@ func (s *source) Start(handler resource.EventHandler) error {
 						} else {
 							newData := s.readFile(ev.Name, fi, true)
 							if newData != nil && len(newData) != 0 {
-								s.processAddOrUpdate(ev.Name, newData)
+								s.processAddOrUpdate(ev.Name, &newData)
 							}
 						}
 					}
@@ -317,8 +310,8 @@ func (s *source) Start(handler resource.EventHandler) error {
 						} else {
 							newData := s.readFile(ev.Name, fi, false)
 							if newData != nil && len(newData) != 0 {
-								s.processPartialDelete(ev.Name, newData)
-								s.processAddOrUpdate(ev.Name, newData)
+								s.processPartialDelete(ev.Name, &newData)
+								s.processAddOrUpdate(ev.Name, &newData)
 							} else {
 								s.processDelete(ev.Name)
 							}
@@ -341,7 +334,7 @@ func New(root string, schema *schema.Instance, config *converter.Config) (runtim
 		kinds:            map[string]bool{},
 		fileResourceKeys: map[string][]*fileResourceKey{},
 		donec:            make(chan struct{}),
-		shas:             map[fileResourceKey][sha1.Size]byte{},
+		shas:             map[resource.FullName][sha1.Size]byte{},
 		version:          0,
 	}
 	for _, spec := range schema.All() {
@@ -356,16 +349,16 @@ type fileResource struct {
 	sha   [sha1.Size]byte
 }
 
-func (r *fileResource) newKey() fileResourceKey {
-	return fileResourceKey{
-		kind:     r.spec.Kind,
-		fullName: r.entry.Key,
+func (r *fileResource) newKey() *fileResourceKey {
+	return &fileResourceKey{
+		kind: r.spec.Kind,
+		key:  r.entry.Key,
 	}
 }
 
 type fileResourceKey struct {
-	fullName resource.FullName
-	kind     string
+	key  resource.FullName
+	kind string
 }
 
 func (s *source) parseFile(path string, data []byte) []*fileResource {
@@ -447,7 +440,7 @@ func (s *source) parseChunk(yamlChunk []byte) (*fileResource, error) {
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("did not receive any entries from converter: kind=%v, fullName=%v, rv=%s",
+		return nil, fmt.Errorf("did not receive any entries from converter: kind=%v, key=%v, rv=%s",
 			u.GetKind(), key, u.GetResourceVersion())
 	}
 

@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -317,7 +318,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]struct{}
+	edsUpdatedServices map[string]*EndpointShards
 
 	push *model.PushContext
 
@@ -458,7 +459,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.globalPushContext(), versionInfo())
+				err := s.pushLds(con, s.globalPushContext(), true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -568,7 +569,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(s.globalPushContext(), con, nil)
+				err := s.pushEds(s.globalPushContext(), con, true, nil)
 				if err != nil {
 					return err
 				}
@@ -620,8 +621,18 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-	nt.Locality = discReq.Node.Locality
-
+	locality := model.GetProxyLocality(discReq.Node)
+	if locality == nil {
+		locality := s.Env.GetProxyLocality(nt)
+		region, zone, subzone := util.SplitLocality(locality)
+		nt.Locality = model.Locality{
+			Region:  region,
+			Zone:    zone,
+			SubZone: subzone,
+		}
+	} else {
+		nt.Locality = *locality
+	}
 	con.mu.Lock()
 	con.modelNode = nt
 	if con.ConID == "" {
@@ -630,12 +641,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
-	if err := con.modelNode.SetServiceInstances(s.Env); err != nil {
-		return err
-	}
 	// Set the sidecarScope associated with this proxy if its a sidecar.
 	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(s.globalPushContext())
+		s.globalPushContext().SetSidecarScope(con.modelNode)
 	}
 
 	return nil
@@ -655,20 +663,17 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, pushEv.edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, false, pushEv.edsUpdatedServices); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 
-	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
-		return err
-	}
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
 	// Saves compute cycles in networking code
 	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(pushEv.push)
+		pushEv.push.SetSidecarScope(con.modelNode)
 	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
@@ -707,13 +712,13 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	}
 
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(pushEv.push, con, nil)
+		err := s.pushEds(pushEv.push, con, true, nil)
 		if err != nil {
 			return err
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, pushEv.version)
+		err := s.pushLds(con, pushEv.push, false, pushEv.version)
 		if err != nil {
 			return err
 		}
@@ -735,7 +740,7 @@ func adsClientCount() int {
 	return n
 }
 
-// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
+// AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
@@ -744,7 +749,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]struct{}) {
+	full bool, edsUpdates map[string]*EndpointShards) {
 	if !full {
 		s.edsIncremental(version, push, edsUpdates)
 		return
@@ -761,9 +766,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]map[model.Locality]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
-		cMap[k] = v
+		cMap[k] = map[model.Locality]*EdsCluster{}
+		for locality, edsCluster := range v {
+			cMap[k][locality] = edsCluster
+		}
 	}
 	edsClusterMutex.Unlock()
 
@@ -782,7 +790,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]struct{}) {
+	edsUpdates map[string]*EndpointShards) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table

@@ -30,7 +30,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
@@ -326,7 +325,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}
 
-	clusters := []string{}
 	routes := []string{}
 	ldsSize := 0
 
@@ -338,13 +336,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			config := f0.GetConfig()
-			if config == nil {
-				config, _ = xdsutil.MessageToStruct(f0.GetTypedConfig())
-			}
-			c := config.Fields["cluster"].GetStringValue()
-			clusters = append(clusters, c)
-			//log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
@@ -574,7 +565,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	rcount := 0
 	size := 0
 
-	httpClusters := []string{}
 	rds := map[string]*xdsapi.RouteConfiguration{}
 
 	for _, r := range configurations {
@@ -584,7 +574,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 				rcount++
 				// Example: match:<prefix:"/" > route:<cluster:"outbound|9154||load-se-154.local" ...
 				log.Println(h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
-				httpClusters = append(httpClusters, rt.GetRoute().GetCluster())
 			}
 		}
 		rds[r.Name] = r

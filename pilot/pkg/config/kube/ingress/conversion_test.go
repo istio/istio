@@ -118,6 +118,10 @@ func TestConversion(t *testing.T) {
 	}
 
 	for n, cfg := range cfgs {
+		// Not clear if this is right - should probably be under input ns
+		if cfg.ConfigMeta.Namespace != "istio-system" {
+			t.Errorf("Expected istio-system namespace")
+		}
 
 		vs := cfg.Spec.(*networking.VirtualService)
 

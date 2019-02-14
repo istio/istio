@@ -172,9 +172,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 
 	if resourceName != RootCertReqResourceName {
-		// If working as Citadel agent, send request for normal key/cert pair.
-		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
-		// root cert ends with "-cacert".
+		// Request for normal key/cert pair.
 		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
@@ -434,15 +432,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
 		}
 
-		if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
-			return &model.SecretItem{
-				ResourceName: resourceName,
-				RootCert:     secretItem.RootCert,
-				Token:        token,
-				CreatedTime:  t,
-				Version:      t.String(),
-			}, nil
-		}
 		return &model.SecretItem{
 			CertificateChain: secretItem.CertificateChain,
 			PrivateKey:       secretItem.PrivateKey,
@@ -513,8 +502,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
 		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
-
-	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)
 
 	certChain := []byte{}
 	for _, c := range certChainPEM {

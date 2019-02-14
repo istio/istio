@@ -37,8 +37,11 @@ type perCollectionState struct {
 	versions map[string]string
 
 	// determines when incremental delivery is enabled for this collection
-	requestIncremental bool
+	incrementalEnabled bool
 }
+
+// Incremental MCP is disabled by default
+const incrementalEnabledDefault = false
 
 // Sink implements the resource sink message exchange for MCP. It can be instantiated by client and server
 // sink implementations to manage the MCP message exchange.
@@ -64,7 +67,7 @@ func New(options *Options) *Sink { // nolint: lll
 	for _, collection := range options.CollectionOptions {
 		state[collection.Name] = &perCollectionState{
 			versions:           make(map[string]string),
-			requestIncremental: collection.Incremental,
+			incrementalEnabled: incrementalEnabledDefault,
 		}
 	}
 
@@ -108,11 +111,10 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 	}
 
 	change := &Change{
-		Collection:        resources.Collection,
-		Objects:           make([]*Object, 0, len(resources.Resources)),
-		Removed:           resources.RemovedResources,
-		Incremental:       resources.Incremental,
-		SystemVersionInfo: resources.SystemVersionInfo,
+		Collection:  resources.Collection,
+		Objects:     make([]*Object, 0, len(resources.Resources)),
+		Removed:     resources.RemovedResources,
+		Incremental: resources.Incremental,
 	}
 
 	for _, resource := range resources.Resources {
@@ -138,7 +140,7 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 	// update version tracking if change is successfully applied
 	sink.mu.Lock()
 	internal.UpdateResourceVersionTracking(state.versions, resources)
-	useIncremental := state.requestIncremental
+	useIncremental := state.incrementalEnabled
 	sink.mu.Unlock()
 
 	// ACK
@@ -159,7 +161,7 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 	for collection, state := range sink.state {
 		var initialResourceVersions map[string]string
 
-		if state.requestIncremental {
+		if state.incrementalEnabled {
 			initialResourceVersions = make(map[string]string, len(state.versions))
 			for name, version := range state.versions {
 				initialResourceVersions[name] = version
@@ -170,7 +172,7 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 			SinkNode:                sink.nodeInfo,
 			Collection:              collection,
 			InitialResourceVersions: initialResourceVersions,
-			Incremental:             state.requestIncremental,
+			Incremental:             state.incrementalEnabled,
 		}
 		initialRequests = append(initialRequests, req)
 	}
@@ -270,16 +272,13 @@ type Change struct {
 	// Ignore when Incremental=false.
 	Removed []string
 
-	// When true, the set of changes represents an requestIncremental resource update. The
+	// When true, the set of changes represents an incrementalEnabled resource update. The
 	// `Objects` is a list of added/update resources and `Removed` is a list of delete
 	// resources.
 	//
 	// When false, the set of changes represents a full-state update for the specified
 	// type. Any previous resources not included in this update should be removed.
 	Incremental bool
-
-	// SystemVersionInfo is the version of the response data (used for debugging purposes only).
-	SystemVersionInfo string
 }
 
 // Updater provides configuration changes in batches of the same protobuf message type.
@@ -325,11 +324,6 @@ func (u *InMemoryUpdater) Get(collection string) []*Object {
 type CollectionOptions struct {
 	// Name of the collection, e.g. istio/networking/v1alpha3/VirtualService
 	Name string
-
-	// When true, the sink requests incremental updates from the source. Incremental
-	// updates are requested when this option is true. Incremental updates are only
-	// used if the sink requests it (per request) and the source decides to make use of it.
-	Incremental bool
 }
 
 // CollectionOptionsFromSlice returns a slice of collection options from

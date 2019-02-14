@@ -77,10 +77,9 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[Hostname]*Config
 
-	// CDSOutboundClusters is the CDS output for sidecars that map to this
-	// sidecarScope object. Contains the outbound clusters only, indexed
-	// by localities
-	CDSOutboundClusters map[string][]*xdsapi.Cluster
+	// XDSOutboundClusters is the CDS output for sidecars that map to this
+	// sidecarScope object. Contains the outbound clusters only
+	XDSOutboundClusters []*xdsapi.Cluster
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -96,10 +95,7 @@ type IstioEgressListenerWrapper struct {
 	// The hosts field has entries of the form namespace/dnsName. For
 	// example ns1/*, */*, */foo.tcp.com, etc. This map preprocesses all
 	// these string fields into a map of namespace and services.
-	// We cannot use a map of Hostnames because Hostname match allows
-	// wildcard matching semantics (i.e. foo.bar.com will match import like *.com).
-	// Go's map/hash data structure doesn't do such semantic matches
-	listenerHosts map[string][]Hostname
+	listenerHosts map[string]Hostname
 
 	// List of services imported by this egress listener extracted from the
 	// listenerHosts above. This will be used by LDS and RDS code when
@@ -133,7 +129,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	defaultEgressListener := &IstioEgressListenerWrapper{
-		listenerHosts: map[string][]Hostname{wildcardNamespace: {wildcardService}},
+		listenerHosts: map[string]Hostname{wildcardNamespace: wildcardService},
 	}
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
@@ -157,44 +153,48 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
-func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespace string) *SidecarScope {
-	if sidecarConfig == nil {
-		return DefaultSidecarScopeForNamespace(ps, configNamespace)
-	}
-
+func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	out := &SidecarScope{}
 
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
-	for _, e := range r.Egress {
-		out.EgressListeners = append(out.EgressListeners,
-			convertIstioListenerToWrapper(ps, configNamespace, e))
-	}
+	var out *SidecarScope
 
-	// Now collect all the imported services across all egress listeners in
-	// this sidecar crd. This is needed to generate CDS output
-	out.services = make([]*Service, 0)
-	servicesAdded := make(map[string]struct{})
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
+	// If there are no egress listeners but only ingress listeners, then infer from
+	// environment. This is same as the default egress listener setup above
+	if r.Egress == nil || len(r.Egress) == 0 {
+		out = DefaultSidecarScopeForNamespace(ps, sidecarConfig.Namespace)
+	} else {
+		out = &SidecarScope{}
 
-	for _, listener := range out.EgressListeners {
-		for _, s := range listener.services {
-			// TODO: port merging when each listener generates a partial service
-			if _, found := servicesAdded[string(s.Hostname)]; !found {
-				servicesAdded[string(s.Hostname)] = struct{}{}
-				out.services = append(out.services, s)
+		out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
+		for _, e := range r.Egress {
+			out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
+		}
+
+		// Now collect all the imported services across all egress listeners in
+		// this sidecar crd. This is needed to generate CDS output
+		out.services = make([]*Service, 0)
+		servicesAdded := make(map[string]struct{})
+		dummyNode := Proxy{
+			ConfigNamespace: sidecarConfig.Namespace,
+		}
+
+		for _, listener := range out.EgressListeners {
+			for _, s := range listener.services {
+				// TODO: port merging when each listener generates a partial service
+				if _, found := servicesAdded[string(s.Hostname)]; !found {
+					servicesAdded[string(s.Hostname)] = struct{}{}
+					out.services = append(out.services, s)
+				}
 			}
 		}
-	}
 
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	out.destinationRules = make(map[Hostname]*Config)
-	for _, s := range out.services {
-		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+		// Now that we have all the services that sidecars using this scope (in
+		// this config namespace) will see, identify all the destinationRules
+		// that these services need
+		out.destinationRules = make(map[Hostname]*Config)
+		for _, s := range out.services {
+			out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+		}
 	}
 
 	out.Config = sidecarConfig
@@ -205,30 +205,28 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	return out
 }
 
-func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
+func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
 
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
-		listenerHosts: make(map[string][]Hostname),
+		listenerHosts: make(map[string]Hostname),
 	}
 
 	if istioListener.Hosts != nil {
+		// TODO: BUG, this means you can't have 2 explicit imports for same namespace ( override each other )
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
 			if parts[0] == currentNamespace {
-				parts[0] = configNamespace
+				out.listenerHosts[sidecarConfig.Namespace] = Hostname(parts[1])
+			} else {
+				out.listenerHosts[parts[0]] = Hostname(parts[1])
 			}
-			if _, exists := out.listenerHosts[parts[0]]; !exists {
-				out.listenerHosts[parts[0]] = make([]Hostname, 0)
-			}
-
-			out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], Hostname(parts[1]))
 		}
 	}
 
 	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
+		ConfigNamespace: sidecarConfig.Namespace,
 	}
 
 	out.services = out.selectServices(ps.Services(&dummyNode))
@@ -324,54 +322,34 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 		configNamespace := c.Namespace
 		rule := c.Spec.(*networking.VirtualService)
 
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// Sidecars have a list of hosts in the api spec (namespace/host format)
-		// if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry <virtualServiceNamespace>/virtualServiceHost, select the virtual service
-		// and break out of the loop.
-		// OR if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry */virtualServiceHost, select the virtual service and break out of the loop.
-
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
-				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(Hostname(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						hostFound = true
-						break
-					}
-				}
-
-				if hostFound {
+		if hostMatch, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
+			// Check if the hostnames match per usual hostname matching rules
+			hostFound := false
+			for _, h := range rule.Hosts {
+				// TODO: This is a bug. VirtualServices can have many hosts
+				// while the user might be importing only a single host
+				// We need to generate a new VirtualService with just the matched host
+				if hostMatch.Matches(Hostname(h)) {
+					importedVirtualServices = append(importedVirtualServices, c)
+					hostFound = true
 					break
 				}
+			}
+			if hostFound {
+				break
 			}
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
-				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(Hostname(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						hostFound = true
-						break
-					}
-				}
-
-				if hostFound {
+		if hostMatch, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
+			// Check if the hostnames match per usual hostname matching rules
+			for _, h := range rule.Hosts {
+				// TODO: This is a bug. VirtualServices can have many hosts
+				// while the user might be importing only a single host
+				// We need to generate a new VirtualService with just the matched host
+				if hostMatch.Matches(Hostname(h)) {
+					importedVirtualServices = append(importedVirtualServices, c)
 					break
 				}
 			}
@@ -389,35 +367,26 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service) []*Se
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			hostFound := false
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					// TODO: See if the service's ports match.
-					//   If there is a listener port for this Listener, then
-					//   check if the service has a port of same value.
-					//   If not, check if the service has a single port - and choose that port
-					//   if service has multiple ports none of which match the listener port, check if there is
-					//   a virtualService with match Port
-					importedServices = append(importedServices, s)
-					hostFound = true
-					break
-				}
-			}
-			if hostFound {
+		if hostMatch, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
+			// Check if the hostnames match per usual hostname matching rules
+			if hostMatch.Matches(s.Hostname) {
+				// TODO: See if the service's ports match.
+				// If there is a listener port for this Listener, then
+				//   check if the service has a port of same value.
+				//   If not, check if the service has a single port - and choose that port
+				//   if service has multiple ports none of which match the listener port, check if there is
+				//   a virtualService with match Port
+				importedServices = append(importedServices, s)
 				continue
 			}
+			// hostname didn't match. Check if its imported as */host
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					importedServices = append(importedServices, s)
-					break
-				}
+		if hostMatch, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
+			// Check if the hostnames match per usual hostname matching rules
+			if hostMatch.Matches(s.Hostname) {
+				importedServices = append(importedServices, s)
 			}
 		}
 	}

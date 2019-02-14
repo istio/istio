@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -48,14 +47,13 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	rdsRouteConfigNames := make(map[string][]*networking.Server)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
-	for _, config := range gateways {
-		name := fmt.Sprintf("%s/%s", config.Namespace, config.Name)
+	for _, spec := range gateways {
+		name := fmt.Sprintf("%s/%s", spec.Namespace, spec.Name)
 		names[name] = true
 
-		gateway := config.Spec.(*networking.Gateway)
+		gateway := spec.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
 		for _, s := range gateway.Servers {
-			sanitizeServerHostNamespace(s, config.Namespace)
 			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
 			protocol := ParseProtocol(s.Port.Protocol)
 			if gatewayPorts[s.Port.Number] {
@@ -70,13 +68,13 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					currentProto := ParseProtocol(p[0].Port.Protocol)
 					if currentProto != protocol || !protocol.IsHTTP() {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
-							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
+							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
 						continue
 					}
 					rdsName := GatewayRDSRouteName(s)
 					if rdsName == "" {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
-							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 						continue
 					}
 					rdsRouteConfigNames[rdsName] = append(rdsRouteConfigNames[rdsName], s)
@@ -87,7 +85,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						rdsName := GatewayRDSRouteName(s)
 						if rdsName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
-								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 							continue
 						}
 
@@ -97,7 +95,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						// of the keys are same. So we treat them as effectively different TLS settings.
 						if _, exists := rdsRouteConfigNames[rdsName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
-								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 							continue
 						}
 						rdsRouteConfigNames[rdsName] = []*networking.Server{s}
@@ -211,24 +209,4 @@ func IsPassThroughServer(server *networking.Server) bool {
 	}
 
 	return false
-}
-
-// convert ./host to currentNamespace/Host
-// */host to just host
-// */* to just *
-func sanitizeServerHostNamespace(server *networking.Server, namespace string) {
-	for i, h := range server.Hosts {
-		if strings.Contains(h, "/") {
-			parts := strings.Split(h, "/")
-			if parts[0] == "." {
-				server.Hosts[i] = fmt.Sprintf("%s/%s", namespace, parts[1])
-			} else if parts[0] == "*" {
-				if parts[1] == "*" {
-					server.Hosts = []string{"*"}
-					return
-				}
-				server.Hosts[i] = parts[1]
-			}
-		}
-	}
 }

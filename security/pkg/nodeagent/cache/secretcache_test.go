@@ -40,33 +40,19 @@ var (
 	mockCertChainRemain = []string{"bar", "rootcert"}
 	testResourceName    = "default"
 
-	k8sKey               = []byte("fake private k8sKey")
-	k8sCertChain         = []byte("fake cert chain")
-	k8sCaCert            = []byte("fake ca cert")
-	k8sGenericSecretName = "test-generic-scrt"
-	k8sTestGenericSecret = &v1.Secret{
+	k8sKey        = []byte("fake private k8sKey")
+	k8sCertChain  = []byte("fake cert chain")
+	k8sSecretName = "test-scrt"
+	k8sTestSecret = &v1.Secret{
 		Data: map[string][]byte{
-			"cert":   k8sCertChain,
-			"key":    k8sKey,
-			"cacert": k8sCaCert,
+			secretfetcher.ScrtCert: k8sCertChain,
+			secretfetcher.ScrtKey:  k8sKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sGenericSecretName,
+			Name:      k8sSecretName,
 			Namespace: "test-namespace",
 		},
-		Type: "test-generic-secret",
-	}
-	k8sTLSSecretName = "test-tls-scrt"
-	k8sTestTLSSecret = &v1.Secret{
-		Data: map[string][]byte{
-			"tls.crt": k8sCertChain,
-			"tls.key": k8sKey,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sTLSSecretName,
-			Namespace: "test-namespace",
-		},
-		Type: "test-tls-secret",
+		Type: secretfetcher.IngressSecretType,
 	}
 )
 
@@ -229,98 +215,47 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	proxyID1 := "proxy1-id"
-	proxyID2 := "proxy2-id"
+	fetcher.AddSecret(k8sTestSecret)
+	proxyID := "proxy1-id"
 	ctx := context.Background()
-
-	type expectedSecret struct {
-		exist  bool
-		secret *model.SecretItem
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if err := verifySecret(gotSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
 	}
 
-	cases := []struct {
-		addSecret       *v1.Secret
-		proxyID         string
-		expectedSecrets []expectedSecret
-	}{
-		{
-			addSecret: k8sTestGenericSecret,
-			proxyID:   proxyID1,
-			expectedSecrets: []expectedSecret{
-				{
-					exist: true,
-					secret: &model.SecretItem{
-						ResourceName:     k8sGenericSecretName,
-						CertificateChain: k8sCertChain,
-						PrivateKey:       k8sKey,
-					},
-				},
-				{
-					exist: true,
-					secret: &model.SecretItem{
-						ResourceName: k8sGenericSecretName + "-cacert",
-						RootCert:     k8sCaCert,
-					},
-				},
-			},
-		},
-		{
-			addSecret: k8sTestTLSSecret,
-			proxyID:   proxyID2,
-			expectedSecrets: []expectedSecret{
-				{
-					exist: true,
-					secret: &model.SecretItem{
-						ResourceName:     k8sTLSSecretName,
-						CertificateChain: k8sCertChain,
-						PrivateKey:       k8sKey,
-					},
-				},
-				{
-					exist: false,
-					secret: &model.SecretItem{
-						ResourceName: k8sTLSSecretName + "-cacert",
-					},
-				},
-			},
-		},
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+	if got, want := sc.SecretExist(proxyID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 
-	for _, c := range cases {
-		fetcher.AddSecret(c.addSecret)
-		for _, es := range c.expectedSecrets {
-			gotSecret, err := sc.GenerateSecret(ctx, c.proxyID, es.secret.ResourceName, "")
-			if es.exist {
-				if err != nil {
-					t.Fatalf("Failed to get secrets: %v", err)
-				}
-				if err := verifySecret(gotSecret, es.secret); err != nil {
-					t.Errorf("Secret verification failed: %v", err)
-				}
-				if got, want := sc.SecretExist(c.proxyID, es.secret.ResourceName, "", gotSecret.Version), true; got != want {
-					t.Errorf("SecretExist: got: %v, want: %v", got, want)
-				}
-				if got, want := sc.SecretExist(c.proxyID, "nonexistsecret", "", gotSecret.Version), false; got != want {
-					t.Errorf("SecretExist: got: %v, want: %v", got, want)
-				}
-			}
-			key := ConnKey{
-				ProxyID:      c.proxyID,
-				ResourceName: es.secret.ResourceName,
-			}
-			cachedSecret, found := sc.secrets.Load(key)
-			if es.exist {
-				if !found {
-					t.Errorf("Failed to find secret for proxy %q from secret store: %v", c.proxyID, err)
-				}
-				if !reflect.DeepEqual(*gotSecret, cachedSecret) {
-					t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
-				}
-			}
-			if _, err := sc.GenerateSecret(ctx, c.proxyID, "nonexistk8ssecret", ""); err == nil {
-				t.Error("Generating secret using a non existing kubernetes secret should fail")
-			}
-		}
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: k8sSecretName,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxyID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+
+	// Try to get secret again, verify the same secret is returned.
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if err := verifySecret(gotSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	if _, err := sc.GenerateSecret(ctx, proxyID, "nonexistk8ssecret", ""); err == nil {
+		t.Error("Generating secret using a non existing kubernetes secret should fail")
 	}
 
 	// Wait until unused secrets are evicted.
@@ -328,12 +263,7 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	retries := 0
 	for ; retries < 3; retries++ {
 		time.Sleep(wait)
-		if _, found := sc.secrets.Load(proxyID1); found {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-		if _, found := sc.secrets.Load(proxyID2); found {
+		if _, found := sc.secrets.Load(proxyID); found {
 			// Retry after some sleep.
 			wait *= 2
 			continue
@@ -371,52 +301,19 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	fetcher.AddSecret(k8sTestGenericSecret)
-	fetcher.AddSecret(k8sTestTLSSecret)
+	fetcher.AddSecret(k8sTestSecret)
 	proxyID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sGenericSecretName, "")
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), true; got != want {
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sGenericSecretName+"-cacert", "")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTLSSecretName, "")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName, "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-
-	_, err = sc.GenerateSecret(ctx, proxyID, k8sTLSSecretName+"-cacert", "")
-	if err == nil {
-		t.Fatalf("Get unexpected secrets: %v", err)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName+"-cacert", "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-
-	sc.DeleteK8sSecret(k8sGenericSecretName)
-	sc.DeleteK8sSecret(k8sGenericSecretName + "-cacert")
-	sc.DeleteK8sSecret(k8sTLSSecretName)
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName, "", gotSecret.Version), false; got != want {
+	sc.DeleteK8sSecret(k8sSecretName)
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 }
@@ -431,39 +328,27 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	fetcher.AddSecret(k8sTestGenericSecret)
+	fetcher.AddSecret(k8sTestSecret)
 	proxyID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sGenericSecretName, "")
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sGenericSecretName+"-cacert", "")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true; got != want {
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 	newTime := gotSecret.CreatedTime.Add(time.Duration(10) * time.Second)
 	newK8sTestSecret := model.SecretItem{
 		CertificateChain: []byte("new cert chain"),
 		PrivateKey:       []byte("new private key"),
-		RootCert:         []byte("new root cert"),
-		ResourceName:     k8sGenericSecretName,
+		ResourceName:     k8sSecretName,
 		Token:            gotSecret.Token,
 		CreatedTime:      newTime,
 		Version:          newTime.String(),
 	}
-	sc.UpdateK8sSecret(k8sGenericSecretName, newK8sTestSecret)
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	sc.UpdateK8sSecret(k8sGenericSecretName+"-cacert", newK8sTestSecret)
-	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false; got != want {
+	sc.UpdateK8sSecret(k8sSecretName, newK8sTestSecret)
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 }
@@ -560,18 +445,15 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 	}
 }
 
-func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem) error {
-	if expectedSecret.ResourceName != gotSecret.ResourceName {
-		return fmt.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName,
-			gotSecret.ResourceName)
+func verifySecret(gotSecret *model.SecretItem) error {
+	if k8sSecretName != gotSecret.ResourceName {
+		return fmt.Errorf("resource name verification error: expected %s but got %s", k8sSecretName, gotSecret.ResourceName)
 	}
-	if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
-		return fmt.Errorf("cert chain verification error: expected %v but got %v", expectedSecret.CertificateChain,
-			gotSecret.CertificateChain)
+	if !bytes.Equal(k8sCertChain, gotSecret.CertificateChain) {
+		return fmt.Errorf("cert chain verification error: expected %v but got %v", k8sCertChain, gotSecret.CertificateChain)
 	}
-	if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
-		return fmt.Errorf("k8sKey verification error: expected %v but got %v", expectedSecret.PrivateKey,
-			gotSecret.PrivateKey)
+	if !bytes.Equal(k8sKey, gotSecret.PrivateKey) {
+		return fmt.Errorf("k8sKey verification error: expected %v but got %v", k8sKey, gotSecret.PrivateKey)
 	}
 	return nil
 }

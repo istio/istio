@@ -57,12 +57,14 @@ func buildMockController() *Controller {
 	registry1 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ServiceDiscovery: discovery1,
+		ServiceAccounts:  discovery1,
 		Controller:       &MockController{},
 	}
 
 	registry2 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ServiceDiscovery: discovery2,
+		ServiceAccounts:  discovery2,
 		Controller:       &MockController{},
 	}
 
@@ -89,6 +91,7 @@ func buildMockControllerForMultiCluster() *Controller {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
+		ServiceAccounts:  discovery1,
 		Controller:       &MockController{},
 	}
 
@@ -96,6 +99,7 @@ func buildMockControllerForMultiCluster() *Controller {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
+		ServiceAccounts:  discovery2,
 		Controller:       &MockController{},
 	}
 

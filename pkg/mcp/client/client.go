@@ -138,9 +138,8 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 	}
 
 	change := &sink.Change{
-		Collection:        collection,
-		Objects:           make([]*sink.Object, 0, len(response.Resources)),
-		SystemVersionInfo: response.VersionInfo,
+		Collection: collection,
+		Objects:    make([]*sink.Object, 0, len(response.Resources)),
 	}
 	for _, resource := range response.Resources {
 		var dynamicAny types.DynamicAny

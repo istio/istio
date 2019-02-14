@@ -625,16 +625,11 @@ func CheckDeployments(namespace string, timeout time.Duration, kubeconfig string
 	defer cancel()
 	g, ctx := errgroup.WithContext(ctx)
 	deployments := strings.Fields(out)
-	deploymentStart := time.Now()
 	for i := range deployments {
 		deployment := deployments[i]
 		g.Go(func() error { return CheckDeployment(ctx, namespace, deployment, kubeconfig) })
 	}
-	gerr := g.Wait()
-	t := time.Now()
-	elapsed := t.Sub(deploymentStart)
-	log.Infof("Deployment rollout ends after [%v] with err [%v]", elapsed, gerr)
-	return gerr
+	return g.Wait()
 }
 
 // FetchAndSaveClusterLogs will dump the logs for a cluster.

@@ -16,22 +16,24 @@ package galley
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
+
+	"io"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/pkg/test/scopes"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
@@ -174,26 +176,19 @@ func (c *nativeComponent) restart() error {
 	a.DisableResourceReadyCheck = true
 	a.ConfigPath = c.configDir
 	a.MeshConfigFile = c.meshConfigFile
-	// To prevent ctrlZ port collision between galley/pilot&mixer
-	a.IntrospectionOptions.Port = 0
 	a.ExcludedResourceKinds = make([]string, 0)
-
-	// Bind to an arbitrary port.
-	a.APIAddress = "tcp://0.0.0.0:0"
-
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
 		return err
 	}
-	scopes.Framework.Infof("Started Galley with args: %v", a)
 
 	c.server = s
 
 	go s.Run()
 
 	c.client = &client{
-		address: fmt.Sprintf("tcp://%s", s.Address().String()),
+		address: a.APIAddress,
 		ctx:     c.ctx,
 	}
 

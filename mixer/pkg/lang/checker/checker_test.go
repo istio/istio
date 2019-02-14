@@ -21,7 +21,6 @@ import (
 
 	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 func TestTypeCheck(t *testing.T) {
@@ -117,11 +116,16 @@ type ad struct {
 	name string
 	v    dpb.ValueType
 }
+type af struct {
+	v map[string]*cfgpb.AttributeManifest_AttributeInfo
+}
 
-func newAF(ds []*ad) ast.AttributeDescriptorFinder {
+func (a *af) GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo { return a.v[name] }
+
+func newAF(ds []*ad) *af {
 	m := make(map[string]*cfgpb.AttributeManifest_AttributeInfo)
 	for _, aa := range ds {
 		m[aa.name] = &cfgpb.AttributeManifest_AttributeInfo{ValueType: aa.v}
 	}
-	return ast.NewFinder(m)
+	return &af{m}
 }

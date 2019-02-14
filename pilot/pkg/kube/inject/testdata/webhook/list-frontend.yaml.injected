@@ -37,7 +37,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.$(POD_NAMESPACE)
+        - hello.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -56,8 +56,6 @@ spec:
         - "15020"
         - --applicationPorts
         - ""
-        - --concurrency
-        - "1"
         env:
         - name: POD_NAME
           valueFrom:
@@ -129,8 +127,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 10m
+            memory: 10Mi
           requests:
             cpu: 10m
             memory: 10Mi

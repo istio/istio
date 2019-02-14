@@ -30,17 +30,16 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	"istio.io/istio/mixer/template/sample/apa"
+	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 
-	"istio.io/istio/mixer/template/sample/check"
+	istio_mixer_adapter_sample_check "istio.io/istio/mixer/template/sample/check"
 
-	"istio.io/istio/mixer/template/sample/quota"
+	istio_mixer_adapter_sample_quota "istio.io/istio/mixer/template/sample/quota"
 
-	"istio.io/istio/mixer/template/sample/report"
+	istio_mixer_adapter_sample_report "istio.io/istio/mixer/template/sample/report"
 
 	"time"
 )
@@ -507,7 +506,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -542,7 +541,7 @@ var (
 			CreateOutputExpressions: func(
 				instanceParam proto.Message,
 				finder ast.AttributeDescriptorFinder,
-				expb lang.Compiler) (map[string]compiled.Expression, error) {
+				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_policy_v1beta1.ValueType
 
@@ -834,7 +833,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1123,7 +1122,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1532,7 +1531,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -1612,7 +1611,7 @@ type builder_istio_mixer_adapter_sample_myapa_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_myapa_Template(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -1903,7 +1902,7 @@ type builder_istio_mixer_adapter_sample_myapa_Resource1 struct {
 
 // Instantiates and returns a new builder for Resource1, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource1(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource1InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource1, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2020,7 +2019,7 @@ type builder_istio_mixer_adapter_sample_myapa_Resource2 struct {
 
 // Instantiates and returns a new builder for Resource2, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource2(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource2InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource2, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2157,7 +2156,7 @@ type builder_istio_mixer_adapter_sample_myapa_Resource3 struct {
 
 // Instantiates and returns a new builder for Resource3, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource3(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource3InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource3, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2392,7 +2391,7 @@ type builder_istio_mixer_adapter_sample_check_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_check_Template(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.InstanceParam) (*builder_istio_mixer_adapter_sample_check_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2556,7 +2555,7 @@ type builder_istio_mixer_adapter_sample_check_Res1 struct {
 
 // Instantiates and returns a new builder for Res1, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_check_Res1(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res1, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2861,7 +2860,7 @@ type builder_istio_mixer_adapter_sample_check_Res2 struct {
 
 // Instantiates and returns a new builder for Res2, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_check_Res2(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res2, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -2996,7 +2995,7 @@ type builder_istio_mixer_adapter_sample_quota_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_quota_Template(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3157,7 +3156,7 @@ type builder_istio_mixer_adapter_sample_quota_Res1 struct {
 
 // Instantiates and returns a new builder for Res1, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_quota_Res1(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res1, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3462,7 +3461,7 @@ type builder_istio_mixer_adapter_sample_quota_Res2 struct {
 
 // Instantiates and returns a new builder for Res2, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_quota_Res2(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res2, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3625,7 +3624,7 @@ type builder_istio_mixer_adapter_sample_report_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_report_Template(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.InstanceParam) (*builder_istio_mixer_adapter_sample_report_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -3946,7 +3945,7 @@ type builder_istio_mixer_adapter_sample_report_Res1 struct {
 
 // Instantiates and returns a new builder for Res1, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_report_Res1(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res1, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -4275,7 +4274,7 @@ type builder_istio_mixer_adapter_sample_report_Res2 struct {
 
 // Instantiates and returns a new builder for Res2, based on the provided instance parameter.
 func newBuilder_istio_mixer_adapter_sample_report_Res2(
-	expb lang.Compiler,
+	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res2, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.

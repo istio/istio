@@ -114,7 +114,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		expected          *auth.SdsSecretConfig
 		useTrustworthyJwt bool
 		useNormalJwt      bool
-		metadata          map[string]string
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -176,7 +175,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, c.metadata); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
@@ -249,7 +248,6 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 }
 
 func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
-	any, _ := types.MarshalAny(metaConfig)
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
@@ -267,8 +265,8 @@ func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 												Name: "envoy.grpc_credentials.file_based_metadata",
-												ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-													TypedConfig: any},
+												ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+													protoToStruct(metaConfig)},
 											},
 										},
 									},

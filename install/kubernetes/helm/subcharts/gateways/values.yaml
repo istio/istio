@@ -21,11 +21,9 @@ istio-ingressgateway:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-  autoscaleEnabled: true
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
-  # specify replicaCount when autoscaleEnabled: false
-  # replicaCount: 1
   resources: {}
     # limits:
     #  cpu: 100m
@@ -35,6 +33,9 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalIPs: []
@@ -83,9 +84,6 @@ istio-ingressgateway:
   - port: 15011
     targetPort: 15011
     name: tcp-pilot-grpc-tls
-  - port: 15004
-    targetPort: 15004
-    name: tcp-mixer-grpc-tls
   - port: 8060
     targetPort: 8060
     name: tcp-citadel-grpc-tls
@@ -114,13 +112,14 @@ istio-egressgateway:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-  autoscaleEnabled: true
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
-  # specify replicaCount when autoscaleEnabled: false
-  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -164,13 +163,14 @@ istio-ilbgateway:
   labels:
     app: istio-ilbgateway
     istio: ilbgateway
-  autoscaleEnabled: true
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 5
-  # specify replicaCount when autoscaleEnabled: false
-  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   resources:
     requests:
       cpu: 800m
