@@ -50,6 +50,21 @@ const (
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
+
+	// statsPatterns gives the developer control over Envoy stats collection
+	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/v1alpha1/statsInclusionPrefixes"
+)
+
+var (
+	// default value for EnvoyStatsMatcherInclusionPatterns
+	defaultEnvoyStatsMatcherInclusionPatterns = []string{
+		"cluster_manager",
+		"listener_manager",
+		"http_mixer_filter",
+		"tcp_mixer_filter",
+		"server",
+		"cluster.xds-grpc",
+	}
 )
 
 func defaultPilotSan() []string {
@@ -232,7 +247,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	// Suppot multiple network interfaces
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
+		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
+	} else {
+		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
+	}
+
+	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
