@@ -1516,6 +1516,18 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	return connectionManager
 }
 
+func buildVHDS() *xdsapi.Vhds {
+
+	vhds := &xdsapi.Vhds{
+		ConfigSource: core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_Ads{
+				Ads: &core.AggregatedConfigSource{},
+			},
+		},
+	}
+	return vhds
+}
+
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))

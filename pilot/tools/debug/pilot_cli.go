@@ -179,25 +179,56 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
+func (p PodInfo) makeDeltaRequest(configType string) *xdsapi.DeltaDiscoveryRequest {
+	return &xdsapi.DeltaDiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: p.makeNodeID(),
+		},
+		TypeUrl: configTypeToTypeURL(configType)}
+}
+
 func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("Dial: %s", err.Error()))
 	}
 	defer conn.Close()
 
 	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("ADS:%s", err.Error()))
 	}
 	err = stream.Send(p.makeRequest(configType))
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("Send: %s", err.Error()))
 	}
 	res, err := stream.Recv()
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("Receive:%s", err.Error()))
+	}
+	return res
+}
+
+func (p PodInfo) getXDSResource(pilotURL, configType string) *xdsapi.DeltaDiscoveryResponse {
+	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
+	if err != nil {
+		panic(fmt.Sprintf("Dial: %s", err.Error()))
+	}
+	defer conn.Close()
+
+	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
+	stream, err := adsClient.DeltaAggregatedResources(context.Background())
+	if err != nil {
+		panic(fmt.Sprintf("ADS:%s", err.Error()))
+	}
+	err = stream.Send(p.makeDeltaRequest(configType))
+	if err != nil {
+		panic(fmt.Sprintf("Send: %s", err.Error()))
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		panic(fmt.Sprintf("Receive:%s", err.Error()))
 	}
 	return res
 }
@@ -293,8 +324,9 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
-	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
+	configType := flag.String("type", "lds", "lds, cds, rds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	xdsType := flag.String("xdsType", "standard", "standard, delta")
 	// nolint: lll
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
@@ -314,14 +346,28 @@ func main() {
 		}
 	}()
 
-	var resp *xdsapi.DiscoveryResponse
-	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
-		resp = pod.getResource(pilot, *configType)
-	} else if *configType == "eds" {
-		resp = edsRequest(pilot, makeEDSRequest(*resources))
+	if xdsType != nil && *xdsType == "delta" {
+		deltaXDS(*configType, *resources, *proxyType, *kubeConfig, outputFile, pilot)
 	} else {
-		log.Errorf("Unknown config type: %q", *configType)
+		standardXDS(*configType, *resources, *proxyType, *kubeConfig, outputFile, pilot)
+	}
+}
+
+func standardXDS(configType string, resources string, proxyType string,
+	kubeConfig string, outputFile *string, pilot string) {
+
+	var resp *xdsapi.DiscoveryResponse
+	if configType == "lds" || configType == "cds" || configType == "rds" {
+		pod := NewPodInfo(resources, resolveKubeConfigPath(kubeConfig), proxyType)
+		if pod == nil {
+			log.Errorf("Pods for resources %v and proxy type %s not found", resources, proxyType)
+			os.Exit(1)
+		}
+		resp = pod.getResource(pilot, configType)
+	} else if configType == "eds" {
+		resp = edsRequest(pilot, makeEDSRequest(resources))
+	} else {
+		log.Errorf("Unknown config type: %q", configType)
 		os.Exit(1)
 	}
 
@@ -330,5 +376,77 @@ func main() {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
 		log.Errorf("Cannot write output to file %q", *outputFile)
+	}
+}
+
+func deltaXDS(configType string, resources string, proxyType string,
+	kubeConfig string, outputFile *string, pilot string) {
+
+	if configType == "rds" {
+		var resp *xdsapi.DeltaDiscoveryResponse
+		pod := NewPodInfo(resources, resolveKubeConfigPath(kubeConfig), proxyType)
+		if pod == nil {
+			log.Errorf("Pods for resources %v and proxy type %s not found", resources, proxyType)
+			os.Exit(1)
+		}
+		resp = pod.getXDSResource(pilot, configType)
+		fmt.Printf("Response: %+v", resp)
+	} else {
+		log.Errorf("Unknown config type: %q", configType)
+		os.Exit(1)
+	}
+}
+
+func deltaXDS(configType string, resources string, proxyType string,
+	kubeConfig string, outputFile *string, pilot string) {
+
+	if configType == "rds" {
+		var resp *xdsapi.DeltaDiscoveryResponse
+		pod := NewPodInfo(resources, resolveKubeConfigPath(kubeConfig), proxyType)
+		if pod == nil {
+			log.Errorf("Pods for resources %v and proxy type %s not found", resources, proxyType)
+			os.Exit(1)
+		}
+		resp = pod.getXDSResource(pilot, configType)
+		fmt.Printf("Response: %+v", resp)
+	} else {
+		log.Errorf("Unknown config type: %q", configType)
+		os.Exit(1)
+	}
+}
+
+func deltaXDS(configType string, resources string, proxyType string,
+	kubeConfig string, outputFile *string, pilot string) {
+
+	if configType == "rds" {
+		var resp *xdsapi.DeltaDiscoveryResponse
+		pod := NewPodInfo(resources, resolveKubeConfigPath(kubeConfig), proxyType)
+		if pod == nil {
+			log.Errorf("Pods for resources %v and proxy type %s not found", resources, proxyType)
+			os.Exit(1)
+		}
+		resp = pod.getXDSResource(pilot, configType)
+		fmt.Printf("Response: %+v", resp)
+	} else {
+		log.Errorf("Unknown config type: %q", configType)
+		os.Exit(1)
+	}
+}
+
+func deltaXDS(configType string, resources string, proxyType string,
+	kubeConfig string, outputFile *string, pilot string) {
+
+	if configType == "rds" {
+		var resp *xdsapi.DeltaDiscoveryResponse
+		pod := NewPodInfo(resources, resolveKubeConfigPath(kubeConfig), proxyType)
+		if pod == nil {
+			log.Errorf("Pods for resources %v and proxy type %s not found", resources, proxyType)
+			os.Exit(1)
+		}
+		resp = pod.getXDSResource(pilot, configType)
+		fmt.Printf("Response: %+v", resp)
+	} else {
+		log.Errorf("Unknown config type: %q", configType)
+		os.Exit(1)
 	}
 }

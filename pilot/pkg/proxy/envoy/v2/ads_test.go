@@ -15,6 +15,7 @@ package v2_test
 
 import (
 	"fmt"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -424,4 +425,13 @@ func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
 		return nil, err
 	}
 	return route, nil
+}
+
+func unmarshalVHost(value []byte) (*route.VirtualHost, error) {
+	vhost := &route.VirtualHost{}
+	err := vhost.Unmarshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return vhost, nil
 }

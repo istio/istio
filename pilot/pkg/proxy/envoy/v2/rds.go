@@ -55,10 +55,40 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 	return nil
 }
 
+func (s *DiscoveryServer) pushDeltaRoute(con *XdsConnection, push *model.PushContext, removedResources []string) error {
+	rawRoutes, err := s.generateRawRoutes(con, push)
+	if err != nil {
+		return err
+	}
+
+	if s.DebugConfigs {
+		for _, r := range rawRoutes {
+			con.RouteConfigs[r.Name] = r
+			if adsLog.DebugEnabled() {
+				resp, _ := model.ToJSONWithIndent(r, " ")
+				adsLog.Debugf("RDS: Adding route %s for node %v", resp, con.modelNode)
+			}
+		}
+	}
+
+	response := deltaRouteDiscoveryResponse(rawRoutes, removedResources)
+	err = con.sendDelta(response)
+	if err != nil {
+		adsLog.Warnf("ADS: RDS: Send failure for node %v, closing grpc %v", con.modelNode, err)
+		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
+		return err
+	}
+	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+
+	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode.ID, con.PeerAddr, len(rawRoutes))
+	return nil
+}
+
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) ([]*xdsapi.RouteConfiguration, error) {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
 	// TODO: Follow this logic for other xDS resources as well
 	// TODO: once per config update
+	// Bavery_TODO: Envoy only supports returning a single route config per RDS request. No need for this loop.
 	for _, routeName := range con.Routes {
 		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
 		if err != nil {
@@ -87,16 +117,62 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 
 		if err = r.Validate(); err != nil {
 			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", routeName, con.modelNode.ID, err, r)
+			adsLog.Errorf("RDS: Generated invalid routes for route: %s for node: %v: %v, %v", routeName, con.modelNode.ID, err, r)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
 			// Generating invalid routes is a bug.
 			// Panic instead of trying to recover from that, since we can't
 			// assume anything about the state.
 			panic(retErr.Error())
 		}
+
 		rc = append(rc, r)
 	}
 	return rc, nil
+}
+
+func (s *DiscoveryServer) generateRouteConfig(con *XdsConnection, push *model.PushContext, routeName string) (*xdsapi.RouteConfiguration, error) {
+	routeConfig, err := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.modelNode, push, routeName)
+	if err != nil {
+		retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
+		adsLog.Warnf("RDS: Failed to generate routes for route %s for node %v: %v", routeName, con.modelNode, err)
+		pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+		return nil, retErr
+	}
+
+	if routeConfig == nil {
+		adsLog.Warnf("RDS: got nil value for route %s for node %v: %v", routeName, con.modelNode, err)
+		return nil, nil
+	}
+
+	if err = routeConfig.Validate(); err != nil {
+		retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
+		adsLog.Errorf("RDS: Generated invalid routes for route: %s for node: %v: %v, %v", routeName, con.modelNode, err, routeConfig)
+		pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+		// Generating invalid routes is a bug.
+		// Panic instead of trying to recover from that, since we can't
+		// assume anything about the state.
+		panic(retErr.Error())
+	}
+
+	return routeConfig, nil
+}
+
+func deltaRouteDiscoveryResponse(routeConfigs []*xdsapi.RouteConfiguration, removedResources []string) *xdsapi.DeltaDiscoveryResponse {
+	resp := &xdsapi.DeltaDiscoveryResponse{
+		Nonce:             nonce(),
+		SystemVersionInfo: versionInfo(),
+	}
+
+	for _, routeConfig := range routeConfigs {
+		marshaledRoute, _ := types.MarshalAny(routeConfig)
+		resp.Resources = append(resp.Resources, xdsapi.Resource{
+			Name: routeConfig.Name,
+			//BAVERY_TODO: Add version.... md5? Something else? xDS increments an integer, but I wonder if we can do one better (i.e. repeatable)
+			Resource: marshaledRoute,
+		})
+	}
+	resp.RemovedResources = removedResources
+	return resp
 }
 
 func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {

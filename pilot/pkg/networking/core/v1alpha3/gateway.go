@@ -276,6 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	}
 
 	var virtualHosts []route.VirtualHost
+	//BAVERY_TODO: add support for vhds
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = []route.VirtualHost{{

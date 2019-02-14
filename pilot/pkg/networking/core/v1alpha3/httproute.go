@@ -250,8 +250,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	out := &xdsapi.RouteConfiguration{
 		Name:             routeName,
-		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
+	}
+
+	//BAVERY_TODO: Find a better way to handle these environment variables than parsing each time
+	if enableVHDS, _ := strconv.ParseBool(node.Metadata["ENABLE_DYNAMIC_HOST_CONFIGURATION"]); !enableVHDS {
+		out.VirtualHosts = virtualHosts
+	}
+
+	//BAVERY_TODO: Find a better way to handle these environment variables than parsing each time
+	if useDeltaXDS, _ := strconv.ParseBool(node.Metadata["USE_DELTA_XDS"]); useDeltaXDS {
+		out.Vhds = buildVHDS()
 	}
 
 	// call plugins
@@ -266,6 +275,132 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	return out
+}
+
+//BuildVirtualHosts builds a list of virtual hosts for a specified routeConfig name.
+func (configgen *ConfigGeneratorImpl) BuildVirtualHosts(env *model.Environment, node *model.Proxy, push *model.PushContext, routeName string) ([]route.VirtualHost, error) {
+	listenerPort := 0
+	var err error
+	listenerPort, err = strconv.Atoi(routeName)
+	if err != nil {
+		// we have a port whose name is http_proxy or unix:///foo/bar
+		// check for both.
+		if routeName != RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+			return nil, nil
+		}
+	}
+
+	var virtualServices []model.Config
+	var services []*model.Service
+
+	// Get the list of services that correspond to this egressListener from the sidecarScope
+	sidecarScope := node.SidecarScope
+	// sidecarScope should never be nil
+	if sidecarScope != nil && sidecarScope.Config != nil {
+		// this is a user supplied sidecar scope. Get the services from the egress listener
+		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+		// We should never be getting a nil egress listener because the code that setup this RDS
+		// call obviously saw an egress listener
+		if egressListener == nil {
+			return nil, nil
+		}
+
+		services = egressListener.Services()
+		// To maintain correctness, we should only use the virtualservices for
+		// this listener and not all virtual services accessible to this proxy.
+		virtualServices = egressListener.VirtualServices()
+
+		// When generating RDS for ports created via the SidecarScope, we treat
+		// these ports as HTTP proxy style ports. All services attached to this listener
+		// must feature in this RDS route irrespective of the service port.
+		if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+			listenerPort = 0
+		}
+	} else {
+		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		services = push.Services(node)
+		virtualServices = push.VirtualServices(node, meshGateway)
+	}
+
+	nameToServiceMap := make(map[model.Hostname]*model.Service)
+	for _, svc := range services {
+		if listenerPort == 0 {
+			// Take all ports when listen port is 0 (http_proxy or uds)
+			// Expect virtualServices to resolve to right port
+			nameToServiceMap[svc.Hostname] = svc
+		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
+			nameToServiceMap[svc.Hostname] = &model.Service{
+				Hostname:     svc.Hostname,
+				Address:      svc.Address,
+				MeshExternal: svc.MeshExternal,
+				Ports:        []*model.Port{svcPort},
+			}
+		}
+	}
+
+	// Collect all proxy labels for source match
+	var proxyLabels model.LabelsCollection
+	for _, w := range node.ServiceInstances {
+		proxyLabels = append(proxyLabels, w.Labels)
+	}
+
+	return getVirtualHosts(env, node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort), nil
+}
+
+func getVirtualHosts(env *model.Environment, node *model.Proxy, push *model.PushContext, nameToServiceMap map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, virtualServices []model.Config, listenerPort int)  []route.VirtualHost {
+	var virtualHosts []route.VirtualHost
+
+	// Get list of virtual services bound to the mesh gateway
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
+	vHostPortMap := make(map[int][]route.VirtualHost)
+	var name string
+	uniques := make(map[string]struct{})
+	for _, virtualHostWrapper := range virtualHostWrappers {
+		// If none of the routes matched by source, skip this virtual host
+		if len(virtualHostWrapper.Routes) == 0 {
+			continue
+		}
+		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		for _, host := range virtualHostWrapper.VirtualServiceHosts {
+			name = fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
+				virtualHosts = append(virtualHosts, route.VirtualHost{
+					Name:    name,
+					Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
+					Routes:  virtualHostWrapper.Routes,
+				})
+			} else {
+				log.Warnf("httproute(buildSidecarOutboundHTTPRouteConfig): Duplicate route entry %v. Dropping.", name)
+			}
+		}
+
+		for _, svc := range virtualHostWrapper.Services {
+			name = fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
+				virtualHosts = append(virtualHosts, route.VirtualHost{
+					Name:    name,
+					Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+					Routes:  virtualHostWrapper.Routes,
+				})
+			} else {
+				log.Warnf("httproute(buildSidecarOutboundHTTPRouteConfig): Duplicate route entry %v. Dropping.", name)
+			}
+		}
+
+		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
+	}
+
+	if listenerPort == 0 {
+		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
+	} else {
+		virtualHosts = vHostPortMap[listenerPort]
+	}
+
+	util.SortVirtualHosts(virtualHosts)
+
+	return virtualHosts
 }
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from

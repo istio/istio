@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"strconv"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -62,6 +63,63 @@ func testIP(id uint32) string {
 	ipb := []byte{0, 0, 0, 0}
 	binary.BigEndian.PutUint32(ipb, id)
 	return net.IP(ipb).String()
+}
+
+func connectDeltaADS(url string) (ads.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, util.TearDownFunc, error) {
+	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
+	}
+
+	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	adsConnection, err := xds.DeltaAggregatedResources(context.Background())
+	if err != nil {
+		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
+	}
+
+	return adsConnection, func() {
+		adsConnection.CloseSend()
+		conn.Close()
+	}, nil
+}
+
+func sendDeltaRDSReq(node string, subscribeRoutes []string, unsubscribeRoutes []string,
+	nonce string, rdsConnection ads.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, vhdsEnabled bool) error {
+	deltaMeta := nodeMetadata
+	deltaMeta.Fields["ENABLE_DYNAMIC_HOST_CONFIGURATION"] = &proto.Value{Kind: &proto.Value_StringValue{StringValue: strconv.FormatBool(vhdsEnabled)}}
+
+	err := rdsConnection.Send(&xdsapi.DeltaDiscoveryRequest{
+		ResponseNonce: nonce,
+		Node: &core.Node{
+			Id:       node,
+			Metadata: nodeMetadata,
+		},
+		TypeUrl:                  v2.RouteType,
+		ResourceNamesSubscribe:   subscribeRoutes,
+		ResourceNamesUnsubscribe: unsubscribeRoutes,
+	})
+	if err != nil {
+		return fmt.Errorf("RDS request failed: %s", err)
+	}
+
+	return nil
+}
+
+func adsDeltaReceive(ads ads.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, to time.Duration) (*xdsapi.DeltaDiscoveryResponse, error) {
+	done := make(chan int, 1)
+	t := time.NewTimer(to)
+	defer func() {
+		done <- 1
+	}()
+	go func() {
+		select {
+		case <-t.C:
+			_ = ads.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
+		case <-done:
+			_ = t.Stop()
+		}
+	}()
+	return ads.Recv()
 }
 
 func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
@@ -256,6 +314,45 @@ func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDis
 		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
 	if err != nil {
 		return fmt.Errorf("RDS NACK failed: %s", err)
+	}
+
+	return nil
+}
+
+func sendDeltaRDSSubscribeReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, vhdsEnabled bool) error {
+	deltaMeta := nodeMetadata
+	deltaMeta.Fields["ENABLE_DYNAMIC_HOST_CONFIGURATION"] = &proto.Value{Kind: &proto.Value_StringValue{StringValue: strconv.FormatBool(vhdsEnabled)}}
+	deltaMeta.Fields["USE_DELTA_XDS"] = &proto.Value{Kind: &proto.Value_StringValue{StringValue: strconv.FormatBool(true)}}
+
+	err := rdsstr.Send(&xdsapi.DeltaDiscoveryRequest{
+		ResponseNonce: nonce,
+		Node: &core.Node{
+			Id:       node,
+			Metadata: deltaMeta,
+		},
+		TypeUrl:                v2.RouteType,
+		ResourceNamesSubscribe: routes})
+	if err != nil {
+		return fmt.Errorf("RDS request failed: %s", err)
+	}
+
+	return nil
+}
+
+func sendDeltaVHDSSubscribeReq(node string, hosts []string, nonce string, vhdsstr ads.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, vhdsEnabled bool) error {
+	deltaMeta := nodeMetadata
+	deltaMeta.Fields["ENABLE_DYNAMIC_HOST_CONFIGURATION"] = &proto.Value{Kind: &proto.Value_StringValue{StringValue: strconv.FormatBool(vhdsEnabled)}}
+
+	err := vhdsstr.Send(&xdsapi.DeltaDiscoveryRequest{
+		ResponseNonce: nonce,
+		Node: &core.Node{
+			Id:       node,
+			Metadata: deltaMeta,
+		},
+		TypeUrl:                v2.VhdsType,
+		ResourceNamesSubscribe: hosts})
+	if err != nil {
+		return fmt.Errorf("VHDS request failed: %s", err)
 	}
 
 	return nil

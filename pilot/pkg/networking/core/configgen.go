@@ -16,6 +16,7 @@ package core
 
 import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -34,6 +35,9 @@ type ConfigGenerator interface {
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext, routeName string) (*v2.RouteConfiguration, error)
+
+	//BuildVHosts returns the list of virtual hosts for the given proxy. This is teh VHDS output
+	BuildVirtualHosts(env *model.Environment, node *model.Proxy, push *model.PushContext, routeName string) ([]route.VirtualHost, error)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator

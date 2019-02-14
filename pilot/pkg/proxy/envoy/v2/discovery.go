@@ -69,6 +69,8 @@ const (
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
 	RouteType = typePrefix + "RouteConfiguration"
+	//VhdsType is sent after route
+	VhdsType = typePrefix + ".route.VirtualHost"
 )
 
 func init() {

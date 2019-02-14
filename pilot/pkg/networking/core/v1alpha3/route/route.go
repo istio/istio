@@ -243,7 +243,7 @@ func BuildHTTPRoutesForVirtualService(
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
-		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
+		return nil, fmt.Errorf("is not a virtual service: %#v", virtualService)
 	}
 
 	out := make([]route.Route, 0, len(vs.Http))
