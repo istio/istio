@@ -579,7 +579,11 @@ func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccount
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
-		return buildIstioMutualTLS(serviceAccounts, sniToUse)
+		subjectAltNamesToUse := tls.SubjectAltNames
+		if subjectAltNamesToUse == nil || len(subjectAltNamesToUse) == 0 {
+			subjectAltNamesToUse = serviceAccounts
+		}
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse)
 	}
 	return tls
 }
