@@ -3544,6 +3544,38 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 service must be specified for rule 1",
 		},
 		{
+			name: "has both methods and not_methods",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services:   []string{"service0"},
+					Methods:    []string{"GET", "POST"},
+					NotMethods: []string{"DELETE"},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. methods and not_methods) for rule 0",
+		},
+		{
+			name: "has both ports and not_ports",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Ports:    []int32{9080},
+					NotPorts: []int32{443},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "has out of range port",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Ports:    []int32{9080, -80},
+				},
+			}},
+			expectErrMsg: "at least one port is not in the range of [0, 65535]",
+		},
+		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
@@ -3593,6 +3625,7 @@ func TestValidateServiceRole(t *testing.T) {
 				{
 					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
+					NotHosts: []string{"finances.google.com"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},

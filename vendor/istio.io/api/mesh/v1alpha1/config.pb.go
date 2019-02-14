@@ -4,6 +4,8 @@
 /*
 	Package v1alpha1 is a generated protocol buffer package.
 
+	Configuration affecting the service mesh as a whole.
+
 	It is generated from these files:
 		mesh/v1alpha1/config.proto
 		mesh/v1alpha1/network.proto

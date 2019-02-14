@@ -1,4 +1,4 @@
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
@@ -15,10 +15,7 @@ rules:
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 - apiGroups: [""]
-  resources: ["serviceaccounts"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: [""]
-  resources: ["services"]
+  resources: ["serviceaccounts", "services"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]

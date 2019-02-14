@@ -1448,6 +1448,17 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		if len(rule.Services) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
 		}
+		// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
+		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
+		if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
+		}
+		if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
+		}
+		if !arePortsInRange(rule.Ports) || !arePortsInRange(rule.NotPorts) {
+			errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
+		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
@@ -1458,6 +1469,16 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// arePortsInRange checks if all ports in range [0, 65535]
+func arePortsInRange(ports []int32) bool {
+	for _, port := range ports {
+		if ValidatePort(int(port)) != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.

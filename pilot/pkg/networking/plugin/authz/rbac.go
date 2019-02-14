@@ -80,8 +80,11 @@ const (
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
+	// Envoy config attributes for ServiceRole rules.
 	methodHeader = ":method"
 	pathHeader   = ":path"
+	hostHeader   = ":authority"
+	portKey      = "port"
 
 	spiffePrefix = spiffe.Scheme + "://"
 )
@@ -557,6 +560,26 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 	return &http_config.RBAC{Rules: rbac}
 }
 
+// appendRule appends a |rule| to |rules| if |rule| is not nil.
+func appendRule(rules *policyproto.Permission_AndRules, rule *policyproto.Permission) {
+	if rule == nil {
+		return
+	}
+	rules.AndRules.Rules = append(rules.AndRules.Rules, rule)
+}
+
+// appendNotRule appends a |notRule| to AndRules of |rules| if |notRule| is not nil.
+func appendNotRule(rules *policyproto.Permission_AndRules, notRule *policyproto.Permission) {
+	if notRule == nil {
+		return
+	}
+	rules.AndRules.Rules = append(rules.AndRules.Rules,
+		&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
+			NotRule: notRule,
+		},
+		})
+}
+
 // convertToPermission converts a single AccessRule to a Permission.
 func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	rules := &policyproto.Permission_AndRules{
@@ -565,18 +588,44 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		},
 	}
 
+	if len(rule.Hosts) > 0 {
+		hostRule := permissionForKeyValues(hostHeader, rule.Hosts)
+		appendRule(rules, hostRule)
+	}
+
+	if len(rule.NotHosts) > 0 {
+		notHostRule := permissionForKeyValues(hostHeader, rule.NotHosts)
+		appendNotRule(rules, notHostRule)
+	}
+
 	if len(rule.Methods) > 0 {
 		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
-		if methodRule != nil {
-			rules.AndRules.Rules = append(rules.AndRules.Rules, methodRule)
-		}
+		appendRule(rules, methodRule)
+	}
+
+	if len(rule.NotMethods) > 0 {
+		notMethodRule := permissionForKeyValues(methodHeader, rule.NotMethods)
+		appendNotRule(rules, notMethodRule)
 	}
 
 	if len(rule.Paths) > 0 {
 		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
-		if pathRule != nil {
-			rules.AndRules.Rules = append(rules.AndRules.Rules, pathRule)
-		}
+		appendRule(rules, pathRule)
+	}
+
+	if len(rule.NotPaths) > 0 {
+		notPathRule := permissionForKeyValues(pathHeader, rule.NotPaths)
+		appendNotRule(rules, notPathRule)
+	}
+
+	if len(rule.Ports) > 0 {
+		portRule := permissionForKeyValues(portKey, convertPortsToString(rule.Ports))
+		appendRule(rules, portRule)
+	}
+
+	if len(rule.NotPorts) > 0 {
+		notPortRule := permissionForKeyValues(portKey, convertPortsToString(rule.NotPorts))
+		appendNotRule(rules, notPortRule)
 	}
 
 	if len(rule.Constraints) > 0 {
@@ -584,16 +633,13 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		// key and this should already be caught in validation stage.
 		for _, constraint := range rule.Constraints {
 			p := permissionForKeyValues(constraint.Key, constraint.Values)
-			if p != nil {
-				rules.AndRules.Rules = append(rules.AndRules.Rules, p)
-			}
+			appendRule(rules, p)
 		}
 	}
 
 	if len(rules.AndRules.Rules) == 0 {
 		// None of above rule satisfied means the permission applies to all paths/methods/constraints.
-		rules.AndRules.Rules = append(rules.AndRules.Rules,
-			&policyproto.Permission{Rule: &policyproto.Permission_Any{Any: true}})
+		appendRule(rules, &policyproto.Permission{Rule: &policyproto.Permission_Any{Any: true}})
 	}
 
 	return &policyproto.Permission{Rule: rules}
@@ -766,17 +812,17 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
 			}, nil
 		}
-	case key == attrDestPort:
+	case key == attrDestPort || key == portKey:
 		converter = func(v string) (*policyproto.Permission, error) {
-			port, err := convertToPort(v)
+			portValue, err := convertToPort(v)
 			if err != nil {
 				return nil, err
 			}
 			return &policyproto.Permission{
-				Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
+				Rule: &policyproto.Permission_DestinationPort{DestinationPort: portValue},
 			}, nil
 		}
-	case key == pathHeader || key == methodHeader:
+	case key == pathHeader || key == methodHeader || key == hostHeader:
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Header{
