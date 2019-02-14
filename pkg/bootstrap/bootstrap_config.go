@@ -230,10 +230,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
-	// Get the platform zone if available.
-	z := platform.GetZone()
-	if z != "" {
-		opts["zone"] = z
+	// Populate the platform locality if available.
+	l := platform.GetPlatformLocality()
+	if l.Region != "" {
+		opts["region"] = l.Region
+	}
+	if l.Zone != "" {
+		opts["zone"] = l.Zone
 	}
 
 	// Support passing extra info from node environment as metadata
