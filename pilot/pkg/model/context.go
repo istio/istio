@@ -406,7 +406,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SidecarToTelemetrySessionAffinity: false,
 		ProxyListenPort:                   15001,
 		ConnectTimeout:                    types.DurationProto(1 * time.Second),
-		IdleTimeout:                       types.DurationProto(1 * time.Second),
+		IdleTimeout:                       types.DurationProto(30 * time.Second),
 		IngressClass:                      "istio",
 		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
 		EnableTracing:                     true,
