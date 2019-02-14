@@ -53,6 +53,7 @@ func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken 
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(apiServerCert)
 	// Set the TLS certificate
+	// Create the HTTP client so that for one instance, only one connection is used to serve all requests.
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
