@@ -156,8 +156,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return fmt.Errorf("invalid discovery request with no node")
 			}
 
-			log.Debugf("Received discovery request from %q", discReq.Node.Id)
-
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
