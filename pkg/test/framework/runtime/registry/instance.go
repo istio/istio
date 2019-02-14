@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/key"
 )
 
 var _ component.Defaults = &Instance{}
@@ -28,41 +27,45 @@ var _ component.Defaults = &Instance{}
 // Instance of a component registry
 type Instance struct {
 	defaults  map[component.ID]component.Descriptor
-	factories map[key.Instance]api.ComponentFactory
+	factories map[component.Key]api.ComponentFactory
 }
 
 // New component registry
 func New() *Instance {
 	return &Instance{
 		defaults:  make(map[component.ID]component.Descriptor),
-		factories: make(map[key.Instance]api.ComponentFactory),
+		factories: make(map[component.Key]api.ComponentFactory),
 	}
 }
 
 // Register a component
 func (r *Instance) Register(desc component.Descriptor, isDefault bool, factory api.ComponentFactory) {
-	if desc.ID == "" {
+	k := desc.Key
+	if k.ID == "" {
 		panic("attempting to register framework component without an ID")
 	}
 
-	k := key.For("", desc)
 	if r.factories[k] != nil {
 		panic(fmt.Sprintf("duplicate components registered `%s`", desc.FriendlyName()))
 	}
 	r.factories[k] = factory
 
 	if isDefault {
-		if _, ok := r.defaults[desc.ID]; ok {
+		if _, ok := r.defaults[k.ID]; ok {
 			panic(fmt.Sprintf("default already set for component `%s`", desc.FriendlyName()))
 		}
-		r.defaults[desc.ID] = desc
+		r.defaults[k.ID] = desc
 	}
 }
 
 // GetFactory for a component
 func (r *Instance) GetFactory(desc component.Descriptor) (api.ComponentFactory, error) {
-	k := key.For("", desc)
+	k := desc.Key
 	f := r.factories[k]
+	// If the key was a Variant and there was no factory for the variant, try the default factory.
+	if f == nil && desc.Key.Variant != "" {
+		f = r.factories[desc.Key.ID.GetKey()]
+	}
 	if f == nil {
 		return nil, fmt.Errorf("unknown component `%s`", desc.FriendlyName())
 	}
