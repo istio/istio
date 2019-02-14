@@ -22,8 +22,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/types"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -57,7 +57,7 @@ const (
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
 	IngressGatewaySdsCaSuffix = "-cacert"
 
-    googleApis = "type.googleapis.com/"
+	googleApis = "type.googleapis.com/"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -236,12 +236,7 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		HeaderKey: headerKey,
 	}
 
-	configSize := proto.Size(config)
-	rawBytes := make([]byte, 0, configSize)
-	protoBuffer := proto.NewBuffer(rawBytes)
-	protoBuffer.SetDeterministic(true)
-	protoBuffer.Marshal(config)
-	any := &types.Any{TypeUrl: googleApis + proto.MessageName(config), Value: protoBuffer.Bytes()}
+	any := marshalDeterministicAny(config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
@@ -254,4 +249,15 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 			},
 		},
 	}
+}
+
+// marshalDeterministicAny takes the protocol buffer and encodes it into google.protobuf.Any using
+// deterministic order.
+func marshalDeterministicAny(config proto.Message) *types.Any {
+	configSize := proto.Size(config)
+	rawBytes := make([]byte, 0, configSize)
+	protoBuffer := proto.NewBuffer(rawBytes)
+	protoBuffer.SetDeterministic(true)
+	protoBuffer.Marshal(config)
+	return &types.Any{TypeUrl: googleApis + proto.MessageName(config), Value: protoBuffer.Bytes()}
 }

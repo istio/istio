@@ -249,7 +249,7 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 }
 
 func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
-	any, _ := types.MarshalAny(metaConfig)
+	any := marshalDeterministicAny(metaConfig)
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
