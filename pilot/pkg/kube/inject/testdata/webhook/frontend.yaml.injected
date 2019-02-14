@@ -81,10 +81,7 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"hello","tier":"frontend","track":"stable"}
-        image: gcr.io/istio-release/proxyv2:release-1.1-latest-daily
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -130,7 +127,7 @@ spec:
         - ""
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:release-1.1-latest-daily
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:

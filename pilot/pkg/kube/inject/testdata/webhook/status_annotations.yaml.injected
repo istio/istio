@@ -80,13 +80,7 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"123"}
-        - name: ISTIO_METAJSON_LABELS
-          value: |
-            {"app":"status"}
-        image: gcr.io/istio-release/proxyv2:release-1.1-latest-daily
+        image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -132,7 +126,7 @@ spec:
         - "80"
         - -d
         - "123"
-        image: gcr.io/istio-release/proxy_init:release-1.1-latest-daily
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
