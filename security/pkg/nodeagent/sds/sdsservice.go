@@ -191,9 +191,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if firstRequestFlag {
-				log.Debugf("Received First SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
+				log.Debugf("Received first SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			} else {
-				log.Debugf("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
+				log.Debugf("Received SDS request from %q, connectionID %q, resourceName %q, versionInfo %q\n",
+					discReq.Node.Id, con.conID, resourceName, discReq.VersionInfo)
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, con.conID, resourceName, token)
