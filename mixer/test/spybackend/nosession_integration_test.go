@@ -213,7 +213,7 @@ metadata:
   name: r7
   namespace: istio-system
 spec:
-  match: (destination.namespace | "") == "trigger_apa"
+  match: destination.namespace == "trigger_apa"
   actions:
   - handler: h1
     instances:

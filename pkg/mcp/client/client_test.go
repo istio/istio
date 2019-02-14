@@ -243,7 +243,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
 				}},
-				SystemVersionInfo: "type0/v0",
 			},
 		},
 		{
@@ -258,7 +257,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type1A[0].Metadata,
 					Body:     test.Type1A[0].Proto,
 				}},
-				SystemVersionInfo: "type1/v0",
 			},
 		},
 		{
@@ -273,7 +271,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type2A[0].Metadata,
 					Body:     test.Type2A[0].Proto,
 				}},
-				SystemVersionInfo: "type2/v0",
 			},
 		},
 		{
@@ -287,7 +284,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
 				}},
-				SystemVersionInfo: "type0/v0",
 			},
 		},
 		{
@@ -301,7 +297,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
 				}},
-				SystemVersionInfo: "type0/v0",
 			},
 		},
 		{
@@ -316,7 +311,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
 				}},
-				SystemVersionInfo: "type0/v0",
 			},
 		},
 		{
@@ -334,7 +328,6 @@ func TestSingleTypeCases(t *testing.T) {
 					Metadata: test.Type0A[2].Metadata,
 					Body:     test.Type0A[2].Proto,
 				}},
-				SystemVersionInfo: "type0/v1",
 			},
 			wantJournal: nil,
 		},
@@ -429,7 +422,6 @@ func TestReconnect(t *testing.T) {
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
 				}},
-				SystemVersionInfo: "type0/v0",
 			},
 		},
 		{
@@ -457,7 +449,6 @@ func TestReconnect(t *testing.T) {
 					Metadata: test.Type0A[1].Metadata,
 					Body:     test.Type0A[1].Proto,
 				}},
-				SystemVersionInfo: "type0/v1",
 			},
 		},
 		{
@@ -471,7 +462,6 @@ func TestReconnect(t *testing.T) {
 					Metadata: test.Type0A[1].Metadata,
 					Body:     test.Type0A[1].Proto,
 				}},
-				SystemVersionInfo: "type0/v1",
 			},
 			recvError: true,
 		},
@@ -486,7 +476,6 @@ func TestReconnect(t *testing.T) {
 					Metadata: test.Type0A[2].Metadata,
 					Body:     test.Type0A[2].Proto,
 				}},
-				SystemVersionInfo: "type0/v2",
 			},
 		},
 	}
@@ -522,9 +511,9 @@ func TestReconnect(t *testing.T) {
 			}
 
 			if !step.sendError {
-				if diff := cmp.Diff(ts.change[step.wantChange.Collection], step.wantChange); diff != "" {
-					t.Fatalf("%v: bad client change: \n got %#v \nwant %#v \ndiff %v",
-						step.name, ts.change[step.wantChange.Collection].Objects[0], step.wantChange.Objects[0], diff)
+				if !reflect.DeepEqual(ts.change[step.wantChange.Collection], step.wantChange) {
+					t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
+						step.name, ts.change[step.wantChange.Collection].Objects[0], step.wantChange.Objects[0])
 				}
 			}
 		}

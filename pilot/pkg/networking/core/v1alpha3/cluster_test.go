@@ -16,11 +16,12 @@ package v1alpha3_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoycore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 	core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 type ConfigType int
@@ -121,11 +123,6 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, nodeType, mesh, destRule, make(map[string]string))
-}
-
-func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
-	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
@@ -169,22 +166,20 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.SidecarProxy,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomains:  []string{"com"},
-			Metadata:    meta,
+			DNSDomain:   "com",
+			Metadata:    make(map[string]string),
 		}
 	case model.Router:
 		proxy = &model.Proxy{
 			ClusterID:   "some-cluster-id",
 			Type:        model.Router,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomains:  []string{"default.example.org"},
-			Metadata:    meta,
+			DNSDomain:   "default.example.org",
+			Metadata:    make(map[string]string),
 		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
 	}
-
-	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
 	return configgen.BuildClusters(env, proxy, env.PushContext)
 }
@@ -229,6 +224,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
@@ -246,7 +242,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err := buildSniTestClusters("foo.com")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(5))
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -255,7 +251,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err = buildSniTestClusters("")
 	g.Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(clusters)).To(Equal(4))
+	g.Expect(len(clusters)).To(Equal(5))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -263,15 +259,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 }
 
 func buildSniTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, make(map[string]string))
-}
-
-func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, map[string]string{"ROUTER_MODE": string(model.SniDnatRouter)})
-}
-
-func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", model.Router, testMesh,
+	return buildTestClusters("foo.example.org", model.SidecarProxy, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -293,9 +281,7 @@ func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) (
 					},
 				},
 			},
-		},
-		meta,
-	)
+		})
 }
 
 func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
@@ -399,60 +385,272 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 		})
 }
 
-func TestClusterMetadata(t *testing.T) {
+func TestApplyLocalitySetting(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	destRule := &networking.DestinationRule{
-		Host: "*.example.org",
-		Subsets: []*networking.Subset{
-			&networking.Subset{Name: "Subset 1"},
-			&networking.Subset{Name: "Subset 2"},
+	proxy := &model.Proxy{
+		ClusterID:   "some-cluster-id",
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"6.6.6.6"},
+		DNSDomain:   "com",
+		Metadata:    make(map[string]string),
+		Locality: model.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
 		},
-		TrafficPolicy: &networking.TrafficPolicy{
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					MaxRequestsPerConnection: 1,
+	}
+
+	env := buildEnvForClustersWithDistribute()
+	cluster := buildFakeCluster()
+	core.ApplyLocalityLBSetting(proxy, cluster, env.PushContext)
+
+	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
+			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
+			continue
+		}
+		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1") {
+			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(5)))
+			continue
+		}
+		g.Expect(localityEndpoint.LbEndpoints).To(BeNil())
+	}
+
+	env = buildEnvForClustersWithFailover()
+	core.ApplyLocalityLBSetting(proxy, cluster, env.PushContext)
+	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+		if localityEndpoint.Locality.Region == proxy.Locality.Region {
+			if localityEndpoint.Locality.Zone == proxy.Locality.Zone {
+				if localityEndpoint.Locality.SubZone == proxy.Locality.SubZone {
+					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+					continue
+				}
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+				continue
+			}
+			g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+			continue
+		}
+		if localityEndpoint.Locality.Region == "region2" {
+			g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
+		} else {
+			g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
+		}
+	}
+}
+
+func buildEnvForClustersWithDistribute() *model.Environment {
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{
+		{
+			Hostname:    "test.example.org",
+			Address:     "1.1.1.1",
+			ClusterVIPs: make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "default",
+					Port:     8080,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+		},
+	}, nil)
+
+	meshConfig := &meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+			Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+				{
+					From: "region1/zone1/subzone1",
+					To: map[string]uint32{
+						"region1/zone1/subzone1": 90,
+						"region1/zone1/subzone2": 5,
+						"region1/zone1/subzone3": 5,
+					},
 				},
 			},
 		},
 	}
 
-	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh, destRule)
-	g.Expect(err).NotTo(HaveOccurred())
+	configStore := &fakes.IstioConfigStore{}
 
-	clustersWithMetadata := 0
-
-	for _, cluster := range clusters {
-		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
-			clustersWithMetadata++
-			g.Expect(cluster.Metadata).NotTo(BeNil())
-			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
-			g.Expect(istio.Fields["config"]).NotTo(BeNil())
-			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
-		} else {
-			g.Expect(cluster.Metadata).To(BeNil())
-		}
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
 	}
 
-	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 2)) // outbound  outbound subsets  inbound
+	env.PushContext = model.NewPushContext()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
+			Spec: &networking.DestinationRule{
+				Host: "test.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						ConsecutiveErrors: 5,
+					},
+				},
+			},
+		}})
 
-	sniClusters, err := buildSniDnatTestClusters("test-sni")
-	g.Expect(err).NotTo(HaveOccurred())
+	return env
+}
 
-	for _, cluster := range sniClusters {
-		if strings.HasPrefix(cluster.Name, "outbound") {
-			g.Expect(cluster.Metadata).NotTo(BeNil())
-			md := cluster.Metadata
-			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
-			istio := md.FilterMetadata["istio"]
-			g.Expect(istio.Fields["config"]).NotTo(BeNil())
-			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
-		} else {
-			g.Expect(cluster.Metadata).To(BeNil())
-		}
+func buildEnvForClustersWithFailover() *model.Environment {
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{
+		{
+			Hostname:    "test.example.org",
+			Address:     "1.1.1.1",
+			ClusterVIPs: make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "default",
+					Port:     8080,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+		},
+	}, nil)
+
+	meshConfig := &meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+			Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1",
+					To:   "region2",
+				},
+			},
+		},
+	}
+
+	configStore := &fakes.IstioConfigStore{}
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushContext = model.NewPushContext()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
+			Spec: &networking.DestinationRule{
+				Host: "test.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						ConsecutiveErrors: 5,
+					},
+				},
+			},
+		}})
+
+	return env
+}
+
+func buildFakeCluster() *apiv2.Cluster {
+	return &apiv2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &apiv2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone3",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone2",
+						SubZone: "",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "",
+						SubZone: "",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region3",
+						Zone:    "",
+						SubZone: "",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+			},
+		},
 	}
 }

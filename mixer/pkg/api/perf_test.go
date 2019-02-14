@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
 )
 
 type benchState struct {
@@ -47,10 +46,6 @@ func (bs *benchState) createGRPCServer() (string, error) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", err
-	}
-
-	for _, s := range log.Scopes() {
-		s.SetOutputLevel(log.NoneLevel)
 	}
 
 	// get everything wired up
@@ -249,7 +244,7 @@ func getGlobalDict() []string {
 }
 
 func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
-	bag.Set("request.headers", attribute.WrapStringMap(map[string]string{
+	bag.Set("request.headers", map[string]string{
 		":authority":        "localhost:27070",
 		":method":           "GET",
 		":path":             "/echo",
@@ -258,19 +253,19 @@ func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
 		"user-agent":        "Go-http-client/1.1",
 		"x-forwarded-proto": "http",
 		"x-request-id":      string(uuid),
-	}))
+	})
 	bag.Set("request.host", "localhost:27070")
 	bag.Set("request.path", "/echo")
 	bag.Set("request.size", int64(0))
 	bag.Set("request.time", time.Now())
-	bag.Set("response.headers", attribute.WrapStringMap(map[string]string{
+	bag.Set("response.headers", map[string]string{
 		":status":                       "200",
 		"content-length":                "0",
 		"content-type":                  "text/plain; charset=utf-8",
 		"date":                          time.Now().String(),
 		"server":                        "envoy",
 		"x-envoy-upstream-service-time": "0",
-	}))
+	})
 	bag.Set("response.http.code", int64(200))
 	bag.Set("response.duration", time.Duration(50)*time.Millisecond)
 	bag.Set("response.size", int64(64))

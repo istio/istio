@@ -2,12 +2,14 @@
 # ingress configuration
 #
 enabled: false
-autoscaleEnabled: true
+replicaCount: 1
 autoscaleMin: 1
 autoscaleMax: 5
-# specify replicaCount when autoscaleEnabled: false
-# replicaCount: 1
 nodeSelector: {}
+
+podDisruptionBudget: {}
+  # minAvailable: 1
+  # maxUnavailable: 1
 
 service:
   annotations: {}

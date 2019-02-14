@@ -69,6 +69,8 @@ rules:
   - rbacs
   - reportnothings
   - rules
+  - servicecontrolreports
+  - servicecontrols
   - solarwindses
   - stackdrivers
   - statsds

@@ -872,6 +872,17 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
+// attributeFinder exposes ast.AttributeDescriptorFinder
+type attributeFinder struct {
+	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
+}
+
+// GetAttribute finds an attribute by name.
+// This function is only called when a new handler is instantiated.
+func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.AttributeManifest_AttributeInfo {
+	return a.attrs[name]
+}
+
 func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) ast.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
@@ -884,7 +895,7 @@ func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.
 			attrs[an] = at
 		}
 	}
-	return ast.NewFinder(attrs)
+	return &attributeFinder{attrs: attrs}
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag

@@ -55,7 +55,7 @@ type codeAndSlices struct {
 	slices           int
 }
 
-func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) { // nolint:interfacer
+func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 
 	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")

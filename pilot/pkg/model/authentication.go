@@ -22,6 +22,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -52,9 +54,6 @@ const (
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
-
-	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
-	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -105,7 +104,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool, metadata map[string]string) *auth.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -120,15 +119,10 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 		},
 	}
 
-	// If metadata[NodeMetadataSdsTokenPath] is non-empty, envoy will fetch tokens from metadata[NodeMetadataSdsTokenPath].
-	// Otherwise, if useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
+	// If useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
 	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
 	// request key/cert.
-	if sdsTokenPath, found := metadata[NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
-		log.Debugf("SDS token path is (%v)", sdsTokenPath)
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = constructgRPCCallCredentials(sdsTokenPath, k8sSAJwtTokenHeaderKey)
-	} else if useK8sSATrustworthyJwt {
+	if useK8sSATrustworthyJwt {
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
 		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
 	} else if useK8sSANormalJwt {
@@ -221,7 +215,15 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	}, useSSL, nil
 }
 
-// this function is used to construct SDS config which is only available from 1.1
+func protoToStruct(msg proto.Message) *types.Struct {
+	s, err := util.MessageToStruct(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+	return s
+}
+
 func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
 	config := &v2alpha.FileBasedMetadataConfig{
@@ -232,14 +234,13 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		},
 		HeaderKey: headerKey,
 	}
-	any, _ := types.MarshalAny(config)
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: fileBasedMetadataPlugName,
-					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-						TypedConfig: any},
+					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+						Config: protoToStruct(config)},
 				},
 			},
 		},

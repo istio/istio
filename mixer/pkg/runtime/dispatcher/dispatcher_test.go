@@ -29,6 +29,7 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
@@ -1003,7 +1004,8 @@ func TestDispatcher(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
 
-			r := routing.BuildTable(h, s, "istio-system", true)
+			expb := compiled.NewBuilder(s.Attributes)
+			r := routing.BuildTable(h, s, expb, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)
 
 			// clear logger, as we are not interested in adapter/template logs during config step.

@@ -46,7 +46,6 @@ install/kubernetes/istio-citadel-plugin-certs.yaml
 install/kubernetes/istio-citadel-standalone.yaml
 install/kubernetes/istio-citadel-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
-install/kubernetes/istio-one-namespace-trust-domain.yaml
 install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml
@@ -58,6 +57,7 @@ install/kubernetes/istio-remote.yaml
 install/kubernetes/istio-mcp.yaml
 install/kubernetes/istio-auth-mcp.yaml
 install/kubernetes/helm/istio/requirements.lock
+install/kubernetes/helm/istio-remote/requirements.lock
 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes

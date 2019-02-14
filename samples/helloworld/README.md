@@ -20,11 +20,10 @@ containers within the `helloworld.yaml` are pre-defined with the request. The (m
 injected istio-proxy containers also have the requests cpu therefore making the `helloworld`
 ready for autoscaling.
 
-Now create the deployment using the updated yaml file and create the gateway configuration:
+Now create the deployment using the updated yaml file:
 
 ```bash
 kubectl create -f helloworld-istio.yaml
-kubectl create -f helloworld-gateway.yaml
 ```
 
 Follow the [instructions](https://preliminary.istio.io/docs/tasks/traffic-management/ingress.html#determining-the-ingress-ip-and-ports) to set the INGRESS_HOST and INGRESS_PORT variables then confirm it's running using curl.
@@ -64,6 +63,5 @@ value > 1.
 
 ```bash
 kubectl delete -f helloworld-istio.yaml
-kubectl delete -f helloworld-gateway.yaml
 kubectl delete hpa helloworld-v1 helloworld-v2
 ```

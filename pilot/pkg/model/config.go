@@ -341,7 +341,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
-		Collection:  metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
+		Collection:  metadata.VirtualService.Collection.String(),
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
@@ -352,7 +352,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
-		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
+		Collection:  metadata.Gateway.Collection.String(),
 	}
 
 	// ServiceEntry describes service entries
@@ -363,7 +363,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Validate:    ValidateServiceEntry,
-		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
+		Collection:  metadata.ServiceEntry.Collection.String(),
 	}
 
 	// DestinationRule describes destination rules
@@ -374,7 +374,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
-		Collection:  metadata.IstioNetworkingV1alpha3Destinationrules.Collection.String(),
+		Collection:  metadata.DestinationRule.Collection.String(),
 	}
 
 	// EnvoyFilter describes additional envoy filters to be inserted by Pilot
@@ -385,7 +385,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
 		Validate:    ValidateEnvoyFilter,
-		Collection:  metadata.IstioNetworkingV1alpha3Envoyfilters.Collection.String(),
+		Collection:  metadata.EnvoyFilter.Collection.String(),
 	}
 
 	// Sidecar describes the listeners associated with sidecars in a namespace
@@ -396,7 +396,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Sidecar",
 		Validate:    ValidateSidecar,
-		Collection:  metadata.IstioNetworkingV1alpha3Sidecars.Collection.String(),
+		Collection:  metadata.Sidecar.Collection.String(),
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.
@@ -407,7 +407,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
 		Validate:    ValidateHTTPAPISpec,
-		Collection:  metadata.IstioConfigV1alpha2Httpapispecs.Collection.String(),
+		Collection:  metadata.HTTPAPISpec.Collection.String(),
 	}
 
 	// HTTPAPISpecBinding describes an HTTP API specification binding.
@@ -418,7 +418,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
 		Validate:    ValidateHTTPAPISpecBinding,
-		Collection:  metadata.IstioConfigV1alpha2Httpapispecbindings.Collection.String(),
+		Collection:  metadata.HTTPAPISpecBinding.Collection.String(),
 	}
 
 	// QuotaSpec describes an Quota specification.
@@ -429,7 +429,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
 		Validate:    ValidateQuotaSpec,
-		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecs.Collection.String(),
+		Collection:  metadata.QuotaSpec.Collection.String(),
 	}
 
 	// QuotaSpecBinding describes an Quota specification binding.
@@ -440,7 +440,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
 		Validate:    ValidateQuotaSpecBinding,
-		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecbindings.Collection.String(),
+		Collection:  metadata.QuotaSpecBinding.Collection.String(),
 	}
 
 	// AuthenticationPolicy describes an authentication policy.
@@ -451,7 +451,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
-		Collection:  metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
+		Collection:  metadata.Policy.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
@@ -463,7 +463,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
 		Validate:      ValidateAuthenticationPolicy,
-		Collection:    metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
+		Collection:    metadata.MeshPolicy.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.
@@ -474,7 +474,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
-		Collection:  metadata.IstioRbacV1alpha1Serviceroles.Collection.String(),
+		Collection:  metadata.ServiceRole.Collection.String(),
 	}
 
 	// ServiceRoleBinding describes an RBAC service role.
@@ -486,7 +486,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
-		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
+		Collection:    metadata.ServiceRoleBinding.Collection.String(),
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
@@ -499,7 +499,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.RbacConfig",
 		Validate:    ValidateRbacConfig,
-		Collection:  metadata.IstioRbacV1alpha1Rbacconfigs.Collection.String(),
+		Collection:  metadata.RbacConfig.Collection.String(),
 	}
 
 	// ClusterRbacConfig describes the cluster level RBAC config.
@@ -511,7 +511,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateClusterRbacConfig,
-		Collection:    metadata.IstioRbacV1alpha1Clusterrbacconfigs.Collection.String(),
+		Collection:    metadata.ClusterRbacConfig.Collection.String(),
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation

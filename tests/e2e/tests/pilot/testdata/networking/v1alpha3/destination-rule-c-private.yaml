@@ -13,5 +13,4 @@ spec:
     - name: v1
       labels:
         version: v1
-  exportTo:
-  - "."
+  configScope: PRIVATE

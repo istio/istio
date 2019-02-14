@@ -149,7 +149,7 @@ end`,
 		},
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"-a"},
+		Referenced: []string{"a"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -160,7 +160,7 @@ end`,
 		},
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"-a"},
+		Referenced: []string{"a"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -221,7 +221,7 @@ end`,
 			"request.user": "user2",
 		},
 		R:          "user2",
-		Referenced: []string{"-request.user2", "request.user"},
+		Referenced: []string{"request.user", "request.user2"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -231,7 +231,7 @@ end`,
 			"request.user": "user2",
 		},
 		R:          "user1",
-		Referenced: []string{"-request.user2", "-request.user3"},
+		Referenced: []string{"request.user2", "request.user3"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -319,9 +319,8 @@ end`,
 		conf: istio06AttributeSet,
 	},
 	{
-		E:     `request.headers[toLower("USER-AGENT")] == "curlish"`,
-		Bench: true,
-		Type:  descriptor.BOOL,
+		E:    `request.headers[toLower("USER-AGENT")] == "curlish"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
 				"user-agent": "curlish",
@@ -329,16 +328,6 @@ end`,
 		},
 		R:    true,
 		conf: istio06AttributeSet,
-		IL: `
-fn eval() bool
-  resolve_f "request.headers"
-  apush_s "USER-AGENT"
-  call toLower
-  nlookup
-  aeq_s "curlish"
-  ret
-end
-`,
 	},
 	{
 		E:    `match(request.headers["user-agent"], "curl*")`,
@@ -447,7 +436,7 @@ end
 				"X-FORWARDED-HOST": "bbb",
 			},
 		},
-		Referenced: []string{"-request.header"},
+		Referenced: []string{"request.header"},
 		Err:        "lookup failed: 'request.header'",
 		AstErr:     "unresolved attribute",
 		conf:       exprEvalAttrs,
@@ -514,7 +503,7 @@ end
 		},
 		Err:        "lookup failed: 'service.name'",
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"-service.name"},
+		Referenced: []string{"service.name"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -541,7 +530,7 @@ end
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
 		R:          []byte(net.ParseIP("10.1.12.3")),
-		Referenced: []string{"-destination.ip"},
+		Referenced: []string{"destination.ip"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -567,7 +556,7 @@ end
 		Type:       descriptor.TIMESTAMP,
 		I:          map[string]interface{}{},
 		R:          t,
-		Referenced: []string{"-request.time"},
+		Referenced: []string{"request.time"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -607,7 +596,7 @@ end
 		Type:       descriptor.STRING_MAP,
 		I:          map[string]interface{}{},
 		R:          attribute.WrapStringMap(nil),
-		Referenced: []string{"-source.labels"},
+		Referenced: []string{"source.labels"},
 		conf:       exprEvalAttrs,
 	},
 
@@ -1997,7 +1986,7 @@ end`,
 			"bs": "b2",
 		},
 		R:          "b2",
-		Referenced: []string{"-as", "bs"},
+		Referenced: []string{"as", "bs"},
 	},
 	{
 		E:    `as | bs | "user1"`,
@@ -2059,14 +2048,14 @@ end`,
 			"bb": false,
 		},
 		R:          false,
-		Referenced: []string{"-ab", "bb"},
+		Referenced: []string{"ab", "bb"},
 	},
 	{
 		E:          `ab | bb | true`,
 		Type:       descriptor.BOOL,
 		I:          map[string]interface{}{},
 		R:          true,
-		Referenced: []string{"-ab", "-bb"},
+		Referenced: []string{"ab", "bb"},
 	},
 
 	{
@@ -2091,7 +2080,7 @@ end`,
 		Type:       descriptor.INT64,
 		I:          map[string]interface{}{},
 		R:          int64(42),
-		Referenced: []string{"-ai"},
+		Referenced: []string{"ai"},
 	},
 	{
 		E:    `ai | bi | 42`,
@@ -2119,14 +2108,14 @@ end`,
 			"bi": int64(20),
 		},
 		R:          int64(20),
-		Referenced: []string{"-ai", "bi"},
+		Referenced: []string{"ai", "bi"},
 	},
 	{
 		E:          `ai | bi | 42`,
 		Type:       descriptor.INT64,
 		I:          map[string]interface{}{},
 		R:          int64(42),
-		Referenced: []string{"-ai", "-bi"},
+		Referenced: []string{"ai", "bi"},
 	},
 
 	{
@@ -2218,7 +2207,7 @@ end`,
 			},
 		},
 		R:          "far",
-		Referenced: []string{"-ar", "br", "br[foo]"},
+		Referenced: []string{"ar", "br", "br[foo]"},
 	},
 
 	{
@@ -2360,7 +2349,7 @@ end`,
 		Type:       descriptor.STRING,
 		I:          map[string]interface{}{},
 		R:          "foo",
-		Referenced: []string{"-ar"},
+		Referenced: []string{"ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -2389,7 +2378,7 @@ end`,
 		Type:       descriptor.STRING,
 		I:          map[string]interface{}{},
 		R:          "foo",
-		Referenced: []string{"-ar"},
+		Referenced: []string{"ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -2415,7 +2404,7 @@ end`,
 			"ar": map[string]string{"as": "bar"},
 		},
 		R:          "foo",
-		Referenced: []string{"-as", "ar"},
+		Referenced: []string{"ar", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2424,7 +2413,7 @@ end`,
 			"as": "bar",
 		},
 		R:          "foo",
-		Referenced: []string{"-ar"},
+		Referenced: []string{"ar"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2434,7 +2423,7 @@ end`,
 			"as": "!!!!",
 		},
 		R:          "foo",
-		Referenced: []string{"-ar[!!!!]", "ar", "as"},
+		Referenced: []string{"ar", "ar[!!!!]", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2487,7 +2476,7 @@ end`,
 			"ar": map[string]string{},
 		},
 		R:          "null",
-		Referenced: []string{"-ar[b]", "-ar[c]", "ar"},
+		Referenced: []string{"ar", "ar[b]", "ar[c]"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -2509,7 +2498,7 @@ end`,
 			},
 		},
 		R:          "b",
-		Referenced: []string{"-ar[b]", "ar", "ar[c]"},
+		Referenced: []string{"ar", "ar[b]", "ar[c]"},
 	},
 	{
 		E:    `adur`,
