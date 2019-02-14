@@ -7,7 +7,6 @@ env:
   GODEBUG: gctrace=2
 
 policy:
-  enabled: true
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
@@ -16,7 +15,6 @@ policy:
     targetAverageUtilization: 80
 
 telemetry:
-  enabled: true
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1

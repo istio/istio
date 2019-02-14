@@ -229,7 +229,6 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},

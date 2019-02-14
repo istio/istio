@@ -154,6 +154,8 @@ func GetRootCmd(args []string) *cobra.Command {
 		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
 	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
+	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.SinkMeta, "sinkMeta",
+		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

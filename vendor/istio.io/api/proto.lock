@@ -1985,6 +1985,21 @@
                 "id": 1,
                 "name": "policy",
                 "type": "FailPolicy"
+              },
+              {
+                "id": 2,
+                "name": "max_retry",
+                "type": "uint32"
+              },
+              {
+                "id": 3,
+                "name": "base_retry_wait",
+                "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 4,
+                "name": "max_retry_wait",
+                "type": "google.protobuf.Duration"
               }
             ]
           },
@@ -5347,13 +5362,13 @@
               },
               {
                 "id": 4,
-                "name": "principals",
+                "name": "names",
                 "type": "string",
                 "is_repeated": true
               },
               {
                 "id": 5,
-                "name": "not_principals",
+                "name": "not_names",
                 "type": "string",
                 "is_repeated": true
               },

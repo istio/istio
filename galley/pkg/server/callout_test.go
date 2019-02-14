@@ -19,27 +19,49 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/source"
 )
 
 func TestCallout(t *testing.T) {
-	co, err := newCallout("foo", "NONE", &source.Options{})
+	co, err := newCallout("foo", "NONE", []string{"foo=bar"}, &source.Options{})
 	if err != nil {
 		t.Errorf("Callout creation failed: %v", err)
 	}
 	if co.address != "foo" {
 		t.Error("Callout address not set")
 	}
+	if len(co.metadata) != 2 || co.metadata[0] != "foo" || co.metadata[1] != "bar" {
+		t.Errorf("Callout meta not set: %v", co.metadata)
+	}
+	co, err = newCallout("foo", "NONE", []string{"foo"}, &source.Options{})
+	if err == nil {
+		t.Error("did not error with malformed metadata, no =")
+	}
+	co, err = newCallout("foo", "NONE", []string{"foo="}, &source.Options{})
+	if err == nil {
+		t.Error("did not error with malformed metadata, no value")
+	}
+	co, err = newCallout("foo", "NONE", []string{"=foo"}, &source.Options{})
+	if err == nil {
+		t.Error("did not error with malformed metadata, no key")
+	}
+	co, err = newCallout("foo", "NONE", []string{"="}, &source.Options{})
+	if err == nil {
+		t.Error("did not error with malformed metadata, no key or value")
+	}
 }
 
 type mockMcpClient struct {
 	RunCalled bool
+	ctx       context.Context
 }
 
 func (m *mockMcpClient) Run(ctx context.Context) {
 	m.RunCalled = true
+	m.ctx = ctx
 }
 
 func TestCalloutRun(t *testing.T) {
@@ -62,6 +84,7 @@ func TestCalloutRun(t *testing.T) {
 			sourceNewClient: sourceNewClient,
 			connClose:       connClose,
 		},
+		metadata: make([]string, 2),
 	}
 	co.Run()
 
@@ -73,5 +96,8 @@ func TestCalloutRun(t *testing.T) {
 	}
 	if connClosed == false {
 		t.Error("Did not close connection")
+	}
+	if _, ok := metadata.FromOutgoingContext(m.ctx); ok != true {
+		t.Error("Metadata not added")
 	}
 }

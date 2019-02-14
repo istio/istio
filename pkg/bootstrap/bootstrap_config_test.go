@@ -77,6 +77,12 @@ func TestGolden(t *testing.T) {
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
 			base: "all",
 		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/v1alpha1/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+			},
+		},
 	}
 
 	out := env.ISTIO_OUT.Value() // defined in the makefile

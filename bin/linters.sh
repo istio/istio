@@ -133,7 +133,7 @@ function check_licenses() {
 }
 
 ensure_pilot_types
-format
+# format
 check_licenses
 check_spelling
 install_golangcilint

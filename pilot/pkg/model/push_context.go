@@ -92,6 +92,9 @@ type PushContext struct {
 	// the endpoint needs to be re-evaluated later (eventual consistency)
 	ServicePort2Name map[string]PortList `json:"-"`
 
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[Hostname]map[int][]string
+
 	initDone bool
 }
 
@@ -305,6 +308,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
+		ServiceAccounts:   map[Hostname]map[int][]string{},
 		Start:             time.Now(),
 	}
 }
@@ -532,15 +536,13 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
-	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, &Service{Hostname: hostname})
+	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
@@ -590,7 +592,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	// Must be initialized in the end
-	if err = ps.InitSidecarScopes(env); err != nil {
+	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -625,6 +627,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
+
+	ps.initServiceAccounts(env, allServices)
+
 	return nil
 }
 
@@ -634,6 +639,19 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
+}
+
+// Caches list of service accounts in the registry
+func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
+	for _, svc := range services {
+		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		for _, port := range svc.Ports {
+			if port.Protocol == ProtocolUDP {
+				continue
+			}
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+		}
+	}
 }
 
 // Caches list of virtual services
@@ -765,7 +783,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 }
 
-// InitSidecarScopes synthesizes Sidecar CRDs into objects called
+// initSidecarScopes synthesizes Sidecar CRDs into objects called
 // SidecarScope.  The SidecarScope object is a semi-processed view of the
 // service registry, and config state associated with the sidecar CRD. The
 // scope contains a set of inbound and outbound listeners, services/configs
@@ -777,7 +795,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // When proxies connect to Pilot, we identify the sidecar scope associated
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
-func (ps *PushContext) InitSidecarScopes(env *Environment) error {
+func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err

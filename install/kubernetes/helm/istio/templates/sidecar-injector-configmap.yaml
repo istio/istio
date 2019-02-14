@@ -185,6 +185,10 @@ data:
           value: |
                  {{ "[[ toJSON .ObjectMeta.Labels ]]" }}
         {{ "[[ end ]]" }}
+        {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
+        - name: ISTIO_BOOTSTRAP_OVERRIDE
+          value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
+        {{ "[[- end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
         readinessProbe:
@@ -224,6 +228,10 @@ data:
 {{- end }}
         {{ "[[ end -]]" }}
         volumeMounts:
+        {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
+        - mountPath: /etc/istio/custom-bootstrap
+          name: custom-bootstrap-volume
+        {{ "[[- end ]]" }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if ne .Values.global.sds.enabled true }}
@@ -251,6 +259,11 @@ data:
           {{ "[[ end ]]" }}
           {{ "[[- end ]]" }}
       volumes:
+      {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
+      - name: custom-bootstrap-volume
+        configMap:
+          name: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` `` ]]" }}
+      {{ "[[- end ]]" }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
