@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-	multierror "github.com/hashicorp/go-multierror"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/hashicorp/go-multierror"
+	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
@@ -88,7 +88,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 	}
 
 	// bag around the input proto that keeps track of reference attributes
-	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+	protoBag := attribute.GetProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
 	if s.cache != nil {
 		if value, ok := s.cache.Get(protoBag); ok {
@@ -273,7 +273,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 		switch req.RepeatedAttributesSemantics {
 		case mixerpb.DELTA_ENCODING:
 			if i == 0 {
-				protoBag = attribute.NewProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
+				protoBag = attribute.GetProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
 				accumBag = attribute.GetMutableBag(protoBag)
 				reportBag = attribute.GetMutableBag(accumBag)
 			} else {
@@ -292,7 +292,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 				continue
 			}
 		case mixerpb.INDEPENDENT_ENCODING:
-			protoBag = attribute.NewProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
+			protoBag = attribute.GetProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
 			reportBag = attribute.GetMutableBag(protoBag)
 			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
 				span.LogFields(otlog.String("error", err.Error()))
