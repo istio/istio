@@ -1038,16 +1038,15 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 }
 
 func applyCommonHttpProtocolOptions(env *model.Environment, cluster *v2.Cluster) {
-	IdleTimeout := &types.Duration{
-		Seconds: env.Mesh.IdleTimeout.Seconds,
-		Nanos:   env.Mesh.IdleTimeout.Nanos,
-	}
-	if IdleTimeout != nil {
-	    if cluster.CommonHttpProtocolOptions == nil {
+	if env.Mesh.IdleTimeout != nil {
+		MeshIdleTimeout := &types.Duration{
+			Seconds: env.Mesh.IdleTimeout.Seconds,
+			Nanos:   env.Mesh.IdleTimeout.Nanos,
+		}
+		if cluster.CommonHttpProtocolOptions == nil {
 			cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		}
-		cluster.CommonHttpProtocolOptions.IdleTimeout = util.GogoDurationToDuration(IdleTimeout)
+		IdleTimeout := util.GogoDurationToDuration(MeshIdleTimeout)
+		cluster.CommonHttpProtocolOptions.IdleTimeout = &IdleTimeout
 	}
 }
-
-
