@@ -12,24 +12,24 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package factory
+package environment
 
-import (
-	"fmt"
-
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
+const (
+	// Native environment name
+	Native Name = "native"
+	// Kube environment name
+	Kube Name = "kube"
 )
 
-// New returns a new environment instance.
-func New(name string, ctx environment.Context) (environment.Instance, error) {
-	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
-	case environment.Kube.String():
-		return kube.New(ctx)
-	default:
-		return nil, fmt.Errorf("unknown environment: %q", name)
+// Names of supported environments
+func Names() []Name {
+	return []Name{
+		Native,
+		Kube,
 	}
+}
+
+// DefaultName is the name of the default environment
+func DefaultName() Name {
+	return Native
 }

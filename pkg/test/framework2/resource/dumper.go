@@ -14,7 +14,8 @@
 
 package resource
 
-// Dumper is an interface that is implemented by all components that can dump their state.
+// Dumper is an interface that is implemented by all components that can dump their state. In CI, it is
+// useful to get as much context as possible when a test fails. Dumper allows dumping of state from a test.
 type Dumper interface {
 	Dump()
 }

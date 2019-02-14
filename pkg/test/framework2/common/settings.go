@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package common
 
 import (
 	"fmt"
@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	// MaxTestIDLength is the maximum length allowed for testID.
-	MaxTestIDLength = 30
+	// maxTestIDLength is the maximum length allowed for testID.
+	maxTestIDLength = 30
 )
 
-// settings is the set of arguments to the test driver.
+// Settings is the set of arguments to the test driver.
 type Settings struct {
 	// Name of the test
 	TestID string
@@ -54,7 +54,7 @@ func (s *Settings) RunDir() string {
 	u := strings.Replace(s.RunID.String(), "-", "", -1)
 	t := strings.Replace(s.TestID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
-	padding := MaxTestIDLength - len(t)
+	padding := maxTestIDLength - len(t)
 	if padding < 0 {
 		padding = 0
 	}
@@ -63,22 +63,16 @@ func (s *Settings) RunDir() string {
 	return path.Join(s.BaseDir, n)
 }
 
-// clone settings
+// Clone settings
 func (s *Settings) Clone() *Settings {
-	return &Settings{
-		TestID:      s.TestID,
-		RunID:       s.RunID,
-		Environment: s.Environment,
-		NoCleanup:   s.NoCleanup,
-		CIMode:      s.CIMode,
-		BaseDir:     s.BaseDir,
-	}
+	cl := *s
+	return &cl
 }
 
-// defaultSettings returns a default settings instance.
+// DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: environment.DefaultName(),
+		Environment: environment.DefaultName().String(),
 		RunID:       uuid.New(),
 	}
 }

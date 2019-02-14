@@ -63,8 +63,8 @@ func Deploy(context resource.Context) error {
 	}()
 
 	switch context.Environment().Name() {
-	case kube.Name:
-		s, err := newSettings()
+	case environment.Kube:
+		s, err := newSettings(context.Settings())
 		if err != nil {
 			return err
 		}
@@ -80,6 +80,12 @@ func Deploy(context resource.Context) error {
 }
 
 func deploy(s *settings, context resource.Context, env *kube.Environment) error {
+	scopes.CI.Infof("=== Istio Component Settings ===")
+	scopes.CI.Infof("\n%s", s.String())
+	scopes.CI.Infof("HUB: %s", HUB.Value())
+	scopes.CI.Infof("TAG: %s", TAG.Value())
+	scopes.CI.Infof("================================")
+
 	if !s.DeployIstio {
 		scopes.Framework.Info("skipping deployment due to settings")
 		return nil
@@ -111,10 +117,11 @@ func deploy(s *settings, context resource.Context, env *kube.Environment) error 
 	scopes.CI.Infof("Created Helm-generated Yaml file(s): %s, %s", installYamlFilePath, configureYamlFilePath)
 	instance := deployment.NewYamlDeployment(s.SystemNamespace, installYamlFilePath)
 
-	r := closerFromFn(func() error {
-		return instance.Delete(env.Accessor, true, retry.Timeout(s.DeployTimeout))
-	})
-	context.AddResource(r)
+	// TODO: There is a problem with cleanup. Re-enable this once it is fixed.
+	//r := closerFromFn(func() error {
+	//	return instance.Delete(env.Accessor, true, retry.Timeout(s.DeployTimeout))
+	//})
+	//context.TrackResource(r)
 
 	if err = instance.Deploy(env.Accessor, true, retry.Timeout(s.DeployTimeout)); err != nil {
 		return err
@@ -156,6 +163,7 @@ func renderIstioTemplate(helmDir string, s *settings, context resource.Context) 
 		return "", err
 	}
 
+	// TODO: The right path here.
 	renderedYaml, err := helm.Template(helmDir, s.ChartDir, "istio", s.SystemNamespace, "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio/"+s.ValuesFile, s.Values)
 	if err != nil {
 		return "", err
@@ -165,32 +173,6 @@ func renderIstioTemplate(helmDir string, s *settings, context resource.Context) 
 	renderedYaml = strings.Replace(renderedYaml, "IfNotPresent", "Always", -1)
 
 	return renderedYaml, nil
-	//
-	//
-	//e, ok := scope.Environment().(*kube.Environment)
-	//if !ok {
-	//	return fmt.Errorf("unsupported environment: %q", scope.Environment().Name())
-	//}
-	//
-	//d, err := deployment.NewHelmDeployment(deployment.HelmConfig{
-	//	Accessor:     e.Accessor,
-	//	Namespace:    s.SystemNamespace,
-	//	RunDir:      scope.RunDir(),
-	//	ChartDir:     env.IstioChartDir,
-	//	CrdsFilesDir: env.CrdsFilesDir,
-	//	ValuesFile:   s.ValuesFile,
-	//	Values:       s.Values,
-	//})
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//scope.AddResource(closerFromFn(func() error {
-	//	return d.Delete(e.Accessor, true, retry.Timeout(s.DeployTimeout))
-	//}))
-	//
-	//return d.Deploy(e.Accessor, true, retry.Timeout(s.DeployTimeout))
 }
 
 func splitIstioYaml(istioYaml string) (string, string) {

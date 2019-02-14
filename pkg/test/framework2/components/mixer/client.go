@@ -19,21 +19,19 @@ import (
 	"testing"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/framework2/components/environment"
 
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/kube"
 )
 
 const (
 	telemetryService = "telemetry"
 	policyService    = "policy"
-	localServiceName = "mixer"
 	grpcPortName     = "grpc-mixer"
 )
 
@@ -41,7 +39,7 @@ type client struct {
 	// Indicates that the component is running in local mode.
 	local bool
 
-	env api.Environment
+	env environment.Instance
 
 	conns      []*grpc.ClientConn
 	clients    map[string]istioMixerV1.MixerClient
@@ -60,31 +58,33 @@ type client struct {
 func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
 	t.Helper()
 
-	expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
-	if err != nil {
-		t.Fatalf("Error expanding attribute templates: %v", err)
-	}
-	attributes = expanded.(map[string]interface{})
+	// TODO
+	//expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
+	//if err != nil {
+	//	t.Fatalf("Error expanding attribute templates: %v", err)
+	//}
+	//attributes = expanded.(map[string]interface{})
 
 	req := istioMixerV1.ReportRequest{
 		Attributes: []istioMixerV1.CompressedAttributes{
 			getAttrBag(attributes)},
 	}
 
-	if _, err = c.clients[telemetryService].Report(context.Background(), &req); err != nil {
+	if _, err := c.clients[telemetryService].Report(context.Background(), &req); err != nil {
 		t.Fatalf("Error sending report: %v", err)
 	}
 }
 
 // Check implements DeployedMixer.Check.
-func (c *client) Check(t testing.TB, attributes map[string]interface{}) components.CheckResponse {
+func (c *client) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
 	t.Helper()
 
-	expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
-	if err != nil {
-		t.Fatalf("Error expanding attribute templates: %v", err)
-	}
-	attributes = expanded.(map[string]interface{})
+	// TODO
+	//expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
+	//if err != nil {
+	//	t.Fatalf("Error expanding attribute templates: %v", err)
+	//}
+	//attributes = expanded.(map[string]interface{})
 
 	req := istioMixerV1.CheckRequest{
 		Attributes: getAttrBag(attributes),
@@ -95,7 +95,7 @@ func (c *client) Check(t testing.TB, attributes map[string]interface{}) componen
 		t.Fatalf("Error sending check: %v", err)
 	}
 
-	return components.CheckResponse{
+	return CheckResponse{
 		Raw: response,
 	}
 }

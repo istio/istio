@@ -20,48 +20,50 @@ import (
 
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
+	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 func TestConversion(t *testing.T) {
-	framework2.Run(t, func(s *runtime.TestContext) {
+	ctx := framework2.NewContext(t)
+	defer ctx.Done(t)
 
-		// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-		// component
-		s.RequireEnvironmentOrSkip(native.Name)
+	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
+	// component
+	ctx.RequireOrSkip(t, environment.Native)
 
-		dataset, err := testdata.Load()
-		if err != nil {
-			t.Fatalf("Error loading data set: %v", err)
-		}
+	dataset, err := testdata.Load()
+	if err != nil {
+		t.Fatalf("Error loading data set: %v", err)
+	}
 
-		for _, d := range dataset {
-			s.Run(d.TestName(), func(s *runtime.TestContext) {
-				if d.Skipped {
-					s.T().SkipNow()
-					return
+	for _, d := range dataset {
+		t.Run(d.TestName(), func(t *testing.T) {
+			if d.Skipped {
+				t.SkipNow()
+				return
+			}
+
+			ctx := framework2.NewContext(t)
+			defer ctx.Done(t)
+
+			gal := galley.NewOrFail(t, ctx)
+
+			for i, fset := range d.FileSets() {
+				testName := d.TestName()
+				if len(d.FileSets()) != 1 {
+					runTest(t, fset, gal)
+					testName = fmt.Sprintf("%d", i)
 				}
-
-				gal := galley.NewOrFail(s)
-
-				for i, fset := range d.FileSets() {
-					testName := d.TestName()
-					if len(d.FileSets()) != 1 {
-						runTest(s.T(), fset, gal)
-						testName = fmt.Sprintf("%s_%d", d.TestName(), i)
-					}
-					t.Run(testName, func(t *testing.T) {
-						runTest(s.T(), fset, gal)
-					})
-				}
-			})
-		}
-	})
+				t.Run(testName, func(t *testing.T) {
+					runTest(t, fset, gal)
+				})
+			}
+		})
+	}
 }
 
-func runTest(t testing.TB, fset *testdata.FileSet, gal galley.Instance) {
+func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	input, err := fset.LoadInputFile()
 	if err != nil {
 		t.Fatalf("Unable to load input test data: %v", err)

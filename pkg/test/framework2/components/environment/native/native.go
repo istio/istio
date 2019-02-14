@@ -18,11 +18,6 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 
-const (
-	// Name of the environment
-	Name = "native"
-)
-
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
@@ -41,6 +36,6 @@ func New(_ environment.Context) (environment.Instance, error) {
 }
 
 // Type implements environment.Instance
-func (e *Environment) Name() string {
-	return Name
+func (e *Environment) Name() environment.Name {
+	return environment.Native
 }

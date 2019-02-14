@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 func TestBasic(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 
-		gl := galley.NewOrFail(s)
+		gl := galley.NewOrFail(t, s)
 		mx := mixer.NewOrFail(s, gl)
 
 		gl.ApplyConfig(`
@@ -47,7 +47,7 @@ spec:
    target_ip: destination.name | "mytarget"`)
 
 		// As an example, the following method calls the Report operation against Mixer's own API directly.
-		mx.Report(s.T(), map[string]interface{}{})
+		mx.Report(t, map[string]interface{}{})
 	})
 }
 

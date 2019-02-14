@@ -133,7 +133,7 @@ func (e *Environment) SystemNamespace() string {
 	return e.systemNamespace.allocatedName
 }
 
-// SuiteNamespace namespace used for non-system components that have Suite scope.
+// SuiteNamespace namespace used for non-system components that have context scope.
 func (e *Environment) SuiteNamespace() string {
 	return e.suiteNamespace.allocatedName
 }

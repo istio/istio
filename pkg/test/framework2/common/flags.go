@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package common
 
 import (
 	"flag"
@@ -26,8 +26,9 @@ var (
 	settingsFromCommandLine = DefaultSettings()
 )
 
-// SettingsFromCommandLine returns settings obtained from command-line flags. flag.Parse must be called before calling this function.
-func SettingsFromCommandline(testID string) *Settings {
+// SettingsFromCommandLine returns settings obtained from command-line flags. flag.Parse must be called before
+// calling this function.
+func SettingsFromCommandLine(testID string) *Settings {
 	if !flag.Parsed() {
 		panic("flag.Parse must be called before this function")
 	}
