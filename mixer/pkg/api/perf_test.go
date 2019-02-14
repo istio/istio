@@ -112,6 +112,10 @@ func (bs *benchState) cleanupBenchState() {
 	bs.deleteGRPCServer()
 }
 
+func (ts *benchState) HasCheckDestinations(ctx context.Context, req attribute.Bag) bool {
+	return true
+}
+
 func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 	return nil
 }

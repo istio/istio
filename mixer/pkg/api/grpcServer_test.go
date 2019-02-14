@@ -164,6 +164,10 @@ func (ts *testState) Preprocess(ctx context.Context, req attribute.Bag, resp *at
 	return ts.preproc(ctx, req, resp)
 }
 
+func (ts *testState) HasCheckDestinations(ctx context.Context, req attribute.Bag) bool {
+	return true
+}
+
 func TestCheck(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {

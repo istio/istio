@@ -121,8 +121,9 @@ const (
 
 func (d *Impl) HasCheckDestinations(ctx context.Context, bag attribute.Bag) bool {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
-	destinations := s.rc.Routes.GetDestinations(s.variety, getIdentityNamespace(s.bag))
-	return destinations.Count() > 0
+	destinations := s.rc.Routes.GetDestinations(s.variety, getIdentityNamespace(s.bag)).Count()
+	d.putSession(s)
+	return destinations > 0
 }
 
 // Check implementation of runtime.Impl.

@@ -119,18 +119,6 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 		}
 	}
 
-	if !s.dispatcher.HasCheckDestinations(ctx, protoBag) {
-		protoBag.Get("destination.uid") // should always be set; make it referenced for cache-key construction
-		return &mixerpb.CheckResponse{
-			Precondition: mixerpb.CheckResponse_PreconditionResult{
-				Status:               status.OK,
-				ValidDuration:        24 * time.Hour, // TODO: make configurable?
-				ValidUseCount:        math.MaxInt32,
-				ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, int(req.GlobalWordCount)),
-			},
-		}, nil
-	}
-
 	// This holds the output state of preprocess operations
 	checkBag := attribute.GetMutableBag(protoBag)
 
@@ -155,6 +143,20 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 
 	lg.Debug("Dispatching to main adapters after running processors")
 	lg.Debuga("Attribute Bag: \n", checkBag)
+
+	if !s.dispatcher.HasCheckDestinations(ctx, checkBag) {
+		protoBag.ClearReferencedAttributes()
+		protoBag.Get("destination.uid") // should always be set; make it referenced for cache-key construction
+		return &mixerpb.CheckResponse{
+			Precondition: mixerpb.CheckResponse_PreconditionResult{
+				Status:               status.OK,
+				ValidDuration:        5 * time.Minute, // TODO: make configurable?
+				ValidUseCount:        math.MaxInt32,
+				ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, int(req.GlobalWordCount)),
+			},
+		}, nil
+	}
+
 	lg.Debug("Dispatching Check")
 
 	// snapshot the state after we've called the APAs so that we can reuse it
