@@ -47,6 +47,12 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
+			name:              "UNREACHABLE_bing.com_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "http://www.bing.com",
+			shouldBeReachable: false,
+		},
+		{
 			name:              "REACHABLE_www.bing.com_over_bing_wildcard_80",
 			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
 			url:               "http://www.bing.com",
@@ -58,19 +64,24 @@ func TestServiceEntry(t *testing.T) {
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
-		// See issue https://github.com/istio/istio/issues/7869
-		//{
-		//	name:              "REACHABLE_wikipedia.org_over_cidr_range",
-		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
-		//	url:               "https://www.wikipedia.org",
-		//	shouldBeReachable: true,
-		//},
-		//{
-		//	name:              "UNREACHABLE_google.com_over_cidr_range",
-		//	config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
-		//	url:               "https://google.com",
-		//	shouldBeReachable: false,
-		//},
+		{
+			name:              "UNREACHABLE_bing.com_over_bing_wildcard_443",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			url:               "https://www.bing.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_wikipedia.org_over_cidr_range",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_google.com_over_cidr_range",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			url:               "https://google.com",
+			shouldBeReachable: false,
+		},
 		{
 			name:              "REACHABLE_en.wikipedia.org_over_wikipedia_wildcard",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
@@ -87,6 +98,42 @@ func TestServiceEntry(t *testing.T) {
 			name:              "UNREACHABLE_www.wikipedia.org_over_wikipedia_wildcard",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
 			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_en.wikipedia.org_no_vs_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "https://en.wikipedia.org/wiki/Main_Page",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_de.wikipedia.org_no_vs_over_wikipedia_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "https://de.wikipedia.org/wiki/Wikipedia:Hauptseite",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.wikipedia.org_no_vs_over_wikipedia_wildcard_80",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "http://www.wikipedia.org",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_no_vs_over_wikipedia_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_no_vs_over_wikipedia_wildcard_80",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia-no-vs.yaml",
+			url:               "http://www.google.org",
 			shouldBeReachable: false,
 		},
 	}

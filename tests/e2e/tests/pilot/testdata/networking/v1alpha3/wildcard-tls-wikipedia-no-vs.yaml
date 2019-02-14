@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: wikipedia_no_vs
+spec:
+  hosts:
+  - "*.wikipedia.org"
+  endpoints:
+  - address: wikipedia.org
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+    - number: 443
+      name: https
+      protocol: TLS
