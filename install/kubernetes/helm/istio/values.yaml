@@ -11,6 +11,12 @@ global:
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
+
+  # Gateway used for legacy k8s Ingress resources. By default it is
+  # using 'istio:ingress', to match 0.8 config. It requires that
+  # ingress.enabled is set to true. You can also set it
+  # to ingressgateway, or any other gateway you define in the 'gateway'
+  # section.
   k8sIngress:
     enabled: false
     # Gateway used for legacy k8s Ingress resources. By default it is
