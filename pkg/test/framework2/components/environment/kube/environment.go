@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/framework2/runtime"
@@ -82,7 +83,7 @@ func (e *Environment) NewNamespaceOrFail(t *testing.T, s *runtime.TestContext, p
 
 // NewNamespace allocates a new testing namespace.
 func (e *Environment) NewNamespace(s resource.Context, prefix string, inject bool) (*Namespace, error) {
-	ns := fmt.Sprintf("%s-%s", prefix, s.Settings().RunID.String()) // TODO: use RunID
+	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}

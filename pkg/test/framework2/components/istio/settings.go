@@ -144,7 +144,7 @@ func newSettings(c *common.Settings) (*settings, error) {
 		return nil, err
 	}
 
-	if c.CIMode() {
+	if c.CIMode {
 		s.DeployTimeout = DefaultDeployTimeout
 		s.UndeployTimeout = DefaultUndeployTimeout
 	} else {

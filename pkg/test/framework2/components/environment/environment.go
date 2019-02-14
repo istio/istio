@@ -18,26 +18,6 @@ import (
 	"fmt"
 )
 
-const (
-	// Native environment name
-	Native Name = "native"
-	// Kube environment name
-	Kube Name = "kube"
-)
-
-// Names of supported environments
-func Names() []Name {
-	return []Name{
-		Native,
-		Kube,
-	}
-}
-
-// DefaultName is the name of the default environment
-func DefaultName() Name {
-	return Native
-}
-
 // FactoryFn is used to create a new environment.
 type FactoryFn func(string, Context) (Instance, error)
 

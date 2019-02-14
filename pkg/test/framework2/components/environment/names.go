@@ -15,23 +15,21 @@
 package environment
 
 const (
-	// Native environment
-	Native = "native"
-
-	// Kube environment
-	Kube   = "kube"
+	// Native environment name
+	Native Name = "native"
+	// Kube environment name
+	Kube Name = "kube"
 )
 
-// Names of known environments.
-func Names() []string {
-	return []string {
+// Names of supported environments
+func Names() []Name {
+	return []Name{
 		Native,
 		Kube,
 	}
 }
 
-// DefaultName is the name of the default environment.
-func DefaultName() string {
+// DefaultName is the name of the default environment
+func DefaultName() Name {
 	return Native
 }
-

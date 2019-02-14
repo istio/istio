@@ -64,7 +64,7 @@ func Deploy(context resource.Context) error {
 
 	switch context.Environment().Name() {
 	case environment.Kube:
-		s, err := newSettings()
+		s, err := newSettings(context.Settings())
 		if err != nil {
 			return err
 		}
