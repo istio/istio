@@ -67,9 +67,6 @@ const (
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
 
-	checkPath  = "/istio.mixer.v1.Mixer/Check"
-	reportPath = "/istio.mixer.v1.Mixer/Report"
-
 	testRetryTimes = 5
 
 	redisInstallDir  = "stable/redis"
