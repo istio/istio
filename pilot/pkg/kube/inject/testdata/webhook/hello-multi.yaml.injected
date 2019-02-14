@@ -81,7 +81,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v1"}
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-release/proxyv2:release-1.1-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -127,7 +127,7 @@ spec:
         - "80"
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-release/proxy_init:release-1.1-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -235,7 +235,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v2"}
-        image: gcr.io/istio-release/proxyv2:master-latest-daily
+        image: gcr.io/istio-release/proxyv2:release-1.1-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -281,7 +281,7 @@ spec:
         - "81"
         - -d
         - "15020"
-        image: gcr.io/istio-release/proxy_init:master-latest-daily
+        image: gcr.io/istio-release/proxy_init:release-1.1-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
