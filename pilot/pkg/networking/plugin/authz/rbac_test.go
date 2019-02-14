@@ -616,8 +616,20 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-
-		generateSimpleServiceRoleBindingAllGroups("service-role-9", "service-role-binding-9"),
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-9"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Ips: []string{"10.38.25.152", "10.48.1.18"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-9",
+				},
+			},
+		},
 		generateSimpleServiceRoleBindingAllGroups("service-role-10", "service-role-binding-10"),
 		generateSimpleServiceRoleBindingAllGroups("service-role-11", "service-role-binding-11"),
 		generateSimpleServiceRoleBindingAllGroups("service-role-12", "service-role-binding-12"),
@@ -1048,9 +1060,27 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
-									[]string{attrRequestClaims, "groups"}, "group*"),
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_SourceIp{
+												SourceIp: &core.CidrRange{
+													AddressPrefix: "10.38.25.152",
+													PrefixLen:     &types.UInt32Value{Value: 32},
+												},
+											},
+										},
+										{
+											Identifier: &policy.Principal_SourceIp{
+												SourceIp: &core.CidrRange{
+													AddressPrefix: "10.48.1.18",
+													PrefixLen:     &types.UInt32Value{Value: 32},
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
