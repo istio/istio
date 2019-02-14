@@ -4,10 +4,11 @@ metadata:
   name: wildcardgoogletls
 spec:
   hosts:
-  - "*.google.co.*"
+  - "*.google.co.uk"
+  - "*.google.co.in"
   endpoints:
   - address: google.co.uk
-  - address: google.co.in
+  - address: google.co.in  
   location: MESH_EXTERNAL
   resolution: DNS
   ports:

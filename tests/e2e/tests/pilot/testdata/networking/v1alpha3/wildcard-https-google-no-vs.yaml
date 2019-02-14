@@ -4,10 +4,8 @@ metadata:
   name: wildcardgooglenovs
 spec:
   hosts:
-  - "*.google.co.*"
-  endpoints:
-  - address: google.co.uk
-  - address: google.co.in
+  - "*.google.co.uk"
+  - "*.google.co.in"
   location: MESH_EXTERNAL
   resolution: DNS
   ports:

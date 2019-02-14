@@ -4,7 +4,8 @@ metadata:
   name: wildcardgoogle
 spec:
   hosts:
-  - "*.google.co.*"
+  - "*.google.co.uk"
+  - "*.google.co.in"
   endpoints:
   - address: google.co.uk
   - address: google.co.in
