@@ -27,13 +27,14 @@ mixer:
     autoscaleEnabled: false
   telemetry:
     enabled: true
-    loadsheddingMode: disabled
+    loadshedding:
+      mode: disabled
   adapters:
     stdio:
       enabled: true
   resources:
       requests:
-        cpu: 10m
+        cpu: 50m
         memory: 100Mi
       limits:
         cpu: 100m

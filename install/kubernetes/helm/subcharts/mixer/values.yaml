@@ -18,15 +18,18 @@ telemetry:
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
-  autoscaleMax: 15
+  autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
   sessionAffinityEnabled: false
 
-  # based on measurements 50ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
-  averageLatencyThreshold: 75ms
-  # disabled, logonly or enforce
-  loadsheddingMode: logonly
+  # mixer load shedding configuration.
+  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+  loadshedding:
+    # disabled, logonly or enforce
+    mode: logonly
+    # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
+    latencyThreshold: 100ms
 
 podAnnotations: {}
 nodeSelector: {}
@@ -42,5 +45,3 @@ adapters:
     metricsExpiryDuration: 10m
   # Setting this to false sets the useAdapterCRDs mixer startup argument to false
   useAdapterCRDs: true
-
-
