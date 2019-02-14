@@ -2,7 +2,7 @@
 
 global:
   proxy:
-    concurrency: 1
+    concurrency: 0
     resources:
       requests:
         cpu: 10m
@@ -37,6 +37,8 @@ mixer:
     stdio:
       enabled: true
   resources:
+      requests:
+        cpu: 10m
       limits:
         cpu: 100m
         memory: 100Mi
