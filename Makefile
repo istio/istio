@@ -731,6 +731,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
+		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -743,6 +744,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
+		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-non-mcp.yaml
@@ -754,6 +756,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set global.useMCP=false \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
+		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-non-mcp.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-non-mcp.yaml
@@ -767,6 +770,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set global.useMCP=false \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
+		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-non-mcp.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-sds.yaml

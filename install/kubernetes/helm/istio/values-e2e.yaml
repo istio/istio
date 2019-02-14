@@ -22,11 +22,6 @@ gateways:
 
 mixer:
   policy:
-    replicaCount: 2
-    autoscaleEnabled: false
-
-mixer:
-  policy:
     enabled: true
     replicaCount: 2
     autoscaleEnabled: false
