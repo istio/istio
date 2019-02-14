@@ -15,7 +15,7 @@
 package galley
 
 import (
-	"fmt"
+	"testing"
 
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
@@ -25,6 +25,9 @@ import (
 
 // Instance of Galley
 type Instance interface {
+	// Address of the Galley MCP Server.
+	Address() string
+
 	// ApplyConfig applies the given config yaml file via Galley.
 	ApplyConfig(yamlText string) error
 
@@ -40,9 +43,8 @@ type Instance interface {
 
 // New returns a new Galley instance.
 func New(s resource.Context) (Instance, error) {
-	fmt.Printf("---- New\n")
 	switch s.Environment().Name() {
-		case native.Name:
+		case environment.Native:
 			return newNative(s, s.Environment().(*native.Environment))
 		default:
 			return nil, environment.UnsupportedEnvironment(s.Environment().Name())
@@ -50,10 +52,11 @@ func New(s resource.Context) (Instance, error) {
 }
 
 // NewOrFail returns a new Galley instance, or fails.
-func NewOrFail(c *runtime.TestContext) (Instance) {
+func NewOrFail(t *testing.T, c *runtime.TestContext) (Instance) {
+	t.Helper()
 	i, err := New(c)
 	if err != nil {
-		c.T().Fatalf("Error creating Galley: %v", err)
+		t.Fatalf("Error creating Galley: %v", err)
 	}
 
 	return i

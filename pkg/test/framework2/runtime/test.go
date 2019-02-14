@@ -20,6 +20,7 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -27,9 +28,6 @@ import (
 
 // TestContext for the currently executing test.
 type TestContext struct {
-	// testing.T for this context
-	t *testing.T
-
 	// suite-level context
 	suite *SuiteContext
 
@@ -49,44 +47,29 @@ func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestCont
 	}
 
 	return &TestContext{
-		t:       t,
 		suite:   s,
 		scope:   newScope(parentScope),
 		workDir: workDir,
 	}
 }
 
-// Run starts a new sub-test with the given name. It replaces testing.T.Run(...).
-func (c *TestContext) Run(name string, fn func(s *TestContext)) {
-	c.t.Helper()
-	c.t.Run(name, func(t *testing.T) {
-		child := c.newChild(t)
-		defer child.done()
-		fn(child)
-	})
+// Settings returns the current runtime.Settings.
+func (s *TestContext) Settings() *common.Settings {
+	return s.suite.settings
 }
 
-// AddResource adds a new resource to track to the context at this level.
-func (c *TestContext) AddResource(r interface{}) {
-	c.t.Helper()
+// TrackResource adds a new resource to track to the context at this level.
+func (c *TestContext) TrackResource(r interface{}) {
 	c.scope.add(r)
 }
 
 // RunDir allocated for this test.
 func (c *TestContext) WorkDir() string {
-	c.t.Helper()
 	return c.workDir
-}
-
-// T returns *testing.T for this test.
-func (c *TestContext) T() *testing.T {
-	c.t.Helper()
-	return c.t
 }
 
 // Environment returns the environment
 func (c *TestContext) Environment() environment.Instance {
-	c.t.Helper()
 	return c.suite.environment
 }
 
@@ -104,20 +87,21 @@ func (c *TestContext) CreateTmpDirectory(prefix string) (string, error) {
 }
 
 // CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix, or fails the test.
-func (c *TestContext) CreateTmpDirectoryOrFail(prefix string) string {
-	c.t.Helper()
-	t, err := c.CreateTmpDirectory(prefix)
+func (c *TestContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) string {
+	t.Helper()
+
+	tmp, err := c.CreateTmpDirectory(prefix)
 	if err != nil {
-		c.t.Fatalf("Error creating temp directory with prefix %q: %v", prefix, err)
+		t.Fatalf("Error creating temp directory with prefix %q: %v", prefix, err)
 	}
-	return t
+	return tmp
 }
 
-// RequireEnvironmentOrSkip skips the test if the environment is not as expected.
-func (c *TestContext) RequireEnvironmentOrSkip(envName string) {
-	c.t.Helper()
+// RequireOrSkip skips the test if the environment is not as expected.
+func (c *TestContext) RequireOrSkip(t *testing.T, envName environment.Name) {
+	t.Helper()
 	if c.Environment().Name() != envName {
-		c.t.Skipf("Skipping %q: expected environment not found: %s", c.t.Name(), envName)
+		t.Skipf("Skipping %q: expected environment not found: %s", t.Name(), envName)
 	}
 }
 
@@ -126,8 +110,8 @@ func (c *TestContext) newChild(t *testing.T) *TestContext {
 }
 
 // Done should be called when this scope is cleaned up.
-func (c *TestContext) done() {
+func (c *TestContext) Done(t *testing.T) {
 	if err := c.scope.done(c.suite.settings.NoCleanup); err != nil {
-		c.t.Fatalf("error scope cleanup: %v", err)
+		t.Fatalf("error scope cleanup: %v", err)
 	}
 }

@@ -14,11 +14,15 @@
 
 package resource
 
-import "istio.io/istio/pkg/test/framework2/components/environment"
+import (
+	"istio.io/istio/pkg/test/framework2/common"
+	"istio.io/istio/pkg/test/framework2/components/environment"
+)
 
 // Context is an interface that is used by resources.
 type Context interface {
-	AddResource(r interface{})
+	TrackResource(r interface{})
 	Environment() environment.Instance
 	CreateTmpDirectory(prefix string) (string, error)
+	Settings() *common.Settings
 }

@@ -25,9 +25,9 @@ import (
 // New returns a new environment instance.
 func New(name string, ctx environment.Context) (environment.Instance, error) {
 	switch name {
-	case native.Name:
+	case environment.Native.String():
 		return native.New(ctx)
-	case kube.Name:
+	case environment.Kube.String():
 		return kube.New(ctx)
 	default:
 		return nil, fmt.Errorf("unknown environment: %q", name)

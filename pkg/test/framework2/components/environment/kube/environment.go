@@ -16,8 +16,8 @@ package kube
 
 import (
 	"fmt"
+	"testing"
 
-	"github.com/google/uuid"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/framework2/runtime"
@@ -30,11 +30,6 @@ import (
 //	validatingWebhookName = "istio-galley"
 //)
 
-const (
-	// Name of the environment
-	Name = "kube"
-)
-
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
@@ -45,8 +40,8 @@ type Environment struct {
 var _ environment.Instance = &Environment{}
 
 // Name implements environment.Instance
-func (e *Environment) Name() string {
-	return Name
+func (e *Environment) Name() environment.Name {
+	return environment.Kube
 }
 
 // New returns a new Kubernetes environment
@@ -76,30 +71,30 @@ func newKube(s *settings, c environment.Context) (*Environment, error) {
 }
 
 // NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) NewNamespaceOrFail(s *runtime.TestContext, prefix string, inject bool) Namespace {
-	s.T().Helper()
+func (e *Environment) NewNamespaceOrFail(t *testing.T, s *runtime.TestContext, prefix string, inject bool) *Namespace {
+	t.Helper()
 	n, err := e.NewNamespace(s, prefix, inject)
 	if err != nil {
-		s.T().Fatalf("error creating namespace with prefix %q: %v", prefix, err)
+		t.Fatalf("error creating namespace with prefix %q: %v", prefix, err)
 	}
 	return n
 }
 
 // NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(s resource.Context, prefix string, inject bool) (Namespace, error) {
-	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String()) // TODO: use RunID
+func (e *Environment) NewNamespace(s resource.Context, prefix string, inject bool) (*Namespace, error) {
+	ns := fmt.Sprintf("%s-%s", prefix, s.Settings().RunID.String()) // TODO: use RunID
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
-		return Namespace{}, err
+		return nil, err
 	}
 
-	n := Namespace{ns, e.Accessor}
-	s.AddResource(n)
+	n := &Namespace{ns, e.Accessor}
+	s.TrackResource(n)
 
 	return n, nil
 }
 
 // ApplyContents applies the given yaml contents to the namespace.
-func (e *Environment) ApplyContents(ns Namespace, yml string) error {
+func (e *Environment) ApplyContents(ns *Namespace, yml string) error {
 	_, err := e.Accessor.ApplyContents(ns.ns, yml)
 	return err
 }

@@ -16,10 +16,13 @@ package mixer
 
 import (
 	"testing"
+	"time"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
+	"istio.io/istio/pkg/test/framework2/components/policybackend"
 	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
@@ -27,8 +30,31 @@ func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 		gal := galley.NewOrFail(s)
 		mxr := mixer.NewOrFail(s, gal)
-		be := policyBackend.NewOrFail(s, mxr)
+		be := policybackend.NewOrFail(s)
 
+		gal.ApplyConfig(
+			test.JoinConfigs(
+				testCheckConfig,
+				be.CreateConfigSnippet("handler1"),
+			))
+
+		// Prime the policy backend's behavior. It should deny all check requests.
+		// This is not strictly necessary, but it is done so for posterity.
+		be.DenyCheck(t, false)
+
+		result := mxr.Check(t, map[string]interface{}{
+			"context.protocol":      "http",
+			"destination.name":      "somesrvcname",
+			"destination.namespace": "{{.TestNamespace}}",
+			"response.time":         time.Now(),
+			"request.time":          time.Now(),
+			"destination.service":   `svc.{{.TestNamespace}}`,
+			"origin.ip":             []byte{1, 2, 3, 4},
+		})
+
+		if !result.Succeeded() {
+			t.Fatalf("Check failed: %v", result.Raw)
+		}
 	})
 	//
 	//ctx := framework.GetContext(t)
@@ -44,23 +70,7 @@ func TestCheck_Allow(t *testing.T) {
 	//		be.CreateConfigSnippet("handler1"),
 	//	))
 	//
-	//// Prime the policy backend's behavior. It should deny all check requests.
-	//// This is not strictly necessary, but it is done so for posterity.
-	//be.DenyCheck(t, false)
-	//
-	//result := mxr.Check(t, map[string]interface{}{
-	//	"context.protocol":      "http",
-	//	"destination.name":      "somesrvcname",
-	//	"destination.namespace": "{{.TestNamespace}}",
-	//	"response.time":         time.Now(),
-	//	"request.time":          time.Now(),
-	//	"destination.service":   `svc.{{.TestNamespace}}`,
-	//	"origin.ip":             []byte{1, 2, 3, 4},
-	//})
-	//
-	//if !result.Succeeded() {
-	//	t.Fatalf("Check failed: %v", result.Raw)
-	//}
+
 }
 
 func TestCheck_Deny(t *testing.T) {

@@ -183,7 +183,7 @@ func TestRequireGreaterScopeThanExistingComponentFails(t *testing.T) {
 	m.assertCount(1)
 	m.assertDescriptor(a, lifecycle.Test)
 
-	// Now create a with Suite scope
+	// Now create a with context scope
 	expect(t).resolutionError(m.Require(lifecycle.Suite, &a))
 }
 
@@ -192,7 +192,7 @@ func TestRequireLesserScopeThanExistingComponentSucceeds(t *testing.T) {
 
 	a := m.registerDefault(aID)
 
-	// First create a with Suite scope
+	// First create a with context scope
 	m.RequireOrFail(t, lifecycle.Suite, &a)
 	m.assertCount(1)
 	m.assertDescriptor(a, lifecycle.Suite)
@@ -237,7 +237,7 @@ func TestDependencyWithGreaterScopeSucceeds(t *testing.T) {
 	a := m.registerDefault(aID, &bID)
 	b := m.registerDefault(bID)
 
-	// Create b with Suite scope.
+	// Create b with context scope.
 	m.RequireOrFail(t, lifecycle.Suite, &b)
 	m.assertCount(1)
 	m.assertDescriptor(b, lifecycle.Suite)
@@ -259,7 +259,7 @@ func TestDependencyWithLesserScopeFails(t *testing.T) {
 	m.assertCount(1)
 	m.assertDescriptor(b, lifecycle.Test)
 
-	// Now create a with Suite scope.
+	// Now create a with context scope.
 	expect(t).resolutionError(m.Require(lifecycle.Suite, &a))
 }
 

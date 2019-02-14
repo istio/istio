@@ -17,39 +17,46 @@ package runtime
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 
 // Instance for the test environment.
 type Instance struct {
-	Suite *SuiteContext
+	context *SuiteContext
 }
 
 // New returns a new runtime instance.
-func New(s *Settings, fn environment.FactoryFn) (*Instance, error) {
+func New(s *common.Settings, fn environment.FactoryFn) (*Instance, error) {
 	ctx, err := newSuiteContext(s, fn)
 	if err != nil {
 		return nil, err
 	}
 	return &Instance{
-		Suite: ctx,
+		context: ctx,
 	}, nil
-}
-
-// RunTest executes a test.
-func (i *Instance) RunTest(t *testing.T, fn func(*TestContext)) {
-	ctx := newTestContext(i.Suite, nil, t)
-	defer ctx.done()
-
-	fn(ctx)
 }
 
 // Dump state for all allocated resources.
 func (i *Instance) Dump() {
-	i.Suite.globalScope.dump()
+	i.context.globalScope.dump()
+}
+
+// SuiteContext returns the SuiteContext.
+func (i *Instance) SuiteContext() *SuiteContext {
+	return i.context
+}
+
+// NewTestContext creates and returns a new TestContext
+func (i *Instance) NewTestContext(parentContext *TestContext, t *testing.T) *TestContext {
+	var parentScope *scope
+	if parentContext != nil {
+		parentScope = parentContext.scope
+	}
+	return newTestContext(i.context, parentScope, t)
 }
 
 // Close implements io.Closer
 func (i *Instance) Close() error {
-	return i.Suite.globalScope.done(i.Suite.settings.NoCleanup)
+	return i.context.globalScope.done(i.context.settings.NoCleanup)
 }

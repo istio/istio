@@ -17,6 +17,7 @@ package runtime
 import (
 	"io/ioutil"
 
+	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -24,16 +25,16 @@ import (
 
 // SuiteContext contains suite-level items used during runtime.
 type SuiteContext struct {
-	settings    *Settings
+	settings    *common.Settings
 	environment environment.Instance
 
-	// Suite-level resources
+	// context-level resources
 	globalScope *scope
 }
 
 var _ resource.Context = &SuiteContext{}
 
-func newSuiteContext(s *Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
+func newSuiteContext(s *common.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
 	c := &SuiteContext{
 		settings:    s,
 		globalScope: newScope(nil),
@@ -49,8 +50,8 @@ func newSuiteContext(s *Settings, envFn environment.FactoryFn) (*SuiteContext, e
 	return c, nil
 }
 
-// AddResource adds a new resource to track to the context at this level.
-func (s *SuiteContext) AddResource(r interface{}) {
+// TrackResource adds a new resource to track to the context at this level.
+func (s *SuiteContext) TrackResource(r interface{}) {
 	s.globalScope.add(r)
 }
 
@@ -60,8 +61,8 @@ func (s *SuiteContext) Environment() environment.Instance {
 }
 
 // Settings returns the current runtime.Settings.
-func (s *SuiteContext) Settings() Settings {
-	return *s.settings
+func (s *SuiteContext) Settings() *common.Settings {
+	return s.settings
 }
 
 func (s *SuiteContext) done() error {

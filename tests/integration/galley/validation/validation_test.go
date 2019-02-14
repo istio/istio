@@ -61,54 +61,57 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
-	framework2.Run(t, func(s *runtime.TestContext) {
+	ctx := framework2.NewContext(t)
+	defer ctx.Done(t)
 
-		s.RequireEnvironmentOrSkip(environment.NameKube)
+	// Validation tests only works in Kubernetes environment
+	ctx.RequireOrSkip(t, environment.Kube)
 
-		dataset := loadTestData(t)
+	dataset := loadTestData(t)
 
-		denied := func(err error) bool {
-			if err == nil {
-				return false
+	denied := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		return strings.Contains(err.Error(), "denied the request")
+	}
+
+	for _, d := range dataset {
+		t.Run(string(d), func(t *testing.T) {
+			if d.isSkipped() {
+				t.SkipNow()
+				return
 			}
-			return strings.Contains(err.Error(), "denied the request")
-		}
 
-		for _, d := range dataset {
-			s.Run(string(d), func(s *runtime.TestContext) {
-				if d.isSkipped() {
-					s.T().SkipNow()
-					return
+			ctx := framework2.NewContext(t)
+			defer ctx.Done(t)
+
+			yml, err := d.load()
+			if err != nil {
+				t.Fatalf("Unable to load test data: %v", err)
+			}
+
+			env := ctx.Environment().(*kube.Environment)
+			ns := env.NewNamespaceOrFail(t, ctx, "validation", false)
+			err = env.ApplyContents(ns, yml)
+
+			switch {
+			case err != nil && d.isValid():
+				if denied(err) {
+					t.Fatalf("got unexpected for valid config: %v", err)
+				} else {
+					t.Fatalf("got unexpected unknown error for valid config: %v", err)
 				}
-
-				yml, err := d.load()
-				if err != nil {
-					s.T().Fatalf("Unable to load test data: %v", err)
+			case err == nil && !d.isValid():
+				t.Fatalf("got unexpected success for invalid config")
+			case err != nil && !d.isValid():
+				if !denied(err) {
+					t.Fatalf("config request denied for wrong reason: %v", err)
 				}
-
-				kubeEnv := s.Environment().(*kube.Environment)
-				ns := kubeEnv.NewNamespaceOrFail(s, "validation", false)
-				err = kubeEnv.ApplyContents(ns, yml)
-
-				switch {
-				case err != nil && d.isValid():
-					if denied(err) {
-						s.T().Fatalf("got unexpected for valid config: %v", err)
-					} else {
-						s.T().Fatalf("got unexpected unknown error for valid config: %v", err)
-					}
-				case err == nil && !d.isValid():
-					s.T().Fatalf("got unexpected success for invalid config")
-				case err != nil && !d.isValid():
-					if !denied(err) {
-						s.T().Fatalf("config request denied for wrong reason: %v", err)
-					}
-				}
-			})
-		}
-	})
+			}
+		})
+	}
 }
-
 
 func TestMain(m *testing.M) {
 	framework2.RunSuite("galley_validation", m, setup)

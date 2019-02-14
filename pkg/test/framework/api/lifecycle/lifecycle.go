@@ -21,8 +21,8 @@ const (
 	// System scope for features that are part of the Istio system.
 	System Scope = "System"
 
-	// Suite scope for features that will live for the entire test suite.
-	Suite Scope = "Suite"
+	// context scope for features that will live for the entire test suite.
+	Suite Scope = "context"
 
 	// Test scope for features that will live only for the length of the current test method.
 	Test Scope = "Test"
@@ -39,7 +39,7 @@ func (s Scope) precedece() int {
 		// The longest living scope, highest precedence.
 		return 2
 	case Suite:
-		// Suite > Test
+		// context > Test
 		return 1
 	case Test:
 		// The shortest living scope, lowest precedence

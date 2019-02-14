@@ -19,30 +19,44 @@ import (
 )
 
 const (
-	NameNative = "native"
-	NameKube = "kube"
+	// Native environment name
+	Native Name = "native"
+	// Kube environment name
+	Kube Name = "kube"
 )
-func Names() []string {
-	return []string {
-		NameNative,
-		NameKube,
+
+// Names of supported environments
+func Names() []Name {
+	return []Name{
+		Native,
+		Kube,
 	}
 }
 
-func DefaultName() string {
-	return NameNative
+// DefaultName is the name of the default environment
+func DefaultName() Name {
+	return Native
 }
 
+// FactoryFn is used to create a new environment.
 type FactoryFn func(string, Context) (Instance, error)
 
+// Name of environment
+type Name string
+
+// String implements fmt.Stringer
+func (n Name) String() string {
+	return string(n)
+}
+
 // UnsupportedEnvironment generates an error indicating that the given environment is not supported.
-func UnsupportedEnvironment(name string) error {
-	return fmt.Errorf("unsupported environment: %q", name)
+func UnsupportedEnvironment(name Name) error {
+	return fmt.Errorf("unsupported environment: %q", name.String())
 }
 
 // Instance of environment.
 type Instance interface {
-	Name() string
+	Name() Name
 }
 
 // Context for environments

@@ -49,7 +49,7 @@ func newNative(s resource.Context, e *native.Environment) (Instance, error) {
 		environment: e,
 	}
 
-	s.AddResource(n)
+	s.TrackResource(n)
 	return n, n.Reset()
 }
 
@@ -72,6 +72,11 @@ type nativeComponent struct {
 	meshConfigFile string
 
 	server *server.Server
+}
+
+// Address of the Galley MCP Server.
+func (c *nativeComponent) Address() string {
+	return c.client.address
 }
 
 // SetMeshConfig applies the given mesh config yaml file via Galley.

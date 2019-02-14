@@ -19,16 +19,11 @@ import (
 	"io"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/framework2/components/environment/native"
+	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pkg/test/fakes/policy"
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -36,45 +31,30 @@ import (
 var (
 	retryDelay = retry.Delay(time.Second)
 
-	_ components.PolicyBackend = &nativeComponent{}
-	_ api.Component            = &nativeComponent{}
-	_ io.Closer                = &nativeComponent{}
-	_ api.Resettable           = &nativeComponent{}
+	_ Instance          = &nativeComponent{}
+	_ io.Closer         = &nativeComponent{}
+	_ resource.Resetter = &nativeComponent{}
 )
 
-// NewNativeComponent factory function for the component
-func NewNativeComponent() (api.Component, error) {
-	return &nativeComponent{}, nil
-}
-
 type nativeComponent struct {
+	ctx resource.Context
+	env *native.Environment
+
 	*client
 	namespace string
-	scope     lifecycle.Scope
 	backend   *policy.Backend
 }
 
-func (c *nativeComponent) Descriptor() component.Descriptor {
-	return descriptors.PolicyBackend
-}
-
-func (c *nativeComponent) Scope() lifecycle.Scope {
-	return c.scope
-}
-
-func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
-	c.scope = scope
-
-	env, err := native.GetEnvironment(ctx)
-	if err != nil {
-		return err
-	}
-
-	c.namespace = env.Namespace
-
-	c.client = &client{
+// NewNativeComponent factory function for the component
+func newNative(ctx resource.Context, env *native.Environment) (Instance, error) {
+	return &nativeComponent{
+		ctx: ctx,
 		env: env,
-	}
+	}, nil
+}
+
+func (c *nativeComponent) Start(ctx resource.Context, environment *native.Environment) (err error) {
+	c.client = &client{}
 
 	scopes.CI.Infof("=== BEGIN: Start local PolicyBackend ===")
 	defer func() {

@@ -18,21 +18,17 @@ import (
 	"testing"
 
 	"github.com/gogo/googleapis/google/rpc"
+	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/framework2/runtime"
-	istioMixerV1 "istio.io/api/mixer/v1"
-
 )
 
 type Instance interface {
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
-
-	// TODO(nmittler): Remove this
-	Configure(t testing.TB, yaml string)
 }
 
 // CheckResponse that is returned from a Mixer Check call.
@@ -48,7 +44,7 @@ func (c *CheckResponse) Succeeded() bool {
 func New(s resource.Context, g galley.Instance) (Instance, error) {
 	switch s.Environment().Name() {
 	case native.Name:
-		return newNative(s, s.Environment().(*native.Environment)), nil
+		return newNative(s, s.Environment().(*native.Environment), g)
 	default:
 		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
 	}
