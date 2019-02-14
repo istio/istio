@@ -17,6 +17,8 @@ package pilot
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/pkg/log"
 )
 
 func TestServiceEntry(t *testing.T) {
@@ -184,6 +186,7 @@ func TestServiceEntry(t *testing.T) {
 							return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
 						}
 						if !reachable && cs.shouldBeReachable {
+							log.Errorf("%s is not reachable while it should be reachable from %s", cs.url, src)
 							return errAgain
 						}
 
