@@ -138,6 +138,42 @@ func TestServiceEntry(t *testing.T) {
 			url:               "http://www.google.org",
 			shouldBeReachable: false,
 		},
+		{
+			name:              "REACHABLE_google_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_bing_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "https://www.bing.com",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_google_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "http://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_bing_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "http://www.bing.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_wikipedia_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_cn_bing_no_vs_over_multihosts_wildcard",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-multihosts-no-vs.yaml",
+			url:               "https://cn.bing.com",
+			shouldBeReachable: true,
+		},
 	}
 
 	var cfgs *deployableConfig
