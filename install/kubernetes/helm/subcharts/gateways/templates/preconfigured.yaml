@@ -62,14 +62,6 @@ spec:
       name: tcp-citadel
     hosts:
     - "*"
-  - port:
-      number: 15004
-      name: tls-mixer
-      protocol: TLS
-    tls:
-      mode: AUTO_PASSTHROUGH
-    hosts:
-    - "*"
 ---
 {{- else }}
 apiVersion: networking.istio.io/v1alpha3
@@ -96,14 +88,6 @@ spec:
       number: 8060
       protocol: TCP
       name: tcp-citadel
-    hosts:
-    - "*"
-  - port:
-      number: 15004
-      name: tls-mixer
-      protocol: TLS
-    tls:
-      mode: AUTO_PASSTHROUGH
     hosts:
     - "*"
 ---
@@ -196,8 +180,6 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "*.global"
-  exportTo:
-  - '*'
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL

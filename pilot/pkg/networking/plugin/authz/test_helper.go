@@ -196,7 +196,7 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+								Metadata: generateMetadataListMatcher(
 									[]string{attrRequestClaims, "groups"}, claimName),
 							},
 						},

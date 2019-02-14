@@ -19,6 +19,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -32,12 +34,16 @@ import (
 
 var usePodDefaultFlag = false
 
-const bearerTokenPrefix = "Bearer "
+const (
+	podIdentityFlag   = "POD_IDENTITY"
+	bearerTokenPrefix = "Bearer "
+)
 
 type googleCAClient struct {
-	caEndpoint string
-	enableTLS  bool
-	client     gcapb.IstioCertificateServiceClient
+	caEndpoint     string
+	enableTLS      bool
+	client         gcapb.IstioCertificateServiceClient
+	usePodIdentity bool
 }
 
 // NewGoogleCAClient create a CA client for Google CA.
@@ -47,8 +53,13 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 		enableTLS:  tls,
 	}
 
+	c.usePodIdentity = usePodDefaultFlag
+	b, err := strconv.ParseBool(os.Getenv(podIdentityFlag))
+	if err == nil && b == true {
+		c.usePodIdentity = true
+	}
+
 	var opts grpc.DialOption
-	var err error
 	if tls {
 		opts, err = c.getTLSDialOption()
 		if err != nil {
@@ -82,7 +93,14 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	}
 
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
-	resp, err := cl.client.CreateCertificate(ctx, req)
+
+	var resp *gcapb.IstioCertificateResponse
+	var err error
+	if cl.usePodIdentity {
+		resp, err = cl.client.CreatePodCertificate(ctx, req)
+	} else {
+		resp, err = cl.client.CreateCertificate(ctx, req)
+	}
 	if err != nil {
 		log.Errorf("Failed to create certificate: %v", err)
 		return nil, err

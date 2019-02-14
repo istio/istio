@@ -15,10 +15,8 @@
 package fluentd
 
 import (
-	"bytes"
 	"context"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -46,24 +44,16 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := b.build(context.Background(), test.NewEnv(t), func(fluent.Config) (*fluent.Fluent, error) { return &fluent.Fluent{}, nil })
-	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
+	handler := b.injectBuild(test.NewEnv(t), &fluent.Fluent{})
 
 	logEntryHandler := handler.(logentry.Handler)
-	err = logEntryHandler.HandleLogEntry(context.Background(), nil)
+	err := logEntryHandler.HandleLogEntry(context.Background(), nil)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
 	if err = handler.Close(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-		return
-	}
-
-	if err = handler.Close(); err == nil {
-		t.Errorf("Close(): expected error on second attempt; got none")
 	}
 }
 
@@ -112,59 +102,6 @@ func TestBuilder(t *testing.T) {
 			true,
 			true,
 		},
-		{
-			"Overrides",
-			config.Params{
-				Address:              ":0",
-				IntegerDuration:      true,
-				MaxBatchSizeBytes:    40000,
-				InstanceBufferSize:   3,
-				PushIntervalDuration: 3 * time.Minute,
-				PushTimeoutDuration:  10 * time.Second,
-			},
-			true,
-			true,
-		},
-		{
-			"Bad Batch Size",
-			config.Params{
-				Address:           ":0",
-				IntegerDuration:   true,
-				MaxBatchSizeBytes: -14,
-			},
-			false,
-			false,
-		},
-		{
-			"Bad Instance Buffer Size",
-			config.Params{
-				Address:            ":0",
-				IntegerDuration:    true,
-				InstanceBufferSize: -5,
-			},
-			false,
-			false,
-		},
-		{
-			"Bad Push Interval",
-			config.Params{
-				Address:              ":0",
-				IntegerDuration:      true,
-				PushIntervalDuration: -14 * time.Millisecond,
-			},
-			false,
-			false,
-		},
-		{
-			"Bad Push Timeout",
-			config.Params{
-				Address:             ":0",
-				IntegerDuration:     true,
-				PushTimeoutDuration: -18 * time.Millisecond,
-			},
-			false,
-			false,
-		},
 	}
 
 	for _, c := range cases {
@@ -180,14 +117,10 @@ func TestBuilder(t *testing.T) {
 				t.Errorf("Got success, expecting failure")
 			}
 
-			if ce != nil {
-				return
-			}
-
 			var h adapter.Handler
 			var err error
 			if c.inject {
-				h, err = b.build(context.Background(), test.NewEnv(t), func(fluent.Config) (*fluent.Fluent, error) { return &fluent.Fluent{}, nil })
+				h = b.injectBuild(env, &fluent.Fluent{})
 			} else {
 				h, err = b.Build(context.Background(), env)
 			}
@@ -201,14 +134,11 @@ func TestBuilder(t *testing.T) {
 			} else if (h != nil) && !c.success {
 				t.Errorf("Got a handler, expecting nil")
 			}
-			if h != nil {
-				h.Close()
-			}
 		})
 	}
 }
 
-func TestHandleLogEntry(t *testing.T) {
+func TestLogEntry(t *testing.T) {
 	types := map[string]*logentry.Type{
 		"Foo": {
 			Variables: map[string]descriptor.ValueType{
@@ -227,15 +157,22 @@ func TestHandleLogEntry(t *testing.T) {
 
 	mf := &mockFluentd{}
 
+	han := &handler{
+		logger: mf,
+		types:  types,
+		env:    test.NewEnv(t),
+		intDur: false,
+	}
+
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
 
 	cases := []struct {
-		name       string
-		instances  []*logentry.Instance
-		failWrites bool
-		expected   int
-		intDur     bool
-		maxBytes   int64
+		name         string
+		instances    []*logentry.Instance
+		failWrites   bool
+		expectedTags []string
+		expected     []map[string]interface{}
+		intDur       bool
 	}{
 		{
 			"Basic Logs",
@@ -256,10 +193,23 @@ func TestHandleLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			2,
+			[]string{
+				"Foo",
+				"fluent-tag",
+			},
+			[]map[string]interface{}{
+				{
+					"severity": "WARNING",
+					"String":   "a string",
+				},
+				{
+					"name":     "Foo",
+					"severity": "WARNING",
+				},
+			},
 			false,
-			11,
 		},
+
 		{
 			"Complex Log",
 			[]*logentry.Instance{
@@ -281,9 +231,17 @@ func TestHandleLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			1,
+			[]string{
+				"Foo",
+			},
+			[]map[string]interface{}{
+				{
+					"severity": "WARNING",
+					"String":   "a string",
+					"Duration": "1s",
+				},
+			},
 			false,
-			11,
 		},
 		{
 			"Integer Duration",
@@ -298,168 +256,74 @@ func TestHandleLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			1,
-			true,
-			11,
-		},
-		{
-			"Too Large Log",
-			[]*logentry.Instance{
+			[]string{
+				"Foo",
+			},
+			[]map[string]interface{}{
 				{
-					Name:      "Foo",
-					Severity:  "WARNING",
-					Timestamp: tm,
-					Variables: map[string]interface{}{
-						"String":      "a string",
-						"OtherString": "too large",
-						"Int64":       int64(123),
-						"Double":      1.23,
-						"Bool":        true,
-						"OtherBool":   true,
-						"Time":        tm,
-						"Duration":    1 * time.Second,
-						"StringMap":   map[string]string{"A": "B", "C": "D"},
-						"IPAddress":   net.IPv6loopback,
-						"Bytes":       []byte{'b', 'a', 'd', 't', 'o', 'o', 'l', 'a', 'r', 'g', 'e'},
-					},
+					"severity": "WARNING",
+					"String":   "a string",
+					"Duration": int64(10),
 				},
 			},
-			false,
-			0,
-			false,
-			2,
+			true,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			han := &handler{
-				logger:        mf,
-				types:         types,
-				env:           test.NewEnv(t),
-				intDur:        false,
-				dataBuffer:    make(chan dataToEncode, 5),
-				pushInterval:  1 * time.Millisecond,
-				maxBatchBytes: c.maxBytes,
-				stopCh:        make(chan bool),
-			}
-			go han.postData()
 			mf.Reset()
 
 			han.intDur = c.intDur
 			err := han.HandleLogEntry(context.Background(), c.instances)
 			if err != nil && !c.failWrites {
-				t.Errorf("HandleLogEntry(): Got %v, expecting success", err)
+				t.Errorf("Got %v, expecting success", err)
 			} else if err == nil && c.failWrites {
-				t.Errorf("HandleLogEntry(): Got success, expected failure")
+				t.Errorf("Got success, expected failure")
 			}
 
-			time.Sleep(100 * time.Millisecond)
-
-			mf.mutex.RLock()
-			defer mf.mutex.RUnlock()
-			if got, want := mf.Batches, c.expected; got != want {
-				t.Errorf("Got %d batches; want %d", got, want)
+			if len(mf.Messages) != len(c.expected) {
+				t.Errorf("Got %d messages, expected %d", len(mf.Messages), len(c.expected))
 			}
 
-			if err := han.Close(); err != nil {
-				t.Errorf("Close(): Got error %v, expecting success", err)
+			for i, mp := range c.expected {
+				if mf.Messages[i].Tag != c.expectedTags[i] {
+					t.Errorf("Got %v for Tag, expected %v", mf.Messages[i].Tag, c.expectedTags[i])
+				}
+				for k, v := range mp {
+					got := mf.Messages[i].Msg.(map[string]interface{})
+					if got[k] != v {
+						t.Errorf("Got %v for key %v, expected %v", got[k], k, v)
+					}
+				}
 			}
 		})
+	}
+
+	if err := han.Close(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
 	}
 }
 
-func TestHandleLogEntry_Errors(t *testing.T) {
-	types := map[string]*logentry.Type{
-		"Foo": {
-			Variables: map[string]descriptor.ValueType{
-				"String":    descriptor.STRING,
-				"Int64":     descriptor.INT64,
-				"Double":    descriptor.DOUBLE,
-				"Bool":      descriptor.BOOL,
-				"Duration":  descriptor.DURATION,
-				"Time":      descriptor.TIMESTAMP,
-				"StringMap": descriptor.STRING_MAP,
-				"IPAddress": descriptor.IP_ADDRESS,
-				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
-			},
-		},
-	}
-
-	mf := &mockFluentd{}
-
-	cases := []struct {
-		name      string
-		instances []*logentry.Instance
-	}{
-		{
-			"Drop Instances",
-			[]*logentry.Instance{
-				{
-					Name:     "Foo",
-					Severity: "WARNING",
-					Variables: map[string]interface{}{
-						"String": "a string",
-					},
-				},
-				{
-					Name:     "Foo",
-					Severity: "WARNING",
-					Variables: map[string]interface{}{
-						"tag": "fluent-tag",
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			mf.Reset()
-
-			han := &handler{
-				logger:        mf,
-				types:         types,
-				env:           test.NewEnv(t),
-				dataBuffer:    make(chan dataToEncode, 1),
-				maxBatchBytes: 3,
-				stopCh:        make(chan bool),
-			}
-
-			if err := han.HandleLogEntry(context.Background(), c.instances); err == nil {
-				t.Fatalf("HandleLogEntry() did not produce expected error!")
-			}
-
-			if err := han.Close(); err != nil {
-				t.Errorf("Close(): Got error %v, expecting success", err)
-			}
-		})
-	}
-
+type message struct {
+	Tag string
+	TS  time.Time
+	Msg interface{}
 }
 
 type mockFluentd struct {
-	bytes   bytes.Buffer
-	Batches int
-	mutex   sync.RWMutex
+	Messages []message
 }
 
 func (l *mockFluentd) Close() error {
 	return nil
 }
 
-func (l *mockFluentd) EncodeData(tag string, ts time.Time, msg interface{}) ([]byte, error) {
-	return []byte(tag), nil
-}
-
-func (l *mockFluentd) PostRawData(data []byte) {
-	l.bytes.Write(data)
-	l.mutex.Lock()
-	l.Batches = l.Batches + 1
-	l.mutex.Unlock()
+func (l *mockFluentd) PostWithTime(tag string, ts time.Time, msg interface{}) error {
+	l.Messages = append(l.Messages, message{Tag: tag, TS: ts, Msg: msg})
+	return nil
 }
 
 func (l *mockFluentd) Reset() {
-	l.bytes.Reset()
-	l.Batches = 0
+	l.Messages = make([]message, 0)
 }

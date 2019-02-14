@@ -24,7 +24,7 @@ import (
 )
 
 func TestExternIp(t *testing.T) {
-	b, err := ExternIP("1.2.3.4")
+	b, err := externIP("1.2.3.4")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -34,21 +34,21 @@ func TestExternIp(t *testing.T) {
 }
 
 func TestExternIp_Error(t *testing.T) {
-	_, err := ExternIP("A.A.A.A")
+	_, err := externIP("A.A.A.A")
 	if err == nil {
 		t.Fatalf("Expected error not found.")
 	}
 }
 
 func TestExternIpEqual_True(t *testing.T) {
-	b := ExternIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
 	if !b {
 		t.Fatal()
 	}
 }
 
 func TestExternIpEqual_False(t *testing.T) {
-	b := ExternIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
 	if b {
 		t.Fatal()
 	}
@@ -101,7 +101,7 @@ func TestExternDnsName_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := ExternDNSName(v)
+		o, err := externDNSName(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -126,7 +126,7 @@ func TestExternDnsName_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := ExternDNSName(v)
+		_, err := externDNSName(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v", v)
 		}
@@ -144,7 +144,7 @@ func TestExternDnsNameEqual_Positive(t *testing.T) {
 	}
 
 	for k, v := range positive {
-		eq, err := ExternDNSNameEqual(k, v)
+		eq, err := externDNSNameEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -160,7 +160,7 @@ func TestExternDnsNameEqual_Negative(t *testing.T) {
 	}
 
 	for k, v := range negative {
-		eq, err := ExternDNSNameEqual(k, v)
+		eq, err := externDNSNameEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -177,7 +177,7 @@ func TestExternDnsNameEqual_Error(t *testing.T) {
 	}
 
 	for k, v := range erroneous {
-		_, err := ExternDNSNameEqual(k, v)
+		_, err := externDNSNameEqual(k, v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v == %v", k, v)
 		}
@@ -193,7 +193,7 @@ func TestExternEmail_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := ExternEmail(v)
+		o, err := externEmail(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -214,7 +214,7 @@ func TestExternEmail_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := ExternEmail(v)
+		_, err := externEmail(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v", v)
 		}
@@ -229,7 +229,7 @@ func TestExternEmailEqual_Positive(t *testing.T) {
 	}
 
 	for k, v := range positive {
-		eq, err := ExternEmailEqual(k, v)
+		eq, err := externEmailEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -248,7 +248,7 @@ func TestExternEmailEqual_Error(t *testing.T) {
 	}
 
 	for k, v := range erroneous {
-		_, err := ExternEmailEqual(k, v)
+		_, err := externEmailEqual(k, v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v == %v", k, v)
 		}
@@ -263,7 +263,7 @@ func TestExternEmailEqual_Negative(t *testing.T) {
 	}
 
 	for k, v := range negative {
-		eq, err := ExternEmailEqual(k, v)
+		eq, err := externEmailEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -313,7 +313,7 @@ func TestExternUri_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := ExternURI(v)
+		o, err := externURI(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -332,7 +332,7 @@ func TestExternUri_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := ExternURI(v)
+		_, err := externURI(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: '%v'", v)
 		}
@@ -353,7 +353,7 @@ func TestExternUriEqual_Positive(t *testing.T) {
 	}
 
 	for k, v := range positive {
-		eq, err := ExternURIEqual(k, v)
+		eq, err := externURIEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -374,7 +374,7 @@ func TestExternUriEqual_Negative(t *testing.T) {
 	}
 
 	for k, v := range negative {
-		eq, err := ExternURIEqual(k, v)
+		eq, err := externURIEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -391,7 +391,7 @@ func TestExternUriEqual_Error(t *testing.T) {
 	}
 
 	for k, v := range erroneous {
-		_, err := ExternURIEqual(k, v)
+		_, err := externURIEqual(k, v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v == %v", k, v)
 		}
@@ -413,7 +413,7 @@ func TestExternMatch(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if ExternMatch(c.s, c.p) != c.e {
+		if externMatch(c.s, c.p) != c.e {
 			t.Fatalf("externMatch failure: %+v", c)
 		}
 	}
@@ -455,7 +455,7 @@ func TestExternStartsWith(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m := ExternStartsWith(c.s, c.p)
+		m := externStartsWith(c.s, c.p)
 		if m != c.e {
 			t.Fatalf("startsWith failure: %+v", c)
 		}
@@ -476,7 +476,7 @@ func TestExternEndsWith(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m := ExternEndsWith(c.s, c.u)
+		m := externEndsWith(c.s, c.u)
 		if m != c.e {
 			t.Fatalf("endsWith failure: %+v", c)
 		}

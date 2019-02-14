@@ -285,14 +285,11 @@ metadata:
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
 {{- if not $spec.autoscaleEnabled }}
-{{- if $spec.replicaCount }}
   replicas: {{ $spec.replicaCount }}
-{{- else }}
-  replicas: 1
-{{- end }}
 {{- end }}
   strategy:
     rollingUpdate:
@@ -304,6 +301,7 @@ spec:
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
+      version: {{ $.Chart.Version }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
@@ -313,6 +311,7 @@ spec:
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
+        version: {{ $.Chart.Version }}
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

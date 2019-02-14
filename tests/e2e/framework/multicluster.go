@@ -120,13 +120,12 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		log.Errorf("cnnot run helm init %v", err)
 		return err
 	}
-	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
+	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
 	err = util.HelmDepUpdate(chartDir)
 	if err != nil {
-		log.Errorf("cannot run helm dep update for istio %v", err)
+		log.Errorf("cannot run helm dep update for istio-remote %v", err)
 		return err
 	}
-	helmSetContent += " --values " + filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio/values-istio-remote.yaml")
 	err = util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {
 		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)

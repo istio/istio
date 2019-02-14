@@ -26,73 +26,35 @@ import (
 )
 
 var (
-	k8sKeyA               = []byte("fake private k8sKeyA")
-	k8sCertChainA         = []byte("fake cert chain A")
-	k8sCaCertA            = []byte("fake root cert A")
-	k8sSecretNameA        = "test-scrtA"
-	k8sTestGenericSecretA = &v1.Secret{
+	k8sKeyA        = []byte("fake private k8sKeyA")
+	k8sCertChainA  = []byte("fake cert chain A")
+	k8sSecretNameA = "test-scrtA"
+	k8sTestSecretA = &v1.Secret{
 		Data: map[string][]byte{
-			genericScrtCert:   k8sCertChainA,
-			genericScrtKey:    k8sKeyA,
-			genericScrtCaCert: k8sCaCertA,
+			ScrtCert: k8sCertChainA,
+			ScrtKey:  k8sKeyA,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameA,
 			Namespace: "test-namespace",
 		},
-		Type: "test-secret",
+		Type: IngressSecretType,
 	}
 
-	k8sKeyB               = []byte("k8sKeyB private fake")
-	k8sCertChainB         = []byte("B chain cert fake")
-	k8sCaCertB            = []byte("B cert root fake")
-	k8sTestGenericSecretB = &v1.Secret{
+	k8sKeyB        = []byte("k8sKeyB private fake")
+	k8sCertChainB  = []byte("B chain cert fake")
+	k8sTestSecretB = &v1.Secret{
 		Data: map[string][]byte{
-			genericScrtCert:   k8sCertChainB,
-			genericScrtKey:    k8sKeyB,
-			genericScrtCaCert: k8sCaCertB,
+			ScrtCert: k8sCertChainB,
+			ScrtKey:  k8sKeyB,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameA,
 			Namespace: "test-namespace",
 		},
-		Type: "test-secret",
-	}
-
-	k8sKeyC           = []byte("fake private k8sKeyC")
-	k8sCertChainC     = []byte("fake cert chain C")
-	k8sSecretNameC    = "test-scrtC"
-	k8sTestTLSSecretC = &v1.Secret{
-		Data: map[string][]byte{
-			tlsScrtCert: k8sCertChainC,
-			tlsScrtKey:  k8sKeyC,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sSecretNameC,
-			Namespace: "test-namespace",
-		},
-		Type: "test-tls-secret",
-	}
-
-	k8sKeyD           = []byte("fake private k8sKeyD")
-	k8sCertChainD     = []byte("fake cert chain D")
-	k8sTestTLSSecretD = &v1.Secret{
-		Data: map[string][]byte{
-			tlsScrtCert: k8sCertChainD,
-			tlsScrtKey:  k8sKeyD,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sSecretNameC,
-			Namespace: "test-namespace",
-		},
-		Type: "test-tls-secret",
+		Type: IngressSecretType,
 	}
 )
-
-type expectedSecret struct {
-	exist  bool
-	secret *model.SecretItem
-}
 
 // TestSecretFetcher verifies that secret fetcher is able to add kubernetes secret into local store,
 // find secret by name, and delete secret by name.
@@ -115,145 +77,41 @@ func TestSecretFetcher(t *testing.T) {
 	}
 
 	// Add test secret and verify that key/cert pair is stored.
-	expectedAddedSecrets := []expectedSecret{
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName:     k8sSecretNameA,
-				CertificateChain: k8sCertChainA,
-				PrivateKey:       k8sKeyA,
-			},
-		},
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
-				RootCert:     k8sCaCertA,
-			},
-		},
+	expectedAddedSecret := &model.SecretItem{
+		ResourceName:     k8sSecretNameA,
+		CertificateChain: k8sCertChainA,
+		PrivateKey:       k8sKeyA,
 	}
 	var secretVersionOne string
-	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedAddedSecrets, &secretVersionOne)
+	testAddSecret(t, gSecretFetcher, k8sTestSecretA, expectedAddedSecret, &secretVersionOne)
 
 	// Delete test secret and verify that key/cert pair in secret is removed from local store.
-	expectedDeletedSecrets := []expectedSecret{
-		{
-			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameA},
-		},
-		{
-			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix},
-		},
+	expectedDeletedSecret := &model.SecretItem{
+		ResourceName: k8sSecretNameA,
 	}
-	testDeleteSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedDeletedSecrets)
+	testDeleteSecret(t, gSecretFetcher, k8sTestSecretA, expectedDeletedSecret)
 
 	// Add test secret again and verify that key/cert pair is stored and version number is different.
+	expectedSecret := &model.SecretItem{
+		ResourceName:     k8sSecretNameA,
+		CertificateChain: k8sCertChainA,
+		PrivateKey:       k8sKeyA,
+	}
 	var secretVersionTwo string
-	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedAddedSecrets, &secretVersionTwo)
+	testAddSecret(t, gSecretFetcher, k8sTestSecretA, expectedSecret, &secretVersionTwo)
 	if secretVersionTwo == secretVersionOne {
 		t.Errorf("added secret should have different version")
 	}
 
 	// Update test secret and verify that key/cert pair is changed and version number is different.
-	expectedUpdateSecrets := []expectedSecret{
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName:     k8sSecretNameA,
-				CertificateChain: k8sCertChainB,
-				PrivateKey:       k8sKeyB,
-			},
-		},
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
-				RootCert:     k8sCaCertB,
-			},
-		},
+	expectedUpdateSecret := &model.SecretItem{
+		ResourceName:     k8sSecretNameA,
+		CertificateChain: k8sCertChainB,
+		PrivateKey:       k8sKeyB,
 	}
 	var secretVersionThree string
-	testUpdateSecret(t, gSecretFetcher, k8sTestGenericSecretA, k8sTestGenericSecretB, expectedUpdateSecrets, &secretVersionThree)
+	testUpdateSecret(t, gSecretFetcher, k8sTestSecretA, k8sTestSecretB, expectedUpdateSecret, &secretVersionThree)
 	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
-		t.Errorf("updated secret should have different version")
-	}
-}
-
-// TestSecretFetcherTlsSecretFormat verifies that secret fetcher is able to extract key/cert
-// from TLS secret format.
-func TestSecretFetcherTlsSecretFormat(t *testing.T) {
-	gSecretFetcher := &SecretFetcher{
-		UseCaClient: false,
-		DeleteCache: func(secretName string) {},
-		UpdateCache: func(secretName string, ns model.SecretItem) {},
-	}
-	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
-	if gSecretFetcher.UseCaClient {
-		t.Error("secretFetcher should not use ca client")
-	}
-	ch := make(chan struct{})
-	gSecretFetcher.Run(ch)
-
-	// Searching a non-existing secret should return false.
-	if _, ok := gSecretFetcher.FindIngressGatewaySecret("non-existing-secret"); ok {
-		t.Error("secretFetcher returns a secret non-existing-secret that should not exist")
-	}
-
-	// Add test secret and verify that key/cert pair is stored.
-	expectedAddedSecrets := []expectedSecret{
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName:     k8sSecretNameC,
-				CertificateChain: k8sCertChainC,
-				PrivateKey:       k8sKeyC,
-			},
-		},
-		{
-			exist: false,
-			secret: &model.SecretItem{
-				ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix,
-			},
-		},
-	}
-	var secretVersion string
-	testAddSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedAddedSecrets, &secretVersion)
-
-	// Delete test secret and verify that key/cert pair in secret is removed from local store.
-	expectedDeletedSecret := []expectedSecret{
-		{
-			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC},
-		},
-		{
-			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
-		},
-	}
-	testDeleteSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedDeletedSecret)
-
-	// Add test secret again and verify that key/cert pair is stored and version number is different.
-	testAddSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedAddedSecrets, &secretVersion)
-
-	// Update test secret and verify that key/cert pair is changed and version number is different.
-	expectedUpdateSecret := []expectedSecret{
-		{
-			exist: true,
-			secret: &model.SecretItem{
-				ResourceName:     k8sSecretNameC,
-				CertificateChain: k8sCertChainD,
-				PrivateKey:       k8sKeyD,
-			},
-		},
-		{
-			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + IngressGatewaySdsCaSuffix},
-		},
-	}
-	var newSecretVersion string
-	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTLSSecretD, expectedUpdateSecret, &newSecretVersion)
-	if secretVersion == newSecretVersion {
 		t.Errorf("updated secret should have different version")
 	}
 }
@@ -268,48 +126,35 @@ func compareSecret(t *testing.T, secret, expectedSecret *model.SecretItem) {
 	if !bytes.Equal(expectedSecret.PrivateKey, secret.PrivateKey) {
 		t.Errorf("private key verification error: expected %v but got %v", expectedSecret.PrivateKey, secret.PrivateKey)
 	}
-	if !bytes.Equal(expectedSecret.RootCert, secret.RootCert) {
-		t.Errorf("root cert verification error: expected %v but got %v", expectedSecret.RootCert, secret.RootCert)
-	}
 }
 
-func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecrets []expectedSecret, version *string) {
+func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecret *model.SecretItem, version *string) {
 	// Add a test secret and find the secret.
 	sf.scrtAdded(k8ssecret)
-	for _, es := range expectedSecrets {
-		secret, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
-		if es.exist != ok {
-			t.Errorf("Unexpected secret %s, expected to exist: %v but got: %v", es.secret.ResourceName, es.exist, ok)
-		}
-		if es.exist {
-			*version = secret.Version
-			compareSecret(t, &secret, es.secret)
-		}
+	secret, ok := sf.FindIngressGatewaySecret(expectedSecret.ResourceName)
+	if !ok {
+		t.Errorf("secretFetcher failed to find secret %v", expectedSecret.ResourceName)
 	}
+	*version = secret.Version
+	compareSecret(t, &secret, expectedSecret)
 }
 
-func testDeleteSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecrets []expectedSecret) {
+func testDeleteSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecret *model.SecretItem) {
 	// Delete a test secret and find the secret.
 	sf.scrtDeleted(k8ssecret)
-	for _, es := range expectedSecrets {
-		_, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
-		if ok {
-			t.Errorf("secretFetcher found a deleted secret %v", es.secret.ResourceName)
-		}
+	_, ok := sf.FindIngressGatewaySecret(expectedSecret.ResourceName)
+	if ok {
+		t.Errorf("secretFetcher found a deleted secret %v", expectedSecret.ResourceName)
 	}
 }
 
-func testUpdateSecret(t *testing.T, sf *SecretFetcher, k8sOldsecret, k8sNewsecret *v1.Secret, expectedSecrets []expectedSecret, version *string) {
+func testUpdateSecret(t *testing.T, sf *SecretFetcher, k8sOldsecret, k8sNewsecret *v1.Secret, expectedSecret *model.SecretItem, version *string) {
 	// Add a test secret and find the secret.
 	sf.scrtUpdated(k8sOldsecret, k8sNewsecret)
-	for _, es := range expectedSecrets {
-		secret, ok := sf.FindIngressGatewaySecret(es.secret.ResourceName)
-		if es.exist != ok {
-			t.Errorf("secretFetcher failed to find secret %s, expected to exist: %v but got: %v", es.secret.ResourceName, es.exist, ok)
-		}
-		if es.exist {
-			*version = secret.Version
-			compareSecret(t, &secret, es.secret)
-		}
+	secret, ok := sf.FindIngressGatewaySecret(expectedSecret.ResourceName)
+	if !ok {
+		t.Errorf("secretFetcher failed to find secret %v", expectedSecret.ResourceName)
 	}
+	*version = secret.Version
+	compareSecret(t, &secret, expectedSecret)
 }

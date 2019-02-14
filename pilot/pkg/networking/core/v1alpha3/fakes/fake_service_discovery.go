@@ -112,8 +112,6 @@ type ServiceDiscovery struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-
-	ServiceAccounts
 }
 
 func (fake *ServiceDiscovery) Services() ([]*model.Service, error) {
@@ -346,6 +344,12 @@ func (fake *ServiceDiscovery) GetProxyServiceInstances(arg1 *model.Proxy) ([]*mo
 		return ret.result1, ret.result2
 	}
 	return fake.getProxyServiceInstancesReturns.result1, fake.getProxyServiceInstancesReturns.result2
+}
+
+// GetProxyLocality returns the locality where the proxy runs.
+func (fake *ServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
 }
 
 func (fake *ServiceDiscovery) GetProxyServiceInstancesCallCount() int {

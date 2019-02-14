@@ -959,6 +959,11 @@
                 "is_repeated": true
               },
               {
+                "id": 31,
+                "name": "locality_lb_setting",
+                "type": "LocalityLoadBalancerSetting"
+              },
+              {
                 "id": 23,
                 "name": "enable_sds_token_mount",
                 "type": "bool"
@@ -972,34 +977,6 @@
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
-              },
-              {
-                "id": 31,
-                "name": "default_service_export_to",
-                "type": "string",
-                "is_repeated": true
-              },
-              {
-                "id": 32,
-                "name": "default_virtual_service_export_to",
-                "type": "string",
-                "is_repeated": true
-              },
-              {
-                "id": 33,
-                "name": "default_destination_rule_export_to",
-                "type": "string",
-                "is_repeated": true
-              },
-              {
-                "id": 34,
-                "name": "root_namespace",
-                "type": "string"
-              },
-              {
-                "id": 35,
-                "name": "locality_lb_setting",
-                "type": "LocalityLoadBalancerSetting"
               }
             ],
             "reserved_ids": [
@@ -1985,21 +1962,6 @@
                 "id": 1,
                 "name": "policy",
                 "type": "FailPolicy"
-              },
-              {
-                "id": 2,
-                "name": "max_retry",
-                "type": "uint32"
-              },
-              {
-                "id": 3,
-                "name": "base_retry_wait",
-                "type": "google.protobuf.Duration"
-              },
-              {
-                "id": 4,
-                "name": "max_retry_wait",
-                "type": "google.protobuf.Duration"
               }
             ]
           },
@@ -2363,19 +2325,6 @@
                 "integer": 2
               }
             ]
-          },
-          {
-            "name": "ReportRequest.RepeatedAttributesSemantics",
-            "enum_fields": [
-              {
-                "name": "DELTA_ENCODING",
-                "integer": 0
-              },
-              {
-                "name": "INDEPENDENT_ENCODING",
-                "integer": 1
-              }
-            ]
           }
         ],
         "messages": [
@@ -2602,11 +2551,6 @@
                 "is_repeated": true
               },
               {
-                "id": 4,
-                "name": "repeated_attributes_semantics",
-                "type": "RepeatedAttributesSemantics"
-              },
-              {
                 "id": 2,
                 "name": "default_words",
                 "type": "string",
@@ -2711,9 +2655,8 @@
               },
               {
                 "id": 4,
-                "name": "export_to",
-                "type": "string",
-                "is_repeated": true
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ]
           },
@@ -3339,11 +3282,6 @@
                     "type": "string"
                   },
                   {
-                    "id": 10,
-                    "name": "credential_name",
-                    "type": "string"
-                  },
-                  {
                     "id": 6,
                     "name": "subject_alt_names",
                     "type": "string",
@@ -3467,15 +3405,8 @@
               },
               {
                 "id": 7,
-                "name": "export_to",
-                "type": "string",
-                "is_repeated": true
-              },
-              {
-                "id": 8,
-                "name": "subject_alt_names",
-                "type": "string",
-                "is_repeated": true
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ],
             "messages": [
@@ -3531,6 +3462,19 @@
       "protopath": "networking:/:v1alpha3:/:sidecar.proto",
       "def": {
         "enums": [
+          {
+            "name": "ConfigScope",
+            "enum_fields": [
+              {
+                "name": "PUBLIC",
+                "integer": 0
+              },
+              {
+                "name": "PRIVATE",
+                "integer": 1
+              }
+            ]
+          },
           {
             "name": "CaptureMode",
             "enum_fields": [
@@ -3678,9 +3622,8 @@
               },
               {
                 "id": 6,
-                "name": "export_to",
-                "type": "string",
-                "is_repeated": true
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ]
           },
@@ -5362,13 +5305,13 @@
               },
               {
                 "id": 4,
-                "name": "names",
+                "name": "principals",
                 "type": "string",
                 "is_repeated": true
               },
               {
                 "id": 5,
-                "name": "not_names",
+                "name": "not_principals",
                 "type": "string",
                 "is_repeated": true
               },

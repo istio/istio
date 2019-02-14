@@ -172,9 +172,9 @@ func TestMultipleRequests(t *testing.T) {
 	}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	go func() {
@@ -245,9 +245,9 @@ func TestAuthCheck_Failure(t *testing.T) {
 	checker := test.NewFakeAuthChecker()
 	checker.AllowError = errors.New("disallow")
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, checker)
 
@@ -280,9 +280,9 @@ func TestAuthCheck_Success(t *testing.T) {
 	}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	go func() {
@@ -339,9 +339,9 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	go func() {
@@ -382,9 +382,9 @@ func TestWatchClosed(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
@@ -410,9 +410,9 @@ func TestSendError(t *testing.T) {
 	}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	// check that response fails since watch gets closed
@@ -442,9 +442,9 @@ func TestReceiveError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
@@ -472,9 +472,9 @@ func TestUnsupportedTypeError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
@@ -500,9 +500,9 @@ func TestStaleNonce(t *testing.T) {
 	}
 	stop := make(chan struct{})
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	go func() {
@@ -571,9 +571,9 @@ func TestAggregatedHandlers(t *testing.T) {
 	}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	go func() {
@@ -614,9 +614,9 @@ func TestAggregateRequestType(t *testing.T) {
 	stream.recv <- &mcp.MeshConfigRequest{SinkNode: test.Node}
 
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 	if err := s.StreamAggregatedResources(stream); err == nil {
@@ -637,9 +637,9 @@ func TestNACK(t *testing.T) {
 
 	config := makeMockConfigWatcher()
 	options := &source.Options{
-		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
 

@@ -68,8 +68,6 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 
 	// FIXME this is a temporary hack until all test templates are updated
 	//for _, tls := range ingress.Spec.TLS {
-
-	// TODO: add secretName (converted to sdsName)
 	if len(ingress.Spec.TLS) > 0 {
 		tls := ingress.Spec.TLS[0] // FIXME
 		// TODO validation when multiple wildcard tls secrets are given
@@ -84,7 +82,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 			},
 			Hosts: tls.Hosts,
 			// While we accept multiple certs, we expect them to be mounted in
-			// /etc/istio/ingress-certs/tls.crt|tls.key|root-cert.pem
+			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &networking.Server_TLSOptions{
 				HttpsRedirect: false,
 				Mode:          networking.Server_TLSOptions_SIMPLE,
@@ -112,7 +110,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 			Group:     model.Gateway.Group,
 			Version:   model.Gateway.Version,
 			Name:      ingress.Name + "-" + model.IstioIngressGatewayName,
-			Namespace: ingressNamespace,
+			Namespace: model.IstioIngressNamespace,
 			Domain:    domainSuffix,
 		},
 		Spec: gateway,
@@ -127,9 +125,6 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
 	// host.
-	if ingressNamespace == "" {
-		ingressNamespace = model.IstioIngressNamespace
-	}
 
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
@@ -143,10 +138,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			host = "*"
 		}
 		virtualService := &networking.VirtualService{
-			Hosts: []string{},
-			// Note the name of the gateway is fixed - this is the Gateway that needs to be created by user (via helm
-			// or manually) with TLS secrets and explicit namespace (for security).
-			Gateways: []string{ingressNamespace + "/" + model.IstioIngressGatewayName},
+			Hosts:    []string{},
+			Gateways: []string{model.IstioIngressGatewayName},
 		}
 
 		virtualService.Hosts = []string{host}
@@ -174,7 +167,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				Group:     model.VirtualService.Group,
 				Version:   model.VirtualService.Version,
 				Name:      namePrefix + "-" + ingress.Name + "-" + model.IstioIngressGatewayName,
-				Namespace: ingress.Namespace,
+				Namespace: model.IstioIngressNamespace,
 				Domain:    domainSuffix,
 			},
 			Spec: virtualService,
@@ -194,6 +187,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	if ingress.Spec.Backend != nil {
 		log.Infof("Ignore default wildcard ingress, use VirtualService %s:%s",
 			ingress.Namespace, ingress.Name)
+
 	}
 }
 

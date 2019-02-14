@@ -80,7 +80,7 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key := resource.VersionedKey{
 		Key: resource.Key{
-			Collection: metadata.K8sExtensionsV1beta1Ingresses.Collection,
+			Collection: metadata.Ingress.Collection,
 			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
@@ -107,7 +107,7 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key2 := resource.VersionedKey{
 		Key: resource.Key{
-			Collection: metadata.K8sExtensionsV1beta1Ingresses.Collection,
+			Collection: metadata.Ingress.Collection,
 			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
