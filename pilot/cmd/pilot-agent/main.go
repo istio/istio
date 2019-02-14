@@ -77,8 +77,6 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-	sdsEnabled               bool
-	k8sServiceAccountJWTPath string
 	loggingOptions           = log.DefaultOptions()
 
 	wg sync.WaitGroup
@@ -277,12 +275,6 @@ var (
 						opts["DisableReportCalls"] = "true"
 					}
 
-					opts["K8sSAJWTPath"] = k8sServiceAccountJWTPath
-
-					if sdsEnabled {
-						opts["SDSEnabled"] = "enable"
-					}
-
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
 						return err
@@ -476,11 +468,6 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-
-	proxyCmd.PersistentFlags().StringVar(&k8sServiceAccountJWTPath, "k8sServiceAccountJWTPath", "",
-		"The JWT path of k8s service account.")
-	proxyCmd.PersistentFlags().BoolVar(&sdsEnabled, "sdsEnabled", false,
-		"Flag to indicate if SDS(secret discovery service) is enabled.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

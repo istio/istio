@@ -175,6 +175,7 @@ data:
         - name: ISTIO_META_NETWORK
           value: "{{ .Values.global.network }}"
         {{- end }}
+{{- if .Values.global.sds.enabled }}
         - name: ISTIO_META_WORKLOAD_SDS_ENABLED
           value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_K8S_JWT_PATH
@@ -182,6 +183,7 @@ data:
           value: "/var/run/secrets/tokens/istio-token"
 {{- else }}
           value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+{{- end }}
 {{- end }}
         {{ "[[ if .ObjectMeta.Annotations ]]" }}
         - name: ISTIO_METAJSON_ANNOTATIONS
