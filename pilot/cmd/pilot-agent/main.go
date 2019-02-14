@@ -274,7 +274,6 @@ var (
 					if disableInternalTelemetry {
 						opts["DisableReportCalls"] = "true"
 					}
-
 					tmpl, err := template.ParseFiles(templateFile)
 					if err != nil {
 						return err
