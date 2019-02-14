@@ -25,6 +25,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
@@ -69,14 +70,6 @@ func (c *nativeComponent) Descriptor() component.Descriptor {
 
 func (c *nativeComponent) Scope() lifecycle.Scope {
 	return c.scope
-}
-
-func (c *nativeComponent) GetCheckAddress() net.Addr {
-	return c.client.server.Addr()
-}
-
-func (c *nativeComponent) GetReportAddress() net.Addr {
-	return c.client.server.Addr()
 }
 
 // TODO(nmittler): Remove this.
@@ -131,11 +124,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		return err
 	}
 
-	helmExtractDir, err := ctx.CreateTmpDirectory("helm-mixer-attribute-extract")
-	if err != nil {
-		return err
-	}
-	c.client.attributeManifest, err = deployment.ExtractAttributeManifest(helmExtractDir)
+	c.client.attributeManifest, err = deployment.ExtractAttributeManifest(c.client.workdir)
 	if err != nil {
 		return err
 	}

@@ -23,7 +23,6 @@ import (
 )
 
 func TestConvertIngress(t *testing.T) {
-
 	tt := []struct {
 		in  []string
 		out string

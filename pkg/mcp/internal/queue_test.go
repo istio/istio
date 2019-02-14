@@ -15,8 +15,6 @@
 package internal
 
 import (
-	"encoding/json"
-	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -344,14 +342,5 @@ func TestUniqueQueue_Dump(t *testing.T) {
 
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Fatalf("\n got %v \nwant %v\n diff %v", got, want, diff)
-	}
-
-	jsonMarshalDumpHook = func(v interface{}) ([]byte, error) { return nil, errors.New("unmarhsal error") }
-	defer func() { jsonMarshalDumpHook = json.Marshal }()
-
-	want = ""
-	got = q.Dump()
-	if got != want {
-		t.Fatalf("wrong output on json marshal error\n got %v \nwant %v", got, want)
 	}
 }

@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
-	"istio.io/istio/mixer/pkg/runtime/lang"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {
@@ -611,7 +610,7 @@ type testdata struct {
 	input       string
 	output      string
 	msg         string
-	compiler    lang.Compiler
+	compiler    Compiler
 	skipUnknown bool
 }
 
@@ -770,7 +769,7 @@ func TestStaticEncoder(t *testing.T) {
 }
 
 func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
-	compiler lang.Compiler, msgName string, skipUnknown bool) {
+	compiler Compiler, msgName string, skipUnknown bool) {
 	data := map[string]interface{}{}
 	var err error
 	var ba []byte

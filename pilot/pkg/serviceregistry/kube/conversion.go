@@ -22,6 +22,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
 
@@ -43,10 +44,10 @@ const (
 	// are allowed to run this service.
 	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
 
-	// ServiceExportAnnotation specifies the namespaces to which this service should be exported to.
-	//   "*" which is the default, indicates it is reachable within the mesh
-	//   "." indicates it is reachable within its namespace
-	ServiceExportAnnotation = "networking.istio.io/exportTo"
+	// ServiceConfigScopeAnnotation configs the scope the service visible to.
+	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
+	//   "PRIVATE" indicates it is reachable within its namespace
+	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 
 	managementPortPrefix = "mgmt-"
 )
@@ -91,7 +92,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[model.Visibility]bool
+	configScope := networking.ConfigScope_PUBLIC
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
@@ -102,11 +103,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
-		if svc.Annotations[ServiceExportAnnotation] != "" {
-			exportTo = make(map[model.Visibility]bool)
-			for _, e := range strings.Split(svc.Annotations[ServiceExportAnnotation], ",") {
-				exportTo[model.Visibility(e)] = true
-			}
+		if svc.Labels[ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
+			configScope = networking.ConfigScope_PRIVATE
 		}
 	}
 	sort.Strings(serviceaccounts)
@@ -120,10 +118,10 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ExportTo:  exportTo,
+			Name:        svc.Name,
+			Namespace:   svc.Namespace,
+			UID:         fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ConfigScope: configScope,
 		},
 	}
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -109,9 +110,9 @@ const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
 
-	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
+	// AZLabel indicates the region/zone of an instance. It is used if the native
 	// registry doesn't provide one.
-	LocalityLabel = "istio-locality"
+	AZLabel = "istio-az"
 )
 
 // Port represents a network port where a service is listening for
@@ -199,18 +200,6 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
-)
-
-// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
-type Visibility string
-
-const (
-	// VisibilityPrivate implies namespace local config
-	VisibilityPrivate Visibility = "."
-	// VisibilityPublic implies config is visible to all
-	VisibilityPublic Visibility = "*"
-	// VisibilityNone implies config is visible to none
-	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -388,7 +377,7 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[LocalityLabel]
+	return si.Labels[AZLabel]
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -454,9 +443,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
-	// ExportTo defines the visibility of Service in
+	// ConfigScope defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ExportTo map[Visibility]bool
+	ConfigScope networking.ConfigScope
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -511,6 +500,9 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyLocality returns the locality where the proxy runs.
+	GetProxyLocality(*Proxy) string
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the
@@ -523,10 +515,13 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
+}
 
+// ServiceAccounts exposes Istio service accounts
+// Deprecated - service account tracking moved to XdsServer, incremental.
+type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 

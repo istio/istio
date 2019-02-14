@@ -27,10 +27,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/conversions"
-	"istio.io/istio/galley/pkg/runtime/log"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -43,8 +40,8 @@ type State struct {
 	schema *resource.Schema
 
 	distribute  bool
-	strategy    *publish.Strategy
-	distributor publish.Distributor
+	strategy    *publishingStrategy
+	distributor Distributor
 
 	config *Config
 
@@ -76,8 +73,8 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(name string, schema *resource.Schema, cfg *Config, strategy *publish.Strategy,
-	distributor publish.Distributor) *State {
+func newState(name string, schema *resource.Schema, cfg *Config, strategy *publishingStrategy,
+	distributor Distributor) *State {
 
 	now := time.Now()
 	s := &State{
@@ -103,12 +100,12 @@ func newState(name string, schema *resource.Schema, cfg *Config, strategy *publi
 }
 
 func (s *State) close() {
-	s.strategy.Reset()
+	s.strategy.reset()
 }
 
 func (s *State) publish() {
 	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
+	recordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
 	s.lastSnapshotTime = now
 	sn := s.buildSnapshot()
 
@@ -118,7 +115,7 @@ func (s *State) publish() {
 
 func (s *State) onFullSync() {
 	s.distribute = true
-	s.strategy.OnChange()
+	s.strategy.onChange()
 }
 
 // Handle implements the processing.Handler interface.
@@ -133,7 +130,7 @@ func (s *State) Handle(event resource.Event) {
 
 		// Check to see if the version has changed.
 		if curVersion := pks.versions[event.Entry.ID.FullName]; curVersion == event.Entry.ID.Version {
-			log.Scope.Debugf("Received event for the current, known version: %v", event)
+			scope.Debugf("Received event for the current, known version: %v", event)
 			return
 		}
 
@@ -146,25 +143,25 @@ func (s *State) Handle(event resource.Event) {
 
 		pks.entries[event.Entry.ID.FullName] = entry
 		pks.versions[event.Entry.ID.FullName] = event.Entry.ID.Version
-		monitoring.RecordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
+		recordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
 
 	case resource.Deleted:
 		delete(pks.entries, event.Entry.ID.FullName)
 		delete(pks.versions, event.Entry.ID.FullName)
-		monitoring.RecordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
+		recordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
 
 	default:
-		log.Scope.Errorf("Unknown event kind: %v", event.Kind)
+		scope.Errorf("Unknown event kind: %v", event.Kind)
 		return
 	}
 
 	s.versionCounter++
 	pks.version = s.versionCounter
 
-	log.Scope.Debugf("In-memory State has changed:\n%v\n", s)
+	scope.Debugf("In-memory state has changed:\n%v\n", s)
 	s.pendingEvents++
 	if s.distribute {
-		s.strategy.OnChange()
+		s.strategy.onChange()
 	}
 }
 
@@ -205,7 +202,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
-	state := s.entries[metadata.K8sExtensionsV1beta1Ingresses.Collection]
+	state := s.entries[metadata.Ingress.Collection]
 	if state == nil || len(state.entries) == 0 {
 		return
 	}
@@ -220,12 +217,12 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	}
 
 	versionStr := fmt.Sprintf("%d_%d",
-		s.entries[metadata.IstioNetworkingV1alpha3Gateways.Collection].version, s.ingressGWVersion)
-	b.SetVersion(metadata.IstioNetworkingV1alpha3Gateways.Collection.String(), versionStr)
+		s.entries[metadata.Gateway.Collection].version, s.ingressGWVersion)
+	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
 
 	versionStr = fmt.Sprintf("%d_%d",
-		s.entries[metadata.IstioNetworkingV1alpha3Virtualservices.Collection].version, s.ingressVSVersion)
-	b.SetVersion(metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(), versionStr)
+		s.entries[metadata.VirtualService.Collection].version, s.ingressVSVersion)
+	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
 
 	// Order names for stable generation.
 	var orderedNames []resource.FullName
@@ -242,7 +239,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		ingress, err := conversions.ToIngressSpec(entry)
 		if err != nil {
 			// Shouldn't happen
-			log.Scope.Errorf("error during ingress projection: %v", err)
+			scope.Errorf("error during ingress projection: %v", err)
 			continue
 		}
 
@@ -254,7 +251,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		gw := conversions.IngressToGateway(key, meta, ingress)
 
 		err = b.SetEntry(
-			metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
+			metadata.Gateway.Collection.String(),
 			gw.ID.FullName.String(),
 			string(gw.ID.Version),
 			gw.Metadata.CreateTime,
@@ -262,13 +259,13 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			nil,
 			gw.Item)
 		if err != nil {
-			log.Scope.Errorf("Unable to set gateway entry: %v", err)
+			scope.Errorf("Unable to set gateway entry: %v", err)
 		}
 	}
 
 	for _, e := range ingressByHost {
 		err := b.SetEntry(
-			metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
+			metadata.VirtualService.Collection.String(),
 			e.ID.FullName.String(),
 			string(e.ID.Version),
 			e.Metadata.CreateTime,
@@ -276,7 +273,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			nil,
 			e.Item)
 		if err != nil {
-			log.Scope.Errorf("Unable to set virtualservice entry: %v", err)
+			scope.Errorf("Unable to set virtualservice entry: %v", err)
 		}
 	}
 }
@@ -284,7 +281,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 func extractKey(name resource.FullName, version resource.Version) resource.VersionedKey {
 	return resource.VersionedKey{
 		Key: resource.Key{
-			Collection: metadata.K8sExtensionsV1beta1Ingresses.Collection,
+			Collection: metadata.Ingress.Collection,
 			FullName:   name,
 		},
 		Version: version,
@@ -295,7 +292,7 @@ func extractMetadata(entry *mcp.Resource) resource.Metadata {
 	ts, err := types.TimestampFromProto(entry.Metadata.CreateTime)
 	if err != nil {
 		// It is an invalid timestamp. This shouldn't happen.
-		log.Scope.Errorf("Error converting proto timestamp to time.Time: %v", err)
+		scope.Errorf("Error converting proto timestamp to time.Time: %v", err)
 	}
 
 	return resource.Metadata{
@@ -308,13 +305,13 @@ func extractMetadata(entry *mcp.Resource) resource.Metadata {
 func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	body, err := types.MarshalAny(e.Item)
 	if err != nil {
-		log.Scope.Errorf("Error serializing proto from source e: %v:", e)
+		scope.Errorf("Error serializing proto from source e: %v:", e)
 		return nil, false
 	}
 
 	createTime, err := types.TimestampProto(e.Metadata.CreateTime)
 	if err != nil {
-		log.Scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
+		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
 		return nil, false
 	}
 

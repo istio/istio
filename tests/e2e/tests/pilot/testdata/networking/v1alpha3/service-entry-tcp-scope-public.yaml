@@ -18,5 +18,4 @@ spec:
   - address: t.istio-system.svc.cluster.local # TODO: this is brittle
     ports:
       tcp: 8080
-  exportTo:
-  - "*"
+  configScope: PUBLIC

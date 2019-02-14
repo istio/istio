@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
-	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -108,7 +107,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	sn.SetEntry(model.ServiceEntry.Collection, "se-2", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(8070, app2ListenPort, nil, cfRouteTwo, subsetTwo))
 
-	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
+	copilotMCPServer.Cache.SetSnapshot(snapshot.DefaultGroup, sn.Build())
 
 	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
@@ -197,7 +196,7 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	}
 	sn.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne))
-	copilotMCPServer.Cache.SetSnapshot(groups.Default, sn.Build())
+	copilotMCPServer.Cache.SetSnapshot(snapshot.DefaultGroup, sn.Build())
 
 	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()

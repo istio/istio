@@ -1766,7 +1766,7 @@
       }
     }
   ],
-  "refresh": "5s",
+  "refresh": false,
   "schemaVersion": 16,
   "style": "dark",
   "tags": [],
@@ -1774,8 +1774,8 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "2019-01-23T20:37:30.445Z",
+    "to": "2019-01-23T20:47:30.445Z"
   },
   "timepicker": {
     "refresh_intervals": [

@@ -33,6 +33,10 @@ type Environment struct {
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery
 
+	// Accounts interface for listing service accounts
+	// Deprecated - use PushContext.ServiceAccounts
+	ServiceAccounts
+
 	// Config interface for listing routing rules
 	IstioConfigStore
 
@@ -84,11 +88,11 @@ type Proxy struct {
 	ID string
 
 	// Locality is the location of where Envoy proxy runs.
-	Locality *core.Locality
+	Locality Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
-	DNSDomains []string
+	DNSDomain string
 
 	// TrustDomain defines the trust domain of the certificate
 	TrustDomain string
@@ -103,9 +107,6 @@ type Proxy struct {
 
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
-
-	// service instances associated with the proxy
-	ServiceInstances []*ServiceInstance
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -139,14 +140,14 @@ func (node *Proxy) ServiceNode() string {
 		ip = node.IPAddresses[0]
 	}
 	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomains[0],
+		string(node.Type), ip, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 
 }
 
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata[NodeMetadataIstioProxyVersion]
+	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
 	return version, found
 }
 
@@ -164,39 +165,13 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata[NodeMetadataRouterMode]; found {
+	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
 		switch RouterMode(modestr) {
 		case SniDnatRouter:
 			return SniDnatRouter
 		}
 	}
 	return StandardRouter
-}
-
-// SetSidecarScope identifies the sidecar scope object associated with this
-// proxy and updates the proxy Node. This is a convenience hack so that
-// callers can simply call push.Services(node) while the implementation of
-// push.Services can return the set of services from the proxyNode's
-// sidecar scope or from the push context's set of global services. Similar
-// logic applies to push.VirtualServices and push.DestinationRule. The
-// short cut here is useful only for CDS and parts of RDS generation code.
-//
-// Listener generation code will still use the SidecarScope object directly
-// as it needs the set of services for each listener port.
-func (node *Proxy) SetSidecarScope(ps *PushContext) {
-	instances := node.ServiceInstances
-	node.SidecarScope = ps.getSidecarScope(node, instances)
-}
-
-func (node *Proxy) SetServiceInstances(env *Environment) error {
-	instances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		return err
-	}
-
-	node.ServiceInstances = instances
-	return nil
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
@@ -214,7 +189,7 @@ func GetNetworkView(node *Proxy) map[string]bool {
 	}
 
 	nmap := make(map[string]bool)
-	if networks, found := node.Metadata[NodeMetadataRequestedNetworkView]; found {
+	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
 		for _, n := range strings.Split(networks, ",") {
 			nmap[n] = true
 		}
@@ -265,7 +240,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Get all IP Addresses from Metadata
-	if ipstr, found := metadata[NodeMetadataInstanceIPs]; found {
+	if ipstr, found := metadata["ISTIO_META_INSTANCE_IPS"]; found {
 		ipAddresses, err := parseIPAddresses(ipstr)
 		if err == nil {
 			out.IPAddresses = ipAddresses
@@ -284,7 +259,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	out.ID = parts[2]
-	out.DNSDomains = getProxyMetadataDNSDomains(out, parts[3])
+	out.DNSDomain = parts[3]
 	return out, nil
 }
 
@@ -297,13 +272,13 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if configNamespace, found := proxy.Metadata[NodeMetadataConfigNamespace]; found {
+	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
 		return configNamespace
 	}
 
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
-	parts := strings.Split(proxy.DNSDomains[0], ".")
+	parts := strings.Split(proxy.DNSDomain, ".")
 	if len(parts) > 1 { // k8s will have namespace.<domain>
 		return parts[0]
 	}
@@ -311,22 +286,17 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return ""
 }
 
-// getProxyMetadataDNSDomains returns a slice containing every DNS Domain that
-// has been injected into the proxy via the environment variable ISTIO_META_DNS_DOMAINS
-func getProxyMetadataDNSDomains(proxy *Proxy, parts string) []string {
-	if proxy == nil {
+// GetProxyLocality returns the locality where Envoy proxy is running.
+func GetProxyLocality(proxy *core.Node) *Locality {
+	if proxy == nil || proxy.Locality == nil {
 		return nil
 	}
 
-	// If ISTIO_META_DNS_DOMAINS contains a list, produce and return a
-	//  list of unique suffixes
-	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
-		nodeMetadataDNSDomainsUnique := GetUniqueSuffixes(strings.Split(nodeMetadataDNSDomains, ","))
-		return nodeMetadataDNSDomainsUnique
+	return &Locality{
+		Region:  proxy.Locality.Region,
+		Zone:    proxy.Locality.Zone,
+		SubZone: proxy.Locality.SubZone,
 	}
-
-	// Otherwise just return the DNSDomain
-	return []string{parts}
 }
 
 const (
@@ -506,9 +476,6 @@ func isValidIPAddress(ip string) bool {
 // Pile all node metadata constants here
 const (
 
-	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
-	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
-
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
@@ -518,30 +485,13 @@ const (
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
 
-	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
+	// NodeConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
-	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
+	NodeConfigNamespace = "CONFIG_NAMESPACE"
 
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// NodeMetadataUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
 	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "SIDECAR_UID"
-
-	// NodeMetadataRequestedNetworkView specifies the networks that the proxy wants to see
-	NodeMetadataRequestedNetworkView = "REQUESTED_NETWORK_VIEW"
-
-	// NodeMetadataRouterMode indicates whether the proxy is functioning as a SNI-DNAT router
-	// processing the AUTO_PASSTHROUGH gateway servers
-	NodeMetadataRouterMode = "ROUTER_MODE"
-
-	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
-	NodeMetadataInstanceIPs = "INSTANCE_IPS"
-
-	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
-	// If not set, Pilot uses the default SDS token path.
-	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
-
-	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
-	NodeMetadataDNSDomains = "DNS_DOMAINS"
+	NodeMetadataUID = "UID"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
@@ -579,30 +529,4 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
-}
-
-// GetUniqueSuffixes Return a slice containing the strings with the longesest
-// unique suffixes
-func GetUniqueSuffixes(stringSlice []string) []string {
-	out := []string{}
-
-	// Iterate through the slice finding longest strings with unique suffixes
-	for _, stringOne := range stringSlice {
-		workString := ""
-		for _, stringTwo := range stringSlice {
-			// If strings have same suffix
-			if strings.HasSuffix(stringOne, stringTwo) {
-				// Keep the longest string from the first range
-				if len(stringOne) > len(stringTwo) {
-					workString = stringOne
-				}
-			}
-		}
-
-		// Append first range working string if a new one was found
-		if workString != "" {
-			out = append(out, workString)
-		}
-	}
-	return out
 }

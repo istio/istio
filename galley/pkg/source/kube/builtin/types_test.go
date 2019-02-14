@@ -51,9 +51,9 @@ func TestParse(t *testing.T) {
 		objMeta, objResource := parse(t, input, "Pod")
 
 		// Just validate a couple of things...
-		_, ok := objResource.(*coreV1.Pod)
+		_, ok := objResource.(*coreV1.PodSpec)
 		if !ok {
-			t.Fatal("failed casting item to Pod")
+			t.Fatal("failed casting item to PodSpec")
 		}
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns-548976df6c-d9kkv"))
 	})

@@ -20,12 +20,10 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/groups"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
+	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -61,8 +59,8 @@ type Processor struct {
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
-	state := newState(groups.Default, metadata.Types, cfg, publish.NewStrategyWithDefaults(), distributor)
+func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
+	state := newState(sn.DefaultGroup, metadata.Types, cfg, newPublishingStrategyWithDefaults(), distributor)
 	return newProcessor(state, src, nil)
 }
 
@@ -139,7 +137,7 @@ loop:
 		case e := <-p.events:
 			p.processEvent(e)
 
-		case <-p.state.strategy.Publish:
+		case <-p.state.strategy.publish:
 			scope.Debug("Processor.process: publish")
 			p.state.publish()
 
@@ -174,7 +172,7 @@ func (p *Processor) processEvent(e resource.Event) {
 
 func (p *Processor) recordEvent() {
 	now := time.Now()
-	monitoring.RecordProcessorEventProcessed(now.Sub(p.lastEventTime))
+	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
 	p.lastEventTime = now
 }
 

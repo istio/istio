@@ -76,7 +76,6 @@ func (w *watcher) Run(ctx context.Context) {
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
 
 	<-ctx.Done()
-	log.Info("Watcher has successfully terminated")
 }
 
 func (w *watcher) SendConfig() {
@@ -84,6 +83,7 @@ func (w *watcher) SendConfig() {
 	for _, cert := range w.certs {
 		generateCertHash(h, cert.Directory, cert.Files)
 	}
+
 	w.updates <- h.Sum(nil)
 }
 
@@ -118,7 +118,7 @@ func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDel
 			log.Info("watchFileEvents: notifying")
 			notifyFn()
 		case <-ctx.Done():
-			log.Info("watchFileEvents has successfully terminated")
+			log.Info("watchFileEvents has terminated")
 			return
 		}
 	}

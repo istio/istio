@@ -28,6 +28,7 @@ const checkAttributesOkGet = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -64,6 +65,7 @@ const reportAttributesOkGet = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -105,7 +107,7 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 266
+  "request.total_size": 306
 }
 `
 
@@ -116,6 +118,7 @@ const checkAttributesOkPost = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -152,6 +155,7 @@ const reportAttributesOkPost = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -194,7 +198,7 @@ const reportAttributesOkPost = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 302
+  "request.total_size": 342
 }
 `
 

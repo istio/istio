@@ -35,7 +35,7 @@ type (
 	cacheController interface {
 		Run(<-chan struct{})
 		Pod(string) (*v1.Pod, bool)
-		Workload(*v1.Pod) workload
+		Workload(*v1.Pod) (workload, bool)
 		HasSynced() bool
 		StopControlChannel()
 	}
@@ -132,14 +132,14 @@ func key(namespace, name string) string {
 	return namespace + "/" + name
 }
 
-func (c *controllerImpl) Workload(pod *v1.Pod) workload {
+func (c *controllerImpl) Workload(pod *v1.Pod) (workload, bool) {
 	wl := workload{name: pod.Name, namespace: pod.Namespace, selfLinkURL: pod.SelfLink}
 	if owner, found := c.rootController(&pod.ObjectMeta); found {
 		wl.name = owner.Name
 		wl.selfLinkURL = fmt.Sprintf("kubernetes://apis/%s/namespaces/%s/%ss/%s", owner.APIVersion, pod.Namespace, strings.ToLower(owner.Kind), owner.Name)
 	}
 	wl.uid = "istio://" + wl.namespace + "/workloads/" + wl.name
-	return wl
+	return wl, true
 }
 
 func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerReference, bool) {
