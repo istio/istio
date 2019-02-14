@@ -22,7 +22,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -56,8 +55,6 @@ const (
 
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
 	IngressGatewaySdsCaSuffix = "-cacert"
-
-	googleApis = "type.googleapis.com/"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -236,7 +233,7 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		HeaderKey: headerKey,
 	}
 
-	any := marshalDeterministicAny(config)
+	any := findOrMarshalCallCredentials(tokenFileName, headerKey, config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
@@ -251,13 +248,26 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 	}
 }
 
-// marshalDeterministicAny takes the protocol buffer and encodes it into google.protobuf.Any using
-// deterministic order.
-func marshalDeterministicAny(config proto.Message) *types.Any {
-	configSize := proto.Size(config)
-	rawBytes := make([]byte, 0, configSize)
-	protoBuffer := proto.NewBuffer(rawBytes)
-	protoBuffer.SetDeterministic(true)
-	protoBuffer.Marshal(config)
-	return &types.Any{TypeUrl: googleApis + proto.MessageName(config), Value: protoBuffer.Bytes()}
+type callCredAnyKey struct {
+	tokenFileName string
+	headerKey     string
+}
+
+var callCredAnyMap = map[callCredAnyKey]*types.Any{}
+
+// findOrMarshalCallCredentials searches google.protobuf.Any in callCredAnyMap by tokenFileName and
+// headerKey, and returns google.protobuf.Any proto if found. If not found, it takes the protocol
+// buffer and encodes it into google.protobuf.Any, and stores this new google.protobuf.Any into
+// callCredAny.
+func findOrMarshalCallCredentials(tokenFileName, headerKey string, callCred *v2alpha.FileBasedMetadataConfig) *types.Any {
+	key := callCredAnyKey{
+		tokenFileName: tokenFileName,
+		headerKey:     headerKey,
+	}
+	if marshalAny, found := callCredAnyMap[key]; found {
+		return marshalAny
+	}
+	any, _ := types.MarshalAny(callCred)
+	callCredAnyMap[key] = any
+	return any
 }
