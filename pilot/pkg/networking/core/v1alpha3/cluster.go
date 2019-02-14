@@ -1038,7 +1038,7 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 }
 
 func applyCommonHttpProtocolOptions(env *model.Environment, cluster *v2.Cluster) {
-	IdleTimeout = &types.Duration{
+	IdleTimeout := &types.Duration{
 		Seconds: env.Mesh.IdleTimeout.Seconds,
 		Nanos:   env.Mesh.IdleTimeout.Nanos,
 	}
