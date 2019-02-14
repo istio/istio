@@ -12,3 +12,4 @@ spec:
     protocol: HTTPS
   resolution: NONE
   location: MESH_EXTERNAL
+

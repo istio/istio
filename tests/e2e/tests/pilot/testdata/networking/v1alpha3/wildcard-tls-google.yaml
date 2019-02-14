@@ -1,12 +1,13 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: wikipedia
+  name: wildcardgoogle
 spec:
   hosts:
-  - "*.wikipedia.org"
+  - "*.google.co.*"
   endpoints:
-  - address: wikipedia.org
+  - address: google.co.uk
+  - address: google.co.in
   location: MESH_EXTERNAL
   resolution: DNS
   ports:
@@ -17,18 +18,18 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: en
+  name: uk
 spec:
   hosts:
-  - en.wikipedia.org
+  - www.google.co.uk
   tls:
   - match:
     - port: 443
       sni_hosts:
-      - en.wikipedia.org
+      - www.google.co.uk
     route:
     - destination:
-        host: '*.wikipedia.org'
+        host: '*.google.co.uk'
         port:
           number: 443
       weight: 100
@@ -36,18 +37,19 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: de
+  name: in
 spec:
   hosts:
-  - de.wikipedia.org
+  - www.google.co.in
   tls:
   - match:
     - port: 443
       sni_hosts:
-      - de.wikipedia.org
+      - www.google.co.in
     route:
     - destination:
-        host: '*.wikipedia.org'
+        host: '*.google.co.in'
         port:
           number: 443
       weight: 100
+

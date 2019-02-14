@@ -1,15 +1,18 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: wikipedia_no_vs
+  name: wildcardgooglenovs
 spec:
   hosts:
-  - "*.wikipedia.org"
+  - "*.google.co.*"
   endpoints:
-  - address: wikipedia.org
+  - address: google.co.uk
+  - address: google.co.in
   location: MESH_EXTERNAL
   resolution: DNS
   ports:
     - number: 443
       name: https
-      protocol: TLS
+      protocol: HTTPS
+  resolution: NONE
+  location: MESH_EXTERNAL
