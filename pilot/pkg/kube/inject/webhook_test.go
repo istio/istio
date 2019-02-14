@@ -782,7 +782,7 @@ func TestHelmInject(t *testing.T) {
 					}
 
 					// normalize and compare the patched deployment with the one we expected.
-					err := normalizeAndCompareDeployments(patchedDeployment, wantDeployment, c.wantFile, t)
+					err := normalizeAndCompareDeployments(patchedDeployment, wantDeployment, t)
 
 					if !util.Refresh() {
 						if err != nil {
