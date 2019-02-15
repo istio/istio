@@ -49,7 +49,7 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNREACHABLE_bing.com_over_google_80",
+			name:              "UNREACHABLE_www.bing.com_over_google_80",
 			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
 			url:               "http://www.bing.com",
 			shouldBeReachable: false,
@@ -67,19 +67,19 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNREACHABLE_bing.com_over_bing_wildcard_443",
+			name:              "UNREACHABLE_www_bing.com_443_over_bing_wildcard_80",
 			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
 			url:               "https://www.bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_wikipedia.org_over_cidr_range",
+			name:              "REACHABLE_wikipedia.org_over_wikipedia_cidr_range",
 			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_google.com_over_cidr_range",
+			name:              "UNREACHABLE_google.com_443_over_wikipedia_cidr_range_443",
 			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
 			url:               "https://google.com",
 			shouldBeReachable: false,
