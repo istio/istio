@@ -56,19 +56,8 @@ var (
 	}
 )
 
-// shorthand to save us some chars in test cases
-type ts []*monitoring.TimeSeries
-
 func makeTS(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32) *monitoring.TimeSeries {
 	return makeTSFull(m, mr, seconds, micros, 0, metric.MetricDescriptor_DELTA)
-}
-
-func makeTSDelta(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, val int64) *monitoring.TimeSeries {
-	return makeTSFull(m, mr, seconds, micros, val, metric.MetricDescriptor_DELTA)
-}
-
-func makeTSCumulative(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, val int64) *monitoring.TimeSeries {
-	return makeTSFull(m, mr, seconds, micros, val, metric.MetricDescriptor_CUMULATIVE)
 }
 
 func makeTSFull(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, value int64,
