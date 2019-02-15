@@ -496,7 +496,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					},
 					{
 						Properties: map[string]string{
-							"source.principal": "user",
+							attrSrcPrincipal: "user",
 						},
 					},
 				},
@@ -565,7 +565,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Properties: map[string]string{
 							"source.ip":        "192.1.2.0/24",
 							"source.namespace": "default",
-							"source.principal": "cluster.local/ns/default/sa/productpage",
+							attrSrcPrincipal:   "cluster.local/ns/default/sa/productpage",
 						},
 					},
 				},
@@ -659,9 +659,34 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-
-		generateSimpleServiceRoleBindingAllGroups("service-role-12", "service-role-binding-12"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-13", "service-role-binding-13"),
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-12"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Names: []string{"cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-12",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-13"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						NotNames: []string{"cluster.local/ns/testing/sa/unstable-service"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-13",
+				},
+			},
+		},
 	}
 
 	policy1 := &policy.Policy{
@@ -710,7 +735,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{
 								Identifier: &policy.Principal_Metadata{
 									Metadata: generateMetadataStringMatcher(
-										"source.principal", &metadata.StringMatcher{
+										attrSrcPrincipal, &metadata.StringMatcher{
 											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}, authn.AuthnFilterName),
 								},
 							},
@@ -798,7 +823,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						{
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataStringMatcher(
-									"source.principal", &metadata.StringMatcher{
+									attrSrcPrincipal, &metadata.StringMatcher{
 										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}, authn.AuthnFilterName),
 							},
 						},
@@ -1225,8 +1250,100 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy12 := generateSimplePolicyForNotRuleWithHeader(methodHeader, "DELETE")
-	policy13 := generateSimplePolicyForNotRuleWithHeader(pathHeader, "/secret_path")
+	policy12 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: methodHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "DELETE"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataStringMatcher(
+													attrSrcPrincipal, &metadata.StringMatcher{
+														MatchPattern: &metadata.StringMatcher_Exact{
+															Exact: "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"}},
+													authn.AuthnFilterName),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+	policy13 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: pathHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "/secret_path"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_Metadata{
+														Metadata: generateMetadataStringMatcher(
+															attrSrcPrincipal, &metadata.StringMatcher{
+																MatchPattern: &metadata.StringMatcher_Exact{Exact: "cluster.local/ns/testing/sa/unstable-service"}}, authn.AuthnFilterName),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
 
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,

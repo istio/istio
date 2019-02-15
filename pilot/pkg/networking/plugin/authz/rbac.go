@@ -675,6 +675,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		},
 	}
 
+	// TODO: Delete this subject.User block of code once we rolled out 1.2?
 	if subject.User != "" {
 		if subject.User == "*" {
 			// Generate an any rule to grant access permission to anyone if the value is "*".
@@ -700,6 +701,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		}
 	}
 
+	// TODO: Same as above.
 	if subject.Group != "" {
 		if subject.Properties == nil {
 			subject.Properties = make(map[string]string)
@@ -714,17 +716,23 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
-	namespacesBinding := convertBindingField(subject.Namespaces, attrSrcNamespace, forTCPFilter)
-	appendID(namespacesBinding, ids)
+	namesBinding := convertBindingField(subject.Names, attrSrcPrincipal, forTCPFilter)
+	appendID(namesBinding, ids)
 
-	notNamespacesBinding := convertBindingField(subject.NotNamespaces, attrSrcNamespace, forTCPFilter)
-	appendNotID(notNamespacesBinding, ids)
+	notNamesBinding := convertBindingField(subject.NotNames, attrSrcPrincipal, forTCPFilter)
+	appendNotID(notNamesBinding, ids)
 
 	groupsBinding := convertBindingField(subject.Groups, attrRequestClaimGroups, forTCPFilter)
 	appendID(groupsBinding, ids)
 
 	notGroupsBinding := convertBindingField(subject.NotGroups, attrRequestClaimGroups, forTCPFilter)
 	appendNotID(notGroupsBinding, ids)
+
+	namespacesBinding := convertBindingField(subject.Namespaces, attrSrcNamespace, forTCPFilter)
+	appendID(namespacesBinding, ids)
+
+	notNamespacesBinding := convertBindingField(subject.NotNamespaces, attrSrcNamespace, forTCPFilter)
+	appendNotID(notNamespacesBinding, ids)
 
 	ipsBinding := convertBindingField(subject.Ips, attrSrcIP, forTCPFilter)
 	appendID(ipsBinding, ids)
@@ -907,6 +915,16 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 // value: the value of a subject property.
 // forTCPFilter: the principal is used in the TCP filter.
 func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
+	// Generate an any rule to grant access permission to anyone if the value is "*" for
+	// |attrSrcPrincipal|.
+	if key == attrSrcPrincipal && value == "*" {
+		return &policyproto.Principal{
+			Identifier: &policyproto.Principal_Any{
+				Any: true,
+			},
+		}
+	}
+
 	if forTCPFilter {
 		switch key {
 		case attrSrcPrincipal:

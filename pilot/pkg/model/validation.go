@@ -1515,7 +1515,8 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
 	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
 		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
-		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0
+		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
+		len(subject.Names) == 0 && len(subject.NotNames) == 0
 }
 
 func checkRbacConfig(name, typ string, msg proto.Message) error {
