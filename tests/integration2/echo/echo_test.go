@@ -18,12 +18,13 @@ import (
 	"os"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/ids"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
@@ -34,12 +35,25 @@ func TestEcho(t *testing.T) {
 	// Echo is only supported on native environment right now, skip if we can't load that.
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment)
 
-	reqA := component.NewNamedRequirement("a", &ids.Echo)
-	reqB := component.NewNamedRequirement("b", &ids.Echo)
-	ctx.RequireOrFail(t, lifecycle.Test, reqA, reqB)
+	reqA := component.NewDescriptor(ids.Echo, "a")
+	reqA.Configuration = components.EchoConfig{Service: "a.echo", Version: "v1"}
 
-	echoA := components.GetEcho("a", ctx, t)
-	echoB := components.GetEcho("b", ctx, t)
+	reqB := component.NewDescriptor(ids.Echo, "b")
+	reqB.Configuration = components.EchoConfig{Service: "b.echo", Version: "v2"}
+	reqB.Requires = append(reqB.Requires, reqA)
+
+	ctx.RequireOrFail(t, lifecycle.Test, reqB)
+
+	echoA := components.GetEcho(reqA, ctx, t)
+	echoB := components.GetEcho(reqB, ctx, t)
+
+	// Verify the configuration was set appropriately.
+	if echoA.Config().Service != "a.echo" {
+		t.Fatalf("expected 'a.echo' but echoA service was %s", echoA.Config().Service)
+	}
+	if echoB.Config().Service != "b.echo" {
+		t.Fatalf("expected 'b.echo' but echoB service was %s", echoB.Config().Service)
+	}
 
 	be := echoB.EndpointsForProtocol(model.ProtocolHTTP)[0]
 	result := echoA.CallOrFail(be, components.EchoCallOptions{}, t)[0]
