@@ -319,7 +319,7 @@ func TestHostnameSubsetOf(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if tt.out != tt.a.Matches(tt.b) {
+			if tt.out != tt.a.SubsetOf(tt.b) {
 				t.Fatalf("%q.SubsetOf(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
 			}
 		})
