@@ -54,13 +54,15 @@ const (
 	// workload-bound annotations for controlling mixerfilter
 	policyCheckAnnotation = "policy.istio.io/check"
 
-	// workload-bound annotation for max retries on transport error
+	// workload-bound annotation for max number of retries on transport error
 	policyCheckRetriesAnnotation = "policy.istio.io/checkRetries"
 
-	// workload-bound annotation for base time to wait between retries
+	// workload-bound annotation for base time to wait between retries, will be adjusted by backoff and jitter.
+	// In duration format. Example: 80ms.
 	policyCheckBaseRetryWaitTimeAnnotation = "policy.istio.io/checkBaseRetryWaitTime"
 
 	// workload-bound annotation for max time to wait between retries
+	// In duration format. Example: 1000ms.
 	policyCheckMaxRetryWaitTimeAnnotation = "policy.istio.io/checkMaxRetryWaitTime"
 
 	// force enable policy checks for both inbound and outbound calls
@@ -277,7 +279,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	if annotation, ok := node.Metadata[policyCheckRetriesAnnotation]; ok {
 		retries, err := strconv.Atoi(annotation)
 		if err != nil {
-			log.Warnf("unable to parse retry limit %v.", annotation)
+			log.Warnf("unable to parse retry limit %q.", annotation)
 		} else {
 			networkFailPolicy.MaxRetry = uint32(retries)
 		}
@@ -286,7 +288,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	if annotation, ok := node.Metadata[policyCheckBaseRetryWaitTimeAnnotation]; ok {
 		dur, err := time.ParseDuration(annotation)
 		if err != nil {
-			log.Warnf("unable to parse base retry wait time %v.", annotation)
+			log.Warnf("unable to parse base retry wait time %q.", annotation)
 		} else {
 			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
 		}
@@ -295,7 +297,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	if annotation, ok := node.Metadata[policyCheckMaxRetryWaitTimeAnnotation]; ok {
 		dur, err := time.ParseDuration(annotation)
 		if err != nil {
-			log.Warnf("unable to parse max retry wait time %v.", annotation)
+			log.Warnf("unable to parse max retry wait time %q.", annotation)
 		} else {
 			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
 		}
