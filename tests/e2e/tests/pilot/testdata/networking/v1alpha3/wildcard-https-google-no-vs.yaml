@@ -6,6 +6,9 @@ spec:
   hosts:
   - "*.google.co.uk"
   - "*.google.co.in"
+  endpoints:
+  - address: google.co.uk
+  - address: google.co.in 
   location: MESH_EXTERNAL
   resolution: DNS
   ports:
