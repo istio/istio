@@ -314,23 +314,35 @@ func authProtocolToString(protocol authProtocol) string {
 }
 
 // Authentication debugging
-// This handler lists what authentication policy and destination rules is used for a service, and
-// whether or not they have TLS setting conflicts (i.e authentication policy use mutual TLS, but
-// destination rule doesn't use ISTIO_MUTUAL TLS mode). If service is not provided, (via request
-// paramerter `svc`), it lists result for all services.
+// This handler lists what authentication policy is used for a service and destination rules to
+// that service that a proxy instance received.
+// Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
+// are visible.
 func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	// This should be svc. However, use proxyID param for now so it can be used with
-	// `pilot-discovery debug` command
-	interestedSvc := req.Form.Get("proxyID")
 
+	proxyID := req.Form.Get("proxyID")
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
+
+	connections, ok := adsSidecarIDConnectionsMap[proxyID]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "\n[\n]")
+		return
+	}
+	var mostRecentProxy *model.Proxy
+	mostRecent := ""
+	for key := range connections {
+		if mostRecent == "" || key > mostRecent {
+			mostRecent = key
+		}
+	}
+	mostRecentProxy = connections[mostRecent].modelNode
 	fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
-		if interestedSvc != "" && interestedSvc != string(ss.Hostname) {
-			continue
-		}
 		for _, p := range ss.Ports {
 			info := AuthenticationDebug{
 				Host: string(ss.Hostname),
@@ -348,7 +360,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			info.ServerProtocol = authProtocolToString(serverProtocol)
 
-			destConfig := s.globalPushContext().DestinationRule(nil, ss)
+			destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
