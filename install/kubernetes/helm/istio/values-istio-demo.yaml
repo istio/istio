@@ -17,7 +17,12 @@ mixer:
     stdio:
       enabled: true
 
-# TODO should this lower cpu requests?
+  # lower cpu requests for demo
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+ 
  
 grafana:
   enabled: true

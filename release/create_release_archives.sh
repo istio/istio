@@ -159,6 +159,7 @@ for unwanted_values_yaml in \
     values-istio.yaml \
     values-istio-one-namespace.yaml \
     values-istio-one-namespace-auth.yaml \
+    values-e2e.yaml \
     values-istio-auth.yaml; do
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/${unwanted_values_yaml}"
 done

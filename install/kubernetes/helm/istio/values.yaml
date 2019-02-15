@@ -31,11 +31,14 @@ mixer:
     enabled: true
   telemetry:
     enabled: true
-  # mixer load shedding configuration.
-  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
-  loadshedding:
-    # disabled, logonly or enforce
-    mode: enforce
+    # telemetry load shedding configuration.
+    # When mixer-telemetry detects that it is overloaded, it starts discarding the metrics reports. It also notifies the sending proxy via grpc error code ServiceUnavailable. This prevents the metrics subsystem from consuming excessive resources. The inter service traffic is not affected by loadshedding.
+    loadshedding:
+      # disabled - do not shed load.
+      # logonly - log warnings when overload is detected but do not enforce.
+      # enforce - enforce loadshedding when overload is detected.
+      #         `loadshedding/requests_throttled` metric records the number of requests dropped due to loadshedding.
+      mode: enforce
 
   adapters:
     # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.

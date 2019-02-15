@@ -23,6 +23,11 @@ mixer:
   adapters:
     stdio:
       enabled: true
+   # lower cpu requests for demo
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
  
 grafana:
   enabled: true
