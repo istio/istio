@@ -61,8 +61,9 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP              = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace       = "source.namespace"            // e.g. "default".
+	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace = "source.namespace" // e.g. "default".
+	// TODO: Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
 	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
 	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
