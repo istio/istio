@@ -59,8 +59,8 @@ type cliOptions struct { // nolint: maligned
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
 	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
-	// If workloadCertGracePeriodRatio is 0.8, and cert TTL is 24 hours, then the rotation will happen
-	// around 24*(1-0.8) hours after the cert is issued.
+	// If workloadCertGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
+	// after 24*(1-0.2) hours since the cert is issued.
 	workloadCertGracePeriodRatio float32
 	// The minimum grace period for workload cert rotation.
 	workloadCertMinGracePeriod time.Duration
