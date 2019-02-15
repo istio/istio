@@ -71,9 +71,9 @@ spec:
         - --statusPort
         - "15020"
         - --applicationPorts
-        - "80,90"
+        - 80,90
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -112,8 +112,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337

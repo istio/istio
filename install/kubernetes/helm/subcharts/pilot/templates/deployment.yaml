@@ -76,6 +76,8 @@ spec:
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+          - --keepaliveMaxServerConnectionAge
+          - "{{ .Values.keepaliveMaxServerConnectionAge }}"
           ports:
           - containerPort: 8080
           - containerPort: 15010

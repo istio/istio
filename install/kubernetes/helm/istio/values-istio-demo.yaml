@@ -1,10 +1,24 @@
 # This is used to generate istio.yaml for minimal, demo mode.
 # It is shipped with the release, used for bookinfo or quick installation of istio.
 # Includes components used in the demo, defaults to alpha3 rules.
+global:
+  proxy:
+    accessLogFile: "/dev/stdout"
+
+  disablePolicyChecks: false
 
 pilot:
   traceSampling: 100.0
 
+mixer:
+  policy:
+    enabled: true
+  adapters:
+    stdio:
+      enabled: true
+
+# TODO should this lower cpu requests?
+ 
 grafana:
   enabled: true
 
