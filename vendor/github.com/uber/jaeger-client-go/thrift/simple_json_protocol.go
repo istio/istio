@@ -1064,7 +1064,7 @@ func (p *TSimpleJSONProtocol) ParseListEnd() error {
 	for _, char := range line {
 		switch char {
 		default:
-			e := fmt.Errorf("Expecting end of list \"]\", but found: \"", line, "\"")
+			e := fmt.Errorf("Expecting end of list \"]\", but found: \"%s\"", line)
 			return NewTProtocolExceptionWithType(INVALID_DATA, e)
 		case ' ', '\n', '\r', '\t', rune(JSON_RBRACKET[0]):
 			break
