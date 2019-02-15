@@ -551,14 +551,14 @@ func (h Hostname) Matches(o Hostname) bool {
 			// both h and o are wildcards
 			if len(h) < len(o) {
 				return strings.HasSuffix(string(o[1:]), string(h[1:]))
-			} else {
-				return strings.HasSuffix(string(h[1:]), string(o[1:]))
 			}
-		} else {
-			// only h is wildcard
-			return strings.HasSuffix(string(o), string(h[1:]))
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
 		}
-	} else if oWildcard {
+		// only h is wildcard
+		return strings.HasSuffix(string(o), string(h[1:]))
+	}
+
+	if oWildcard {
 		// only o is wildcard
 		return strings.HasSuffix(string(h), string(o[1:]))
 	}
@@ -578,14 +578,14 @@ func (h Hostname) SubsetOf(o Hostname) bool {
 			// both h and o are wildcards
 			if len(h) < len(o) {
 				return false
-			} else {
-				return strings.HasSuffix(string(h[1:]), string(o[1:]))
 			}
-		} else {
-			// only h is wildcard
-			return false
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
 		}
-	} else if oWildcard {
+		// only h is wildcard
+		return false
+	}
+
+	if oWildcard {
 		// only o is wildcard
 		return strings.HasSuffix(string(h), string(o[1:]))
 	}
