@@ -103,16 +103,16 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNREACHABLE_uk.google.com_no_vs_over_google_wildcard",
+			name:              "REACHABLE_uk.google.com_no_vs_over_google_wildcard",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
 			url:               "https://www.google.co.uk/",
-			shouldBeReachable: false,
+			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_in.google.com_no_vs_over_google_wildcard",
+			name:              "REACHABLE_in.google.com_no_vs_over_google_wildcard",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
 			url:               "https://www.google.co.in/",
-			shouldBeReachable: false,
+			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_google.com_no_vs_over_google_wildcard",
