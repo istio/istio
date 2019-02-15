@@ -49,6 +49,7 @@ data:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
           capabilities:
             add:
             - NET_ADMIN
