@@ -133,16 +133,16 @@ func TestServiceEntry(t *testing.T) {
 			shouldBeReachable: false,
 		},
 		{
-			name:              "UNREACHABLE_www.google.co.uk_443_no_vs_over_google_wildcard_tls",
+			name:              "REACHABLE_www.google.co.uk_443_no_vs_over_google_wildcard_tls",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
 			url:               "https://www.google.co.uk/",
-			shouldBeReachable: false,
+			shouldBeReachable: true,
 		},
 		{
 			name:              "REACHABLE_www.google.co.in_443_no_vs_over_google_wildcard_tls",
 			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
 			url:               "https://www.google.co.in/",
-			shouldBeReachable: false,
+			shouldBeReachable: true,
 		},
 		// test https without VS - related multihosts with resolution DNS
 		{
