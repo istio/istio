@@ -12,5 +12,5 @@ spec:
     - number: 443
       name: https
       protocol: HTTPS
-  resolution: NONE
+  resolution: DNS
   location: MESH_EXTERNAL
