@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3_test
+package v1alpha3
 
 import (
 	"fmt"
+	"path"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +30,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
@@ -102,7 +103,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(core.GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
@@ -126,7 +127,7 @@ func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh mes
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
 	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
-	configgen := core.NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -454,5 +455,61 @@ func TestClusterMetadata(t *testing.T) {
 		} else {
 			g.Expect(cluster.Metadata).To(BeNil())
 		}
+	}
+}
+
+func TestConditionallyConvertToIstioMtls(t *testing.T) {
+	tlsSettings := &networking.TLSSettings{
+		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
+		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
+		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+		SubjectAltNames:   []string{"custom.foo.com"},
+		Sni:               "custom.foo.com",
+	}
+	tests := []struct {
+		name string
+		tls  *networking.TLSSettings
+		sans []string
+		sni  string
+		want *networking.TLSSettings
+	}{
+		{
+			"Destination rule TLS sni and SAN override",
+			tlsSettings,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			tlsSettings,
+		},
+		{
+			"Destination rule TLS sni and SAN override absent",
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
+				ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
+				PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+				SubjectAltNames:   []string{},
+				Sni:               "",
+			},
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
+				ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
+				PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			}
+		})
 	}
 }
