@@ -31,6 +31,25 @@ mixer:
     enabled: true
   telemetry:
     enabled: true
+  # mixer load shedding configuration.
+  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+  loadshedding:
+    # disabled, logonly or enforce
+    mode: enforce
+
+  adapters:
+    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
+    stdio:
+      enabled: false
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1G
+    limits:
+      # It is best to do horizontal scaling of mixer using moderate cpu allocation.
+      # We have experimentally found that these values work well.
+      cpu: 4800m
+      memory: 4G
 
 #
 # pilot configuration
@@ -136,19 +155,21 @@ global:
     # Resources for the sidecar.
     resources:
       requests:
-        cpu: 10m
-      #  memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 128Mi
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
     concurrency: 0
 
-    # Configures the access log for each sidecar. Setting it to an empty string will
-    # disable access log for sidecar.
-    accessLogFile: "/dev/stdout"
+    # Configures the access log for each sidecar.
+    # Options:
+    #   "" - disables access log
+    #   "/dev/stdout" - enables access log
+    accessLogFile: ""
 
     # Configure how and what fields are displayed in sidecar access log. Setting to
     # empty string will result in default log format
