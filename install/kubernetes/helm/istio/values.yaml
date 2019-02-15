@@ -108,6 +108,7 @@ kiali:
 
 #
 # Istio CNI plugin enabled
+#   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
 #   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
 #   settings for the istio-proxy.
 #
