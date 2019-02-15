@@ -233,7 +233,7 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		HeaderKey: headerKey,
 	}
 
-	any := findOrMarshalCallCredentials(tokenFileName, headerKey, config)
+	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
@@ -248,26 +248,26 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 	}
 }
 
-type callCredAnyKey struct {
+type fbMetadataAnyKey struct {
 	tokenFileName string
 	headerKey     string
 }
 
-var callCredAnyMap = map[callCredAnyKey]*types.Any{}
+var fileBasedMetadataConfigAnyMap = map[fbMetadataAnyKey]*types.Any{}
 
-// findOrMarshalCallCredentials searches google.protobuf.Any in callCredAnyMap by tokenFileName and
-// headerKey, and returns google.protobuf.Any proto if found. If not found, it takes the protocol
-// buffer and encodes it into google.protobuf.Any, and stores this new google.protobuf.Any into
-// callCredAny.
-func findOrMarshalCallCredentials(tokenFileName, headerKey string, callCred *v2alpha.FileBasedMetadataConfig) *types.Any {
-	key := callCredAnyKey{
+// findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
+// by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
+// it takes the fbMetadata and marshals it into google.protobuf.Any, and stores this new
+// google.protobuf.Any into fileBasedMetadataConfigAnyMap.
+func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *v2alpha.FileBasedMetadataConfig) *types.Any {
+	key := fbMetadataAnyKey{
 		tokenFileName: tokenFileName,
 		headerKey:     headerKey,
 	}
-	if marshalAny, found := callCredAnyMap[key]; found {
+	if marshalAny, found := fileBasedMetadataConfigAnyMap[key]; found {
 		return marshalAny
 	}
-	any, _ := types.MarshalAny(callCred)
-	callCredAnyMap[key] = any
+	any, _ := types.MarshalAny(fbMetadata)
+	fileBasedMetadataConfigAnyMap[key] = any
 	return any
 }

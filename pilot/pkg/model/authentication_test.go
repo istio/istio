@@ -248,7 +248,7 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 }
 
 func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
-	any := findOrMarshalCallCredentials(tokenFileName, headerKey, metaConfig)
+	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
