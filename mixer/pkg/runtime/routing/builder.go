@@ -53,6 +53,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.opencensus.io/tag"
 	"go.opencensus.io/stats"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
@@ -257,6 +258,19 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				set.entries = append(defaultSet.entries, set.entries...)
 			}
 		}
+	}
+
+	for variety, vTable := range b.table.entries {
+		totalPolicies := 0
+		for _, nsTable := range vTable.entries {
+			totalPolicies += nsTable.Count()
+		}
+		ctx := context.Background()
+		var err error
+		if ctx, err = tag.New(ctx, tag.Insert(monitoring.VarietyTag, variety.String())); err != nil {
+			log.Errorf("error establishing monitoring context for variety type: %v", err)
+		}
+		stats.Record(ctx, monitoring.RulesPerVarietyTotal.M(int64(totalPolicies)))
 	}
 }
 

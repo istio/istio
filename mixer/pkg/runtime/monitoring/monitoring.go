@@ -28,6 +28,7 @@ const (
 	meshFunction = "meshFunction"
 	adapterName  = "adapter"
 	errorStr     = "error"
+	varietyStr   = "variety"
 )
 
 var (
@@ -43,6 +44,8 @@ var (
 	AdapterTag tag.Key
 	// ErrorTag holds the current error for the context.
 	ErrorTag tag.Key
+	// VarietyTag holds the template variety
+	VarietyTag tag.Key
 
 	// distribution buckets
 	durationBuckets = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
@@ -191,6 +194,11 @@ var (
 		"mixer/dispatcher/instances_per_request",
 		"Number of instances created per request by Mixer",
 		stats.UnitDimensionless)
+
+	RulesPerVarietyTotal = stats.Int64(
+		"mixer/dispatcher/rules_per_variety_total",
+		"Number Mixer rules by template variety type",
+		stats.UnitDimensionless)
 )
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
@@ -223,10 +231,14 @@ func init() {
 	if ErrorTag, err = tag.NewKey(errorStr); err != nil {
 		panic(err)
 	}
+	if VarietyTag, err = tag.NewKey(varietyStr); err != nil {
+		panic(err)
+	}
 
 	configKeys := []tag.Key{ConfigIDTag}
 	envConfigKeys := []tag.Key{InitConfigIDTag, HandlerTag}
 	dispatchKeys := []tag.Key{MeshFunctionTag, HandlerTag, AdapterTag, ErrorTag}
+	varietyKeys := []tag.Key{VarietyTag}
 
 	runtimeViews := []*view.View{
 		// config views
@@ -248,6 +260,7 @@ func init() {
 		newView(ClosedHandlersTotal, configKeys, view.Count()),
 		newView(BuildFailuresTotal, configKeys, view.Count()),
 		newView(CloseFailuresTotal, configKeys, view.Count()),
+		newView(RulesPerVarietyTotal, varietyKeys, view.LastValue()),
 
 		// env views
 		newView(WorkersTotal, envConfigKeys, view.LastValue()),
