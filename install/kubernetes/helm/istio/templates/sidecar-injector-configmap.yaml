@@ -176,6 +176,7 @@ data:
           value: "{{ .Values.global.network }}"
         {{- end }}
 {{- if .Values.global.sds.enabled }}
+        {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/enableSDS`) -]]" }}
         - name: ISTIO_META_WORKLOAD_SDS_ENABLED
           value: "{{ .Values.global.sds.enabled }}"
         - name: ISTIO_META_K8S_JWT_PATH
@@ -184,6 +185,7 @@ data:
 {{- else }}
           value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
 {{- end }}
+        {{ "[[ end -]]" }}
 {{- end }}
         {{ "[[ if .ObjectMeta.Annotations ]]" }}
         - name: ISTIO_METAJSON_ANNOTATIONS
@@ -256,6 +258,11 @@ data:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{ "[[ if not (isset .ObjectMeta.Annotations `sidecar.istio.io/enableSDS`) -]]" }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+        {{ "[[ end -]]" }}
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -290,6 +297,22 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
+      {{ "[[ if not (isset .ObjectMeta.Annotations `sidecar.istio.io/enableSDS`) -]]" }}
+      - name: istio-certs
+        secret:
+          optional: true
+          {{ "[[ if eq .Spec.ServiceAccountName \"\" -]]" }}
+          secretName: istio.default
+          {{ "[[ else -]]" }}
+          secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
+          {{ "[[ end -]]" }}
+        {{ "[[- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` ]]" }}
+        {{ "[[ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) ]]" }}
+      - name: {{ "\"[[ $index ]]\"" }}
+        {{ "[[ toYaml $value | indent 2 ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ end ]]" }}
+      {{ "[[ end -]]" }}
       {{- else }}
       - name: istio-certs
         secret:
