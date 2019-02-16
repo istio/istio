@@ -99,7 +99,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.Resour
 	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
-func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
+func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error { // nolint: uparam
 	res := &unstructured.Unstructured{}
 	res.SetKind(key.Kind)
 	res.SetAPIVersion(apiGroupVersion)
@@ -113,7 +113,7 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface
 	d.data[key] = res
 	w, ok := d.watchers[key.Kind]
 	if !ok {
-		return errors.New("failed to find key")
+		return nil
 	}
 	if existed {
 		w.Modify(res)
