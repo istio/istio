@@ -32,6 +32,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/log"
 )
 
@@ -243,6 +244,15 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
+
+	// Populate the platform locality if available.
+	l := platform.GetPlatformLocality()
+	if l.Region != "" {
+		opts["region"] = l.Region
+	}
+	if l.Zone != "" {
+		opts["zone"] = l.Zone
+	}
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
