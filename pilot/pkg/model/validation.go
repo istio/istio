@@ -1519,6 +1519,9 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
 			}
 		}
+		if isUnclearValueInNames(subject.Names) || isUnclearValueInNames(subject.NotNames) {
+			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
+		}
 	}
 	if in.RoleRef == nil {
 		errs = appendErrors(errs, fmt.Errorf("roleRef must be specified"))
@@ -1572,6 +1575,17 @@ func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Sub
 		}
 	case attrSrcIP:
 		if len(subject.Ips) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Return true if the user defines "*" as of the values for names or not_names in ServiceRoleBinding.
+// This is not worrisome because source.principal = "*" is different than User: "*" from the old API.
+func isUnclearValueInNames(names []string) bool {
+	for _, name := range names {
+		if name == "*" {
 			return true
 		}
 	}

@@ -63,7 +63,7 @@ const (
 	// attributes that could be used in a ServiceRoleBinding property.
 	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrSrcNamespace = "source.namespace" // e.g. "default".
-	// TODO: Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
+	// TODO(pitlv2109): Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
 	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
 	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
@@ -71,6 +71,11 @@ const (
 	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
+
+	// reserved string values in names and not_names in ServiceRoleBinding.
+	// This prevents ambiguity when the user defines "*" for names or not_names.
+	allUsers              = "allUsers"              // Allow all users, both authenticated and unauthenticated.
+	allAuthenticatedUsers = "allAuthenticatedUsers" // Allow all authenticated users.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -667,7 +672,7 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding, forTCPFilter 
 	return enforcedPrincipals, permissivePrincipals
 }
 
-// TODO: Refactor first class fields.
+// TODO(pitlv2109): Refactor first class fields.
 // convertToPrincipal converts a single subject to principal.
 func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policyproto.Principal {
 	ids := &policyproto.Principal_AndIds{
@@ -676,7 +681,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		},
 	}
 
-	// TODO: Delete this subject.User block of code once we rolled out 1.2?
+	// TODO(pitlv2109): Delete this subject.User block of code once we rolled out 1.2?
 	if subject.User != "" {
 		if subject.User == "*" {
 			// Generate an any rule to grant access permission to anyone if the value is "*".
@@ -702,7 +707,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		}
 	}
 
-	// TODO: Same as above.
+	// TODO(pitlv2109): Same as above.
 	if subject.Group != "" {
 		if subject.Properties == nil {
 			subject.Properties = make(map[string]string)
@@ -777,8 +782,9 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 	return &policyproto.Principal{Identifier: ids}
 }
 
-// convertBindingField converts an Istio first class field to Envoy RBAC config to nil if the field
-// is empty.
+// convertBindingField converts an Istio first class field (e.g. namespaces, groups, ips, as opposed
+// to properties fields) to Envoy RBAC config and returns said field as a Principal or returns nil
+// if the field is empty.
 func convertBindingField(field []string, key string, forTCPFilter bool) *policyproto.Principal {
 	orIds := &policyproto.Principal_OrIds{
 		OrIds: &policyproto.Principal_Set{
@@ -918,11 +924,19 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
 	// Generate an any rule to grant access permission to anyone if the value is "*" for
 	// |attrSrcPrincipal|.
-	if key == attrSrcPrincipal && value == "*" {
-		return &policyproto.Principal{
-			Identifier: &policyproto.Principal_Any{
-				Any: true,
-			},
+	if key == attrSrcPrincipal {
+		if value == allUsers {
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
+		// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
+		// refer to authenticated users, since existing code using regex to map "*" to all authenticated
+		// users.
+		if value == allAuthenticatedUsers {
+			value = "*"
 		}
 	}
 

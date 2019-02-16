@@ -3739,6 +3739,16 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
 		},
 		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
+		},
+		{
 			name: "success proto",
 			in: &rbac.ServiceRoleBinding{
 				Subjects: []*rbac.Subject{
