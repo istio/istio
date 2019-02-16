@@ -664,7 +664,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						Names: []string{"cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"},
+						Names: []string{allAuthenticatedUsers},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -1282,8 +1282,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Identifier: &policy.Principal_Metadata{
 												Metadata: generateMetadataStringMatcher(
 													attrSrcPrincipal, &metadata.StringMatcher{
-														MatchPattern: &metadata.StringMatcher_Exact{
-															Exact: "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"}},
+														MatchPattern: &metadata.StringMatcher_Regex{
+															Regex: ".*",
+														}},
 													authn.AuthnFilterName),
 											},
 										},

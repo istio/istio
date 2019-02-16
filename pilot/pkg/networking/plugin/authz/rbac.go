@@ -72,6 +72,11 @@ const (
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
 
+	// reserved string values in names and not_names in ServiceRoleBinding.
+	// This prevents ambiguity when the user defines "*" for names or not_names.
+	allUsers              = "allUsers"              // Allow all users, both authenticated and unauthenticated.
+	allAuthenticatedUsers = "allAuthenticatedUsers" // Allow all authenticated users.
+
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
@@ -918,11 +923,19 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
 	// Generate an any rule to grant access permission to anyone if the value is "*" for
 	// |attrSrcPrincipal|.
-	if key == attrSrcPrincipal && value == "*" {
-		return &policyproto.Principal{
-			Identifier: &policyproto.Principal_Any{
-				Any: true,
-			},
+	if key == attrSrcPrincipal {
+		if value == allUsers {
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
+		// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
+		// refer to authenticated users, since existing code using regex to map "*" to all authenticated
+		// users.
+		if value == allAuthenticatedUsers {
+			value = "*"
 		}
 	}
 
