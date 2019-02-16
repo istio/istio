@@ -71,7 +71,7 @@ func init() {
 	}
 }
 
-func collectionOf(nonLegacyKind string) string {
+func collectionOf(nonLegacyKind string) string { //nolint: unparam
 	for _, u := range kube.Types.All() {
 		if u.Kind == nonLegacyKind {
 			return u.Target.Collection.String()

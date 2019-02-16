@@ -113,7 +113,7 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface
 	d.data[key] = res
 	w, ok := d.watchers[key.Kind]
 	if !ok {
-		return nil
+		return errors.New("failed to find key")
 	}
 	if existed {
 		w.Modify(res)
