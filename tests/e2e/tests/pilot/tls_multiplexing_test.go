@@ -56,34 +56,36 @@ func TestTLSMultiplexing(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, 15, func() error {
-							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							expectOK := true
-							for _, f := range shouldFails {
-								if f.src == src && f.dest == dst && f.port == port {
-									expectOK = false
-									break
+		for cluster := range tc.Kube.Clusters {
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+							runRetriableTest(t, testName, 15, func() error {
+								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+								expectOK := true
+								for _, f := range shouldFails {
+									if f.src == src && f.dest == dst && f.port == port {
+										expectOK = false
+										break
+									}
 								}
-							}
-							count := 1
-							if !expectOK {
-								count = 15
-							}
-							resp := ClientRequest(primaryCluster, src, reqURL, count, "")
-							if resp.IsHTTPOk() && expectOK {
-								return nil
-							}
-							if !resp.IsHTTPOk() && !expectOK {
-								return nil
-							}
-							log.Errorf("multiplex testing failed expect %v, returned http %v", expectOK, resp.IsHTTPOk())
-							return errAgain
-						})
+								count := 1
+								if !expectOK {
+									count = 15
+								}
+								resp := ClientRequest(cluster, src, reqURL, count, "")
+								if resp.IsHTTPOk() && expectOK {
+									return nil
+								}
+								if !resp.IsHTTPOk() && !expectOK {
+									return nil
+								}
+								log.Errorf("multiplex testing failed expect %v, returned http %v", expectOK, resp.IsHTTPOk())
+								return errAgain
+							})
+						}
 					}
 				}
 			}
