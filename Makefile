@@ -86,10 +86,6 @@ export ENABLE_ISTIO_CNI ?= false
 # NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
 # EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
 
-
-#ISTIO_HELM_REPO := https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts
-ISTIO_HELM_REPO := https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
-
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -634,13 +630,8 @@ $(HELM):
 $(HOME)/.helm:
 	$(HELM) init --client-only
 
-.PHONY: helm-repo-add
-
-helm-repo-add:
-	$(HELM) repo add istio.io ${ISTIO_HELM_REPO}
-
 # create istio-remote.yaml
-istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+istio-remote.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
@@ -650,7 +641,7 @@ istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 # create istio-init.yaml
-istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
@@ -660,7 +651,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+isti%.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
@@ -675,7 +666,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
+generate_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
@@ -716,7 +707,7 @@ generate_yaml_coredump:
 # TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 	#./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
