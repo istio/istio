@@ -781,10 +781,17 @@ func TestHelmInject(t *testing.T) {
 						t.Fatal(err)
 					}
 
+					// normalize and compare the patched deployment with the one we expected.
+					err := normalizeAndCompareDeployments(patchedDeployment, wantDeployment, t)
+
 					if !util.Refresh() {
-						// Compare the patched deployment with the one we expected.
-						compareDeployments(patchedDeployment, wantDeployment, c.wantFile, t)
+						if err != nil {
+							t.Fatalf("Failed validating golden file %s:\n%v", c.wantFile, err)
+						}
 					} else {
+						if err != nil {
+							t.Logf("Updating %s", c.wantFile)
+						}
 						goldenYAMLs[i] = deploymentToYaml(patchedDeployment, t)
 					}
 				})
@@ -1017,7 +1024,7 @@ func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 	return yaml
 }
 
-func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
+func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
@@ -1066,7 +1073,8 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	util.CompareBytes([]byte(gotString), []byte(wantString), name, t)
+
+	return util.Compare([]byte(gotString), []byte(wantString))
 }
 
 func annotations(d *extv1beta1.Deployment) map[string]string {

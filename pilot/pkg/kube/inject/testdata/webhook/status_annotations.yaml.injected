@@ -56,7 +56,7 @@ spec:
         - --applicationPorts
         - 1,2,3
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -95,8 +95,12 @@ spec:
           initialDelaySeconds: 100
           periodSeconds: 200
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337

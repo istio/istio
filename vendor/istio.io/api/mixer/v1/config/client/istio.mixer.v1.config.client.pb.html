@@ -519,6 +519,31 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
+<tr id="NetworkFailPolicy-max_retry">
+<td><code>maxRetry</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Max retries on transport error.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-base_retry_wait">
+<td><code>baseRetryWait</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Base time to wait between retries.  Will be adjusted by exponential
+backoff and jitter.</p>
+
+</td>
+</tr>
+<tr id="NetworkFailPolicy-max_retry_wait">
+<td><code>maxRetryWait</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Max time to wait between retries.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1020,7 +1045,7 @@ environment this traffic occurs in. An Istio attribute carries a specific piece
 of information such as the error code of an API request, the latency of an API request, or the
 original IP address of a TCP connection. For example:</p>
 
-<pre><code>request.path: xyz/abc
+<pre><code class="language-yaml">request.path: xyz/abc
 request.size: 234
 request.time: 12:34:56.789 04/17/2017
 source.ip: 192.168.0.1

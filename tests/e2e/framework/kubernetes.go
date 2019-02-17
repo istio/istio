@@ -911,13 +911,6 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		valFile = filepath.Join(workDir, *valueFile)
 	}
 
-	err = util.HelmDepUpdate(workDir)
-	if err != nil {
-		// helm dep upgrade
-		log.Errorf("Helm dep update failed %s", workDir)
-		return err
-	}
-
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
 	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)

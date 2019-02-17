@@ -523,20 +523,17 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
-}
 
-// ServiceAccounts exposes Istio service accounts
-// Deprecated - service account tracking moved to XdsServer, incremental.
-type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
-// Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
+// Matches returns true if this hostname overlaps with the other hostname. Hostnames overlap if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
-// to determine if h is covered by o.
+// to determine if h is covered by o or o is covered by h.
 // e.g.:
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
@@ -546,70 +543,55 @@ type ServiceAccounts interface {
 //  Hostname("*").Matches("foo.com") = true
 //  Hostname("*").Matches("*.com") = true
 func (h Hostname) Matches(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
-
 	hWildcard := len(h) > 0 && string(h[0]) == "*"
-	if hWildcard && len(o) == 0 {
-		return true
-	}
-
 	oWildcard := len(o) > 0 && string(o[0]) == "*"
-	if !hWildcard && !oWildcard {
-		// both are non-wildcards, so do normal string comparison
-		return h == o
-	}
 
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
-		longer, shorter = shorter, longer
-		hWildcard, oWildcard = oWildcard, hWildcard
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return strings.HasSuffix(string(o[1:]), string(h[1:]))
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
+		return strings.HasSuffix(string(o), string(h[1:]))
 	}
 
-	matches := strings.HasSuffix(longer, shorter)
-	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
-		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
-		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
-		return false
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
 	}
-	return matches
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
-// the same as "Matches", but only in one direction.
+// the same as "Matches", but only in one direction (i.e., h is covered by o).
 func (h Hostname) SubsetOf(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
-
 	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	oWildcard := len(o) > 0 && string(o[0]) == "*"
-	if !oWildcard {
-		if hWildcard {
-			return false
-		}
-		return h == o
-	}
 
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return false
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
 		return false
 	}
 
-	return strings.HasSuffix(longer, shorter)
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
+	}
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
