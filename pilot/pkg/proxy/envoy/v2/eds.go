@@ -490,11 +490,13 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	}
 	w, f := s.WorkloadsByID[id]
 	if !f {
-		// First time this workload has been seen. Likely never connected, no need to
-		// push
+		// First time this workload has been seen
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
 		}
+		// Although newly added, we are still pushing to this proxy to cover
+		// cases when it connected before getting a workload update event (#10904)
+		s.ConfigUpdate(true)
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
