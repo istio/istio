@@ -34,6 +34,7 @@ var (
 )
 
 func parseReportLine(line string) (string, float64, error) {
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@test")
 	// <option value="file0">istio.io/istio/galley/cmd/shared/shared.go (0.0%)</option>
 	reg := regexp.MustCompile(` *<option value=\"(.*)\">(.*) \((.*)%\)</option>`)
 	if m := reg.FindStringSubmatch(line); len(m) != 0 {
