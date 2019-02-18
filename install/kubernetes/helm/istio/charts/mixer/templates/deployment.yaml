@@ -186,6 +186,10 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
+          - --averageLatencyThreshold
+          - {{ $.Values.telemetry.loadshedding.latencyThreshold }}
+          - --loadsheddingMode
+          - {{ $.Values.telemetry.loadshedding.mode }}
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}

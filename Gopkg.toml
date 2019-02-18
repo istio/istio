@@ -242,8 +242,8 @@ ignored = [
   version = "1.2.1"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/uber/jaeger-client-go"
-  version = "2.12.0"
 
 [[constraint]]
   name = "go.uber.org/atomic"
