@@ -66,12 +66,15 @@ func TestAuth(t *testing.T) {
 	defer ts.Close()
 
 	testcases := []struct {
-		name         string
-		mode         AuthMode
-		headerKey    string
-		headerToken  string
-		errorMessage string
-		authCfg      *policypb.Authentication
+		name                  string
+		mode                  AuthMode
+		headerKey             string
+		headerToken           string
+		configErrorMessage    string
+		handshakeErrorMessage string
+		adapterCrt            string
+		adapterKey            string
+		authCfg               *policypb.Authentication
 	}{
 		{
 			name: "no auth",
@@ -83,12 +86,30 @@ func TestAuth(t *testing.T) {
 			authCfg: &policypb.Authentication{
 				AuthType: &policypb.Authentication_Mutual{
 					Mutual: &policypb.Mutual{
-						PrivateKey:        "../testdata/auth/private1.key",
-						ClientCertificate: "../testdata/auth/cert1.pem",
+						PrivateKey:        "../testdata/auth/mixer.key",
+						ClientCertificate: "../testdata/auth/mixer.crt",
 						CaCertificates:    "../testdata/auth/ca.pem",
 					},
 				},
 			},
+			adapterKey: "../testdata/auth/adapter.key",
+			adapterCrt: "../testdata/auth/adapter.crt",
+		},
+		{
+			name: "mtls non_mixer_san",
+			mode: MTLS,
+			authCfg: &policypb.Authentication{
+				AuthType: &policypb.Authentication_Mutual{
+					Mutual: &policypb.Mutual{
+						PrivateKey:        "../testdata/auth/mixer.key",
+						ClientCertificate: "../testdata/auth/mixer.crt",
+						CaCertificates:    "../testdata/auth/ca.pem",
+					},
+				},
+			},
+			adapterKey:            "../testdata/auth/bad.key",
+			adapterCrt:            "../testdata/auth/bad.crt",
+			handshakeErrorMessage: "cert SAN [spiffe://cluster.local/ns/istio-system/sa/bad-service-account] is not whitelisted",
 		},
 		{
 			name:        "tls only token",
@@ -146,7 +167,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			errorMessage: "cannot get grpc per rpc credentials token type should be specified",
+			configErrorMessage: "cannot get grpc per rpc credentials token type should be specified",
 		},
 		{
 			name: "tls authorization missing ca",
@@ -160,7 +181,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			errorMessage: "ca cert cannot be load open some/ca/path: no such file or directory",
+			configErrorMessage: "ca cert cannot be load open some/ca/path: no such file or directory",
 		},
 		{
 			name: "tls authorization no token source",
@@ -173,7 +194,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			errorMessage: "cannot get grpc per rpc credentials unexpected tls token source type",
+			configErrorMessage: "cannot get grpc per rpc credentials unexpected tls token source type",
 		},
 		{
 			name:        "tls oauth token",
@@ -213,7 +234,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			errorMessage: "cannot get grpc per rpc credentials oauth secret cannot be empty",
+			configErrorMessage: "cannot get grpc per rpc credentials oauth secret cannot be empty",
 		},
 	}
 
@@ -221,7 +242,7 @@ func TestAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var s spy.Server
 			var err error
-			args := getServerArgs(tt.mode, tt.headerKey, tt.headerToken)
+			args := getServerArgs(tt.mode, tt.headerKey, tt.headerToken, tt.adapterKey, tt.adapterCrt)
 			if s, err = spy.NewNoSessionServer(args); err != nil {
 				t.Fatalf("unable to start Spy %v", err)
 			}
@@ -245,9 +266,9 @@ func TestAuth(t *testing.T) {
 				false, adapterConfig,
 				[]*TemplateConfig{metricDi}, true)
 			if err != nil {
-				if tt.errorMessage != "" {
-					if !strings.Contains(err.Error(), tt.errorMessage) {
-						t.Errorf("want %v in error message, got %v", tt.errorMessage, err.Error())
+				if tt.configErrorMessage != "" {
+					if !strings.Contains(err.Error(), tt.configErrorMessage) {
+						t.Errorf("want %v in error message, got %v", tt.configErrorMessage, err.Error())
 					}
 					return
 				}
@@ -255,13 +276,19 @@ func TestAuth(t *testing.T) {
 			}
 			mi := buildMetricInst(t)
 			if err := h.HandleRemoteReport(context.Background(), []*adapter.EncodedInstance{mi}); err != nil {
-				t.Errorf("get error %v", err)
+				if tt.handshakeErrorMessage != "" {
+					if !strings.Contains(err.Error(), tt.handshakeErrorMessage) {
+						t.Errorf("want %v in error message, got %v", tt.handshakeErrorMessage, err.Error())
+					}
+					return
+				}
+				t.Errorf("get rpc error %v", err)
 			}
 		})
 	}
 }
 
-func getServerArgs(auth AuthMode, headerKey, headerToken string) *spy.Args {
+func getServerArgs(auth AuthMode, headerKey, headerToken, key, crt string) *spy.Args {
 	args := spy.DefaultArgs()
 	switch auth {
 	case TLS:
@@ -272,8 +299,14 @@ func getServerArgs(auth AuthMode, headerKey, headerToken string) *spy.Args {
 		args.Behavior.RequireMTls = true
 		args.Behavior.InsecureSkipVerification = true
 	}
-	args.Behavior.KeyPath = "../testdata/auth/private2.key"
-	args.Behavior.CredsPath = "../testdata/auth/cert2.pem"
+	if key == "" {
+		key = "../testdata/auth/adapter.key"
+	}
+	if crt == "" {
+		crt = "../testdata/auth/adapter.crt"
+	}
+	args.Behavior.KeyPath = key
+	args.Behavior.CredsPath = crt
 	args.Behavior.CertPath = "../testdata/auth/ca.pem"
 	return args
 }

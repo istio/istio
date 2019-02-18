@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -35,6 +36,10 @@ import (
 const (
 	// file path to the public CA certs
 	publicCACertsFile = "/etc/ssl/certs/ca-certificates.crt"
+
+	// whitelisted subjectAltName for MTLS identity check
+	// TODO(bianpengyuan): make this configurable
+	whitelisteSAN = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
 )
 
 type authHelper struct {
@@ -100,11 +105,47 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.Dial
 		return nil, fmt.Errorf("failed to build TLS dial option: CA certificate cannot be loaded: %v", err)
 	}
 
+	customVerify := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		certs := make([]*x509.Certificate, len(rawCerts))
+		for i, asn1Data := range rawCerts {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return errors.New("failed to parse certificate from server: " + err.Error())
+			}
+			certs[i] = cert
+		}
+		opts := x509.VerifyOptions{
+			Roots:         caCertPool,
+			CurrentTime:   time.Now(),
+			Intermediates: x509.NewCertPool(),
+		}
+
+		for i, cert := range certs {
+			if i == 0 {
+				continue
+			}
+			opts.Intermediates.AddCert(cert)
+		}
+		if verifiedChains, err = certs[0].Verify(opts); err != nil {
+			return nil
+		}
+		for _, uri := range certs[0].URIs {
+			if uri.String() == whitelisteSAN {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to authenticate, cert SAN %v is not whitelisted", certs[0].URIs)
+	}
+
 	// TODO(bianpengyuan) add server name option here for proxy-fronted backend.
 	tc := credentials.NewTLS(&tls.Config{
-		Certificates:       []tls.Certificate{peerCert},
-		RootCAs:            caCertPool,
-		InsecureSkipVerify: skipVerify,
+		Certificates: []tls.Certificate{peerCert},
+		RootCAs:      caCertPool,
+		// For mtls, skip default cert verification and use the custom one, which basically replicates the
+		// default verification logic. The only difference is that it checks subject alt name to be
+		// whitelisted spiffe URI instead of checking DNS/server name.
+		InsecureSkipVerify:    true,
+		VerifyPeerCertificate: customVerify,
 	})
 	return []grpc.DialOption{grpc.WithTransportCredentials(tc)}, nil
 }
