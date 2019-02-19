@@ -105,6 +105,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 			log.Infof("Endpoint for service %s not found", svc)
 		}
 	}
+	helmSetContent += " --set security.selfSigned=false"
 	if !useAutoInject {
 		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
 		log.Infof("Remote cluster auto-sidecar injection disabled")
