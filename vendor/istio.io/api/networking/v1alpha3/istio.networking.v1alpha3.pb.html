@@ -671,6 +671,16 @@ service. Traffic policies can be overridden at subset level.</p>
 
 </td>
 </tr>
+<tr id="DestinationRule-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The resolution of a DestinationRule to apply to a service occurs in the
+context of a hierarchy of namespaces. This rule controls whether those
+namespaces are allowed to select this rule.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -3230,7 +3240,7 @@ spec:
 
 <p>The following example demonstrates the use of a dedicated egress gateway
 through which all external service traffic is forwarded.
-The &lsquo;export_to&rsquo; field allows for control over the visibility of a service
+The &lsquo;exportTo&rsquo; field allows for control over the visibility of a service
 declaration to other namespaces in the mesh. By default a service is exported
 to all namespaces. The following example restricts the visibility to the
 current namespace, represented by &ldquo;.&rdquo;, so that it cannot be used by other
@@ -3244,8 +3254,8 @@ metadata:
 spec:
   hosts:
   - httpbin.com
-  export_to:
-  - .
+  exportTo:
+  - &quot;.&quot;
   location: MESH_EXTERNAL
   ports:
   - number: 80
@@ -3288,7 +3298,7 @@ metadata:
 spec:
   hosts:
   - httpbin.com
-  export_to:
+  exportTo:
   - *
   gateways:
   - mesh
@@ -3493,6 +3503,29 @@ said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 <td><code><a href="#ServiceEntry-Endpoint">ServiceEntry.Endpoint[]</a></code></td>
 <td>
 <p>One or more endpoints associated with the service.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of namespaces to which this service is exported. Exporting a service
+allows it to used by sidecars, gateways and virtual services defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of services across
+namespace boundaries.</p>
+
+<p>If no namespaces are specified then the service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the service is declared in, similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
+
+<p>For a Kubernetes Service the equivalent effect can be achieved by setting
+the annotation &ldquo;networking.istio.io/exportTo&rdquo; to a comma-separated list
+of namespace names.</p>
 
 </td>
 </tr>
@@ -3728,7 +3761,7 @@ than one selector-less Sidecar resources exist in a given namespace. The
 behavior of the system is undefined if two or more Sidecar resources
 with a workload selector select the same workload.</p>
 
-<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+<p>The example below declares a Sidecar resource in the prod-us1 namespace
 that configures the sidecars in the namespace to allow egress traffic to
 public services in the prod-us1, prod-apis, and the istio-system
 namespaces.</p>
@@ -3746,7 +3779,7 @@ spec:
     - &quot;istio-system/*&quot;
 </code></pre>
 
-<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+<p>The example below declares a Sidecar resource in the prod-us1 namespace
 that accepts inbound HTTP traffic on port 9080 and forwards
 it to the attached workload listening on a unix domain socket. In the
 egress direction, in addition to the istio-system namespace, the sidecar
@@ -4572,6 +4605,25 @@ traffic.</p>
 <p>An ordered list of route rules for opaque TCP traffic. TCP routes will
 be applied to any port that is not a HTTP or TLS port. The first rule
 matching an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of namespaces to which this virtual service is exported. Exporting a
+virtual service allows it to used by sidecars and gateways defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of virtual services
+across namespace boundaries.</p>
+
+<p>If no namespaces are specified then the virtual service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the virtual service is declared in, similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
 
 </td>
 </tr>
