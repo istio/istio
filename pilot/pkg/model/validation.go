@@ -108,11 +108,11 @@ func ValidatePort(port int) error {
 }
 
 // Validate checks that each name conforms to the spec and has a ProtoMessage
+// it validates the uniqueness of the protoMessages by collection
 func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
 	descriptorTypes := make(map[string]bool)
-	messages := make(map[string]bool)
-	clusterMessages := make(map[string]bool)
+	collections := make(map[string]bool)
 
 	for _, v := range descriptor {
 		if !IsDNS1123Label(v.Type) {
@@ -128,17 +128,10 @@ func (descriptor ConfigDescriptor) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
 		descriptorTypes[v.Type] = true
-		if v.ClusterScoped {
-			if _, exists := clusterMessages[v.MessageName]; exists {
-				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
-			}
-			clusterMessages[v.MessageName] = true
-		} else {
-			if _, exists := messages[v.MessageName]; exists {
-				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
-			}
-			messages[v.MessageName] = true
+		if _, exists := collections[v.Collection]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.Collection))
 		}
+		collections[v.Collection] = true
 	}
 	return errs
 }

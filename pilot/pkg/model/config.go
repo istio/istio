@@ -374,7 +374,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Validate:    ValidateServiceEntry,
-		Collection:  "istio/networking/v1alpha3/synthetic/serviceentries",
+		Collection:  metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String(),
 	}
 
 	// DestinationRule describes destination rules
