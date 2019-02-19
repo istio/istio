@@ -146,6 +146,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		// whitelisted spiffe URI instead of checking DNS/server name.
 		InsecureSkipVerify:    true,
 		VerifyPeerCertificate: customVerify,
+		ServerName:            mtlsCfg.ServerName,
 	})
 	return []grpc.DialOption{grpc.WithTransportCredentials(tc)}, nil
 }
@@ -229,10 +230,10 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 		return nil, fmt.Errorf("failed build tls dial option: ca cert cannot be load %v", err)
 	}
 
-	// TODO(bianpengyuan) add server name option here for proxy-fronted backend.
 	tc := credentials.NewTLS(&tls.Config{
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: skipVerify,
+		ServerName:         tlsCfg.ServerName,
 	})
 	opts = append(opts, grpc.WithTransportCredentials(tc))
 
