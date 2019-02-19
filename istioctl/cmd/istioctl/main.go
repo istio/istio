@@ -73,7 +73,7 @@ debug and diagnose their Istio mesh.
 
 	experimentalCmd = &cobra.Command{
 		Use:     "experimental",
-		Aliases: []string{"x"},
+		Aliases: []string{"x", "exp"},
 		Short:   "Experimental commands that may be modified or deprecated",
 	}
 )
