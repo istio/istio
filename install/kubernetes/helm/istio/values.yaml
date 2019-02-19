@@ -205,6 +205,9 @@ global:
     includeIPRanges: "*"
     excludeIPRanges: ""
 
+    # pod internal interfaces
+    kubevirtInterfaces: ""
+
     # istio ingress capture whitelist
     # examples:
     #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
@@ -431,7 +434,7 @@ global:
   #     - registryServiceName: istio-ingressgateway
   #       port: 443
   #
-  meshNetworks:
+  meshNetworks: {}
 
   # Specifies whether helm test is enabled or not.
   # This field is set to false by default, so 'helm template ...'

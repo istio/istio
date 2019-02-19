@@ -146,10 +146,10 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 	}
 
 	// Adding cni dependency as a workaround for now.
-	if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
-		helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
-		return "", err
-	}
+	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
+	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
+	// 	return "", err
+	// }
 
 	// Package the chart dir.
 	if _, err := exec(fmt.Sprintf("helm --home %s package %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
