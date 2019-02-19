@@ -112,3 +112,15 @@ function clone_cni() {
       cd "${TMP_DIR}" || return
   fi
 }
+
+function config_run_cni(){
+      TMP_DIR=$PWD
+      cd "${GOPATH}/src/istio.io/cni" || return
+
+      GOOS=linux make build
+      GOOS=linux make docker.push
+      helm template deployments/kubernetes/install/helm/istio-cni --values deployments/kubernetes/install/helm/istio-cni/values.yaml --namespace kube-system --set hub=$HUB --set tag=$TAG --set exclude_namespaces={} > $HOME/istio-cni.yaml
+      kubectl apply -f /root/istio-cni.yaml
+
+      cd "${TMP_DIR}" || return
+}
