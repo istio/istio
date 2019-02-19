@@ -250,7 +250,6 @@ type DestinationRule struct {
 	// One or more named sets that represent individual versions of a
 	// service. Traffic policies can be overridden at subset level.
 	Subsets []*Subset `protobuf:"bytes,3,rep,name=subsets" json:"subsets,omitempty"`
-	// $hide_from_docs
 	// The resolution of a DestinationRule to apply to a service occurs in the
 	// context of a hierarchy of namespaces. This rule controls whether those
 	// namespaces are allowed to select this rule.
