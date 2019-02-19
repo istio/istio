@@ -95,7 +95,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 				Filename: K8sSATrustworthyJwtFileName,
 			},
 		},
-		HeaderKey: k8sSAJwtTokenHeaderKey,
+		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
 	normalMetaConfig := &v2alpha.FileBasedMetadataConfig{
@@ -104,7 +104,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 				Filename: K8sSAJwtFileName,
 			},
 		},
-		HeaderKey: k8sSAJwtTokenHeaderKey,
+		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
 	cases := []struct {
