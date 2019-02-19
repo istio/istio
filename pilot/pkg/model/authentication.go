@@ -260,7 +260,7 @@ var fileBasedMetadataConfigAnyMap = map[fbMetadataAnyKey]*types.Any{}
 // it takes the fbMetadata and marshals it into google.protobuf.Any, and stores this new
 // google.protobuf.Any into fileBasedMetadataConfigAnyMap.
 // FileBasedMetadataConfig only supports non-deterministic marshaling. As each SDS config contains
-// marshaled FileBasedMetadataConfig, the SDS config would differ if marshalling FileBasedMetadataConfig
+// marshaled FileBasedMetadataConfig, the SDS config would differ if marshaling FileBasedMetadataConfig
 // returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
 // same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
 // FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
