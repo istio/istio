@@ -79,6 +79,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	}
 
 	for _, c := range rawClusters {
+		SetSdsTokenPathFromProxyMetadata(c, node)
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
