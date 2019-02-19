@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"os"
 	"reflect"
 	"time"
 
@@ -123,6 +124,10 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	}
 
 	customVerify := func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		if os.Getenv("BYPASS_OOP_MTLS_VERIFICATION") == "true" {
+			log.Infof("BYPASS_OOP_MTLS_VERIFICATION=true - bypassing mtls custom verification")
+			return nil
+		}
 		certs := make([]*x509.Certificate, len(rawCerts))
 		for i, asn1Data := range rawCerts {
 			cert, err := x509.ParseCertificate(asn1Data)
@@ -139,6 +144,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 
 		for i, cert := range certs {
 			if i == 0 {
+				// do not add leaf cert to intermediate certs
 				continue
 			}
 			opts.Intermediates.AddCert(cert)
