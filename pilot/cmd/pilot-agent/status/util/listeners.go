@@ -36,6 +36,7 @@ func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error)
 
 	// Clean the input string to remove surrounding brackets
 	input := strings.Trim(strings.TrimSpace(buf.String()), "[]")
+
 	// Get the individual listener strings.
 	listeners := strings.Split(input, ",")
 	ports := make(map[uint16]bool)
@@ -67,7 +68,7 @@ func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error)
 
 func isLocalListener(l string) bool {
 	for _, ipPrefix := range ipPrefixes {
-		// In case of IPv6 address, it always comes in "[]", remove then so HasPrefix would work
+		// In case of IPv6 address, it always comes in "[]", remove them so HasPrefix would work
 		if strings.HasPrefix(strings.Trim(l, "[]"), ipPrefix) {
 			return true
 		}
