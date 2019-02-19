@@ -20,6 +20,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -36,10 +38,6 @@ import (
 const (
 	// file path to the public CA certs
 	publicCACertsFile = "/etc/ssl/certs/ca-certificates.crt"
-
-	// whitelisted subjectAltName for MTLS identity check
-	// TODO(bianpengyuan): make this configurable
-	whitelisteSAN = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
 )
 
 type authHelper struct {
@@ -90,6 +88,18 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 	return caCertPool, nil
 }
 
+func getWhitelistSAN(cert []byte) []*url.URL {
+	var whitelistSAN []*url.URL
+	c, err := x509.ParseCertificate(cert)
+	if err != nil {
+		return whitelistSAN
+	}
+	for _, uri := range c.URIs {
+		whitelistSAN = append(whitelistSAN, uri)
+	}
+	return whitelistSAN
+}
+
 func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	// load peer cert/key.
 	pk := mtlsCfg.GetPrivateKey()
@@ -97,6 +107,13 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	peerCert, err := tls.LoadX509KeyPair(cc, pk)
 	if err != nil {
 		return nil, errors.Errorf("load peer cert/key error: %v", err)
+	}
+
+	// for simplicity, when using mtls, restrict out of process adapter cert subject to be mixer's spiffe identity
+	// TODO(bianpengyuan) make this configurable if needed
+	var whitelistSAN []*url.URL
+	if peerCert.Certificate != nil && len(peerCert.Certificate) > 0 {
+		whitelistSAN = getWhitelistSAN(peerCert.Certificate[0])
 	}
 
 	// Load certificates, include public certs and certs from config (such as istio CA certs).
@@ -130,8 +147,10 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 			return nil
 		}
 		for _, uri := range certs[0].URIs {
-			if uri.String() == whitelisteSAN {
-				return nil
+			for _, whitelisted := range whitelistSAN {
+				if reflect.DeepEqual(uri, whitelisted) {
+					return nil
+				}
 			}
 		}
 		return fmt.Errorf("failed to authenticate, cert SAN %v is not whitelisted", certs[0].URIs)
