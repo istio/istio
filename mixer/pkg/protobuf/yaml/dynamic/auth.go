@@ -90,7 +90,7 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 	return caCertPool, nil
 }
 
-func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.DialOption, error) {
+func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	// load peer cert/key.
 	pk := mtlsCfg.GetPrivateKey()
 	cc := mtlsCfg.GetClientCertificate()
@@ -105,7 +105,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.Dial
 		return nil, fmt.Errorf("failed to build TLS dial option: CA certificate cannot be loaded: %v", err)
 	}
 
-	customVerify := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	customVerify := func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 		certs := make([]*x509.Certificate, len(rawCerts))
 		for i, asn1Data := range rawCerts {
 			cert, err := x509.ParseCertificate(asn1Data)
@@ -126,7 +126,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.Dial
 			}
 			opts.Intermediates.AddCert(cert)
 		}
-		if verifiedChains, err = certs[0].Verify(opts); err != nil {
+		if _, err = certs[0].Verify(opts); err != nil {
 			return nil
 		}
 		for _, uri := range certs[0].URIs {
@@ -255,7 +255,7 @@ func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
 	case *policypb.Authentication_Tls:
 		return buildTLSDialOption(a.authCfg.GetTls(), a.skipVerification)
 	case *policypb.Authentication_Mutual:
-		return buildMTLSDialOption(a.authCfg.GetMutual(), a.skipVerification)
+		return buildMTLSDialOption(a.authCfg.GetMutual())
 	default:
 		return nil, fmt.Errorf("authentication type is unexpected: %T", t)
 	}
