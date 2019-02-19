@@ -22,19 +22,18 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
-
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
 	// Policy check stats
-	"http_mixer_filter.total_check_calls":                 10,
-	"http_mixer_filter.total_check_cache_hits":            9,
-	"http_mixer_filter.total_check_cache_misses":          1,
-	"http_mixer_filter.total_check_cache_hit_accepts":     9,
-	"http_mixer_filter.total_check_cache_hit_denies":      0,
-	"http_mixer_filter.total_remote_check_calls":          1,
-	"http_mixer_filter.total_remote_check_accepts":        1,
-	"http_mixer_filter.total_remote_check_denies":         0,
-    // Quota check stats
+	"http_mixer_filter.total_check_calls":             10,
+	"http_mixer_filter.total_check_cache_hits":        9,
+	"http_mixer_filter.total_check_cache_misses":      1,
+	"http_mixer_filter.total_check_cache_hit_accepts": 9,
+	"http_mixer_filter.total_check_cache_hit_denies":  0,
+	"http_mixer_filter.total_remote_check_calls":      1,
+	"http_mixer_filter.total_remote_check_accepts":    1,
+	"http_mixer_filter.total_remote_check_denies":     0,
+	// Quota check stats
 	"http_mixer_filter.total_quota_calls":                 0,
 	"http_mixer_filter.total_quota_cache_hits":            0,
 	"http_mixer_filter.total_quota_cache_misses":          0,
@@ -45,14 +44,14 @@ var expectedStats = map[string]int{
 	"http_mixer_filter.total_remote_quota_denies":         0,
 	"http_mixer_filter.total_remote_quota_prefetch_calls": 0,
 	// Stats for RPCs to mixer policy server
-	"http_mixer_filter.total_remote_calls":                1,
-	"http_mixer_filter.total_remote_call_successes":       1,
-	"http_mixer_filter.total_remote_call_timeouts":        0,
-	"http_mixer_filter.total_remote_call_send_errors":     0,
-	"http_mixer_filter.total_remote_call_other_errors":    0,
+	"http_mixer_filter.total_remote_calls":             1,
+	"http_mixer_filter.total_remote_call_successes":    1,
+	"http_mixer_filter.total_remote_call_timeouts":     0,
+	"http_mixer_filter.total_remote_call_send_errors":  0,
+	"http_mixer_filter.total_remote_call_other_errors": 0,
 	// Report stats
-	"http_mixer_filter.total_remote_report_calls":         1,
-	"http_mixer_filter.total_report_calls":                10,
+	"http_mixer_filter.total_remote_report_calls": 1,
+	"http_mixer_filter.total_report_calls":        10,
 }
 
 func TestCheckCache(t *testing.T) {
