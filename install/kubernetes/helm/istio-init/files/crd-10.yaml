@@ -83,7 +83,7 @@ spec:
     name: Hosts
     type: string
   - JSONPath: .spec.location
-    description: Whether the service should be considered external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
+    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
     name: Location
     type: string
   - JSONPath: .spec.resolution
