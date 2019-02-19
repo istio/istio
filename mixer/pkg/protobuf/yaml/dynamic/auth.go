@@ -156,7 +156,6 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		return fmt.Errorf("failed to authenticate, cert SAN %v is not whitelisted", certs[0].URIs)
 	}
 
-	// TODO(bianpengyuan) add server name option here for proxy-fronted backend.
 	tc := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{peerCert},
 		RootCAs:      caCertPool,
