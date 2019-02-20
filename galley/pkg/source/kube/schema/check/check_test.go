@@ -19,6 +19,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 
@@ -182,5 +188,34 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type mockExtensionClient struct{ err error }
+
+func (m mockExtensionClient) DynamicInterface() (dynamic.Interface, error)         { return nil, m.err }
+func (m mockExtensionClient) APIExtensionsClientset() (clientset.Interface, error) { return nil, m.err }
+func (m mockExtensionClient) KubeClient() (kubernetes.Interface, error)            { return nil, m.err }
+
+func TestExportedFunctions(t *testing.T) {
+	var m mockExtensionClient
+
+	prev := testHookGetAllResourceSchemas
+	testHookGetAllResourceSchemas = func() []sourceSchema.ResourceSpec { return nil }
+	defer func() { testHookGetAllResourceSchemas = prev }()
+
+	if got := ResourceTypesPresence(m); got != nil {
+		t.Errorf("ResourceTypesPresence() returned unexpected error: %v", got)
+	}
+	if _, got := FindSupportedResourceSchemas(m); got != nil {
+		t.Errorf("FindSupportedResourceSchemas() returned unexpected error: %v", got)
+	}
+
+	m.err = errors.New("oops")
+	if got := ResourceTypesPresence(m); got == nil {
+		t.Error("ResourceTypesPresence() returned unexpected success")
+	}
+	if _, got := FindSupportedResourceSchemas(m); got == nil {
+		t.Errorf("FindSupportedResourceSchemas() returned unexpected success")
 	}
 }

@@ -36,6 +36,8 @@ var (
 	pollTimeout  = time.Minute
 )
 
+var testHookGetAllResourceSchemas = kubeMeta.Types.All
+
 // ResourceTypesPresence verifies that all expected k8s resources types are
 // present in the k8s apiserver.
 func ResourceTypesPresence(k client.Interfaces) error {
@@ -43,7 +45,7 @@ func ResourceTypesPresence(k client.Interfaces) error {
 	if err != nil {
 		return err
 	}
-	return resourceTypesPresence(cs, kubeMeta.Types.All())
+	return resourceTypesPresence(cs, testHookGetAllResourceSchemas())
 }
 
 // FindSupportedResourceSchemas returns the list of supported resource schemas supported by the k8s apiserver.
@@ -52,7 +54,7 @@ func FindSupportedResourceSchemas(k client.Interfaces) ([]sourceSchema.ResourceS
 	if err != nil {
 		return nil, err
 	}
-	return findSupportedResourceSchemas(cs, kubeMeta.Types.All()), nil
+	return findSupportedResourceSchemas(cs, testHookGetAllResourceSchemas()), nil
 }
 
 func findSupportedResourceSchemas(cs clientset.Interface, specs []sourceSchema.ResourceSpec) []sourceSchema.ResourceSpec {
