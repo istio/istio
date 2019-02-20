@@ -124,10 +124,6 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	}
 
 	customVerify := func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		if os.Getenv("BYPASS_OOP_MTLS_VERIFICATION") == "true" {
-			log.Infof("BYPASS_OOP_MTLS_VERIFICATION=true - bypassing mtls custom verification")
-			return nil
-		}
 		certs := make([]*x509.Certificate, len(rawCerts))
 		for i, asn1Data := range rawCerts {
 			cert, err := x509.ParseCertificate(asn1Data)
@@ -150,6 +146,10 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 			opts.Intermediates.AddCert(cert)
 		}
 		if _, err = certs[0].Verify(opts); err != nil {
+			return err
+		}
+		if os.Getenv("BYPASS_OOP_MTLS_SAN_VERIFICATION") == "true" {
+			log.Infof("BYPASS_OOP_MTLS_SAN_VERIFICATION=true - bypassing mtls custom SAN verification")
 			return nil
 		}
 		for _, uri := range certs[0].URIs {
