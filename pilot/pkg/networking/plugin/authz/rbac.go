@@ -61,8 +61,9 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP              = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace       = "source.namespace"            // e.g. "default".
+	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace = "source.namespace" // e.g. "default".
+	// TODO(pitlv2109): Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
 	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
 	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
@@ -70,6 +71,11 @@ const (
 	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
+
+	// reserved string values in names and not_names in ServiceRoleBinding.
+	// This prevents ambiguity when the user defines "*" for names or not_names.
+	allUsers              = "allUsers"              // Allow all users, both authenticated and unauthenticated.
+	allAuthenticatedUsers = "allAuthenticatedUsers" // Allow all authenticated users.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -666,6 +672,7 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding, forTCPFilter 
 	return enforcedPrincipals, permissivePrincipals
 }
 
+// TODO(pitlv2109): Refactor first class fields.
 // convertToPrincipal converts a single subject to principal.
 func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policyproto.Principal {
 	ids := &policyproto.Principal_AndIds{
@@ -674,6 +681,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		},
 	}
 
+	// TODO(pitlv2109): Delete this subject.User block of code once we rolled out 1.2?
 	if subject.User != "" {
 		if subject.User == "*" {
 			// Generate an any rule to grant access permission to anyone if the value is "*".
@@ -699,6 +707,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		}
 	}
 
+	// TODO(pitlv2109): Same as above.
 	if subject.Group != "" {
 		if subject.Properties == nil {
 			subject.Properties = make(map[string]string)
@@ -713,7 +722,47 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
-	if len(subject.Properties) != 0 {
+	if len(subject.Names) > 0 {
+		namesBinding := principalForKeyValues(attrSrcPrincipal, subject.Names, forTCPFilter)
+		appendID(namesBinding, ids)
+	}
+
+	if len(subject.NotNames) > 0 {
+		notNamesBinding := principalForKeyValues(attrSrcPrincipal, subject.NotNames, forTCPFilter)
+		appendNotID(notNamesBinding, ids)
+	}
+
+	if len(subject.Groups) > 0 {
+		groupsBinding := principalForKeyValues(attrRequestClaimGroups, subject.Groups, forTCPFilter)
+		appendID(groupsBinding, ids)
+	}
+
+	if len(subject.NotGroups) > 0 {
+		notGroupsBinding := principalForKeyValues(attrRequestClaimGroups, subject.NotGroups, forTCPFilter)
+		appendNotID(notGroupsBinding, ids)
+	}
+
+	if len(subject.Namespaces) > 0 {
+		namespacesBinding := principalForKeyValues(attrSrcNamespace, subject.Namespaces, forTCPFilter)
+		appendID(namespacesBinding, ids)
+	}
+
+	if len(subject.NotNamespaces) > 0 {
+		notNamespacesBinding := principalForKeyValues(attrSrcNamespace, subject.NotNamespaces, forTCPFilter)
+		appendNotID(notNamespacesBinding, ids)
+	}
+
+	if len(subject.Ips) > 0 {
+		ipsBinding := principalForKeyValues(attrSrcIP, subject.Ips, forTCPFilter)
+		appendID(ipsBinding, ids)
+	}
+
+	if len(subject.NotIps) > 0 {
+		notIpsBinding := principalForKeyValues(attrSrcIP, subject.NotIps, forTCPFilter)
+		appendNotID(notIpsBinding, ids)
+	}
+
+	if len(subject.Properties) > 0 {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated
 		// config is stable.
 		var keys []string
@@ -747,6 +796,44 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 	}
 
 	return &policyproto.Principal{Identifier: ids}
+}
+
+// principalForKeyValues converts an Istio first class field (e.g. namespaces, groups, ips, as opposed
+// to properties fields) to Envoy RBAC config and returns said field as a Principal or returns nil
+// if the field is empty.
+func principalForKeyValues(key string, values []string, forTCPFilter bool) *policyproto.Principal {
+	orIds := &policyproto.Principal_OrIds{
+		OrIds: &policyproto.Principal_Set{
+			Ids: make([]*policyproto.Principal, 0),
+		},
+	}
+	for _, value := range values {
+		id := principalForKeyValue(key, value, forTCPFilter)
+		if id != nil {
+			orIds.OrIds.Ids = append(orIds.OrIds.Ids, id)
+		}
+	}
+	if len(orIds.OrIds.Ids) > 0 {
+		return &policyproto.Principal{Identifier: orIds}
+	}
+	return nil
+}
+
+// appendId appends a list of orIds to andIds.
+func appendID(orIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if orIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids, orIds)
+	}
+}
+
+// appendNotId appends a list of *not* orIds to andIds.
+func appendNotID(notOrIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if notOrIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids,
+			&policyproto.Principal{Identifier: &policyproto.Principal_NotId{
+				NotId: notOrIds,
+			}})
+	}
 }
 
 func permissionForKeyValues(key string, values []string) *policyproto.Permission {
@@ -843,7 +930,10 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		}
 	}
 
-	return &policyproto.Permission{Rule: orRules}
+	if len(orRules.OrRules.Rules) > 0 {
+		return &policyproto.Permission{Rule: orRules}
+	}
+	return nil
 }
 
 // Create a Principal based on the key and the value.
@@ -851,6 +941,24 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 // value: the value of a subject property.
 // forTCPFilter: the principal is used in the TCP filter.
 func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
+	// Generate an any rule to grant access permission to anyone if the value is "*" for
+	// |attrSrcPrincipal|.
+	if key == attrSrcPrincipal {
+		if value == allUsers {
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
+		// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
+		// refer to authenticated users, since existing code using regex to map "*" to all authenticated
+		// users.
+		if value == allAuthenticatedUsers {
+			value = "*"
+		}
+	}
+
 	if forTCPFilter {
 		switch key {
 		case attrSrcPrincipal:

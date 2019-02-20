@@ -1466,9 +1466,28 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 			if len(constraint.Values) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("at least 1 value must be specified for constraint %d in rule %d", j, i))
 			}
+			if hasExistingFirstClassFieldInRole(constraint.Key, rule) {
+				errs = appendErrors(errs, fmt.Errorf("cannot define %s for rule %d because a similar first-class field has been defined", constraint.Key, i))
+			}
 		}
 	}
 	return errs
+}
+
+// Returns true if the user defines a constraint that already exists in the first-class fields, false
+// if none has overlapped.
+func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
+	// Same as authz.attrDestPort
+	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
+	// defined at another place and both authz and model package can access them.
+	const attrDestPort = "destination.port"
+	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
+		return true
+	}
+	if constraintKey == attrDestPort && len(rule.NotPorts) > 0 {
+		return true
+	}
+	return false
 }
 
 // arePortsInRange checks if all ports in range [0, 65535]
@@ -1492,8 +1511,16 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
 	}
 	for i, subject := range in.Subjects {
-		if len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 of user, group or properties must be specified for subject %d", i))
+		if isFirstClassFieldEmpty(subject) {
+			errs = appendErrors(errs, fmt.Errorf("at least 1 first class field (e.g. properties) must be specified for subject %d", i))
+		}
+		for propertyKey := range subject.Properties {
+			if hasExistingFirstClassFieldInBinding(propertyKey, subject) {
+				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
+			}
+		}
+		if isUnclearValueInNames(subject.Names) || isUnclearValueInNames(subject.NotNames) {
+			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
 	if in.RoleRef == nil {
@@ -1509,6 +1536,60 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 		}
 	}
 	return errs
+}
+
+// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
+func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
+	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
+		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
+		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
+		len(subject.Names) == 0 && len(subject.NotNames) == 0
+}
+
+// Returns true if the user defines a property that already exists in the first-class fields, false
+// if none has overlapped.
+// In the future when we introduce expression conditions in properties field, we might need to revisit
+// this function.
+func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Subject) bool {
+	// Cannot use attributes from authz package since there is a import cycle. However, these constants can be
+	// defined at another place and both authz and model package can access them.
+	const (
+		// Same as attributes from authz package.
+		attrSrcPrincipal       = "source.principal"
+		attrRequestClaimGroups = "request.auth.claims[groups]"
+		attrSrcNamespace       = "source.namespace"
+		attrSrcIP              = "source.ip"
+	)
+	switch propertiesKey {
+	case attrSrcPrincipal:
+		if len(subject.Names) > 0 {
+			return true
+		}
+	case attrRequestClaimGroups:
+		if len(subject.Groups) > 0 {
+			return true
+		}
+	case attrSrcNamespace:
+		if len(subject.Namespaces) > 0 {
+			return true
+		}
+	case attrSrcIP:
+		if len(subject.Ips) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Return true if the user defines "*" as of the values for names or not_names in ServiceRoleBinding.
+// This is not worrisome because source.principal = "*" is different than User: "*" from the old API.
+func isUnclearValueInNames(names []string) bool {
+	for _, name := range names {
+		if name == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func checkRbacConfig(name, typ string, msg proto.Message) error {

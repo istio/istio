@@ -496,7 +496,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					},
 					{
 						Properties: map[string]string{
-							"source.principal": "user",
+							attrSrcPrincipal: "user",
 						},
 					},
 				},
@@ -546,7 +546,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "admin",
+						User:          "admin",
+						Namespaces:    []string{"default"},
+						NotNamespaces: []string{"user", "deprecated"},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -563,7 +565,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Properties: map[string]string{
 							"source.ip":        "192.1.2.0/24",
 							"source.namespace": "default",
-							"source.principal": "cluster.local/ns/default/sa/productpage",
+							attrSrcPrincipal:   "cluster.local/ns/default/sa/productpage",
 						},
 					},
 				},
@@ -604,7 +606,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "*",
+						User:   "*",
+						NotIps: []string{"192.1.2.0/24"},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -613,12 +616,77 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
-
-		generateSimpleServiceRoleBindingAllGroups("service-role-9", "service-role-binding-9"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-10", "service-role-binding-10"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-11", "service-role-binding-11"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-12", "service-role-binding-12"),
-		generateSimpleServiceRoleBindingAllGroups("service-role-13", "service-role-binding-13"),
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-9"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Ips: []string{"10.38.25.152", "10.48.1.18"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-9",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-10"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Groups: []string{"admin-group", "testing-group"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-10",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-11"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Groups:    []string{"*-group"},
+						NotGroups: []string{"deprecated-group"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-11",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-12"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Names: []string{allAuthenticatedUsers},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-12",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-13"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						NotNames: []string{"cluster.local/ns/testing/sa/unstable-service"},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-13",
+				},
+			},
+		},
 	}
 
 	policy1 := &policy.Policy{
@@ -667,7 +735,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{
 								Identifier: &policy.Principal_Metadata{
 									Metadata: generateMetadataStringMatcher(
-										"source.principal", &metadata.StringMatcher{
+										attrSrcPrincipal, &metadata.StringMatcher{
 											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}, authn.AuthnFilterName),
 								},
 							},
@@ -755,7 +823,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						{
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataStringMatcher(
-									"source.principal", &metadata.StringMatcher{
+									attrSrcPrincipal, &metadata.StringMatcher{
 										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}, authn.AuthnFilterName),
 							},
 						},
@@ -793,6 +861,59 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 										PrincipalName: &metadata.StringMatcher{
 											MatchPattern: &metadata.StringMatcher_Exact{
 												Exact: "spiffe://admin",
+											},
+										},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_OrIds{
+									OrIds: &policy.Principal_Set{
+										Ids: []*policy.Principal{
+											{
+												Identifier: &policy.Principal_Authenticated_{
+													Authenticated: &policy.Principal_Authenticated{
+														PrincipalName: &metadata.StringMatcher{
+															MatchPattern: &metadata.StringMatcher_Regex{
+																Regex: ".*/ns/default/.*",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							{
+								Identifier: &policy.Principal_NotId{
+									NotId: &policy.Principal{
+										Identifier: &policy.Principal_OrIds{
+											OrIds: &policy.Principal_Set{
+												Ids: []*policy.Principal{
+													{
+														Identifier: &policy.Principal_Authenticated_{
+															Authenticated: &policy.Principal_Authenticated{
+																PrincipalName: &metadata.StringMatcher{
+																	MatchPattern: &metadata.StringMatcher_Regex{
+																		Regex: ".*/ns/user/.*",
+																	},
+																},
+															},
+														},
+													},
+													{
+														Identifier: &policy.Principal_Authenticated_{
+															Authenticated: &policy.Principal_Authenticated{
+																PrincipalName: &metadata.StringMatcher{
+																	MatchPattern: &metadata.StringMatcher_Regex{
+																		Regex: ".*/ns/deprecated/.*",
+																	},
+																},
+															},
+														},
+													},
+												},
 											},
 										},
 									},
@@ -939,14 +1060,35 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		}},
+
 		Principals: []*policy.Principal{{
 			Identifier: &policy.Principal_AndIds{
 				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{{
-						Identifier: &policy.Principal_Any{
-							Any: true,
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Any{
+								Any: true,
+							},
 						},
-					}},
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_SourceIp{SourceIp: &core.CidrRange{
+														AddressPrefix: "192.1.2.0",
+														PrefixLen:     &types.UInt32Value{Value: uint32(24)},
+													}},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		}},
@@ -971,9 +1113,27 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
-									[]string{attrRequestClaims, "groups"}, "group*"),
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_SourceIp{
+												SourceIp: &core.CidrRange{
+													AddressPrefix: "10.38.25.152",
+													PrefixLen:     &types.UInt32Value{Value: 32},
+												},
+											},
+										},
+										{
+											Identifier: &policy.Principal_SourceIp{
+												SourceIp: &core.CidrRange{
+													AddressPrefix: "10.48.1.18",
+													PrefixLen:     &types.UInt32Value{Value: 32},
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -1003,9 +1163,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
-									[]string{attrRequestClaims, "groups"}, "group*"),
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "admin-group"),
+											},
+										},
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "testing-group"),
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -1014,9 +1188,163 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy11 := generateSimplePolicyForNotRuleWithHeader(hostHeader, "finances.google.com")
-	policy12 := generateSimplePolicyForNotRuleWithHeader(methodHeader, "DELETE")
-	policy13 := generateSimplePolicyForNotRuleWithHeader(pathHeader, "/secret_path")
+	policy11 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: hostHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "finances.google.com"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+													[]string{attrRequestClaims, "groups"}, "*-group"),
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_Metadata{
+														Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+															[]string{attrRequestClaims, "groups"}, "deprecated-group"),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
+	policy12 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: methodHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "DELETE"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_OrIds{
+								OrIds: &policy.Principal_Set{
+									Ids: []*policy.Principal{
+										{
+											Identifier: &policy.Principal_Metadata{
+												Metadata: generateMetadataStringMatcher(
+													attrSrcPrincipal, &metadata.StringMatcher{
+														MatchPattern: &metadata.StringMatcher_Regex{
+															Regex: ".*",
+														}},
+													authn.AuthnFilterName),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+	policy13 := &policy.Policy{
+		Permissions: []*policy.Permission{
+			{
+				Rule: &policy.Permission_AndRules{
+					AndRules: &policy.Permission_Set{
+						Rules: []*policy.Permission{
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: pathHeader, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "/secret_path"}},
+										}),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_NotId{
+								NotId: &policy.Principal{
+									Identifier: &policy.Principal_OrIds{
+										OrIds: &policy.Principal_Set{
+											Ids: []*policy.Principal{
+												{
+													Identifier: &policy.Principal_Metadata{
+														Metadata: generateMetadataStringMatcher(
+															attrSrcPrincipal, &metadata.StringMatcher{
+																MatchPattern: &metadata.StringMatcher_Exact{Exact: "cluster.local/ns/testing/sa/unstable-service"}}, authn.AuthnFilterName),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
 
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
