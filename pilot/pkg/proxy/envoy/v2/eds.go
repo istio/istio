@@ -491,6 +491,10 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 			s.proxyUpdates[id] = struct{}{}
 			s.proxyUpdatesMutex.Unlock()
 		}
+
+		adsLog.Infof("First time seen, full push %s ", id)
+		s.ConfigUpdate(true)
+
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
