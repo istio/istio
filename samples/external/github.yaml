@@ -1,8 +1,7 @@
+# This ServiceEntry exposes the hosts needed for github.com.
 # After applying this file, Istio-enabled pods will be able to execute
-# (with a local identification config and certificate)
-# `git clone git@github.com:istio/api.git`
-# (A ServiceEntry for https URLs, for example
-# `git clone https://github.com/istio/api.git`, is no longer needed. )
+# `git clone https://github.com/istio/api.git` and (with local identification
+# config and certificate) `git clone git@github.com:istio/api.git`
 
 # HTTP and TLS, the host must be specified
 # See https://istio.io/docs/tasks/traffic-management/egress/
