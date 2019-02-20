@@ -1,7 +1,8 @@
-# This ServiceEntry exposes the hosts needed for github.com.
 # After applying this file, Istio-enabled pods will be able to execute
-# `git clone https://github.com/istio/api.git` and (with local identification
-# config and certificate) `git clone git@github.com:istio/api.git`
+# (with a local identification config and certificate)
+# `git clone git@github.com:istio/api.git`
+# (A ServiceEntry for https URLs, for example
+# `git clone https://github.com/istio/api.git`, is no longer needed. )
 
 # HTTP and TLS, the host must be specified
 # See https://istio.io/docs/tasks/traffic-management/egress/
@@ -14,26 +15,6 @@ spec:
   - github.com
   ports:
   - number: 443
-    name: https
-    protocol: HTTPS
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: github-https
-spec:
-  hosts:
-  - github.com
-  tls:
-  - match:
-    - port: 443
-      sniHosts:
-      - github.com
-    route:
-    - destination:
-        host: github.com
-        port:
-          number: 443
 ---
 # For TCP services the IP ranges SHOULD be specified to avoid problems
 # if multiple SEs use the same port number.
