@@ -84,6 +84,7 @@ func batchTimeSeries(series []*monitoringpb.TimeSeries, tsLimit int) [][]*monito
 func (b *buffered) start(env adapter.Env, ticker *time.Ticker) {
 	env.ScheduleDaemon(func() {
 		for range ticker.C {
+			b.mergeTimeSeries()
 			b.Send()
 		}
 	})
