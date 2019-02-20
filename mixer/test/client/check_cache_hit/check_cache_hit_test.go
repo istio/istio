@@ -135,7 +135,7 @@ var reportAttributesOkGet = [...]string{`{
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": true,
-  "quota.cache_hit": true,
+  "quota.cache_hit": false,
   "request.headers": {
     ":method": "GET",
     ":path": "/echo",
