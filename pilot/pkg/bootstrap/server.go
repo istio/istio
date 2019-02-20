@@ -313,7 +313,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 
 		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
-			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.WatchedNamespaces,
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
