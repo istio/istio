@@ -134,7 +134,6 @@ type VirtualService struct {
 	// be applied to any port that is not a HTTP or TLS port. The first rule
 	// matching an incoming request is used.
 	Tcp []*TCPRoute `protobuf:"bytes,4,rep,name=tcp" json:"tcp,omitempty"`
-	// $hide_from_docs
 	// A list of namespaces to which this virtual service is exported. Exporting a
 	// virtual service allows it to used by sidecars and gateways defined in
 	// other namespaces. This feature provides a mechanism for service owners
