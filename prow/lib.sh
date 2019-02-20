@@ -116,24 +116,17 @@ function clone_cni() {
 function cni_run_daemon() {
 
   echo 'Run the CNI daemon set'
-  CNI_HUB=${CNI_HUB:-gcr.io/istio-release}
-  CNI_TAG=${CNI_TAG:-master-latest-daily}
- 
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
 
   chartdir=$(pwd)/charts
-  mkdir ${chartdir}
+  mkdir "${chartdir}"
   helm init --client-only
   helm repo add istio.io https://storage.googleapis.com/istio-release/releases/1.1.0-snapshot.6/charts
-  helm fetch --untar --untardir ${chartdir} istio.io/istio-cni
+  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
  
-  helm template --values ${chartdir}/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub=${CNI_HUB} --set tag=${CNI_TAG} --set pullPolicy=IfNotPresent --set logLevel=${CNI_LOGLVL:-debug}  ${chartdir}/istio-cni > istio-cni_install.yaml
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
 
   kubectl apply -f istio-cni_install.yaml
 
-}
-
-function cni_debug() {
-
-  kubectl get all -n kube-system
-  cat istio-cni_install.yaml
 }
