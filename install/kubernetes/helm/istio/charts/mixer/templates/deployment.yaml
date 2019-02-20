@@ -146,6 +146,12 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
+{{- if $.Values.telemetry.gcpCredential.enabled }}
+      - name: {{ $.Values.telemetry.gcpCredential.volumeName }}
+        secret:
+          secretName: {{ $.Values.telemetry.gcpCredential.secretName }}
+          optional: true
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
@@ -207,6 +213,11 @@
 {{- if $.Values.global.useMCP }}
         - name: istio-certs
           mountPath: /etc/certs
+          readOnly: true
+{{- end }}
+{{- if $.Values.telemetry.gcpCredential.enabled }}
+        - name: {{ $.Values.telemetry.gcpCredential.volumeName }}
+          mountPath: {{ $.Values.telemetry.gcpCredential.volumeMountPath }}
           readOnly: true
 {{- end }}
         - name: uds-socket
