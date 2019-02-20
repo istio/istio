@@ -6,9 +6,6 @@ global:
     accessLogFile: "/dev/stdout"
 
   disablePolicyChecks: false
-  
-  outboundTrafficPolicy:
-    mode: ALLOW_ANY  
 
 pilot:
   traceSampling: 100.0
