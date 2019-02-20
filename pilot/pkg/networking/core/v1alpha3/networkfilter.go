@@ -134,19 +134,21 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		filterstack = append(filterstack, *tcpFilter)
 	}
 
 	if util.IsProxyVersionGE11(node) {
 		switch port.Protocol {
 		case model.ProtocolRedis:
-			filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
+			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
+			// no TCP proxy for redis
 		case model.ProtocolMySQL:
-			filterstack = append(filterstack, buildOutboundMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+			filterstack = append(filterstack, *tcpFilter)
 		}
 	}
 
-	filterstack = append(filterstack, *tcpFilter)
 	return filterstack
 }
 
@@ -165,8 +167,8 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
 }
 
-// buildOutboundMongoFilter builds an outbound Envoy MongoProxy filter.
-func buildOutboundMongoFilter(statPrefix string, is11 bool) listener.Filter {
+// buildMongoFilter builds an outbound Envoy MongoProxy filter.
+func buildMongoFilter(statPrefix string, is11 bool) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -202,10 +204,10 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 	return filterstack
 }
 
-// buildOutboundRedisFilter builds an outbound Envoy RedisProxy filter.
+// buildRedisFilter builds an outbound Envoy RedisProxy filter.
 // Currently, if multiple clusters are defined, one of them will be picked for
 // configuring the Redis proxy.
-func buildOutboundRedisFilter(statPrefix, clusterName string, is11 bool) listener.Filter {
+func buildRedisFilter(statPrefix, clusterName string, is11 bool) listener.Filter {
 	config := &redis_proxy.RedisProxy{
 		StatPrefix: statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
 		Cluster:    clusterName,
@@ -226,8 +228,8 @@ func buildOutboundRedisFilter(statPrefix, clusterName string, is11 bool) listene
 	return out
 }
 
-// buildOutboundMySQLFilter builds an outbound Envoy MySQLProxy filter.
-func buildOutboundMySQLFilter(statPrefix string, is11 bool) listener.Filter {
+// buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
+func buildMySQLFilter(statPrefix string, is11 bool) listener.Filter {
 	config := &mysql_proxy.MySQLProxy{
 		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
 	}
