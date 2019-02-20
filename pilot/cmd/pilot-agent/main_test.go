@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -177,4 +178,45 @@ func TestDedupeStrings(t *testing.T) {
 	actual := dedupeStrings(in)
 
 	g.Expect(actual).To(gomega.ConsistOf(expected))
+}
+
+func TestGetDomainName(t *testing.T) {
+	tests := []struct {
+		name       string
+		resolvConf string
+		want       string
+	}{
+		{
+			name: "all good",
+			resolvConf: `
+nameserver 1.1.1.1
+search default.svc.abc.com svc.abc.com abc.com
+options ndots:5
+`,
+			want: "abc.com",
+		},
+		{
+			name: "missing search line",
+			resolvConf: `
+nameserver 1.1.1.1
+options ndots:5
+`,
+			want: defaultDomainName,
+		},
+		{
+			name: "non k8s resolv.conf format",
+			resolvConf: `
+nameserver 1.1.1.1
+search  abc.com xyz.com
+options ndots:5
+`,
+			want: defaultDomainName,
+		},
+	}
+	for _, tt := range tests {
+		got := getClusterDomainName(strings.NewReader(tt.resolvConf))
+		if got != tt.want {
+			t.Errorf("Test %s failed expected: %s but got: %s", tt.name, tt.want, got)
+		}
+	}
 }

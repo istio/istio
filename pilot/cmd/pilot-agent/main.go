@@ -15,10 +15,12 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -46,6 +48,11 @@ import (
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+)
+
+const (
+	resolverFileName  = "/etc/resolv.conf"
+	defaultDomainName = "cluster.local"
 )
 
 var (
@@ -87,6 +94,9 @@ var (
 	tlsClientRootCert          string
 	tlsCertsToWatch            []string
 	loggingOptions             = log.DefaultOptions()
+
+	domainName string
+	once       sync.Once
 
 	wg sync.WaitGroup
 
@@ -300,6 +310,7 @@ var (
 					opts["PodName"] = os.Getenv("POD_NAME")
 					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
 					opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
+					opts["ClusterDomainName"] = GetClusterDomainName()
 
 					// protobuf encoding of IP_ADDRESS type
 					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -587,4 +598,38 @@ func main() {
 		log.Errora(err)
 		os.Exit(-1)
 	}
+}
+
+// GetClusterDomainName returns cluster domain name. For efficiency, it runs just once
+// all subsequent calls will just return domain name value.
+func GetClusterDomainName() string {
+	once.Do(func() {
+		f, err := os.Open(resolverFileName)
+		if err == nil {
+			defer f.Close()
+			domainName = getClusterDomainName(f)
+
+		} else {
+			domainName = defaultDomainName
+		}
+	})
+
+	return domainName
+}
+
+func getClusterDomainName(r io.Reader) string {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		elements := strings.Split(scanner.Text(), " ")
+		if elements[0] != "search" {
+			continue
+		}
+		for i := 1; i < len(elements)-1; i++ {
+			if strings.HasPrefix(elements[i], "svc.") {
+				return elements[i][4:]
+			}
+		}
+	}
+	// For all abnormal cases return default domain name
+	return defaultDomainName
 }

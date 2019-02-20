@@ -74,9 +74,9 @@ static_resources:
             name: envoy.file_access_log
           http_filters:
           - config:
-              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               service_configs:
-                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}:
                   disable_check_calls: true
 {{- if .DisableReportCalls }}
                   disable_report_calls: true
@@ -84,7 +84,7 @@ static_resources:
                   mixer_attributes:
                     attributes:
                       destination.service.host:
-                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -111,7 +111,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               routes:
               - decorator:
                   operation: v1
@@ -154,9 +154,9 @@ static_resources:
             max_concurrent_streams: 1073741824
           http_filters:
           - config:
-              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               service_configs:
-                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}:
                   disable_check_calls: true
 {{- if .DisableReportCalls }}
                   disable_report_calls: true
@@ -164,7 +164,7 @@ static_resources:
                   mixer_attributes:
                     attributes:
                       destination.service.host:
-                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -191,7 +191,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               routes:
               - decorator:
                   operation: xDS
@@ -229,9 +229,9 @@ static_resources:
             name: envoy.file_access_log
           http_filters:
           - config:
-              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               service_configs:
-                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}:
                   disable_check_calls: true
 {{- if .DisableReportCalls }}
                   disable_report_calls: true
@@ -239,7 +239,7 @@ static_resources:
                   mixer_attributes:
                     attributes:
                       destination.service.host:
-                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -266,7 +266,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               routes:
               - decorator:
                   operation: v1
@@ -304,9 +304,9 @@ static_resources:
             name: envoy.file_access_log
           http_filters:
           - config:
-              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               service_configs:
-                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}:
                   disable_check_calls: true
 {{- if .DisableReportCalls }}
                   disable_report_calls: true
@@ -314,7 +314,7 @@ static_resources:
                   mixer_attributes:
                     attributes:
                       destination.service.host:
-                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -341,7 +341,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.{{  .ClusterDomainName }}
               routes:
               - decorator:
                   operation: v1
