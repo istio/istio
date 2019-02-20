@@ -47,8 +47,9 @@ export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
-if [[ ${ENABLE_ISTIO_CNI} == true ]]; then
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon
+   cni_debug
 fi
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
@@ -80,3 +81,7 @@ time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
   make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+
+if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
+   cni_debug
+fi
