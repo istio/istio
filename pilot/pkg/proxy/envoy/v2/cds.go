@@ -79,7 +79,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	}
 
 	for _, c := range rawClusters {
-		SetSdsTokenPathFromProxyMetadata(c, node)
+		SetTokenPathForSdsFromProxyMetadata(c, node)
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
@@ -94,8 +94,8 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	return rawClusters, nil
 }
 
-// Set the SDS token path if SDS_TOKEN_PATH is defined in the proxy metadata
-func SetSdsTokenPathFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
+// Set the token path for SDS if SDS_TOKEN_PATH is defined in the proxy metadata
+func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
 		// Set the SDS token path in the TLS certificate config
 		if c.GetTlsContext() != nil && c.GetTlsContext().GetCommonTlsContext() != nil &&

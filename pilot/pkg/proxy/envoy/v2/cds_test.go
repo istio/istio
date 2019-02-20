@@ -64,7 +64,7 @@ func TestCDS(t *testing.T) {
 	// TODO: dynamic checks ( see EDS )
 }
 
-func TestSetSdsTokenPathFromProxyMetadata(t *testing.T) {
+func TestSetTokenPathForSdsFromProxyMetadata(t *testing.T) {
 	defaultTokenPath := "the-default-sds-token-path"
 	sdsTokenPath := "the-sds-token-path-in-metadata"
 	node := &model.Proxy{
@@ -173,7 +173,7 @@ func TestSetSdsTokenPathFromProxyMetadata(t *testing.T) {
 			},
 		},
 	}
-	v2.SetSdsTokenPathFromProxyMetadata(cluster, node)
+	v2.SetTokenPathForSdsFromProxyMetadata(cluster, node)
 
 	// The SDS token path should have been set based on the proxy metadata
 	if !proto.Equal(cluster, clusterExpected) {
