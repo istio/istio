@@ -100,7 +100,7 @@ func TestAddConfig(t *testing.T) {
 			config:        []model.Config{authzCfg, roleCfg},
 			authzPolicies: &model.AuthorizationPolicies{},
 			expectedAuthorizationConfigV2: &model.AuthorizationConfigV2{
-				AuthPolicies: []*model.AuthorizationPolicyConfig{
+				AuthzPolicies: []*model.AuthorizationPolicyConfig{
 					{
 						Name: "test-authz-1", Policy: &rbacproto.AuthorizationPolicy{
 							WorkloadSelector: &rbacproto.WorkloadSelector{

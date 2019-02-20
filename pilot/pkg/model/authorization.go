@@ -52,8 +52,8 @@ func (cfg AuthorizationPolicyConfig) String() string {
 
 // AuthorizationConfigV2 stores a list of AuthorizationPolicyConfig and ServiceRole in a given namespace.
 type AuthorizationConfigV2 struct {
-	// A list of AuthorizationPolicy.
-	AuthPolicies []*AuthorizationPolicyConfig
+	// A list of AuthorizationPolicyConfig.
+	AuthzPolicies []*AuthorizationPolicyConfig
 
 	// Maps from name to ServiceRole.
 	NameToServiceRoles map[string]*rbacproto.ServiceRole
@@ -94,7 +94,7 @@ func (policy *AuthorizationPolicies) addServiceRole(role *Config) {
 	}
 	if policy.NamespaceToAuthorizationConfigV2[role.Namespace] == nil {
 		policy.NamespaceToAuthorizationConfigV2[role.Namespace] = &AuthorizationConfigV2{
-			AuthPolicies:       []*AuthorizationPolicyConfig{},
+			AuthzPolicies:      []*AuthorizationPolicyConfig{},
 			NameToServiceRoles: map[string]*rbacproto.ServiceRole{},
 		}
 	}
@@ -134,18 +134,18 @@ func (policy *AuthorizationPolicies) addAuthorizationPolicy(authzPolicy *Config)
 		return
 	}
 
-	// Initialize AuthPolicies for authz v2.
+	// Initialize AuthzPolicies for authz v2.
 	if policy.NamespaceToAuthorizationConfigV2 == nil {
 		policy.NamespaceToAuthorizationConfigV2 = map[string]*AuthorizationConfigV2{}
 	}
 	if policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace] == nil {
 		policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace] = &AuthorizationConfigV2{
-			AuthPolicies:       []*AuthorizationPolicyConfig{},
+			AuthzPolicies:      []*AuthorizationPolicyConfig{},
 			NameToServiceRoles: map[string]*rbacproto.ServiceRole{},
 		}
 	}
 	authzV2 := policy.NamespaceToAuthorizationConfigV2[authzPolicy.Namespace]
-	authzV2.AuthPolicies = append(authzV2.AuthPolicies, &AuthorizationPolicyConfig{
+	authzV2.AuthzPolicies = append(authzV2.AuthzPolicies, &AuthorizationPolicyConfig{
 		Name:   authzPolicy.Name,
 		Policy: authzPolicy.Spec.(*rbacproto.AuthorizationPolicy),
 	})
