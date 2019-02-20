@@ -572,6 +572,17 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		}
 	}
 
+	if len(rule.NotMethods) > 0 {
+		notMethodRule := permissionForKeyValues(methodHeader, rule.NotMethods)
+		if notMethodRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules,
+				&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
+					NotRule: notMethodRule,
+				},
+				})
+		}
+	}
+
 	if len(rule.Paths) > 0 {
 		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
 		if pathRule != nil {

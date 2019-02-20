@@ -41,9 +41,10 @@ import (
 )
 
 var (
-	_ components.Echo = &nativeComponent{}
-	_ api.Component   = &nativeComponent{}
-	_ io.Closer       = &nativeComponent{}
+	_ components.Echo  = &nativeComponent{}
+	_ api.Component    = &nativeComponent{}
+	_ io.Closer        = &nativeComponent{}
+	_ api.Configurable = &nativeComponent{}
 
 	ports = model.PortList{
 		{
@@ -79,15 +80,10 @@ func NewNativeComponent() (api.Component, error) {
 }
 
 type nativeComponent struct {
-	name      string
 	scope     lifecycle.Scope
 	endpoints []components.EchoEndpoint
 	client    *echo.Client
-}
-
-type echoConfig struct {
-	serviceName string
-	version     string
+	config    components.EchoConfig
 }
 
 func (c *nativeComponent) Descriptor() component.Descriptor {
@@ -98,6 +94,15 @@ func (c *nativeComponent) Scope() lifecycle.Scope {
 	return c.scope
 }
 
+func (c *nativeComponent) Configure(config component.Configuration) error {
+	echoConfig, ok := config.(components.EchoConfig)
+	if !ok {
+		return fmt.Errorf("supplied configuration was not an EchoConfig, got %T (%v)", config, config)
+	}
+	c.config = echoConfig
+	return nil
+}
+
 // Start implements the api.Component interface
 func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
 	c.scope = scope
@@ -105,21 +110,21 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	// Setup a close function to close the echo instance on an error.
 	defer func() {
 		if err != nil {
-			c.Close()
+			_ = c.Close()
 		}
 	}()
 
-	// TODO(sven): Pass configuration through Start() and use that for service name and version.
-	c.name = "a"
-
-	cfg := echoConfig{
-		serviceName: c.name,
-		version:     "v1",
+	// Setup defaults for config values if not provided.
+	if c.config.Service == "" {
+		c.config.Service = "echo"
+	}
+	if c.config.Version == "" {
+		c.config.Version = "v1"
 	}
 
 	echoFactory := (&echo.Factory{
 		Ports:   ports,
-		Version: cfg.version,
+		Version: c.config.Version,
 	}).NewApplication
 
 	dialer := application.Dialer{
@@ -180,8 +185,8 @@ func (c *nativeComponent) Close() (err error) {
 	return
 }
 
-func (c *nativeComponent) Name() string {
-	return c.name
+func (c *nativeComponent) Config() components.EchoConfig {
+	return c.config
 }
 
 func (c *nativeComponent) Endpoints() []components.EchoEndpoint {
@@ -211,10 +216,10 @@ func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoC
 
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
-	dstServiceName := dst.owner.Name()
+	dstService := dst.owner.Config().Service
 
 	var headers []*proto.Header
-	headers = append(headers, &proto.Header{Key: "Host", Value: dstServiceName})
+	headers = append(headers, &proto.Header{Key: "Host", Value: dstService})
 	for key, values := range opts.Headers {
 		for _, value := range values {
 			headers = append(headers, &proto.Header{Key: key, Value: value})
@@ -237,8 +242,8 @@ func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoC
 	if !resp[0].IsOK() {
 		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
 	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s (expected %s)", resp[0].Host, dstServiceName)
+	if resp[0].Host != dstService {
+		return nil, fmt.Errorf("unexpected host: %s (expected %s)", resp[0].Host, dstService)
 	}
 	if resp[0].Port != strconv.Itoa(dst.port.Port) {
 		return nil, fmt.Errorf("unexpected port: %s (expected %s)", resp[0].Port, strconv.Itoa(dst.port.Port))

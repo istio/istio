@@ -178,10 +178,10 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 	for i, r := range requests {
 		switch req := r.(type) {
 		case *istio_mixer_v1.ReportRequest:
-			bags[i] = attribute.NewProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
+			bags[i] = attribute.GetProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
 
 		case *istio_mixer_v1.CheckRequest:
-			bags[i] = attribute.NewProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
+			bags[i] = attribute.GetProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
 
 		default:
 			b.fatalf("unknown request type: %v", r)

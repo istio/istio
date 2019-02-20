@@ -56,7 +56,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 
 > Uninstalling this chart does not delete Istio's registered CRDs.  Istio by design expects
 > CRDs to leak into the Kubernetes environment.  As CRDs contain all runtime configuration
-> data in CutomResources the Istio designers feel it is better to explicitly delete this
+> data in CustomResources the Istio designers feel it is better to explicitly delete this
 > configuration rather then unexpectedly lose it.
 
 To uninstall/delete the `istio-init` release but continue to track the release:

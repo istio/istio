@@ -17,4 +17,9 @@ package component
 import "fmt"
 
 // Requirement is a marker interface for an element that can be required of the testing framework.
-type Requirement fmt.Stringer
+type Requirement interface {
+	fmt.Stringer
+
+	// GetKey returns the key representing this requirement.
+	GetKey() Key
+}

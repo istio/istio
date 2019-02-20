@@ -106,9 +106,9 @@ The chart deploys pods that consume minimum resources as specified in the resour
     EOF
     ```
 
-1. Add `istio.io` chart repository and point to the release:
+1. Add `istio.io` chart repository and point to the daily release:
     ```
-    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
+    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
     ```
 
 

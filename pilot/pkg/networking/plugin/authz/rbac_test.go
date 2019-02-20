@@ -335,9 +335,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRole{
 				Rules: []*rbacproto.AccessRule{
 					{
-						Services: []string{"prefix.*", "*.suffix", "service"},
-						Methods:  []string{"GET", "POST"},
-						Paths:    []string{"*/suffix", "/prefix*", "/exact", "*"},
+						Services:   []string{"prefix.*", "*.suffix", "service"},
+						Methods:    []string{"GET", "POST"},
+						NotMethods: []string{"DELETE"},
+						Paths:      []string{"*/suffix", "/prefix*", "/exact", "*"},
 					},
 				},
 			},
@@ -366,8 +367,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRole{
 				Rules: []*rbacproto.AccessRule{
 					{
-						Services: []string{"allow-group"},
-						Methods:  []string{"GET"},
+						Services:   []string{"allow-group"},
+						Methods:    []string{"GET"},
+						NotMethods: []string{"*"},
 					},
 				},
 			},
@@ -571,6 +573,15 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "GET"}},
 									{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "POST"}},
 								}),
+							},
+							{
+								Rule: &policy.Permission_NotRule{
+									NotRule: &policy.Permission{
+										Rule: generateHeaderRule([]*route.HeaderMatcher{
+											{Name: ":method", HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: "DELETE"}},
+										}),
+									},
+								},
 							},
 							{
 								Rule: generateHeaderRule([]*route.HeaderMatcher{
