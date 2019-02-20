@@ -853,7 +853,6 @@ spec:
     instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
-{{- end }}
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -1038,3 +1037,4 @@ spec:
         maxRequestsPerConnection: 10000
 {{- end }}
 ---
+{{- end }}
