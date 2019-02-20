@@ -76,7 +76,8 @@ func findSupportedResourceSchemas(cs clientset.Interface, specs []sourceSchema.R
 		if found {
 			supportedSchemas = append(supportedSchemas, spec)
 		} else {
-			log.Scope.Infof("%s resource type not found", spec.CanonicalResourceName())
+			log.Scope.Infof("kubernetes resource type %q not found (collection %q)",
+				spec.CanonicalResourceName(), spec.Target.Collection)
 		}
 	}
 
@@ -112,7 +113,7 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 				}
 			}
 			if !found {
-				log.Scope.Infof("%s resource type not found", spec.CanonicalResourceName())
+				log.Scope.Warnf("%s resource type not found", spec.CanonicalResourceName())
 			}
 		}
 		if len(search) == 0 {
