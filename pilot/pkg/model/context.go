@@ -378,20 +378,21 @@ var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:             ConfigPathDir,
-		BinaryPath:             BinaryPathFilename,
-		ServiceCluster:         ServiceClusterName,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		DiscoveryAddress:       DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(1 * time.Second),
-		StatsdUdpAddress:       "",
-		ProxyAdminPort:         15000,
-		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
-		CustomConfigFile:       "",
-		Concurrency:            0,
-		StatNameLength:         189,
-		Tracing:                nil,
+		ConfigPath:                 ConfigPathDir,
+		BinaryPath:                 BinaryPathFilename,
+		ServiceCluster:             ServiceClusterName,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		DiscoveryAddress:           DiscoveryPlainAddress,
+		ConnectTimeout:             types.DurationProto(1 * time.Second),
+		StatsdUdpAddress:           "",
+		EnvoyMetricsServiceAddress: "",
+		ProxyAdminPort:             15000,
+		ControlPlaneAuthPolicy:     meshconfig.AuthenticationPolicy_NONE,
+		CustomConfigFile:           "",
+		Concurrency:                0,
+		StatNameLength:             189,
+		Tracing:                    nil,
 	}
 }
 

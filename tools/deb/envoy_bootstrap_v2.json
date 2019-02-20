@@ -211,6 +211,20 @@
         ]
       }
       {{ end }}
+      {{ if .envoy_metrics_service }}
+      ,
+      {
+        "name": "envoy_metrics_service",
+        "type": "STRICT_DNS",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .envoy_metrics_service }}
+          }
+        ]
+      }
+      {{ end }}
     ],
     "listeners":[
       {
@@ -285,9 +299,22 @@
     }
   }
   {{ end }}
-  {{ if .statsd }}
+  {{ if or .envoy_metrics_service .statsd }}
   ,
   "stats_sinks": [
+    {{ if .envoy_metrics_service }}
+    {
+      "name": "envoy.metrics_service",
+      "config": {
+        "grpc_service": {
+          "envoy_grpc": {
+            "cluster_name": "envoy_metrics_service"
+          }
+        }
+      }
+    },
+    {{ end }}
+    {{ if .statsd }}
     {
       "name": "envoy.statsd",
       "config": {
@@ -295,7 +322,8 @@
           "socket_address": {{ .statsd }}
         }
       }
-    }
+    },
+    {{ end }}
   ]
   {{ end }}
 }
