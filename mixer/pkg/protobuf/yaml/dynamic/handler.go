@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer/roundrobin"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
@@ -146,8 +147,9 @@ func (h *Handler) Close() error {
 
 func (h *Handler) connect() (err error) {
 	// TODO add simple secure option
-	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions()); err != nil {
+	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(),
+		grpc.WithInsecure(),
+		grpc.WithBalancerName(roundrobin.Name)); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
