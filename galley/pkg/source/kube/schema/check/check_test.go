@@ -142,7 +142,6 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 		},
 	}
 
-
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
 			cs := extfake.NewSimpleClientset()
@@ -174,7 +173,7 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 			got := findSupportedResourceSchemas(cs, specs)
 
 			if len(got) != len(want) {
-				 tt.Fatalf("wrong number of resource schemas found: \n got %v\nwant %v", got, want)
+				tt.Fatalf("wrong number of resource schemas found: \n got %v\nwant %v", got, want)
 			}
 
 			for j := range got {

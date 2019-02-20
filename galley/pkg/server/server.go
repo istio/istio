@@ -132,7 +132,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			}
 		} else {
 			found, err := p.findSupportedResources(k)
-			if err != nil  {
+			if err != nil {
 				return nil, err
 			}
 			sourceSchema = schema.New(found...)
