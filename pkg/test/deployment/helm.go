@@ -140,16 +140,16 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
-	// Initialize the helm (but do not install tiller).
+	// Initialize helm (but do not install tiller).
 	if _, err := exec(fmt.Sprintf("helm --home %s init --client-only", helmRepoDir)); err != nil {
 		return "", err
 	}
 
 	// Adding cni dependency as a workaround for now.
-	if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
-		helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
-		return "", err
-	}
+	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
+	//	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
+	//	return "", err
+	// }
 
 	// Package the chart dir.
 	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
