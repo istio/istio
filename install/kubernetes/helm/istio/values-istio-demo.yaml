@@ -27,3 +27,7 @@ servicegraph:
 kiali:
   enabled: true
   createDemoSecret: true
+
+gateways:
+  istio-egressgateway:
+    enabled: true
