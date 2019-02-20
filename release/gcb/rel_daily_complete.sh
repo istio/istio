@@ -23,9 +23,18 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-# Remove the old folder in case there is any stale file.
-gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"
+gsutil -q stat "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*"
 
-# Copy to the stable folder
-gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
+return_value=$?
 
+if [ $return_value = 0 ]; then
+    echo "Remove gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily"
+    # Remove the old folder in case there is any stale file.
+    gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"
+    echo "Copy from ${CB_VERSION} to ${CB_BRANCH}-latest-daily"
+    # Copy to the stable folder
+    gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
+else
+    echo "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION} does not exist"
+    exit 1
+fi
