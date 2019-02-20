@@ -1,0 +1,2 @@
+build --cxxopt -D_GLIBCXX_USE_CXX11_ABI=1
+build --cxxopt -DENVOY_IGNORE_GLIBCXX_USE_CXX11_ABI_ERROR=1

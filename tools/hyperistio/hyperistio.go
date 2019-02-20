@@ -117,7 +117,7 @@ func startEnvoy() error {
 		ConfigPath:       env.IstioOut,
 		BinaryPath:       env.IstioBin + "/envoy",
 		ServiceCluster:   "test",
-		CustomConfigFile: env.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
+		CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
 		ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
