@@ -55,7 +55,7 @@ if [ -n "${ISTIO_CP_AUTH:-}" ]; then
 fi
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
-  ISTIO_SVC_IP=$(hostname --ip-address)
+  ISTIO_SVC_IP=$(hostname --all-ip-addresses | cut -d ' ' -f 1)
 fi
 
 if [ -z "${POD_NAME:-}" ]; then
