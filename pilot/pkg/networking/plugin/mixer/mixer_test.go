@@ -42,8 +42,8 @@ func TestTransportConfig(t *testing.T) {
 			expect: &mccpb.NetworkFailPolicy{
 				Policy:        mccpb.FAIL_CLOSE,
 				MaxRetry:      defaultRetries,
-				BaseRetryWait: types.DurationProto(defaultBaseRetryWaitTime),
-				MaxRetryWait:  types.DurationProto(defaultMaxRetryWaitTime),
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 		{
@@ -74,8 +74,8 @@ func TestTransportConfig(t *testing.T) {
 			expect: &mccpb.NetworkFailPolicy{
 				Policy:        mccpb.FAIL_CLOSE,
 				MaxRetry:      1,
-				BaseRetryWait: types.DurationProto(defaultBaseRetryWaitTime),
-				MaxRetryWait:  types.DurationProto(defaultMaxRetryWaitTime),
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 		{
@@ -89,8 +89,8 @@ func TestTransportConfig(t *testing.T) {
 			expect: &mccpb.NetworkFailPolicy{
 				Policy:        mccpb.FAIL_OPEN,
 				MaxRetry:      defaultRetries,
-				BaseRetryWait: types.DurationProto(defaultBaseRetryWaitTime),
-				MaxRetryWait:  types.DurationProto(defaultMaxRetryWaitTime),
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 	}
