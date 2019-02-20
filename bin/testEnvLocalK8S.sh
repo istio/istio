@@ -163,7 +163,6 @@ function ensureLocalApiServer() {
 
 function createIstioConfigmap() {
   helm init --client-only
-  helm dep update "${ISTIO_GO}/install/kubernetes/helm/istio"
   helm template "${ISTIO_GO}/install/kubernetes/helm/istio" --namespace=istio-system \
      --execute=templates/configmap.yaml --values install/kubernetes/helm/istio/values.yaml  > "${LOG_DIR}/istio-configmap.yaml"
   kubectl create -f "${LOG_DIR}/istio-configmap.yaml"
