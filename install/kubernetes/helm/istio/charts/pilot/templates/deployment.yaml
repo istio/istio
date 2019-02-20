@@ -66,13 +66,6 @@ spec:
           - --secureGrpcAddr
           - ""
 {{- end }}
-{{- if $.Values.global.useMCP }}
-    {{- if $.Values.global.controlPlaneSecurityEnabled}}
-          - --mcpServerAddrs=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-    {{- else }}
-          - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
-    {{- end }}
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
