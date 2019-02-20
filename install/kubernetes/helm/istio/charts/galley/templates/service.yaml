@@ -19,3 +19,4 @@ spec:
     name: grpc-mcp
   selector:
     istio: galley
+    app: {{ template "galley.name" . }}

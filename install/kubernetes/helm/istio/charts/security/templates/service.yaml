@@ -21,3 +21,4 @@ spec:
       port: {{ .Values.global.monitoringPort }}
   selector:
     istio: citadel
+    app: {{ template "security.name" . }}

@@ -23,6 +23,7 @@ spec:
   type: {{ .Values.service.type }}
   selector:
     istio: ingress
+    app: {{ template "ingress.name" . }}
   ports:
     {{- range $key, $val := .Values.service.ports }}
     -
