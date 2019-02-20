@@ -23,6 +23,7 @@ import (
 	"time"
 
 	celgo "github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -596,6 +597,9 @@ func testExpression(env celgo.Env, provider *attributeProvider, test testCase) f
 		} else if test.checkErr != "" {
 			t.Fatalf("expected check error: %s", test.checkErr)
 		}
+
+		checkedExpr, _ := celgo.AstToCheckedExpr(checked)
+		t.Log(checker.Print(expr.Expr(), checkedExpr))
 
 		// expressions must evaluate to the right result
 		eval, err := env.Program(checked, standardOverloads)
