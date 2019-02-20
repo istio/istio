@@ -13,8 +13,8 @@ The included sample files are:
 ## Generating Certificates for Bootstrapping Multicluster Chain of Trust
 
 Using the sample certificates to establish trust between multiple clusters is not recommended.
-Since we're missing the root CA's private key, we're unable to create new certificates for
-the clusters. Our only workable option is to use the **same** files for all clusters.
+Since the directory is missing the root CA's private key, we're unable to create new certificates
+for the clusters. Our only workable option is to use the **same** files for all clusters.
 A better alternative would be to assign a different intermediate CA to each cluster, all signed by
 a shared root CA. This will enable trust between workloads from different clusters as long as
 they share a common root CA.
