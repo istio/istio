@@ -41,10 +41,7 @@ const (
 	defaultBufferSize    int64 = 1024
 	defaultMaxBatchBytes int64 = 8 * 1024 * 1024
 	defaultTimeout             = 1 * time.Minute
-)
-
-var (
-	defaultAddress = "localhost:24224"
+	defaultAddress             = "localhost:24224"
 )
 
 type (
