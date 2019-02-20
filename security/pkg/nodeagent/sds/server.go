@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -169,6 +170,7 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 			log.Info("Start SDS grpc server")
 			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+				time.Sleep(1 * time.Second) // without this the logs fill up with thousands of the message
 			}
 			s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 			if err != nil {
