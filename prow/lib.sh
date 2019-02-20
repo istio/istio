@@ -112,3 +112,22 @@ function clone_cni() {
       cd "${TMP_DIR}" || return
   fi
 }
+
+function cni_run_daemon() {
+
+echo 'Run the CNI daemon set'
+CNI_HUB=${CNI_HUB:-gcr.io/istio-release}
+CNI_TAG=${CNI_TAG:-master-latest-daily}
+
+
+chartdir=$(pwd)/charts
+mkdir ${chartdir}
+helm init --client-only
+helm repo add istio.io https://storage.googleapis.com/istio-release/releases/1.1.0-snapshot.6/charts
+helm fetch --untar --untardir ${chartdir} istio.io/istio-cni
+
+helm template --values ${chartdir}/istio-cni/values.yaml --name=istio-cni --namespace=istio-system --set "excludeNamespaces={}" --set hub=${CNI_HUB} --set tag=${CNI_TAG} --set pullPolicy=IfNotPresent --set logLevel=${CNI_LOGLVL:-debug}  ${chartdir}/istio-cni > istio-cni_install.yaml
+
+kubectl apply -f istio-cni_install.yaml
+
+}
