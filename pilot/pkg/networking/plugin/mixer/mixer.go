@@ -62,12 +62,14 @@ const (
 
 	// default number of retries for policy checks
 	defaultRetries = 0
+)
 
+var (
 	// default base retry wait time for policy checks
-	defaultBaseRetryWaitTime = 80 * time.Millisecond
+	defaultBaseRetryWaitTime = types.DurationProto(80 * time.Millisecond)
 
 	// default maximum wait time for policy checks
-	defaultMaxRetryWaitTime = 1000 * time.Millisecond
+	defaultMaxRetryWaitTime = types.DurationProto(1000 * time.Millisecond)
 )
 
 type direction int
@@ -281,7 +283,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		}
 	}
 
-	networkFailPolicy.BaseRetryWait = types.DurationProto(defaultBaseRetryWaitTime)
+	networkFailPolicy.BaseRetryWait = defaultBaseRetryWaitTime
 	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckBaseRetryWaitTime]; ok {
 		dur, err := time.ParseDuration(annotation)
 		if err != nil {
@@ -291,7 +293,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		}
 	}
 
-	networkFailPolicy.MaxRetryWait = types.DurationProto(defaultMaxRetryWaitTime)
+	networkFailPolicy.MaxRetryWait = defaultMaxRetryWaitTime
 	if annotation, ok := node.Metadata[model.NodeMetadataPolicyCheckMaxRetryWaitTime]; ok {
 		dur, err := time.ParseDuration(annotation)
 		if err != nil {
