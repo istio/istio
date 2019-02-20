@@ -716,6 +716,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set gateways.istio-egressgateway.enabled=true \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
@@ -729,6 +730,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set gateways.istio-egressgateway.enabled=true \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
