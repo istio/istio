@@ -537,7 +537,7 @@ func (a *accessLogs) checkLogs(t *testing.T) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	log.Infof("Checking pod logs for request IDs...")
-	log.Debuga(a.logs)
+	log.Infoa(a.logs)
 
 	for cluster, apps := range a.logs {
 		for app := range apps {
