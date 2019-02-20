@@ -195,6 +195,10 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 		return err
 	}
 
+	if instances == nil || len(instances) == 0 {
+		return fmt.Errorf("proxy %s has no associated service instances", node.ID)
+	}
+
 	node.ServiceInstances = instances
 	return nil
 }

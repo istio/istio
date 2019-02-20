@@ -623,6 +623,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 	nt.Locality = discReq.Node.Locality
 
+	// This call will return err if the proxy has no service instance associated with it
+	// We need the proxy's service instance for almost everything related to inbound listeners,
+	// filters like RBAC/AuthN, etc.
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
@@ -672,18 +675,14 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
-		return err
-	}
-	if util.IsLocalityEmpty(con.modelNode.Locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(con.modelNode.ServiceInstances) > 0 {
-			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
-		}
-	}
+	// We dont have to recompute the service instances or the locality of the proxy
+	// as these should have been done when the proxy first connected
+	// This code cannot be reached if the proxy has no service instances
+
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
-	// Saves compute cycles in networking code
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
