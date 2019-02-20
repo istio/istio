@@ -3588,6 +3588,19 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least one port is not in the range of [0, 65535]",
 		},
 		{
+			name: "has both first-class field and constraints",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Ports:    []int32{9080},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "destination.port", Values: []string{"80"}},
+					},
+				},
+			}},
+			expectErrMsg: "cannot define destination.port for rule 0 because a similar first-class field has been defined",
+		},
+		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
@@ -3693,7 +3706,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "empty subjects are not allowed. Found an empty subject at index 1",
 		},
 		{
 			name: "no roleRef",
@@ -3726,6 +3739,26 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
 			expectErrMsg: "name cannot be empty",
+		},
+		{
+			name: "first-class field already exists",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Namespaces: []string{"default"}, Properties: map[string]string{"source.namespace": "istio-system"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
+		},
+		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
 		},
 		{
 			name: "success proto",
