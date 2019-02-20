@@ -533,8 +533,8 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 func checkFields(raw []byte, kind string, namespace string, name string) (string, error) {
 	trial := make(map[string]json.RawMessage)
 	if err := yaml.Unmarshal(raw, &trial); err != nil {
-		scope.Infof("cannot re-decode configuration: %v", err)
-		return reasonYamlDecodeError, fmt.Errorf("cannot re-decode configuration: %v", err)
+		scope.Infof("cannot decode configuration fields: %v", err)
+		return reasonYamlDecodeError, fmt.Errorf("cannot decode configuration fields: %v", err)
 	}
 
 	for key := range trial {

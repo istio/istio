@@ -277,7 +277,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -287,7 +287,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -297,7 +297,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Delete,
 			},
@@ -307,7 +307,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: admissionv1beta1.Create,
 			},
@@ -317,7 +317,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: admissionv1beta1.Create,
 			},
@@ -327,7 +327,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid extra key create",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: admissionv1beta1.Create,
 			},
