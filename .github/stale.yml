@@ -42,5 +42,6 @@ issues:
   exemptLabels:
     - help wanted
     - kind/customer issue
+    - kind/test failure
     - Epic
     - no stalebot

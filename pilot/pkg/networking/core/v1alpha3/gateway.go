@@ -318,6 +318,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
+						Cert:    true,
 						Uri:     true,
 						Dns:     true,
 					},
@@ -352,6 +353,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						ForwardClientCertDetails: http_conn.SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
+							Cert:    true,
 							Uri:     true,
 							Dns:     true,
 						},

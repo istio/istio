@@ -52,7 +52,7 @@ func TestCreate(t *testing.T) {
 		}
 
 		if count != 1 {
-			t.Errorf("Received requests dont match expected.")
+			t.Errorf("Received requests don't match expected.")
 		}
 	})
 }

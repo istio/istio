@@ -1626,7 +1626,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "release-1.1"
+  branch = "master"
   digest = "1:a273ea91d5c3c8335dcdeeb84d020bd79e97f305d05b8c6fb85ca9c770830050"
   name = "istio.io/api"
   packages = [

@@ -513,7 +513,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
 	sa := controller.GetIstioServiceAccounts(hostname, []int{8080})
-	sort.Sort(sort.StringSlice(sa))
+	sort.Strings(sa)
 	expected := []string{
 		canonicalSaOnVM,
 		"spiffe://company.com/ns/nsA/sa/" + sa2,

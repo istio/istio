@@ -90,13 +90,13 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	DNSDomains []string
 
+	// TrustDomain defines the trust domain of the certificate
+	TrustDomain string
+
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
-
-	// TrustDomain defines the trust domain of the certificate
-	TrustDomain string
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string

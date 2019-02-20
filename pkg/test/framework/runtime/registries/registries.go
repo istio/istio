@@ -17,6 +17,8 @@ package registries
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/test/framework/runtime/components/echo"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/runtime/api"
@@ -36,13 +38,13 @@ import (
 )
 
 var (
+	environmentMap = make(map[component.Variant]*registry.Instance)
+
 	// Native environment registry.
 	Native = newEnvironment(descriptors.NativeEnvironment, native.NewEnvironment)
 
 	// Kube environment registry.
 	Kube = newEnvironment(descriptors.KubernetesEnvironment, kube.NewEnvironment)
-
-	environmentMap = make(map[component.Variant]*registry.Instance)
 )
 
 func init() {
@@ -85,12 +87,12 @@ func newEnvironment(desc component.Descriptor, factory api.ComponentFactory) *re
 	// Register the environment component in the registry.
 	r.Register(desc, true, factory)
 
-	if desc.Variant == "" {
+	if desc.Key.Variant == "" {
 		panic("failed registering environment without variant")
 	}
-	if _, ok := environmentMap[desc.Variant]; ok {
-		panic(fmt.Sprintf("failed registering environment for duplicate variant: %s", desc.Variant))
+	if _, ok := environmentMap[desc.Key.Variant]; ok {
+		panic(fmt.Sprintf("failed registering environment for duplicate variant: %s", desc.Key.Variant))
 	}
-	environmentMap[desc.Variant] = r
+	environmentMap[desc.Key.Variant] = r
 	return r
 }

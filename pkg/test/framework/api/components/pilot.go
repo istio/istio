@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 // Pilot testing component

@@ -278,7 +278,6 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 }
 
 func TestVMExtendsIstio(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4794")
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
 		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
