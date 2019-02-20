@@ -641,10 +641,22 @@ func CheckDeployments(namespace string, timeout time.Duration, kubeconfig string
 func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string) error {
 	var multiErr error
 	fetchAndWrite := func(pod string) error {
+		// Log the description; if we fail to get the logs it may help
+		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig %s",
+			namespace, pod, kubeconfig)
+		describeOutput, errDescribe := Shell(describeCmd)
+		if errDescribe != nil {
+			log.Warnf("Error getting description for pod %s: %v\n", pod, errDescribe)
+			// don't bail, keep going
+		} else {
+			log.Info(describeOutput)
+		}
+
 		cmd := fmt.Sprintf(
 			"kubectl get pods -n %s %s -o jsonpath={.spec.containers[*].name} --kubeconfig=%s", namespace, pod, kubeconfig)
 		containersString, err := Shell(cmd)
 		if err != nil {
+			log.Warnf("Error getting containers for pod %s: %v\n", pod, err)
 			return err
 		}
 		containers := strings.Split(containersString, " ")
@@ -652,6 +664,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.log", pod, container))
 			f, err := os.Create(filePath)
 			if err != nil {
+				log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
 				return err
 			}
 			defer func() {
@@ -662,10 +675,12 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			dump, err := ShellMuteOutput(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				return err
+				log.Warnf("Error gettings logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
+				// don't stop if we can't get the current log; keep going
 			}
 
 			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
+				log.Warnf("Error writing log dump to %s for pod %s/%s container %s: %v\n", filePath, namespace, pod, container, err)
 				return err
 			}
 
@@ -677,6 +692,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.prev.log", pod, container))
 				f1, err := os.Create(filePath)
 				if err != nil {
+					log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
 					return err
 				}
 				defer func() {
@@ -685,6 +701,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 					}
 				}()
 				if _, err = f1.WriteString(fmt.Sprintf("%s\n", dump1)); err != nil {
+					log.Warnf("Error writing log dump to %s for pod %s/%s container %s: %v\n", filePath, namespace, pod, container, err)
 					return err
 				}
 			}
