@@ -150,7 +150,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useTrustworthyJwt: true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
 			},
 		},
 		{
@@ -159,7 +159,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useNormalJwt:   true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey, normalMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey, normalMetaConfig),
 			},
 		},
 		{
