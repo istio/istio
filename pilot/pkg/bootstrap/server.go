@@ -402,7 +402,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
-			log.Warnf("failed to read mesh configuration: %v", err)
+			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, kube.IstioConfigMap, kube.IstioNamespace)
 			return err
 		}
 
