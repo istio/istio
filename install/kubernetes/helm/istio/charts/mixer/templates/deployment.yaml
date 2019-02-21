@@ -150,6 +150,7 @@
       - name: adapter-secret
         secret:
           secretName: {{ $.Values.telemetry.adapterSecret.secretName }}
+          optional: true
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
