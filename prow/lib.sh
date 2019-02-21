@@ -122,7 +122,7 @@ function cni_run_daemon() {
   chartdir=$(pwd)/charts
   mkdir "${chartdir}"
   helm init --client-only
-  helm repo add istio.io https://storage.googleapis.com/istio-release/releases/1.1.0-snapshot.6/charts
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
   helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
  
   helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
