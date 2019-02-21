@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/copilot/api"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 type CopilotHandler struct {
@@ -89,3 +91,15 @@ func (h *CopilotHandler) Routes(context.Context, *api.RoutesRequest) (*api.Route
 		Routes: h.RoutesResponseData,
 	}, nil
 }
+
+type MockController struct{}
+
+func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) Run(<-chan struct{}) {}
