@@ -607,7 +607,7 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 			if got < want {
 				log.Errorf("Got %d for %s in logs of %s from %s cluster, want %d", got, id, app, cluster, want)
 				// Do not dump the logs. Its virtually useless even if just one iteration fails.
-				//log.Errorf("Log: %s", logs)
+				log.Errorf("Log: %s", logs)
 				return errAgain
 			}
 		}
