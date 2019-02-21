@@ -139,6 +139,15 @@ data:
       {{- end }}
     {{- end }}
 
+    {{- if $.Values.global.useMCP }}
+    configSources:
+    - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+    {{- if $.Values.global.controlPlaneSecurityEnabled}}
+      tlsSettings:
+        mode: ISTIO_MUTUAL
+    {{- end }}
+    {{- end }}
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.

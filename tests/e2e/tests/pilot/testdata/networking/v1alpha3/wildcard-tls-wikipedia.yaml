@@ -50,4 +50,4 @@ spec:
         host: '*.wikipedia.org'
         port:
           number: 443
-      weight: 100
+weight: 100
