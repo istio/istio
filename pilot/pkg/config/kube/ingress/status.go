@@ -39,6 +39,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/log"
 )
 
@@ -99,7 +100,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(opts)
 			},
 		}
-	}, &v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
+	}), &v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
 
 	st := StatusSyncer{
 		client:              client,

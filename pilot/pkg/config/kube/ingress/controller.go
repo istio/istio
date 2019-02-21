@@ -20,12 +20,13 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	"k8s.io/client-go/informers/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -33,8 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/listwatch"
+	"istio.io/istio/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -105,7 +106,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(options)
 			},
 		}
-	}, &extensionsv1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
+	}), &extensionsv1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
