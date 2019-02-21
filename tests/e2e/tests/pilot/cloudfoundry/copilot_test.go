@@ -39,7 +39,6 @@ import (
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/tests/e2e/tests/pilot/cloudfoundry/mock"
 	"istio.io/istio/tests/util"
 )
 
@@ -62,6 +61,9 @@ const (
 	ingressGatewaySvc = "cloudfoundry-ingress.istio-system.svc.cluster.local"
 )
 
+var gatewaySvc = srmemory.MakeService(ingressGatewaySvc, "11.0.0.1")
+var gatewayInstance = srmemory.MakeIP(gatewaySvc, 0)
+
 func pilotURL(path string) string {
 	return (&url.URL{
 		Scheme: "http",
@@ -72,6 +74,18 @@ func pilotURL(path string) string {
 
 var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+
+type mockController struct{}
+
+func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	return nil
+}
+
+func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *mockController) Run(<-chan struct{}) {}
 
 func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -122,17 +136,17 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	// register a service for gateway
 	discovery := srmemory.NewDiscovery(
 		map[model.Hostname]*model.Service{
-			ingressGatewaySvc: srmemory.MakeService(ingressGatewaySvc, "11.0.0.1"),
+			ingressGatewaySvc: gatewaySvc,
 		}, 1)
 
-	registry1 := aggregate.Registry{
+	registry := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockCloudFoundryAdapter"),
 		ClusterID:        "mockCloudFoundryAdapter",
 		ServiceDiscovery: discovery,
-		Controller:       &mock.MockController{},
+		Controller:       &mockController{},
 	}
 
-	server.ServiceController.AddRegistry(registry1)
+	server.ServiceController.AddRegistry(registry)
 
 	t.Log("checking if pilot received routes from copilot")
 	g.Eventually(func() (string, error) {
@@ -148,7 +162,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	}).Should(gomega.ContainSubstring("gateway"))
 
 	t.Log("run edge router envoy...")
-	gateway := runEnvoy(t, "router~x~x~x", pilotGrpcPort, pilotDebugPort)
+	gateway := runEnvoy(t, "router~"+gatewayInstance+"~x~x", pilotGrpcPort, pilotDebugPort)
 	defer gateway.TearDown()
 
 	t.Log("curling the app with expected host header")

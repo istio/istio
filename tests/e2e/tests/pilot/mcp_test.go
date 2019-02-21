@@ -50,21 +50,23 @@ const (
 	ingressGatewaySvc = "mcp-ingress.istio-system.svc.cluster.local"
 )
 
+var gatewaySvc = srmemory.MakeService(ingressGatewaySvc, "11.0.0.1")
+var gatewayInstance = srmemory.MakeIP(gatewaySvc, 0)
 var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
-// MockController specifies a mock Controller for testing
-type MockController struct{}
+// mockController specifies a mock Controller for testing
+type mockController struct{}
 
-func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil
 }
 
-func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	return nil
 }
 
-func (c *MockController) Run(<-chan struct{}) {}
+func (c *mockController) Run(<-chan struct{}) {}
 
 func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -94,24 +96,24 @@ func TestPilotMCPClient(t *testing.T) {
 	// register a service for gateway
 	discovery := srmemory.NewDiscovery(
 		map[model.Hostname]*model.Service{
-			ingressGatewaySvc: srmemory.MakeService(ingressGatewaySvc, "12.0.0.1"),
+			ingressGatewaySvc: gatewaySvc,
 		}, 1)
 
-	registry1 := aggregate.Registry{
+	registry := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockMcpAdapter"),
 		ClusterID:        "mockMcpAdapter",
 		ServiceDiscovery: discovery,
-		Controller:       &MockController{},
+		Controller:       &mockController{},
 	}
 
-	server.ServiceController.AddRegistry(registry1)
+	server.ServiceController.AddRegistry(registry)
 
 	g.Eventually(func() (string, error) {
 		return curlPilot(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
 	}, "30s", "1s").Should(gomega.ContainSubstring("gateway"))
 
 	t.Log("run edge router envoy...")
-	gateway := runEnvoy(t, pilotGrpcPort, pilotDebugPort)
+	gateway := runEnvoy(t, "router~"+gatewayInstance+"~x~x", pilotGrpcPort, pilotDebugPort)
 	defer gateway.TearDown()
 
 	t.Log("check that envoy is listening on the configured gateway...")
@@ -130,13 +132,12 @@ func runMcpServer() (*mcptesting.Server, error) {
 	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
 }
 
-func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
+func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
 	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
-	nodeIDGateway := "router~x~x~x"
 
 	gateway := mixerEnv.NewTestSetup(25, t)
 	gateway.SetNoMixer(true)
@@ -147,11 +148,11 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	gateway.Ports().PilotGrpcPort = grpcPort
 	gateway.Ports().PilotHTTPPort = debugPort
 	gateway.EnvoyConfigOpt = map[string]interface{}{
-		"NodeID": nodeIDGateway,
+		"NodeID": nodeID,
 	}
 	gateway.EnvoyTemplate = string(tmpl)
 	gateway.EnvoyParams = []string{
-		"--service-node", nodeIDGateway,
+		"--service-node", nodeID,
 		"--service-cluster", "x",
 	}
 	if err := gateway.SetUp(); err != nil {
