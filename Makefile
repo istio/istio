@@ -683,7 +683,7 @@ generate_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		--set gateways.istio-egressgateway.enabled=true \
-		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \		
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
