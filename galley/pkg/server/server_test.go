@@ -123,7 +123,7 @@ func TestNewServer(t *testing.T) {
 			wantSourceSchemas: sourceResourceSchemas,
 		},
 		{
-			name: "DisableResourceReadyCheck",
+			name:                      "DisableResourceReadyCheck",
 			disableResourceReadyCheck: true,
 			wantSourceSchemas:         partialResourceList,
 		},
