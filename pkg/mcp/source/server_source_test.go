@@ -84,6 +84,7 @@ func TestServerSource(t *testing.T) {
 
 	authChecker := test.NewFakeAuthChecker()
 	rateLimiter := NewFakePerConnLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
 	close(rateLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
@@ -91,7 +92,9 @@ func TestServerSource(t *testing.T) {
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    rateLimiter,
 	}
+
 	fakeLimiter := test.NewFakeRateLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
 	close(fakeLimiter.WaitErr)
 
 	srvOptions := &ServerOptions{

@@ -43,7 +43,8 @@ func (h *serverHarness) Context() context.Context {
 }
 
 func TestServerSinkRateLimitter(t *testing.T) {
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	type key int
 	const ctxKey key = 0
 	expectedCtx := "expectedCtx"
@@ -65,6 +66,8 @@ func TestServerSinkRateLimitter(t *testing.T) {
 
 	authChecker := test.NewFakeAuthChecker()
 	fakeLimiter := test.NewFakeRateLimiter()
+
+	// force ratelimiter Wait to return nil by closing WaitErr
 	close(fakeLimiter.WaitErr)
 
 	serverOpts := &ServerOptions{
@@ -140,6 +143,7 @@ func TestServerSink(t *testing.T) {
 	}
 
 	rateLimiter := test.NewFakeRateLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
 	close(rateLimiter.WaitErr)
 
 	serverOpts := &ServerOptions{
