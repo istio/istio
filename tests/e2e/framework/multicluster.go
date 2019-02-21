@@ -106,6 +106,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		}
 	}
 	helmSetContent += " --set security.selfSigned=false"
+	helmSetContent += " --set global.proxy.accessLogFile=\"/dev/stdout\""
 	if !useAutoInject {
 		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
 		log.Infof("Remote cluster auto-sidecar injection disabled")
