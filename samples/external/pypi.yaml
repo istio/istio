@@ -29,3 +29,16 @@ spec:
   - number: 443
     name: https
     protocol: HTTPS
+---
+# pip install may fetch files from files.pythonhosted.org
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: pythonhosted-https
+spec:
+  hosts:
+  - files.pythonhosted.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
