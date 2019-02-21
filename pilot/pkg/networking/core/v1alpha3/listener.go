@@ -1202,8 +1202,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
-// Deprecated: To be removed from code in 1.2. Likely redudant prior to 1.1 and turned off
-// when the Sidecar resource is explicitly used.
 func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
 	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	// Do not generate any management port listeners if the user has specified a SidecarScope object

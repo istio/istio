@@ -626,6 +626,11 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
+	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
+	// serve any gateway config if we dont know the proxy's service instances
+	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
+		return errors.New("gateway has no associated service instances")
+	}
 
 	if util.IsLocalityEmpty(nt.Locality) {
 		// Get the locality from the proxy's service instances.
@@ -682,8 +687,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
 		}
 	}
+
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
-	// Saves compute cycles in networking code
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
