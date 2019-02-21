@@ -662,6 +662,8 @@ isti%.yaml: $(HELM) $(HOME)/.helm
 		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
+		--set gateways.istio-egressgateway.enabled=true \
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
@@ -680,6 +682,8 @@ generate_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.controlPlaneSecurityEnabled=false \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
+		--set gateways.istio-egressgateway.enabled=true \
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \		
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
@@ -696,6 +700,8 @@ generate_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
+		--set gateways.istio-egressgateway.enabled=true \
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
@@ -717,6 +723,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set gateways.istio-egressgateway.enabled=true \
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
@@ -731,6 +738,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set gateways.istio-egressgateway.enabled=true \
+		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
