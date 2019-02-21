@@ -154,8 +154,6 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		externalNameSvcInstanceMap: make(map[model.Hostname][]*model.ServiceInstance),
 	}
 
-	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
-
 	svcInformer = cache.NewSharedInformer(listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {

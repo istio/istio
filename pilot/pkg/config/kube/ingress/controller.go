@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/listwatch"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -91,8 +94,19 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 		ingressNamespace = model.IstioIngressNamespace
 	}
 
-	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
-	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
+	log.Infof("Ingress controller watching namespace list %q", options.WatchedNamespaces)
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+	informer := cache.NewSharedIndexInformer(listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return client.ExtensionsV1beta1().Ingresses(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(options)
+			},
+		}
+	}, &extensionsv1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
+
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

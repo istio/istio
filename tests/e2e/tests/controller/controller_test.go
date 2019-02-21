@@ -169,16 +169,16 @@ func TestUnknownConfig(t *testing.T) {
 }
 
 func controllerEvents(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespaces: ns, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
 func controllerCacheFreshness(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespaces: ns, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
 func controllerClientSync(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespaces: ns, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }
