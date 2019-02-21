@@ -97,7 +97,7 @@ var (
 	// where Sidecar is enabled.
 	HTTP10 = os.Getenv("PILOT_HTTP10") == "1"
 
-	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-sagent shutdown.
+	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
 	// sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.

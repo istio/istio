@@ -522,13 +522,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 			continue
 		}
 		if len(allChains) != 0 {
-			log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+			log.Warnf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
+				listenerMapKey)
 		}
 		allChains = append(allChains, chains...)
 	}
 	// Construct the default filter chain.
 	if len(allChains) == 0 {
-		log.Infof("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
+		log.Debugf("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
@@ -1559,32 +1560,47 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
 	for i, chain := range mutable.FilterChains {
 		opt := opts.filterChainOpts[i]
-
-		if len(chain.TCP) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-		}
-
-		if len(opt.networkFilters) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
-		}
-
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
-		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
-		if opt.httpOpts != nil {
-			opt.httpOpts.statPrefix = mutable.Listener.Name
-			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			filter := listener.Filter{
-				Name: xdsutil.HTTPConnectionManager,
+		if pluginParams.ListenerProtocol == plugin.ListenerProtocolTCP {
+			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
+			// codec is used by RBAC or mixer later.
+
+			if len(opt.networkFilters) > 0 {
+				// this is the terminating filter
+				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
+
+				for n := 0; n < len(opt.networkFilters)-1; n++ {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
+				}
+
+				if len(chain.TCP) > 0 {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
 			}
-			if util.IsProxyVersionGE11(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
+		} else {
+			// Add the TCP filters first.. and then the HTTP connection manager
+			if len(chain.TCP) > 0 {
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 			}
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
-				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			if opt.httpOpts != nil {
+				opt.httpOpts.statPrefix = mutable.Listener.Name
+				httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+				filter := listener.Filter{
+					Name: xdsutil.HTTPConnectionManager,
+				}
+				if util.IsProxyVersionGE11(pluginParams.Node) {
+					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+				} else {
+					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
+					len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			}
 		}
 	}
 

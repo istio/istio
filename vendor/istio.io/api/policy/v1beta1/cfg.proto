@@ -490,6 +490,10 @@ message Tls {
     // passed as what it is.
     string custom_header = 5;
   }
+
+  // Indicates the name of adapter backend which is useful for routing with
+  // proxy-fronted backend.
+  string server_name = 6;
 }
 
 // OAuth let operator specify config to fetch access token via oauth when using
@@ -526,4 +530,8 @@ message Mutual {
   // verify the presented adapter certificates. By default mixer should already
   // include Istio CA certificates and system certificates in cert pool.
   string ca_certificates = 3;
+
+  // Indicates the name of adapter backend server which is useful for routing with
+  // proxy-fronted backend.
+  string server_name = 4;
 }

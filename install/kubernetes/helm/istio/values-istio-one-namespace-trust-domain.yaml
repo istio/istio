@@ -12,7 +12,8 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
+  # The trust domain corresponds to the trust root of a system
   trustDomain: test.local
 
-istiotesting:
-  oneNameSpace: true
+  # Restrict the applications in one namespace the controller manages
+  oneNamespace: true

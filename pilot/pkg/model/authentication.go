@@ -232,7 +232,9 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		},
 		HeaderKey: headerKey,
 	}
-	any, _ := types.MarshalAny(config)
+
+	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
+
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
@@ -244,4 +246,33 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 			},
 		},
 	}
+}
+
+type fbMetadataAnyKey struct {
+	tokenFileName string
+	headerKey     string
+}
+
+var fileBasedMetadataConfigAnyMap = map[fbMetadataAnyKey]*types.Any{}
+
+// findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
+// by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
+// it takes the fbMetadata and marshals it into google.protobuf.Any, and stores this new
+// google.protobuf.Any into fileBasedMetadataConfigAnyMap.
+// FileBasedMetadataConfig only supports non-deterministic marshaling. As each SDS config contains
+// marshaled FileBasedMetadataConfig, the SDS config would differ if marshaling FileBasedMetadataConfig
+// returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
+// same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
+// FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
+func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *v2alpha.FileBasedMetadataConfig) *types.Any {
+	key := fbMetadataAnyKey{
+		tokenFileName: tokenFileName,
+		headerKey:     headerKey,
+	}
+	if marshalAny, found := fileBasedMetadataConfigAnyMap[key]; found {
+		return marshalAny
+	}
+	any, _ := types.MarshalAny(fbMetadata)
+	fileBasedMetadataConfigAnyMap[key] = any
+	return any
 }
