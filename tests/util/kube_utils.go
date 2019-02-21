@@ -642,7 +642,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 	var multiErr error
 	fetchAndWrite := func(pod string) error {
 		// Log the description; if we fail to get the logs it may help
-		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig %s",
+		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig=%s",
 			namespace, pod, kubeconfig)
 		describeOutput, errDescribe := Shell(describeCmd)
 		if errDescribe != nil {
