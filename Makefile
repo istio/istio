@@ -663,6 +663,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
