@@ -33,7 +33,7 @@ telemetry:
 
   adapterSecret:
     enabled: false
-    secretName: adapter-creds
+    secretName: adapter-secret
 
 podAnnotations: {}
 nodeSelector: {}
