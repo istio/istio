@@ -214,7 +214,7 @@
           readOnly: true
 {{- end }}
         - name: telemetry-adapter-secret
-          mountPath: /var/run/secrets/adapter.mixer.istio.io
+          mountPath: /var/run/secrets/istio.io/telemetry/adapter
           readOnly: true
         - name: uds-socket
           mountPath: /sock
