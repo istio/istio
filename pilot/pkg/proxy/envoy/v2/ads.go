@@ -33,7 +33,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
@@ -628,10 +627,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
-	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0 ) {
+	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
 		return errors.New("gateway has no associated service instances")
 	}
-
 
 	if util.IsLocalityEmpty(nt.Locality) {
 		// Get the locality from the proxy's service instances.
