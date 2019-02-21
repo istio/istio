@@ -364,9 +364,97 @@ set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # TODO: support receiving IPv6 traffic in the same way as IPv4.
   # Allow all ipv6 traffic inbound and outboud, whitebox mode for now
-  ip6tables -A INPUT -j ACCEPT || true
-  ip6tables -A OUTPUT -j ACCEPT || true
-  ip6tables -A FORWARD -j ACCEPT || true
+
+
+  # Remove the old chains, to generate new configs.
+  ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
+
+  # Flush and delete the istio chains.
+  ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
+  ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
+  ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
+  ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
+
+  # Must be last, the others refer to it
+  ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
+  ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
+  ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
+
+  # Create a new chain for redirecting outbound traffic to the common Envoy port.
+  # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
+  # redirects to Envoy.
+  ip6tables -t nat -N ISTIO_REDIRECT
+  ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
+
+  # Use this chain also for redirecting inbound traffic to the common Envoy port
+  # when not using TPROXY.
+  ip6tables -t nat -N ISTIO_IN_REDIRECT
+  ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
+
+  # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
+  # to the local service. If not set, no inbound port will be intercepted by istio iptables.
+  if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
+     table=nat
+  fi
+  ip6tables -t ${table} -N ISTIO_INBOUND
+  ip6tables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
+
+  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    # Makes sure SSH is not redirected
+    ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+    # Apply any user-specified port exclusions.
+    if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
+      for port in ${INBOUND_PORTS_EXCLUDE}; do
+        ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
+      done
+    fi
+    # Redirect remaining inbound traffic to Envoy.
+    ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
+    # User has specified a non-empty list of ports to be redirected to Envoy.
+    for port in ${INBOUND_PORTS_INCLUDE}; do
+      ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
+    done
+  fi
+
+  # Create a new chain for selectively redirecting outbound packets to Envoy.
+  ip6tables -t nat -N ISTIO_OUTPUT
+
+  # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
+  ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+
+  # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
+  # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
+  ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_REDIRECT
+
+  for uid in ${PROXY_UID}; do
+    # Avoid infinite loops. Don't redirect Envoy traffic directly back to
+    # Envoy for non-loopback traffic.
+    ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner ${uid} -j RETURN
+  done
+
+  for gid in ${PROXY_GID}; do
+    # Avoid infinite loops. Don't redirect Envoy traffic directly back to
+    # Envoy for non-loopback traffic.
+    ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ${gid} -j RETURN
+  done
+
+  # Skip redirection for Envoy-aware applications and
+  # container-to-container traffic both of which explicitly use
+  # localhost.
+  ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
+
+  for internalInterface in ${KUBEVIRT_INTERFACES}; do
+      ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
+  done
 else
   # Drop all inbound traffic except established connections.
   ip6tables -F INPUT || true
