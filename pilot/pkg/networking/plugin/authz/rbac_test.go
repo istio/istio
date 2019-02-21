@@ -431,6 +431,32 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			},
 		},
 		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-7"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"mysql"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "experimental.envoy.filters.network.mysql_proxy[db.table]", Values: []string{"[update]"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-8"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"dummy"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "experimental.envoy.filters.dummy[key]", Values: []string{"value"}},
+						},
+					},
+				},
+			},
+		},
+		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-9"},
 			Spec: &rbacproto.ServiceRole{
 				Rules: []*rbacproto.AccessRule{

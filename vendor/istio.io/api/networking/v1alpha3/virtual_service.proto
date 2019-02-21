@@ -176,7 +176,6 @@ message VirtualService {
   // matching an incoming request is used.
   repeated TCPRoute tcp = 4;
 
-  // $hide_from_docs
   // A list of namespaces to which this virtual service is exported. Exporting a
   // virtual service allows it to used by sidecars and gateways defined in
   // other namespaces. This feature provides a mechanism for service owners

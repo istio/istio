@@ -47,7 +47,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // behavior of the system is undefined if two or more Sidecar resources
 // with a workload selector select the same workload.
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that configures the sidecars in the namespace to allow egress traffic to
 // public services in the prod-us1, prod-apis, and the istio-system
 // namespaces.
@@ -66,7 +66,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "istio-system/*"
 // ```
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that accepts inbound HTTP traffic on port 9080 and forwards
 // it to the attached workload listening on a unix domain socket. In the
 // egress direction, in addition to the istio-system namespace, the sidecar
