@@ -740,7 +740,23 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if ep.Namespace == meta_v1.NamespaceSystem {
 			return nil
 		}
-		c.updateEDS(ep)
+
+		// Fix the scenario: when a proxy (Sidecar or gateway) connects to Pilot
+		// before Pilot receives the set of service instances associated with
+		// the service, from K8S. So env.GetProxyServiceInstances() call returns
+		// an empty set of service instances. This causes the Gateway code to
+		// fail, setting up the proxy with no listener.
+		if event == model.EventAdd {
+			if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
+				if svc := convertService(*item, c.domainSuffix); svc != nil {
+					// TODO: we're passing an incomplete instance to the
+					// handler since endpoints is an aggregate structure
+					f(&model.ServiceInstance{Service: svc}, event)
+				}
+			}
+		} else {
+			c.updateEDS(ep)
+		}
 
 		return nil
 	})
