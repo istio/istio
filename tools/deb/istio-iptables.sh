@@ -451,7 +451,15 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # container-to-container traffic both of which explicitly use
   # localhost.
   ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
-
+  
+  # Apply outbound IPv6 inclusions.
+  # TODO Need to figure out differentiation  between IPv4 and IPv6 ranges 
+  # for now process only "*"
+  if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+    # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+    ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+  fi 
+  
   for internalInterface in ${KUBEVIRT_INTERFACES}; do
       ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
   done
