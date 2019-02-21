@@ -623,12 +623,15 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 	nt.Locality = discReq.Node.Locality
 
-	// This call will return err if the proxy has no service instance associated with it
-	// We need the proxy's service instance for almost everything related to inbound listeners,
-	// filters like RBAC/AuthN, etc.
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
+	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
+	// serve any gateway config if we dont know the proxy's service instances
+	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0 ) {
+		return errors.New("gateway has no associated service instances")
+	}
+
 
 	if util.IsLocalityEmpty(nt.Locality) {
 		// Get the locality from the proxy's service instances.
