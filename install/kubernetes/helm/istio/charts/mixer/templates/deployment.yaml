@@ -146,12 +146,10 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
-{{- if $.Values.telemetry.adapterSecret.enabled }}
-      - name: adapter-secret
+      - name: telemetry-adapter-secret
         secret:
-          secretName: {{ $.Values.telemetry.adapterSecret.secretName }}
+          secretName: telemetry-adapter-secret
           optional: true
-{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
@@ -215,11 +213,9 @@
           mountPath: /etc/certs
           readOnly: true
 {{- end }}
-{{- if $.Values.telemetry.adapterSecret.enabled }}
-        - name: adapter-secret
-          mountPath: /var/adapter/secret
+        - name: telemetry-adapter-secret
+          mountPath: /var/run/secrets/adapter.mixer.istio.io
           readOnly: true
-{{- end }}
         - name: uds-socket
           mountPath: /sock
         livenessProbe:

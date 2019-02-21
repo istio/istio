@@ -31,10 +31,6 @@ telemetry:
     # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
     latencyThreshold: 100ms
 
-  adapterSecret:
-    enabled: false
-    secretName: adapter-secret
-
 podAnnotations: {}
 nodeSelector: {}
 
