@@ -93,6 +93,13 @@ OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 KUBEVIRT_INTERFACES=
 
+POD_IP=$(hostname --ip-address)
+# Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
+# to program ip6tables
+if [ "$POD_IP" != "${POD_IP#*:[0-9a-fA-F]}" ]; then
+  ENABLE_INBOUND_IPV6=$POD_IP
+fi
+
 while getopts ":p:u:g:m:b:d:i:x:k:h" opt; do
   case ${opt} in
     p)
@@ -203,6 +210,7 @@ echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
 echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
 echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
 echo "KUBEVIRT_INTERFACES=${KUBEVIRT_INTERFACES}"
+echo "ENABLE_INBOUND_IPV6=${ENABLE_INBOUND_IPV6}"
 echo
 
 INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}
@@ -353,11 +361,16 @@ fi
 
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
-if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
+if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # TODO: support receiving IPv6 traffic in the same way as IPv4.
   # Allow all ipv6 traffic inbound and outboud, whitebox mode for now
-  ip6tables -F INPUT || true
   ip6tables -A INPUT -j ACCEPT || true
   ip6tables -A OUTPUT -j ACCEPT || true
   ip6tables -A FORWARD -j ACCEPT || true
+else
+  # Drop all inbound traffic except established connections.
+  ip6tables -F INPUT || true
+  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -A INPUT -i lo -d ::1 -j ACCEPT || true
+  ip6tables -A INPUT -j REJECT || true
 fi
