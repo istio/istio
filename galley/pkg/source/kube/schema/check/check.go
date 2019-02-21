@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
@@ -36,25 +35,23 @@ var (
 	pollTimeout  = time.Minute
 )
 
-var testHookGetAllResourceSchemas = kubeMeta.Types.All
-
 // ResourceTypesPresence verifies that all expected k8s resources types are
 // present in the k8s apiserver.
-func ResourceTypesPresence(k client.Interfaces) error {
+func ResourceTypesPresence(k client.Interfaces, specs []sourceSchema.ResourceSpec) error {
 	cs, err := k.APIExtensionsClientset()
 	if err != nil {
 		return err
 	}
-	return resourceTypesPresence(cs, testHookGetAllResourceSchemas())
+	return resourceTypesPresence(cs, specs)
 }
 
 // FindSupportedResourceSchemas returns the list of supported resource schemas supported by the k8s apiserver.
-func FindSupportedResourceSchemas(k client.Interfaces) ([]sourceSchema.ResourceSpec, error) {
+func FindSupportedResourceSchemas(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
 	cs, err := k.APIExtensionsClientset()
 	if err != nil {
 		return nil, err
 	}
-	return findSupportedResourceSchemas(cs, testHookGetAllResourceSchemas()), nil
+	return findSupportedResourceSchemas(cs, specs), nil
 }
 
 func findSupportedResourceSchemas(cs clientset.Interface, specs []sourceSchema.ResourceSpec) []sourceSchema.ResourceSpec {

@@ -200,22 +200,23 @@ func (m mockExtensionClient) KubeClient() (kubernetes.Interface, error)         
 func TestExportedFunctions(t *testing.T) {
 	var m mockExtensionClient
 
-	prev := testHookGetAllResourceSchemas
-	testHookGetAllResourceSchemas = func() []sourceSchema.ResourceSpec { return nil }
-	defer func() { testHookGetAllResourceSchemas = prev }()
+	// provide an empty list of specs so the calling code doesn't
+	// invoke the mockExtensionClient's unimplemented discovery API. Those
+	// functions are tested covered by TestCheckCRDPresence and TestFindSupportedResourceSchemas
+	var emptySpecs []sourceSchema.ResourceSpec
 
-	if got := ResourceTypesPresence(m); got != nil {
+	if got := ResourceTypesPresence(m, emptySpecs); got != nil {
 		t.Errorf("ResourceTypesPresence() returned unexpected error: %v", got)
 	}
-	if _, got := FindSupportedResourceSchemas(m); got != nil {
+	if _, got := FindSupportedResourceSchemas(m, emptySpecs); got != nil {
 		t.Errorf("FindSupportedResourceSchemas() returned unexpected error: %v", got)
 	}
 
 	m.err = errors.New("oops")
-	if got := ResourceTypesPresence(m); got == nil {
+	if got := ResourceTypesPresence(m, emptySpecs); got == nil {
 		t.Error("ResourceTypesPresence() returned unexpected success")
 	}
-	if _, got := FindSupportedResourceSchemas(m); got == nil {
+	if _, got := FindSupportedResourceSchemas(m, emptySpecs); got == nil {
 		t.Errorf("FindSupportedResourceSchemas() returned unexpected success")
 	}
 }
