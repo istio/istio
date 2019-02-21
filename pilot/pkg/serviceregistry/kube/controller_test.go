@@ -167,6 +167,7 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		stop:             make(chan struct{}),
 	})
 	c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
+		fx.EDSUpdate("", string(instance.Service.Hostname), nil)
 		t.Log("Instance event received")
 	})
 	c.AppendServiceHandler(func(service *model.Service, event model.Event) {
