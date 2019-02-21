@@ -4,6 +4,10 @@
 global:
   proxy:
     accessLogFile: "/dev/stdout"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
 
   disablePolicyChecks: false
   
@@ -17,6 +21,13 @@ mixer:
   adapters:
     stdio:
       enabled: true
+  resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
  
 grafana:
   enabled: true
