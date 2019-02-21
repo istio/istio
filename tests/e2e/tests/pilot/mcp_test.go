@@ -29,6 +29,9 @@ import (
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
@@ -43,10 +46,25 @@ import (
 const (
 	pilotDebugPort = 5555
 	pilotGrpcPort  = 15010
+
+	ingressGatewaySvc = "mcp-ingress.istio-system.svc.cluster.local"
 )
 
 var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+
+// MockController specifies a mock Controller for testing
+type MockController struct{}
+
+func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) Run(<-chan struct{}) {}
 
 func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -70,8 +88,23 @@ func TestPilotMCPClient(t *testing.T) {
 
 	mcpServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
-	tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotGrpcPort, pilotDebugPort)
+	server, tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
+
+	// register a service for gateway
+	discovery := srmemory.NewDiscovery(
+		map[model.Hostname]*model.Service{
+			ingressGatewaySvc: srmemory.MakeService(ingressGatewaySvc, "12.0.0.1"),
+		}, 1)
+
+	registry1 := aggregate.Registry{
+		Name:             serviceregistry.ServiceRegistry("mockMcpAdapter"),
+		ClusterID:        "mockMcpAdapter",
+		ServiceDiscovery: discovery,
+		Controller:       &MockController{},
+	}
+
+	server.ServiceController.AddRegistry(registry1)
 
 	g.Eventually(func() (string, error) {
 		return curlPilot(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
@@ -127,12 +160,11 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	return gateway
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) util.TearDownFunc {
+func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) (*bootstrap.Server, util.TearDownFunc) {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	_, tearDown := util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
-	return tearDown
+	return util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
 }
 
 func addMcpAddrs(mcpServerPort int) func(*bootstrap.PilotArgs) {
