@@ -3771,6 +3771,62 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 	}
 }
 
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	// Only test the basic case as most cases are already covered in TestValidateServiceRoleBinding().
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to AuthorizationPolicy",
+		},
+		{
+			name: "no subject",
+			in: &rbac.AuthorizationPolicy{
+				WorkloadSelector: &rbac.WorkloadSelector{
+					Labels: map[string]string{"app": "test"},
+				},
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{},
+						RoleRef:  &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+					},
+				},
+			},
+			expectErrMsg: "at least 1 subject must be specified",
+		},
+		{
+			name: "success proto",
+			in: &rbac.AuthorizationPolicy{
+				WorkloadSelector: &rbac.WorkloadSelector{
+					Labels: map[string]string{"app": "test"},
+				},
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+							{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+						},
+						RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("%s: got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("%s: got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
 func TestValidateNetworkEndpointAddress(t *testing.T) {
 	testCases := []struct {
 		name  string
