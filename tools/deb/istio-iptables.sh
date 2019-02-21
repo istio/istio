@@ -403,26 +403,26 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
   # to the local service. If not set, no inbound port will be intercepted by istio iptables.
   if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
-     table=nat
-  fi
-  ip6tables -t ${table} -N ISTIO_INBOUND
-  ip6tables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
+    table=nat
+    ip6tables -t ${table} -N ISTIO_INBOUND
+    ip6tables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
-  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
-    # Makes sure SSH is not redirected
-    ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
-    # Apply any user-specified port exclusions.
-    if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
-      for port in ${INBOUND_PORTS_EXCLUDE}; do
-        ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
+    if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+      # Makes sure SSH is not redirected
+      ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+      # Apply any user-specified port exclusions.
+      if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
+        for port in ${INBOUND_PORTS_EXCLUDE}; do
+          ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
+        done
+      fi
+      # Redirect remaining inbound traffic to Envoy.
+      ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
+      # User has specified a non-empty list of ports to be redirected to Envoy.
+      for port in ${INBOUND_PORTS_INCLUDE}; do
+        ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
       done
     fi
-    # Redirect remaining inbound traffic to Envoy.
-    ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
-    # User has specified a non-empty list of ports to be redirected to Envoy.
-    for port in ${INBOUND_PORTS_INCLUDE}; do
-      ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
-    done
   fi
 
   # Create a new chain for selectively redirecting outbound packets to Envoy.
