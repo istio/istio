@@ -392,7 +392,7 @@ global:
   #   as those defined through ServiceEntries
   # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
   # to services outside of the mesh without any ServiceEntry.
-  # REGISTRY_ONLY was the default in 1.0.  If this is desired, set the value below REGISTRY_ONLY.
+  # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
   outboundTrafficPolicy:
     mode: ALLOW_ANY
 
