@@ -678,9 +678,16 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	// We dont have to recompute the service instances or the locality of the proxy
-	// as these should have been done when the proxy first connected
-	// This code cannot be reached if the proxy has no service instances
+	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
+		return err
+	}
+	if util.IsLocalityEmpty(con.modelNode.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(con.modelNode.ServiceInstances) > 0 {
+			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
+		}
+	}
 
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
