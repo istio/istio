@@ -85,6 +85,7 @@ func TestNewServer(t *testing.T) {
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 
+	// filter out schemas for excluded kinds
 	sourceResourceSchemas := getSourceSchema(args).All()
 
 	p := defaultPatchTable()
