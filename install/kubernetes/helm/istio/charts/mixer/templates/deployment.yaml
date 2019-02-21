@@ -146,11 +146,10 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
-{{- if $.Values.telemetry.gcpCredential.enabled }}
-      - name: {{ $.Values.telemetry.gcpCredential.volumeName }}
+{{- if $.Values.telemetry.adapterSecret.enabled }}
+      - name: adapter-secret
         secret:
-          secretName: {{ $.Values.telemetry.gcpCredential.secretName }}
-          optional: true
+          secretName: {{ $.Values.telemetry.adapterSecret.secretName }}
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
@@ -215,9 +214,9 @@
           mountPath: /etc/certs
           readOnly: true
 {{- end }}
-{{- if $.Values.telemetry.gcpCredential.enabled }}
-        - name: {{ $.Values.telemetry.gcpCredential.volumeName }}
-          mountPath: {{ $.Values.telemetry.gcpCredential.volumeMountPath }}
+{{- if $.Values.telemetry.adapterSecret.enabled }}
+        - name: adapter-secret
+          mountPath: /var/adapter/secret
           readOnly: true
 {{- end }}
         - name: uds-socket
