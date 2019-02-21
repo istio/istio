@@ -42,9 +42,9 @@ type AuthChecker interface {
 // Server implements the server for the MCP source service. The server is the source of configuration and sends
 // configuration to the client.
 type Server struct {
-	authCheck            AuthChecker
-	newConnectionLimiter internal.RateLimit
-	src                  *Source
+	authCheck   AuthChecker
+	rateLimiter internal.RateLimit
+	src         *Source
 }
 
 var _ mcp.ResourceSourceServer = &Server{}
@@ -58,16 +58,16 @@ type ServerOptions struct {
 // NewServer creates a new instance of a MCP source server.
 func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 	s := &Server{
-		src:                  New(srcOptions),
-		authCheck:            serverOptions.AuthChecker,
-		newConnectionLimiter: serverOptions.RateLimiter,
+		src:         New(srcOptions),
+		authCheck:   serverOptions.AuthChecker,
+		rateLimiter: serverOptions.RateLimiter,
 	}
 	return s
 }
 
 // EstablishResourceStream implements the ResourceSourceServer interface.
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishResourceStreamServer) error {
-	if err := s.newConnectionLimiter.Wait(stream.Context()); err != nil {
+	if err := s.rateLimiter.Wait(stream.Context()); err != nil {
 		return err
 	}
 	var authInfo credentials.AuthInfo

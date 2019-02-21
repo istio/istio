@@ -56,9 +56,10 @@ func TestServerSinkRateLimitter(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    NewFakePerConnLimiter(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
-	s.newConnectionLimiter = fakeLimiter
+	s.rateLimiter = fakeLimiter
 
 	// when rate limit returns an error
 	errc := make(chan error)
@@ -82,14 +83,22 @@ func TestServerSource(t *testing.T) {
 	}
 
 	authChecker := test.NewFakeAuthChecker()
+	rateLimiter := NewFakePerConnLimiter()
+	close(rateLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        NewFakePerConnLimiter(),
+		ConnRateLimiter:    rateLimiter,
 	}
-	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
-	s.newConnectionLimiter = test.NewFakeRateLimiter()
+	fakeLimiter := test.NewFakeRateLimiter()
+	close(fakeLimiter.WaitErr)
+
+	srvOptions := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
+	}
+	s := NewServer(options, srvOptions)
 
 	errc := make(chan error)
 	go func() {

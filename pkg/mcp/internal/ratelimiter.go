@@ -26,7 +26,7 @@ type RateLimit interface {
 	Wait(ctx context.Context) (err error)
 }
 
-// ConnectionRateLimit is an interface for per connection rate limiter
+// ConnectionRateLimit is an interface for creating per-connection rate limiters
 type ConnectionRateLimit interface {
 	Create() RateLimit
 }

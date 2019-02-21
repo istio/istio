@@ -79,12 +79,13 @@ func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
-
+	fakeLimiter := NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        NewFakePerConnLimiter(),
+		ConnRateLimiter:    fakeLimiter,
 	}
 	c := NewClient(h, options)
 

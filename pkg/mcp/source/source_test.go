@@ -245,11 +245,13 @@ func makeWatchResponse(collection string, version string, fakes ...*test.Fake) *
 }
 
 func makeSourceUnderTest(w Watcher) *Source {
+	fakeLimiter := NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            w,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        NewFakePerConnLimiter(),
+		ConnRateLimiter:    fakeLimiter,
 	}
 	return New(options)
 }
@@ -473,7 +475,7 @@ func TestSourceReceiveError(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		RateLimiter:        NewFakePerConnLimiter(),
+		ConnRateLimiter:    NewFakePerConnLimiter(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)

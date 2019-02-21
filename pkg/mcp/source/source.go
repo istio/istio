@@ -107,7 +107,7 @@ type Options struct {
 	Watcher            Watcher
 	CollectionsOptions []CollectionOptions
 	Reporter           monitoring.Reporter
-	RateLimiter        internal.ConnectionRateLimit
+	ConnRateLimiter    internal.ConnectionRateLimit
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -166,7 +166,7 @@ func New(options *Options) *Source {
 		watcher:        options.Watcher,
 		collections:    options.CollectionsOptions,
 		reporter:       options.Reporter,
-		requestLimiter: options.RateLimiter,
+		requestLimiter: options.ConnRateLimiter,
 	}
 	return s
 }

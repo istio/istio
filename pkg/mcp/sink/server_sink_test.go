@@ -43,8 +43,16 @@ func (h *serverHarness) Context() context.Context {
 }
 
 func TestServerSinkRateLimitter(t *testing.T) {
+	ctx, _ := context.WithCancel(context.Background())
+	type key int
+	const ctxKey key = 0
+	expectedCtx := "expectedCtx"
+
+	testHarness := newSinkTestHarness()
+	testHarness.ctx = context.WithValue(ctx, ctxKey, expectedCtx)
+
 	h := &serverHarness{
-		sinkTestHarness: newSinkTestHarness(),
+		sinkTestHarness: testHarness,
 	}
 
 	sinkOptions := &Options{
@@ -56,8 +64,9 @@ func TestServerSinkRateLimitter(t *testing.T) {
 	}
 
 	authChecker := test.NewFakeAuthChecker()
-
 	fakeLimiter := test.NewFakeRateLimiter()
+	close(fakeLimiter.WaitErr)
+
 	serverOpts := &ServerOptions{
 		AuthChecker: authChecker,
 		RateLimiter: fakeLimiter,
@@ -65,50 +74,57 @@ func TestServerSinkRateLimitter(t *testing.T) {
 
 	s := NewServer(sinkOptions, serverOpts)
 
-	// when rate limit returns an error
-	errc := make(chan error)
-	go func() {
-		errc <- s.EstablishResourceStream(h)
-	}()
+	go s.EstablishResourceStream(h)
+	c := <-fakeLimiter.WaitCh
 
-	expectedErr := "something went wrong while waiting"
-
-	fakeLimiter.WaitErr <- errors.New(expectedErr)
-
-	err := <-errc
-	if err == nil || err.Error() != expectedErr {
-		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
+	ctxVal := c.Value(ctxKey).(string)
+	if ctxVal != expectedCtx {
+		t.Errorf("Wait received wrong context: got %v want %v", ctxVal, expectedCtx)
 	}
 
-	// when rate limit is not reached
-	go func() {
-		errc <- s.EstablishResourceStream(h)
-	}()
-
-	h.resourcesChan <- &mcp.Resources{
-		Collection: test.FakeType0Collection,
-		Nonce:      "n0",
-		Resources: []mcp.Resource{
-			*test.Type0A[0].Resource,
-		},
-	}
-
-	<-h.changeUpdatedChans
-	h.mu.Lock()
-	got := h.changes[test.FakeType0Collection]
-	h.mu.Unlock()
-	if got == nil {
-		t.Fatalf("Expected to receive something: got %v", got)
-	}
-
-	h.recvErrorChan <- io.EOF
-
-	err = <-errc
-	if err != nil {
-		t.Fatalf("Expected no error: got %v", err)
+	if len(fakeLimiter.WaitCh) != 0 {
+		t.Error("Stream() => expected Wait to only get called once")
 	}
 }
 
+func TestServerSinkRateLimitterError(t *testing.T) {
+	testHarness := newSinkTestHarness()
+
+	h := &serverHarness{
+		sinkTestHarness: testHarness,
+	}
+
+	sinkOptions := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           h,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+
+	authChecker := test.NewFakeAuthChecker()
+	fakeLimiter := test.NewFakeRateLimiter()
+
+	serverOpts := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
+	}
+
+	s := NewServer(sinkOptions, serverOpts)
+
+	expectedErr := "rate limiting gone wrong"
+	fakeLimiter.WaitErr <- errors.New("rate limiting gone wrong")
+
+	errC := make(chan error)
+	go func() {
+		errC <- s.EstablishResourceStream(h)
+	}()
+
+	err := <-errC
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
+	}
+}
 func TestServerSink(t *testing.T) {
 	h := &serverHarness{
 		sinkTestHarness: newSinkTestHarness(),
@@ -122,9 +138,13 @@ func TestServerSink(t *testing.T) {
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
+
+	rateLimiter := test.NewFakeRateLimiter()
+	close(rateLimiter.WaitErr)
+
 	serverOpts := &ServerOptions{
 		AuthChecker: authChecker,
-		RateLimiter: test.NewFakeRateLimiter(),
+		RateLimiter: rateLimiter,
 	}
 	s := NewServer(sinkOptions, serverOpts)
 

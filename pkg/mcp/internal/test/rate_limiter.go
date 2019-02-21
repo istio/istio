@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,12 @@ type FakeRateLimiter struct {
 
 func NewFakeRateLimiter() *FakeRateLimiter {
 	return &FakeRateLimiter{
-		WaitErr: make(chan error),
+		WaitErr: make(chan error, 10),
 		WaitCh:  make(chan context.Context, 10),
 	}
 }
 
 func (f *FakeRateLimiter) Wait(ctx context.Context) error {
 	f.WaitCh <- ctx
-	select {
-	case err := <-f.WaitErr:
-		return err
-	default:
-		return nil
-	}
+	return <-f.WaitErr
 }
