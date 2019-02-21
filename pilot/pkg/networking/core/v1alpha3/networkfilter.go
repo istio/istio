@@ -136,17 +136,17 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
 		filterstack = append(filterstack, *tcpFilter)
-	}
-
-	if util.IsProxyVersionGE11(node) {
-		switch port.Protocol {
-		case model.ProtocolRedis:
+	case model.ProtocolRedis:
+		if util.IsProxyVersionGE11(node) {
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
-			// no TCP proxy for redis
-		case model.ProtocolMySQL:
-			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		} else {
 			filterstack = append(filterstack, *tcpFilter)
 		}
+	case model.ProtocolMySQL:
+		filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		filterstack = append(filterstack, *tcpFilter)
+	default:
+		filterstack = append(filterstack, *tcpFilter)
 	}
 
 	return filterstack
