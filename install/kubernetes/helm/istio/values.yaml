@@ -5,6 +5,10 @@
 gateways:
   enabled: true
   istio-egressgateway:
+    # If you are using [egress gateway rules](https://istio.io/docs/examples/advanced-egress/egress-gateway/),
+    # you will need to update Istio and set this enabled option to true. 
+    # Depending on expected egress traffic, you should also adjust CPU 
+    # request and max autoscale replicas for the egress gateway.
     enabled: false
 
 #
