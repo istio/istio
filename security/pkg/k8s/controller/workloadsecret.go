@@ -209,17 +209,17 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 	oldSa := oldObj.(*v1.ServiceAccount)
 	curSa := curObj.(*v1.ServiceAccount)
 
- 	curName := curSa.GetName()
+	curName := curSa.GetName()
 	curNamespace := curSa.GetNamespace()
 	oldName := oldSa.GetName()
 	oldNamespace := oldSa.GetNamespace()
 
- 	// We only care the name and namespace of a service account.
+	// We only care the name and namespace of a service account.
 	if curName != oldName || curNamespace != oldNamespace {
 		sc.deleteSecret(oldName, oldNamespace)
 		sc.upsertSecret(curName, curNamespace)
 
- 		log.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
+		log.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
 			oldName, oldNamespace, curName, curNamespace)
 	}
 }
@@ -321,7 +321,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 				log.Infof("watt001 id is %v", id)
 			}
 		} else {
-		  log.Info("watt002 how come")
+			log.Info("watt002 how come")
 		}
 	}
 

@@ -15,7 +15,7 @@
 package main
 
 import (
-  "context"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -68,8 +68,8 @@ type cliOptions struct { // nolint: maligned
 	// TODO(incfly): delete this field once we deprecate flag --grpc-hostname.
 	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
-	grpcHosts string
-	grpcPort  int
+	grpcHosts  string
+	grpcPort   int
 	serverOnly bool
 
 	// Whether the CA signs certificates for other CAs.
@@ -151,7 +151,7 @@ func init() {
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
-  flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
+	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
 		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
 		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
 		"to false.")
@@ -195,7 +195,7 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
 		"If unspecified, Citadel will not serve GRPC requests.")
 	flags.BoolVar(&opts.serverOnly, "server-only", false, "When set, Citadel only serves as a server without writing "+
-￼ 		"the Kubernetes secrets.")
+		"the Kubernetes secrets.")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "deprecated")
 	flags.MarkDeprecated("grpc-hostname", "please use --grpc-host-identities instead")
@@ -270,12 +270,10 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
-  log.Info("watt1\n")
 	var webhooks map[string]*controller.DNSNameEntry
 	if opts.appendDNSNames {
-	  log.Info("watt2\n")
-	  webhooks = controller.ConstructCustomDnsNames(webhookServiceAccounts,
-	      webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
+		webhooks = controller.ConstructCustomDNSNames(webhookServiceAccounts,
+			webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
 	}
 
 	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")
@@ -285,7 +283,7 @@ func runCA() {
 	ca := createCA(cs.CoreV1())
 
 	stopCh := make(chan struct{})
-	if !opts.serverOnly {		sc.Run(stopCh)
+	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
 		sc, err := controller.NewSecretController(ca,
@@ -395,16 +393,16 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
-￼   defer cancel()
-￼   var checkInterval time.Duration
-￼ 	if opts.readSigningCertOnly {
-￼ 		checkInterval = ca.ReadSigningCertCheckInterval
-￼ 	} else {
-￼ 		checkInterval = -1
-￼ 	}
-￼ 	caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
-      opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-      opts.istioCaStorageNamespace, checkInterval, client)
+		defer cancel()
+		var checkInterval time.Duration
+		if opts.readSigningCertOnly {
+			checkInterval = ca.ReadSigningCertCheckInterval
+		} else {
+			checkInterval = -1
+		}
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
+			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
+			opts.istioCaStorageNamespace, checkInterval, client)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
