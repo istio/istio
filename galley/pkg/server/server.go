@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -171,6 +172,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Watcher:            distributor,
 		Reporter:           s.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		ConnRateLimiter:    rate.NewRateLimiter(time.Second, 100),
 	}
 
 	if a.SinkAddress != "" {

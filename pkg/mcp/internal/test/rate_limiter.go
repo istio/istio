@@ -16,6 +16,8 @@ package test
 
 import (
 	"context"
+
+	"istio.io/istio/pkg/mcp/rate"
 )
 
 type FakeRateLimiter struct {
@@ -33,4 +35,30 @@ func NewFakeRateLimiter() *FakeRateLimiter {
 func (f *FakeRateLimiter) Wait(ctx context.Context) error {
 	f.WaitCh <- ctx
 	return <-f.WaitErr
+}
+
+type FakePerConnLimiter struct {
+	fakeLimiter *FakeRateLimiter
+	CreateCh    chan struct{}
+	WaitCh      chan context.Context
+	ErrCh       chan error
+}
+
+func NewFakePerConnLimiter() *FakePerConnLimiter {
+	waitErr := make(chan error)
+	fakeLimiter := NewFakeRateLimiter()
+	fakeLimiter.WaitErr = waitErr
+
+	f := &FakePerConnLimiter{
+		fakeLimiter: fakeLimiter,
+		CreateCh:    make(chan struct{}, 10),
+		WaitCh:      fakeLimiter.WaitCh,
+		ErrCh:       waitErr,
+	}
+	return f
+}
+
+func (f *FakePerConnLimiter) Create() rate.RateLimit {
+	f.CreateCh <- struct{}{}
+	return f.fakeLimiter
 }
