@@ -37,7 +37,7 @@ spec:
         - --parentShutdownDuration
         - 42s
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:15010
         - --connectTimeout
         - 42s
         - --statsdUdpAddress
