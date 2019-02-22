@@ -10,7 +10,7 @@ aliases:
 number_of_entries: 1
 ---
 <p>The <code>kubernetesenv</code> adapter extracts information from a Kubernetes environment
-and produces attribtes that can be used in downstream adapters.</p>
+and produces attributes that can be used in downstream adapters.</p>
 
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/">kubernetes template</a>.</p>
 
@@ -70,15 +70,15 @@ This controls how frequently the complete resync occurs.</p>
 <td><code>clusterRegistriesNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>Namespace for secret created for multi-cluster support.</p>
+<p>Namespace of the secret created for multicluster support.</p>
 
-<p>Details on multi-cluster and the kubernetes secret required to
-access the remote cluster&rsquo;s credentials can be found here:
-https://istio.io/docs/setup/kubernetes/multicluster-install</p>
+<p>Details on multicluster and the kubernetes secret required to
+access the remote cluster&rsquo;s credentials can be found in
+<a href="https://istio.io/docs/setup/kubernetes/multicluster-install">multicluster install</a>.</p>
 
-<p>NOTE: If cluster<em>registries</em>namespace is not set then the environmental
-variable POD<em>NAMESPACE will be checked/used. If POD</em>NAMESPACE is not
-set then cluster<em>registries</em>namespace will default to &ldquo;istio-system&rdquo;.</p>
+<p>NOTE: If <code>cluster_registries_namespace</code> is not set then the environment
+variable <code>POD_NAMESPACE</code> is checked/used. If <code>POD_NAMESPACE</code> is not
+set then <code>cluster_registries_namespace</code> defaults to &ldquo;istio-system&rdquo;.</p>
 
 <p>Default: &ldquo;istio-system&rdquo;</p>
 
