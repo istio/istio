@@ -732,9 +732,9 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	fakeLimiter := NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
-		Watcher:           h,
+		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    fakeLimiter,
 	}
 	for i := range options.CollectionsOptions {
@@ -743,15 +743,14 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	}
 	s := New(options)
 
-
 	//s := makeSourceUnderTest(h)
 	/*
-	options := &Options{
-		Watcher:           h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
-		//ConnRateLimiter:    NewFakePerConnLimiter(),
-	}
+		options := &Options{
+			Watcher:           h,
+			CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+			Reporter:          monitoring.NewInMemoryStatsContext(),
+			//ConnRateLimiter:    NewFakePerConnLimiter(),
+		}
 	*/
 	for _, v := range s.collections {
 		v.Incremental = true
@@ -841,7 +840,6 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 		}
 	}
 }
-
 
 type FakePerConnLimiter struct {
 	fakeLimiter *test.FakeRateLimiter

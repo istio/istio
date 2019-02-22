@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/mcp/internal"
 	"math/rand"
 	"net"
 	"os"
@@ -33,6 +32,8 @@ import (
 	"testing"
 	"text/tabwriter"
 	"time"
+
+	"istio.io/istio/pkg/mcp/internal"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
@@ -286,7 +287,7 @@ func (d *driver) initOptions() {
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		Watcher:            snapshot.New(groups.DefaultIndexFn),
 		CollectionsOptions: source.CollectionOptionsFromSlice(defaultCollections),
-		ConnRateLimiter:    internal.NewRateLimiter(time.Second * 10, 10),
+		ConnRateLimiter:    internal.NewRateLimiter(time.Second*10, 10),
 	}
 	for i := range d.serverOpts.CollectionsOptions {
 		co := &d.serverOpts.CollectionsOptions[i]
