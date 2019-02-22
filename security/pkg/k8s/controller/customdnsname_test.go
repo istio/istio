@@ -99,7 +99,8 @@ func TestConstructCustomDNSNames(t *testing.T) {
 				"istio-galley",
 			},
 			ns:       "istio-system",
-			dnsNames: "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us1,istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
+			dnsNames: "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us1," +
+			  "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
 				"istio-sidecar-injector-service-account": &DNSNameEntry{
 					ServiceName: "istio-sidecar-injector",
@@ -125,7 +126,8 @@ func TestConstructCustomDNSNames(t *testing.T) {
 				"istio-galley",
 			},
 			ns:       "istio-system",
-			dnsNames: "istio-galley-service-account.istio-systemistio-galley-ilb.istio-system.svc.us1,istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
+			dnsNames: "istio-galley-service-account.istio-systemistio-galley-ilb.istio-system.svc.us1," +
+			  "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
 				"istio-sidecar-injector-service-account": &DNSNameEntry{
 					ServiceName: "istio-sidecar-injector",
