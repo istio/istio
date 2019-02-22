@@ -242,8 +242,8 @@ ignored = [
   version = "1.2.1"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/uber/jaeger-client-go"
-  version = "2.12.0"
 
 [[constraint]]
   name = "go.uber.org/atomic"
@@ -289,9 +289,10 @@ ignored = [
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 
+# Need to integrate apis to master
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  branch = "release-1.1"
 
 # fortio is latest tagged by default
 

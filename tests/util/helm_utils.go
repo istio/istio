@@ -33,12 +33,6 @@ func HelmClientInit() error {
 	return err
 }
 
-// HelmDepUpdate helm dep update to update dependencies for umrella charts
-func HelmDepUpdate(chartDir string) error {
-	_, err := Shell("helm dep update %s", chartDir)
-	return err
-}
-
 // HelmInstallDryRun helm install dry run from a chart for a given namespace
 func HelmInstallDryRun(chartDir, chartName, valueFile, namespace, setValue string) error {
 	_, err := Shell("helm install --dry-run --debug " + HelmParams(chartDir, chartName, valueFile, namespace, setValue))

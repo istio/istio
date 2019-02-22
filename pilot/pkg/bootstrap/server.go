@@ -577,7 +577,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(model.AuthCertsPath, model.RootCertFilename),
+					CertificateFile:   path.Join(model.AuthCertsPath, model.CertChainFilename),
 					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
 					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
 				}
