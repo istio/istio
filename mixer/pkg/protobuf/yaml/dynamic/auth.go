@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -84,18 +83,6 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 		caCertPool.AppendCertsFromPEM(caCerts)
 	}
 	return caCertPool, nil
-}
-
-func getWhitelistSAN(cert []byte) []*url.URL {
-	var whitelistSAN []*url.URL
-	c, err := x509.ParseCertificate(cert)
-	if err != nil {
-		return whitelistSAN
-	}
-	for _, uri := range c.URIs {
-		whitelistSAN = append(whitelistSAN, uri)
-	}
-	return whitelistSAN
 }
 
 func buildOAuthToken(oauthCfg *policypb.OAuth) (oauth2.TokenSource, error) {
