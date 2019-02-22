@@ -45,7 +45,7 @@ func convertLabels(labels []string) model.Labels {
 
 func convertPort(port int, name string) *model.Port {
 	if name == "" {
-		name = "http"
+		name = "tcp"
 	}
 
 	return &model.Port{

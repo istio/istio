@@ -108,10 +108,10 @@ data:
     trustDomain: {{ .Values.global.trustDomain }}
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
-    # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
-    #   as those defined through ServiceEntries
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
     #   services or ServiceEntries for the destination port
+    # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+    #   as those defined through ServiceEntries  
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
@@ -137,6 +137,15 @@ data:
       {{- range .Values.global.defaultConfigVisibilitySettings }}
       - {{ . | quote }}
       {{- end }}
+    {{- end }}
+
+    {{- if $.Values.global.useMCP }}
+    configSources:
+    - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+    {{- if $.Values.global.controlPlaneSecurityEnabled}}
+      tlsSettings:
+        mode: ISTIO_MUTUAL
+    {{- end }}
     {{- end }}
 
     defaultConfig:

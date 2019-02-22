@@ -213,7 +213,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
-// The 'export_to' field allows for control over the visibility of a service
+// The 'exportTo' field allows for control over the visibility of a service
 // declaration to other namespaces in the mesh. By default a service is exported
 // to all namespaces. The following example restricts the visibility to the
 // current namespace, represented by ".", so that it cannot be used by other
@@ -228,8 +228,8 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
-//   - .
+//   exportTo:
+//   - "."
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
@@ -274,7 +274,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
+//   exportTo:
 //   - *
 //   gateways:
 //   - mesh
@@ -442,7 +442,6 @@ type ServiceEntry struct {
 	Resolution ServiceEntry_Resolution `protobuf:"varint,5,opt,name=resolution,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Resolution" json:"resolution,omitempty"`
 	// One or more endpoints associated with the service.
 	Endpoints []*ServiceEntry_Endpoint `protobuf:"bytes,6,rep,name=endpoints" json:"endpoints,omitempty"`
-	// $hide_from_docs
 	// A list of namespaces to which this service is exported. Exporting a service
 	// allows it to used by sidecars, gateways and virtual services defined in
 	// other namespaces. This feature provides a mechanism for service owners
@@ -457,7 +456,7 @@ type ServiceEntry struct {
 	// defines an export to all namespaces.
 	//
 	// For a Kubernetes Service the equivalent effect can be achieved by setting
-	// the annotation "networking.istio.io/export_to" to a comma-separated list
+	// the annotation "networking.istio.io/exportTo" to a comma-separated list
 	// of namespace names.
 	ExportTo []string `protobuf:"bytes,7,rep,name=export_to,json=exportTo" json:"export_to,omitempty"`
 	// The list of subject alternate names allowed for workloads that

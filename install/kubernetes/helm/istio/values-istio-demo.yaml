@@ -4,6 +4,10 @@
 global:
   proxy:
     accessLogFile: "/dev/stdout"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
 
   disablePolicyChecks: false
 
@@ -11,13 +15,16 @@ pilot:
   traceSampling: 100.0
 
 mixer:
-  policy:
-    enabled: true
   adapters:
     stdio:
       enabled: true
-
-# TODO should this lower cpu requests?
+  resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
  
 grafana:
   enabled: true
@@ -31,3 +38,7 @@ servicegraph:
 kiali:
   enabled: true
   createDemoSecret: true
+
+gateways:
+  istio-egressgateway:
+    enabled: true
