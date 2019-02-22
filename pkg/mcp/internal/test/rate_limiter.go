@@ -58,7 +58,7 @@ func NewFakePerConnLimiter() *FakePerConnLimiter {
 	return f
 }
 
-func (f *FakePerConnLimiter) Create() rate.RateLimit {
+func (f *FakePerConnLimiter) Create() rate.Limit {
 	f.CreateCh <- struct{}{}
 	return f.fakeLimiter
 }

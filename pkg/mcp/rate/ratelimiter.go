@@ -21,26 +21,26 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// RateLimit is partially representing standard lib's rate limiter
-type RateLimit interface {
+// Limit is partially representing standard lib's rate limiter
+type Limit interface {
 	Wait(ctx context.Context) (err error)
 }
 
 // ConnectionRateLimit is an interface for creating per-connection rate limiters
 type ConnectionRateLimit interface {
-	Create() RateLimit
+	Create() Limit
 }
 
-// RateLimiter is wrapper around golang's rate.Limit
+// Limiter is wrapper around golang's rate.Limit
 // for more balanced rate limiting among multiple connections
-type RateLimiter struct {
+type Limiter struct {
 	connectionFreq      time.Duration
 	connectionBurstSize int
 }
 
-// NewRateLimiter returns a new RateLimiter
-func NewRateLimiter(freq time.Duration, burstSize int) *RateLimiter {
-	return &RateLimiter{
+// NewRateLimiter returns a new Limiter
+func NewRateLimiter(freq time.Duration, burstSize int) *Limiter {
+	return &Limiter{
 		connectionFreq:      freq,
 		connectionBurstSize: burstSize,
 	}
@@ -48,7 +48,7 @@ func NewRateLimiter(freq time.Duration, burstSize int) *RateLimiter {
 
 // Create returns a new standard lib's rate limiter
 // for each connectin with a given frequency and burstSize
-func (c *RateLimiter) Create() RateLimit {
+func (c *Limiter) Create() Limit {
 	return rate.NewLimiter(
 		rate.Every(c.connectionFreq),
 		c.connectionBurstSize)

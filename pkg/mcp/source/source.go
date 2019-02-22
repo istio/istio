@@ -161,23 +161,18 @@ type connection struct {
 	watcher  Watcher
 
 	reporter monitoring.Reporter
-	limiter  internal.RateLimit
+	limiter  rate.Limit
 
 	queue *internal.UniqueQueue
 }
 
 // New creates a new resource source.
 func New(options *Options) *Source {
-	requestLimiter := options.ConnRateLimiter
-	if requestLimiter == nil {
-		requestLimiter = internal.NewNoopConnRateLimiter()
-	}
-
 	s := &Source{
 		watcher:        options.Watcher,
 		collections:    options.CollectionsOptions,
 		reporter:       options.Reporter,
-		requestLimiter: requestLimiter,
+		requestLimiter: options.ConnRateLimiter,
 	}
 	return s
 }
