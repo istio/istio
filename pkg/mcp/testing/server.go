@@ -17,10 +17,11 @@ package mcptest
 import (
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/mcp/internal"
 	"net"
 	"net/url"
 	"time"
+
+	"istio.io/istio/pkg/mcp/internal"
 
 	"google.golang.org/grpc"
 
@@ -62,14 +63,14 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 		Watcher:            cache,
 		CollectionsOptions: collections,
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		ConnRateLimiter:    internal.NewRateLimiter(time.Second * 10, 10),
+		ConnRateLimiter:    internal.NewRateLimiter(time.Second*10, 10),
 	}
 
 	checker := server.NewAllowAllChecker()
 	s := server.New(options, checker)
 	srcServer := source.NewServer(options, &source.ServerOptions{
 		AuthChecker: checker,
-		RateLimiter: internal.NewRateLimiter(time.Second * 10, 10).Create(),
+		RateLimiter: internal.NewRateLimiter(time.Second*10, 10).Create(),
 	})
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
