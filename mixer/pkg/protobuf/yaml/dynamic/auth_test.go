@@ -38,7 +38,6 @@ type AuthMode int
 const (
 	PLAINTEXT AuthMode = iota
 	TLS
-	MTLS
 )
 
 func TestAuth(t *testing.T) {
@@ -79,53 +78,6 @@ func TestAuth(t *testing.T) {
 		{
 			name: "no auth",
 			mode: PLAINTEXT,
-		},
-		{
-			name: "mtls",
-			mode: MTLS,
-			authCfg: &policypb.Authentication{
-				AuthType: &policypb.Authentication_Mutual{
-					Mutual: &policypb.Mutual{
-						PrivateKey:        "../testdata/auth/mixer.key",
-						ClientCertificate: "../testdata/auth/mixer.crt",
-						CaCertificates:    "../testdata/auth/ca.pem",
-					},
-				},
-			},
-			adapterKey: "../testdata/auth/adapter.key",
-			adapterCrt: "../testdata/auth/adapter.crt",
-		},
-		{
-			name: "mtls non mixer san",
-			mode: MTLS,
-			authCfg: &policypb.Authentication{
-				AuthType: &policypb.Authentication_Mutual{
-					Mutual: &policypb.Mutual{
-						PrivateKey:        "../testdata/auth/mixer.key",
-						ClientCertificate: "../testdata/auth/mixer.crt",
-						CaCertificates:    "../testdata/auth/ca.pem",
-					},
-				},
-			},
-			adapterKey:            "../testdata/auth/bad.key",
-			adapterCrt:            "../testdata/auth/bad.crt",
-			handshakeErrorMessage: "cert SAN [spiffe://cluster.local/ns/istio-system/sa/bad-service-account] is not whitelisted",
-		},
-		{
-			name: "mtls untrusted certs",
-			mode: MTLS,
-			authCfg: &policypb.Authentication{
-				AuthType: &policypb.Authentication_Mutual{
-					Mutual: &policypb.Mutual{
-						PrivateKey:        "../testdata/auth/mixer.key",
-						ClientCertificate: "../testdata/auth/mixer.crt",
-						CaCertificates:    "../testdata/auth/ca.pem",
-					},
-				},
-			},
-			adapterKey:            "../testdata/auth/untrusted.key",
-			adapterCrt:            "../testdata/auth/untrusted.crt",
-			handshakeErrorMessage: "certificate signed by unknown authority",
 		},
 		{
 			name:        "tls only token",
@@ -311,9 +263,6 @@ func getServerArgs(auth AuthMode, headerKey, headerToken, key, crt string) *spy.
 		args.Behavior.RequireTLS = true
 		args.Behavior.HeaderKey = headerKey
 		args.Behavior.HeaderToken = headerToken
-	case MTLS:
-		args.Behavior.RequireMTls = true
-		args.Behavior.InsecureSkipVerification = true
 	}
 	if key == "" {
 		key = "../testdata/auth/adapter.key"
