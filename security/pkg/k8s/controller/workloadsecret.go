@@ -314,18 +314,12 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 			}
 		}
 		// Custom adds more DNS entries using CLI
-		log.Infof("watt000 saName.saNamespace is %v", saName+"."+saNamespace)
 		if e, ok := sc.dnsNames[saName+"."+saNamespace]; ok {
 			for _, d := range e.CustomDomains {
 				id += "," + d
-				log.Infof("watt001 id is %v", id)
 			}
-		} else {
-			log.Info("watt002 how come")
 		}
 	}
-
-	log.Infof("watt final id is %v", id)
 
 	options := util.CertOptions{
 		Host:       id,
