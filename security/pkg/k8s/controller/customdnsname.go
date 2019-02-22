@@ -31,7 +31,7 @@ func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
 	}
 	if len(customDNSNames) > 0 {
 		customNames := strings.Split(customDNSNames, ",")
-		log.Infof("There are %v custom-defined DNS names", len(customNames))
+		log.Infof("The custom-defined DNS name list is %v", customNames)
 		for _, customName := range customNames {
 			nameDomain := strings.Split(customName, ":")
 			if len(nameDomain) == 2 {
