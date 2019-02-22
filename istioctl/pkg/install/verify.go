@@ -145,9 +145,9 @@ func NewVerifyCommand() *cobra.Command {
 		Use:   "verify-install",
 		Short: "Verifies Istio Installation Status",
 		Long: `
-		verify-install Verifies Istio Installation Status against the installation file
+		verify-install verifies Istio installation status against the installation file
 		you specified when you installed Istio. It loops through all the installation
-		resources defined in your installation files and reports whether all of them are
+		resources defined in your installation file and reports whether all of them are
 		in ready status. It will report failure when any of them are not ready.
 `,
 		Example: `
