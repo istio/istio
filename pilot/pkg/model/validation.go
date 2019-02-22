@@ -1814,7 +1814,7 @@ func validateGatewayNames(gateways []string) (errs error) {
 			// deprecated
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
-			continue
+			return
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {
@@ -2112,7 +2112,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	for _, host := range serviceEntry.Hosts {
 		// Full wildcard is not allowed in the service entry.
 		if host == "*" {
-			errs = appendErrors(errs, fmt.Errorf("wildcard host %s not allowed in ServiceEntry", host))
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
 		}
@@ -2146,12 +2146,12 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
 		if len(serviceEntry.Endpoints) != 0 {
-			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
+			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
 		if len(serviceEntry.Endpoints) == 0 {
 			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry discovery mode is static"))
+				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
 		}
 
 		unixEndpoint := false
@@ -2183,7 +2183,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			for _, host := range serviceEntry.Hosts {
 				if err := ValidateFQDN(host); err != nil {
 					errs = appendErrors(errs,
-						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
+						fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
 				}
 			}
 		}

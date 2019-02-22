@@ -81,13 +81,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-	if util.IsLocalityEmpty(locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(instances) > 0 {
-			locality = util.ConvertLocality(instances[0].GetLocality())
-		}
-	}
 
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -579,7 +572,11 @@ func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccount
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
-		return buildIstioMutualTLS(serviceAccounts, sniToUse)
+		subjectAltNamesToUse := tls.SubjectAltNames
+		if subjectAltNamesToUse == nil || len(subjectAltNamesToUse) == 0 {
+			subjectAltNamesToUse = serviceAccounts
+		}
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse)
 	}
 	return tls
 }
