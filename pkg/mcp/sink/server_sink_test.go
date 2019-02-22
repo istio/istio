@@ -37,29 +37,120 @@ type serverHarness struct {
 	*sinkTestHarness
 }
 
-func (h *serverHarness) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (mcp.ResourceSink_EstablishResourceStreamServer, error) {
-	return h, h.openError()
-}
-
 // avoid ambiguity between grpc.ServerStream and test.sinkTestHarness
 func (h *serverHarness) Context() context.Context {
 	return h.sinkTestHarness.Context()
 }
 
-func TestServerSink(t *testing.T) {
+func TestServerSinkRateLimitter(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	type key int
+	const ctxKey key = 0
+	expectedCtx := "expectedCtx"
+
+	testHarness := newSinkTestHarness()
+	testHarness.ctx = context.WithValue(ctx, ctxKey, expectedCtx)
+
 	h := &serverHarness{
-		sinkTestHarness: newSinkTestHarness(),
+		sinkTestHarness: testHarness,
 	}
 
-	authChecker := test.NewFakeAuthChecker()
-	options := &Options{
+	sinkOptions := &Options{
 		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
-	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
+
+	authChecker := test.NewFakeAuthChecker()
+	fakeLimiter := test.NewFakeRateLimiter()
+
+	// force ratelimiter Wait to return nil by closing WaitErr
+	close(fakeLimiter.WaitErr)
+
+	serverOpts := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
+	}
+
+	s := NewServer(sinkOptions, serverOpts)
+
+	go s.EstablishResourceStream(h)
+	c := <-fakeLimiter.WaitCh
+
+	ctxVal := c.Value(ctxKey).(string)
+	if ctxVal != expectedCtx {
+		t.Errorf("Wait received wrong context: got %v want %v", ctxVal, expectedCtx)
+	}
+
+	if len(fakeLimiter.WaitCh) != 0 {
+		t.Error("Stream() => expected Wait to only get called once")
+	}
+}
+
+func TestServerSinkRateLimitterError(t *testing.T) {
+	testHarness := newSinkTestHarness()
+
+	h := &serverHarness{
+		sinkTestHarness: testHarness,
+	}
+
+	sinkOptions := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           h,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+
+	authChecker := test.NewFakeAuthChecker()
+	fakeLimiter := test.NewFakeRateLimiter()
+
+	serverOpts := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
+	}
+
+	s := NewServer(sinkOptions, serverOpts)
+
+	expectedErr := "rate limiting gone wrong"
+	fakeLimiter.WaitErr <- errors.New("rate limiting gone wrong")
+
+	errC := make(chan error)
+	go func() {
+		errC <- s.EstablishResourceStream(h)
+	}()
+
+	err := <-errC
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
+	}
+}
+func TestServerSink(t *testing.T) {
+	h := &serverHarness{
+		sinkTestHarness: newSinkTestHarness(),
+	}
+
+	authChecker := test.NewFakeAuthChecker()
+	sinkOptions := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           h,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+
+	rateLimiter := test.NewFakeRateLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
+	close(rateLimiter.WaitErr)
+
+	serverOpts := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: rateLimiter,
+	}
+	s := NewServer(sinkOptions, serverOpts)
 
 	errc := make(chan error)
 	go func() {
@@ -109,8 +200,7 @@ func TestServerSink(t *testing.T) {
 
 	// multiple connections
 	go func() {
-		err := s.EstablishResourceStream(h)
-		errc <- err
+		errc <- s.EstablishResourceStream(h)
 	}()
 
 	// wait for first connection to succeed and change to be applied
@@ -128,10 +218,6 @@ func TestServerSink(t *testing.T) {
 		Addr:     &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
 		AuthInfo: authChecker,
 	}))
-	err = s.EstablishResourceStream(h)
-	if err == nil {
-		t.Fatal("should fail")
-	}
 
 	// error disconnect
 	h.recvErrorChan <- errors.New("unknown error")
