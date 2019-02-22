@@ -65,15 +65,12 @@ func TestAuth(t *testing.T) {
 	defer ts.Close()
 
 	testcases := []struct {
-		name                  string
-		mode                  AuthMode
-		headerKey             string
-		headerToken           string
-		configErrorMessage    string
-		handshakeErrorMessage string
-		adapterCrt            string
-		adapterKey            string
-		authCfg               *policypb.Authentication
+		name         string
+		mode         AuthMode
+		headerKey    string
+		headerToken  string
+		errorMessage string
+		authCfg      *policypb.Authentication
 	}{
 		{
 			name: "no auth",
@@ -135,7 +132,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			configErrorMessage: "cannot get grpc per rpc credentials token type should be specified",
+			errorMessage: "cannot get grpc per rpc credentials token type should be specified",
 		},
 		{
 			name: "tls authorization missing ca",
@@ -149,7 +146,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			configErrorMessage: "ca cert cannot be load open some/ca/path: no such file or directory",
+			errorMessage: "ca cert cannot be load open some/ca/path: no such file or directory",
 		},
 		{
 			name: "tls authorization no token source",
@@ -162,7 +159,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			configErrorMessage: "cannot get grpc per rpc credentials unexpected tls token source type",
+			errorMessage: "cannot get grpc per rpc credentials unexpected tls token source type",
 		},
 		{
 			name:        "tls oauth token",
@@ -202,7 +199,7 @@ func TestAuth(t *testing.T) {
 					},
 				},
 			},
-			configErrorMessage: "cannot get grpc per rpc credentials oauth secret cannot be empty",
+			errorMessage: "cannot get grpc per rpc credentials oauth secret cannot be empty",
 		},
 	}
 
@@ -210,7 +207,7 @@ func TestAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var s spy.Server
 			var err error
-			args := getServerArgs(tt.mode, tt.headerKey, tt.headerToken, tt.adapterKey, tt.adapterCrt)
+			args := getServerArgs(tt.mode, tt.headerKey, tt.headerToken)
 			if s, err = spy.NewNoSessionServer(args); err != nil {
 				t.Fatalf("unable to start Spy %v", err)
 			}
@@ -234,9 +231,9 @@ func TestAuth(t *testing.T) {
 				false, adapterConfig,
 				[]*TemplateConfig{metricDi}, true)
 			if err != nil {
-				if tt.configErrorMessage != "" {
-					if !strings.Contains(err.Error(), tt.configErrorMessage) {
-						t.Errorf("want %v in error message, got %v", tt.configErrorMessage, err.Error())
+				if tt.errorMessage != "" {
+					if !strings.Contains(err.Error(), tt.errorMessage) {
+						t.Errorf("want %v in error message, got %v", tt.errorMessage, err.Error())
 					}
 					return
 				}
@@ -244,19 +241,13 @@ func TestAuth(t *testing.T) {
 			}
 			mi := buildMetricInst(t)
 			if err := h.HandleRemoteReport(context.Background(), []*adapter.EncodedInstance{mi}); err != nil {
-				if tt.handshakeErrorMessage != "" {
-					if !strings.Contains(err.Error(), tt.handshakeErrorMessage) {
-						t.Errorf("want %v in error message, got %v", tt.handshakeErrorMessage, err.Error())
-					}
-					return
-				}
-				t.Errorf("get rpc error %v", err)
+				t.Errorf("get error %v", err)
 			}
 		})
 	}
 }
 
-func getServerArgs(auth AuthMode, headerKey, headerToken, key, crt string) *spy.Args {
+func getServerArgs(auth AuthMode, headerKey, headerToken string) *spy.Args {
 	args := spy.DefaultArgs()
 	switch auth {
 	case TLS:
@@ -264,14 +255,8 @@ func getServerArgs(auth AuthMode, headerKey, headerToken, key, crt string) *spy.
 		args.Behavior.HeaderKey = headerKey
 		args.Behavior.HeaderToken = headerToken
 	}
-	if key == "" {
-		key = "../testdata/auth/adapter.key"
-	}
-	if crt == "" {
-		crt = "../testdata/auth/adapter.crt"
-	}
-	args.Behavior.KeyPath = key
-	args.Behavior.CredsPath = crt
+	args.Behavior.KeyPath = "../testdata/auth/adapter.key"
+	args.Behavior.CredsPath = "../testdata/auth/adapter.pem"
 	args.Behavior.CertPath = "../testdata/auth/ca.pem"
 	return args
 }
