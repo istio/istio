@@ -33,9 +33,9 @@ spec:
         - --serviceCluster
         - hello.default
         - --drainDuration
-        - 45s
+        - 42s
         - --parentShutdownDuration
-        - 1m0s
+        - 42s
         - --discoveryAddress
         - istio-pilot:15010
         - --connectTimeout
