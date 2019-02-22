@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,24 +15,22 @@
 package test
 
 import (
-	"google.golang.org/grpc/credentials"
+	"context"
 )
 
-type FakeAuthChecker struct {
-	AllowError error
+type FakeRateLimiter struct {
+	WaitErr chan error
+	WaitCh  chan context.Context
 }
 
-func NewFakeAuthChecker() *FakeAuthChecker {
-	return &FakeAuthChecker{}
-}
-
-func (f *FakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
-	return f.AllowError
-}
-
-func (f *FakeAuthChecker) AuthType() string {
-	if f.AllowError != nil {
-		return "disallowed"
+func NewFakeRateLimiter() *FakeRateLimiter {
+	return &FakeRateLimiter{
+		WaitErr: make(chan error, 10),
+		WaitCh:  make(chan context.Context, 10),
 	}
-	return "allowed"
+}
+
+func (f *FakeRateLimiter) Wait(ctx context.Context) error {
+	f.WaitCh <- ctx
+	return <-f.WaitErr
 }
