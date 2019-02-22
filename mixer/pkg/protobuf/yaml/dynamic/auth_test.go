@@ -256,7 +256,7 @@ func getServerArgs(auth AuthMode, headerKey, headerToken string) *spy.Args {
 		args.Behavior.HeaderToken = headerToken
 	}
 	args.Behavior.KeyPath = "../testdata/auth/adapter.key"
-	args.Behavior.CredsPath = "../testdata/auth/adapter.pem"
+	args.Behavior.CredsPath = "../testdata/auth/adapter.crt"
 	args.Behavior.CertPath = "../testdata/auth/ca.pem"
 	return args
 }
