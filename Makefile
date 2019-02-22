@@ -314,9 +314,8 @@ lint: buildcache
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
 
-PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
-               ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
+PILOT_GO_BINS:=${ISTIO_OUT}/pilot-agent
+PILOT_GO_BINS_SHORT:=pilot-agent
 define pilotbuild
 $(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
@@ -393,9 +392,6 @@ node-agent:
 .PHONY: node_agent_k8s
 node_agent_k8s:
 	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
-
-.PHONY: pilot
-pilot: pilot-discovery
 
 .PHONY: node_agent istio_ca
 node_agent istio_ca:
