@@ -81,22 +81,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
 		// If SDS_TOKEN_PATh is in the node metadata, make a copy of rawClusters so that
 		// the path of SDS token will be applied to the copied clusters.
-		clusters := make([]*xdsapi.Cluster, 0)
-		for _, c := range rawClusters {
-			bytes, err := c.Marshal()
-			if err != nil {
-				adsLog.Warnf("Error when marshal cluster: %v, error: %v", c, err)
-				continue
-			}
-			cp := &xdsapi.Cluster{}
-			err = cp.Unmarshal(bytes)
-			if err != nil {
-				adsLog.Warnf("Error when unmarshal cluster, error: %v", err)
-				continue
-			}
-			clusters = append(clusters, cp)
-		}
-		rawClusters = clusters
+		rawClusters = CopyClusters(rawClusters)
 	}
 
 	for _, c := range rawClusters {
@@ -156,4 +141,26 @@ func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 			}
 		}
 	}
+}
+
+func CopyClusters(srcClusters []*xdsapi.Cluster) []*xdsapi.Cluster {
+	clusters := make([]*xdsapi.Cluster, 0)
+	if srcClusters == nil {
+		return clusters
+	}
+	for _, c := range srcClusters {
+		bytes, err := c.Marshal()
+		if err != nil {
+			adsLog.Warnf("Error when marshal cluster: %v, error: %v", c, err)
+			continue
+		}
+		cp := &xdsapi.Cluster{}
+		err = cp.Unmarshal(bytes)
+		if err != nil {
+			adsLog.Warnf("Error when unmarshal cluster, error: %v", err)
+			continue
+		}
+		clusters = append(clusters, cp)
+	}
+	return clusters
 }
