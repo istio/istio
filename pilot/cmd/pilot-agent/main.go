@@ -266,8 +266,9 @@ var (
 
 				mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
 				log.Infof("MixerSAN %#v", mixerSAN)
-
-				opts["MixerSubjectAltName"] = mixerSAN[0]
+				if len(mixerSAN) > 1 {
+					opts["MixerSubjectAltName"] = mixerSAN[0]
+				}
 
 				// protobuf encoding of IP_ADDRESS type
 				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
