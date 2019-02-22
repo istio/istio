@@ -173,7 +173,7 @@ func TestMultipleRequests(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -246,7 +246,7 @@ func TestAuthCheck_Failure(t *testing.T) {
 	checker.AllowError = errors.New("disallow")
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, checker)
@@ -281,7 +281,7 @@ func TestAuthCheck_Success(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -340,7 +340,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -383,7 +383,7 @@ func TestWatchClosed(t *testing.T) {
 	// check that response fails since watch gets closed
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -411,7 +411,7 @@ func TestSendError(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -443,7 +443,7 @@ func TestReceiveError(t *testing.T) {
 	// check that response fails since watch gets closed
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -473,7 +473,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	// check that response fails since watch gets closed
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -501,7 +501,7 @@ func TestStaleNonce(t *testing.T) {
 	stop := make(chan struct{})
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -572,7 +572,7 @@ func TestAggregatedHandlers(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -615,7 +615,7 @@ func TestAggregateRequestType(t *testing.T) {
 
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
@@ -638,7 +638,7 @@ func TestNACK(t *testing.T) {
 	config := makeMockConfigWatcher()
 	options := &source.Options{
 		Watcher:           config,
-		CollectionOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
