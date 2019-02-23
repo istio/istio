@@ -105,7 +105,7 @@ type connection struct {
 func New(options *source.Options, authChecker AuthChecker) *Server {
 	s := &Server{
 		watcher:              options.Watcher,
-		collections:          options.CollectionOptions,
+		collections:          options.CollectionsOptions,
 		authCheck:            authChecker,
 		reporter:             options.Reporter,
 		newConnectionLimiter: rate.NewLimiter(rate.Every(newConnectionFreq), newConnectionBurstSize),

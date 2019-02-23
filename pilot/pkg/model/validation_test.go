@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err := err.(type) {
+		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.(*multierror.Error).Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -844,10 +844,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err := err.(type) {
+		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 11 {
+			if len(err.(*multierror.Error).Errors) != 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1322,23 +1322,6 @@ func TestValidateGateway(t *testing.T) {
 				t.Fatalf("ValidateGateway(%v) = %v, wanted nil", tt.in, err)
 			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
 				t.Fatalf("ValidateGateway(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
-		})
-	}
-}
-
-func TestValidateGatewayNames(t *testing.T) {
-	tests := []struct {
-		name  string
-		names []string
-	}{
-		{"name1", []string{"myname", "##mn"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateGatewayNames(tt.names)
-			if err == nil {
-				t.Errorf("Expected to detect bad gateway name but did not")
 			}
 		})
 	}

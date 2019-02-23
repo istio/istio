@@ -287,7 +287,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 type startFunc func(stop <-chan struct{}) error
 
 // initMonitor initializes the configuration for the pilot monitoring server.
-func (s *Server) initMonitor(args *PilotArgs) error {
+func (s *Server) initMonitor(args *PilotArgs) error { //nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		monitor, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
@@ -423,7 +423,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
-func (s *Server) initMeshNetworks(args *PilotArgs) error {
+func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	if args.NetworksConfigFile == "" {
 		log.Info("mesh networks configuration not provided")
 		return nil
@@ -577,7 +577,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(model.AuthCertsPath, model.RootCertFilename),
+					CertificateFile:   path.Join(model.AuthCertsPath, model.CertChainFilename),
 					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
 					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
 				}

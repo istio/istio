@@ -15,6 +15,7 @@ package v2_test
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -42,6 +43,7 @@ func TestLDSIsolated(t *testing.T) {
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 			Meta: map[string]string{
 				model.NodeMetadataInterceptionMode: string(model.InterceptionNone),
+				model.NodeMetadataHTTP10:           "1",
 			},
 			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
 			Namespace: "none",
@@ -94,7 +96,10 @@ func TestLDSIsolated(t *testing.T) {
 				// Just log for now - golden changes every time there is a config generation update.
 				// It is mostly intended as a reference for what is generated - we need to add explicit checks
 				// for things we need, like the number of expected listeners.
-				t.Logf("error in golden file %s %v", s, err)
+				// This is mainly using for debugging what changed from the snapshot in the golden files.
+				if os.Getenv("CONFIG_DIFF") == "1" {
+					t.Logf("error in golden file %s %v", s, err)
+				}
 			}
 		}
 

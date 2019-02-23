@@ -48,7 +48,7 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return remoteKube, nil
 }
@@ -121,11 +121,6 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		return err
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
-	err = util.HelmDepUpdate(chartDir)
-	if err != nil {
-		log.Errorf("cannot run helm dep update for istio %v", err)
-		return err
-	}
 	helmSetContent += " --values " + filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio/values-istio-remote.yaml")
 	err = util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {

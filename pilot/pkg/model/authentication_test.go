@@ -21,7 +21,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
 
@@ -151,7 +150,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useTrustworthyJwt: true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(trustworthyMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
 			},
 		},
 		{
@@ -160,7 +159,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useNormalJwt:   true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(normalMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey, normalMetaConfig),
 			},
 		},
 		{
@@ -248,8 +247,8 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 	}
 }
 
-func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
-	any, _ := types.MarshalAny(metaConfig)
+func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
+	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{

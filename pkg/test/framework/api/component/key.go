@@ -14,7 +14,9 @@
 
 package component
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Instance of a key for identifying component variants.
 type Key struct {

@@ -17,14 +17,12 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
 	"istio.io/istio/pkg/spiffe"
 
 	v1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -145,7 +143,6 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	rehf := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.saAdded,
 		DeleteFunc: c.saDeleted,
-		UpdateFunc: c.saUpdated,
 	}
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
@@ -197,30 +194,6 @@ func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
 	sc.monitoring.ServiceAccountDeletion.Inc()
-}
-
-// Handles the event where a service account is updated.
-func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
-	if reflect.DeepEqual(oldObj, curObj) {
-		// Nothing is changed. The method is invoked by periodical re-sync with the apiserver.
-		return
-	}
-	oldSa := oldObj.(*v1.ServiceAccount)
-	curSa := curObj.(*v1.ServiceAccount)
-
-	curName := curSa.GetName()
-	curNamespace := curSa.GetNamespace()
-	oldName := oldSa.GetName()
-	oldNamespace := oldSa.GetNamespace()
-
-	// We only care the name and namespace of a service account.
-	if curName != oldName || curNamespace != oldNamespace {
-		sc.deleteSecret(oldName, oldNamespace)
-		sc.upsertSecret(curName, curNamespace)
-
-		log.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
-			oldName, oldNamespace, curName, curNamespace)
-	}
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
