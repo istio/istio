@@ -28,6 +28,7 @@ import (
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -501,14 +502,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
 		if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
 			for _, svc := range services {
-				item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
-				if err != nil || !exists {
-					log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
-					continue
-				}
-
-				ep := *item.(*v1.Endpoints)
-				out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+				out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 			}
 			return out, nil
 		}
@@ -566,11 +560,11 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 				proxyIP := proxy.IPAddresses[0]
 
 				if hasProxyIP(ss.Addresses, proxyIP) {
-					out = append(out, getEndpoints(proxyIP, c, port, svcPort, svc))
+					out = append(out, c.getEndpoints(proxyIP, port.Port, svcPort, svc))
 				}
 
 				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
-					nrEP := getEndpoints(proxyIP, c, port, svcPort, svc)
+					nrEP := c.getEndpoints(proxyIP, port.Port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -583,7 +577,36 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 	return out
 }
 
-func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+
+	hostname := serviceHostname(service.Name, service.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	for _, port := range service.Spec.Ports {
+		svcPort, exists := svc.Ports.Get(port.Name)
+		if !exists {
+			continue
+		}
+		// find target port
+		portNum, err := FindPort(pod, &port)
+		if err != nil {
+			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
+			continue
+		}
+		// There is only one IP for kube registry
+		proxyIP := proxy.IPAddresses[0]
+
+		out = append(out, c.getEndpoints(proxyIP, int32(portNum), svcPort, svc))
+
+	}
+
+	return out
+}
+
+func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
 	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
@@ -594,7 +617,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     ip,
-			Port:        int(port.Port),
+			Port:        int(endpointPort),
 			ServicePort: svcPort,
 			Network:     c.endpointNetwork(ip),
 			Locality:    az,
@@ -859,4 +882,28 @@ func (c *Controller) endpointNetwork(endpointIP string) string {
 	}
 
 	return (entries[0].(namedRangerEntry)).name
+}
+
+// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
+// FindPort locates the container port for the given pod and portName.  If the
+// targetPort is a number, use that.  If the targetPort is a string, look that
+// string up in all named ports in all containers in the target pod.  If no
+// match is found, fail.
+func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
+	portName := svcPort.TargetPort
+	switch portName.Type {
+	case intstr.String:
+		name := portName.StrVal
+		for _, container := range pod.Spec.Containers {
+			for _, port := range container.Ports {
+				if port.Name == name && port.Protocol == svcPort.Protocol {
+					return int(port.ContainerPort), nil
+				}
+			}
+		}
+	case intstr.Int:
+		return portName.IntValue(), nil
+	}
+
+	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)
 }
