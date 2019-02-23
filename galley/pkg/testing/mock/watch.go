@@ -99,6 +99,7 @@ func (w *Watch) run() {
 		}
 
 		if w.stopping {
+			w.qcond.L.Unlock()
 			return
 		}
 
