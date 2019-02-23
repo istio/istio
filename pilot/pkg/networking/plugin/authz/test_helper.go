@@ -192,6 +192,13 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 
 // nolint:deadcode
 func generateExpectRBACForSinglePolicy(serviceRoleName string, rbacPolicy *policy.Policy) *policy.RBAC {
+	// If |serviceRoleName| is empty, which means the current service does not have any matched ServiceRoles.
+	if serviceRoleName == "" {
+		return &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		}
+	}
 	return &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{

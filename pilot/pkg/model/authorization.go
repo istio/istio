@@ -197,6 +197,46 @@ func (policy *AuthorizationPolicies) RoleToBindingsForNamespace(ns string) map[s
 	return rolesAndBindings.RoleNameToBindings
 }
 
+// AuthzPolicyToAllowSubjects returns the mapping from AuthorizationPolicy name to a list of Subjects/ServiceRoleBindings
+// in this AuthorizationPolicy config.
+// This function always return a non nil map.
+func (policy *AuthorizationPolicies) AuthzPolicyToAllowSubjects(ns string) map[string][]*rbacproto.ServiceRoleBinding {
+	authzPolicyToAllowSubjects := map[string][]*rbacproto.ServiceRoleBinding{}
+	if policy == nil || policy.NamespaceToAuthorizationConfigV2 == nil {
+		return authzPolicyToAllowSubjects
+	}
+	nsToAuthzConfigV2 := policy.NamespaceToAuthorizationConfigV2[ns]
+	if nsToAuthzConfigV2 == nil {
+		return authzPolicyToAllowSubjects
+	}
+	for _, authzPolicy := range nsToAuthzConfigV2.AuthzPolicies {
+		if authzPolicyToAllowSubjects[authzPolicy.Name] == nil {
+			authzPolicyToAllowSubjects[authzPolicy.Name] = []*rbacproto.ServiceRoleBinding{}
+		}
+		for _, subject := range authzPolicy.Policy.Allow {
+			authzPolicyToAllowSubjects[authzPolicy.Name] = append(authzPolicyToAllowSubjects[authzPolicy.Name], subject)
+		}
+	}
+	return authzPolicyToAllowSubjects
+}
+
+// GetServiceRoleFromName returns a ServiceRole from this namespace, given the ServiceRole name.
+// This function always return a non nil struct instance.
+func (policy *AuthorizationPolicies) GetServiceRoleFromName(ns, roleName string) *rbacproto.ServiceRole {
+	if policy == nil || policy.NamespaceToAuthorizationConfigV2 == nil {
+		return &rbacproto.ServiceRole{}
+	}
+	nsToAuthzConfigV2 := policy.NamespaceToAuthorizationConfigV2[ns]
+	if nsToAuthzConfigV2 == nil {
+		return &rbacproto.ServiceRole{}
+	}
+	serviceRole, exist := policy.NamespaceToAuthorizationConfigV2[ns].NameToServiceRoles[roleName]
+	if !exist {
+		return &rbacproto.ServiceRole{}
+	}
+	return serviceRole
+}
+
 // NewAuthzPolicies returns the AuthorizationPolicies constructed from raw authorization policies by
 // storing policies into different namespaces.
 func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
