@@ -292,7 +292,7 @@ ignored = [
 # Need to integrate apis to master
 [[constraint]]
   name = "istio.io/api"
-  branch = "release-1.1"
+  branch = "master"
 
 # fortio is latest tagged by default
 
