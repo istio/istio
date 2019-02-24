@@ -496,8 +496,24 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		// look for dest rules across all namespaces public/private
-		for _, processedDestRulesForNamespace := range ps.namespaceLocalDestRules {
+		// look for dest rules across all namespaces public/private.
+		// put istio-system namespace in the last to avoid overriding dest rules in other namespaces
+		// accidentally, this doesn't change the semantic of this code but could workaround the issue
+		// https://github.com/istio/istio/issues/12000.
+		namespaces := make([]string, 0, len(ps.namespaceLocalDestRules))
+		foundIstioNamespace := false
+		for ns := range ps.namespaceLocalDestRules {
+			if ns == IstioSystemNamespace {
+				foundIstioNamespace = true
+				continue
+			}
+			namespaces = append(namespaces, ns)
+		}
+		if foundIstioNamespace {
+			namespaces = append(namespaces, IstioSystemNamespace)
+		}
+		for _, ns := range namespaces {
+			processedDestRulesForNamespace := ps.namespaceLocalDestRules[ns]
 			if host, ok := MostSpecificHostMatch(service.Hostname, processedDestRulesForNamespace.hosts); ok {
 				return processedDestRulesForNamespace.destRule[host].config
 			}
