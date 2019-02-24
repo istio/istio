@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	defaultWatchQueueSize = 1024
+	defaultWatchQueueSize = 1024 * 10
 )
 
 // Watch is a mock implementation of watch.Interface.
@@ -31,6 +31,7 @@ type Watch struct {
 	qIndex   int
 	qcond    *sync.Cond
 	stopping bool
+	stopCh   chan struct{}
 }
 
 type Watches []*Watch
@@ -46,9 +47,10 @@ var _ watch.Interface = &Watch{}
 // NewWatch returns a new Watch instance.
 func NewWatch() *Watch {
 	w := &Watch{
-		ch:    make(chan watch.Event),
-		q:     make([]watch.Event, defaultWatchQueueSize),
-		qcond: sync.NewCond(&sync.Mutex{}),
+		ch:     make(chan watch.Event),
+		q:      make([]watch.Event, defaultWatchQueueSize),
+		qcond:  sync.NewCond(&sync.Mutex{}),
+		stopCh: make(chan struct{}, 1),
 	}
 
 	go w.run()
@@ -61,7 +63,7 @@ func (w *Watch) Stop() {
 	w.qcond.L.Lock()
 	if !w.stopping {
 		w.stopping = true
-		close(w.ch)
+		close(w.stopCh)
 		w.qcond.Signal()
 	}
 	w.qcond.L.Unlock()
@@ -89,6 +91,9 @@ func (w *Watch) Send(event watch.Event) {
 }
 
 func (w *Watch) run() {
+	// Only the sender can close the channel safely.
+	defer close(w.ch)
+
 	tempQ := make([]watch.Event, defaultWatchQueueSize)
 	for {
 		w.qcond.L.Lock()
@@ -118,7 +123,12 @@ func (w *Watch) run() {
 
 		// Push all of the events to the channel.
 		for i := 0; i < numCopied; i++ {
-			w.ch <- tempQ[i]
+			select {
+			case <-w.stopCh:
+				// Just return since we're shutting down.
+				return
+			case w.ch <- tempQ[i]:
+			}
 		}
 	}
 }
