@@ -160,7 +160,7 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	clientSet := fake.NewSimpleClientset()
 	c := NewController(clientSet, ControllerOptions{
-		WatchedNamespaces: "", // tests create resources in multiple ns
+		WatchedNamespaces: "istio-system,ns-test,nsa,nsb,nsA,nsB,nsa1,nsfake", // tests create resources in multiple ns
 		ResyncPeriod:      resync,
 		DomainSuffix:      domainSuffix,
 		XDSUpdater:        fx,
