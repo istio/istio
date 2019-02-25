@@ -261,6 +261,11 @@ func (c *Client) Run(ctx context.Context) {
 				}
 			} else {
 				collection := req.TypeUrl
+
+				if req.ErrorDetail != nil {
+					break
+				}
+
 				if req.ErrorDetail == nil && collection != "" {
 					if state, ok := c.state[collection]; ok {
 						state.setVersion(version)
