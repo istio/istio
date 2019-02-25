@@ -26,10 +26,12 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
+	"istio.io/istio/pkg/log"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -60,6 +62,10 @@ var (
 )
 
 func TestNewWithUnknownSpecShouldError(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 
@@ -78,19 +84,11 @@ func TestNewWithUnknownSpecShouldError(t *testing.T) {
 	}
 }
 
-func TestStartWithNilHandlerShouldError(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	// Create the source
-	_, informerFactory := kubeResources()
-	spec := builtin.GetType("Node").GetSpec()
-	s := newOrFail(t, informerFactory, spec)
-
-	err := s.Start(nil)
-	g.Expect(err).ToNot(BeNil())
-}
-
 func TestStartTwiceShouldError(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	g := NewGomegaWithT(t)
 
 	// Start the source.
@@ -107,6 +105,10 @@ func TestStartTwiceShouldError(t *testing.T) {
 }
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	// Start the source.
 	_, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
@@ -119,6 +121,10 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestUnknownResourceShouldNotCreateEvent(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
 
@@ -129,9 +135,9 @@ func TestUnknownResourceShouldNotCreateEvent(t *testing.T) {
 
 	expectFullSync(t, ch)
 
-	node := &v1.Node{
+	node := &corev1.Node{
 		ObjectMeta: fakeObjectMeta,
-		Spec: v1.NodeSpec{
+		Spec: corev1.NodeSpec{
 			PodCIDR: "10.40.0.0/24",
 		},
 	}
@@ -149,6 +155,10 @@ func TestUnknownResourceShouldNotCreateEvent(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
 
@@ -159,9 +169,9 @@ func TestNodes(t *testing.T) {
 
 	expectFullSync(t, ch)
 
-	node := &v1.Node{
+	node := &corev1.Node{
 		ObjectMeta: fakeObjectMeta,
-		Spec: v1.NodeSpec{
+		Spec: corev1.NodeSpec{
 			PodCIDR: "10.40.0.0/24",
 		},
 	}
@@ -213,6 +223,10 @@ func TestNodes(t *testing.T) {
 }
 
 func TestPods(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Pod").GetSpec()
@@ -224,18 +238,18 @@ func TestPods(t *testing.T) {
 
 	expectFullSync(t, ch)
 
-	pod := &v1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: fakeObjectMeta,
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
 				{
 					Name:            "c1",
 					Image:           "someImage",
-					ImagePullPolicy: v1.PullIfNotPresent,
-					Ports: []v1.ContainerPort{
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Ports: []corev1.ContainerPort{
 						{
 							Name:     "http",
-							Protocol: v1.ProtocolTCP,
+							Protocol: corev1.ProtocolTCP,
 							HostPort: 80,
 						},
 					},
@@ -290,6 +304,10 @@ func TestPods(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Service").GetSpec()
@@ -301,14 +319,14 @@ func TestServices(t *testing.T) {
 
 	expectFullSync(t, ch)
 
-	svc := &v1.Service{
+	svc := &corev1.Service{
 		ObjectMeta: fakeObjectMeta,
-		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeClusterIP,
-			Ports: []v1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
-					Protocol: v1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 				},
 			},
@@ -361,6 +379,10 @@ func TestServices(t *testing.T) {
 }
 
 func TestEndpoints(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Endpoints").GetSpec()
@@ -372,20 +394,20 @@ func TestEndpoints(t *testing.T) {
 
 	expectFullSync(t, ch)
 
-	eps := &v1.Endpoints{
+	eps := &corev1.Endpoints{
 		ObjectMeta: fakeObjectMeta,
-		Subsets: []v1.EndpointSubset{
+		Subsets: []corev1.EndpointSubset{
 			{
-				Addresses: []v1.EndpointAddress{
+				Addresses: []corev1.EndpointAddress{
 					{
 						Hostname: "fake.host.com",
 						IP:       "10.40.0.0",
 					},
 				},
-				Ports: []v1.EndpointPort{
+				Ports: []corev1.EndpointPort{
 					{
 						Name:     "http",
-						Protocol: v1.ProtocolTCP,
+						Protocol: corev1.ProtocolTCP,
 						Port:     80,
 					},
 				},
@@ -499,4 +521,14 @@ func toEvent(kind resource.EventKind, spec *schema.ResourceSpec, objectMeta meta
 	}
 
 	return event
+}
+
+func setDebugLogLevel() log.Level {
+	prev := kubeLog.Scope.GetOutputLevel()
+	kubeLog.Scope.SetOutputLevel(log.DebugLevel)
+	return prev
+}
+
+func restoreLogLevel(level log.Level) {
+	kubeLog.Scope.SetOutputLevel(level)
 }

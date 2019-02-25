@@ -15,7 +15,6 @@
 package runtime
 
 import (
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -45,24 +44,6 @@ func TestProcessor_Start(t *testing.T) {
 	err = p.Start()
 	if err == nil {
 		t.Fatal("second start should have caused an error")
-	}
-}
-
-type erroneousSource struct{}
-
-func (e *erroneousSource) Start(_ resource.EventHandler) error {
-	return errors.New("cheese not found")
-}
-func (e *erroneousSource) Stop() {}
-
-func TestProcessor_Start_Error(t *testing.T) {
-	distributor := snapshot.New(groups.IndexFunction)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
-	p := NewProcessor(&erroneousSource{}, distributor, cfg)
-
-	err := p.Start()
-	if err == nil {
-		t.Fatal("expected error not found")
 	}
 }
 
