@@ -66,7 +66,8 @@ type Server struct {
 
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
-	verifyResourceTypesPresence func(client.Interfaces) error
+	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) error
+	findSupportedResources      func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
@@ -78,6 +79,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		newKubeFromConfigFile:       client.NewKubeFromConfigFile,
 		verifyResourceTypesPresence: check.ResourceTypesPresence,
+		findSupportedResources:      check.FindSupportedResourceSchemas,
 		newSource:                   kubeSource.New,
 		netListen:                   net.Listen,
 		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
@@ -125,9 +127,15 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k); err != nil {
+			if err := p.verifyResourceTypesPresence(k, kubeMeta.Types.All()); err != nil {
 				return nil, err
 			}
+		} else {
+			found, err := p.findSupportedResources(k, kubeMeta.Types.All())
+			if err != nil {
+				return nil, err
+			}
+			sourceSchema = schema.New(found...)
 		}
 		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
