@@ -15,14 +15,19 @@ kubectl -n istio-system port-forward $(kubectl get pod --namespace istio-system 
 
 sleep 5s
 
+OUTPUT_PATH=${OUTPUT_PATH:-"/output"}
+
+mkdir -p "${OUTPUT_PATH}"
+
+perf_metrics="${OUTPUT_PATH}/perf_metrics.txt"
+
 source "${ROOT}/prow/lib.sh"
-perf_metrics="${ARTIFACTS_DIR}/perf_metrics.txt"
 
 pushd ${GOPATH}/src/istio.io/tools/perf/twoPodTest/runner
 
-python prom.py http://localhost:8060 ${TIME_TO_RUN_PERF_TESTS} > ${perf_metrics}
+  python prom.py http://localhost:8060 ${TIME_TO_RUN_PERF_TESTS} > ${perf_metrics}
 
-gsutil -q cp ${perf_metrics} "gs://$CB_GCS_BUILD_PATH/perf_metrics.txt"
+  gsutil -q cp ${perf_metrics} "gs://$CB_GCS_BUILD_PATH/perf_metrics.txt"
 
 popd
 
