@@ -264,14 +264,14 @@ var (
 					opts["PodName"] = os.Getenv("POD_NAME")
 					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
 
-				mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
-				log.Infof("MixerSAN %#v", mixerSAN)
-				if len(mixerSAN) > 1 {
-					opts["MixerSubjectAltName"] = mixerSAN[0]
-				}
+					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+					log.Infof("MixerSAN %#v", mixerSAN)
+					if len(mixerSAN) > 1 {
+						opts["MixerSubjectAltName"] = mixerSAN[0]
+					}
 
-				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+					// protobuf encoding of IP_ADDRESS type
+					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
 					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 						opts["ControlPlaneAuth"] = "enable"

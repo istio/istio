@@ -47,8 +47,6 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	setSpiffeTrustDomain(DNSDomain)
 	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
-
-
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
 
