@@ -75,7 +75,7 @@ func (c *RateLimiter) Create() RateLimit {
 		c.connectionBurstSize)
 }
 
-// NewNoopRateLimiter returns a nee rate limiter that does nothing. Useful for defaulting of options.
+// NewNoopRateLimiter returns a new rate limiter that does nothing. Useful for defaulting of options.
 func NewNoopRateLimiter() RateLimit {
 	return &noopRateLimiter{}
 }
