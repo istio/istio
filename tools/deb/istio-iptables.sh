@@ -299,7 +299,7 @@ iptables -t nat -N ISTIO_OUTPUT
 # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
-if [ -z ${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK_TO_ISTIO_PROXY-} ]; then
+if [ -z "${DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK_TO_ISTIO_PROXY-}" ]; then
   # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
   # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
   iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
