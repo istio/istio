@@ -38,6 +38,7 @@ type RateLimiter struct {
 	connectionBurstSize int
 }
 
+
 // NewRateLimiter returns a new RateLimiter
 func NewRateLimiter(freq time.Duration, burstSize int) *RateLimiter {
 	return &RateLimiter{
