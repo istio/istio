@@ -67,7 +67,7 @@ func GetEnvironment(r component.Repository) (*Environment, error) {
 
 	ne, ok := e.(*Environment)
 	if !ok {
-		return nil, fmt.Errorf("unsupported environment: %q", e.Descriptor().Variant)
+		return nil, fmt.Errorf("unsupported environment: %q", e.Descriptor().Key)
 	}
 	return ne, nil
 }

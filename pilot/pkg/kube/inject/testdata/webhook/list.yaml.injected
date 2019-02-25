@@ -34,7 +34,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.default
+        - hello.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -54,7 +54,7 @@ spec:
         - --applicationPorts
         - "80"
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -93,8 +93,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -125,8 +129,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -181,7 +185,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.default
+        - hello.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -201,7 +205,7 @@ spec:
         - --applicationPorts
         - "81"
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -240,8 +244,12 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -272,8 +280,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi

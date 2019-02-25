@@ -1985,6 +1985,21 @@
                 "id": 1,
                 "name": "policy",
                 "type": "FailPolicy"
+              },
+              {
+                "id": 2,
+                "name": "max_retry",
+                "type": "uint32"
+              },
+              {
+                "id": 3,
+                "name": "base_retry_wait",
+                "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 4,
+                "name": "max_retry_wait",
+                "type": "google.protobuf.Duration"
               }
             ]
           },
@@ -2348,6 +2363,19 @@
                 "integer": 2
               }
             ]
+          },
+          {
+            "name": "ReportRequest.RepeatedAttributesSemantics",
+            "enum_fields": [
+              {
+                "name": "DELTA_ENCODING",
+                "integer": 0
+              },
+              {
+                "name": "INDEPENDENT_ENCODING",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -2572,6 +2600,11 @@
                 "name": "attributes",
                 "type": "CompressedAttributes",
                 "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "repeated_attributes_semantics",
+                "type": "RepeatedAttributesSemantics"
               },
               {
                 "id": 2,
@@ -3306,6 +3339,11 @@
                     "type": "string"
                   },
                   {
+                    "id": 10,
+                    "name": "credential_name",
+                    "type": "string"
+                  },
+                  {
                     "id": 6,
                     "name": "subject_alt_names",
                     "type": "string",
@@ -3326,11 +3364,6 @@
                     "name": "cipher_suites",
                     "type": "string",
                     "is_repeated": true
-                  },
-                  {
-                    "id": 10,
-                    "name": "sds_name",
-                    "type": "string"
                   }
                 ]
               }
@@ -3435,6 +3468,12 @@
               {
                 "id": 7,
                 "name": "export_to",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "subject_alt_names",
                 "type": "string",
                 "is_repeated": true
               }
@@ -4618,6 +4657,11 @@
                 "id": 5,
                 "name": "custom_header",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "server_name",
+                "type": "string"
               }
             ]
           },
@@ -4673,6 +4717,11 @@
               {
                 "id": 3,
                 "name": "ca_certificates",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "server_name",
                 "type": "string"
               }
             ]
@@ -5323,13 +5372,13 @@
               },
               {
                 "id": 4,
-                "name": "principals",
+                "name": "names",
                 "type": "string",
                 "is_repeated": true
               },
               {
                 "id": 5,
-                "name": "not_principals",
+                "name": "not_names",
                 "type": "string",
                 "is_repeated": true
               },

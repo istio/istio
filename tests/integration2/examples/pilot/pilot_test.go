@@ -18,15 +18,14 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test"
 )
 
 var (

@@ -77,6 +77,12 @@ func TestGolden(t *testing.T) {
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
 			base: "all",
 		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/v1alpha1/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+			},
+		},
 	}
 
 	out := env.ISTIO_OUT.Value() // defined in the makefile
@@ -190,6 +196,15 @@ func correctForEnvDifference(in []byte) []byte {
 		{
 			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
+		},
+		// Zone and region can vary based on the environment, so it shouldn't be considered in the diff.
+		{
+			pattern:     regexp.MustCompile(`"zone": ".+"`),
+			replacement: []byte("\"zone\": \"\""),
+		},
+		{
+			pattern:     regexp.MustCompile(`"region": ".+"`),
+			replacement: []byte("\"region\": \"\""),
 		},
 	}
 

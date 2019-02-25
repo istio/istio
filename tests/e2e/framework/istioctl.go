@@ -45,6 +45,7 @@ type Istioctl struct {
 	remotePath      string
 	binaryPath      string
 	namespace       string
+	istioNamespace  string
 	proxyHub        string
 	proxyTag        string
 	imagePullPolicy string
@@ -57,7 +58,7 @@ type Istioctl struct {
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap, kubeconfig string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePullPolicy, injectConfigMap, kubeconfig string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
@@ -75,6 +76,7 @@ func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag, imagePullPolicy, inject
 		remotePath:      *remotePath,
 		binaryPath:      filepath.Join(tmpDir, "istioctl"),
 		namespace:       namespace,
+		istioNamespace:  istioNamespace,
 		proxyHub:        proxyHub,
 		proxyTag:        proxyTag,
 		imagePullPolicy: imagePullPolicy,
@@ -162,7 +164,7 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 	}
 	if i.defaultProxy {
 		_, err := i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-			src, dest, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+			src, dest, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
 		return err
 	}
 
@@ -172,7 +174,7 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 	}
 
 	_, err := i.run(`kube-inject -f %s -o %s %s -n %s -i %s --meshConfigMapName=istio %s %s`,
-		src, dest, imagePullPolicyStr, i.namespace, i.namespace, injectCfgMapStr, kubeconfigStr)
+		src, dest, imagePullPolicyStr, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
 	return err
 }
 

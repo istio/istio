@@ -20,7 +20,6 @@ import (
 	"io"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
@@ -89,6 +88,11 @@ type Watcher interface {
 type CollectionOptions struct {
 	// Name of the collection, e.g. istio/networking/v1alpha3/VirtualService
 	Name string
+
+	// When true, the source is allowed to push incremental updates to the sink.
+	// Incremental updates are only used if the sink requests it (per request)
+	// and the source decides to make use of it.
+	Incremental bool
 }
 
 // CollectionOptionsFromSlice returns a slice of collection options from
@@ -108,6 +112,7 @@ type Options struct {
 	Watcher            Watcher
 	CollectionsOptions []CollectionOptions
 	Reporter           monitoring.Reporter
+	ConnRateLimiter    internal.ConnectionRateLimit
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -117,14 +122,15 @@ type Stream interface {
 	Context() context.Context
 }
 
-// Sources implements the resource source message exchange for MCP. It can be instantiated by client and server
-// source implementations to manage the MCP message exchange.
+// Source implements the resource source message exchange for MCP.
+// It can be instantiated by client and server
 type Source struct {
-	watcher      Watcher
-	collections  []CollectionOptions
-	nextStreamID int64
-	reporter     monitoring.Reporter
-	connections  int64
+	watcher        Watcher
+	collections    []CollectionOptions
+	nextStreamID   int64
+	reporter       monitoring.Reporter
+	connections    int64
+	requestLimiter internal.ConnectionRateLimit
 }
 
 // watch maintains local push state of the most recent watch per-type.
@@ -154,18 +160,18 @@ type connection struct {
 	watcher  Watcher
 
 	reporter monitoring.Reporter
+	limiter  internal.RateLimit
 
 	queue *internal.UniqueQueue
 }
 
-const DefaultRetryPushDelay = 10 * time.Millisecond
-
 // New creates a new resource source.
 func New(options *Options) *Source {
 	s := &Source{
-		watcher:     options.Watcher,
-		collections: options.CollectionsOptions,
-		reporter:    options.Reporter,
+		watcher:        options.Watcher,
+		collections:    options.CollectionsOptions,
+		reporter:       options.Reporter,
+		requestLimiter: options.ConnRateLimiter,
 	}
 	return s
 }
@@ -189,6 +195,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 		watcher:  s.watcher,
 		id:       atomic.AddInt64(&s.nextStreamID, 1),
 		reporter: s.reporter,
+		limiter:  s.requestLimiter.Create(),
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
@@ -197,7 +204,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 		collection := s.collections[i]
 		w := &watch{
 			ackedVersionMap: make(map[string]string),
-			incremental:     false,
+			incremental:     collection.Incremental,
 		}
 		con.watches[collection.Name] = w
 		collections = append(collections, collection.Name)
@@ -242,6 +249,9 @@ func (s *Source) processStream(stream Stream) error {
 			if !more {
 				return con.reqError
 			}
+			if err := con.limiter.Wait(stream.Context()); err != nil {
+				return err
+			}
 			if err := con.processClientRequest(req); err != nil {
 				return err
 			}
@@ -282,6 +292,7 @@ func calculateDelta(current []*mcp.Resource, acked map[string]string) (added []m
 	// compute diff
 	for _, envelope := range current {
 		prevVersion, exists := acked[envelope.Metadata.Name]
+
 		if !exists {
 			// new
 			added = append(added, *envelope)
@@ -338,8 +349,8 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 		con.reporter.RecordSendError(err, status.Code(err))
 		return err
 	}
-	scope.Debugf("MCP: connection %v: SEND collection=%v version=%v nonce=%v",
-		con, resp.Collection, resp.Version, msg.Nonce)
+	scope.Debugf("MCP: connection %v: SEND collection=%v version=%v nonce=%v inc=%v",
+		con, resp.Collection, resp.Version, msg.Nonce, msg.Incremental)
 	w.pending = msg
 	return nil
 }
@@ -398,16 +409,16 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 		versionInfo := ""
 
 		if w.pending == nil {
-			scope.Infof("MCP: connection %v: WATCH for %v", con, collection)
+			scope.Infof("MCP: connection %v: inc=%v WATCH for %v", con, req.Incremental, collection)
 		} else {
 			versionInfo = w.pending.SystemVersionInfo
 			if req.ErrorDetail != nil {
-				scope.Warnf("MCP: connection %v: NACK collection=%v version=%q with nonce=%q error=%#v", // nolint: lll
-					con, collection, req.ResponseNonce, versionInfo, req.ErrorDetail)
+				scope.Warnf("MCP: connection %v: NACK collection=%v version=%q with nonce=%q error=%#v inc=%v", // nolint: lll
+					con, collection, req.ResponseNonce, versionInfo, req.ErrorDetail, req.Incremental)
 				con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
 			} else {
-				scope.Infof("MCP: connection %v ACK collection=%v with version=%q nonce=%q",
-					con, collection, versionInfo, req.ResponseNonce)
+				scope.Infof("MCP: connection %v ACK collection=%v with version=%q nonce=%q inc=%v",
+					con, collection, versionInfo, req.ResponseNonce, req.Incremental)
 				con.reporter.RecordRequestAck(collection, con.id)
 
 				internal.UpdateResourceVersionTracking(w.ackedVersionMap, w.pending)
@@ -433,12 +444,12 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 		// latest watch's nonce. These could be dup requests or out-of-order
 		// requests from a buggy node.
 		if req.ErrorDetail != nil {
-			scope.Errorf("MCP: connection %v: STALE NACK collection=%v with nonce=%q (expected nonce=%q) error=%+v", // nolint: lll
-				con, collection, req.ResponseNonce, w.pending.GetNonce(), req.ErrorDetail)
+			scope.Errorf("MCP: connection %v: STALE NACK collection=%v with nonce=%q (expected nonce=%q) error=%+v inc=%v", // nolint: lll
+				con, collection, req.ResponseNonce, w.pending.GetNonce(), req.ErrorDetail, req.Incremental)
 			con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
 		} else {
-			scope.Errorf("MCP: connection %v: STALE ACK collection=%v with nonce=%q (expected nonce=%q)", // nolint: lll
-				con, collection, req.ResponseNonce, w.pending.GetNonce())
+			scope.Errorf("MCP: connection %v: STALE ACK collection=%v with nonce=%q (expected nonce=%q) inc=%v", // nolint: lll
+				con, collection, req.ResponseNonce, w.pending.GetNonce(), req.Incremental)
 			con.reporter.RecordRequestAck(collection, con.id)
 		}
 	}

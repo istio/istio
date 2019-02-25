@@ -32,6 +32,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/log"
 )
 
@@ -50,6 +51,21 @@ const (
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
+
+	// statsPatterns gives the developer control over Envoy stats collection
+	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/v1alpha1/statsInclusionPrefixes"
+)
+
+var (
+	// default value for EnvoyStatsMatcherInclusionPatterns
+	defaultEnvoyStatsMatcherInclusionPatterns = []string{
+		"cluster_manager",
+		"listener_manager",
+		"http_mixer_filter",
+		"tcp_mixer_filter",
+		"server",
+		"cluster.xds-grpc",
+	}
 )
 
 func defaultPilotSan() []string {
@@ -229,10 +245,25 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
+	// Populate the platform locality if available.
+	l := platform.GetPlatformLocality()
+	if l.Region != "" {
+		opts["region"] = l.Region
+	}
+	if l.Zone != "" {
+		opts["zone"] = l.Zone
+	}
+
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	// Suppot multiple network interfaces
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
+		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
+	} else {
+		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
+	}
+
+	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
@@ -250,6 +281,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		return "", err
 	}
 	StoreHostPort(h, p, "pilot_grpc_address", opts)
+
+	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
+	opts["discovery_address"] = config.DiscoveryAddress
 
 	if config.Tracing != nil {
 		switch tracer := config.Tracing.Tracer.(type) {

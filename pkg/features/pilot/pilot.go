@@ -16,6 +16,10 @@ package pilot
 
 import (
 	"os"
+	"strconv"
+	"time"
+
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -65,6 +69,13 @@ var (
 	// Default is 10s, Example: "300ms", "10s" or "2h45m".
 	DebounceMax = os.Getenv("PILOT_DEBOUNCE_MAX")
 
+	// DisableEDSIsolation provides an option to disable the feature
+	// of EDS isolation which is enabled by default from Istio 1.1 and
+	// go back to the legacy behavior of previous releases.
+	// If not set, Pilot will return the endpoints for a proxy in an isolated namespace.
+	// Set the environment variable to any value to disable.
+	DisableEDSIsolation = os.Getenv("PILOT_DISABLE_EDS_ISOLATION")
+
 	// AzDebug indicates whether to log service registry az info.
 	AzDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 
@@ -78,6 +89,30 @@ var (
 	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
 	// be used, "/"
 	BaseDir = "BASE"
+
+	// HTTP10 enables the use of HTTP10 in the outbound HTTP listeners, to support legacy applications.
+	// Will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
+	//
+	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
+	// where Sidecar is enabled.
+	HTTP10 = os.Getenv("PILOT_HTTP10") == "1"
+
+	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
+	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
+	// preventing any new connections and allowing existing connections to complete. It then
+	// sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.
+	TerminationDrainDuration = func() time.Duration {
+		defaultDuration := time.Second * 5
+		if os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS") == "" {
+			return defaultDuration
+		}
+		duration, err := strconv.Atoi(os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS"))
+		if err != nil {
+			log.Warnf("unable to parse env var %v, using default of %v.", os.Getenv("TERMINATION_DRAIN_DURATION_SECONDS"), defaultDuration)
+			return defaultDuration
+		}
+		return time.Second * time.Duration(duration)
+	}
 )
 
 var (

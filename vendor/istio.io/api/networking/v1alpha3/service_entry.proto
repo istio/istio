@@ -134,7 +134,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
-// The 'export_to' field allows for control over the visibility of a service
+// The 'exportTo' field allows for control over the visibility of a service
 // declaration to other namespaces in the mesh. By default a service is exported
 // to all namespaces. The following example restricts the visibility to the
 // current namespace, represented by ".", so that it cannot be used by other
@@ -149,8 +149,8 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
-//   - .
+//   exportTo:
+//   - "."
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
@@ -195,7 +195,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
+//   exportTo:
 //   - *
 //   gateways:
 //   - mesh
@@ -298,6 +298,33 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // `http://foo.bar.com` will be load balanced across the three domains
 // specified above. In other words, a call to `http://foo.bar.com/baz` would
 // be translated to `http://uk.foo.bar.com/baz`.
+//
+// The following example illustrates the usage of a ServiceEntry
+// containing a subject alternate name
+// whose format conforms to the SPIFEE standard
+// <https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md>:
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: httpbin
+//   namespace : httpbin-ns
+// spec:
+//   hosts:
+//   - httpbin.com
+//   location: MESH_INTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: STATIC
+//   endpoints:
+//   - address: 2.2.2.2
+//   - address: 3.3.3.3
+//   subjectAltNames:
+//   - "spiffe://cluster.local/ns/httpbin-ns/sa/httpbin-service-account"
+// ```
 //
 message ServiceEntry {
   // REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
@@ -443,7 +470,6 @@ message ServiceEntry {
   // One or more endpoints associated with the service.
   repeated Endpoint endpoints = 6;
 
-  // $hide_from_docs
   // A list of namespaces to which this service is exported. Exporting a service
   // allows it to used by sidecars, gateways and virtual services defined in
   // other namespaces. This feature provides a mechanism for service owners
@@ -458,7 +484,14 @@ message ServiceEntry {
   // defines an export to all namespaces.
   //
   // For a Kubernetes Service the equivalent effect can be achieved by setting
-  // the annotation "networking.istio.io/export_to" to a comma-separated list
+  // the annotation "networking.istio.io/exportTo" to a comma-separated list
   // of namespace names.
   repeated string export_to = 7;
+
+  // The list of subject alternate names allowed for workloads that
+  // implement this service. This information is used to enforce
+  // secure-naming <https://istio.io/docs/concepts/security/#secure-naming>.
+  // If specified, the proxy will verify that the server
+  // certificate's subject alternate name matches one of the specified values.
+  repeated string subject_alt_names = 8;
 }

@@ -174,7 +174,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	}
 
 	if a.SinkAddress != "" {
-		s.callOut, err = newCallout(a.SinkAddress, a.SinkAuthMode, options)
+		s.callOut, err = newCallout(a.SinkAddress, a.SinkAuthMode, a.SinkMeta, options)
 		if err != nil {
 			s.callOut = nil
 			scope.Fatalf("Callout could not be initialized: %v", err)

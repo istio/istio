@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -620,6 +621,24 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
+	nt.Locality = discReq.Node.Locality
+
+	if err := nt.SetServiceInstances(s.Env); err != nil {
+		return err
+	}
+
+	if util.IsLocalityEmpty(nt.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(nt.ServiceInstances) > 0 {
+			nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
+		}
+	}
+
+	// Set the sidecarScope associated with this proxy if its a sidecar.
+	if nt.Type == model.SidecarProxy {
+		nt.SetSidecarScope(s.globalPushContext())
+	}
 
 	con.mu.Lock()
 	con.modelNode = nt
@@ -628,14 +647,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		con.ConID = connectionID(discReq.Node.Id)
 	}
 	con.mu.Unlock()
-
-	if err := con.modelNode.SetServiceInstances(s.Env); err != nil {
-		return err
-	}
-	// Set the sidecarScope associated with this proxy if its a sidecar.
-	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(s.globalPushContext())
-	}
 
 	return nil
 }
@@ -663,6 +674,13 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
 		return err
+	}
+	if util.IsLocalityEmpty(con.modelNode.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(con.modelNode.ServiceInstances) > 0 {
+			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
+		}
 	}
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
 	// Saves compute cycles in networking code
@@ -734,7 +752,7 @@ func adsClientCount() int {
 	return n
 }
 
-// AdsPushAll is used only by tests (after refactoring)
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }

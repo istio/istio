@@ -288,15 +288,15 @@ func areEqual(v1, v2 model.Value) bool {
 		for i := 0; i < len(vec1); i++ {
 			if !vec1[i].Metric.Equal(vec2[i].Metric) {
 				scopes.Framework.Debugf(
-					"Prometheus.areEqual vector metric mismatch (at:%d): %d != %d",
+					"Prometheus.areEqual vector metric mismatch (at:%d): \n%v\n != \n%v\n",
 					i, vec1[i].Metric, vec2[i].Metric)
 				return false
 			}
 
 			if vec1[i].Value != vec2[i].Value {
 				scopes.Framework.Debugf(
-					"Prometheus.areEqual vector  value mismatch (at:%d): \n%v\n!=\n%v\n",
-					i, vec1[i].Metric, vec2[i].Metric)
+					"Prometheus.areEqual vector value mismatch (at:%d): %f != %f",
+					i, vec1[i].Value, vec2[i].Value)
 				return false
 			}
 		}

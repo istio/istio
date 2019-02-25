@@ -61,6 +61,8 @@ type cliOptions struct { // nolint: maligned
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
 	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
+	// If workloadCertGracePeriodRatio is 0.2, and cert TTL is 24 hours, then the rotation will happen
+	// after 24*(1-0.2) hours since the cert is issued.
 	workloadCertGracePeriodRatio float32
 	// The minimum grace period for workload cert rotation.
 	workloadCertMinGracePeriod time.Duration
@@ -203,7 +205,7 @@ func init() {
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 
 	// Monitoring configuration
-	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. "+
+	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
 		"If unspecified, Citadel will disable monitoring.")
 	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Citadel.")
 

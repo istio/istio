@@ -45,7 +45,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ClusterID:        "v2-debug",
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
-		ServiceAccounts:  s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
 
@@ -159,7 +158,9 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
+	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	s.mutex.RUnlock()
 	w.Write(out)
 }
 
@@ -257,6 +258,8 @@ const (
 	authnHTTP       authProtocol = 1
 	authnMTls       authProtocol = 2
 	authnPermissive authProtocol = authnHTTP | authnMTls
+	authnCustomTLS  authProtocol = 4
+	authnCustomMTls authProtocol = 8
 )
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
@@ -267,8 +270,17 @@ func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) auth
 	}
 	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	if tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-		return authnMTls
+	if tls != nil {
+		switch tls.Mode {
+		case networking.TLSSettings_ISTIO_MUTUAL:
+			return authnMTls
+		case networking.TLSSettings_SIMPLE:
+			return authnCustomTLS
+		case networking.TLSSettings_MUTUAL:
+			return authnCustomMTls
+		case networking.TLSSettings_DISABLE:
+			return authnHTTP
+		}
 	}
 	return authnHTTP
 }
@@ -309,29 +321,45 @@ func authProtocolToString(protocol authProtocol) string {
 		return "mTLS"
 	case authnPermissive:
 		return "HTTP/mTLS"
+	case authnCustomTLS:
+		return "TLS"
+	case authnCustomMTls:
+		return "custom mTLS"
 	default:
 		return "UNKNOWN"
 	}
 }
 
 // Authentication debugging
-// This handler lists what authentication policy and destination rules is used for a service, and
-// whether or not they have TLS setting conflicts (i.e authentication policy use mutual TLS, but
-// destination rule doesn't use ISTIO_MUTUAL TLS mode). If service is not provided, (via request
-// paramerter `svc`), it lists result for all services.
+// This handler lists what authentication policy is used for a service and destination rules to
+// that service that a proxy instance received.
+// Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
+// are visible.
 func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	// This should be svc. However, use proxyID param for now so it can be used with
-	// `pilot-discovery debug` command
-	interestedSvc := req.Form.Get("proxyID")
 
+	proxyID := req.Form.Get("proxyID")
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
+
+	connections, ok := adsSidecarIDConnectionsMap[proxyID]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "\n[\n]")
+		return
+	}
+	var mostRecentProxy *model.Proxy
+	mostRecent := ""
+	for key := range connections {
+		if mostRecent == "" || key > mostRecent {
+			mostRecent = key
+		}
+	}
+	mostRecentProxy = connections[mostRecent].modelNode
 	fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
-		if interestedSvc != "" && interestedSvc != string(ss.Hostname) {
-			continue
-		}
 		for _, p := range ss.Ports {
 			info := AuthenticationDebug{
 				Host: string(ss.Hostname),
@@ -349,7 +377,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			info.ServerProtocol = authProtocolToString(serverProtocol)
 
-			destConfig := s.globalPushContext().DestinationRule(nil, ss)
+			destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
@@ -360,7 +388,11 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			info.ClientProtocol = authProtocolToString(clientProtocol)
 
 			if (clientProtocol & serverProtocol) == 0 {
-				info.TLSConflictStatus = "CONFLICT"
+				if clientProtocol == authnCustomMTls && serverProtocol != authnHTTP {
+					info.TLSConflictStatus = "MAY CONFLICT"
+				} else {
+					info.TLSConflictStatus = "CONFLICT"
+				}
 			} else {
 				info.TLSConflictStatus = "OK"
 			}
@@ -482,7 +514,7 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 }
 
 // edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
+// It is mapped to /debug/edsz on the monitor port (15014).
 func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")

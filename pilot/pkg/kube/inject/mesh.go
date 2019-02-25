@@ -31,6 +31,7 @@ const (
 [[- $excludeOutboundIPRangesKey     := "traffic.sidecar.istio.io/excludeOutboundIPRanges" -]]
 [[- $includeInboundPortsKey         := "traffic.sidecar.istio.io/includeInboundPorts" -]]
 [[- $excludeInboundPortsKey         := "traffic.sidecar.istio.io/excludeInboundPorts" -]]
+[[- $kubevirtInterfacesKey          := "traffic.sidecar.istio.io/kubevirtInterfaces" -]]
 [[- $statusPortValue                := (annotation .ObjectMeta $statusPortKey {{ .StatusPort }}) -]]
 [[- $readinessInitialDelayValue     := (annotation .ObjectMeta $readinessInitialDelayKey "{{ .ReadinessInitialDelaySeconds }}") -]]
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
@@ -55,6 +56,10 @@ initContainers:
   - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
   - "[[ excludeInboundPort $statusPortValue (annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}") ]]"
+  {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/kubevirtInterfaces\") -]]" }}
+  - "-k"
+  - "[[ annotation .ObjectMeta $kubevirtInterfacesKey "{{ .KubevirtInterfaces }}" ]]"
+  {{ "[[ end -]]" }}
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -172,6 +177,7 @@ containers:
   resources:
     requests:
       cpu: 10m
+      memory: 30Mi
   securityContext:
     {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true

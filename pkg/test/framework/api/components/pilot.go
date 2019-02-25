@@ -16,20 +16,23 @@ package components
 
 import (
 	"testing"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 // Pilot testing component
 type Pilot interface {
 	component.Instance
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
 }
 
 // GetPilot from the repository
 func GetPilot(e component.Repository, t testing.TB) Pilot {
-	return e.GetComponentOrFail("", ids.Pilot, t).(Pilot)
+	return e.GetComponentOrFail(ids.Pilot, t).(Pilot)
 }

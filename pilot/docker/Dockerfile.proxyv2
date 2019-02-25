@@ -2,6 +2,11 @@ FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
 
+ARG ISTIO_API_SHA=unknown
+ARG ENVOY_SHA=unknown
+LABEL istio-api-vcs-ref=$ISTIO_API_SHA \
+    envoy-vcs-ref=$ENVOY_SHA
+
 # Install Envoy.
 ADD envoy /usr/local/bin/envoy
 
@@ -19,8 +24,14 @@ ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
+# Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
+COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+
+# Add CA certificates for SSL connections.
+# obtained from debian ca-certs deb using fetch_cacerts.sh
+ADD ca-certificates.tgz /
 
 RUN chmod 755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
 

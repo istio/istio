@@ -33,7 +33,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.default
+        - hello.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -94,6 +94,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+            memory: 30Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -138,8 +139,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi

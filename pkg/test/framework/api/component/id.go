@@ -14,13 +14,15 @@
 
 package component
 
-var _ Requirement = func() *ID {
-	return nil
-}()
+var _ Requirement = ID("")
 
 // ID for a component of the testing framework
 type ID string
 
-func (id *ID) String() string {
-	return string(*id)
+func (i ID) GetKey() Key {
+	return Key{ID: i}
+}
+
+func (i ID) String() string {
+	return string(i)
 }

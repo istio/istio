@@ -70,7 +70,12 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	if !exists {
 		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
 	}
-	return model.ApplyMeshConfigDefaults(configYaml)
+	cfg, err := model.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+			version.Info.Version), err)
+	}
+	return cfg, err
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {

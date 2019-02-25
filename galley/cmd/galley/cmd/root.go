@@ -122,7 +122,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Path to the file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().DurationVar(&readinessProbeOptions.UpdateInterval, "readinessProbeInterval", server.DefaultProbeCheckInterval,
 		"Interval of updating file for the Galley readiness probe.")
-	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
+	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 15014,
 		"Port to use for exposing self-monitoring information")
 	rootCmd.PersistentFlags().UintVar(&pprofPort, "pprofPort", 9094, "Port to use for exposing profiling")
 	rootCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", false,
@@ -154,6 +154,8 @@ func GetRootCmd(args []string) *cobra.Command {
 		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
 	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
+	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.SinkMeta, "sinkMeta",
+		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

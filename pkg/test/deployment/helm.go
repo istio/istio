@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -144,13 +146,13 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 	}
 
 	// Adding cni dependency as a workaround for now.
-	if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
-		helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
-		return "", err
-	}
+	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
+	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
+	// 	return "", err
+	// }
 
 	// Package the chart dir.
-	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
+	if _, err := exec(fmt.Sprintf("helm --home %s package %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
 		return "", err
 	}
 	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s %s",
@@ -161,7 +163,8 @@ func exec(cmd string) (string, error) {
 	scopes.CI.Infof("executing: %s", cmd)
 	str, err := shell.Execute(cmd)
 	if err != nil {
-		scopes.CI.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
+		err = errors.Wrapf(err, "error (%s) executing command: %s", str, cmd)
+		scopes.CI.Errorf("%v", err)
 	}
 	return str, err
 }

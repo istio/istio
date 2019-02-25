@@ -111,7 +111,7 @@ type Args struct {
 func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                9091,
-		MonitoringPort:         9093,
+		MonitoringPort:         15014,
 		MaxMessageSize:         1024 * 1024,
 		MaxConcurrentStreams:   1024,
 		APIWorkerPoolSize:      1024,
@@ -149,6 +149,10 @@ func (a *Args) validate() error {
 
 	if a.NumCheckCacheEntries < 0 {
 		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
+	}
+
+	if a.ConfigStore != nil && a.ConfigStoreURL != "" {
+		return fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
 
 	return nil

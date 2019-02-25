@@ -235,13 +235,14 @@ message Subject {
   string user = 1;
 
   // $hide_from_docs
-  // Optional. A list of principals that the subject represents. This is matched to the
-  // `source.principal` attribute. If not specified, it applies to any principals.
-  repeated string principals = 4;
+  // Optional. A list of subject names. This is matched to the
+  // `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+  // Prefix and suffix matches are supported.
+  repeated string names = 4;
 
   // $hide_from_docs
-  // Optional. A list of principals that must not be matched.
-  repeated string not_principals = 5;
+  // Optional. A list of subject names that must not be matched.
+  repeated string not_names = 5;
 
   // $hide_from_docs
   // Optional. The group that the subject belongs to.

@@ -241,8 +241,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_mixer
           command: |
             make test/local/noauth/e2e_mixer_envoyv2
@@ -277,8 +275,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_mixer (non-mcp)
           command: |
             E2E_ARGS="--use_mcp=false" \
@@ -318,8 +314,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           name: make e2e_galley
           command: |
             make test/local/e2e_galley
@@ -343,7 +337,6 @@ jobs:
       - run: make sync
       - run:
           no_output_timeout: 20m
-          when: always
           command: |
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
@@ -381,8 +374,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 make test/local/noauth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
@@ -420,8 +411,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 E2E_ARGS="--use_mcp=false" \
                 make test/local/noauth/e2e_pilotv2
@@ -456,8 +445,6 @@ jobs:
       - run: docker images
       - run:
           no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
           command: |
                 make test/local/auth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
@@ -494,8 +481,12 @@ jobs:
         - store_artifacts:
             path: /tmp
 
-  e2e-pilot-auth-v1alpha3-v2-non-mcp:
+  test-integration-kubernetes:
     <<: *integrationDefaults
+    environment:
+      - KUBECONFIG: /go/out/minikube.conf
+      - TEST_ENV: minikube-none
+      - GOPATH: /go
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -517,6 +508,40 @@ jobs:
           no_output_timeout: 20m
           # Run the test even if previous failed
           when: always
+          name: make test.integration.kube
+          command: |
+            make test.integration.kube T="-v" | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
+  e2e-pilot-auth-v1alpha3-v2-non-mcp:
+    <<: *integrationDefaults
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run:
+          no_output_timeout: 20m
           command: |
                 E2E_ARGS="--use_mcp=false" \
                 make test/local/auth/e2e_pilotv2
@@ -765,7 +790,7 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
+                 - release-1.1
                  - release-1.0
                  - dev-networking
     jobs:
@@ -812,6 +837,12 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
+      - test-integration-local:
+          requires:
+            - build
+      - test-integration-kubernetes:
+          requires:
+            - build
 
   all:
     jobs:
@@ -844,6 +875,13 @@ workflows:
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
+      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
+          requires:
+            - build
       - test-integration-local:
           requires:
             - build
+      - test-integration-kubernetes:
+          requires:
+            - build
+

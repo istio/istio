@@ -2,6 +2,11 @@
 # It is shipped with the release, used for bookinfo or quick installation of istio.
 # Includes components used in the demo, defaults to alpha3 rules.
 global:
+  proxy:
+    accessLogFile: "/dev/stdout"
+
+  disablePolicyChecks: false
+
   controlPlaneSecurityEnabled: true
 
   mtls:
@@ -12,6 +17,13 @@ global:
 pilot:
   traceSampling: 100.0
 
+mixer:
+  policy:
+    enabled: true
+  adapters:
+    stdio:
+      enabled: true
+ 
 grafana:
   enabled: true
 
@@ -23,3 +35,4 @@ servicegraph:
 
 kiali:
   enabled: true
+  createDemoSecret: true
