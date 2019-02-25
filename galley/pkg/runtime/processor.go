@@ -17,14 +17,13 @@ package runtime
 import (
 	"time"
 
-	"github.com/pkg/errors"
-
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -37,16 +36,10 @@ type Processor struct {
 	source Source
 
 	// events channel that was obtained from source
-	events chan resource.Event
+	eventCh chan resource.Event
 
 	// handler for events.
 	handler processing.Handler
-
-	// channel that gets closed during Shutdown.
-	done chan struct{}
-
-	// channel that signals the background process as being stopped.
-	stopped chan struct{}
 
 	// The current in-memory configuration State
 	state *State
@@ -56,6 +49,8 @@ type Processor struct {
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
+
+	worker *util.Worker
 }
 
 type postProcessHookFn func()
@@ -77,8 +72,8 @@ func newProcessor(
 		state:           state,
 		source:          src,
 		postProcessHook: postProcessHook,
-		done:            make(chan struct{}),
-		stopped:         make(chan struct{}),
+		worker:          util.NewWorker("runtime processor", scope),
+		eventCh:         make(chan resource.Event, 1024),
 		lastEventTime:   now,
 	}
 }
@@ -86,57 +81,40 @@ func newProcessor(
 // Start the processor. This will cause processor to listen to incoming events from the provider
 // and publish component configuration via the Distributor.
 func (p *Processor) Start() error {
-	scope.Info("Starting processor...")
+	return p.worker.Start(func(stopCh chan struct{}, stoppedCh chan struct{}) error {
+		scope.Info("Starting processor...")
 
-	if p.events != nil {
-		scope.Warn("Processor has already started")
-		return errors.New("already started")
-	}
+		err := p.source.Start(func(e resource.Event) {
+			p.eventCh <- e
+		})
+		if err != nil {
+			scope.Warnf("Unable to Start source: %v", err)
+			return err
+		}
 
-	events := make(chan resource.Event, 1024)
-	err := p.source.Start(func(e resource.Event) {
-		events <- e
+		go p.process(stopCh, stoppedCh)
+
+		return nil
 	})
-	if err != nil {
-		scope.Warnf("Unable to Start source: %v", err)
-		return err
-	}
-
-	p.events = events
-
-	go p.process()
-
-	return nil
 }
 
 // Stop the processor.
 func (p *Processor) Stop() {
 	scope.Info("Stopping processor...")
-
-	if p.events == nil {
-		scope.Warnf("Processor has already stopped")
-		return
-	}
-
-	p.source.Stop()
-
-	close(p.done)
-	<-p.stopped
-	close(p.events)
-
-	p.events = nil
-	p.done = nil
+	p.worker.Stop(p.source.Stop, func() {
+		close(p.eventCh)
+	})
 }
 
-func (p *Processor) process() {
-	scope.Debugf("Starting process loop")
+func (p *Processor) process(stopCh chan struct{}, stoppedCh chan struct{}) {
+	scope.Debug("Starting process loop")
 
 loop:
 	for {
 		select {
 
 		// Incoming events are received through p.events
-		case e := <-p.events:
+		case e := <-p.eventCh:
 			p.processEvent(e)
 
 		case <-p.state.strategy.Publish:
@@ -144,7 +122,7 @@ loop:
 			p.state.publish()
 
 		// p.done signals the graceful Shutdown of the processor.
-		case <-p.done:
+		case <-stopCh:
 			scope.Debug("Processor.process: done")
 			break loop
 		}
@@ -155,12 +133,17 @@ loop:
 	}
 
 	p.state.close()
-	close(p.stopped)
-	scope.Debugf("Process.process: Exiting process loop")
+	close(stoppedCh)
+
+	if scope.DebugEnabled() {
+		scope.Debugf("Process.process: Exiting process loop")
+	}
 }
 
 func (p *Processor) processEvent(e resource.Event) {
-	scope.Debugf("Incoming source event: %v", e)
+	if scope.DebugEnabled() {
+		scope.Debugf("Incoming source event: %v", e)
+	}
 	p.recordEvent()
 
 	if e.Kind == resource.FullSync {
