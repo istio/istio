@@ -710,6 +710,23 @@ generate_yaml_coredump: export ENABLE_COREDUMP=true
 generate_yaml_coredump:
 	$(MAKE) generate_yaml
 
+# TODO(howardjohn) clean all of this up
+istio-auth-mcp.yaml:
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	$(HELM) template \
+		--name=istio \
+		--namespace=istio-system \
+		--set global.tag=${TAG} \
+		--set global.hub=${HUB} \
+		--set global.imagePullPolicy=$(PULL_POLICY) \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
+		${EXTRA_HELM_SETTINGS} \
+		--values install/kubernetes/helm/istio/values-e2e.yaml \
+		--values install/kubernetes/helm/istio/values-istio-auth-mcp.yaml \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-mcp.yaml
+
 # TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
