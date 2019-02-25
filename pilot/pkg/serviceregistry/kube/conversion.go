@@ -180,6 +180,8 @@ func parseHostname(hostname model.Hostname) (name string, namespace string, err 
 	return
 }
 
+var protocolGRPCWebLowercase = strings.ToLower(string(model.ProtocolGRPCWeb))
+
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
@@ -187,8 +189,8 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	case v1.ProtocolUDP:
 		out = model.ProtocolUDP
 	case v1.ProtocolTCP:
-		prefix := name
-		if strings.HasPrefix(strings.ToLower(prefix), strings.ToLower(string(model.ProtocolGRPCWeb))) {
+		prefix := strings.ToLower(name)
+		if strings.HasPrefix(name, protocolGRPCWebLowercase) {
 			out = model.ProtocolGRPCWeb
 			break
 		}
