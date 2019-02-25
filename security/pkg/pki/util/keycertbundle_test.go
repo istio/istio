@@ -38,6 +38,7 @@ const (
 	rootCertFile1  = "../testdata/self-signed-root-cert.pem"
 	certChainFile1 = "../testdata/workload-cert.pem"
 	keyFile1       = "../testdata/workload-key.pem"
+	workloadCert   = "../testdata/client-workload.pem"
 )
 
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
@@ -285,17 +286,24 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			rootCertFile:  rootCertFile,
 			expectedErr:   "open random/path/does/not/exist: no such file or directory",
 		},
+		"Failure - not a CA": {
+			caCertFile:    workloadCert,
+			caKeyFile:     keyFile1,
+			certChainFile: "",
+			rootCertFile:  anotherRootCertFile,
+			expectedErr:   "certificate is not authorized to sign other certificates",
+		},
 	}
 	for id, tc := range testCases {
 		_, err := NewVerifiedKeyCertBundleFromFile(
 			tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {
-			if len(tc.expectedErr) == 0 {
+			if tc.expectedErr == "" {
 				t.Errorf("%s: Unexpected error: %v", id, err)
 			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
 				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
 			}
-		} else if len(tc.expectedErr) != 0 {
+		} else if tc.expectedErr != "" {
 			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 		}
 	}

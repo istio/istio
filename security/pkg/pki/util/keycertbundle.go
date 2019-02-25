@@ -19,6 +19,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
@@ -222,6 +223,11 @@ func verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 	if len(chains) == 0 || err != nil {
 		return fmt.Errorf(
 			"cannot verify the cert with the provided root chain and cert pool")
+	}
+
+	// certificate must be usable as CA (including self signed)
+	if bytes.Compare(cert.RawIssuer, cert.RawSubject) != 0 && !cert.IsCA {
+		return fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
 	// Verify that the key can be correctly parsed.
