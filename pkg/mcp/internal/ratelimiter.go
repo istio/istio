@@ -26,6 +26,8 @@ type RateLimit interface {
 	Wait(ctx context.Context) (err error)
 }
 
+var _ RateLimit = &rate.Limiter{}
+
 // ConnectionRateLimit is an interface for creating per-connection rate limiters
 type ConnectionRateLimit interface {
 	Create() RateLimit
@@ -36,6 +38,25 @@ type ConnectionRateLimit interface {
 type RateLimiter struct {
 	connectionFreq      time.Duration
 	connectionBurstSize int
+}
+
+type noopRateLimiter struct {
+}
+
+var _ RateLimit = &noopRateLimiter{}
+
+// Wait implements RateLimit
+func (n *noopRateLimiter) Wait(context.Context) error {
+	return nil
+}
+
+type noopConnRateLimiter struct {
+}
+
+var _ ConnectionRateLimit = &noopConnRateLimiter{}
+
+func (n *noopConnRateLimiter) Create() RateLimit {
+	return &noopRateLimiter{}
 }
 
 // NewRateLimiter returns a new RateLimiter
@@ -52,4 +73,13 @@ func (c *RateLimiter) Create() RateLimit {
 	return rate.NewLimiter(
 		rate.Every(c.connectionFreq),
 		c.connectionBurstSize)
+}
+
+// NewNoopRateLimiter returns a nee rate limiter that does nothing. Useful for defaulting of options.
+func NewNoopRateLimiter() RateLimit {
+	return &noopRateLimiter{}
+}
+
+func NewNoopConnRateLimiter() ConnectionRateLimit {
+	return &noopConnRateLimiter{}
 }
