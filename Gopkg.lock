@@ -1364,17 +1364,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9a0eeb972e14851a3a0490280d736de3b1c686745c7a4d660642ec2706a446e2"
+  digest = "1:dc47d62081c3865cd58181a50c62d33223597b3f360ef86cec770d8747eb0d16"
   name = "golang.org/x/oauth2"
   packages = [
     ".",
+    "clientcredentials",
     "google",
     "internal",
     "jws",
     "jwt",
   ]
   pruneopts = "NUT"
-  revision = "fdc9e635145ae97e6c2cb777c48305600cf515cb"
+  revision = "d668ce993890a79bda886613ee587a69dd5da7a6"
 
 [[projects]]
   branch = "master"
@@ -2130,6 +2131,8 @@
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
     "golang.org/x/net/publicsuffix",
+    "golang.org/x/oauth2",
+    "golang.org/x/oauth2/clientcredentials",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
