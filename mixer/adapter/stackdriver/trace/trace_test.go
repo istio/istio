@@ -16,7 +16,9 @@ package trace
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -488,6 +490,56 @@ func TestProjectID(t *testing.T) {
 			_, err := b.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
 				t.Errorf("Project id is not expected: %v", err)
+			}
+		})
+	}
+}
+
+func TestSampler(t *testing.T) {
+
+	totalSpans := 10000
+	r := rand.NewSource(time.Now().UnixNano())
+
+	cases := []struct {
+		name     string
+		fraction float64
+	}{
+		{"100 percent", 1},
+		{"50 percent", .5},
+		{"20 percent", .2},
+		{"1 percent", .01},
+		{"Tenth of a percent", .001},
+		{"Hundredth of a percent", .0001},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			sampler := sixtyFourBitTraceIDSampler(v.fraction)
+			samples := 0
+			for i := 0; i < totalSpans; i++ {
+
+				tid := [16]byte{}
+				sid := [8]byte{}
+
+				binary.BigEndian.PutUint64(tid[0:], uint64(r.Int63()))
+				binary.BigEndian.PutUint64(tid[8:], uint64(r.Int63()))
+				binary.BigEndian.PutUint64(sid[0:], uint64(r.Int63()))
+
+				d := sampler(
+					trace.SamplingParameters{
+						TraceID: tid,
+						SpanID:  sid,
+						Name:    fmt.Sprintf("span-%d", i),
+					})
+
+				if d.Sample {
+					samples++
+				}
+			}
+			expect := float64(totalSpans) * v.fraction
+			fudge := expect * 0.1 // allow 10 percent fudge
+			if got, upperBound, lowerBound := samples, int(expect+fudge), int(expect-fudge); got < lowerBound || got > upperBound {
+				t.Errorf("Got %d samples, wanted at least %d and at most %d", got, lowerBound, upperBound)
 			}
 		})
 	}

@@ -17,6 +17,7 @@ package trace
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"go.opencensus.io/plugin/ochttp"
@@ -41,6 +42,25 @@ type (
 		sampler trace.Sampler
 	}
 )
+
+// NOTE: because Istio 1.0.X branch uses 64bit traceids, it is safe to use this sampling
+// logic for the adapter.
+func sixtyFourBitTraceIDSampler(fraction float64) trace.Sampler {
+	if !(fraction >= 0) {
+		fraction = 0
+	} else if fraction >= 1 {
+		return trace.AlwaysSample()
+	}
+
+	traceIDUpperBound := uint64(fraction * (1 << 63))
+	return trace.Sampler(func(p trace.SamplingParameters) trace.SamplingDecision {
+		if p.ParentContext.IsSampled() {
+			return trace.SamplingDecision{Sample: true}
+		}
+		x := binary.BigEndian.Uint64(p.TraceID[8:])
+		return trace.SamplingDecision{Sample: x < traceIDUpperBound}
+	})
+}
 
 var (
 	// compile-time assertion that we implement the interfaces we promise
@@ -92,7 +112,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	traceCfg := b.cfg.Trace
 	if traceCfg != nil {
 		if sampleProbability := traceCfg.SampleProbability; sampleProbability > 0 {
-			h.sampler = trace.ProbabilitySampler(traceCfg.SampleProbability)
+			h.sampler = sixtyFourBitTraceIDSampler(traceCfg.SampleProbability)
 		}
 	}
 	return h, nil
