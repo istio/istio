@@ -763,7 +763,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		var l *xdsapi.ClusterLoadAssignment
 		var ok bool
 		// decide which to use based on presence of Sidecar.
-		if sidecarScope == nil || sidecarScope.Config == nil || len(pilot.DisableEDSIsolation) != 0 {
+		if sidecarScope == nil || len(pilot.DisableEDSIsolation) != 0 {
 			l, ok = s.loadAssignmentsForClusterLegacy(push, clusterName)
 		} else {
 			l, ok = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
