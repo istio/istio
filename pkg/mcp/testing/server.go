@@ -62,14 +62,14 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 		Watcher:            cache,
 		CollectionsOptions: collections,
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		ConnRateLimiter:    rate.NewRateLimiter(time.Second*10, 10),
+		ConnRateLimiter:    rate.NewRateLimiter(time.Second, 100),
 	}
 
 	checker := server.NewAllowAllChecker()
 	s := server.New(options, checker)
 	srcServer := source.NewServer(options, &source.ServerOptions{
 		AuthChecker: checker,
-		RateLimiter: rate.NewRateLimiter(time.Second*10, 10).Create(),
+		RateLimiter: rate.NewRateLimiter(time.Second, 100).Create(),
 	})
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
