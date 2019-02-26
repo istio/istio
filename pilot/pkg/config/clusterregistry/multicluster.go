@@ -100,7 +100,6 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
 

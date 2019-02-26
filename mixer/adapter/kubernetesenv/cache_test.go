@@ -110,7 +110,7 @@ func TestClusterInfoCache_Workload_ReplicationController(t *testing.T) {
 				tt.Fatal("Failed to sync")
 			}
 			pod, _ := c.Pod(v.pod)
-			workload, _ := c.Workload(pod)
+			workload := c.Workload(pod)
 			if workload.name != v.workload {
 				tt.Errorf("GetWorkload() => (_, %s), wanted (_, %s)", workload.name, v.workload)
 			}

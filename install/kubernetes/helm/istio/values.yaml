@@ -11,6 +11,9 @@ gateways:
 #
 sidecarInjectorWebhook:
   enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
   rewriteAppHTTPProbe: false
 
 #
@@ -28,6 +31,25 @@ mixer:
     enabled: true
   telemetry:
     enabled: true
+  # mixer load shedding configuration.
+  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+  loadshedding:
+    # disabled, logonly or enforce
+    mode: enforce
+
+  adapters:
+    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
+    stdio:
+      enabled: false
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1G
+    limits:
+      # It is best to do horizontal scaling of mixer using moderate cpu allocation.
+      # We have experimentally found that these values work well.
+      cpu: 4800m
+      memory: 4G
 
 #
 # pilot configuration
@@ -86,6 +108,7 @@ kiali:
 
 #
 # Istio CNI plugin enabled
+#   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
 #   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
 #   settings for the istio-proxy.
 #
@@ -108,7 +131,7 @@ global:
   tag: master-latest-daily
 
   # monitoring port used by mixer, pilot, galley
-  monitoringPort: 9093
+  monitoringPort: 15014
 
   k8sIngress:
     enabled: false
@@ -133,19 +156,21 @@ global:
     # Resources for the sidecar.
     resources:
       requests:
-        cpu: 10m
-        memory: 30Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 128Mi
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
     concurrency: 0
 
-    # Configures the access log for each sidecar. Setting it to an empty string will
-    # disable access log for sidecar.
-    accessLogFile: "/dev/stdout"
+    # Configures the access log for each sidecar.
+    # Options:
+    #   "" - disables access log
+    #   "/dev/stdout" - enables access log
+    accessLogFile: ""
 
     # Configure how and what fields are displayed in sidecar access log. Setting to
     # empty string will result in default log format
@@ -179,6 +204,9 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+
+    # pod internal interfaces
+    kubevirtInterfaces: ""
 
     # istio ingress capture whitelist
     # examples:
@@ -320,14 +348,17 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-      memory: 30Mi
+    #   memory: 128Mi
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
-    minAvailable: 1
-    # maxUnavailable: 1
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
@@ -355,6 +386,19 @@ global:
   #   services or ServiceEntries for the destination port
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
+
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
+  # configRootNamespace: istio-config
+
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
+  defaultConfigVisibilitySettings:
+  - '*'
 
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
@@ -390,7 +434,7 @@ global:
   #     - registryServiceName: istio-ingressgateway
   #       port: 443
   #
-  meshNetworks:
+  meshNetworks: {}
 
   # Specifies whether helm test is enabled or not.
   # This field is set to false by default, so 'helm template ...'

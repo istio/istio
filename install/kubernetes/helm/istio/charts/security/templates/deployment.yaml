@@ -1,0 +1,76 @@
+# istio CA watching all namespaces
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "security.name" . }}
+        chart: {{ template "security.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        istio: citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-citadel-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: citadel
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - --append-dns-names=true
+            - --grpc-port=8060
+            - --grpc-hostname=citadel
+            - --citadel-storage-namespace={{ .Release.Namespace }}
+            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
+            - --monitoring-port={{ .Values.global.monitoringPort }}
+          {{- if .Values.selfSigned }}
+            - --self-signed-ca=true
+          {{- else }}
+            - --self-signed-ca=false
+            - --signing-cert=/etc/cacerts/ca-cert.pem
+            - --signing-key=/etc/cacerts/ca-key.pem
+            - --root-cert=/etc/cacerts/root-cert.pem
+            - --cert-chain=/etc/cacerts/cert-chain.pem
+          {{- end }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+          {{- end }}
+          resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+{{- if not .Values.selfSigned }}
+          volumeMounts:
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+         secretName: cacerts
+         optional: true
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

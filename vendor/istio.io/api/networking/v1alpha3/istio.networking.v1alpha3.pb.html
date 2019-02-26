@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 61
+number_of_entries: 60
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -72,40 +72,6 @@ expected to explicitly communicate with the listener port/unix
 domain socket. When used in ingress listener, care needs to be taken
 to ensure that the listener port is not in use by other processes on
 the host.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ConfigScope">ConfigScope</h2>
-<section>
-<p>ConfigScope defines the visibility of an Istio configuration artifact in
-a namespace when the namespace is imported.  By default all
-configuration artifacts are public. Configurations with private scope
-will not be imported when the namespace containing the configuration is
-imported in a Sidecar.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ConfigScope-PUBLIC">
-<td><code>PUBLIC</code></td>
-<td>
-<p>Config with this scope are visible to all workloads in the mesh</p>
-
-</td>
-</tr>
-<tr id="ConfigScope-PRIVATE">
-<td><code>PRIVATE</code></td>
-<td>
-<p>Configs with this scope are visible to only workloads in the same
-namespace as the configuration resource.</p>
 
 </td>
 </tr>
@@ -705,14 +671,13 @@ service. Traffic policies can be overridden at subset level.</p>
 
 </td>
 </tr>
-<tr id="DestinationRule-config_scope">
-<td><code>configScope</code></td>
-<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<tr id="DestinationRule-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>The visibility setting associated with this DestinationRule. Set to
-PRIVATE if this destination rule should not be exported, i.e. restrict
-the applicability of this destination rule to only workloads in the same
-namespace as the destination rule.</p>
+<p>The resolution of a DestinationRule to apply to a service occurs in the
+context of a hierarchy of namespaces. This rule controls whether those
+namespaces are allowed to select this rule.</p>
 
 </td>
 </tr>
@@ -3001,6 +2966,26 @@ client side certificate.</p>
 
 </td>
 </tr>
+<tr id="Server-TLSOptions-credential_name">
+<td><code>credentialName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The credentialName stands for a unique identifier that can be used
+to identify the serverCertificate and the privateKey. The credentialName
+appended with suffix &ldquo;-cacert&rdquo; is used to identify the CaCertificates
+associated with this server. Gateway workloads capable of fetching
+credentials from a remote credential store will be configured to retrieve
+the serverCertificate and the privateKey using credentialName, instead of
+using the file system paths specified above. If using mutual TLS,
+gateway workloads will retrieve the CaCertificates using
+credentialName-cacert. The semantics of the name are platform dependent.
+In Kubernetes, the default Istio supplied credential server expects the
+credentialName to match the name of the Kubernetes secret that holds the
+server certificate, the private key, and the CA certificate
+(if using mutual TLS).</p>
+
+</td>
+</tr>
 <tr id="Server-TLSOptions-subject_alt_names">
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
@@ -3254,15 +3239,23 @@ spec:
 </code></pre>
 
 <p>The following example demonstrates the use of a dedicated egress gateway
-through which all external service traffic is forwarded.</p>
+through which all external service traffic is forwarded.
+The &lsquo;exportTo&rsquo; field allows for control over the visibility of a service
+declaration to other namespaces in the mesh. By default a service is exported
+to all namespaces. The following example restricts the visibility to the
+current namespace, represented by &ldquo;.&rdquo;, so that it cannot be used by other
+namespaces.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-httpbin
+  namespace : egress
 spec:
   hosts:
   - httpbin.com
+  exportTo:
+  - &quot;.&quot;
   location: MESH_EXTERNAL
   ports:
   - number: 80
@@ -3277,6 +3270,7 @@ spec:
 kind: Gateway
 metadata:
  name: istio-egressgateway
+ namespace: egress
 spec:
  selector:
    istio: egressgateway
@@ -3291,15 +3285,21 @@ spec:
 
 <p>And the associated VirtualService to route from the sidecar to the
 gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
-well as route from the gateway to the external service.</p>
+well as route from the gateway to the external service. Note that the
+virtual service is exported to all namespaces enabling them to route traffic
+through the gateway to the external service. Forcing traffic to go through
+a managed middle proxy like this is a common practice.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-routing
+  namespace: egress
 spec:
   hosts:
   - httpbin.com
+  exportTo:
+  - *
   gateways:
   - mesh
   - istio-egressgateway
@@ -3399,6 +3399,32 @@ spec:
 specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
 be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
 
+<p>The following example illustrates the usage of a ServiceEntry
+containing a subject alternate name
+whose format conforms to the SPIFEE standard
+<a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md">https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md</a>:</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin
+  namespace : httpbin-ns
+spec:
+  hosts:
+  - httpbin.com
+  location: MESH_INTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+  subjectAltNames:
+  - &quot;spiffe://cluster.local/ns/httpbin-ns/sa/httpbin-service-account&quot;
+</code></pre>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -3480,15 +3506,38 @@ said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 
 </td>
 </tr>
-<tr id="ServiceEntry-config_scope">
-<td><code>configScope</code></td>
-<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<tr id="ServiceEntry-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>The visibility setting associated with this service entry. Set to
-PRIVATE if this service should not be visible outside the namespace
-where the service entry was added. The default scope is public,
-i.e. the service added by the service entry will be visible to
-workloads in the entire mesh.</p>
+<p>A list of namespaces to which this service is exported. Exporting a service
+allows it to used by sidecars, gateways and virtual services defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of services across
+namespace boundaries.</p>
+
+<p>If no namespaces are specified then the service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the service is declared in, similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
+
+<p>For a Kubernetes Service the equivalent effect can be achieved by setting
+the annotation &ldquo;networking.istio.io/exportTo&rdquo; to a comma-separated list
+of namespace names.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-subject_alt_names">
+<td><code>subjectAltNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The list of subject alternate names allowed for workloads that
+implement this service. This information is used to enforce
+secure-naming <a href="https://istio.io/docs/concepts/security/#secure-naming">https://istio.io/docs/concepts/security/#secure-naming</a>.
+If specified, the proxy will verify that the server
+certificate&rsquo;s subject alternate name matches one of the specified values.</p>
 
 </td>
 </tr>
@@ -3712,7 +3761,7 @@ than one selector-less Sidecar resources exist in a given namespace. The
 behavior of the system is undefined if two or more Sidecar resources
 with a workload selector select the same workload.</p>
 
-<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+<p>The example below declares a Sidecar resource in the prod-us1 namespace
 that configures the sidecars in the namespace to allow egress traffic to
 public services in the prod-us1, prod-apis, and the istio-system
 namespaces.</p>
@@ -3730,7 +3779,7 @@ spec:
     - &quot;istio-system/*&quot;
 </code></pre>
 
-<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+<p>The example below declares a Sidecar resource in the prod-us1 namespace
 that accepts inbound HTTP traffic on port 9080 and forwards
 it to the attached workload listening on a unix domain socket. In the
 egress direction, in addition to the istio-system namespace, the sidecar
@@ -4218,7 +4267,9 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td>
 <p>A list of alternate names to verify the subject identity in the
 certificate. If specified, the proxy will verify that the server
-certificate&rsquo;s subject alt name matches one of the specified values.</p>
+certificate&rsquo;s subject alt name matches one of the specified values.
+If specified, this list overrides the value of subject<em>alt</em>names
+from the ServiceEntry.</p>
 
 </td>
 </tr>
@@ -4557,14 +4608,22 @@ matching an incoming request is used.</p>
 
 </td>
 </tr>
-<tr id="VirtualService-config_scope">
-<td><code>configScope</code></td>
-<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<tr id="VirtualService-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>The visibility setting associated with this VirtualService. Set to
-PRIVATE if this virtual service should not be exported, i.e. restrict
-the applicability of this virtual service to only workloads in the same
-namespace as the virtual service.</p>
+<p>A list of namespaces to which this virtual service is exported. Exporting a
+virtual service allows it to used by sidecars and gateways defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of virtual services
+across namespace boundaries.</p>
+
+<p>If no namespaces are specified then the virtual service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the virtual service is declared in, similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
 
 </td>
 </tr>

@@ -39,56 +39,59 @@ type saValidationRequest struct {
 
 // K8sSvcAcctAuthn authenticates a k8s service account (JWT) through the k8s TokenReview API.
 type K8sSvcAcctAuthn struct {
-	apiServerAddr   string
-	apiServerCert   []byte
-	reviewerSvcAcct string
+	apiServerAddr string
+	callerToken   string
+	httpClient    *http.Client
 }
 
-// NewK8sSvcAcctAuthn creates a new authenticator for k8s JWTs
-// apiServerURL: the URL of k8s API Server
+// NewK8sSvcAcctAuthn creates a new authenticator for authenticating k8s JWTs.
+// It creates an HTTP client singleton to talk to the apiserver TokenReview API.
+// apiServerAddr: the URL of k8s API Server
 // apiServerCert: the CA certificate of k8s API Server
-// reviewerSvcAcct: the service account of the k8s token reviewer
-func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, reviewerSvcAcct string) *K8sSvcAcctAuthn {
-	return &K8sSvcAcctAuthn{
-		apiServerAddr:   apiServerAddr,
-		apiServerCert:   apiServerCert,
-		reviewerSvcAcct: reviewerSvcAcct,
-	}
-}
-
-// reviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
-// k8sAPIServerURL: the URL of k8s API Server
-// k8sAPIServerCaCert: the CA certificate of k8s API Server
-// reviewerToken: the service account of the k8s token reviewer
-// jwt: the JWT of the k8s service account
-func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
-	reviewerToken string, jwt string) (*http.Response, error) {
+// callerToken: the JWT of the caller to authenticate to k8s API server
+func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, callerToken string) *K8sSvcAcctAuthn {
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(k8sAPIServerCaCert)
-	saReq := saValidationRequest{
-		APIVersion: "authentication.k8s.io/v1",
-		Kind:       "TokenReview",
-		Spec:       specForSaValidationRequest{Token: jwt},
-	}
-	saReqJSON, err := json.Marshal(saReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal the service account review request: %v", err)
-	}
-	req, err := http.NewRequest("POST", k8sAPIServerURL, bytes.NewBuffer(saReqJSON))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a HTTP request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+reviewerToken)
+	caCertPool.AppendCertsFromPEM(apiServerCert)
 	// Set the TLS certificate
+	// Create the HTTP client so that for one instance, only one connection is used to serve all requests.
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
 			},
+			// Bump up the number of connections (default to 2) kept in the pool for
+			// re-use. This can greatly improve the connection re-use with heavy
+			// traffic.
+			MaxIdleConnsPerHost: 100,
 		},
 	}
-	resp, err := httpClient.Do(req)
+
+	return &K8sSvcAcctAuthn{
+		apiServerAddr: apiServerAddr,
+		callerToken:   callerToken,
+		httpClient:    httpClient,
+	}
+}
+
+// reviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
+// targetToken: the JWT of the K8s service account to be reviewed
+func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken string) (*http.Response, error) {
+	saReq := saValidationRequest{
+		APIVersion: "authentication.k8s.io/v1",
+		Kind:       "TokenReview",
+		Spec:       specForSaValidationRequest{Token: targetToken},
+	}
+	saReqJSON, err := json.Marshal(saReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal the service account review request: %v", err)
+	}
+	req, err := http.NewRequest("POST", authn.apiServerAddr, bytes.NewBuffer(saReqJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a HTTP request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+authn.callerToken)
+	resp, err := authn.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send the HTTP request: %v", err)
 	}
@@ -96,22 +99,21 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL
 }
 
 // ValidateK8sJwt validates a k8s JWT at API server.
-// Return {<namespace>, <serviceaccountname>} in the JWT when the validation passes.
+// Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
 // Otherwise, return the error.
-// jwt: the JWT to validate
-func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) ([]string, error) {
-	resp, err := authn.reviewServiceAccountAtK8sAPIServer(authn.apiServerAddr, authn.apiServerCert,
-		authn.reviewerSvcAcct, jwt)
+// targetToken: the JWT of the K8s service account to be reviewed
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken string) ([]string, error) {
+	resp, err := authn.reviewServiceAccountAtK8sAPIServer(targetToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a token review response: %v", err)
 	}
+	defer resp.Body.Close()
 	// Check that the JWT is valid
 	if !(resp.StatusCode == http.StatusOK ||
 		resp.StatusCode == http.StatusCreated ||
 		resp.StatusCode == http.StatusAccepted) {
 		return nil, fmt.Errorf("invalid review response status code %v", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from the response body: %v", err)

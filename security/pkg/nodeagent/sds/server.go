@@ -153,7 +153,7 @@ func NewPlugins(in []string) []plugin.Plugin {
 	return plugins
 }
 
-func (s *Server) initWorkloadSdsService(options *Options) error {
+func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unparam
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 

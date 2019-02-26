@@ -36,20 +36,18 @@ popd
 CHARTS=(
   "${WORK_DIR}/istio/install/kubernetes/helm/istio"
   "${WORK_DIR}/istio/install/kubernetes/helm/istio-init"
-  "${WORK_DIR}/istio/install/kubernetes/helm/istio-remote"
   "${WORK_DIR}/cni/deployments/kubernetes/install/helm/istio-cni"
 )
 
 # Prepare helm setup
 mkdir -vp "$HELM_DIR"
 $HELM init --client-only
-$HELM repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
 
 # Create a package for each charts and build the repo index.
 mkdir -vp "$HELM_BUILD_DIR"
 for CHART_PATH in "${CHARTS[@]}"
 do
-    $HELM package -u "$CHART_PATH" -d "$HELM_BUILD_DIR"
+    $HELM package "$CHART_PATH" -d "$HELM_BUILD_DIR"
 done
 
 $HELM repo index "$HELM_BUILD_DIR"

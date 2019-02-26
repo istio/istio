@@ -79,6 +79,7 @@ func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
+	h.client = true
 	fakeLimiter := NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
@@ -117,15 +118,16 @@ func TestClientSource(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
-	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType1Collection, "", codes.OK)
-	h.requestsChan <- test.MakeRequest(test.FakeType2Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.Unimplemented)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType1Collection, "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, test.FakeType2Collection, "", codes.OK)
 
 	verifySentResourcesMultipleTypes(t, h.sourceTestHarness,
 		map[string]*mcp.Resources{
-			test.FakeType0Collection: test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
-			test.FakeType1Collection: test.MakeResources(test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
-			test.FakeType2Collection: test.MakeResources(test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
+			test.FakeType0Collection: test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			test.FakeType1Collection: test.MakeResources(false, test.FakeType1Collection, "2", "2", nil, test.Type1A[0]),
+			test.FakeType2Collection: test.MakeResources(false, test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
 		},
 	)
 
@@ -136,13 +138,32 @@ func TestClientSource(t *testing.T) {
 		}
 	}
 
-	reconnectChan := make(chan struct{}, 10)
+	waiting := make(chan bool)
+	proceed := make(chan bool)
 	reconnectTestProbe = func() {
-		reconnectChan <- struct{}{}
+		waiting <- true
+		<-proceed
 	}
 	defer func() { reconnectTestProbe = nil }()
 
 	h.setOpenError(errors.New("fake connection error"))
 	h.recvErrorChan <- errRecv
-	<-reconnectChan
+	<-waiting
+	proceed <- true
+
+	<-waiting
+	h.setOpenError(nil)
+	h.client = true
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.OK)
+	proceed <- true
+
+	<-waiting
+	h.client = true
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.InvalidArgument)
+	proceed <- true
+
+	<-waiting
+	h.setRecvError(errors.New("fake recv error"))
+	h.client = true
+	proceed <- true
 }

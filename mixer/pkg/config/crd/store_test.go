@@ -99,7 +99,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.Resour
 	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
-func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
+func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error { // nolint: uparam
 	res := &unstructured.Unstructured{}
 	res.SetKind(key.Kind)
 	res.SetAPIVersion(apiGroupVersion)

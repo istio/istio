@@ -36,7 +36,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - status.default
+        - status.$(POD_NAMESPACE)
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -55,6 +55,8 @@ spec:
         - "123"
         - --applicationPorts
         - 1,2,3
+        - --concurrency
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -93,9 +95,12 @@ spec:
           initialDelaySeconds: 100
           periodSeconds: 200
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
-            memory: 30Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -126,8 +131,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi

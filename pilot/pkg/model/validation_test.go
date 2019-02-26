@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err := err.(type) {
+		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.(*multierror.Error).Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -844,10 +844,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err := err.(type) {
+		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 11 {
+			if len(err.(*multierror.Error).Errors) != 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1327,23 +1327,6 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
-func TestValidateGatewayNames(t *testing.T) {
-	tests := []struct {
-		name  string
-		names []string
-	}{
-		{"name1", []string{"myname", "##mn"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateGatewayNames(tt.names)
-			if err == nil {
-				t.Errorf("Expected to detect bad gateway name but did not")
-			}
-		})
-	}
-}
-
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1364,31 +1347,30 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
-		// TODO: ADD ONCE ns/name format is supported for gateway
-		//{"happy ns/name",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy */name",
-		//	&networking.Server{
-		//		Hosts: []string{"*/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy ./name",
-		//	&networking.Server{
-		//		Hosts: []string{"./foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"invalid domain ns/name format",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.*.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	"domain"},
+		{"happy ns/name",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy */name",
+			&networking.Server{
+				Hosts: []string{"*/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ./name",
+			&networking.Server{
+				Hosts: []string{"./foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"invalid domain ns/name format",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.*.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -1512,36 +1494,89 @@ func TestValidateTlsOptions(t *testing.T) {
 		{"simple",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: "Captain Jean-Luc Picard"},
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"simple sds with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
 			},
 			"server certificate"},
+		{"simple no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        ""},
+			"private key"},
+		{"simple sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CredentialName:    "sds-name",
+			},
+			"server certificate"},
+		{"simple sds no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "",
+				CredentialName:    "sds-name",
+			},
+			"private key"},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"mutual sds",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name",
+			},
 			""},
 		{"mutual no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			"server certificate"},
+		{"mutual sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
 			"server certificate"},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
@@ -1550,14 +1585,30 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			"private key"},
+		{"mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
+		{"pass through sds no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CredentialName:    "sds-name"},
+			""},
 	}
 
 	for _, tt := range tests {
@@ -3820,6 +3871,13 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"import nothing", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/*"},
+				},
+			},
+		}, true},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -3831,13 +3889,6 @@ func TestValidateSidecar(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
-				},
-			},
-		}, false},
-		{"bad egress host 3", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"~/foo.com"},
 				},
 			},
 		}, false},
@@ -4012,6 +4063,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4032,6 +4088,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4041,6 +4102,11 @@ func TestValidateSidecar(t *testing.T) {
 						Number:   90,
 						Name:     "foo",
 					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
@@ -4067,6 +4133,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "unix:///",
 				},
 			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
 		}, false},
 		{"ingress with invalid default endpoint port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
@@ -4077,6 +4148,40 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:hi",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"valid ingress and egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"valid ingress and empty egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
 		}, false},

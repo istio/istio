@@ -24,8 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/component"
 )
 
-var _ component.Configuration = &EchoConfig{}
-
 // EchoProtocol enumerates the protocol options for calling an EchoEndpoint endpoint.
 type EchoProtocol string
 

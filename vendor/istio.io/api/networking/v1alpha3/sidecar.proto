@@ -47,7 +47,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // behavior of the system is undefined if two or more Sidecar resources
 // with a workload selector select the same workload.
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that configures the sidecars in the namespace to allow egress traffic to
 // public services in the prod-us1, prod-apis, and the istio-system
 // namespaces.
@@ -66,7 +66,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "istio-system/*"
 // ```
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that accepts inbound HTTP traffic on port 9080 and forwards
 // it to the attached workload listening on a unix domain socket. In the
 // egress direction, in addition to the istio-system namespace, the sidecar
@@ -193,20 +193,6 @@ message IstioEgressListener {
   // imported. Refer to the scope setting associated with VirtualService,
   // DestinationRule, ServiceEntry, etc. for details.
   repeated string hosts = 4;
-}
-
-// ConfigScope defines the visibility of an Istio configuration artifact in
-// a namespace when the namespace is imported.  By default all
-// configuration artifacts are public. Configurations with private scope
-// will not be imported when the namespace containing the configuration is
-// imported in a Sidecar.
-enum ConfigScope {
-  // Config with this scope are visible to all workloads in the mesh
-  PUBLIC = 0;
-
-  // Configs with this scope are visible to only workloads in the same
-  // namespace as the configuration resource.
-  PRIVATE = 1;
 }
 
 // WorkloadSelector specifies the criteria used to determine if the Gateway

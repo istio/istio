@@ -287,7 +287,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 type startFunc func(stop <-chan struct{}) error
 
 // initMonitor initializes the configuration for the pilot monitoring server.
-func (s *Server) initMonitor(args *PilotArgs) error {
+func (s *Server) initMonitor(args *PilotArgs) error { //nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		monitor, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
@@ -413,11 +413,6 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		}
 	}
 
-	if err = model.ValidateMeshConfig(mesh); err != nil {
-		log.Errorf("invalid mesh configuration: %v", err)
-		return err
-	}
-
 	log.Infof("mesh configuration %s", spew.Sdump(mesh))
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
@@ -428,7 +423,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
-func (s *Server) initMeshNetworks(args *PilotArgs) error {
+func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	if args.NetworksConfigFile == "" {
 		log.Info("mesh networks configuration not provided")
 		return nil
@@ -530,8 +525,18 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*client.Client
+	var clients2 []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
+
+	// TODO - temporarily support both the new and old stack during transition
+	var useLegacyMCPStack bool
+	if os.Getenv("USE_MCP_LEGACY") == "1" {
+		useLegacyMCPStack = true
+		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+	} else {
+		log.Infof("Using new MCP client sink stack")
+	}
 
 	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
@@ -572,7 +577,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile:   path.Join(model.AuthCertsPath, model.RootCertFilename),
+					CertificateFile:   path.Join(model.AuthCertsPath, model.CertChainFilename),
 					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
 					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
 				}
@@ -625,7 +630,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 		mcpController := coredatamodel.NewController(options)
 		sinkOptions := &sink.Options{
 			CollectionOptions: collections,
@@ -633,10 +638,19 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			ID:                clientNodeID,
 			Reporter:          reporter,
 		}
-		mcpClient := client.New(cl, sinkOptions)
-		configz.Register(mcpClient)
 
-		clients = append(clients, mcpClient)
+		if useLegacyMCPStack {
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpClient := client.New(cl, sinkOptions)
+			configz.Register(mcpClient)
+			clients = append(clients, mcpClient)
+		} else {
+			cl2 := mcpapi.NewResourceSourceClient(conn)
+			mcpClient2 := sink.NewClient(cl2, sinkOptions)
+			configz.Register(mcpClient2)
+			clients2 = append(clients2, mcpClient2)
+		}
+
 		conns = append(conns, conn)
 		configStores = append(configStores, mcpController)
 	}
@@ -690,7 +704,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				cancel()
 				return err
 			}
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 			mcpController := coredatamodel.NewController(options)
 			sinkOptions := &sink.Options{
 				CollectionOptions: collections,
@@ -698,10 +712,19 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				ID:                clientNodeID,
 				Reporter:          reporter,
 			}
-			mcpClient := client.New(cl, sinkOptions)
-			configz.Register(mcpClient)
 
-			clients = append(clients, mcpClient)
+			if useLegacyMCPStack {
+				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+				mcpClient := client.New(cl, sinkOptions)
+				configz.Register(mcpClient)
+				clients = append(clients, mcpClient)
+			} else {
+				cl2 := mcpapi.NewResourceSourceClient(conn)
+				mcpClient2 := sink.NewClient(cl2, sinkOptions)
+				configz.Register(mcpClient2)
+				clients2 = append(clients2, mcpClient2)
+			}
+
 			conns = append(conns, conn)
 			configStores = append(configStores, mcpController)
 		}
@@ -710,13 +733,24 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		var wg sync.WaitGroup
 
-		for i := range clients {
-			client := clients[i]
-			wg.Add(1)
-			go func() {
-				client.Run(ctx)
-				wg.Done()
-			}()
+		if useLegacyMCPStack {
+			for i := range clients {
+				client := clients[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
+		} else {
+			for i := range clients2 {
+				client := clients2[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
 		}
 
 		go func() {
@@ -852,7 +886,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
 
@@ -905,7 +938,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		Name:             "ServiceEntries",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
-		ServiceAccounts:  serviceEntryStore,
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
@@ -934,7 +966,6 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "mockAdapter1",
 		ServiceDiscovery: discovery1,
-		ServiceAccounts:  discovery1,
 		Controller:       &mockController{},
 	}
 
@@ -942,7 +973,6 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "mockAdapter2",
 		ServiceDiscovery: discovery2,
-		ServiceAccounts:  discovery2,
 		Controller:       &mockController{},
 	}
 	serviceControllers.AddRegistry(registry1)
@@ -955,7 +985,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
-		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
 	}
 
@@ -1093,7 +1122,6 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 		aggregate.Registry{
 			Name:             serviceregistry.ConsulRegistry,
 			ServiceDiscovery: conctl,
-			ServiceAccounts:  conctl,
 			Controller:       conctl,
 		})
 

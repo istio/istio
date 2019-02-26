@@ -21,33 +21,10 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='networking/v1alpha3/sidecar.proto',
   package='istio.networking.v1alpha3',
   syntax='proto3',
-  serialized_pb=_b('\n!networking/v1alpha3/sidecar.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\"\xd3\x01\n\x07Sidecar\x12\x46\n\x11workload_selector\x18\x01 \x01(\x0b\x32+.istio.networking.v1alpha3.WorkloadSelector\x12@\n\x07ingress\x18\x02 \x03(\x0b\x32/.istio.networking.v1alpha3.IstioIngressListener\x12>\n\x06\x65gress\x18\x03 \x03(\x0b\x32..istio.networking.v1alpha3.IstioEgressListener\"\xab\x01\n\x14IstioIngressListener\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x0c\n\x04\x62ind\x18\x02 \x01(\t\x12<\n\x0c\x63\x61pture_mode\x18\x03 \x01(\x0e\x32&.istio.networking.v1alpha3.CaptureMode\x12\x18\n\x10\x64\x65\x66\x61ult_endpoint\x18\x04 \x01(\t\"\x9f\x01\n\x13IstioEgressListener\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x0c\n\x04\x62ind\x18\x02 \x01(\t\x12<\n\x0c\x63\x61pture_mode\x18\x03 \x01(\x0e\x32&.istio.networking.v1alpha3.CaptureMode\x12\r\n\x05hosts\x18\x04 \x03(\t\"\x8a\x01\n\x10WorkloadSelector\x12G\n\x06labels\x18\x01 \x03(\x0b\x32\x37.istio.networking.v1alpha3.WorkloadSelector.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*&\n\x0b\x43onfigScope\x12\n\n\x06PUBLIC\x10\x00\x12\x0b\n\x07PRIVATE\x10\x01*2\n\x0b\x43\x61ptureMode\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x00\x12\x0c\n\x08IPTABLES\x10\x01\x12\x08\n\x04NONE\x10\x02\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
+  serialized_pb=_b('\n!networking/v1alpha3/sidecar.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\"\xd3\x01\n\x07Sidecar\x12\x46\n\x11workload_selector\x18\x01 \x01(\x0b\x32+.istio.networking.v1alpha3.WorkloadSelector\x12@\n\x07ingress\x18\x02 \x03(\x0b\x32/.istio.networking.v1alpha3.IstioIngressListener\x12>\n\x06\x65gress\x18\x03 \x03(\x0b\x32..istio.networking.v1alpha3.IstioEgressListener\"\xab\x01\n\x14IstioIngressListener\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x0c\n\x04\x62ind\x18\x02 \x01(\t\x12<\n\x0c\x63\x61pture_mode\x18\x03 \x01(\x0e\x32&.istio.networking.v1alpha3.CaptureMode\x12\x18\n\x10\x64\x65\x66\x61ult_endpoint\x18\x04 \x01(\t\"\x9f\x01\n\x13IstioEgressListener\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x0c\n\x04\x62ind\x18\x02 \x01(\t\x12<\n\x0c\x63\x61pture_mode\x18\x03 \x01(\x0e\x32&.istio.networking.v1alpha3.CaptureMode\x12\r\n\x05hosts\x18\x04 \x03(\t\"\x8a\x01\n\x10WorkloadSelector\x12G\n\x06labels\x18\x01 \x03(\x0b\x32\x37.istio.networking.v1alpha3.WorkloadSelector.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*2\n\x0b\x43\x61ptureMode\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x00\x12\x0c\n\x08IPTABLES\x10\x01\x12\x08\n\x04NONE\x10\x02\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
   ,
   dependencies=[networking_dot_v1alpha3_dot_gateway__pb2.DESCRIPTOR,])
 
-_CONFIGSCOPE = _descriptor.EnumDescriptor(
-  name='ConfigScope',
-  full_name='istio.networking.v1alpha3.ConfigScope',
-  filename=None,
-  file=DESCRIPTOR,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='PUBLIC', index=0, number=0,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='PRIVATE', index=1, number=1,
-      options=None,
-      type=None),
-  ],
-  containing_type=None,
-  options=None,
-  serialized_start=790,
-  serialized_end=828,
-)
-_sym_db.RegisterEnumDescriptor(_CONFIGSCOPE)
-
-ConfigScope = enum_type_wrapper.EnumTypeWrapper(_CONFIGSCOPE)
 _CAPTUREMODE = _descriptor.EnumDescriptor(
   name='CaptureMode',
   full_name='istio.networking.v1alpha3.CaptureMode',
@@ -69,14 +46,12 @@ _CAPTUREMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=830,
-  serialized_end=880,
+  serialized_start=790,
+  serialized_end=840,
 )
 _sym_db.RegisterEnumDescriptor(_CAPTUREMODE)
 
 CaptureMode = enum_type_wrapper.EnumTypeWrapper(_CAPTUREMODE)
-PUBLIC = 0
-PRIVATE = 1
 DEFAULT = 0
 IPTABLES = 1
 NONE = 2
@@ -312,7 +287,6 @@ DESCRIPTOR.message_types_by_name['Sidecar'] = _SIDECAR
 DESCRIPTOR.message_types_by_name['IstioIngressListener'] = _ISTIOINGRESSLISTENER
 DESCRIPTOR.message_types_by_name['IstioEgressListener'] = _ISTIOEGRESSLISTENER
 DESCRIPTOR.message_types_by_name['WorkloadSelector'] = _WORKLOADSELECTOR
-DESCRIPTOR.enum_types_by_name['ConfigScope'] = _CONFIGSCOPE
 DESCRIPTOR.enum_types_by_name['CaptureMode'] = _CAPTUREMODE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 

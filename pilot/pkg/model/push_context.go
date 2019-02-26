@@ -46,6 +46,11 @@ type PushContext struct {
 	// data should not be changed by plugins.
 	Mutex sync.Mutex `json:"-"`
 
+	// Synthesized from env.Mesh
+	defaultServiceExportTo         map[Visibility]bool
+	defaultVirtualServiceExportTo  map[Visibility]bool
+	defaultDestinationRuleExportTo map[Visibility]bool
+
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
 	// publicServices are services reachable within the mesh.
@@ -86,6 +91,9 @@ type PushContext struct {
 	// port names. The key is the service name. If a service or port are not found,
 	// the endpoint needs to be re-evaluated later (eventual consistency)
 	ServicePort2Name map[string]PortList `json:"-"`
+
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[Hostname]map[int][]string
 
 	initDone bool
 }
@@ -300,6 +308,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
+		ServiceAccounts:   map[Hostname]map[int][]string{},
 		Start:             time.Now(),
 	}
 }
@@ -336,27 +345,6 @@ func (ps *PushContext) UpdateMetrics() {
 			pm.gauge.Set(0)
 		}
 	}
-}
-
-// SetSidecarScope identifies the sidecar scope object associated with this
-// proxy and updates the proxy Node. This is a convenience hack so that
-// callers can simply call push.Services(node) while the implementation of
-// push.Services can return the set of services from the proxyNode's
-// sidecar scope or from the push context's set of global services. Similar
-// logic applies to push.VirtualServices and push.DestinationRule. The
-// short cut here is useful only for CDS and parts of RDS generation code.
-//
-// Listener generation code will still use the SidecarScope object directly
-// as it needs the set of services for each listener port.
-func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
-	instances, err := ps.Env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		// TODO: fallback to node metadata labels
-		return
-	}
-
-	proxy.SidecarScope = ps.getSidecarScope(proxy, instances)
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
@@ -494,17 +482,6 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 	return ps.sidecarsByNamespace
 }
 
-// ServicePort returns the port model for the given service and port.
-func (ps *PushContext) ServicePort(hostname Hostname, port int) *Port {
-	portList := ps.ServicePort2Name[string(hostname)]
-	for i := range portList {
-		if portList[i] != nil && portList[i].Port == port {
-			return portList[i]
-		}
-	}
-	return nil
-}
-
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
@@ -559,15 +536,13 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
-	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, &Service{Hostname: hostname})
+	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
@@ -594,6 +569,11 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	ps.Env = env
 	var err error
 
+	// Must be initialized first
+	// as initServiceRegistry/VirtualServices/Destrules
+	// use the default export map
+	ps.initDefaultExportMaps()
+
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -612,12 +592,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	// Must be initialized in the end
-	if err = ps.InitSidecarScopes(env); err != nil {
+	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
 
-	// TODO: everything else that is used in config generation - the generation
-	// should not have any deps on config store.
 	ps.initDone = true
 	return nil
 }
@@ -633,15 +611,25 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
 		ns := s.Attributes.Namespace
-		switch s.Attributes.ConfigScope {
-		case networking.ConfigScope_PRIVATE:
-			ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-		default:
-			ps.publicServices = append(ps.publicServices, s)
+		if len(s.Attributes.ExportTo) == 0 {
+			if ps.defaultServiceExportTo[VisibilityPrivate] {
+				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+			} else if ps.defaultServiceExportTo[VisibilityPublic] {
+				ps.publicServices = append(ps.publicServices, s)
+			}
+		} else {
+			if s.Attributes.ExportTo[VisibilityPrivate] {
+				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+			} else {
+				ps.publicServices = append(ps.publicServices, s)
+			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
+
+	ps.initServiceAccounts(env, allServices)
+
 	return nil
 }
 
@@ -651,6 +639,19 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
+}
+
+// Caches list of service accounts in the registry
+func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
+	for _, svc := range services {
+		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		for _, port := range svc.Ports {
+			if port.Protocol == ProtocolUDP {
+				continue
+			}
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+		}
+	}
 }
 
 // Caches list of virtual services
@@ -726,18 +727,63 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
-		switch rule.ConfigScope {
-		case networking.ConfigScope_PRIVATE:
-			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-		default:
-			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+		if len(rule.ExportTo) == 0 {
+			// No exportTo in virtualService. Use the global default
+			// TODO: We currently only honor ., * and ~
+			if ps.defaultVirtualServiceExportTo[VisibilityPrivate] {
+				// add to local namespace only
+				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+			} else if ps.defaultVirtualServiceExportTo[VisibilityPublic] {
+				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+			}
+		} else {
+			// TODO: we currently only process the first element in the array
+			// and currently only consider . or * which maps to public/private
+			if Visibility(rule.ExportTo[0]) == VisibilityPrivate {
+				// add to local namespace only
+				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+			} else {
+				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
+				// and we currently only allow . or *. So treat this as public export
+				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+			}
 		}
 	}
 
 	return nil
 }
 
-// InitSidecarScopes synthesizes Sidecar CRDs into objects called
+func (ps *PushContext) initDefaultExportMaps() {
+	ps.defaultDestinationRuleExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
+			ps.defaultDestinationRuleExportTo[Visibility(e)] = true
+		}
+	} else {
+		// default to *
+		ps.defaultDestinationRuleExportTo[VisibilityPublic] = true
+	}
+
+	ps.defaultServiceExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultServiceExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
+			ps.defaultServiceExportTo[Visibility(e)] = true
+		}
+	} else {
+		ps.defaultServiceExportTo[VisibilityPublic] = true
+	}
+
+	ps.defaultVirtualServiceExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
+			ps.defaultVirtualServiceExportTo[Visibility(e)] = true
+		}
+	} else {
+		ps.defaultVirtualServiceExportTo[VisibilityPublic] = true
+	}
+}
+
+// initSidecarScopes synthesizes Sidecar CRDs into objects called
 // SidecarScope.  The SidecarScope object is a semi-processed view of the
 // service registry, and config state associated with the sidecar CRD. The
 // scope contains a set of inbound and outbound listeners, services/configs
@@ -749,7 +795,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 // When proxies connect to Pilot, we identify the sidecar scope associated
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
-func (ps *PushContext) InitSidecarScopes(env *Environment) error {
+func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -762,16 +808,30 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
 		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig))
+			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 	}
 
-	// prebuild default sidecar scopes for other namespaces that dont have a sidecar CRD object.
-	// Workloads in these namespaces can reach any service in the mesh - the default istio behavior
-	// The DefaultSidecarScopeForNamespace function represents this behavior.
+	// Hold reference root namespace's sidecar config
+	// Root namespace can have only one sidecar config object
+	// Currently we expect that it has no workloadSelectors
+	var rootNSConfig *Config
+	if env.Mesh.RootNamespace != "" {
+		for _, sidecarConfig := range sidecarConfigs {
+			if sidecarConfig.Namespace == env.Mesh.RootNamespace {
+				rootNSConfig = &sidecarConfig
+				break
+			}
+		}
+	}
+
+	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
+	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
+			// use the contents from the root namespace or the default if there is no root namespace
+			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
 		}
 	}
 
@@ -804,10 +864,11 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
+		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta))
 		// Store in an index for the config's namespace
 		// a proxy from this namespace will first look here for the destination rule for a given service
 		// This pool consists of both public/private destination rules.
-		// TODO: when exportTo is added to API, only add the rule here if exportTo is '.'
+		// TODO: when exportTo is fully supported, only add the rule here if exportTo is '.'
 		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
@@ -822,10 +883,24 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			namespaceLocalDestRules[configs[i].Namespace].destRule,
 			configs[i])
 
-		// This is the default for Istio 1.0 rules - config scope is public
-		// TODO: also check for meshConfig.defaultDestinationRuleExportTo setting
-		// if the rule's exportTo is empty
-		if rule.ConfigScope == networking.ConfigScope_PUBLIC {
+		isPubliclyExported := false
+		if len(rule.ExportTo) == 0 {
+			// No exportTo in destinationRule. Use the global default
+			// TODO: We currently only honor ., * and ~
+			if ps.defaultDestinationRuleExportTo[VisibilityPublic] {
+				isPubliclyExported = true
+			}
+		} else {
+			// TODO: we currently only process the first element in the array
+			// and currently only consider . or * which maps to public/private
+			if Visibility(rule.ExportTo[0]) != VisibilityPrivate {
+				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
+				// and we currently only allow . or *. So treat this as public export
+				isPubliclyExported = true
+			}
+		}
+
+		if isPubliclyExported {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]Hostname, 0),

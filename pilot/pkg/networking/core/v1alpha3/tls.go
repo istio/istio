@@ -117,9 +117,6 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	out := make([]*filterChainOpts, 0)
 	for _, config := range configs {
 		virtualService := config.Spec.(*v1alpha3.VirtualService)
-		// Ports marked as TLS will have SNI routing if and only if they have an accompanying
-		// virtual service for the same host, and the said virtual service has a TLS route block.
-		// Otherwise we treat ports marked as TLS as opaque TCP services.
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
@@ -137,6 +134,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 					matchHash := hashRuntimeTLSMatchPredicates(match)
 					if !matchHasBeenHandled[matchHash] {
 						out = append(out, &filterChainOpts{
+							metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort, config.ConfigMeta),
@@ -149,20 +147,24 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		}
 	}
 
-	// HTTPS or TLS ports without associated virtual service will be treated as opaque TCP traffic.
+	// HTTPS or TLS ports without associated virtual service
 	if !hasTLSMatch {
 		var clusterName string
+		var sniHosts []string
 		// The service could be nil if we are being called in the context of a sidecar config with
 		// user specified port in the egress listener. Since we dont know the destination service
 		// and this piece of code is establishing the final fallback path, we set the
 		// tcp proxy cluster to a blackhole cluster
 		if service != nil {
 			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, listenPort.Port)
+			// Use the hostname as the SNI value
+			sniHosts = []string{string(service.Hostname)}
 		} else {
 			clusterName = util.BlackHoleCluster
 		}
 
 		out = append(out, &filterChainOpts{
+			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationIPAddress},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
 		})
@@ -193,6 +195,7 @@ TcpLoop:
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
+					metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
 					destinationCIDRs: destinationCIDRs,
 					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 				})
@@ -216,6 +219,7 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
+							metadata:         util.BuildConfigInfoMetadata(config.ConfigMeta),
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),
 						})

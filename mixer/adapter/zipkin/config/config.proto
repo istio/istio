@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
 syntax = "proto3";
 
 // $title: Zipkin
-// $description: Adapter to deliver tracing to Zipkin
+// $description: Adapter to deliver tracing data to Zipkin.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/zipkin.html
-// $front_matter: redirect_from: /docs/reference/config/adapters/zipkin.html
+// $supported_templates: tracespan
 
-// The `zipkin` adapter enables Istio to deliver tracingn data to the
+// The `zipkin` adapter enables Istio to deliver tracing data to the
 // [Zipkin](https://cloud.google.com/zipkin/) tracing backend.
 //
-// This adapter supports the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html).
+// This adapter supports the [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
 package adapter.zipkin.config;
 
 import "gogoproto/gogo.proto";

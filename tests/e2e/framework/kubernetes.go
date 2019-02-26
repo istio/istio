@@ -47,6 +47,7 @@ const (
 	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	trustDomainFileNamespace       = "istio-one-namespace-trust-domain.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
 	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
 	mcRemoteInstallFile            = "istio-remote.yaml"
@@ -58,7 +59,7 @@ const (
 	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
-	maxDeploymentRolloutTime       = 480 * time.Second
+	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
@@ -97,6 +98,7 @@ var (
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
+	trustDomainEnable  = flag.Bool("trust_domain_enable", false, "Enable different trust domains (e.g. test.local)")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
@@ -202,6 +204,9 @@ func getClusterWideInstallFile() string {
 		} else {
 			istioYaml = nonAuthWithoutMCPInstallFile
 		}
+	}
+	if *trustDomainEnable {
+		istioYaml = trustDomainFileNamespace
 	}
 	return istioYaml
 }
@@ -648,6 +653,9 @@ func (k *KubeInfo) deployIstio() error {
 				istioYaml = mcAuthInstallFileNamespace
 			}
 		}
+		if *trustDomainEnable {
+			istioYaml = trustDomainFileNamespace
+		}
 		if *useGalleyConfigValidator {
 			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
@@ -902,13 +910,6 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	valFile := ""
 	if *valueFile != "" {
 		valFile = filepath.Join(workDir, *valueFile)
-	}
-
-	err = util.HelmDepUpdate(workDir)
-	if err != nil {
-		// helm dep upgrade
-		log.Errorf("Helm dep update failed %s", workDir)
-		return err
 	}
 
 	// helm install dry run - dry run seems to have problems
