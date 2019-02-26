@@ -504,7 +504,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		// 1. find proxy service by label selector, if not any, there may exist headless service
 		// failover to 2
 		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-		if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+		if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 			for _, svc := range services {
 				out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 			}
