@@ -18,9 +18,8 @@ DELETE=""
 export TIME_TO_RUN_PERF_TESTS=${TIME_TO_RUN_PERF_TESTS:-1200}
 
 
-# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
-# for existing resources types
 pushd ${GOPATH}/src/istio.io/tools/perf/servicegraph
+  WD=${GOPATH}/src/istio.io/tools/perf/servicegraph
   source common.sh
   start_servicegraphs "1" "0"
 popd
