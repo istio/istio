@@ -497,8 +497,8 @@ func TestProjectID(t *testing.T) {
 
 func TestSampler(t *testing.T) {
 
-	totalSpans := 10000
-	r := rand.NewSource(time.Now().UnixNano())
+	totalSpans := 100000
+	r := rand.NewSource(time.Now().UnixNano()).(rand.Source64)
 
 	cases := []struct {
 		name     string
@@ -521,9 +521,9 @@ func TestSampler(t *testing.T) {
 				tid := [16]byte{}
 				sid := [8]byte{}
 
-				binary.BigEndian.PutUint64(tid[0:], uint64(r.Int63()))
-				binary.BigEndian.PutUint64(tid[8:], uint64(r.Int63()))
-				binary.BigEndian.PutUint64(sid[0:], uint64(r.Int63()))
+				binary.BigEndian.PutUint64(tid[0:], r.Uint64())
+				binary.BigEndian.PutUint64(tid[8:], r.Uint64())
+				binary.BigEndian.PutUint64(sid[0:], r.Uint64())
 
 				d := sampler(
 					trace.SamplingParameters{

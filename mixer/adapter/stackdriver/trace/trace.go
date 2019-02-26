@@ -58,7 +58,7 @@ func sixtyFourBitTraceIDSampler(fraction float64) trace.Sampler {
 		if p.ParentContext.IsSampled() {
 			return trace.SamplingDecision{Sample: true}
 		}
-		x := binary.BigEndian.Uint64(p.TraceID[8:])
+		x := binary.BigEndian.Uint64(p.TraceID[8:]) >> 1
 		return trace.SamplingDecision{Sample: x < traceIDUpperBound}
 	})
 }
