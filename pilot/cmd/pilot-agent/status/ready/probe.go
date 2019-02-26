@@ -15,10 +15,9 @@
 package ready
 
 import (
-	"errors"
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
@@ -31,11 +30,14 @@ type Probe struct {
 
 // Check executes the probe and returns an error is the probe fails.
 func (p *Probe) Check() error {
-	if err := p.checkInboundConfigured(); err != nil {
+	// First, check that Envoy has received a configuration update from Pilot.
+	if err := p.checkUpdated(); err != nil {
 		return err
 	}
 
-	return p.checkUpdated()
+	// Envoy has received some configuration, make sure that configuration has been received for
+	// all inbound ports.
+	return p.checkInboundConfigured()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -77,5 +79,5 @@ func (p *Probe) checkUpdated() error {
 		return nil
 	}
 
-	return errors.New(s.String())
+	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 }
