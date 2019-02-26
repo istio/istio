@@ -442,7 +442,7 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *lis
 	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, option)
+	config := convertRbacRulesToFilterConfigV2(service, option)
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 	}
