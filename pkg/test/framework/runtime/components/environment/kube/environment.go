@@ -66,7 +66,13 @@ type Environment struct {
 
 // NewEnvironment factory function for the component
 func NewEnvironment() (api.Component, error) {
-	return &Environment{}, nil
+	var err error
+	e := &Environment{}
+	e.s, err = newSettings()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create setttings for kubernetes environment %v", err)
+	}
+	return e, nil
 }
 
 // GetEnvironment from the repository.
@@ -99,7 +105,7 @@ func (e *Environment) Scope() lifecycle.Scope {
 
 // IsMtlsEnabled checks in Values flag and Values file.
 func (e *Environment) IsMtlsEnabled() bool {
-	if e.s.Values["global.mtls.enabled"] == "true" {
+	if e.HelmValueMap()["global.mtls.enabled"] == "true" {
 		return true
 	}
 
@@ -171,21 +177,29 @@ func (e *Environment) MinikubeIngress() bool {
 // HelmValueMap returns the overrides for helm values.
 func (e *Environment) HelmValueMap() map[string]string {
 	out := make(map[string]string)
-	for k, v := range e.s.Values {
+	vals := e.s.Values()
+	for k, v := range vals {
 		out[k] = v
 	}
 	return out
 }
 
+// Configure implements pkg/test/framework/runtime/api/Configurable interface to allow customized
+// Istio deployments.
+func (e *Environment) Configure(config component.Configuration) error {
+	istioDeploymentConfig, ok := config.(IstioConfiguration)
+	if !ok {
+		return fmt.Errorf("supplied configuration was not an IstioConfiguration, got %T (%v)", config, config)
+	}
+	e.s.IstioDeploymentConfig = istioDeploymentConfig
+	scopes.CI.Debugf("Kubernetes environment specifies customized configuration %v", e.s.IstioDeploymentConfig)
+	return nil
+}
+
 // Start implements the api.Environment interface
 func (e *Environment) Start(ctx context.Instance, scope lifecycle.Scope) error {
 	e.scope = scope
-
 	var err error
-	e.s, err = newSettings()
-	if err != nil {
-		return err
-	}
 
 	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.s)
 
@@ -252,7 +266,7 @@ func (e *Environment) deployIstio() (err error) {
 		ChartDir:     e.s.ChartDir,
 		CrdsFilesDir: e.s.CrdsFilesDir,
 		ValuesFile:   e.s.ValuesFile,
-		Values:       e.s.Values,
+		Values:       e.HelmValueMap(),
 	})
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))

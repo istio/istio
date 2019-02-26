@@ -58,14 +58,15 @@ var (
 	helmValuesFromFlag string
 
 	globalSettings = &settings{
-		KubeConfig:      ISTIO_TEST_KUBE_CONFIG.Value(),
-		SystemNamespace: DefaultSystemNamespace,
-		DeployIstio:     true,
-		DeployTimeout:   DefaultDeployTimeout,
-		UndeployTimeout: DefaultUndeployTimeout,
-		ChartDir:        env.IstioChartDir,
-		CrdsFilesDir:    env.CrdsFilesDir,
-		ValuesFile:      DefaultValuesFile,
+		KubeConfig:            ISTIO_TEST_KUBE_CONFIG.Value(),
+		SystemNamespace:       DefaultSystemNamespace,
+		DeployIstio:           true,
+		DeployTimeout:         DefaultDeployTimeout,
+		UndeployTimeout:       DefaultUndeployTimeout,
+		ChartDir:              env.IstioChartDir,
+		CrdsFilesDir:          env.CrdsFilesDir,
+		ValuesFile:            DefaultValuesFile,
+		IstioDeploymentConfig: IstioConfiguration{map[string]string{}},
 	}
 
 	// Defaults for helm overrides.
@@ -77,8 +78,14 @@ var (
 		"galley.enabled":              "true",
 	}
 
-	helmOverridesByTest = map[string]string{}
+	// helmOverridesByTest = map[string]string{}
 )
+
+// IstioConfiguration specifies common cutomizable settings for Istio deployment.
+type IstioConfiguration struct {
+	// Values is Istio deployment Helm values overrides.
+	Values map[string]string
+}
 
 // settings provide kube-specific settings from flags.
 type settings struct {
@@ -121,13 +128,28 @@ type settings struct {
 	ValuesFile string
 
 	// Overrides for the Helm values file.
-	Values map[string]string
+	// Values                map[string]string
+	IstioDeploymentConfig IstioConfiguration
+}
+
+// String implements Configuration.String method, printing out all the Helm value pairs.
+func (isc IstioConfiguration) String() string {
+	out := "IstioConfiguration\nHelm Values:\n"
+	for k, v := range isc.Values {
+		out += fmt.Sprintf("  %v = %v\n", k, v)
+	}
+	return out
 }
 
 // RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
 // This allows some test to specify a customized Istio deployment by specifying additional Helm values.
-func RegisterHelmOverrides(values map[string]string) {
-	helmOverridesByTest = values
+// func RegisterHelmOverrides(values map[string]string) {
+// 	helmOverridesByTest = values
+// }
+
+// Values returns the Helm values used for Istio deployment.
+func (s *settings) Values() map[string]string {
+	return s.IstioDeploymentConfig.Values
 }
 
 // New returns settings built from flags and environment variables.
@@ -154,9 +176,12 @@ func newSettings() (*settings, error) {
 	}
 
 	var err error
-	s.Values, err = newHelmValues()
+	val, err := parseHelmValuesFromFlag()
 	if err != nil {
 		return nil, err
+	}
+	for k, v := range val {
+		s.IstioDeploymentConfig.Values[k] = v
 	}
 
 	return s, nil
@@ -180,7 +205,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues() (map[string]string, error) {
+func parseHelmValuesFromFlag() (map[string]string, error) {
 	valuesByFlag, err := parseHelmValues()
 	if err != nil {
 		return nil, err
@@ -192,11 +217,11 @@ func newHelmValues() (map[string]string, error) {
 		values[k] = v
 	}
 	// Copy the values specified by the test.
-	for k, v := range helmOverridesByTest {
-		values[k] = v
-	}
+	// for k, v := range helmOverridesByTest {
+	// 	values[k] = v
+	// }
 	// Reset the value overrides by the test.
-	helmOverridesByTest = map[string]string{}
+	// helmOverridesByTest = map[string]string{}
 
 	// Copy the user values.
 	for k, v := range valuesByFlag {
@@ -237,7 +262,7 @@ func (s *settings) String() string {
 	result += fmt.Sprintf("DeployTimeout:   %ds\n", s.DeployTimeout/time.Second)
 	result += fmt.Sprintf("UndeployTimeout: %ds\n", s.UndeployTimeout/time.Second)
 	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
-	result += fmt.Sprintf("Values:          %v\n", s.Values)
+	result += fmt.Sprintf("Values:          %v\n", s.Values())
 
 	return result
 }
