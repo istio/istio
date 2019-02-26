@@ -100,22 +100,18 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
-	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolHTTP:
-		filter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+	httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+	tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+
+	for cnum, lFilterChain := range mutable.Listener.FilterChains {
+		if util.IsHTTPFilterChain(lFilterChain) {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+		} else {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 		}
-		return nil
-	case plugin.ListenerProtocolTCP:
-		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
-		}
-		return nil
 	}
 
-	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
+	return nil
 }
 
 // OnInboundListener implements the Callbacks interface method.
