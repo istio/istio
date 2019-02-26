@@ -92,13 +92,13 @@ e2e_all: istioctl generate_e2e_yaml e2e_all_run
 e2e_simple_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
-	--valueFile tests-values/values-e2e.yaml \
+	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
-	--valueFile tests-values/values-e2e.yaml \
+	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
