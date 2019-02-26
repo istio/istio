@@ -100,18 +100,36 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
-	httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
-	tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
-
-	for cnum, lFilterChain := range mutable.Listener.FilterChains {
-		if util.IsHTTPFilterChain(lFilterChain) {
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
+		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
-		} else {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 		}
+		return nil
+	case plugin.ListenerProtocolTCP:
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+			// For gateways, due to TLS termination, a listener marked as TCP could very well
+			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
+			// to decide the type of filter to attach
+			httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+			for cnum := range mutable.FilterChains {
+				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
+			}
+		} else {
+			for cnum := range mutable.FilterChains {
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
+		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
 }
 
 // OnInboundListener implements the Callbacks interface method.

@@ -68,6 +68,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
 		if protocol.IsHTTP() {
 			// This is not a HTTPS or TLS server. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
@@ -102,6 +103,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
 
+		// Begin shady logic
+		// buildListener builds an empty array of filters in the listener struct
+		// mutable object above has a FilterChains field that has same number of empty structs (matching number of
+		// filter chains). All plugins iterate over this array, and fill up the HTTP or TCP part of the
+		// plugin.FilterChain struct.
+		// TODO: need a cleaner way of communicating this info
+		for i := range mutable.FilterChains {
+			if opts.filterChainOpts[i].httpOpts != nil {
+				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolHTTP
+			} else {
+				mutable.FilterChains[i].ListenerProtocol = plugin.ListenerProtocolTCP
+			}
+		}
+		// end shady logic
+
 		var si *model.ServiceInstance
 		for _, w := range workloadInstances {
 			if w.Endpoint.Port == int(portNumber) {
@@ -111,10 +127,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		pluginParams := &plugin.InputParams{
-			// NOTE: we are explicitly not setting the listener protocol here
-			// as gateway listeners could have multiple filter chains
-			// all plugins will look into the filter chain to determine if they
-			// are operating on a filter chain with http connection manager or not
+			ListenerProtocol: listenerProtocol,
 			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
 			Env:              env,
 			Node:             node,

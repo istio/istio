@@ -106,6 +106,9 @@ type FilterChain struct {
 	// ListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
 	ListenerFilters []listener.ListenerFilter
+	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
+	// Note that HTTP filter chains can also have network filters
+	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
