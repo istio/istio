@@ -16,10 +16,11 @@ package mcptest
 
 import (
 	"fmt"
-	"google.golang.org/grpc"
 	"io"
 	"net"
 	"net/url"
+
+	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/server"
