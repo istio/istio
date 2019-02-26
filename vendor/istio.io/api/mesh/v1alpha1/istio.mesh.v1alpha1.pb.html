@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 19
+number_of_entries: 20
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -1030,6 +1030,38 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 <td><code><a href="#Tracing-Lightstep">Tracing.Lightstep (oneof)</a></code></td>
 <td>
 <p>Use a LightStep tracer.</p>
+
+</td>
+</tr>
+<tr id="Tracing-datadog" class="oneof">
+<td><code>datadog</code></td>
+<td><code><a href="#Tracing-Datadog">Tracing.Datadog (oneof)</a></code></td>
+<td>
+<p>Use a Datadog tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Datadog">Tracing.Datadog</h2>
+<section>
+<p>Datadog defines configuration for a Datadog tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Datadog-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Datadog Agent.</p>
 
 </td>
 </tr>
