@@ -113,7 +113,7 @@ type Options struct {
 	Watcher            Watcher
 	CollectionsOptions []CollectionOptions
 	Reporter           monitoring.Reporter
-	ConnRateLimiter    rate.ConnectionRateLimit
+	ConnRateLimiter    rate.LimitFactory
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -131,7 +131,7 @@ type Source struct {
 	nextStreamID   int64
 	reporter       monitoring.Reporter
 	connections    int64
-	requestLimiter rate.ConnectionRateLimit
+	requestLimiter rate.LimitFactory
 }
 
 // watch maintains local push state of the most recent watch per-type.

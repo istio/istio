@@ -26,8 +26,8 @@ type Limit interface {
 	Wait(ctx context.Context) (err error)
 }
 
-// ConnectionRateLimit is an interface for creating per-connection rate limiters
-type ConnectionRateLimit interface {
+// LimitFactory is an interface for creating per-connection rate limiters
+type LimitFactory interface {
 	Create() Limit
 }
 

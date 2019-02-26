@@ -173,7 +173,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Watcher:            distributor,
 		Reporter:           s.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
-		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): These should be configurable
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
 	if a.SinkAddress != "" {
@@ -188,7 +188,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
-		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): These should be configurable
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 	s.mcpSource = source.NewServer(options, serverOptions)
 
