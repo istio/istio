@@ -788,7 +788,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			l = filteredCLA
 		}
 
-		// If location prioritised load balancing is enabled, prioritise endpoints.
+		// If location prioritized load balancing is enabled, prioritize endpoints.
 		if pilot.EnableLocalityLoadBalancing() {
 			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
 		}
