@@ -654,7 +654,7 @@ func TestHeadersManipulations(t *testing.T) {
 	}
 }
 
-func TestDestinationRuleConfigScope(t *testing.T) {
+func TestDestinationRuleExportTo(t *testing.T) {
 	var cfgs []*deployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
