@@ -250,8 +250,11 @@ func (s *Source) processStream(stream Stream) error {
 			if !more {
 				return con.reqError
 			}
-			if err := con.limiter.Wait(stream.Context()); err != nil {
-				return err
+			if con.limiter != nil {
+				if err := con.limiter.Wait(stream.Context()); err != nil {
+					return err
+				}
+
 			}
 			if err := con.processClientRequest(req); err != nil {
 				return err

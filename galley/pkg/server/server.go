@@ -173,7 +173,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Watcher:            distributor,
 		Reporter:           s.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
-		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): These should be configurable
 	}
 
 	if a.SinkAddress != "" {
@@ -188,7 +188,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
-		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100),
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): These should be configurable
 	}
 	s.mcpSource = source.NewServer(options, serverOptions)
 

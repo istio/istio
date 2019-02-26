@@ -67,8 +67,11 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 
 // EstablishResourceStream implements the ResourceSourceServer interface.
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishResourceStreamServer) error {
-	if err := s.rateLimiter.Wait(stream.Context()); err != nil {
-		return err
+	if s.rateLimiter != nil {
+		if err := s.rateLimiter.Wait(stream.Context()); err != nil {
+			return err
+		}
+
 	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
