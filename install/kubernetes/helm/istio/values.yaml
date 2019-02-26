@@ -406,8 +406,8 @@ global:
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
   # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
-  defaultConfigVisibilitySettings:
-  - '*'
+  #defaultConfigVisibilitySettings:
+  #- '*'
 
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
