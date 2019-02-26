@@ -204,7 +204,7 @@ func TestSecretContent(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		[]string{metav1.NamespaceAll}, map[string]DNSNameEntry{})
+		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}

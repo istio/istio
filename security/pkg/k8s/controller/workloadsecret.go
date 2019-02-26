@@ -112,7 +112,7 @@ type SecretController struct {
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespaces []string,
-	dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
