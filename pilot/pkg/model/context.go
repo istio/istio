@@ -541,7 +541,7 @@ const (
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
 	NodeMetadataInstanceIPs = "INSTANCE_IPS"
 
-	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
+	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 
