@@ -167,11 +167,16 @@ type connection struct {
 
 // New creates a new resource source.
 func New(options *Options) *Source {
+	requestLimiter := options.ConnRateLimiter
+	if requestLimiter == nil {
+		requestLimiter = internal.NewNoopConnRateLimiter()
+	}
+
 	s := &Source{
 		watcher:        options.Watcher,
 		collections:    options.CollectionsOptions,
 		reporter:       options.Reporter,
-		requestLimiter: options.ConnRateLimiter,
+		requestLimiter: requestLimiter,
 	}
 	return s
 }
