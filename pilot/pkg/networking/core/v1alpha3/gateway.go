@@ -57,19 +57,25 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for portNumber, servers := range mergedGateway.Servers {
-		protocol := model.ParseProtocol(servers[0].Port.Protocol)
-		if protocol == model.ProtocolHTTPS {
-			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
-			// This is complicated. We have multiple servers. One of these servers could have passthrough HTTPS while
-			// others could be a simple/mutual TLS.
-			// The code as it is, is not capable of handling this mixed listener type and set up the proper SNI chains
-			// such that the passthrough ones go through a TCP proxy while others get terminated and go through http connection
-			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
-			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
-			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
-			if servers[0].Tls != nil && !model.IsPassThroughServer(servers[0]) {
-				protocol = model.ProtocolHTTP2
+		serversByProtocol := map[plugin.ListenerProtocol][]*networking.Server{}
+		for _, server := range servers {
+			protocol := model.ParseProtocol(server.Port.Protocol)
+			if protocol == model.ProtocolHTTPS {
+				// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
+				// This is complicated. We have multiple servers. One of these servers could have passthrough HTTPS while
+				// others could be a simple/mutual TLS.
+				// The code as it is, is not capable of handling this mixed listener type and set up the proper SNI chains
+				// such that the passthrough ones go through a TCP proxy while others get terminated and go through http connection
+				// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
+				// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
+				// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
+				if servers[0].Tls != nil && !model.IsPassThroughServer(server) {
+					protocol = model.ProtocolHTTP2
+				}
 			}
+
+			listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
+			serversByProtocol[listenerType] = append(serversByProtocol[listenerType], server)
 		}
 
 		opts := buildListenerOpts{
@@ -79,17 +85,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			port:       int(portNumber),
 			bindToPort: true,
 		}
-		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
-		switch listenerType {
-		case plugin.ListenerProtocolHTTP:
-			// virtualService.HTTP applies here for both plain text HTTP and HTTPS termination
-			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
-		case plugin.ListenerProtocolTCP:
-			// virtualService.TLS/virtualService.TCP applies here
-			opts.filterChainOpts = configgen.createGatewayTCPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
-		default:
-			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
-			continue
+		for listenerType := range serversByProtocol {
+			switch listenerType {
+			case plugin.ListenerProtocolHTTP:
+				// virtualService.HTTP applies here for both plain text HTTP and HTTPS termination
+				filterChainOpts := configgen.createGatewayHTTPFilterChainOpts(node, serversByProtocol[listenerType])
+				opts.filterChainOpts = append(opts.filterChainOpts, filterChainOpts...)
+			case plugin.ListenerProtocolTCP:
+				// virtualService.TLS/virtualService.TCP applies here
+				filterChainOpts := configgen.createGatewayTCPFilterChainOpts(node, env, push, serversByProtocol[listenerType], mergedGateway.Names)
+				opts.filterChainOpts = append(opts.filterChainOpts, filterChainOpts...)
+			default:
+				log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
+				continue
+			}
 		}
 
 		l := buildListener(opts)
@@ -108,30 +117,31 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			}
 		}
 
-		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerType,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   workloadInstances,
-			Push:             push,
-			ServiceInstance:  si,
-			Port: &model.Port{
-				Name:     servers[0].Port.Name,
-				Port:     int(portNumber),
-				Protocol: protocol,
-			},
-		}
-		for _, p := range configgen.Plugins {
-			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
+		for listenerType := range serversByProtocol {
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: listenerType,
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   workloadInstances,
+				Push:             push,
+				ServiceInstance:  si,
+				Port: &model.Port{
+					Name: servers[0].Port.Name,
+					Port: int(portNumber),
+				},
 			}
-		}
+			for _, p := range configgen.Plugins {
+				if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
+					log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
+				}
+			}
 
-		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
-			continue
+			// Filters are serialized one time into an opaque struct once we have the complete list.
+			if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+				continue
+			}
 		}
 
 		if err := mutable.Listener.Validate(); err != nil {
@@ -296,7 +306,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // to process HTTP and HTTPS servers along with virtualService.HTTP rules
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
+	node *model.Proxy, servers []*networking.Server) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or HTTPS servers?
