@@ -203,11 +203,7 @@ func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc) C
 		ch <- struct{}{}
 	}
 
-	return func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		delete(h.watchResponses, req.Collection)
-	}
+	return func() {}
 }
 
 func (h *sourceTestHarness) injectWatchResponse(response *WatchResponse) {
@@ -220,6 +216,7 @@ func (h *sourceTestHarness) injectWatchResponse(response *WatchResponse) {
 		for _, watch := range watches {
 			watch(response)
 		}
+		delete(h.pushResponseFuncs, collection)
 	} else {
 		h.watchResponses[collection] = response
 	}
