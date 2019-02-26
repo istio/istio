@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/plugin/ochttp/propagation/b3"
@@ -52,7 +53,7 @@ func sixtyFourBitTraceIDSampler(fraction float64) trace.Sampler {
 		return trace.AlwaysSample()
 	}
 
-	traceIDUpperBound := uint64(fraction * (1 << 63))
+	traceIDUpperBound := uint64(fraction * math.MaxInt64)
 	return trace.Sampler(func(p trace.SamplingParameters) trace.SamplingDecision {
 		if p.ParentContext.IsSampled() {
 			return trace.SamplingDecision{Sample: true}
