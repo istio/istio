@@ -537,7 +537,7 @@ func TestSampler(t *testing.T) {
 				}
 			}
 			expect := float64(totalSpans) * v.fraction
-			fudge := expect * 0.1 // allow 10 percent fudge
+			fudge := expect * 0.2 // allow 20 percent fudge
 			if got, upperBound, lowerBound := samples, int(expect+fudge), int(expect-fudge); got < lowerBound || got > upperBound {
 				tt.Errorf("Got %d samples, wanted at least %d and at most %d", got, lowerBound, upperBound)
 			}
