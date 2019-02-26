@@ -35,7 +35,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	_ "istio.io/istio/galley/pkg/metadata" // Import the resource package to pull in all proto types.
-	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -404,13 +403,7 @@ func main() {
 
 	ctx := context.Background()
 
-	if *useResourceSourceService {
-		cl := mcp.NewResourceSourceClient(conn)
-		c := sink.NewClient(cl, options)
-		c.Run(ctx)
-	} else {
-		cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-		c := client.New(cl, options)
-		c.Run(ctx)
-	}
+	cl := mcp.NewResourceSourceClient(conn)
+	c := sink.NewClient(cl, options)
+	c.Run(ctx)
 }

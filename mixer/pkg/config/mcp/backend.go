@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
@@ -200,22 +199,10 @@ func (b *backend) Init(kinds []string) error {
 		Reporter:          b.mcpReporter,
 	}
 
-	// TODO - temporarily support both the new and old stack during transition
-	if os.Getenv("USE_MCP_LEGACY") == "1" {
-		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
-
-		cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-		c := client.New(cl, options)
-		configz.Register(c)
-		go c.Run(ctx)
-	} else {
-		log.Infof("Using new MCP client sink stack")
-
-		cl := mcp.NewResourceSourceClient(conn)
-		c := sink.NewClient(cl, options)
-		configz.Register(c)
-		go c.Run(ctx)
-	}
+	cl := mcp.NewResourceSourceClient(conn)
+	c := sink.NewClient(cl, options)
+	configz.Register(c)
+	go c.Run(ctx)
 
 	b.state = &state{
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
