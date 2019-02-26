@@ -190,7 +190,7 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	case v1.ProtocolUDP:
 		out = model.ProtocolUDP
 	case v1.ProtocolTCP:
-		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb){
+		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 			out = model.ProtocolGRPCWeb
 			break
 		}
