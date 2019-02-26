@@ -76,15 +76,15 @@ var (
 		Targets: []*authn.TargetSelector{{
 			Name: "service-foo",
 		}},
-		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
-		},
-	}
+                Peers: []*authn.PeerAuthenticationMethod{{
+                       Params: &authn.PeerAuthenticationMethod_Mtls{}},
+                },
+        }
 
-	authnPolicy1 = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
-		},
+        authnPolicy1 = &authn.Policy{
+          Peers: []*authn.PeerAuthenticationMethod{{
+            Params: &authn.PeerAuthenticationMethod_Mtls{}},
+          },
 	}
 
 	serviceEntry = &networking.ServiceEntry{
