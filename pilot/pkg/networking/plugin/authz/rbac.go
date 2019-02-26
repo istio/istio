@@ -177,9 +177,9 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	return true
 }
 
-// matchV2 checks if the calling service is matched with the selector in the AuthorizationPolicy if
+// isServiceMatchedWorkload checks if the calling service is matched with the selector in the AuthorizationPolicy if
 // present.
-func (service serviceMetadata) matchV2(labels map[string]string) bool {
+func (service serviceMetadata) isServiceMatchedWorkload(labels map[string]string) bool {
 	// Check if labels with |key| and |value| exist in service.
 	for key, value := range labels {
 		actualValue, present := service.labels[key]
@@ -466,7 +466,6 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *lis
 // service which is co-located with the sidecar proxy.
 func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *http_conn.HttpFilter {
 	option.forTCPFilter = false
-	//config := convertRbacRulesToFilterConfig(service, option)
 	config := convertRbacRulesToFilterConfigV2(service, option)
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	out := &http_conn.HttpFilter{
@@ -482,6 +481,8 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *ht
 	return out
 }
 
+// convertRbacRulesToFilterConfigV2 is the successor of convertRbacRulesToFilterConfig, which supports
+// converting AuthorizationPolicy.
 func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOption) *http_config.RBAC {
 	rbac := &policyproto.RBAC{
 		Action:   policyproto.RBAC_ALLOW,
@@ -498,12 +499,20 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 
 	// Get all AuthorizationPolicy Istio config from this namespace.
 	allAuthzPolicies := option.authzPolicies.NamespaceToAuthorizationConfigV2[namespace].AuthzPolicies
+	// If there is no AuthorizationPolicy in this namespace, try converting using the old converting function.
+	if len(allAuthzPolicies) == 0 {
+		return convertRbacRulesToFilterConfig(service, option)
+	} else if option.globalPermissiveMode {
+		// Permissive Mode will be ignored.
+		// TODO(pitlv2109): Handle permissive mode in the future.
+		return &http_config.RBAC{Rules: rbac}
+	}
 	// Get all key-value pairs of AuthorizationPolicy name to list of Subjects/ServiceRoleBindings in this namespace.
 	authzPolicyToSubjects := option.authzPolicies.AuthzPolicyToAllowSubjects(namespace)
 	for _, authzPolicy := range allAuthzPolicies {
 		// If a WorkloadSelector is used in the AuthorizationPolicy config and does not match this service, skip this
 		// AuthorizationPolicy.
-		if authzPolicy.Policy.WorkloadSelector != nil && !service.matchV2(authzPolicy.Policy.WorkloadSelector.Labels) {
+		if authzPolicy.Policy.WorkloadSelector != nil && !service.isServiceMatchedWorkload(authzPolicy.Policy.WorkloadSelector.Labels) {
 			continue
 		}
 		for i, subject := range authzPolicyToSubjects[authzPolicy.Name] {
