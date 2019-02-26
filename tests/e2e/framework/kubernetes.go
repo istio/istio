@@ -1024,10 +1024,12 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
 
-	if *useMCP {
-		setValue += " --set galley.enabled=true --set global.useMCP=true"
+	if *useMCP && *useGalleyConfigValidator {
+		setValue += " --set galley.enabled=true --set global.useMCP=true --set global.configValidation=true"
+	} else if *useMCP {
+		setValue += " --set galley.enabled=true --set global.useMCP=true --set global.configValidation=false"
 	} else if *useGalleyConfigValidator {
-		setValue += " --set galley.enabled=true --set global.useMCP=false"
+		setValue += " --set galley.enabled=true --set global.useMCP=false --set global.configValidation=true"
 	} else {
 		setValue += " --set galley.enabled=false --set global.useMCP=false"
 	}

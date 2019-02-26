@@ -62,6 +62,9 @@ spec:
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
+{{- if not $.Values.global.configValidation }}
+          - --enable-validation=false
+{{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}

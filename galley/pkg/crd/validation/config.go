@@ -147,6 +147,34 @@ func createOrUpdateWebhookConfigHelper(
 	return false, nil
 }
 
+// Delete validatingwebhookconfiguration if the validation is disabled
+func (whc *WebhookConfigController) deleteWebhookConfig() {
+	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	deleted, err := deleteWebhookConfigHelper(client, whc.webhookParameters.WebhookName)
+	if err != nil {
+		scope.Errorf("%v validatingwebhookconfiguration delete failed: %v", whc.webhookParameters.WebhookName, err)
+		reportValidationConfigDeleteError(err)
+	}
+	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookParameters.WebhookName, deleted)
+}
+
+// Delete validatingwebhookconfiguration if exists. otherwise, do nothing
+func deleteWebhookConfigHelper(
+	client admissionregistration.ValidatingWebhookConfigurationInterface,
+	webhookName string,
+) (bool, error) {
+	_, err := client.Get(webhookName, v1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	err = client.Delete(webhookName, &v1.DeleteOptions{})
+	return true, err
+}
+
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
 func (whc *WebhookConfigController) rebuildWebhookConfig() error {
 	webhookConfig, err := rebuildWebhookConfigHelper(
@@ -360,8 +388,12 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 				whc.createOrUpdateWebhookConfig()
 			}
 		case <-webhookChangedCh:
-			// reconcile the desired configuration
-			whc.createOrUpdateWebhookConfig()
+			if !whc.webhookParameters.EnableValidation {
+				whc.deleteWebhookConfig()
+			} else {
+				// reconcile the desired configuration
+				whc.createOrUpdateWebhookConfig()
+			}
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)

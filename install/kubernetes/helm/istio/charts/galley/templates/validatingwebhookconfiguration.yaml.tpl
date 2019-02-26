@@ -10,7 +10,6 @@ metadata:
     release: {{ .Release.Name }}
     istio: galley
 webhooks:
-{{- if .Values.global.configValidation }}
   - name: pilot.validation.istio.io
     clientConfig:
       service:
@@ -116,5 +115,4 @@ webhooks:
         - zipkins
     failurePolicy: Fail
     sideEffects: None
-{{- end }}
 {{- end }}

@@ -84,6 +84,10 @@ var (
 		"galley/validation_config_updates",
 		"k8s webhook configuration updates",
 		stats.UnitDimensionless)
+	metricWebhookConfigurationDeleteError = stats.Int64(
+		"galley/validation/config_delete_error",
+		"k8s webhook configuration delete error",
+		stats.UnitDimensionless)
 	metricWebhookConfigurationLoadError = stats.Int64(
 		"galley/validation/config_load_error",
 		"k8s webhook configuration (re)load error",
@@ -188,6 +192,15 @@ func reportValidationConfigUpdateError(err error) {
 		scope.Errorf("Error creating monitoring context for reportValidationConfigUpdateError: %v", err)
 	} else {
 		stats.Record(ctx, metricWebhookConfigurationUpdateError.M(1))
+	}
+}
+
+func reportValidationConfigDeleteError(err error) {
+	ctx, err := tag.New(context.Background(), tag.Insert(ErrorTag, err.Error()))
+	if err != nil {
+		scope.Errorf("Error creating monitoring context for reportValidationConfigDeleteError: %v", err)
+	} else {
+		stats.Record(ctx, metricWebhookConfigurationDeleteError.M(1))
 	}
 }
 

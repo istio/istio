@@ -385,6 +385,39 @@ func checkCert(t *testing.T, whc *WebhookConfigController, cert, key []byte) boo
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
+func TestDeleteValidatingWebhookConfig(t *testing.T) {
+
+	initConfig := initValidatingWebhookConfiguration()
+
+	t.Run("WebhookConfigDeleted", func(t *testing.T) {
+
+		client := fake.NewSimpleClientset(initConfig)
+		whc, cancel := createTestWebhookConfigController(t,
+			client,
+			createFakeWebhookSource(),
+			initConfig)
+		defer cancel()
+
+		_, err := rebuildWebhookConfigHelper(whc.webhookParameters.CACertFile, whc.webhookParameters.WebhookConfigFile,
+			whc.webhookParameters.WebhookName, whc.ownerRefs)
+		if err != nil {
+			t.Fatalf("Got unexpected error: %v", err)
+		}
+
+		validateClient := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+		//delete the webhook config
+		whc.deleteWebhookConfig()
+		//delete webhook config again to test
+		deleted, err := deleteWebhookConfigHelper(validateClient, whc.webhookParameters.WebhookName)
+		if err != nil {
+			t.Fatalf("Delete ValidatingWebhookConfigure failed: %v", err)
+		}
+		if deleted {
+			t.Errorf("Delete ValidatingWebhookConfigure failed in the first time")
+		}
+	})
+}
+
 func TestReloadCert(t *testing.T) {
 	whc, cleanup := createTestWebhookConfigController(t,
 		fake.NewSimpleClientset(),
