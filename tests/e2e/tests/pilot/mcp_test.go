@@ -49,7 +49,6 @@ var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 func TestPilotMCPClient(t *testing.T) {
-	t.Skip() // TODO: Just for testing.
 	g := gomega.NewGomegaWithT(t)
 
 	var err error
