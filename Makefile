@@ -672,12 +672,15 @@ e2e_files = istio-auth-non-mcp.yaml \
 			istio-minimal.yaml \
 			istio-multicluster.yaml \
 
-.PHONY: generate_e2e_yaml
+.PHONY: generate_e2e_yamlgenerate_e2e_yaml_coredump
 generate_e2e_yaml: $(e2e_files)
+
+generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
+generate_e2e_yaml_coredump:
+	$(MAKE) generate_e2e_yaml
 
 # Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
 $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
-	echo "todo"
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \

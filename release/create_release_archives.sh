@@ -159,10 +159,7 @@ done
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
-
-for unwanted_values_yaml in "test-values/*"; do
-  rm -f "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/${unwanted_values_yaml}"
-done
+rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/test-values/"
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 
