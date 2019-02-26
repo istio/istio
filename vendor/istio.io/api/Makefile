@@ -20,10 +20,11 @@ pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
 repo_mount := $(mount_dir)/istio.io/api
-docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
+uid := $(shell id -u)
+docker_gen := docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
 out_path = .
-docker_lock = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
-docker_tool = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
+docker_lock = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
+docker_tool = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
 endif
 
 ########################
