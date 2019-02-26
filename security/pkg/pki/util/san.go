@@ -82,7 +82,7 @@ func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 				ip = eip
 			}
 			ids = append(ids, Identity{Type: TypeIP, Value: ip})
-		} else if strings.HasPrefix(host, spiffe.Scheme+":") {
+		} else if strings.HasPrefix(host, spiffe.URIPrefix) {
 			ids = append(ids, Identity{Type: TypeURI, Value: []byte(host)})
 		} else {
 			ids = append(ids, Identity{Type: TypeDNS, Value: []byte(host)})
