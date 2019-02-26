@@ -190,7 +190,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, err
 	}
 	block, _ := pem.Decode(b)
-	if block != nil {
+	if block == nil {
 		return nil, fmt.Errorf("invalid PEM encoded certificate")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
