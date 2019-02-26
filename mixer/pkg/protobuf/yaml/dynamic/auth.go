@@ -22,8 +22,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"reflect"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -134,7 +132,6 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		}
 		opts := x509.VerifyOptions{
 			Roots:         caCertPool,
-			CurrentTime:   time.Now(),
 			Intermediates: x509.NewCertPool(),
 		}
 
@@ -154,7 +151,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		}
 		for _, uri := range certs[0].URIs {
 			for _, whitelisted := range whitelistSAN {
-				if reflect.DeepEqual(uri, whitelisted) {
+				if uri.String() == whitelisted.String() {
 					return nil
 				}
 			}
@@ -164,7 +161,6 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 
 	tc := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{peerCert},
-		RootCAs:      caCertPool,
 		// For mtls, skip default cert verification and use the custom one, which basically replicates the
 		// default verification logic. The only difference is that it checks subject alt name to be
 		// whitelisted spiffe URI instead of checking DNS/server name.
