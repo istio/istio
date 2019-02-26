@@ -57,10 +57,14 @@ type ServerOptions struct {
 
 // NewServer creates a new instance of a MCP source server.
 func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
+	rateLimiter := serverOptions.RateLimiter
+	if rateLimiter == nil {
+		rateLimiter = internal.NewNoopRateLimiter()
+	}
 	s := &Server{
 		src:         New(srcOptions),
 		authCheck:   serverOptions.AuthChecker,
-		rateLimiter: serverOptions.RateLimiter,
+		rateLimiter: rateLimiter,
 	}
 	return s
 }
