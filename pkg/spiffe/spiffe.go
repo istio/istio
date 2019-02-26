@@ -12,6 +12,7 @@ const (
 
 	// The default SPIFFE URL value for trust domain
 	defaultTrustDomain = "cluster.local"
+	uriPrefix          = Scheme + "://"
 )
 
 var trustDomain = defaultTrustDomain
@@ -67,5 +68,5 @@ func GenCustomSpiffe(identity string) string {
 
 	// replace specifial character in spiffe
 	trustDomain = strings.Replace(trustDomain, "@", ".", -1)
-	return fmt.Sprintf(Scheme+"://%s/%s", trustDomain, identity)
+	return uriPrefix + trustDomain + "/" + identity
 }
