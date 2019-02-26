@@ -52,7 +52,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// statsPatterns gives the developer control over Envoy stats collection
-	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/v1alpha1/statsInclusionPrefixes"
+	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
 )
 
 var (
