@@ -93,7 +93,7 @@ distribution of traffic to endpoints based on the localities of where the
 traffic originates and where it will terminate. These localities are
 specified using arbitrary labels that designate a hierarchy of localities in
 &lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
-https://www.envoyproxy.io/docs/envoy/latest/intro/arch<em>overview/load</em>balancing/locality_weight
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
 The following example shows how to setup locality weights mesh-wide.</p>
 
 <p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
@@ -475,7 +475,7 @@ can be configured for a single control plane.</p>
 <td><code>string</code></td>
 <td>
 <p>The trust domain corresponds to the trust root of a system.
-Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+Refer to <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain">SPIFEE-ID</a>
 Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
@@ -893,6 +893,16 @@ DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 <td><code>string</code></td>
 <td>
 <p>IP Address and Port of a statsd UDP listener (e.g. <em>10.75.241.127:9125</em>).</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig-envoy_metrics_service_address">
+<td><code>envoyMetricsServiceAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+for details about Envoy&rsquo;s Metrics Service API.</p>
 
 </td>
 </tr>

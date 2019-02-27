@@ -3,16 +3,23 @@
 
 package v1alpha3
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // CaptureMode describes how traffic to a listener is expected to be
 // captured. Applicable only when the listener is bound to an IP.
@@ -36,6 +43,7 @@ var CaptureMode_name = map[int32]string{
 	1: "IPTABLES",
 	2: "NONE",
 }
+
 var CaptureMode_value = map[string]int32{
 	"DEFAULT":  0,
 	"IPTABLES": 1,
@@ -45,7 +53,10 @@ var CaptureMode_value = map[string]int32{
 func (x CaptureMode) String() string {
 	return proto.EnumName(CaptureMode_name, int32(x))
 }
-func (CaptureMode) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{0} }
+
+func (CaptureMode) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_b5c11342f04ad3d1, []int{0}
+}
 
 // `Sidecar` describes the configuration of the sidecar proxy that mediates
 // inbound and outbound communication to the workload it is attached to. By
@@ -129,24 +140,55 @@ type Sidecar struct {
 	// sidecar configuration should be applied. If omitted, the sidecar
 	// configuration will be applied to all workloads in the same config
 	// namespace.
-	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector" json:"workload_selector,omitempty"`
+	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector,proto3" json:"workload_selector,omitempty"`
 	// Ingress specifies the configuration of the sidecar for processing
 	// inbound traffic to the attached workload. If omitted, Istio will
 	// autoconfigure the sidecar based on the information about the workload
 	// obtained from the orchestration platform (e.g., exposed ports, services,
 	// etc.).
-	Ingress []*IstioIngressListener `protobuf:"bytes,2,rep,name=ingress" json:"ingress,omitempty"`
+	Ingress []*IstioIngressListener `protobuf:"bytes,2,rep,name=ingress,proto3" json:"ingress,omitempty"`
 	// Egress specifies the configuration of the sidecar for processing
 	// outbound traffic from the attached workload to other services in the
 	// mesh. If omitted, Istio will autoconfigure the sidecar to be able to
 	// reach every service in the mesh that is visible to this namespace.
-	Egress []*IstioEgressListener `protobuf:"bytes,3,rep,name=egress" json:"egress,omitempty"`
+	Egress               []*IstioEgressListener `protobuf:"bytes,3,rep,name=egress,proto3" json:"egress,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *Sidecar) Reset()                    { *m = Sidecar{} }
-func (m *Sidecar) String() string            { return proto.CompactTextString(m) }
-func (*Sidecar) ProtoMessage()               {}
-func (*Sidecar) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{0} }
+func (m *Sidecar) Reset()         { *m = Sidecar{} }
+func (m *Sidecar) String() string { return proto.CompactTextString(m) }
+func (*Sidecar) ProtoMessage()    {}
+func (*Sidecar) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b5c11342f04ad3d1, []int{0}
+}
+func (m *Sidecar) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Sidecar) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Sidecar.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Sidecar) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Sidecar.Merge(m, src)
+}
+func (m *Sidecar) XXX_Size() int {
+	return m.Size()
+}
+func (m *Sidecar) XXX_DiscardUnknown() {
+	xxx_messageInfo_Sidecar.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Sidecar proto.InternalMessageInfo
 
 func (m *Sidecar) GetWorkloadSelector() *WorkloadSelector {
 	if m != nil {
@@ -175,7 +217,7 @@ type IstioIngressListener struct {
 	// REQUIRED. The port associated with the listener. If using
 	// unix domain socket, use 0 as the port number, with a valid
 	// protocol.
-	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
+	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// The ip or the unix domain socket to which the listener should be bound
 	// to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
 	// abstract namespace). If omitted, Istio will autoconfigure the defaults
@@ -191,13 +233,44 @@ type IstioIngressListener struct {
 	// redirect traffic arriving at the bind point on the sidecar to a port
 	// or unix domain socket where the application workload is listening for
 	// connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket
-	DefaultEndpoint string `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	DefaultEndpoint      string   `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *IstioIngressListener) Reset()                    { *m = IstioIngressListener{} }
-func (m *IstioIngressListener) String() string            { return proto.CompactTextString(m) }
-func (*IstioIngressListener) ProtoMessage()               {}
-func (*IstioIngressListener) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{1} }
+func (m *IstioIngressListener) Reset()         { *m = IstioIngressListener{} }
+func (m *IstioIngressListener) String() string { return proto.CompactTextString(m) }
+func (*IstioIngressListener) ProtoMessage()    {}
+func (*IstioIngressListener) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b5c11342f04ad3d1, []int{1}
+}
+func (m *IstioIngressListener) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IstioIngressListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IstioIngressListener.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IstioIngressListener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IstioIngressListener.Merge(m, src)
+}
+func (m *IstioIngressListener) XXX_Size() int {
+	return m.Size()
+}
+func (m *IstioIngressListener) XXX_DiscardUnknown() {
+	xxx_messageInfo_IstioIngressListener.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IstioIngressListener proto.InternalMessageInfo
 
 func (m *IstioIngressListener) GetPort() *Port {
 	if m != nil {
@@ -239,7 +312,7 @@ type IstioEgressListener struct {
 	// specific ports while others have no port, the hosts exposed on a
 	// listener port will be based on the listener with the most specific
 	// port.
-	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
+	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// The ip or the unix domain socket to which the listener should be bound
 	// to. Port MUST be specified if bind is not empty. Format: x.x.x.x or
 	// unix:///path/to/uds or unix://@foobar (Linux abstract namespace). If
@@ -270,13 +343,44 @@ type IstioEgressListener struct {
 	// namespace can be imported. Private services/configuration will not be
 	// imported. Refer to the scope setting associated with VirtualService,
 	// DestinationRule, ServiceEntry, etc. for details.
-	Hosts []string `protobuf:"bytes,4,rep,name=hosts" json:"hosts,omitempty"`
+	Hosts                []string `protobuf:"bytes,4,rep,name=hosts,proto3" json:"hosts,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *IstioEgressListener) Reset()                    { *m = IstioEgressListener{} }
-func (m *IstioEgressListener) String() string            { return proto.CompactTextString(m) }
-func (*IstioEgressListener) ProtoMessage()               {}
-func (*IstioEgressListener) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{2} }
+func (m *IstioEgressListener) Reset()         { *m = IstioEgressListener{} }
+func (m *IstioEgressListener) String() string { return proto.CompactTextString(m) }
+func (*IstioEgressListener) ProtoMessage()    {}
+func (*IstioEgressListener) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b5c11342f04ad3d1, []int{2}
+}
+func (m *IstioEgressListener) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IstioEgressListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IstioEgressListener.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IstioEgressListener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IstioEgressListener.Merge(m, src)
+}
+func (m *IstioEgressListener) XXX_Size() int {
+	return m.Size()
+}
+func (m *IstioEgressListener) XXX_DiscardUnknown() {
+	xxx_messageInfo_IstioEgressListener.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IstioEgressListener proto.InternalMessageInfo
 
 func (m *IstioEgressListener) GetPort() *Port {
 	if m != nil {
@@ -318,13 +422,44 @@ type WorkloadSelector struct {
 	// on which this sidecar configuration should be applied. The scope of
 	// label search is restricted to the configuration namespace in which the
 	// the resource is present.
-	Labels map[string]string `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Labels               map[string]string `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *WorkloadSelector) Reset()                    { *m = WorkloadSelector{} }
-func (m *WorkloadSelector) String() string            { return proto.CompactTextString(m) }
-func (*WorkloadSelector) ProtoMessage()               {}
-func (*WorkloadSelector) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{3} }
+func (m *WorkloadSelector) Reset()         { *m = WorkloadSelector{} }
+func (m *WorkloadSelector) String() string { return proto.CompactTextString(m) }
+func (*WorkloadSelector) ProtoMessage()    {}
+func (*WorkloadSelector) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b5c11342f04ad3d1, []int{3}
+}
+func (m *WorkloadSelector) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WorkloadSelector) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WorkloadSelector.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WorkloadSelector) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WorkloadSelector.Merge(m, src)
+}
+func (m *WorkloadSelector) XXX_Size() int {
+	return m.Size()
+}
+func (m *WorkloadSelector) XXX_DiscardUnknown() {
+	xxx_messageInfo_WorkloadSelector.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WorkloadSelector proto.InternalMessageInfo
 
 func (m *WorkloadSelector) GetLabels() map[string]string {
 	if m != nil {
@@ -334,12 +469,50 @@ func (m *WorkloadSelector) GetLabels() map[string]string {
 }
 
 func init() {
+	proto.RegisterEnum("istio.networking.v1alpha3.CaptureMode", CaptureMode_name, CaptureMode_value)
 	proto.RegisterType((*Sidecar)(nil), "istio.networking.v1alpha3.Sidecar")
 	proto.RegisterType((*IstioIngressListener)(nil), "istio.networking.v1alpha3.IstioIngressListener")
 	proto.RegisterType((*IstioEgressListener)(nil), "istio.networking.v1alpha3.IstioEgressListener")
 	proto.RegisterType((*WorkloadSelector)(nil), "istio.networking.v1alpha3.WorkloadSelector")
-	proto.RegisterEnum("istio.networking.v1alpha3.CaptureMode", CaptureMode_name, CaptureMode_value)
+	proto.RegisterMapType((map[string]string)(nil), "istio.networking.v1alpha3.WorkloadSelector.LabelsEntry")
 }
+
+func init() { proto.RegisterFile("networking/v1alpha3/sidecar.proto", fileDescriptor_b5c11342f04ad3d1) }
+
+var fileDescriptor_b5c11342f04ad3d1 = []byte{
+	// 465 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x93, 0x4f, 0x6f, 0xd3, 0x30,
+	0x18, 0xc6, 0x71, 0x13, 0xda, 0xf5, 0xcd, 0x04, 0xc1, 0xec, 0x10, 0x76, 0x28, 0xa1, 0x07, 0x14,
+	0x40, 0x4a, 0x44, 0x7b, 0xe0, 0xcf, 0x6d, 0x83, 0x4c, 0x8a, 0x54, 0xb6, 0x29, 0x1d, 0x02, 0x71,
+	0xa9, 0xdc, 0xe6, 0xa5, 0xb3, 0x16, 0xe2, 0xc8, 0x76, 0x57, 0xf5, 0xcb, 0xf0, 0x55, 0xb8, 0x72,
+	0xe4, 0xc2, 0x1d, 0xf5, 0x43, 0x70, 0x46, 0x4d, 0x3c, 0x6d, 0x4c, 0xa5, 0x88, 0x1b, 0x37, 0xbf,
+	0x6f, 0x9e, 0xe7, 0xf7, 0xfa, 0x89, 0x6d, 0x78, 0x50, 0xa0, 0x9e, 0x0b, 0x79, 0xc6, 0x8b, 0x69,
+	0x74, 0xfe, 0x94, 0xe5, 0xe5, 0x29, 0xeb, 0x47, 0x8a, 0x67, 0x38, 0x61, 0x32, 0x2c, 0xa5, 0xd0,
+	0x82, 0xde, 0xe3, 0x4a, 0x73, 0x11, 0x5e, 0x0a, 0xc3, 0x0b, 0xe1, 0xee, 0x5a, 0xf7, 0x94, 0x69,
+	0x9c, 0xb3, 0x45, 0xed, 0xee, 0xfe, 0x24, 0xd0, 0x1a, 0xd6, 0x3c, 0xfa, 0x1e, 0xee, 0xac, 0xd4,
+	0xb9, 0x60, 0xd9, 0x48, 0x61, 0x8e, 0x13, 0x2d, 0xa4, 0x47, 0x7c, 0x12, 0x38, 0xbd, 0x27, 0xe1,
+	0x1f, 0xa7, 0x84, 0xef, 0x8c, 0x67, 0x68, 0x2c, 0xa9, 0x3b, 0xbf, 0xd6, 0xa1, 0x09, 0xb4, 0x78,
+	0x31, 0x95, 0xa8, 0x94, 0xd7, 0xf0, 0xad, 0xc0, 0xe9, 0x45, 0x1b, 0x78, 0xc9, 0xea, 0x4b, 0x52,
+	0xcb, 0x07, 0x5c, 0x69, 0x2c, 0x50, 0xa6, 0x17, 0x7e, 0x7a, 0x00, 0x4d, 0xac, 0x49, 0x56, 0x45,
+	0x0a, 0xff, 0x46, 0x8a, 0x7f, 0x07, 0x19, 0x77, 0xf7, 0x3b, 0x81, 0x9d, 0x75, 0x93, 0x68, 0x1f,
+	0xec, 0x52, 0x48, 0x6d, 0x82, 0xdf, 0xdf, 0x80, 0x3f, 0x16, 0x52, 0xa7, 0x95, 0x98, 0x52, 0xb0,
+	0xc7, 0xbc, 0xc8, 0xbc, 0x86, 0x4f, 0x82, 0x76, 0x5a, 0xad, 0x69, 0x02, 0xdb, 0x13, 0x56, 0xea,
+	0x99, 0xc4, 0xd1, 0x27, 0x91, 0xa1, 0x67, 0xf9, 0x24, 0xb8, 0xd5, 0x7b, 0xb8, 0x01, 0xf8, 0xaa,
+	0x96, 0xbf, 0x11, 0x19, 0xa6, 0xce, 0xe4, 0xb2, 0xa0, 0x8f, 0xc0, 0xcd, 0xf0, 0x23, 0x9b, 0xe5,
+	0x7a, 0x84, 0x45, 0x56, 0x0a, 0x5e, 0x68, 0xcf, 0xae, 0x46, 0xdd, 0x36, 0xfd, 0xd8, 0xb4, 0xbb,
+	0x5f, 0x08, 0xdc, 0x5d, 0x93, 0xfb, 0xbf, 0x8c, 0xb5, 0x03, 0x37, 0x4f, 0x85, 0xd2, 0xca, 0xb3,
+	0x7d, 0x2b, 0x68, 0xa7, 0x75, 0xd1, 0xfd, 0x4c, 0xc0, 0xbd, 0x7e, 0xa7, 0xe8, 0x11, 0x34, 0x73,
+	0x36, 0xc6, 0x5c, 0x79, 0xa4, 0x3a, 0xf6, 0x67, 0xff, 0x70, 0x21, 0xc3, 0x41, 0xe5, 0x8c, 0x0b,
+	0x2d, 0x17, 0xa9, 0xc1, 0xec, 0xbe, 0x00, 0xe7, 0x4a, 0x9b, 0xba, 0x60, 0x9d, 0xe1, 0xa2, 0xfa,
+	0x3b, 0xed, 0x74, 0xb5, 0x5c, 0x6d, 0xee, 0x9c, 0xe5, 0x33, 0x34, 0xe1, 0xeb, 0xe2, 0x65, 0xe3,
+	0x39, 0x79, 0xdc, 0x03, 0xe7, 0x4a, 0x24, 0xea, 0x40, 0xeb, 0x75, 0x7c, 0xb0, 0xf7, 0x76, 0x70,
+	0xe2, 0xde, 0xa0, 0xdb, 0xb0, 0x95, 0x1c, 0x9f, 0xec, 0xed, 0x0f, 0xe2, 0xa1, 0x4b, 0xe8, 0x16,
+	0xd8, 0x87, 0x47, 0x87, 0xb1, 0xdb, 0xd8, 0x0f, 0xbf, 0x2e, 0x3b, 0xe4, 0xdb, 0xb2, 0x43, 0x7e,
+	0x2c, 0x3b, 0xe4, 0x83, 0x5f, 0x6f, 0x9e, 0x8b, 0x88, 0x95, 0x3c, 0x5a, 0xf3, 0x4a, 0xc7, 0xcd,
+	0xea, 0x79, 0xf6, 0x7f, 0x05, 0x00, 0x00, 0xff, 0xff, 0x32, 0x9f, 0xa8, 0x1c, 0x01, 0x04, 0x00,
+	0x00,
+}
+
 func (m *Sidecar) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -389,6 +562,9 @@ func (m *Sidecar) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -433,6 +609,9 @@ func (m *IstioIngressListener) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(len(m.DefaultEndpoint)))
 		i += copy(dAtA[i:], m.DefaultEndpoint)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -488,6 +667,9 @@ func (m *IstioEgressListener) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -523,6 +705,9 @@ func (m *WorkloadSelector) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], v)
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -536,6 +721,9 @@ func encodeVarintSidecar(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Sidecar) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.WorkloadSelector != nil {
@@ -554,10 +742,16 @@ func (m *Sidecar) Size() (n int) {
 			n += 1 + l + sovSidecar(uint64(l))
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *IstioIngressListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Port != nil {
@@ -575,10 +769,16 @@ func (m *IstioIngressListener) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovSidecar(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *IstioEgressListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Port != nil {
@@ -598,10 +798,16 @@ func (m *IstioEgressListener) Size() (n int) {
 			n += 1 + l + sovSidecar(uint64(l))
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *WorkloadSelector) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Labels) > 0 {
@@ -611,6 +817,9 @@ func (m *WorkloadSelector) Size() (n int) {
 			mapEntrySize := 1 + len(k) + sovSidecar(uint64(len(k))) + 1 + len(v) + sovSidecar(uint64(len(v)))
 			n += mapEntrySize + 1 + sovSidecar(uint64(mapEntrySize))
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -643,7 +852,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -671,7 +880,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -680,6 +889,9 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -704,7 +916,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -713,6 +925,9 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -735,7 +950,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -744,6 +959,9 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -761,9 +979,13 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthSidecar
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -788,7 +1010,7 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -816,7 +1038,7 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -825,6 +1047,9 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -849,7 +1074,7 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -859,6 +1084,9 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -878,7 +1106,7 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.CaptureMode |= (CaptureMode(b) & 0x7F) << shift
+				m.CaptureMode |= CaptureMode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -897,7 +1125,7 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -907,6 +1135,9 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -921,9 +1152,13 @@ func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthSidecar
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -948,7 +1183,7 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -976,7 +1211,7 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -985,6 +1220,9 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1009,7 +1247,7 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1019,6 +1257,9 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1038,7 +1279,7 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.CaptureMode |= (CaptureMode(b) & 0x7F) << shift
+				m.CaptureMode |= CaptureMode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1057,7 +1298,7 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1067,6 +1308,9 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1081,9 +1325,13 @@ func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthSidecar
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1108,7 +1356,7 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1136,7 +1384,7 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1145,6 +1393,9 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthSidecar
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1165,7 +1416,7 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1182,7 +1433,7 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1192,6 +1443,9 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthSidecar
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthSidecar
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1208,7 +1462,7 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						stringLenmapvalue |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1218,6 +1472,9 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthSidecar
 					}
 					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthSidecar
+					}
 					if postStringIndexmapvalue > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1249,9 +1506,13 @@ func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthSidecar
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthSidecar
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1315,8 +1576,11 @@ func skipSidecar(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthSidecar
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthSidecar
 			}
 			return iNdEx, nil
@@ -1347,6 +1611,9 @@ func skipSidecar(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthSidecar
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1365,39 +1632,3 @@ var (
 	ErrInvalidLengthSidecar = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowSidecar   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("networking/v1alpha3/sidecar.proto", fileDescriptorSidecar) }
-
-var fileDescriptorSidecar = []byte{
-	// 465 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x93, 0x4f, 0x6f, 0xd3, 0x30,
-	0x18, 0xc6, 0x71, 0x13, 0xda, 0xf5, 0xcd, 0x04, 0xc1, 0xec, 0x10, 0x76, 0x28, 0xa1, 0x07, 0x14,
-	0x40, 0x4a, 0x44, 0x7b, 0xe0, 0xcf, 0x6d, 0x83, 0x4c, 0x8a, 0x54, 0xb6, 0x29, 0x1d, 0x02, 0x71,
-	0xa9, 0xdc, 0xe6, 0xa5, 0xb3, 0x16, 0xe2, 0xc8, 0x76, 0x57, 0xf5, 0xcb, 0xf0, 0x55, 0xb8, 0x72,
-	0xe4, 0xc2, 0x1d, 0xf5, 0x43, 0x70, 0x46, 0x4d, 0x3c, 0x6d, 0x4c, 0xa5, 0x88, 0x1b, 0x37, 0xbf,
-	0x6f, 0x9e, 0xe7, 0xf7, 0xfa, 0x89, 0x6d, 0x78, 0x50, 0xa0, 0x9e, 0x0b, 0x79, 0xc6, 0x8b, 0x69,
-	0x74, 0xfe, 0x94, 0xe5, 0xe5, 0x29, 0xeb, 0x47, 0x8a, 0x67, 0x38, 0x61, 0x32, 0x2c, 0xa5, 0xd0,
-	0x82, 0xde, 0xe3, 0x4a, 0x73, 0x11, 0x5e, 0x0a, 0xc3, 0x0b, 0xe1, 0xee, 0x5a, 0xf7, 0x94, 0x69,
-	0x9c, 0xb3, 0x45, 0xed, 0xee, 0xfe, 0x24, 0xd0, 0x1a, 0xd6, 0x3c, 0xfa, 0x1e, 0xee, 0xac, 0xd4,
-	0xb9, 0x60, 0xd9, 0x48, 0x61, 0x8e, 0x13, 0x2d, 0xa4, 0x47, 0x7c, 0x12, 0x38, 0xbd, 0x27, 0xe1,
-	0x1f, 0xa7, 0x84, 0xef, 0x8c, 0x67, 0x68, 0x2c, 0xa9, 0x3b, 0xbf, 0xd6, 0xa1, 0x09, 0xb4, 0x78,
-	0x31, 0x95, 0xa8, 0x94, 0xd7, 0xf0, 0xad, 0xc0, 0xe9, 0x45, 0x1b, 0x78, 0xc9, 0xea, 0x4b, 0x52,
-	0xcb, 0x07, 0x5c, 0x69, 0x2c, 0x50, 0xa6, 0x17, 0x7e, 0x7a, 0x00, 0x4d, 0xac, 0x49, 0x56, 0x45,
-	0x0a, 0xff, 0x46, 0x8a, 0x7f, 0x07, 0x19, 0x77, 0xf7, 0x3b, 0x81, 0x9d, 0x75, 0x93, 0x68, 0x1f,
-	0xec, 0x52, 0x48, 0x6d, 0x82, 0xdf, 0xdf, 0x80, 0x3f, 0x16, 0x52, 0xa7, 0x95, 0x98, 0x52, 0xb0,
-	0xc7, 0xbc, 0xc8, 0xbc, 0x86, 0x4f, 0x82, 0x76, 0x5a, 0xad, 0x69, 0x02, 0xdb, 0x13, 0x56, 0xea,
-	0x99, 0xc4, 0xd1, 0x27, 0x91, 0xa1, 0x67, 0xf9, 0x24, 0xb8, 0xd5, 0x7b, 0xb8, 0x01, 0xf8, 0xaa,
-	0x96, 0xbf, 0x11, 0x19, 0xa6, 0xce, 0xe4, 0xb2, 0xa0, 0x8f, 0xc0, 0xcd, 0xf0, 0x23, 0x9b, 0xe5,
-	0x7a, 0x84, 0x45, 0x56, 0x0a, 0x5e, 0x68, 0xcf, 0xae, 0x46, 0xdd, 0x36, 0xfd, 0xd8, 0xb4, 0xbb,
-	0x5f, 0x08, 0xdc, 0x5d, 0x93, 0xfb, 0xbf, 0x8c, 0xb5, 0x03, 0x37, 0x4f, 0x85, 0xd2, 0xca, 0xb3,
-	0x7d, 0x2b, 0x68, 0xa7, 0x75, 0xd1, 0xfd, 0x4c, 0xc0, 0xbd, 0x7e, 0xa7, 0xe8, 0x11, 0x34, 0x73,
-	0x36, 0xc6, 0x5c, 0x79, 0xa4, 0x3a, 0xf6, 0x67, 0xff, 0x70, 0x21, 0xc3, 0x41, 0xe5, 0x8c, 0x0b,
-	0x2d, 0x17, 0xa9, 0xc1, 0xec, 0xbe, 0x00, 0xe7, 0x4a, 0x9b, 0xba, 0x60, 0x9d, 0xe1, 0xa2, 0xfa,
-	0x3b, 0xed, 0x74, 0xb5, 0x5c, 0x6d, 0xee, 0x9c, 0xe5, 0x33, 0x34, 0xe1, 0xeb, 0xe2, 0x65, 0xe3,
-	0x39, 0x79, 0xdc, 0x03, 0xe7, 0x4a, 0x24, 0xea, 0x40, 0xeb, 0x75, 0x7c, 0xb0, 0xf7, 0x76, 0x70,
-	0xe2, 0xde, 0xa0, 0xdb, 0xb0, 0x95, 0x1c, 0x9f, 0xec, 0xed, 0x0f, 0xe2, 0xa1, 0x4b, 0xe8, 0x16,
-	0xd8, 0x87, 0x47, 0x87, 0xb1, 0xdb, 0xd8, 0x0f, 0xbf, 0x2e, 0x3b, 0xe4, 0xdb, 0xb2, 0x43, 0x7e,
-	0x2c, 0x3b, 0xe4, 0x83, 0x5f, 0x6f, 0x9e, 0x8b, 0x88, 0x95, 0x3c, 0x5a, 0xf3, 0x4a, 0xc7, 0xcd,
-	0xea, 0x79, 0xf6, 0x7f, 0x05, 0x00, 0x00, 0xff, 0xff, 0x32, 0x9f, 0xa8, 0x1c, 0x01, 0x04, 0x00,
-	0x00,
-}

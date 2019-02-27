@@ -154,7 +154,7 @@ message HTTPAPISpecPattern {
 // APIKey defines the explicit configuration for generating the
 // `request.api_key` attribute from HTTP requests.
 //
-// See https://swagger.io/docs/specification/authentication/api-keys
+// See [API Keys](https://swagger.io/docs/specification/authentication/api-keys)
 // for a general overview of API keys as defined by OpenAPI.
 message APIKey {
   oneof key {

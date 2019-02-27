@@ -3,16 +3,23 @@
 
 package v1alpha3
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // TLS modes enforced by the proxy
 type Server_TLSOptions_TLSmode int32
@@ -46,6 +53,7 @@ var Server_TLSOptions_TLSmode_name = map[int32]string{
 	2: "MUTUAL",
 	3: "AUTO_PASSTHROUGH",
 }
+
 var Server_TLSOptions_TLSmode_value = map[string]int32{
 	"PASSTHROUGH":      0,
 	"SIMPLE":           1,
@@ -56,8 +64,9 @@ var Server_TLSOptions_TLSmode_value = map[string]int32{
 func (x Server_TLSOptions_TLSmode) String() string {
 	return proto.EnumName(Server_TLSOptions_TLSmode_name, int32(x))
 }
+
 func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorGateway, []int{1, 0, 0}
+	return fileDescriptor_067d98d02f84cc0b, []int{1, 0, 0}
 }
 
 // TLS protocol versions.
@@ -83,6 +92,7 @@ var Server_TLSOptions_TLSProtocol_name = map[int32]string{
 	3: "TLSV1_2",
 	4: "TLSV1_3",
 }
+
 var Server_TLSOptions_TLSProtocol_value = map[string]int32{
 	"TLS_AUTO": 0,
 	"TLSV1_0":  1,
@@ -94,8 +104,9 @@ var Server_TLSOptions_TLSProtocol_value = map[string]int32{
 func (x Server_TLSOptions_TLSProtocol) String() string {
 	return proto.EnumName(Server_TLSOptions_TLSProtocol_name, int32(x))
 }
+
 func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorGateway, []int{1, 0, 1}
+	return fileDescriptor_067d98d02f84cc0b, []int{1, 0, 1}
 }
 
 // `Gateway` describes a load balancer operating at the edge of the mesh
@@ -235,19 +246,50 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 // ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
-	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
+	Servers []*Server `protobuf:"bytes,1,rep,name=servers,proto3" json:"servers,omitempty"`
 	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied. The scope of
 	// label search is restricted to the configuration namespace in which the
 	// the resource is present. In other words, the Gateway resource must
 	// reside in the same namespace as the gateway workload.
-	Selector map[string]string `protobuf:"bytes,2,rep,name=selector" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Selector             map[string]string `protobuf:"bytes,2,rep,name=selector,proto3" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *Gateway) Reset()                    { *m = Gateway{} }
-func (m *Gateway) String() string            { return proto.CompactTextString(m) }
-func (*Gateway) ProtoMessage()               {}
-func (*Gateway) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{0} }
+func (m *Gateway) Reset()         { *m = Gateway{} }
+func (m *Gateway) String() string { return proto.CompactTextString(m) }
+func (*Gateway) ProtoMessage()    {}
+func (*Gateway) Descriptor() ([]byte, []int) {
+	return fileDescriptor_067d98d02f84cc0b, []int{0}
+}
+func (m *Gateway) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Gateway) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Gateway.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Gateway) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Gateway.Merge(m, src)
+}
+func (m *Gateway) XXX_Size() int {
+	return m.Size()
+}
+func (m *Gateway) XXX_DiscardUnknown() {
+	xxx_messageInfo_Gateway.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Gateway proto.InternalMessageInfo
 
 func (m *Gateway) GetServers() []*Server {
 	if m != nil {
@@ -328,7 +370,7 @@ type Server struct {
 	// REQUIRED: The Port on which the proxy should listen for incoming
 	// connections. If using unix domain socket, use 0 as the port number,
 	// with a valid protocol and port name, along with the bind parameter.
-	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
+	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// $hide_from_docs
 	// The ip or the unix domain socket to which the listener should be bound
 	// to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
@@ -348,21 +390,52 @@ type Server struct {
 	// VirtualServices with hosts dev.example.com, prod.example.com will
 	// match. However, VirtualServices with hosts example.com or
 	// newexample.com will not match.
-	Hosts []string `protobuf:"bytes,2,rep,name=hosts" json:"hosts,omitempty"`
+	Hosts []string `protobuf:"bytes,2,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	// Set of TLS related options that govern the server's behavior. Use
 	// these options to control if all http requests should be redirected to
 	// https, and the TLS modes to use.
-	Tls *Server_TLSOptions `protobuf:"bytes,3,opt,name=tls" json:"tls,omitempty"`
+	Tls *Server_TLSOptions `protobuf:"bytes,3,opt,name=tls,proto3" json:"tls,omitempty"`
 	// The loopback IP endpoint or unix domain socket to which traffic should
 	// be forwarded to by default. Format should be 127.0.0.1:PORT or
 	// unix:///path/to/socket or unix://@foobar (Linux abstract namespace).
-	DefaultEndpoint string `protobuf:"bytes,5,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	DefaultEndpoint      string   `protobuf:"bytes,5,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Server) Reset()                    { *m = Server{} }
-func (m *Server) String() string            { return proto.CompactTextString(m) }
-func (*Server) ProtoMessage()               {}
-func (*Server) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{1} }
+func (m *Server) Reset()         { *m = Server{} }
+func (m *Server) String() string { return proto.CompactTextString(m) }
+func (*Server) ProtoMessage()    {}
+func (*Server) Descriptor() ([]byte, []int) {
+	return fileDescriptor_067d98d02f84cc0b, []int{1}
+}
+func (m *Server) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Server) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Server.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Server) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Server.Merge(m, src)
+}
+func (m *Server) XXX_Size() int {
+	return m.Size()
+}
+func (m *Server) XXX_DiscardUnknown() {
+	xxx_messageInfo_Server.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Server proto.InternalMessageInfo
 
 func (m *Server) GetPort() *Port {
 	if m != nil {
@@ -433,20 +506,51 @@ type Server_TLSOptions struct {
 	CredentialName string `protobuf:"bytes,10,opt,name=credential_name,json=credentialName,proto3" json:"credential_name,omitempty"`
 	// A list of alternate names to verify the subject identity in the
 	// certificate presented by the client.
-	SubjectAltNames []string `protobuf:"bytes,6,rep,name=subject_alt_names,json=subjectAltNames" json:"subject_alt_names,omitempty"`
+	SubjectAltNames []string `protobuf:"bytes,6,rep,name=subject_alt_names,json=subjectAltNames,proto3" json:"subject_alt_names,omitempty"`
 	// Optional: Minimum TLS protocol version.
 	MinProtocolVersion Server_TLSOptions_TLSProtocol `protobuf:"varint,7,opt,name=min_protocol_version,json=minProtocolVersion,proto3,enum=istio.networking.v1alpha3.Server_TLSOptions_TLSProtocol" json:"min_protocol_version,omitempty"`
 	// Optional: Maximum TLS protocol version.
 	MaxProtocolVersion Server_TLSOptions_TLSProtocol `protobuf:"varint,8,opt,name=max_protocol_version,json=maxProtocolVersion,proto3,enum=istio.networking.v1alpha3.Server_TLSOptions_TLSProtocol" json:"max_protocol_version,omitempty"`
 	// Optional: If specified, only support the specified cipher list.
 	// Otherwise default to the default cipher list supported by Envoy.
-	CipherSuites []string `protobuf:"bytes,9,rep,name=cipher_suites,json=cipherSuites" json:"cipher_suites,omitempty"`
+	CipherSuites         []string `protobuf:"bytes,9,rep,name=cipher_suites,json=cipherSuites,proto3" json:"cipher_suites,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Server_TLSOptions) Reset()                    { *m = Server_TLSOptions{} }
-func (m *Server_TLSOptions) String() string            { return proto.CompactTextString(m) }
-func (*Server_TLSOptions) ProtoMessage()               {}
-func (*Server_TLSOptions) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{1, 0} }
+func (m *Server_TLSOptions) Reset()         { *m = Server_TLSOptions{} }
+func (m *Server_TLSOptions) String() string { return proto.CompactTextString(m) }
+func (*Server_TLSOptions) ProtoMessage()    {}
+func (*Server_TLSOptions) Descriptor() ([]byte, []int) {
+	return fileDescriptor_067d98d02f84cc0b, []int{1, 0}
+}
+func (m *Server_TLSOptions) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Server_TLSOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Server_TLSOptions.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Server_TLSOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Server_TLSOptions.Merge(m, src)
+}
+func (m *Server_TLSOptions) XXX_Size() int {
+	return m.Size()
+}
+func (m *Server_TLSOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_Server_TLSOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Server_TLSOptions proto.InternalMessageInfo
 
 func (m *Server_TLSOptions) GetHttpsRedirect() bool {
 	if m != nil {
@@ -528,13 +632,44 @@ type Port struct {
 	// the destination without terminating the TLS connection.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Label assigned to the port.
-	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Port) Reset()                    { *m = Port{} }
-func (m *Port) String() string            { return proto.CompactTextString(m) }
-func (*Port) ProtoMessage()               {}
-func (*Port) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{2} }
+func (m *Port) Reset()         { *m = Port{} }
+func (m *Port) String() string { return proto.CompactTextString(m) }
+func (*Port) ProtoMessage()    {}
+func (*Port) Descriptor() ([]byte, []int) {
+	return fileDescriptor_067d98d02f84cc0b, []int{2}
+}
+func (m *Port) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Port) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Port.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Port) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Port.Merge(m, src)
+}
+func (m *Port) XXX_Size() int {
+	return m.Size()
+}
+func (m *Port) XXX_DiscardUnknown() {
+	xxx_messageInfo_Port.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Port proto.InternalMessageInfo
 
 func (m *Port) GetNumber() uint32 {
 	if m != nil {
@@ -558,13 +693,64 @@ func (m *Port) GetName() string {
 }
 
 func init() {
+	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSmode", Server_TLSOptions_TLSmode_name, Server_TLSOptions_TLSmode_value)
+	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSProtocol", Server_TLSOptions_TLSProtocol_name, Server_TLSOptions_TLSProtocol_value)
 	proto.RegisterType((*Gateway)(nil), "istio.networking.v1alpha3.Gateway")
+	proto.RegisterMapType((map[string]string)(nil), "istio.networking.v1alpha3.Gateway.SelectorEntry")
 	proto.RegisterType((*Server)(nil), "istio.networking.v1alpha3.Server")
 	proto.RegisterType((*Server_TLSOptions)(nil), "istio.networking.v1alpha3.Server.TLSOptions")
 	proto.RegisterType((*Port)(nil), "istio.networking.v1alpha3.Port")
-	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSmode", Server_TLSOptions_TLSmode_name, Server_TLSOptions_TLSmode_value)
-	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSProtocol", Server_TLSOptions_TLSProtocol_name, Server_TLSOptions_TLSProtocol_value)
 }
+
+func init() { proto.RegisterFile("networking/v1alpha3/gateway.proto", fileDescriptor_067d98d02f84cc0b) }
+
+var fileDescriptor_067d98d02f84cc0b = []byte{
+	// 674 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0x5d, 0x4f, 0x1a, 0x4d,
+	0x14, 0x76, 0x01, 0xf9, 0x38, 0x88, 0xac, 0x13, 0xf3, 0x66, 0x5f, 0x2f, 0xfc, 0xa0, 0x69, 0x6a,
+	0x9b, 0x76, 0x51, 0xe8, 0x85, 0xa9, 0x49, 0x13, 0xda, 0x18, 0x69, 0x8a, 0x42, 0x76, 0xc1, 0x8b,
+	0xde, 0x6c, 0x86, 0x65, 0x94, 0xd1, 0x65, 0x67, 0x33, 0x33, 0xa0, 0xfc, 0xb3, 0xfe, 0x84, 0x5e,
+	0xb6, 0xff, 0xa0, 0xb1, 0x7f, 0xa4, 0xd9, 0xd9, 0x41, 0xe8, 0x97, 0x8d, 0xe9, 0xdd, 0x39, 0xcf,
+	0x3c, 0xcf, 0x73, 0xe6, 0x9c, 0xf9, 0x80, 0x9d, 0x90, 0xc8, 0x6b, 0xc6, 0xaf, 0x68, 0x78, 0x51,
+	0x9d, 0xec, 0xe3, 0x20, 0x1a, 0xe2, 0x7a, 0xf5, 0x02, 0x4b, 0x72, 0x8d, 0xa7, 0x76, 0xc4, 0x99,
+	0x64, 0xe8, 0x7f, 0x2a, 0x24, 0x65, 0xf6, 0x9c, 0x68, 0xcf, 0x88, 0x95, 0x2f, 0x06, 0xe4, 0x8e,
+	0x13, 0x32, 0x3a, 0x84, 0x9c, 0x20, 0x7c, 0x42, 0xb8, 0xb0, 0x8c, 0xed, 0xf4, 0x6e, 0xb1, 0xb6,
+	0x63, 0xff, 0x51, 0x68, 0xbb, 0x8a, 0xe9, 0xcc, 0x14, 0xa8, 0x05, 0x79, 0x41, 0x02, 0xe2, 0x4b,
+	0xc6, 0xad, 0x94, 0x52, 0xef, 0xdd, 0xa3, 0xd6, 0x25, 0x6d, 0x57, 0x4b, 0x8e, 0x42, 0xc9, 0xa7,
+	0xce, 0x9d, 0xc3, 0xc6, 0x21, 0x94, 0x7e, 0x58, 0x42, 0x26, 0xa4, 0xaf, 0xc8, 0xd4, 0x32, 0xb6,
+	0x8d, 0xdd, 0x82, 0x13, 0x87, 0x68, 0x1d, 0x96, 0x27, 0x38, 0x18, 0x13, 0x2b, 0xa5, 0xb0, 0x24,
+	0x79, 0x95, 0x3a, 0x30, 0x2a, 0x1f, 0x73, 0x90, 0x4d, 0xb6, 0x87, 0xea, 0x90, 0x89, 0x18, 0x97,
+	0x4a, 0x57, 0xac, 0x6d, 0xdd, 0xb3, 0xa3, 0x0e, 0xe3, 0xd2, 0x51, 0x64, 0x84, 0x20, 0xd3, 0xa7,
+	0xe1, 0xc0, 0xca, 0x28, 0x63, 0x15, 0xc7, 0xd5, 0x86, 0x4c, 0x48, 0xa1, 0x7a, 0x2b, 0x38, 0x49,
+	0x82, 0x5e, 0x43, 0x5a, 0x06, 0xc2, 0x4a, 0x2b, 0xf7, 0xe7, 0x7f, 0x9d, 0x96, 0xdd, 0x6d, 0xb9,
+	0xed, 0x48, 0x52, 0x16, 0x0a, 0x27, 0x16, 0xa2, 0xa7, 0x60, 0x0e, 0xc8, 0x39, 0x1e, 0x07, 0xd2,
+	0x23, 0xe1, 0x20, 0x62, 0x34, 0x94, 0xd6, 0xb2, 0xaa, 0x5a, 0xd6, 0xf8, 0x91, 0x86, 0x37, 0xbe,
+	0x2d, 0x03, 0xcc, 0xe5, 0xe8, 0x31, 0xac, 0x0e, 0xa5, 0x8c, 0x84, 0xc7, 0xc9, 0x80, 0x72, 0xe2,
+	0x27, 0x2d, 0xe6, 0x9d, 0x92, 0x42, 0x1d, 0x0d, 0xa2, 0x26, 0x64, 0x46, 0x6c, 0x90, 0xcc, 0x68,
+	0xb5, 0xf6, 0xf2, 0x21, 0x3b, 0x8c, 0xc3, 0x58, 0xeb, 0x28, 0x07, 0xf4, 0x02, 0x50, 0x72, 0xd4,
+	0x9e, 0x4f, 0xb8, 0xa4, 0xe7, 0xd4, 0xc7, 0x92, 0xa8, 0xce, 0x0b, 0xce, 0x5a, 0xb2, 0xf2, 0x76,
+	0xbe, 0x80, 0xb6, 0xa0, 0x18, 0x71, 0x3a, 0xc1, 0x92, 0x78, 0xf1, 0xb9, 0x25, 0xa3, 0x04, 0x0d,
+	0xbd, 0x27, 0x53, 0xf4, 0x04, 0xca, 0x3e, 0x5e, 0xf4, 0x12, 0xba, 0xf3, 0x55, 0x1f, 0x2f, 0x18,
+	0x09, 0x45, 0xe4, 0x64, 0x40, 0x42, 0x49, 0x71, 0xe0, 0x85, 0x78, 0x44, 0x2c, 0xd0, 0xc4, 0x3b,
+	0xf8, 0x14, 0x8f, 0x08, 0x7a, 0x06, 0x6b, 0x62, 0xdc, 0xbf, 0x24, 0xbe, 0xf4, 0x70, 0x20, 0x15,
+	0x53, 0x58, 0x59, 0x75, 0x5c, 0x65, 0xbd, 0xd0, 0x08, 0x64, 0x4c, 0x15, 0xe8, 0x12, 0xd6, 0x47,
+	0x34, 0xf4, 0xd4, 0xf3, 0xf0, 0x59, 0xe0, 0xc5, 0x57, 0x98, 0xb2, 0xd0, 0xca, 0xa9, 0x39, 0x1d,
+	0x3c, 0x74, 0x4e, 0x1d, 0xed, 0xe3, 0xa0, 0x11, 0x0d, 0x67, 0xc9, 0x59, 0xe2, 0xa9, 0x6a, 0xe1,
+	0x9b, 0x5f, 0x6b, 0xe5, 0xff, 0xb9, 0x16, 0xbe, 0xf9, 0xb9, 0xd6, 0x23, 0x28, 0xf9, 0x34, 0x1a,
+	0x12, 0xee, 0x89, 0x31, 0x8d, 0x67, 0x5a, 0x50, 0xfd, 0xaf, 0x24, 0xa0, 0xab, 0xb0, 0x4a, 0x13,
+	0x72, 0xfa, 0x6c, 0x51, 0x19, 0x8a, 0x9d, 0x86, 0xeb, 0x76, 0x9b, 0x4e, 0xbb, 0x77, 0xdc, 0x34,
+	0x97, 0x10, 0x40, 0xd6, 0x7d, 0x77, 0xd2, 0x69, 0x1d, 0x99, 0x46, 0x1c, 0x9f, 0xf4, 0xba, 0xbd,
+	0x46, 0xcb, 0x4c, 0xa1, 0x75, 0x30, 0x1b, 0xbd, 0x6e, 0xdb, 0x5b, 0x64, 0xa7, 0x2b, 0x6d, 0x28,
+	0x2e, 0xec, 0x08, 0xad, 0x40, 0xbe, 0xdb, 0x72, 0xbd, 0x98, 0x68, 0x2e, 0xa1, 0xa2, 0x2a, 0x73,
+	0xb6, 0xef, 0xed, 0x99, 0xc6, 0x3c, 0xd9, 0x37, 0x53, 0xf3, 0xa4, 0x66, 0xa6, 0xe7, 0x49, 0xdd,
+	0xcc, 0x54, 0x4e, 0x21, 0x13, 0x3f, 0x44, 0xf4, 0x1f, 0x64, 0xc3, 0xf1, 0xa8, 0x4f, 0xb8, 0xba,
+	0xd6, 0x25, 0x47, 0x67, 0x68, 0x03, 0xf2, 0xb3, 0x39, 0xea, 0x77, 0x7f, 0x97, 0xc7, 0xcf, 0x56,
+	0xdd, 0x8e, 0xe4, 0x4e, 0xaa, 0xf8, 0x8d, 0xfd, 0xe9, 0x76, 0xd3, 0xf8, 0x7c, 0xbb, 0x69, 0x7c,
+	0xbd, 0xdd, 0x34, 0x3e, 0x6c, 0x27, 0xa3, 0xa6, 0xac, 0x8a, 0x23, 0x5a, 0xfd, 0xcd, 0xbf, 0xd9,
+	0xcf, 0x2a, 0xb7, 0xfa, 0xf7, 0x00, 0x00, 0x00, 0xff, 0xff, 0xd0, 0x11, 0xfe, 0x50, 0x55, 0x05,
+	0x00, 0x00,
+}
+
 func (m *Gateway) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -608,6 +794,9 @@ func (m *Gateway) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintGateway(dAtA, i, uint64(len(v)))
 			i += copy(dAtA[i:], v)
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -673,6 +862,9 @@ func (m *Server) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(len(m.DefaultEndpoint)))
 		i += copy(dAtA[i:], m.DefaultEndpoint)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -771,6 +963,9 @@ func (m *Server_TLSOptions) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGateway(dAtA, i, uint64(len(m.CredentialName)))
 		i += copy(dAtA[i:], m.CredentialName)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -806,6 +1001,9 @@ func (m *Port) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGateway(dAtA, i, uint64(len(m.Name)))
 		i += copy(dAtA[i:], m.Name)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -819,6 +1017,9 @@ func encodeVarintGateway(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Gateway) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Servers) > 0 {
@@ -835,10 +1036,16 @@ func (m *Gateway) Size() (n int) {
 			n += mapEntrySize + 1 + sovGateway(uint64(mapEntrySize))
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Server) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Port != nil {
@@ -863,10 +1070,16 @@ func (m *Server) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGateway(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Server_TLSOptions) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HttpsRedirect {
@@ -909,10 +1122,16 @@ func (m *Server_TLSOptions) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGateway(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Port) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Number != 0 {
@@ -925,6 +1144,9 @@ func (m *Port) Size() (n int) {
 	l = len(m.Name)
 	if l > 0 {
 		n += 1 + l + sovGateway(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -957,7 +1179,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -985,7 +1207,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -994,6 +1216,9 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1016,7 +1241,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1025,6 +1250,9 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1045,7 +1273,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1062,7 +1290,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1072,6 +1300,9 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthGateway
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthGateway
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1088,7 +1319,7 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						stringLenmapvalue |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1098,6 +1329,9 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthGateway
 					}
 					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthGateway
+					}
 					if postStringIndexmapvalue > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1129,9 +1363,13 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthGateway
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1156,7 +1394,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1184,7 +1422,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1193,6 +1431,9 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1217,7 +1458,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1227,6 +1468,9 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1246,7 +1490,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1255,6 +1499,9 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1279,7 +1526,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1289,6 +1536,9 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1308,7 +1558,7 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1318,6 +1568,9 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1332,9 +1585,13 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthGateway
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1359,7 +1616,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1387,7 +1644,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1407,7 +1664,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Mode |= (Server_TLSOptions_TLSmode(b) & 0x7F) << shift
+				m.Mode |= Server_TLSOptions_TLSmode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1426,7 +1683,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1436,6 +1693,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1455,7 +1715,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1465,6 +1725,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1484,7 +1747,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1494,6 +1757,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1513,7 +1779,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1523,6 +1789,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1542,7 +1811,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.MinProtocolVersion |= (Server_TLSOptions_TLSProtocol(b) & 0x7F) << shift
+				m.MinProtocolVersion |= Server_TLSOptions_TLSProtocol(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1561,7 +1830,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.MaxProtocolVersion |= (Server_TLSOptions_TLSProtocol(b) & 0x7F) << shift
+				m.MaxProtocolVersion |= Server_TLSOptions_TLSProtocol(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1580,7 +1849,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1590,6 +1859,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1609,7 +1881,7 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1619,6 +1891,9 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1633,9 +1908,13 @@ func (m *Server_TLSOptions) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthGateway
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1660,7 +1939,7 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1688,7 +1967,7 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Number |= (uint32(b) & 0x7F) << shift
+				m.Number |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1707,7 +1986,7 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1717,6 +1996,9 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1736,7 +2018,7 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1746,6 +2028,9 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGateway
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1760,9 +2045,13 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthGateway
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGateway
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1826,8 +2115,11 @@ func skipGateway(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthGateway
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthGateway
 			}
 			return iNdEx, nil
@@ -1858,6 +2150,9 @@ func skipGateway(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthGateway
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1876,52 +2171,3 @@ var (
 	ErrInvalidLengthGateway = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowGateway   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("networking/v1alpha3/gateway.proto", fileDescriptorGateway) }
-
-var fileDescriptorGateway = []byte{
-	// 674 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xdb, 0x4e, 0xdb, 0x4c,
-	0x10, 0xc6, 0x49, 0xc8, 0x61, 0x42, 0x88, 0x59, 0xa1, 0x5f, 0xfe, 0xb9, 0xe0, 0x90, 0xaa, 0x2a,
-	0xad, 0x5a, 0x07, 0x92, 0x5e, 0xa0, 0x22, 0x55, 0x4a, 0x2b, 0x44, 0xaa, 0x06, 0x12, 0xd9, 0x09,
-	0x17, 0xbd, 0xb1, 0x36, 0xce, 0x42, 0x16, 0x1c, 0xaf, 0xb5, 0xbb, 0x09, 0xe4, 0xcd, 0xfa, 0x08,
-	0xbd, 0x6c, 0xdf, 0xa0, 0xa2, 0x2f, 0x52, 0xed, 0xda, 0x21, 0xe9, 0x89, 0x0a, 0xf5, 0x6e, 0xe6,
-	0x9b, 0x99, 0x6f, 0x66, 0xbe, 0x59, 0x1b, 0x76, 0x42, 0x22, 0xaf, 0x19, 0xbf, 0xa2, 0xe1, 0x45,
-	0x75, 0xb2, 0x8f, 0x83, 0x68, 0x88, 0xeb, 0xd5, 0x0b, 0x2c, 0xc9, 0x35, 0x9e, 0xda, 0x11, 0x67,
-	0x92, 0xa1, 0xff, 0xa9, 0x90, 0x94, 0xd9, 0xf3, 0x44, 0x7b, 0x96, 0x58, 0xf9, 0x62, 0x40, 0xee,
-	0x38, 0x4e, 0x46, 0x87, 0x90, 0x13, 0x84, 0x4f, 0x08, 0x17, 0x96, 0xb1, 0x9d, 0xde, 0x2d, 0xd6,
-	0x76, 0xec, 0x3f, 0x16, 0xda, 0xae, 0xce, 0x74, 0x66, 0x15, 0xa8, 0x05, 0x79, 0x41, 0x02, 0xe2,
-	0x4b, 0xc6, 0xad, 0x94, 0xae, 0xde, 0xbb, 0xa7, 0x3a, 0x69, 0x69, 0xbb, 0x49, 0xc9, 0x51, 0x28,
-	0xf9, 0xd4, 0xb9, 0x63, 0xd8, 0x38, 0x84, 0xd2, 0x0f, 0x21, 0x64, 0x42, 0xfa, 0x8a, 0x4c, 0x2d,
-	0x63, 0xdb, 0xd8, 0x2d, 0x38, 0xca, 0x44, 0xeb, 0xb0, 0x3c, 0xc1, 0xc1, 0x98, 0x58, 0x29, 0x8d,
-	0xc5, 0xce, 0xab, 0xd4, 0x81, 0x51, 0xf9, 0x98, 0x83, 0x6c, 0x3c, 0x1e, 0xaa, 0x43, 0x26, 0x62,
-	0x5c, 0xea, 0xba, 0x62, 0x6d, 0xeb, 0x9e, 0x89, 0x3a, 0x8c, 0x4b, 0x47, 0x27, 0x2b, 0xe6, 0x21,
-	0x13, 0x52, 0xe8, 0x3d, 0x0a, 0x4e, 0xec, 0xa0, 0xd7, 0x90, 0x96, 0x81, 0xb0, 0xd2, 0x9a, 0xe9,
-	0xf9, 0x5f, 0x95, 0xb1, 0xbb, 0x2d, 0xb7, 0x1d, 0x49, 0xca, 0x42, 0xe1, 0xa8, 0x42, 0x84, 0x20,
-	0xd3, 0xa7, 0xe1, 0xc0, 0xca, 0xe8, 0x71, 0xb5, 0x8d, 0x9e, 0x82, 0x39, 0x20, 0xe7, 0x78, 0x1c,
-	0x48, 0x8f, 0x84, 0x83, 0x88, 0xd1, 0x50, 0x5a, 0xcb, 0x3a, 0x5e, 0x4e, 0xf0, 0xa3, 0x04, 0xde,
-	0xf8, 0xb6, 0x0c, 0x30, 0xa7, 0x44, 0x8f, 0x61, 0x75, 0x28, 0x65, 0x24, 0x3c, 0x4e, 0x06, 0x94,
-	0x13, 0x3f, 0x5e, 0x31, 0xef, 0x94, 0x34, 0xea, 0x24, 0x20, 0x6a, 0x42, 0x66, 0xc4, 0x06, 0xb1,
-	0x46, 0xab, 0xb5, 0x97, 0x0f, 0x99, 0x5a, 0x99, 0xaa, 0xd6, 0xd1, 0x0c, 0xe8, 0x05, 0xa0, 0xf8,
-	0xd4, 0x9e, 0x4f, 0xb8, 0xa4, 0xe7, 0xd4, 0xc7, 0x92, 0x68, 0x35, 0x0a, 0xce, 0x5a, 0x1c, 0x79,
-	0x3b, 0x0f, 0xa0, 0x2d, 0x28, 0x46, 0x9c, 0x4e, 0xb0, 0x24, 0x9e, 0xba, 0x5b, 0xbc, 0x34, 0x24,
-	0xd0, 0x7b, 0x32, 0x45, 0x4f, 0xa0, 0xec, 0xe3, 0x45, 0x2e, 0x91, 0x6c, 0xbe, 0xea, 0xe3, 0x05,
-	0x22, 0x81, 0x9e, 0xc1, 0x9a, 0x18, 0xf7, 0x2f, 0x89, 0x2f, 0x3d, 0x1c, 0x48, 0x2f, 0xc4, 0x23,
-	0x22, 0xac, 0xac, 0xbe, 0x4c, 0x39, 0x09, 0x34, 0x02, 0x79, 0xaa, 0x60, 0x74, 0x09, 0xeb, 0x23,
-	0x1a, 0x7a, 0xfa, 0xd5, 0xfb, 0x2c, 0xf0, 0xd4, 0xcb, 0xa4, 0x2c, 0xb4, 0x72, 0x7a, 0xfd, 0x83,
-	0x87, 0xae, 0xdf, 0x49, 0x78, 0x1c, 0x34, 0xa2, 0xe1, 0xcc, 0x39, 0x8b, 0x39, 0x75, 0x2f, 0x7c,
-	0xf3, 0x6b, 0xaf, 0xfc, 0x3f, 0xf7, 0xc2, 0x37, 0x3f, 0xf7, 0x7a, 0x04, 0x25, 0x9f, 0x46, 0x43,
-	0xc2, 0x3d, 0x31, 0xa6, 0x4a, 0xaa, 0x82, 0xde, 0x7f, 0x25, 0x06, 0x5d, 0x8d, 0x69, 0x45, 0x39,
-	0x19, 0x90, 0x50, 0x52, 0x1c, 0x68, 0x9d, 0x2c, 0x48, 0x14, 0xbd, 0x83, 0x95, 0x4c, 0x95, 0x26,
-	0xe4, 0x92, 0xdb, 0xa2, 0x32, 0x14, 0x3b, 0x0d, 0xd7, 0xed, 0x36, 0x9d, 0x76, 0xef, 0xb8, 0x69,
-	0x2e, 0x21, 0x80, 0xac, 0xfb, 0xee, 0xa4, 0xd3, 0x3a, 0x32, 0x0d, 0x65, 0x9f, 0xf4, 0xba, 0xbd,
-	0x46, 0xcb, 0x4c, 0xa1, 0x75, 0x30, 0x1b, 0xbd, 0x6e, 0xdb, 0x5b, 0xcc, 0x4e, 0x57, 0xda, 0x50,
-	0x5c, 0x18, 0x1d, 0xad, 0x40, 0xbe, 0xdb, 0x72, 0x3d, 0x95, 0x68, 0x2e, 0xa1, 0xa2, 0x6e, 0x73,
-	0xb6, 0xef, 0xed, 0x99, 0xc6, 0xdc, 0xd9, 0x37, 0x53, 0x73, 0xa7, 0x66, 0xa6, 0xe7, 0x4e, 0xdd,
-	0xcc, 0x54, 0x4e, 0x21, 0xa3, 0x3e, 0x44, 0xf4, 0x1f, 0x64, 0xc3, 0xf1, 0xa8, 0x4f, 0xb8, 0x7e,
-	0xd6, 0x25, 0x27, 0xf1, 0xd0, 0x06, 0xe4, 0x67, 0x82, 0x27, 0xdf, 0xfd, 0x9d, 0xaf, 0x3e, 0x30,
-	0xbd, 0x74, 0xfc, 0x26, 0xb5, 0xfd, 0xc6, 0xfe, 0x74, 0xbb, 0x69, 0x7c, 0xbe, 0xdd, 0x34, 0xbe,
-	0xde, 0x6e, 0x1a, 0x1f, 0xb6, 0xe3, 0x9b, 0x50, 0x56, 0xc5, 0x11, 0xad, 0xfe, 0xe6, 0xbf, 0xd9,
-	0xcf, 0x6a, 0xb6, 0xfa, 0xf7, 0x00, 0x00, 0x00, 0xff, 0xff, 0xaa, 0xbd, 0x84, 0xff, 0x55, 0x05,
-	0x00, 0x00,
-}
