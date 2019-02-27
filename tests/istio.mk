@@ -194,7 +194,7 @@ test/local/auth/e2e_pilotv2: out_dir generate_e2e_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # test with MTLS using key/cert distributed through SDS
-test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_yaml
+test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
