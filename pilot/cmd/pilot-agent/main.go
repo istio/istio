@@ -501,14 +501,15 @@ func waitForCerts(fname string, maxWait time.Duration) {
 			return
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Infof("error while waiting for certificates: %s", err.Error())
+			log.Errora("error while waiting for certificates:", err.Error())
 			return
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
 			break
-		} else if now.After(nextLog) {
+		}
+		if now.After(nextLog) {
 			log.Infof("waiting for certificates")
 			logDelay = logDelay * 2
 			nextLog.Add(logDelay)
