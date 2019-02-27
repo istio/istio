@@ -83,7 +83,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
-					if isHTTPServer(s) {
+					if IsHTTPServer(s) {
 						rdsName := GatewayRDSRouteName(s)
 						if rdsName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
@@ -112,13 +112,13 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				}
 			} else {
 				gatewayPorts[s.Port.Number] = true
-				if isTLSServer(s) {
+				if IsTLSServer(s) {
 					tlsServers[s.Port.Number] = []*networking.Server{s}
 				} else {
 					plaintextServers[s.Port.Number] = []*networking.Server{s}
 				}
 
-				if isHTTPServer(s) {
+				if IsHTTPServer(s) {
 					rdsRouteConfigNames[GatewayRDSRouteName(s)] = []*networking.Server{s}
 				}
 			}
@@ -141,14 +141,16 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	}
 }
 
-func isTLSServer(server *networking.Server) bool {
+// IsTLSServer returns true if this server is non HTTP, with some TLS settings for termination/passthrough
+func IsTLSServer(server *networking.Server) bool {
 	if server.Tls != nil && !ParseProtocol(server.Port.Protocol).IsHTTP() {
 		return true
 	}
 	return false
 }
 
-func isHTTPServer(server *networking.Server) bool {
+// IsHTTPServer returns true if this server is using HTTP or HTTPS with termination
+func IsHTTPServer(server *networking.Server) bool {
 	protocol := ParseProtocol(server.Port.Protocol)
 	if protocol.IsHTTP() {
 		return true

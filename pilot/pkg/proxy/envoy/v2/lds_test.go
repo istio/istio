@@ -249,6 +249,67 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	}
 }
 
+// TestLDS using gateways
+func TestLDSWithIngressGateway(t *testing.T) {
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
+		args.Mesh.MixerAddress = ""
+		args.Mesh.RdsRefreshDelay = nil
+		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
+		args.Service.Registries = []string{}
+	})
+	testEnv = testenv.NewTestSetup(testenv.GatewayTest, t)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
+
+	server.EnvoyXdsServer.ConfigUpdate(true)
+	defer tearDown()
+
+	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+		Meta: map[string]string{
+			model.NodeMetadataConfigNamespace:   "istio-system",
+			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioProxyVersion: "1.1.0",
+		},
+		IP:        "99.1.1.1",
+		Namespace: "istio-system",
+		NodeType:  "router",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adsResponse.Close()
+
+	adsResponse.DumpCfg = true
+	adsResponse.Watch()
+
+	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	if err != nil {
+		t.Fatal("Failed to receive LDS response", err)
+		return
+	}
+
+	// Expect 2 listeners : 1 for 80, 1 for 443
+	// where 443 listener has 3 filter chains
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 2 {
+		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	}
+
+	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
+	// instead of looking at it as a listener with multiple filter chains
+	l := adsResponse.HTTPListeners["0.0.0.0_443"]
+
+	if l != nil {
+		if len(l.FilterChains) != 3 {
+			t.Fatalf("Expected 3 filter chains, got %d\n", len(l.FilterChains))
+		}
+	}
+}
+
 // TestLDS is running LDSv2 tests.
 func TestLDS(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
