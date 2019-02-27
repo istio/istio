@@ -24,6 +24,9 @@ import (
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	istiocmd "istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/webhook/k8s/controller"
+	"istio.io/istio/pkg/webhook/model"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 )
@@ -40,6 +43,7 @@ func serverCmd() *cobra.Command {
 	var (
 		serverArgs               = server.DefaultArgs()
 		validationArgs           = validation.DefaultArgs()
+		caArgs                   = model.DefaultArgs()
 		livenessProbeOptions     probe.Options
 		readinessProbeOptions    probe.Options
 		livenessProbeController  probe.Controller
@@ -80,13 +84,30 @@ func serverCmd() *cobra.Command {
 				log.Fatalf("Invalid validationArgs: %v", err)
 			}
 
+			galleyStop := make(chan struct{})
+
+			if caArgs.IsSelfSigned {
+				log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
+				clientset, err := kube.CreateClientset(kubeConfig, "")
+				if err != nil {
+					log.Fatalf("could not create k8s clientset: %v", err)
+				}
+
+				sc, err := controller.NewSecretController(caArgs, clientset.CoreV1(), validationArgs.ServiceName,
+					validationArgs.DeploymentAndServiceNamespace)
+				if err != nil {
+					log.Fatalf("Failed to create secret controller: %v", err)
+				}
+				sc.Run(galleyStop)
+			}
+
 			if serverArgs.EnableServer {
 				go server.RunServer(serverArgs, livenessProbeController, readinessProbeController)
 			}
 			if validationArgs.EnableValidation {
 				go validation.RunValidation(validationArgs, kubeConfig, livenessProbeController, readinessProbeController)
 			}
-			galleyStop := make(chan struct{})
+
 			go server.StartSelfMonitoring(galleyStop, monitoringPort)
 
 			if enableProfiling {
@@ -168,6 +189,15 @@ func serverCmd() *cobra.Command {
 		"Name of the validation service running in the same namespace as the deployment")
 	serverCmd.PersistentFlags().StringVar(&validationArgs.WebhookName, "webhook-name", "istio-galley",
 		"Name of the k8s validatingwebhookconfiguration")
+
+	// Configuration if galley acts as a self signed CA.
+	serverCmd.PersistentFlags().BoolVar(&caArgs.IsSelfSigned, "self-signed-ca", caArgs.IsSelfSigned,
+		"Indicates whether to use auto-generated self-signed CA certificate.")
+	serverCmd.PersistentFlags().DurationVar(&caArgs.RequestedCertTTL, "requested-ca-cert-ttl", caArgs.RequestedCertTTL,
+		"The requested TTL for the workload")
+	serverCmd.PersistentFlags().IntVar(&caArgs.RSAKeySize, "key-size", caArgs.RSAKeySize, "Size of generated private key")
+	// Certificate signing configuration.
+	serverCmd.PersistentFlags().StringVar(&caArgs.Org, "org", caArgs.Org, "Organization for the cert")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(serverCmd)
 	loggingOptions.AttachCobraFlags(serverCmd)

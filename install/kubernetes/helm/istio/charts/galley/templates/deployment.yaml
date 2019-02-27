@@ -58,6 +58,11 @@ spec:
 {{- else }}
           - --insecure=true
 {{- end }}
+{{- if .Values.selfSigned }}
+          - --self-signed-ca=true
+{{- else }}
+          - --self-signed-ca=false
+{{- end }}
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
@@ -68,9 +73,11 @@ spec:
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
           volumeMounts:
+{{- if not .Values.selfSigned }}
           - name: certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
           - name: config
             mountPath: /etc/config
             readOnly: true
@@ -102,9 +109,11 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       volumes:
+{{- if not .Values.selfSigned }}
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account
+{{- end }}
       - name: config
         configMap:
           name: istio-galley-configuration
