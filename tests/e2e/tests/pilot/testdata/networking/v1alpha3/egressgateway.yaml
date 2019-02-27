@@ -24,3 +24,15 @@ spec:
     - www.bing.com
     tls:
       mode: PASSTHROUGH
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "*.bookinfo.com"
+    tls:
+      # This test ensures that we can have both passthrough and non passthrough on same port
+      mode: SIMPLE #enables HTTPS on this port
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
+      caCertificates: /etc/certs/root-cert.pem
