@@ -1,0 +1,51 @@
+{{- if not .Values.customService }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingressgateway
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.serviceAnnotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  labels:
+    app: ingressgateway
+    release: {{ .Release.Name }}
+spec:
+{{- if .Values.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.loadBalancerIP }}"
+{{- end }}
+{{- if .Values.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml .Values.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
+{{- if .Values.externalTrafficPolicy }}
+  externalTrafficPolicy: {{.Values.externalTrafficPolicy }}
+{{- end }}
+  type: {{ .Values.type }}
+  selector:
+    app: ingressgateway
+  ports:
+
+    {{- range $key, $val := .Values.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+
+    {{- if $.Values.global.meshExpansion.enabled }}
+    {{- range $key, $val := .Values.meshExpansionPorts }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{ range $app := .Values.ingressPorts }}
+    -
+      port: {{ $app.port }}
+      name: {{ $app.name }}
+  {{- end }}
+---
+{{ end }}

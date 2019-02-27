@@ -1,0 +1,241 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ingressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ingressgateway
+    istio: ingressgateway
+    release: {{ .Release.Name }}
+spec:
+{{- if not .Values.autoscaleEnabled }}
+{{- if .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        app: ingressgateway
+        istio: ingressgateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+{{ end }}
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.proxy.enableCoreDump }}
+      initContainers:
+        - name: enable-core-dump
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+          securityContext:
+            privileged: true
+{{- end }}
+      containers:
+{{- if .Values.sds.enabled }}
+        - name: ingress-sds
+{{- if contains "/" .Values.sds.image }}
+          image: "{{ .Values.sds.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.sds.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{- end }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+            {{- range $key, $val := .Values.ports }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            {{- range $key, $val := .Values.meshExpansionPorts }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+{{- if .Values.k8sIngress }}
+          - ingress
+{{- else }}
+          - router
+{{- end }}
+{{- if .Values.global.proxy.proxyDomain }}
+          - --domain
+          - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
+          - --log_output_level
+          - '{{ .Values.debug | default "info" }}'
+          - --proxyLogLevel
+          - '{{ .Values.debug | default "info" }}'
+          - --drainDuration
+          - '{{ .Values.drainDuration }}'
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '{{ .Values.connectTimeout }}'
+          - --serviceCluster
+          - ingressgateway{{ .Values.suffix | default "" }}
+          - --zipkinAddress
+        {{- if .Values.global.tracer.zipkin.address }}
+          - {{ .Values.global.tracer.zipkin.address }}
+        {{- else if .Values.global.istioNamespace }}
+          - zipkin.{{ .Values.global.istioNamespace }}:9411
+        {{- else }}
+          - zipkin:9411
+        {{- end }}
+          - --proxyAdminPort
+          - "15000"
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          {{- if .Values.global.istioNamespace }}
+          - istio-pilot.{{ .Values.global.istioNamespace }}:15011
+          {{- else }}
+          - istio-pilot:15011
+          {{- end }}
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.istioNamespace }}
+          - istio-pilot.{{ .Values.global.istioNamespace }}:15010
+          {{- else }}
+          - istio-pilot:15010
+          {{- end }}
+        {{- end }}
+          resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name             
+          {{- if .Values.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+          {{ if .Values.global.sds.enabled }}
+          - name: sdsudspath
+            mountPath: /var/run/sds
+          {{- end }}
+          {{- if .Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- if .Values.sds.enabled }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          {{- end }}
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          {{- range .Values.secretVolumes }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
+{{- if .Values.additionalContainers }}
+{{ toYaml .Values.additionalContainers | indent 8 }}
+{{- end }}
+      volumes:
+      {{- if .Values.sds.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      {{- end }}
+      {{ if .Values.global.sds.enabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
+      {{- if .Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- end }}
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      {{- range .Values.secretVolumes }}
+      - name: {{ .name }}
+        secret:
+          secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range .Values.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
+          optional: true
+      {{- end }}
+{{- if .Values.global.arch }}
+      affinity:
+      {{- include "nodeaffinity" $ | indent 6 }}
+{{- end }}
+---

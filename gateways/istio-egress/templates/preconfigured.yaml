@@ -1,0 +1,89 @@
+{{- if .Values.zvpn.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: egressgateway
+    chart: egressgateway
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    istio: {{ .Release.Name }}
+  servers:
+  - hosts:
+    - "*.{{ .Values.zvpn.suffix }}"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: {{ .Release.Namespace }} 
+  labels:
+    app: egressgateway
+    chart: egressgateway
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  gateways:
+  - istio-multicluster-egressgateway
+  hosts:
+  - "*.{{ .Values.zvpn.suffix }}"
+  tls:
+  - match:
+    - port: 15443
+      sniHosts:
+      - "*.{{ .Values.zvpn.suffix }}"
+    route:
+    - destination:
+        host: non.existent.cluster
+        port:
+          number: 15443
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-multicluster-egressgateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "gateway.name" . }}
+    chart: {{ template "gateway.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+   workloadLabels:
+     istio: {{ .Release.Namespace }}
+   filters:
+   - listenerMatch:
+       portNumber: 15443
+       listenerType: GATEWAY
+     filterName: envoy.filters.network.sni_cluster
+     filterType: NETWORK
+     filterConfig: {}
+---
+## To ensure all traffic to *.global is using mTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-destinationrule
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "gateway.name" . }}
+    chart: {{ template "gateway.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  host: "*.{{ .Values.zvpn.suffix }}"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+{{- end }}
