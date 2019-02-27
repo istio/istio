@@ -110,7 +110,6 @@ func init() {
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
 	experimentalCmd.AddCommand(install.NewVerifyCommand())
-	experimentalCmd.AddCommand(Rbac())
 	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
