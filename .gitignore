@@ -3,6 +3,8 @@
 # Eclipse artifacts
 .project
 .pydevproject
+.classpath
+.settings/
 #Vagrant
 tools/vagrant/.vagrant/
 # Intellij
