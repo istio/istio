@@ -573,6 +573,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		ControlPlaneAuthPolicy: 1,
 		Tracing:                nil,
+		TlsCertsToWatch:        []string{"/absolute/path/to/cert.pem", "/etc/certs/key.pem"},
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -649,6 +650,16 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "control plane auth policy invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ControlPlaneAuthPolicy = -1 }),
+			isValid: false,
+		},
+		{
+			name:    "cert files to watch invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.TlsCertsToWatch = []string{"cert.pem"} }),
+			isValid: false,
+		},
+		{
+			name:    "cert files to watch partially invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.TlsCertsToWatch = []string{"/valid/path/cert.pem", "invalid/path/key.pem"} }),
 			isValid: false,
 		},
 		{
