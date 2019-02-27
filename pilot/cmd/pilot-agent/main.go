@@ -259,7 +259,9 @@ var (
 			log.Infof("Monitored certs: %#v", certs)
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				waitForCerts(path.Join(certs[0].Directory, certs[0].Files[0]), 2*time.Minute)
+				for _, cs := range certs {
+					waitForCerts(path.Join(cs.Directory, cs.Files[0]), 2*time.Minute)
+				}
 			}
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
@@ -489,7 +491,7 @@ func init() {
 }
 
 func waitForCerts(fname string, maxWait time.Duration) {
-	log.Infof("waiting %v for certificates to become available", maxWait)
+	log.Infof("waiting %v for %s", maxWait, fname)
 
 	logDelay := 1 * time.Second
 	nextLog := time.Now().Add(logDelay)
@@ -501,12 +503,13 @@ func waitForCerts(fname string, maxWait time.Duration) {
 			return
 		}
 		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for certificates:", err.Error())
+			log.Errora("error while waiting for certificates", err.Error())
 			return
 		}
 
 		now := time.Now()
 		if now.After(endWait) {
+			log.Warna("certificates still not available after", maxWait)
 			break
 		}
 		if now.After(nextLog) {
