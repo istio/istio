@@ -15,6 +15,7 @@ spec:
     - match:
       - gateways:
         - mesh # from sidecars, route to egress gateway service
+        port: 80
       route:
       - destination:
           host: istio-egressgateway.istio-system.svc.cluster.local
@@ -27,6 +28,7 @@ spec:
         - istio-egressgateway
         authority:
           regex: ".*?[.]eu[.]bookinfo[.]com"
+        port: 80
       route:
       - destination:
           host: "*.eu.bookinfo.com"
@@ -43,7 +45,6 @@ spec:
         sniHosts:
         - www.google.com
         - www.bing.com
-        - "*.bookinfo.com"
       route:
       - destination:
           host: istio-egressgateway.istio-system.svc.cluster.local

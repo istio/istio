@@ -66,25 +66,6 @@ func TestRouteHTTPViaEgressGateway(t *testing.T) {
 			}
 			return errAgain
 		})
-
-		runRetriableTest(t, "RoutePassthroughAndNonPassthroughViaGateway", defaultRetryBudget, func() error {
-			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
-			reqURL := fmt.Sprintf("https://1.1.1.1/bookinfo")
-			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
-			count := make(map[string]int)
-			for _, elt := range resp.Host {
-				count[elt]++
-			}
-			for _, elt := range resp.Code {
-				count[elt]++
-			}
-			handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
-			log.Infof("request counts %v", count)
-			if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
-				return nil
-			}
-			return errAgain
-		})
 	}
 }
 

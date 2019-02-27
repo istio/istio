@@ -238,9 +238,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
+		// We have two cases here:
+		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
+		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+		// The logic below only handles case 1.
+		// TODO: handle case 2
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, v)
 		if len(matchingHosts) == 0 {
-			log.Debugf("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
+			log.Debugf("%s omitting virtual service %q because its hosts don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
 		}
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, v, nameToServiceMap, port, nil, merged.Names)
@@ -503,10 +508,16 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
 		// Validation ensures that non-passthrough servers will have certs
 		if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env,
 			push, server, gatewaysForWorkload); len(filters) > 0 {
+			enableIngressSdsAgent := false
+			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+			// gateway listener.
+			if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+				enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+			}
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server, false),
+					tlsContext:     buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
 					networkFilters: filters,
 				},
 			}
@@ -536,6 +547,10 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
+		// We have two cases here:
+		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
+		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+		// Since this is TCP, neither matters. We are simply looking for matching virtual service for this gateway
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
 		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
@@ -584,6 +599,11 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 		virtualServices := push.VirtualServices(node, gatewaysForWorkload)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
+			// We have two cases here:
+			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
+			// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+			// The code below only handles 1.
+			// TODO: handle case 2
 			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
 			if len(matchingHosts) == 0 {
 				// the VirtualService's hosts don't include hosts advertised by server
@@ -591,6 +611,9 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 			}
 
 			// For every matching TLS block, generate a filter chain with sni match
+			// TODO: Bug..if there is a single virtual service with *.foo.com, and multiple TLS block
+			// matches, one for 1.foo.com, another for 2.foo.com, this code will produce duplicate filter
+			// chain matches
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
