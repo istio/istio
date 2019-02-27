@@ -747,8 +747,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
 		svc := *obj.(*v1.Service)
 
-		// Do not handle "kube-system" services
-		if svc.Namespace == meta_v1.NamespaceSystem {
+		// Do not handle "kube-system" services unless using incremental EDS
+		if svc.Namespace == meta_v1.NamespaceSystem || c.EDSUpdater == nil {
 			return nil
 		}
 
@@ -788,8 +788,8 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep := obj.(*v1.Endpoints)
 
-		// Do not handle "kube-system" endpoints
-		if ep.Namespace == meta_v1.NamespaceSystem {
+		// Do not handle "kube-system" endpoints unless using incremental EDS
+		if ep.Namespace == meta_v1.NamespaceSystem || c.EDSUpdater == nil {
 			return nil
 		}
 
