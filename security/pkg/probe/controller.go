@@ -35,7 +35,8 @@ const (
 	// LivenessProbeClientIdentity is the default identity for the liveness probe check
 	LivenessProbeClientIdentity   = "k8s.cluster.local"
 	probeCheckRequestedTTLMinutes = 60
-	logEveryNChecks               = 20
+	// logEveryNChecks specifies we log once in every N successful checks.
+	logEveryNChecks = 20
 )
 
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
@@ -176,20 +177,29 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 	resp, err := caProtocol.SendCSR(req)
 
-	if err == nil && resp != nil && resp.IsApproved {
-		if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
-			err := fmt.Errorf("CSR sign failure: %v", vErr)
-			log.Errora(err)
-			return err
-		}
-		log.Debugf("CSR signing service is healthy.")
-		if c.checkCount%logEveryNChecks == 1 {
-			log.Infof("Health check #%d: CSR signing service is healthy.", c.checkCount)
-		}
-		return nil
+	if err != nil {
+		return err
+	}
+	if resp == nil {
+		return fmt.Errorf("CSR sign failure: response is nil")
+	}
+	if !resp.IsApproved {
+		return fmt.Errorf("CSR sign failure: request is not approaved")
+	}
+	if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
+		err := fmt.Errorf("CSR sign failure: %v", vErr)
+		log.Errora(err)
+		return err
 	}
 
-	return fmt.Errorf("CSR sign failure: [error: %v], [resp is nil: %v]", err, resp == nil)
+	c.checkCount++
+	if c.checkCount%logEveryNChecks == 1 {
+		log.Infof("CSR signing service is healthy (logged every %d times).", logEveryNChecks)
+	}
+
+	log.Debugf("CSR signing service is healthy.")
+
+	return nil
 }
 
 // Run starts the check routine
@@ -197,7 +207,6 @@ func (c *LivenessCheckController) Run() {
 	go func() {
 		t := time.NewTicker(c.interval)
 		for range t.C {
-			c.checkCount++
 			c.livenessProbe.SetAvailable(c.checkGrpcServer())
 		}
 	}()

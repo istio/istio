@@ -52,7 +52,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		err      string
 		expected string
 	}{
-		// TODO: Add more tests.
+		// TODO: test successful case.
 		"Returned no cert": {
 			resp: &pb.CsrResponse{
 				IsApproved: true,
@@ -65,12 +65,12 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		"SendCSR failed": {
 			resp:     nil,
 			err:      "sendCSR failed",
-			expected: "CSR sign failure: [error: sendCSR failed], [resp is nil: true]",
+			expected: "sendCSR failed",
 		},
 		"gRPC server is not available": {
 			resp:     nil,
 			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
-			expected: "CSR sign failure: [error: all SubConns are in TransientFailure], [resp is nil: true]",
+			expected: "all SubConns are in TransientFailure",
 		},
 	}
 
