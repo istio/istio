@@ -33,6 +33,9 @@ import (
 const (
 	// epochFileTemplate is a template for the root config JSON
 	epochFileTemplate = "envoy-rev%d.json"
+
+	// drainFile is the location of the bootstrap config used for draining on istio-proxy termination
+	drainFile = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
 )
 
 type envoy struct {
@@ -62,7 +65,7 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 	}
 }
 
-func (e *envoy) args(fname string, epoch int) []string {
+func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(e.config.DrainDuration) / time.Second)),
@@ -74,6 +77,15 @@ func (e *envoy) args(fname string, epoch int) []string {
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
+
+	if bootstrapConfig != "" {
+		bytes, err := ioutil.ReadFile(bootstrapConfig)
+		if err != nil {
+			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+		} else {
+			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
+		}
+	}
 
 	if e.config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.config.Concurrency))
@@ -91,6 +103,8 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	if len(e.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
+	} else if _, ok := config.(proxy.DrainConfig); ok {
+		fname = drainFile
 	} else {
 		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
 		if err != nil {
@@ -102,7 +116,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch)
+	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE"))
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */

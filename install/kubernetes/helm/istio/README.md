@@ -111,21 +111,17 @@ The chart deploys pods that consume minimum resources as specified in the resour
     $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
     ```
 
-1. Build the Helm dependencies:
-    ```
-    $ helm dep update install/kubernetes/helm/istio
-    ```
 
 1. To install the chart with the release name `istio` in namespace $NAMESPACE you defined above:
 
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
-    $ helm install install/kubernetes/helm/istio --name istio --namespace $NAMESPACE
+    $ helm install istio --name istio --namespace $NAMESPACE
     ```
 
     - Without the sidecar injection webhook:
     ```
-    $ helm install install/kubernetes/helm/istio --name istio --namespace $NAMESPACE --set sidecarInjectorWebhook.enabled=false
+    $ helm install istio --name istio --namespace $NAMESPACE --set sidecarInjectorWebhook.enabled=false
     ```
 
 ## Configuration
@@ -145,7 +141,6 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.controlPlaneSecurityEnabled` | Specifies whether control plane mTLS is enabled | true/false | `false` |
 | `global.mtls.enabled` | Specifies whether mTLS is enabled by default between services | true/false | `false` |
 | `global.rbacEnabled` | Specifies whether to create Istio RBAC rules or not | true/false | `true` |
-| `global.refreshInterval` | Specifies the mesh discovery refresh interval | integer followed by s | `10s` |
 | `global.arch.amd64` | Specifies the scheduling policy for `amd64` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `global.arch.s390x` | Specifies the scheduling policy for `s390x` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `global.arch.ppc64le` | Specifies the scheduling policy for `ppc64le` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |

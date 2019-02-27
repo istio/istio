@@ -34,7 +34,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -110,9 +109,9 @@ const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
 
-	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
 	// registry doesn't provide one.
-	AZLabel = "istio-az"
+	LocalityLabel = "istio-locality"
 )
 
 // Port represents a network port where a service is listening for
@@ -200,6 +199,18 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+)
+
+// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
+type Visibility string
+
+const (
+	// VisibilityPrivate implies namespace local config
+	VisibilityPrivate Visibility = "."
+	// VisibilityPublic implies config is visible to all
+	VisibilityPublic Visibility = "*"
+	// VisibilityNone implies config is visible to none
+	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -377,7 +388,7 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[AZLabel]
+	return si.Labels[LocalityLabel]
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -443,9 +454,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
-	// ConfigScope defines the visibility of Service in
+	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ConfigScope networking.ConfigScope
+	ExportTo map[Visibility]bool
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -512,20 +523,17 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
-}
 
-// ServiceAccounts exposes Istio service accounts
-// Deprecated - service account tracking moved to XdsServer, incremental.
-type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
-// Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
+// Matches returns true if this hostname overlaps with the other hostname. Hostnames overlap if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
-// to determine if h is covered by o.
+// to determine if h is covered by o or o is covered by h.
 // e.g.:
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
@@ -535,70 +543,55 @@ type ServiceAccounts interface {
 //  Hostname("*").Matches("foo.com") = true
 //  Hostname("*").Matches("*.com") = true
 func (h Hostname) Matches(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 
-	hWildcard := string(h[0]) == "*"
-	if hWildcard && len(o) == 0 {
-		return true
-	}
-
-	oWildcard := string(o[0]) == "*"
-	if !hWildcard && !oWildcard {
-		// both are non-wildcards, so do normal string comparison
-		return h == o
-	}
-
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
-		longer, shorter = shorter, longer
-		hWildcard, oWildcard = oWildcard, hWildcard
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return strings.HasSuffix(string(o[1:]), string(h[1:]))
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
+		return strings.HasSuffix(string(o), string(h[1:]))
 	}
 
-	matches := strings.HasSuffix(longer, shorter)
-	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
-		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
-		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
-		return false
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
 	}
-	return matches
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
-// the same as "Matches", but only in one direction.
+// the same as "Matches", but only in one direction (i.e., h is covered by o).
 func (h Hostname) SubsetOf(o Hostname) bool {
-	if len(h) == 0 && len(o) == 0 {
-		return true
-	}
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 
-	hWildcard := string(h[0]) == "*"
-	oWildcard := string(o[0]) == "*"
-	if !oWildcard {
-		if hWildcard {
-			return false
-		}
-		return h == o
-	}
-
-	longer, shorter := string(h), string(o)
 	if hWildcard {
-		longer = string(h[1:])
-	}
-	if oWildcard {
-		shorter = string(o[1:])
-	}
-	if len(longer) < len(shorter) {
+		if oWildcard {
+			// both h and o are wildcards
+			if len(h) < len(o) {
+				return false
+			}
+			return strings.HasSuffix(string(h[1:]), string(o[1:]))
+		}
+		// only h is wildcard
 		return false
 	}
 
-	return strings.HasSuffix(longer, shorter)
+	if oWildcard {
+		// only o is wildcard
+		return strings.HasSuffix(string(h), string(o[1:]))
+	}
+
+	// both are non-wildcards, so do normal string comparison
+	return h == o
 }
 
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.

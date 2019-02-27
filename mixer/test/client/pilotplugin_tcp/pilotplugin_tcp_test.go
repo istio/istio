@@ -178,9 +178,10 @@ func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, n
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList          { return nil }
-func (mock) Services() ([]*model.Service, error)              { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                               { return nil }
+func (mock) Services() ([]*model.Service, error)                                   { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                      { return nil }
+func (mock) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string { return nil }
 
 const (
 	id = "id"

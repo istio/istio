@@ -383,7 +383,7 @@ func TestController_getPodAZ(t *testing.T) {
 
 			// Verify expected existing pod AZs
 			for pod, wantAZ := range c.wantAZ {
-				az := controller.GetPodAZ(pod)
+				az := controller.GetPodLocality(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Errorf("Wanted az: %s, got: %s", wantAZ, az)
@@ -451,7 +451,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	svcNode.Type = model.Ingress
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
-	svcNode.DNSDomain = "nsa.svc.cluster.local"
+	svcNode.DNSDomains = []string{"nsa.svc.cluster.local"}
 	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)

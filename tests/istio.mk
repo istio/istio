@@ -92,11 +92,13 @@ e2e_all: istioctl generate_yaml e2e_all_run
 e2e_simple_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
+	--valueFile values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
+	--valueFile values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
@@ -114,7 +116,7 @@ e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_stackdriver_run: out_dir
-	go test -v -timeout 25m ./tests/e2e/tests/stackdriver -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} --gcp_proj=${GCP_PROJ} --sa_cred=/etc/service-account/service-account.json
+	go test -v -timeout 25m ./tests/e2e/tests/stackdriver -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} --cluster_wide --gcp_proj=${GCP_PROJ} --sa_cred=/etc/service-account/service-account.json
 
 e2e_all_run: out_dir
 	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run
@@ -217,6 +219,7 @@ test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_yaml
 		--auth_enable=true --trust_domain_enable --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
+test/local/noauth/e2e_mixer_envoyv2: export EXTRA_HELM_SETTINGS=--set mixer.adapters.stdio.enabled=false
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \

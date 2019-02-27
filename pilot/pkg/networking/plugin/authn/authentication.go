@@ -130,13 +130,13 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt),
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
 		}
 
 		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt),
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
 			},
 		}
 	}
@@ -366,7 +366,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
+		if in.ListenerProtocol == plugin.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)

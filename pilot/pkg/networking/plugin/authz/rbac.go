@@ -194,12 +194,12 @@ func generateMetadataStringMatcher(key string, v *metadata.StringMatcher, filter
 }
 
 // generateMetadataListMatcher generates a metadata list matcher for the given path keys and value.
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(filter string, keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
 				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */),
 				},
 			},
 		},
@@ -213,7 +213,7 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 
 	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
+		Filter: filter,
 		Path:   paths,
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_ListMatch{
@@ -223,9 +223,9 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 }
 
-func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
+func createStringMatcher(v string, forceRegexPattern, prependSpiffe bool) *metadata.StringMatcher {
 	extraPrefix := ""
-	if forTCPFilter {
+	if prependSpiffe {
 		extraPrefix = spiffePrefix
 	}
 	var stringMatcher *metadata.StringMatcher
@@ -266,7 +266,7 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* forTCPFilter */)
+		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* prependSpiffe */)
 		return generateMetadataStringMatcher(attrSrcPrincipal, stringMatcher, filterName)
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
@@ -275,10 +275,10 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		return generateMetadataListMatcher([]string{attrRequestClaims, claim}, v)
+		return generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, claim}, v)
 	}
 
-	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
+	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */)
 	if !attributesFromAuthN(k) {
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
 		if forTCPFilter {
@@ -751,7 +751,27 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_RequestedServerName{
-					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */),
+				},
+			}, nil
+		}
+	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
+		// Split key of format experimental.envoy.filters.a.b[c] to [envoy.filters.a.b, c].
+		parts := strings.SplitN(strings.TrimSuffix(strings.TrimPrefix(key, "experimental."), "]"), "[", 2)
+		converter = func(v string) (*policyproto.Permission, error) {
+			// If value is of format [v], create a list matcher.
+			// Else, if value is of format v, create a string matcher.
+			var metadataMatcher *metadata.MetadataMatcher
+			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+				metadataMatcher = generateMetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"))
+			} else {
+				stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */)
+				metadataMatcher = generateMetadataStringMatcher(parts[1], stringMatcher, parts[0])
+			}
+
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_Metadata{
+					Metadata: metadataMatcher,
 				},
 			}, nil
 		}

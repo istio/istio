@@ -58,10 +58,10 @@ func makeFakeClient() *fake.Clientset {
 		&v1.PodList{Items: []v1.Pod{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: testNamespace,
+					Name:      "ingressgateway",
+					Namespace: "istio-system",
 					Labels: map[string]string{
-						"lable_sig": "test",
+						"app": "ingressgateway",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -196,14 +196,19 @@ func TestConvertIngressControllerMode(t *testing.T) {
 	}
 }
 
-func TestRunningAddressesWithService(t *testing.T) {
+func TestRunningAddresses(t *testing.T) {
+	t.Run("service", testRunningAddressesWithService)
+	t.Run("hostname", testRunningAddressesWithHostname)
+}
+
+func testRunningAddressesWithService(t *testing.T) {
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(testNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +218,7 @@ func TestRunningAddressesWithService(t *testing.T) {
 	}
 }
 
-func TestRunningAddressesWithHostname(t *testing.T) {
+func testRunningAddressesWithHostname(t *testing.T) {
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
@@ -222,7 +227,7 @@ func TestRunningAddressesWithHostname(t *testing.T) {
 
 	syncer.ingressService = "istio-ingress-hostname"
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(testNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,6 +238,7 @@ func TestRunningAddressesWithHostname(t *testing.T) {
 }
 
 func TestRunningAddressesWithPod(t *testing.T) {
+	ingressNamespace = "istio-system" // it is set in real pilot on newController.
 	client := makeFakeClient()
 	syncer, err := makeStatusSyncer(t, client)
 	if err != nil {
@@ -241,12 +247,12 @@ func TestRunningAddressesWithPod(t *testing.T) {
 
 	syncer.ingressService = ""
 
-	address, err := syncer.runningAddresses()
+	address, err := syncer.runningAddresses(ingressNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(address) != 1 || address[0] != nodeIP {
-		t.Errorf("Address is not correctly set to node ip")
+		t.Errorf("Address is not correctly set to node ip %v %v", address, nodeIP)
 	}
 }

@@ -86,6 +86,12 @@ const (
 
 	// To limit the retry attempts for time series that are failed to push.
 	maxRetryAttempt = 3
+
+	// Size of time series buffer that would trigger time series merging.
+	mergeBufferTrigger = 10000
+
+	// microsecond to introduce a small difference between start time and end time of time series interval.
+	usec = int32(1 * time.Microsecond)
 )
 
 var (
@@ -176,10 +182,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		m:                   sync.Mutex{},
 		l:                   env.Logger(),
 		timeSeriesBatchSize: timeSeriesBatchLimit,
+		buffer:              []*monitoringpb.TimeSeries{},
+		mergeTrigger:        mergeBufferTrigger,
+		mergedTS:            make(map[uint64]*monitoringpb.TimeSeries),
 		retryBuffer:         []*monitoringpb.TimeSeries{},
 		retryCounter:        map[uint64]int{},
 		retryLimit:          maxRetryAttempt,
 		pushInterval:        cfg.PushInterval,
+		env:                 env,
 	}
 	// We hold on to the ref to the ticker so we can stop it later
 	buffered.start(env, ticker)
@@ -210,6 +220,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		//end, _ := ptypes.TimestampProto(val.EndTime)
 		start, _ := ptypes.TimestampProto(h.now())
 		end, _ := ptypes.TimestampProto(h.now())
+		end.Nanos += usec
 
 		ts := &monitoringpb.TimeSeries{
 			Metric: &metricpb.Metric{

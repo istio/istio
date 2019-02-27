@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -50,20 +51,23 @@ var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
 // Server is the main entry point into the Galley code.
 type Server struct {
-	serveWG    sync.WaitGroup
-	grpcServer *grpc.Server
-	processor  *runtime.Processor
-	mcp        *server.Server
-	mcpSource  *source.Server
-	reporter   monitoring.Reporter
-	listener   net.Listener
-	controlZ   *ctrlz.Server
-	stopCh     chan struct{}
+	serveWG       sync.WaitGroup
+	grpcServer    *grpc.Server
+	processor     *runtime.Processor
+	mcp           *server.Server
+	mcpSource     *source.Server
+	reporter      monitoring.Reporter
+	listenerMutex sync.Mutex
+	listener      net.Listener
+	controlZ      *ctrlz.Server
+	stopCh        chan struct{}
+	callOut       *callout
 }
 
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
-	verifyResourceTypesPresence func(client.Interfaces) error
+	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) error
+	findSupportedResources      func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
@@ -75,6 +79,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		newKubeFromConfigFile:       client.NewKubeFromConfigFile,
 		verifyResourceTypesPresence: check.ResourceTypesPresence,
+		findSupportedResources:      check.FindSupportedResourceSchemas,
 		newSource:                   kubeSource.New,
 		netListen:                   net.Listen,
 		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
@@ -122,9 +127,15 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k); err != nil {
+			if err := p.verifyResourceTypesPresence(k, kubeMeta.Types.All()); err != nil {
 				return nil, err
 			}
+		} else {
+			found, err := p.findSupportedResources(k, kubeMeta.Types.All())
+			if err != nil {
+				return nil, err
+			}
+			sourceSchema = schema.New(found...)
 		}
 		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
@@ -136,7 +147,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
 	}
-	distributor := snapshot.New(snapshot.DefaultGroupIndex)
+	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
@@ -165,9 +176,17 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
-		Watcher:            distributor,
-		Reporter:           s.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		Watcher:           distributor,
+		Reporter:          s.reporter,
+		CollectionOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+	}
+
+	if a.SinkAddress != "" {
+		s.callOut, err = newCallout(a.SinkAddress, a.SinkAuthMode, a.SinkMeta, options)
+		if err != nil {
+			s.callOut = nil
+			scope.Fatalf("Callout could not be initialized: %v", err)
+		}
 	}
 
 	s.mcp = server.New(options, checker)
@@ -228,12 +247,37 @@ func (s *Server) Run() {
 			return
 		}
 
-		// start serving
-		err = s.grpcServer.Serve(s.listener)
-		if err != nil {
-			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
+		l := s.getListener()
+		if l != nil {
+			// start serving
+			err = s.grpcServer.Serve(l)
+			if err != nil {
+				scope.Errorf("Galley Server unexpectedly terminated: %v", err)
+			}
 		}
 	}()
+	if s.callOut != nil {
+		s.serveWG.Add(1)
+		go func() {
+			defer s.serveWG.Done()
+			s.callOut.Run()
+		}()
+	}
+}
+
+func (s *Server) getListener() net.Listener {
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
+	return s.listener
+}
+
+// Address returns the Address of the MCP service.
+func (s *Server) Address() net.Addr {
+	l := s.getListener()
+	if l == nil {
+		return nil
+	}
+	return l.Addr()
 }
 
 // Close cleans up resources used by the server.
@@ -245,7 +289,6 @@ func (s *Server) Close() error {
 
 	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
-		s.serveWG.Wait()
 	}
 
 	if s.controlZ != nil {
@@ -256,12 +299,23 @@ func (s *Server) Close() error {
 		s.processor.Stop()
 	}
 
+	s.listenerMutex.Lock()
 	if s.listener != nil {
 		_ = s.listener.Close()
+		s.listener = nil
 	}
+	s.listenerMutex.Unlock()
 
 	if s.reporter != nil {
 		_ = s.reporter.Close()
+	}
+
+	if s.callOut != nil {
+		s.callOut.Close()
+	}
+
+	if s.grpcServer != nil || s.callOut != nil {
+		s.serveWG.Wait()
 	}
 
 	// final attempt to purge buffered logs

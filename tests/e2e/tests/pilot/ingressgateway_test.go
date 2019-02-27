@@ -229,7 +229,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		fatalError = true
 		goto cleanup
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	log.Infof("routing to v3,v4")
 	if err = routeToNewSubsets.Setup(); err != nil {
 		fatalError = true

@@ -66,6 +66,7 @@ var (
 		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
 		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
 		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
+		{"traffic.sidecar.istio.io/kubevirtInterfaces", alwaysValidFunc},
 	}
 
 	annotationPolicy = annotationRegistry[0]
@@ -136,6 +137,7 @@ const (
 	DefaultReadinessFailureThreshold    = 30
 	DefaultIncludeIPRanges              = "*"
 	DefaultIncludeInboundPorts          = "*"
+	DefaultkubevirtInterfaces           = ""
 )
 
 const (
@@ -152,6 +154,7 @@ type SidecarInjectionSpec struct {
 	InitContainers      []corev1.Container            `yaml:"initContainers"`
 	Containers          []corev1.Container            `yaml:"containers"`
 	Volumes             []corev1.Volume               `yaml:"volumes"`
+	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
 	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
@@ -214,6 +217,9 @@ type Params struct {
 	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
 	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
 	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound
+	// By default, no interfaces are configured.
+	KubevirtInterfaces string `json:"kubevirtInterfaces"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -509,10 +515,12 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"isset":               isset,
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
+		"kubevirtInterfaces":  kubevirtInterfaces,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
@@ -521,7 +529,11 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var tmpl bytes.Buffer
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
-	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
+	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
+		return nil, "", err
+	}
 	if err := t.Execute(&tmpl, &data); err != nil {
 		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
@@ -701,9 +713,11 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
+	podSpec.DNSConfig = spec.DNSConfig
+
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(spec, podSpec)
+	rewriteAppHTTPProbe(podSpec, spec)
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
@@ -763,6 +777,10 @@ func applicationPorts(containers []corev1.Container) string {
 func includeInboundPorts(containers []corev1.Container) string {
 	// Include the ports from all containers in the deployment.
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
+}
+
+func kubevirtInterfaces(s string) string {
+	return s
 }
 
 func toJSON(m map[string]string) string {
