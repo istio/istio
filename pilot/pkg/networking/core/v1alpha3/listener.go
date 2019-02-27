@@ -1556,11 +1556,13 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	}
 
 	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
-	for i, chain := range mutable.FilterChains {
+	for i := range mutable.FilterChains {
+		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 
-		if pluginParams.ListenerProtocol == plugin.ListenerProtocolTCP {
+		if opt.httpOpts == nil {
+			// we are building a network filter chain (no http connection manager) for this filter chain
 			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
 			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
 			// codec is used by RBAC or mixer later.

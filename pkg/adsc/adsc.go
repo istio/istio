@@ -154,7 +154,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	}
 	adsc.Metadata = opts.Meta
 
-	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
 	err := adsc.Run()
