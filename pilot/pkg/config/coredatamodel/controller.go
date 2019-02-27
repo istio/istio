@@ -15,8 +15,11 @@
 package coredatamodel
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -184,6 +187,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 	if c.options.IncrementalEDS &&
 		descriptor.Collection == model.ServiceEntry.Collection ||
 		descriptor.Collection == model.SyntheticServiceEntry.Collection {
+		// only edsUpdate if endpoint changed
 		if err := c.incrementalUpdate(innerStore, prevStore); err != nil {
 			return err
 		}
@@ -261,14 +265,12 @@ func (c *Controller) incrementalUpdate(innerStore, prevStore map[string]map[stri
 		for name, config := range byName {
 			if prevByNamespace, ok := prevStore[ns]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						if se, ok := config.Spec.(*networking.ServiceEntry); ok {
-							endpoints := serviceEndpoints(se, name, ns)
-							hostname := fmt.Sprintf("%s.%s.svc.%s", name, ns, c.options.DomainSuffix)
-							// TODO: should we only do this if resourceVersion is changed?
-							if err := c.options.XDSUpdater.EDSUpdate("MCP", hostname, endpoints); err != nil {
-								return err
-							}
+					update, se := updateEndpoint(prevConfig, config)
+					if update && se != nil {
+						istioEndpoints := convertEndpoints(se, name, ns)
+						hostname := hostName(name, ns, c.options.DomainSuffix)
+						if err := c.options.XDSUpdater.EDSUpdate("MCP", hostname, istioEndpoints); err != nil {
+							return err
 						}
 					}
 				}
@@ -276,6 +278,58 @@ func (c *Controller) incrementalUpdate(innerStore, prevStore map[string]map[stri
 		}
 	}
 	return nil
+}
+
+func updateEndpoint(prevCfg, currentCfg *model.Config) (bool, *networking.ServiceEntry) {
+	fmt.Println("1")
+	oldSe, ok := prevCfg.Spec.(*networking.ServiceEntry)
+	if !ok {
+		fmt.Println("2")
+		return false, nil
+	}
+	newSe, ok := currentCfg.Spec.(*networking.ServiceEntry)
+	if !ok {
+		fmt.Println("3")
+		return false, nil
+	}
+	if len(oldSe.Endpoints) != len(newSe.Endpoints) {
+		fmt.Println("4")
+		return true, newSe
+	}
+	if reflect.DeepEqual(oldSe.Endpoints, newSe.Endpoints) {
+		fmt.Println("5")
+		return false, nil
+	}
+	// check for equality of Endpoints that changed order
+	oldEp, newEp := hash(oldSe.Endpoints, newSe.Endpoints)
+	if !equal(oldEp, newEp) {
+		fmt.Println("5")
+		return true, newSe
+	}
+	fmt.Println("6")
+	return false, nil
+}
+
+func hash(oldEp, newEp []*networking.ServiceEntry_Endpoint) (oldEpBuf, newEpBuf []byte) {
+	var b bytes.Buffer
+	gob.NewEncoder(&b).Encode(oldEp)
+	oldEpBuf = b.Bytes()
+
+	b.Reset()
+	gob.NewEncoder(&b).Encode(newEp)
+	newEpBuf = b.Bytes()
+	return oldEpBuf, newEpBuf
+}
+
+func equal(a, b []byte) bool {
+	a = append(a, b...)
+	c := 0
+	for _, x := range a {
+		// TODO: this could potentially be a wrong
+		// doing XOR on a bit by bit basis
+		c ^= int(x)
+	}
+	return c == 0
 }
 
 func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
@@ -320,7 +374,7 @@ func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 	}
 }
 
-func serviceEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoints []*model.IstioEndpoint) {
+func convertEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoints []*model.IstioEndpoint) {
 	for _, ep := range se.Endpoints {
 		for portName, port := range ep.Ports {
 			ep := &model.IstioEndpoint{
@@ -328,7 +382,7 @@ func serviceEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoint
 				EndpointPort:    port,
 				ServicePortName: portName,
 				Labels:          ep.Labels,
-				UID:             fmt.Sprintf("%s.%s", cfgName, ns),
+				UID:             cfgName + "." + ns,
 				Network:         ep.Network,
 				Locality:        ep.Locality,
 				LbWeight:        ep.Weight,
@@ -338,6 +392,10 @@ func serviceEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoint
 		}
 	}
 	return endpoints
+}
+
+func hostName(name, namespace, domainSuffix string) string {
+	return name + "." + namespace + ".svc." + domainSuffix
 }
 
 func extractNameNamespace(metadataName string) (string, string) {

@@ -111,7 +111,29 @@ var (
 		},
 	}
 
-	syntheticServiceEntry = &networking.ServiceEntry{
+	serviceEntry1 = &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.Port{
+			{
+				Name:     "http",
+				Number:   7878,
+				Protocol: "http",
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Resolution: networking.ServiceEntry_STATIC,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "127.0.0.1",
+				Ports: map[string]uint32{
+					"http": 3344,
+				},
+				Labels: map[string]string{"label": "random-label"},
+			},
+		},
+	}
+
+	syntheticServiceEntry0 = &networking.ServiceEntry{
 		Hosts: []string{"example2.com"},
 		Ports: []*networking.Port{
 			{Number: 80, Name: "http-port", Protocol: "http"},
@@ -132,6 +154,31 @@ var (
 				Address: "4.4.4.4",
 				Ports:   map[string]uint32{"http-port": 1080},
 				Labels:  map[string]string{"foo": "bar"},
+			},
+		},
+	}
+
+	syntheticServiceEntry1 = &networking.ServiceEntry{
+		Hosts: []string{"example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "5.5.5.5",
+				Ports:   map[string]uint32{"http-port": 1081},
+				Labels:  map[string]string{"foo1": "bar1"},
 			},
 		},
 	}
@@ -169,6 +216,235 @@ func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint
 func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
 }
 
+func TestEDSUpdateVersionChangedSameEndpoints(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	ginkgo.By("SyntheticServiceEntry: version changed while the endpoints are same")
+	message := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"2",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+	g.Eventually(fx.Events).ShouldNot(gomega.Receive())
+}
+
+func TestEDSUpdateSameVersionSameEndpoints(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	ginkgo.By("SyntheticServiceEntry: both version and endpoints not changed")
+	message := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+	g.Eventually(fx.Events).ShouldNot(gomega.Receive())
+}
+
+func TestEDSUpdateVersionChangedEndpointsChanged(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	ginkgo.By("SyntheticServiceEntry: both version and endpoints changed")
+	message := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	message2 := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry1})
+
+	change2 := convert(
+		[]proto.Message{message2[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"2",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err = controller.Apply(change2)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	g.Eventually(func() string {
+		return <-fx.Events
+	}).Should(gomega.Equal("EDSUpdate"))
+}
+
+func TestEDSUpdateVersionSameEndpointsChanged(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	ginkgo.By("SyntheticServiceEntry: version not changed and endpoints changed")
+	message := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	message2 := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry1})
+
+	change2 := convert(
+		[]proto.Message{message2[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err = controller.Apply(change2)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	g.Eventually(func() string {
+		return <-fx.Events
+	}).Should(gomega.Equal("EDSUpdate"))
+}
+
+func TestEDSUpdateSameEndpointsDifferentOrder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	ginkgo.By("SyntheticServiceEntry: Same set of endpoints, different order")
+	message := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	endpoints := syntheticServiceEntry0.Endpoints
+	for i := len(endpoints)/2 - 1; i >= 0; i-- {
+		j := len(endpoints) - 1 - i
+		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
+	}
+	syntheticServiceEntry0.Endpoints = endpoints
+
+	message2 := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry0})
+
+	change2 := convert(
+		[]proto.Message{message2[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err = controller.Apply(change2)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+	g.Eventually(fx.Events).ShouldNot(gomega.Receive())
+}
+
 func TestIncrementalEndpointUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -196,11 +472,11 @@ func TestIncrementalEndpointUpdate(t *testing.T) {
 		}
 	}
 
-	ginkgo.By("SyntheticServiceEntry update")
+	ginkgo.By("SyntheticServiceEntry update when endpoints changed")
 	message := convertToResource(
 		g,
 		model.SyntheticServiceEntry.MessageName,
-		[]proto.Message{syntheticServiceEntry})
+		[]proto.Message{syntheticServiceEntry0})
 
 	change := convert(
 		[]proto.Message{message[0]},
@@ -217,25 +493,31 @@ func TestIncrementalEndpointUpdate(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(fx.Events)).To(gomega.Equal(0))
 
-	change = convert(
-		[]proto.Message{message[0]},
+	message2 := convertToResource(
+		g,
+		model.SyntheticServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry1})
+
+	change2 := convert(
+		[]proto.Message{message2[0]},
 		[]string{"randomNameSpace/synthetic-service-entry"},
 		"2",
 		"istio/networking/v1alpha3/synthetic/serviceentries",
 		model.SyntheticServiceEntry.MessageName)
 
-	err = controller.Apply(change)
+	err = controller.Apply(change2)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	ginkgo.By("making sure EDSUpdate is called once")
 	g.Expect(len(fx.Events)).To(gomega.Equal(1))
-	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
+	g.Eventually(func() string {
+		return <-fx.Events
+	}).Should(gomega.Equal("EDSUpdate"))
 
 	endpoints := <-fx.Endpoints
-	expectedEndpoints := extractEndpoints(syntheticServiceEntry, "synthetic-service-entry", "randomNameSpace")
+	expectedEndpoints := extractEndpoints(syntheticServiceEntry1, "synthetic-service-entry", "randomNameSpace")
 	verifyEndpoints(endpoints, expectedEndpoints)
 
-	ginkgo.By("ServiceEntry update")
+	ginkgo.By("ServiceEntry update when endpoints changed")
 	message = convertToResource(
 		g,
 		model.ServiceEntry.MessageName,
@@ -256,46 +538,53 @@ func TestIncrementalEndpointUpdate(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(fx.Events)).To(gomega.Equal(0))
 
-	change = convert(
-		[]proto.Message{message[0]},
+	message2 = convertToResource(
+		g,
+		model.ServiceEntry.MessageName,
+		[]proto.Message{serviceEntry1})
+
+	change2 = convert(
+		[]proto.Message{message2[0]},
 		[]string{"real-service-entry"},
 		"2",
 		model.ServiceEntry.Collection,
 		model.ServiceEntry.MessageName)
 
-	err = controller.Apply(change)
+	err = controller.Apply(change2)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	ginkgo.By("making sure EDSUpdate is called once")
+	// This fails due to the bug that exist in checking endpoint equality
 	g.Expect(len(fx.Events)).To(gomega.Equal(1))
-	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
+	g.Eventually(func() string {
+		return <-fx.Events
+	}).Should(gomega.Equal("EDSUpdate"))
 
 	endpoints = <-fx.Endpoints
-	expectedEndpoints = extractEndpoints(serviceEntry, "real-service-entry", "")
+	expectedEndpoints = extractEndpoints(serviceEntry1, "real-service-entry", "")
 	verifyEndpoints(endpoints, expectedEndpoints)
 
-	ginkgo.By("Gateway update")
-	message = convertToResource(
-		g,
-		model.Gateway.MessageName,
-		[]proto.Message{gateway})
-
-	change = convert(
-		[]proto.Message{message[0]},
-		[]string{"just-a-gateway"},
-		"1",
-		model.Gateway.Collection,
-		model.Gateway.MessageName)
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	c, err = controller.List(model.Gateway.Type, "")
-	g.Expect(c).ToNot(gomega.BeNil())
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	g.Expect(len(fx.Events)).To(gomega.Equal(1))
-	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdate"))
+	//	ginkgo.By("Gateway update")
+	//	message = convertToResource(
+	//		g,
+	//		model.Gateway.MessageName,
+	//		[]proto.Message{gateway})
+	//
+	//	change = convert(
+	//		[]proto.Message{message[0]},
+	//		[]string{"just-a-gateway"},
+	//		"1",
+	//		model.Gateway.Collection,
+	//		model.Gateway.MessageName)
+	//
+	//	err = controller.Apply(change)
+	//	g.Expect(err).ToNot(gomega.HaveOccurred())
+	//
+	//	c, err = controller.List(model.Gateway.Type, "")
+	//	g.Expect(c).ToNot(gomega.BeNil())
+	//	g.Expect(err).ToNot(gomega.HaveOccurred())
+	//
+	//	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	//	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdate"))
 
 }
 
