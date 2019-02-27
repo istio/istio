@@ -86,6 +86,13 @@ func (m *consulMonitor) updateServiceRecord() {
 		log.Warnf("Could not fetch services: %v", err)
 		return
 	}
+
+	// The order of service tags may change even there is no actual data change
+	// Sort the service tags to avoid unnecessary pushes to envoy
+	for _, tags := range svcs {
+		sort.Strings(tags)
+	}
+
 	newRecord := consulServices(svcs)
 	if !reflect.DeepEqual(newRecord, m.serviceCachedRecord) {
 		// This is only a work-around solution currently
@@ -112,9 +119,6 @@ func (m *consulMonitor) updateInstanceRecord() {
 		log.Warnf("Could not fetch instances: %v", err)
 		return
 	}
-	for _, tags := range svcs {
-		sort.Strings(tags)
-	}
 
 	instances := make([]*api.CatalogService, 0)
 	for name := range svcs {
@@ -126,8 +130,14 @@ func (m *consulMonitor) updateInstanceRecord() {
 		instances = append(instances, endpoints...)
 	}
 
+	// The order of service instances may change even there is no change to the actual instances
+	// Sort the service instances to avoid unnecessary pushes to envoy
+	sort.Slice(instances, func(i, j int) bool {
+		return instances[i].Node+instances[i].ServiceID > instances[j].Node+instances[j].ServiceID
+	})
+
 	newRecord := consulServiceInstances(instances)
-	sort.Sort(newRecord)
+
 	if !reflect.DeepEqual(newRecord, m.instanceCachedRecord) {
 		// This is only a work-around solution currently
 		// Since Handler functions generally act as a refresher
