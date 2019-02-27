@@ -15,14 +15,14 @@
 package probe
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -141,7 +141,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	csr, _, err := util.GenCSR(util.CertOptions{
+	csr, privKeyBytes, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		Org:        c.serviceIdentityOrg,
 		RSAKeySize: c.rsaKeySize,
@@ -171,14 +171,21 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
-	_, err = caProtocol.SendCSR(req)
+	resp, err := caProtocol.SendCSR(req)
 
-	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
-	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
+	if err == nil && resp != nil && resp.IsApproved {
+		log.Infof("Prob response: %v", resp.SignedCert)
+		if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
+			err := fmt.Errorf("cannot verify the retrieved key and cert: %v", vErr)
+			log.Errora(err)
+			return err
+		}
+		log.Debugf("Citadel CSR signing is healthy.")
 		return nil
 	}
 
-	return err
+	return fmt.Errorf("CSR sign failure: [error: %v], [resp is nil: %v], [approved: %v]",
+		err, resp == nil, resp.IsApproved)
 }
 
 // Run starts the check routine
