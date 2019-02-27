@@ -501,6 +501,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
+		} else {
+			return []*filterChainOpts{}
 		}
 	} else if !model.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
@@ -521,6 +523,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
+		} else {
+			return []*filterChainOpts{}
 		}
 	}
 
