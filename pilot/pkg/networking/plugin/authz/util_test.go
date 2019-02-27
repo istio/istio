@@ -278,3 +278,25 @@ func TestExtractActualServiceAccount(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeEndpointUID(t *testing.T) {
+	empty := []string{"", ""}
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{in: "", want: empty},
+		{in: "abc://pod.ns", want: empty},
+		{in: "kubernetes://pod.bla.ns", want: empty},
+		{in: "kubernetes://pod-ns", want: empty},
+		{in: "kubernetes://pod.ns", want: []string{"pod", "ns"}},
+	}
+
+	for _, c := range cases {
+		gotName, gotNs := decodeEndpointUID(c.in)
+		got := []string{gotName, gotNs}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("got %s but want %s", got, c.want)
+		}
+	}
+}

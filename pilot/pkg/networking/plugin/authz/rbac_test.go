@@ -1330,19 +1330,21 @@ func TestCreateServiceMetadata(t *testing.T) {
 		},
 	}
 	serviceInstance := &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{UID: "kubernetes://svc-name.test-ns"},
 		Service: &model.Service{
 			Hostname: model.Hostname("svc-name.test-ns"),
 		},
 		Labels:         model.Labels{"version": "v1"},
 		ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 	}
-	actual := createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)
+	actual := createServiceMetadata(serviceInstance)
 
 	if !reflect.DeepEqual(*actual, *expect) {
 		t.Errorf("expecting %v, but got %v", *expect, *actual)
 	}
 
-	actual = createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: ""}, serviceInstance)
+	serviceInstance.Endpoint.UID = "kubernetes://svc-name."
+	actual = createServiceMetadata(serviceInstance)
 	if actual != nil {
 		t.Errorf("expecting nil, but got %v", *actual)
 	}

@@ -99,18 +99,23 @@ type rbacOption struct {
 	globalPermissiveMode bool // True if global RBAC config is in permissive mode.
 }
 
-func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
-	if attr.Namespace == "" {
-		rbacLog.Errorf("no namespace for service %v", in.Service.Hostname)
-		return nil
+func createServiceMetadata(in *model.ServiceInstance) *serviceMetadata {
+	destName, destNamespace := decodeEndpointUID(in.Endpoint.UID)
+	// If endpoint UID is empty, then we assume it's non k8s platform and we simply ignore it as we
+	// don't have definition for workload name/namespace on other platform.
+	if in.Endpoint.UID != "" {
+		if destName == "" || destNamespace == "" {
+			rbacLog.Errorf("invalid UID %s for service %v", in.Endpoint.UID, in.Service.Hostname)
+			return nil
+		}
 	}
 
 	return &serviceMetadata{
 		name:   string(in.Service.Hostname),
 		labels: in.Labels,
 		attributes: map[string]string{
-			attrDestName:      attr.Name,
-			attrDestNamespace: attr.Namespace,
+			attrDestName:      destName,
+			attrDestNamespace: destNamespace,
 			attrDestUser:      extractActualServiceAccount(in.ServiceAccount),
 		},
 	}
@@ -319,14 +324,14 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 
 	svc := in.ServiceInstance.Service.Hostname
-	attr := in.ServiceInstance.Service.Attributes
+	svcNamespace := in.ServiceInstance.Service.Attributes.Name
 	authzPolicies := in.Env.PushContext.AuthzPolicies
-	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), attr.Namespace, authzPolicies)
+	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), svcNamespace, authzPolicies)
 	if !rbacEnabled {
 		return nil
 	}
 
-	service := createServiceMetadata(&attr, in.ServiceInstance)
+	service := createServiceMetadata(in.ServiceInstance)
 	if service == nil {
 		rbacLog.Errorf("failed to get service")
 		return nil

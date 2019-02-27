@@ -167,3 +167,14 @@ func extractActualServiceAccount(istioServiceAccount string) string {
 	}
 	return actualSA
 }
+
+func decodeEndpointUID(uid string) (name string, namespace string) {
+	kubePrefix := "kubernetes://"
+	if strings.HasPrefix(uid, kubePrefix) {
+		parts := strings.Split(strings.TrimPrefix(uid, kubePrefix), ".")
+		if len(parts) == 2 {
+			return parts[0], parts[1]
+		}
+	}
+	return "", ""
+}
