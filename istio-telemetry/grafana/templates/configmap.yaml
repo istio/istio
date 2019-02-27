@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: grafana
+data:
+  datasources.yaml: |-
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      orgId: 1
+{{- if .Values.prometheusNamespace }}
+      url: http://prometheus.{{ .Values.prometheusNamespace }}:9090
+{{ else }}
+      url: http://prometheus:9090
+{{- end }}
+      access: proxy
+      isDefault: true
+      jsonData:
+        timeInterval: 5s
+      editable: true
+
+{{- if .Values.datasources }}
+    -
+  {{- range $key, $value := .Values.datasources }}
+{{ toYaml $value | indent 6 }}
+  {{- end -}}
+{{- end }}
+
+
+{{- if .Values.dashboardProviders }}
+  {{- range $key, $value := .Values.dashboardProviders }}
+  {{ $key }}: |
+{{ toYaml $value | indent 4 }}
+  {{- end -}}
+{{- end -}}

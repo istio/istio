@@ -1,0 +1,26 @@
+# If set to true, will add 'rule' and 'stdio' handler for access logs.
+# If false, user will need to configure their own rules outside of installer.
+stdioAccessLog: false
+
+image: mixer
+env:
+  GODEBUG: gctrace=2
+enabled: true
+replicaCount: 1
+autoscaleEnabled: true
+autoscaleMin: 1
+autoscaleMax: 5
+cpu:
+  targetAverageUtilization: 80
+
+resources:
+  requests:
+    cpu: 900m
+    memory: 1G
+
+podAnnotations: {}
+
+adapters:
+  prometheus:
+    metricsExpiryDuration: 10m
+
