@@ -284,9 +284,9 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 	defer adsResponse.Close()
 
+	adsResponse.DumpCfg = true
 	adsResponse.Watch()
 
-	adsResponse.DumpCfg = true
 	_, err = adsResponse.Wait("lds", 10000*time.Second)
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)

@@ -70,7 +70,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
 		if protocol.IsHTTP() {
-			// This is not a HTTPS or TLS server. Build a single listener for the server port.
+			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers[0], nil)}
@@ -83,13 +83,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			filterChainOpts := make([]*filterChainOpts, 0)
 
 			for _, server := range servers {
-				serverProto := model.ParseProtocol(server.Port.Protocol)
-				if serverProto.IsTLS() && serverProto == model.ProtocolHTTPS && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+				if model.IsTLSServer(server) && model.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, env, push, server, nil))
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPTLSFilterChainOpts(node, env, push, server, mergedGateway.Names)...)
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push, server, mergedGateway.Names)...)
 				}
 			}
 			opts.filterChainOpts = filterChainOpts
@@ -348,41 +347,39 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				},
 			},
 		}
-	} else if serverProto.IsTLS() && serverProto == model.ProtocolHTTPS && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
-		// Build a filter chain for the HTTPS server
-		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
-		// where HTTPS server's TLS mode is not passthrough and not nil
-		enableIngressSdsAgent := false
-		// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
-		// gateway listener.
-		if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
-			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
-		}
-		return &filterChainOpts{
-			// This works because we validate that only HTTPS servers can have same port but still different port names
-			// and that no two non-HTTPS servers can be on same port or share port names.
-			// Validation is done per gateway and also during merging
-			sniHosts:   getSNIHostsForServer(server),
-			tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
-			httpOpts: &httpListenerOpts{
-				rds:              model.GatewayRDSRouteName(server),
-				useRemoteAddress: true,
-				direction:        http_conn.EGRESS, // viewed as from gateway to internal
-				connectionManager: &http_conn.HttpConnectionManager{
-					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: http_conn.SANITIZE_SET,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: proto.BoolTrue,
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName: EnvoyServerName,
-				},
-			},
-		}
 	}
 
-	return nil
+	// Build a filter chain for the HTTPS server
+	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
+	// where HTTPS server's TLS mode is not passthrough and not nil
+	enableIngressSdsAgent := false
+	// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+	// gateway listener.
+	if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+		enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+	}
+	return &filterChainOpts{
+		// This works because we validate that only HTTPS servers can have same port but still different port names
+		// and that no two non-HTTPS servers can be on same port or share port names.
+		// Validation is done per gateway and also during merging
+		sniHosts:   getSNIHostsForServer(server),
+		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
+		httpOpts: &httpListenerOpts{
+			rds:              model.GatewayRDSRouteName(server),
+			useRemoteAddress: true,
+			direction:        http_conn.EGRESS, // viewed as from gateway to internal
+			connectionManager: &http_conn.HttpConnectionManager{
+				// Forward client cert if connection is mTLS
+				ForwardClientCertDetails: http_conn.SANITIZE_SET,
+				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+					Subject: proto.BoolTrue,
+					Uri:     true,
+					Dns:     true,
+				},
+				ServerName: EnvoyServerName,
+			},
+		},
+	}
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
@@ -483,7 +480,7 @@ func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsPar
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
+func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
 	gatewaysForWorkload map[string]bool) []*filterChainOpts {
 

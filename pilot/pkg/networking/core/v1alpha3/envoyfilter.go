@@ -66,7 +66,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// because filter chains in a listener can have multiple protocols.
 				// for each filter chain, if the filter chain has a http connection manager,
 				// treat it as a http listener
-				if f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_HTTP {
+				if f.ListenerMatch == nil || f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_HTTP {
 					continue
 				}
 
@@ -84,7 +84,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// because filter chains in a listener can have multiple protocols.
 				// for each filter chain, if the filter chain does not have a http connection manager,
 				// treat it as a tcp listener
-				if f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_TCP {
+				if f.ListenerMatch == nil || f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_TCP {
 					continue
 				}
 
