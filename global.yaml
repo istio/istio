@@ -19,6 +19,7 @@ global:
   # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
   # used (citadel generating the secrets).
   istioNamespace: istio-control
+  configNamespace: istio-control
 
   # Telemetry namespace, including tracing.
   telemetryNamespace: istio-telemetry
@@ -36,10 +37,6 @@ global:
 
   # Default tag for Istio images.
   tag: release-1.1-latest-daily
-
-  # monitoring port used by mixer, pilot, galley
-  # TODO: mark as 'hidden' or move to individual templates, not important for most users (internal).
-  monitoringPort: 15014
 
   # TODO: specific to control, move there
   k8sIngress:

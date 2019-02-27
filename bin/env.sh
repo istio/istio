@@ -73,21 +73,27 @@ alias kii='kubectl -n istio-ingress'
 # Typical installation, similar with istio normal install but using different namespaces/components.
 function iop_istio() {
 
+    #### Security
     # Citadel must be in istio-system, where the secrets are stored.
-    iop istio-system istio-system-security $IBASE/istio-system-security  $*
+    iop istio-system citadel $IBASE/security/citadel  $*
 
+    #### Control plane
     # Galley, Pilot and auto-inject in istio-control. Similar security risks.
     # Can be updated independently, each is optiona.
-    iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
-    iop istio-control istio-discovery $IBASE/istio-control/istio-discovery
-    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
+    iop istio-control galley $IBASE/istio-control/istio-config --set configValidation=true
+    iop istio-control pilot $IBASE/istio-control/istio-discovery
+    iop istio-control autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
 
-    iop istio-gateway istio-gateway $IBASE/gateways/istio-ingress
+    #### Gateways
+    iop istio-gateway gateway $IBASE/gateways/istio-ingress
 
-    # Not converted yet to prune
-    IOP_MODE=helm iop istio-telemetry istio-telemetry $IBASE/istio-telemetry
+    #### Telemetry
+    iop istio-telemetry mixer $IBASE/istio-telemetry/mixer-telemetry
+    iop istio-telemetry prometheus $IBASE/istio-telemetry/prometheus
+    iop istio-telemetry grafana $IBASE/istio-telemetry/grafana
 
-    iop istio-policy istio-policy $IBASE/istio-policy
+    #### Policy
+    iop istio-policy policy $IBASE/istio-policy
 }
 
 
@@ -98,23 +104,28 @@ function iop_istio() {
 #
 # Uses shared (singleton) system citadel.
 function iop_master() {
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master galley $IBASE/istio-control/istio-config
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master pilot $IBASE/istio-control/istio-discovery \
        --set policy.enable=false \
        --set global.istioNamespace=istio-master \
        --set global.telemetryNamespace=istio-telemetry-master \
        --set global.policyNamespace=istio-policy-master \
        $*
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject $IBASE/istio-control/istio-autoinject \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master autoinject $IBASE/istio-control/istio-autoinject \
       --set global.istioNamespace=istio-master
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master istio-telemetry-master $IBASE/istio-telemetry \
-        --set global.istioNamespace=istio-master \
-        $*
+   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master mixer $IBASE/istio-telemetry/mixer-telemetry \
+        --set global.istioNamespace=istio-master $*
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-gateway-master istio-gateway-master $IBASE/gateways/istio-ingress \
+   # TODO: set flag to use the main prometheus ( it's a large install, can be shared across istio versions )
+   # We want multiple Grafana variants so changes can be tested, it's lighter.
+   # This verifies we can point to a different prometheus install
+   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master grafana $IBASE/istio-telemetry/grafana \
+        --set global.istioNamespace=istio-master --set prometheusNamespace=istio-telemetry $*
+
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-gateway-master gateway $IBASE/gateways/istio-ingress \
         --set global.istioNamespace=istio-master \
         $*
 
@@ -255,7 +266,15 @@ function exec-fortio11-cli-proxy() {
 
 function iop_test_apps() {
 
+    # Fortio-control - uses istio-control env with explicit label
+    # TODO: test that the injection has the proper version
+    kubectl label namespace fortio-control istio-env=istio-control --overwrite
     iop fortio-control fortio-control $IBASE/test/fortio --set domain=$DOMAIN $*
+
+    # Fortio-master - using explicit istio-master label
+    kubectl label namespace fortio-master istio-env=istio-master --overwrite
+    iop fortio-master fortio-master $IBASE/test/fortio --set domain=$DOMAIN $*
+
 
     kubectl create ns fortio-nolabel
     iop fortio-nolabel fortio-nolabel $IBASE/test/fortio --set domain=$DOMAIN $*
@@ -328,16 +347,25 @@ function testCreateDNS() {
     # TODO: cleanup, pretty convoluted
     # GCP_PROJECT=costin-istio DOMAIN=istio.webinf.info IP=35.222.25.73 testCreateDNS control
     # will create ingresscontrol and *.control CNAME.
-    local ver=${1:-v10}
-    local name=ingress${ver}
+    local ns=$1
 
-    gcloud dns --project=$GCP_PROJECT record-sets transaction start --zone=$DNS_ZONE
+    local sub=${2:-$ns}
 
-    gcloud dns --project=$GCP_PROJECT record-sets transaction add $IP --name=${name}.${DOMAIN}. --ttl=300 --type=A --zone=$DNS_ZONE
-    gcloud dns --project=$GCP_PROJECT record-sets transaction add ${name}.${DOMAIN}. --name="*.${ver}.${DOMAIN}." \
-        --ttl=300  --type=CNAME --zone=$DNS_ZONE
+    IP=$(kubectl get -n $ns service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    echo "Gateway IP: $IP"
 
-    gcloud dns --project=$GCP_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+
+    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
+
+    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction add \
+        $IP --name=ingress-${ns}.${DOMAIN}. \
+        --ttl=300 --type=A --zone=$DNS_ZONE
+
+    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction add \
+        ingress-${ns}.${DOMAIN}. --name="*.${sub}.${DOMAIN}." \
+        --ttl=300 --type=CNAME --zone=$DNS_ZONE
+
+    gcloud dns --project=$GCP_DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
 }
 
 
@@ -403,56 +431,7 @@ function istio_cfg() {
 }
 
 
-# Helper to upgrade or install
-#
-# Params:
-# - namespace
-# - release name (helm and kubectl)
-# - config template dir
-# - [-t] - show template
-#
-# Env: IOP_MODE=helm - use helm instead of kubectl
-# Defaults to kubectl apply --prune
-#
-# Namespace will be labeled with the value of ISTIO_ENV (default to istio-control)
 function iop() {
-    local ns=$1
-    shift
-    local rel=$1
-    shift
-    local tmpl=$1
-    shift
-
-    # Defaults
-    local cfg="-f $IBASE/global.yaml"
-
-    # User overrides
-    if [ -f $HOME/.istio-values.yaml ]; then
-        cfg="$cfg -f $HOME/.istio-values.yaml"
-    fi
-
-    if [ "$HUB" != "" ] ; then
-        cfg="$cfg --set global.hub=$HUB"
-    fi
-    if [ "$TAG" != "" ] ; then
-        cfg="$cfg --set global.tag=$TAG"
-    fi
-
-    if [ "$1" == "-t" ]; then
-        shift
-        helm template --namespace $ns -n $rel $tmpl  $cfg $*
-    elif [ "$1" == "-d" ]; then
-        shift
-        kubectl delete --namespace $ns -n $rel $tmpl  $cfg $*
-    elif [ "$IOP_MODE" == "helm" ] ; then
-        echo helm upgrade --wait -i $n $cfg $*
-        helm upgrade --namespace $ns --wait -i $rel $tmpl $cfg $*
-    else
-        # The 'release' tag is used to group related configs.
-        # Apply will make sure that any old config with the same tag that is no longer present will
-        # be removed. The release MUST be unique across cluster.
-        kubectl create  ns $ns > /dev/null  2>&1
-        helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
-    fi
+    $IBASE/bin/iop $*
 }
 

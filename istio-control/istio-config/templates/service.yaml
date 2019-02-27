@@ -11,7 +11,7 @@ spec:
   ports:
   - port: 443
     name: https-validation
-  - port: 9093
+  - port: 15014
     name: http-monitoring
   - port: 9901
     name: grpc-mcp

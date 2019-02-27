@@ -15,7 +15,7 @@ spec:
     name: https-xds # mTLS
   - port: 8080
     name: http-legacy-discovery # direct
-  - port: {{ .Values.global.monitoringPort }}
+  - port: 15014
     name: http-monitoring
   selector:
     istio: pilot
