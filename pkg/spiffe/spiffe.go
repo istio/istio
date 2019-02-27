@@ -10,14 +10,19 @@ import (
 const (
 	Scheme = "spiffe"
 
+	URIPrefix = Scheme + "://"
+
 	// The default SPIFFE URL value for trust domain
 	defaultTrustDomain = "cluster.local"
 )
 
-var trustDomain = defaultTrustDomain
+var (
+	trustDomain = defaultTrustDomain
+)
 
 func SetTrustDomain(value string) {
-	trustDomain = value
+	// Replace special characters in spiffe
+	trustDomain = strings.Replace(value, "@", ".", -1)
 }
 
 func GetTrustDomain() string {
@@ -42,10 +47,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 		err = fmt.Errorf(
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-
-	// replace specifial character in spiffe
-	trustDomain = strings.Replace(trustDomain, "@", ".", -1)
-	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), err
+	return URIPrefix + trustDomain + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate and logs if there was an error.
