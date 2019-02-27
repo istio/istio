@@ -178,7 +178,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	if err == nil && resp != nil && resp.IsApproved {
 		if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
-			err := fmt.Errorf("CSR Sign failure: cannot verify the retrieved key and cert: %v", vErr)
+			err := fmt.Errorf("CSR sign failure: %v", vErr)
 			log.Errora(err)
 			return err
 		}
@@ -189,8 +189,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return nil
 	}
 
-	return fmt.Errorf("CSR sign failure: [error: %v], [resp is nil: %v], [approved: %v]",
-		err, resp == nil, resp.IsApproved)
+	return fmt.Errorf("CSR sign failure: [error: %v], [resp is nil: %v]", err, resp == nil)
 }
 
 // Run starts the check routine

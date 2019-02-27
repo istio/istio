@@ -52,24 +52,25 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		err      string
 		expected string
 	}{
-		"Check success": {
+		// TODO: Add more tests.
+		"Returned no cert": {
 			resp: &pb.CsrResponse{
 				IsApproved: true,
 				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
 				SignedCert: nil,
 				CertChain:  nil,
 			},
-			expected: "",
+			expected: "CSR sign failure: failed to parse cert PEM: invalid PEM encoded certificate",
 		},
 		"SendCSR failed": {
 			resp:     nil,
 			err:      "sendCSR failed",
-			expected: "sendCSR failed",
+			expected: "CSR sign failure: [error: sendCSR failed], [resp is nil: true]",
 		},
 		"gRPC server is not available": {
 			resp:     nil,
 			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
-			expected: "",
+			expected: "CSR sign failure: [error: all SubConns are in TransientFailure], [resp is nil: true]",
 		},
 	}
 
