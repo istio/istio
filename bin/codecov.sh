@@ -37,7 +37,7 @@ if [ "${1:-}" != "" ]; then
     DIR="./$1/..."
 fi
 
-COVERAGEDIR="$(mktemp -d /tmp/XXXXX.coverage)"
+COVERAGEDIR="$(mktemp -d /tmp/istio_coverage.XXXXXXXXXX)"
 mkdir -p "$COVERAGEDIR"
 
 function cleanup() {
