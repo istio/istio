@@ -35,6 +35,7 @@ const (
 	// LivenessProbeClientIdentity is the default identity for the liveness probe check
 	LivenessProbeClientIdentity   = "k8s.cluster.local"
 	probeCheckRequestedTTLMinutes = 60
+	logEveryNChecks               = 20
 )
 
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
@@ -54,6 +55,7 @@ type LivenessCheckController struct {
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
 	provider           CAProtocolProvider
+	checkCount         int
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
@@ -75,6 +77,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 		ca:            ca,
 		caAddress:     caAddr,
 		provider:      provider,
+		checkCount:    0,
 	}, nil
 }
 
@@ -174,13 +177,15 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	resp, err := caProtocol.SendCSR(req)
 
 	if err == nil && resp != nil && resp.IsApproved {
-		log.Infof("Prob response: %v", resp.SignedCert)
 		if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
-			err := fmt.Errorf("cannot verify the retrieved key and cert: %v", vErr)
+			err := fmt.Errorf("CSR Sign failure: cannot verify the retrieved key and cert: %v", vErr)
 			log.Errora(err)
 			return err
 		}
-		log.Debugf("Citadel CSR signing is healthy.")
+		log.Debugf("CSR signing service is healthy.")
+		if c.checkCount%logEveryNChecks == 1 {
+			log.Infof("Health check #%d: CSR signing service is healthy.", c.checkCount)
+		}
 		return nil
 	}
 
@@ -193,6 +198,7 @@ func (c *LivenessCheckController) Run() {
 	go func() {
 		t := time.NewTicker(c.interval)
 		for range t.C {
+			c.checkCount++
 			c.livenessProbe.SetAvailable(c.checkGrpcServer())
 		}
 	}()
