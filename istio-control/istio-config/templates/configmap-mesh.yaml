@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+
+
+  mesh: |-
+{{ toYaml .Values.mesh | indent 4 }}
