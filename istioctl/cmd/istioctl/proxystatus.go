@@ -52,7 +52,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				if err != nil {
 					return err
 				}
-				path = fmt.Sprintf("/debug/config_dump?proxyID=%v", args[0])
+				path = fmt.Sprintf("/debug/config_dump?proxyID=%v", fmt.Sprintf("%s.%s", podName, ns))
 				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 				if err != nil {
 					return err
