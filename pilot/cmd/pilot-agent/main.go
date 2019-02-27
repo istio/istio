@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,6 +257,10 @@ var (
 			}
 
 			log.Infof("Monitored certs: %#v", certs)
+			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
+			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+				waitForCerts(path.Join(certs[0].Directory, certs[0].Files[0]), 2*time.Minute)
+			}
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
@@ -481,6 +486,35 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
+}
+
+func waitForCerts(fname string, maxWait time.Duration) {
+	log.Infof("waiting %v for certificates to become available", maxWait)
+
+	logDelay := 1 * time.Second
+	nextLog := time.Now().Add(logDelay)
+	endWait := time.Now().Add(maxWait)
+
+	for {
+		_, err := os.Stat(fname)
+		if err == nil {
+			return
+		}
+		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
+			log.Infof("error while waiting for certificates: %s", err.Error())
+			return
+		}
+
+		now := time.Now()
+		if now.After(endWait) {
+			break
+		} else if now.After(nextLog) {
+			log.Infof("waiting for certificates")
+			logDelay = logDelay * 2
+			nextLog.Add(logDelay)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func main() {
