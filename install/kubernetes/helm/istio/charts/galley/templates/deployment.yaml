@@ -37,7 +37,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
-          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 15014
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
@@ -56,7 +56,7 @@ spec:
 {{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
-          - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --monitoringPort=15014
           volumeMounts:
           - name: certs
             mountPath: /etc/certs

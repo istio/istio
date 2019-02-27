@@ -76,7 +76,7 @@ spec:
     - destination:
         host: istio-pilot.istio-system.svc.cluster.local
         port:
-          number: {{ .Values.global.monitoringPort }}
+          number: 15014
 
 ---
 

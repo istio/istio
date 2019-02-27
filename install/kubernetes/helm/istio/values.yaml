@@ -136,9 +136,6 @@ global:
   # Default tag for Istio images.
   tag: release-1.1-latest-daily
 
-  # monitoring port used by mixer, pilot, galley
-  monitoringPort: 15014
-
   k8sIngress:
     enabled: false
     # Gateway used for legacy k8s Ingress resources. By default it is

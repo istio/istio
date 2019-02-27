@@ -26,10 +26,10 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: {{ .Values.global.monitoringPort }}
+        - containerPort: 15014
         - containerPort: 42422
         args:
-          - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
@@ -76,7 +76,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: {{ .Values.global.monitoringPort }}
+            port: 15014
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
@@ -168,10 +168,10 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: {{ .Values.global.monitoringPort }}
+        - containerPort: 15014
         - containerPort: 42422
         args:
-          - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
@@ -228,7 +228,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: {{ .Values.global.monitoringPort }}
+            port: 15014
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
