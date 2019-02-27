@@ -77,13 +77,13 @@ var (
 			Name: "service-foo",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
 	authnPolicy1 = &authn.Policy{
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 

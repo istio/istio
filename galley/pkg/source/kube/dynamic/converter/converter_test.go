@@ -257,7 +257,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						Name: "foo",
 					}},
 					Peers: []*authn.PeerAuthenticationMethod{{
-						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+						Params: &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 					}},
 				},
 			},
@@ -312,7 +312,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						Name: "foo",
 					}},
 					Peers: []*authn.PeerAuthenticationMethod{{
-						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+						Params: &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 					}},
 				},
 			},

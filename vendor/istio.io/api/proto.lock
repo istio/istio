@@ -1312,6 +1312,11 @@
                 "type": "string"
               },
               {
+                "id": 20,
+                "name": "envoy_metrics_service_address",
+                "type": "string"
+              },
+              {
                 "id": 11,
                 "name": "proxy_admin_port",
                 "type": "int32"
