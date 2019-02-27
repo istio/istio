@@ -45,7 +45,8 @@ import (
 )
 
 type cliOptions struct { // nolint: maligned
-	listenedNamespace       string
+	// Comma separated string containing all listened namespaces
+	listenedNamespaces      string
 	istioCaStorageNamespace string
 	kubeConfigFile          string
 	readSigningCertOnly     bool
@@ -143,8 +144,11 @@ func fatalf(template string, args ...interface{}) {
 func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
-	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
-		"Select a namespace for the CA to listen to. If unspecified, Citadel tries to use the ${"+
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", "", "deprecated")
+	flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead")
+
+	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", "",
+		"Select the namespaces for the Citadel to listen to, separated by comma. If unspecified, Citadel tries to use the ${"+
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
@@ -261,12 +265,14 @@ func runCA() {
 
 	if value, exists := os.LookupEnv(cmd.ListenedNamespaceKey); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
-		if opts.listenedNamespace == "" {
-			opts.listenedNamespace = value
+		if opts.listenedNamespaces == "" {
+			opts.listenedNamespaces = value
 		}
 		// Use environment variable for istioCaStorageNamespace if it exists
 		opts.istioCaStorageNamespace = value
 	}
+
+	listenedNamespaces := strings.Split(opts.listenedNamespaces, ",")
 
 	verifyCommandLineOptions()
 
@@ -289,7 +295,7 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
+			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -315,11 +321,11 @@ func runCA() {
 
 		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" and
 		// "alpha.istio.io/canonical-serviceaccounts" annotations
-		serviceController := kube.NewServiceController(cs.CoreV1(), opts.listenedNamespace, reg)
+		serviceController := kube.NewServiceController(cs.CoreV1(), listenedNamespaces, reg)
 		serviceController.Run(ch)
 
 		// monitor service account objects for istio mesh expansion
-		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.listenedNamespace, reg)
+		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), listenedNamespaces, reg)
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
