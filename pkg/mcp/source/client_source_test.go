@@ -80,7 +80,7 @@ func TestClientSource(t *testing.T) {
 		sourceTestHarness: newSourceTestHarness(t),
 	}
 	h.client = true
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,

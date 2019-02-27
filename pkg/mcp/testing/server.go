@@ -19,10 +19,12 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"time"
 
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -60,12 +62,14 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 		Watcher:            cache,
 		CollectionsOptions: collections,
 		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    rate.NewRateLimiter(time.Second, 100),
 	}
 
 	checker := server.NewAllowAllChecker()
 	s := server.New(options, checker)
 	srcServer := source.NewServer(options, &source.ServerOptions{
 		AuthChecker: checker,
+		RateLimiter: rate.NewRateLimiter(time.Second, 100).Create(),
 	})
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
