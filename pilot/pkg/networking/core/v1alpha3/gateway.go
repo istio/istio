@@ -501,8 +501,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
-		} else {
-			return []*filterChainOpts{}
 		}
 	} else if !model.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
@@ -523,13 +521,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPTLSFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
-		} else {
-			return []*filterChainOpts{}
 		}
+	} else {
+		// Passthrough server.
+		return buildGatewayNetworkFiltersFromTLSRoutes(node, env, push, server, gatewaysForWorkload)
 	}
 
-	// Passthrough server.
-	return buildGatewayNetworkFiltersFromTLSRoutes(node, env, push, server, gatewaysForWorkload)
+	return []*filterChainOpts{}
 }
 
 // buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
