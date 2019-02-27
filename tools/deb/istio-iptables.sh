@@ -56,6 +56,7 @@ function usage() {
 
 function dump {
     iptables-save
+    ip6tables-save
 }
 
 trap dump EXIT
@@ -408,20 +409,19 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     ip6tables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
     if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
-      # Makes sure SSH is not redirected
-      ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
-      # Apply any user-specified port exclusions.
-      if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
+        # Makes sure SSH is not redirected
+        ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+        # Apply any user-specified port exclusions.
+        if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
         for port in ${INBOUND_PORTS_EXCLUDE}; do
-          ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
+            ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
         done
-      fi
-      # Redirect remaining inbound traffic to Envoy.
-      ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
-      # User has specified a non-empty list of ports to be redirected to Envoy.
-      for port in ${INBOUND_PORTS_INCLUDE}; do
-        ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
-      done
+        fi
+    else
+        # User has specified a non-empty list of ports to be redirected to Envoy.
+        for port in ${INBOUND_PORTS_INCLUDE}; do
+            ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
+        done
     fi
   fi
 
@@ -459,7 +459,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
     ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
   fi 
-  
+
   for internalInterface in ${KUBEVIRT_INTERFACES}; do
       ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
   done

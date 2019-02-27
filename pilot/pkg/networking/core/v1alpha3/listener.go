@@ -219,9 +219,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
+		// ><SB> Changing WildcardAddress
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
-			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Address:        util.BuildAddress("::" /*WildcardAddress*/, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
 			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
@@ -230,6 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 				},
 			},
 		})
+		log.Warnf("><SB> Listeners for a sidecar proxy: %+v", listeners)
 	}
 
 	httpProxyPort := mesh.ProxyHttpPort
