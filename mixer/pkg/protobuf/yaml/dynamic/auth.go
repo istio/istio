@@ -20,6 +20,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"os"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -83,6 +85,90 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 		caCertPool.AppendCertsFromPEM(caCerts)
 	}
 	return caCertPool, nil
+}
+
+func getWhitelistSAN(cert []byte) []*url.URL {
+	var whitelistSAN []*url.URL
+	c, err := x509.ParseCertificate(cert)
+	if err != nil {
+		return whitelistSAN
+	}
+	for _, uri := range c.URIs {
+		whitelistSAN = append(whitelistSAN, uri)
+	}
+	return whitelistSAN
+}
+
+func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
+	// load peer cert/key.
+	pk := mtlsCfg.GetPrivateKey()
+	cc := mtlsCfg.GetClientCertificate()
+	peerCert, err := tls.LoadX509KeyPair(cc, pk)
+	if err != nil {
+		return nil, errors.Errorf("load peer cert/key error: %v", err)
+	}
+
+	// for simplicity, when using mtls, restrict out of process adapter cert subject to be mixer's spiffe identity
+	// TODO(bianpengyuan) make this configurable if needed
+	var whitelistSAN []*url.URL
+	if peerCert.Certificate != nil && len(peerCert.Certificate) > 0 {
+		whitelistSAN = getWhitelistSAN(peerCert.Certificate[0])
+	}
+
+	// Load certificates, include public certs and certs from config (such as istio CA certs).
+	caCertPool, err := loadCerts(mtlsCfg.GetCaCertificates())
+	if err != nil {
+		return nil, fmt.Errorf("failed to build TLS dial option: CA certificate cannot be loaded: %v", err)
+	}
+
+	customVerify := func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		certs := make([]*x509.Certificate, len(rawCerts))
+		for i, asn1Data := range rawCerts {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return errors.New("failed to parse certificate from server: " + err.Error())
+			}
+			certs[i] = cert
+		}
+		opts := x509.VerifyOptions{
+			Roots:         caCertPool,
+			Intermediates: x509.NewCertPool(),
+		}
+
+		for i, cert := range certs {
+			if i == 0 {
+				// do not add leaf cert to intermediate certs
+				continue
+			}
+			opts.Intermediates.AddCert(cert)
+		}
+		if _, err = certs[0].Verify(opts); err != nil {
+			return err
+		}
+		if os.Getenv("BYPASS_OOP_MTLS_SAN_VERIFICATION") == "true" {
+			log.Infof("BYPASS_OOP_MTLS_SAN_VERIFICATION=true - bypassing mtls custom SAN verification")
+			return nil
+		}
+		for _, uri := range certs[0].URIs {
+			for _, whitelisted := range whitelistSAN {
+				if uri.String() == whitelisted.String() {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("failed to authenticate, cert SAN %v is not whitelisted", certs[0].URIs)
+	}
+
+	tc := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{peerCert},
+		// For mtls, skip default cert verification and use the custom one, which basically replicates the
+		// default verification logic. The only difference is that it checks subject alt name to be
+		// whitelisted spiffe URI instead of checking DNS/server name.
+		InsecureSkipVerify:    true,
+		VerifyPeerCertificate: customVerify,
+		ServerName:            mtlsCfg.ServerName,
+	})
+	return []grpc.DialOption{grpc.WithTransportCredentials(tc)}, nil
 }
 
 func buildOAuthToken(oauthCfg *policypb.OAuth) (oauth2.TokenSource, error) {
@@ -190,8 +276,7 @@ func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
 	case *policypb.Authentication_Tls:
 		return buildTLSDialOption(a.authCfg.GetTls(), a.skipVerification)
 	case *policypb.Authentication_Mutual:
-		// TODO(bianpengyuan) add mtls option
-		return nil, errors.New("MTLS authentication type is not yet implemented")
+		return buildMTLSDialOption(a.authCfg.GetMutual())
 	default:
 		return nil, fmt.Errorf("authentication type is unexpected: %T", t)
 	}
