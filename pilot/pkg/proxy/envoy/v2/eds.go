@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -801,6 +803,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
+		}
+
+		// If location prioritized load balancing is enabled, prioritize endpoints.
+		if pilot.EnableLocalityLoadBalancing() {
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
 		}
 
 		endpoints += len(l.Endpoints)
