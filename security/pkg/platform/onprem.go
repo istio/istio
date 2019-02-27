@@ -93,7 +93,7 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	}
 	if len(serviceIDs) != 1 {
 		for _, s := range serviceIDs {
-			if strings.HasPrefix(s, spiffe.Scheme+"://") {
+			if strings.HasPrefix(s, spiffe.URIPrefix) {
 				return s, nil
 			}
 		}

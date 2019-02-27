@@ -70,9 +70,27 @@ func TestGenSpiffeURI(t *testing.T) {
 func TestGetSetTrustDomain(t *testing.T) {
 	oldTrustDomain := GetTrustDomain()
 	defer SetTrustDomain(oldTrustDomain)
-	SetTrustDomain("test.local")
-	if GetTrustDomain() != "test.local" {
-		t.Errorf("Set/GetTrustDomain not working")
+
+	cases := []struct {
+		in  string
+		out string
+	}{
+		{
+			in:  "test.local",
+			out: "test.local",
+		},
+		{
+			in:  "test@local",
+			out: "test.local",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			SetTrustDomain(c.in)
+			if GetTrustDomain() != c.out {
+				t.Errorf("expected=%s, actual=%s", c.out, GetTrustDomain())
+			}
+		})
 	}
 }
 
