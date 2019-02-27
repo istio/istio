@@ -1,0 +1,49 @@
+
+# TODO: range TCP ports, add ports
+# {{ .Values.domain }}
+{{ range $app := .Values.hosts }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ $app.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - "{{ $app.name }}.{{ $.Values.domain }}"
+  gateways:
+  - ingressgateway
+  http:
+  - route:
+    - destination:
+        host: {{ $app.dest }}
+        port:
+          number: {{ $app.destPort }}
+{{- end }}
+
+{{ range $app := .Values.ingressPorts }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ $app.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - ingressgateway
+  http:
+  -
+    match:
+    - port: {{ $app.port }}
+    route:
+    - destination:
+        host: {{ $app.dest }}
+        port:
+          number: {{ $app.destPort }}
+{{- end }}
