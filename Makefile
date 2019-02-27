@@ -641,7 +641,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 
 # creates istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml: $(HELM) $(HOME)/.helm
+istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
@@ -669,7 +669,6 @@ e2e_files = istio-auth-non-mcp.yaml \
 			istio-one-namespace.yaml \
 			istio-one-namespace-auth.yaml \
 			istio-one-namespace-trust-domain.yaml \
-			istio-minimal.yaml \
 			istio-multicluster.yaml \
 
 .PHONY: generate_e2e_yamlgenerate_e2e_yaml_coredump
