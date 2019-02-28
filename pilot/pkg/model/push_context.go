@@ -496,13 +496,6 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		// look for dest rules across all namespaces public/private
-		for _, processedDestRulesForNamespace := range ps.namespaceLocalDestRules {
-			if host, ok := MostSpecificHostMatch(service.Hostname, processedDestRulesForNamespace.hosts); ok {
-				return processedDestRulesForNamespace.destRule[host].config
-			}
-		}
-
 		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
 			return ps.allExportedDestRules.destRule[host].config
 		}
