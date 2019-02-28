@@ -130,13 +130,8 @@ func (m *consulMonitor) updateInstanceRecord() {
 		instances = append(instances, endpoints...)
 	}
 
-	// The order of service instances may change even there is no change to the actual instances
-	// Sort the service instances to avoid unnecessary pushes to envoy
-	sort.Slice(instances, func(i, j int) bool {
-		return instances[i].Node+instances[i].ServiceID > instances[j].Node+instances[j].ServiceID
-	})
-
 	newRecord := consulServiceInstances(instances)
+	sort.Sort(newRecord)
 
 	if !reflect.DeepEqual(newRecord, m.instanceCachedRecord) {
 		// This is only a work-around solution currently
@@ -177,5 +172,7 @@ func (a consulServiceInstances) Swap(i, j int) {
 
 // Less i and j
 func (a consulServiceInstances) Less(i, j int) bool {
-	return a[i].ID < a[j].ID
+	// ID is the node ID
+	// ServiceID is a unique service instance identifier
+	return a[i].ID+a[i].ServiceID < a[j].ID+a[j].ServiceID
 }
