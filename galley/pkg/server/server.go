@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,11 +127,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k, kubeMeta.Types.All()); err != nil {
+			if err := p.verifyResourceTypesPresence(k, sourceSchema.All()); err != nil {
 				return nil, err
 			}
 		} else {
-			found, err := p.findSupportedResources(k, kubeMeta.Types.All())
+			found, err := p.findSupportedResources(k, sourceSchema.All())
 			if err != nil {
 				return nil, err
 			}
