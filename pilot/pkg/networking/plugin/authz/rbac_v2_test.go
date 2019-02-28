@@ -162,12 +162,12 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 	}
 
 	expectRbac1 := generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies([]string{
-		"authz-policy-authz-policy-single-binding-allow-0"},
+		"authz-policy-authz-policy-single-binding-allow[0]"},
 		[]*policy.Policy{policy1})
 	expectRbac2 := generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies([]string{
-		"authz-policy-authz-policy-multiple-bindings-with-selector-allow-0",
-		"authz-policy-authz-policy-multiple-bindings-with-selector-allow-1",
-		"authz-policy-authz-policy-single-binding-allow-0"},
+		"authz-policy-authz-policy-multiple-bindings-with-selector-allow[0]",
+		"authz-policy-authz-policy-multiple-bindings-with-selector-allow[1]",
+		"authz-policy-authz-policy-single-binding-allow[0]"},
 		[]*policy.Policy{policy2, policy3, policy1})
 
 	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)

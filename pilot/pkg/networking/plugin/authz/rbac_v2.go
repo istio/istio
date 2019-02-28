@@ -28,8 +28,7 @@
 package authz
 
 import (
-	"strconv"
-	"strings"
+	"fmt"
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
@@ -54,7 +53,6 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 	}
 
 	namespace := service.attributes[attrDestNamespace]
-	// Check to make sure we are not dereferencing null pointers.
 	if option.authzPolicies == nil || option.authzPolicies.NamespaceToAuthorizationConfigV2 == nil {
 		return &http_config.RBAC{Rules: rbac}
 	}
@@ -63,48 +61,47 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 	}
 	// Get all AuthorizationPolicy Istio config from this namespace.
 	allAuthzPolicies := option.authzPolicies.NamespaceToAuthorizationConfigV2[namespace].AuthzPolicies
-	// Get all key-value pIstioairs of AuthorizationPolicy name to list of ServiceRoleBindings in this namespace.
 	for _, authzPolicy := range allAuthzPolicies {
 		// If a WorkloadSelector is used in the AuthorizationPolicy config and does not match this service, skip this
 		// AuthorizationPolicy.
+		serviceLabelsCollection := model.LabelsCollection{service.labels}
 		if authzPolicy.Policy.WorkloadSelector != nil &&
-			!(model.LabelsCollection{service.labels}.IsSupersetOf(authzPolicy.Policy.WorkloadSelector.Labels)) {
+			!(serviceLabelsCollection.IsSupersetOf(authzPolicy.Policy.WorkloadSelector.Labels)) {
 			continue
 		}
 		for i, binding := range authzPolicy.Policy.Allow {
 			// Check if we have converted this ServiceRole before.
 			permissions := make([]*policyproto.Permission, 0)
-			if !hasConvertedPermission(rbac, binding.RoleRef.Name) {
-				// Convert role.
-				role := option.authzPolicies.RoleForNameAndNamespace(namespace, binding.RoleRef.Name)
-				for _, rule := range role.Rules {
-					// Check to make sure the services field does not exist in the ServiceRole.
-					if len(rule.Services) > 0 {
-						rbacLog.Errorf("should not have services field in ServiceRole (found in %s)", binding.RoleRef.Name)
-						continue
-					}
-					// Check to make sure that the current service (caller) is the one this rule is applying to.
-					if !service.areConstraintsMatched(rule) {
-						continue
-					}
-					if option.forTCPFilter {
-						// TODO(yangminzhu): Move the validate logic to push context and add metrics.
-						if err := validateRuleForTCPFilter(rule); err != nil {
-							// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
-							// For safety consideration, we ignore the whole rule which means no access is opened to
-							// the TCP service in this case.
-							rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
-							continue
-						}
-					}
-					// Generate the policy if the service is matched and validated to the services specified in
-					// ServiceRole.
-					permissions = append(permissions, convertToPermission(rule))
-				}
-				if len(permissions) == 0 {
-					rbacLog.Debugf("role %s skipped for no rule matched", binding.RoleRef.Name)
+			// Convert role.
+			role := option.authzPolicies.RoleForNameAndNamespace(namespace, binding.RoleRef.Name)
+			for _, rule := range role.Rules {
+				// Check to make sure the services field does not exist in the ServiceRole.
+				if len(rule.Services) > 0 {
+					rbacLog.Errorf("should not have services field in ServiceRole (found in %s)", binding.RoleRef.Name)
 					continue
 				}
+				// Check to make sure that the current service (caller) is the one this rule is applying to.
+				if !service.areConstraintsMatched(rule) {
+					rbacLog.Errorf("rule has constraints but doesn't match with the service (found in %s)", binding.RoleRef.Name)
+					continue
+				}
+				if option.forTCPFilter {
+					// TODO(yangminzhu): Move the validate logic to push context and add metrics.
+					if err := validateRuleForTCPFilter(rule); err != nil {
+						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
+						// For safety consideration, we ignore the whole rule which means no access is opened to
+						// the TCP service in this case.
+						rbacLog.Debugf("rules[%d] ignored, found HTTP only rule for a TCP service: %v", i, err)
+						continue
+					}
+				}
+				// Generate the policy if the service is matched and validated to the services specified in
+				// ServiceRole.
+				permissions = append(permissions, convertToPermission(rule))
+			}
+			if len(permissions) == 0 {
+				rbacLog.Debugf("role %s skipped for no rule matched", binding.RoleRef.Name)
+				continue
 			}
 
 			if option.forTCPFilter {
@@ -121,7 +118,7 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 				continue
 			}
 
-			policyName := "authz-policy-" + authzPolicy.Name + "-allow-" + strconv.Itoa(i)
+			policyName := fmt.Sprintf("authz-policy-%s-allow[%d]", authzPolicy.Name, i)
 			rbac.Policies[policyName] = &policyproto.Policy{
 				Permissions: permissions,
 				Principals:  enforcedPrincipals,
@@ -129,43 +126,4 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 		}
 	}
 	return &http_config.RBAC{Rules: rbac}
-}
-
-// hasConvertedPermission returns True if there is already a |roleName| ServiceRole for |rbac|, False
-// otherwise.
-func hasConvertedPermission(rbac *policyproto.RBAC, roleName string) bool {
-	if rbac.Policies[roleName] == nil {
-		return false
-	}
-	return rbac.Policies[roleName].Permissions != nil
-}
-
-// areConstraintsMatched returns True if the calling service's attributes and/or labels match to
-// the ServiceRole constraints.
-func (service serviceMetadata) areConstraintsMatched(rule *rbacproto.AccessRule) bool {
-	for _, constraint := range rule.Constraints {
-		if !attributesEnforcedInPlugin(constraint.Key) {
-			continue
-		}
-
-		var actualValue string
-		var present bool
-		if strings.HasPrefix(constraint.Key, attrDestLabel) {
-			consLabel, err := extractNameInBrackets(strings.TrimPrefix(constraint.Key, attrDestLabel))
-			if err != nil {
-				rbacLog.Errorf("ignored invalid %s: %v", attrDestLabel, err)
-				continue
-			}
-			actualValue, present = service.labels[consLabel]
-		} else {
-			actualValue, present = service.attributes[constraint.Key]
-		}
-		// The constraint is not matched if any of the follow condition is true:
-		// a) the constraint is specified but not found in the serviceMetadata;
-		// b) the constraint value is not matched to the actual value;
-		if !present || !stringMatch(actualValue, constraint.Values) {
-			return false
-		}
-	}
-	return true
 }

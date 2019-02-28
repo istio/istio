@@ -305,20 +305,20 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 	}
 }
 
-func TestGetServiceRoleFromName(t *testing.T) {
+func TestRoleForNameAndNamespace(t *testing.T) {
 	cases := []struct {
-		name                               string
-		authzPolicies                      *model.AuthorizationPolicies
-		ns                                 string
-		roleName                           string
-		expectedTestGetServiceRoleFromName *rbacproto.ServiceRole
+		name                                string
+		authzPolicies                       *model.AuthorizationPolicies
+		ns                                  string
+		roleName                            string
+		expectedTestRoleForNameAndNamespace *rbacproto.ServiceRole
 	}{
 		{
-			name:                               "authzPolicies is nil",
-			authzPolicies:                      nil,
-			ns:                                 model.NamespaceAll,
-			roleName:                           "",
-			expectedTestGetServiceRoleFromName: &rbacproto.ServiceRole{},
+			name:                                "authzPolicies is nil",
+			authzPolicies:                       nil,
+			ns:                                  model.NamespaceAll,
+			roleName:                            "",
+			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{},
 		},
 		{
 			name: "authzPolicies has one ServiceRole",
@@ -341,7 +341,7 @@ func TestGetServiceRoleFromName(t *testing.T) {
 			},
 			ns:       "default",
 			roleName: "test-svc-1",
-			expectedTestGetServiceRoleFromName: &rbacproto.ServiceRole{
+			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{
 				Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
 			},
 		},
@@ -349,14 +349,9 @@ func TestGetServiceRoleFromName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			var actual *rbacproto.ServiceRole
-			if c.authzPolicies == nil {
-				actual = c.authzPolicies.RoleForNameAndNamespace(c.ns, "")
-			} else {
-				actual = c.authzPolicies.RoleForNameAndNamespace(c.ns, c.roleName)
-			}
-			if !reflect.DeepEqual(c.expectedTestGetServiceRoleFromName, actual) {
-				t.Errorf("Got different ServiceRole, Excepted:\n%v\n, Got: \n%v\n", c.expectedTestGetServiceRoleFromName, actual)
+			actual := c.authzPolicies.RoleForNameAndNamespace(c.ns, c.roleName)
+			if !reflect.DeepEqual(c.expectedTestRoleForNameAndNamespace, actual) {
+				t.Errorf("Got different ServiceRole, Got: \n%v\n, Excepted:\n%v\n", actual, c.expectedTestRoleForNameAndNamespace)
 			}
 		})
 	}

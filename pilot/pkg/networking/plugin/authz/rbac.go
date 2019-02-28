@@ -149,6 +149,12 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	}
 
 	// Check if the constraints are matched.
+	return service.areConstraintsMatched(rule)
+}
+
+// areConstraintsMatched returns True if the calling service's attributes and/or labels match to
+// the ServiceRole constraints.
+func (service serviceMetadata) areConstraintsMatched(rule *rbacproto.AccessRule) bool {
 	for _, constraint := range rule.Constraints {
 		if !attributesEnforcedInPlugin(constraint.Key) {
 			continue
@@ -173,7 +179,6 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 			return false
 		}
 	}
-
 	return true
 }
 
