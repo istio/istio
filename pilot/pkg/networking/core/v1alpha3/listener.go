@@ -890,7 +890,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, virtualServices []model.Config) {
 
-	var destinationIPAddress string
+	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 
@@ -994,7 +994,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
-					destinationIPAddress = svcListenAddress
+					destinationCIDR = svcListenAddress
 					listenerOpts.bind = WildcardAddress
 				}
 			}
@@ -1062,7 +1062,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 			pluginParams.Push, virtualServices,
-			destinationIPAddress, pluginParams.Service,
+			destinationCIDR, pluginParams.Service,
 			pluginParams.Port, listenerOpts.proxyLabels, meshGateway)
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
