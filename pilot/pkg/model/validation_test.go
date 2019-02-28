@@ -658,8 +658,10 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "cert files to watch partially invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.TlsCertsToWatch = []string{"/valid/path/cert.pem", "invalid/path/key.pem"} }),
+			name: "cert files to watch partially invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.TlsCertsToWatch = []string{"/valid/path/cert.pem", "invalid/path/key.pem"}
+			}),
 			isValid: false,
 		},
 		{
