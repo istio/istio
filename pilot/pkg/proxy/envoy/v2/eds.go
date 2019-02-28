@@ -807,7 +807,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 
 		// If location prioritized load balancing is enabled, prioritize endpoints.
 		if pilot.EnableLocalityLoadBalancing() {
+			edsClusterMutex.Lock()
 			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
+			edsClusterMutex.Unlock()
 		}
 
 		endpoints += len(l.Endpoints)
@@ -925,10 +927,12 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) 
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
+	edsClusterMutex.RLock()
 	for _, loadAssignment := range loadAssignments {
 		resource, _ := types.MarshalAny(loadAssignment)
 		out.Resources = append(out.Resources, *resource)
 	}
+	edsClusterMutex.RUnlock()
 
 	return out
 }
