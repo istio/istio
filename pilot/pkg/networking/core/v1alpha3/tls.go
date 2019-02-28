@@ -169,7 +169,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 				svcListenAddress = ""
 			}
 
-			if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 {
+			if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || svcListenAddress == WildcardAddress {
 				sniHosts = []string{string(service.Hostname)}
 			}
 		} else {
