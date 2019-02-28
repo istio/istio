@@ -263,22 +263,15 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.AuthorizationPolicy.Type, Name: "test-binding-1", Namespace: "default"},
-		Spec: &rbacproto.AuthorizationPolicy{
-			Allow: []*rbacproto.ServiceRoleBinding{
-				{
-					Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
-					RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
-				},
-			},
+			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: "default"},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 		},
 	}
 	option := rbacOption{
 		authzPolicies: newAuthzPoliciesWithRolesAndBindings([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}),
 	}
-	// Since newAuthzPoliciesWithRolesAndBindings() doesn't detect AuthorizationPolicy being used, we
-	// need to manually set IsRbacV2 flag.
-	option.authzPolicies.IsRbacV2 = true
 
 	testCases := []struct {
 		Name    string
@@ -289,7 +282,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 		{
 			Name: "no matched role",
 			Service: &serviceMetadata{
-				name: "abc.xyz", attributes: map[string]string{attrDestName: "abc", attrDestNamespace: "default"}},
+				name: "abc.xyz", attributes: map[string]string{attrDestName: "abc", attrDestNamespace: "xyz"}},
 			Option: option,
 		},
 		{
