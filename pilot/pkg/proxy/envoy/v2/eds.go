@@ -807,6 +807,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 
 		// If location prioritized load balancing is enabled, prioritize endpoints.
 		if pilot.EnableLocalityLoadBalancing() {
+			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+			clonedCLA := util.CloneClusterLoadAssignment(l)
+			l = &clonedCLA
 			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
 		}
 
