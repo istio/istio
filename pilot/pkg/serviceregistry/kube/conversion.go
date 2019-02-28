@@ -49,6 +49,8 @@ const (
 	ServiceExportAnnotation = "networking.istio.io/exportTo"
 
 	managementPortPrefix = "mgmt-"
+
+	IdentityPodAnnotation = "alpha.istio.io/identity"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -155,6 +157,17 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
+}
+
+// secureNamingSAN creates the secure naming used for SAN verification from pod metadata
+func secureNamingSAN(pod *v1.Pod) string {
+
+	//use the identity annotation
+	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
+		return spiffe.GenCustomSpiffe(identity)
+	}
+
+	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

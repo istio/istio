@@ -474,7 +474,6 @@ func TestProjectMetadata(t *testing.T) {
 			"filled",
 			[]*metrict.Instance{
 				{
-					// nolint: goimports
 					Name:                  "metric",
 					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
@@ -498,7 +497,6 @@ func TestProjectMetadata(t *testing.T) {
 			"empty",
 			[]*metrict.Instance{
 				{
-					// nolint: goimports
 					Name:                  "metric",
 					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
