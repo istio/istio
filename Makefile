@@ -768,7 +768,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm istio-init.yaml
 		--set global.mtls.enabled=true \
 		--set global.proxy.enableCoreDump=true \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-    --set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+    --set global.proxy.enableCoreDump=true \
 		--values install/kubernetes/helm/istio/values-e2e.yaml \
 		--values install/kubernetes/helm/istio/values-istio-sds-auth.yaml \
     ${EXTRA_HELM_SETTINGS} \
