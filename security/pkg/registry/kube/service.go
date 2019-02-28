@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
 )
 
