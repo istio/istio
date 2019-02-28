@@ -43,7 +43,7 @@ func oopGenCmd(fatalf shared.FormatFn) *cobra.Command {
 	oopCmd := &cobra.Command{
 		Use:   "oop",
 		Short: "creates scalfolding code from the given templates for an out of process adapter",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			var err error
 			outDir, err = filepath.Abs(outDir)
 			if err != nil {

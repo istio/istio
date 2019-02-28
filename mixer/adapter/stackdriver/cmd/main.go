@@ -51,10 +51,10 @@ func GetCmd(_ []string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stackdriver",
 		Short: "Istio stackdriver out of process adapter.",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			runServer(sa)
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
 			}
