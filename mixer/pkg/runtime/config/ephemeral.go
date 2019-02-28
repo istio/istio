@@ -745,7 +745,6 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		rule := &Rule{
-			// nolint: goimports
 			Name:                     ruleName,
 			Namespace:                ruleKey.Namespace,
 			ActionsStatic:            actionsStat,
@@ -791,7 +790,6 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 		}
 
 		result[templateName] = &Template{
-			// nolint: goimports
 			Name:                       templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
