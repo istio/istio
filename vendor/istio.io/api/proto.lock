@@ -1360,6 +1360,12 @@
                 "id": 19,
                 "name": "tracing",
                 "type": "Tracing"
+              },
+              {
+                "id": 21,
+                "name": "tls_certs_to_watch",
+                "type": "string",
+                "is_repeated": true
               }
             ]
           }

@@ -28,7 +28,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
+// An instance field of type Value denotes that the expression for the field is of dynamic type and can evaluate to any
 // [ValueType][istio.policy.v1beta1.ValueType] enum values. For example, when
 // authoring an instance configuration for a template that has a field `data` of type `istio.policy.v1beta1.Value`,
 // both of the following expressions are valid `data: source.ip | ip("0.0.0.0")`, `data: request.id | ""`;
@@ -421,7 +421,7 @@ func _Value_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// An instance field of type IPAddress denotes that the expression for the field must evalaute to
+// An instance field of type IPAddress denotes that the expression for the field must evaluate to
 // [ValueType.IP_ADDRESS][istio.policy.v1beta1.ValueType.IP_ADDRESS]
 //
 // Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
@@ -470,7 +470,7 @@ func (m *IPAddress) GetValue() []byte {
 	return nil
 }
 
-// An instance field of type Duration denotes that the expression for the field must evalaute to
+// An instance field of type Duration denotes that the expression for the field must evaluate to
 // [ValueType.DURATION][istio.policy.v1beta1.ValueType.DURATION]
 //
 // Objects of type Duration are also passed to the adapters during request-time for the instance fields of
@@ -519,7 +519,7 @@ func (m *Duration) GetValue() *types.Duration {
 	return nil
 }
 
-// An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+// An instance field of type TimeStamp denotes that the expression for the field must evaluate to
 // [ValueType.TIMESTAMP][istio.policy.v1beta1.ValueType.TIMESTAMP]
 //
 // Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
@@ -568,7 +568,7 @@ func (m *TimeStamp) GetValue() *types.Timestamp {
 	return nil
 }
 
-// An instance field of type DNSName denotes that the expression for the field must evalaute to
+// An instance field of type DNSName denotes that the expression for the field must evaluate to
 // [ValueType.DNS_NAME][istio.policy.v1beta1.ValueType.DNS_NAME]
 //
 // Objects of type DNSName are also passed to the adapters during request-time for the instance fields of
@@ -618,7 +618,7 @@ func (m *DNSName) GetValue() string {
 }
 
 // DO NOT USE !! Under Development
-// An instance field of type EmailAddress denotes that the expression for the field must evalaute to
+// An instance field of type EmailAddress denotes that the expression for the field must evaluate to
 // [ValueType.EMAIL_ADDRESS][istio.policy.v1beta1.ValueType.EMAIL_ADDRESS]
 //
 // Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
@@ -668,7 +668,7 @@ func (m *EmailAddress) GetValue() string {
 }
 
 // DO NOT USE !! Under Development
-// An instance field of type Uri denotes that the expression for the field must evalaute to
+// An instance field of type Uri denotes that the expression for the field must evaluate to
 // [ValueType.URI][istio.policy.v1beta1.ValueType.URI]
 //
 // Objects of type Uri are also passed to the adapters during request-time for the instance fields of
