@@ -408,3 +408,43 @@ func TestProbesToPortsConversion(t *testing.T) {
 		}
 	}
 }
+
+func TestSecureNamingSANCustomIdentity(t *testing.T) {
+
+	pod := &v1.Pod{}
+
+	identity := "foo"
+
+	pod.Annotations = make(map[string]string)
+	pod.Annotations[IdentityPodAnnotation] = identity
+
+	san := secureNamingSAN(pod)
+
+	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
+
+	if san != expectedSAN {
+		t.Errorf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
+	}
+
+}
+
+func TestSecureNamingSAN(t *testing.T) {
+
+	pod := &v1.Pod{}
+
+	pod.Annotations = make(map[string]string)
+
+	ns := "anything"
+	sa := "foo"
+	pod.Namespace = ns
+	pod.Spec.ServiceAccountName = sa
+
+	san := secureNamingSAN(pod)
+
+	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
+
+	if san != expectedSAN {
+		t.Errorf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
+	}
+
+}
