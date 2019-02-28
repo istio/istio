@@ -342,13 +342,13 @@ func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
 }
 
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(endpoint *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
+func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
 	out := xdsapi.ClusterLoadAssignment{}
-	if endpoint == nil {
+	if original == nil {
 		return out
 	}
 
-	out = *endpoint
+	out = *original
 	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
 
 	return out
