@@ -115,7 +115,7 @@ mv_unless_max_exceeded() {
   local dst_file="${2}"
 
   file_size=$(wc -c "${src_file}" | awk '{print $1}')
-  local nsb=$((${stored_log_bytes} + ${file_size}))
+  local nsb=$((stored_log_bytes + file_size))
 
   if (("${nsb}" > "${MAX_LOG_BYTES}")); then
     log "Not storing ${log_file} because appending its ${file_size} bytes would exceed max logged bytes ${MAX_LOG_BYTES}"
@@ -150,7 +150,7 @@ dump_logs_for_container() {
   restart_count=$(kubectl get --namespace="${namespace}" \
       pod "${pod}" -o=jsonpath="${json_path}")
   # (There will be no restart_count if the pod status is for example "Pending")
-  if [ ! -z ${restart_count} ] && [ "${restart_count}" -gt 0 ]; then
+  if [ -n "${restart_count}" ] && [ "${restart_count}" -gt 0 ]; then
     log "Retrieving previous logs for ${namespace}/${pod}/${container}"
 
     local log_previous_file
