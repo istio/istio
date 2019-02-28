@@ -232,7 +232,6 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
-		MixerSAN:         []string{},
 	}
 
 	env.PushContext = model.NewPushContext()

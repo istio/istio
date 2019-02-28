@@ -434,7 +434,6 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
-		MixerSAN:         []string{},
 	}
 
 	return env

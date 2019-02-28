@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -188,14 +189,14 @@ var (
 
 			// Parse the DNSDomain based upon service registry type into a registry specific domain.
 			DNSDomain = getDNSDomain(DNSDomain)
-
+			setSpiffeTrustDomain(DNSDomain)
 			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
 			role.DNSDomains = make([]string, 1)
 			role.DNSDomains[0] = DNSDomain
-
+			setSpiffeTrustDomain(DNSDomain)
 			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getPilotSAN(DNSDomain, ns)
-
+			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
+			log.Infof("PilotSAN %#v", pilotSAN)
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
@@ -256,6 +257,12 @@ var (
 			}
 
 			log.Infof("Monitored certs: %#v", certs)
+			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
+			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+				for _, cs := range certs {
+					waitForCerts(path.Join(cs.Directory, cs.Files[0]), 2*time.Minute)
+				}
+			}
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
@@ -263,7 +270,12 @@ var (
 					opts := make(map[string]string)
 					opts["PodName"] = os.Getenv("POD_NAME")
 					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
-					opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
+
+					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
+					log.Infof("MixerSAN %#v", mixerSAN)
+					if len(mixerSAN) > 1 {
+						opts["MixerSubjectAltName"] = mixerSAN[0]
+					}
 
 					// protobuf encoding of IP_ADDRESS type
 					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -342,8 +354,10 @@ func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 	wg.Done()
 }
 
-func getPilotSAN(domain string, ns string) []string {
-	var pilotSAN []string
+//explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
+//and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
+func setSpiffeTrustDomain(domain string) {
+
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 		pilotTrustDomain := role.TrustDomain
 		if len(pilotTrustDomain) == 0 {
@@ -358,10 +372,21 @@ func getPilotSAN(domain string, ns string) []string {
 			}
 		}
 		spiffe.SetTrustDomain(pilotTrustDomain)
-		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 	}
-	log.Infof("PilotSAN %#v", pilotSAN)
-	return pilotSAN
+
+}
+
+func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
+	var san []string
+	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+
+		if overrideIdentity == "" {
+			san = append(san, envoy.GetSAN(ns, defaultSA))
+		} else {
+			san = append(san, envoy.GetSAN("", overrideIdentity))
+		}
+	}
+	return san
 }
 
 func getDNSDomain(domain string) string {
@@ -413,6 +438,11 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
+	proxyCmd.PersistentFlags().StringVar(&role.PilotIdentity, "pilotIdentity", "",
+		"The identity used as the suffix for pilot's spiffe SAN ")
+	proxyCmd.PersistentFlags().StringVar(&role.MixerIdentity, "mixerIdentity", "",
+		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
+
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
@@ -481,6 +511,37 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
+}
+
+func waitForCerts(fname string, maxWait time.Duration) {
+	log.Infof("waiting %v for %s", maxWait, fname)
+
+	logDelay := 1 * time.Second
+	nextLog := time.Now().Add(logDelay)
+	endWait := time.Now().Add(maxWait)
+
+	for {
+		_, err := os.Stat(fname)
+		if err == nil {
+			return
+		}
+		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
+			log.Errora("error while waiting for certificates", err.Error())
+			return
+		}
+
+		now := time.Now()
+		if now.After(endWait) {
+			log.Warna("certificates still not available after", maxWait)
+			break
+		}
+		if now.After(nextLog) {
+			log.Infof("waiting for certificates")
+			logDelay = logDelay * 2
+			nextLog.Add(logDelay)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func main() {

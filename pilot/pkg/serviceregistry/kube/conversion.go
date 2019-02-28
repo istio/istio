@@ -49,6 +49,8 @@ const (
 	ServiceExportAnnotation = "networking.istio.io/exportTo"
 
 	managementPortPrefix = "mgmt-"
+
+	IdentityPodAnnotation = "alpha.istio.io/identity"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -157,6 +159,17 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
+// secureNamingSAN creates the secure naming used for SAN verification from pod metadata
+func secureNamingSAN(pod *v1.Pod) string {
+
+	//use the identity annotation
+	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
+		return spiffe.GenCustomSpiffe(identity)
+	}
+
+	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
+}
+
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
 // "name" if "namespace" is empty
 func KeyFunc(name, namespace string) string {
@@ -178,6 +191,9 @@ func parseHostname(hostname model.Hostname) (name string, namespace string, err 
 	return
 }
 
+var grpcWeb = string(model.ProtocolGRPCWeb)
+var grpcWebLen = len(grpcWeb)
+
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
@@ -185,16 +201,15 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	case v1.ProtocolUDP:
 		out = model.ProtocolUDP
 	case v1.ProtocolTCP:
-		prefix := name
-		if strings.HasPrefix(strings.ToLower(prefix), strings.ToLower(string(model.ProtocolGRPCWeb))) {
+		if len(name) >= grpcWebLen && strings.EqualFold(name[:grpcWebLen], grpcWeb) {
 			out = model.ProtocolGRPCWeb
 			break
 		}
-		i := strings.Index(name, "-")
+		i := strings.IndexByte(name, '-')
 		if i >= 0 {
-			prefix = name[:i]
+			name = name[:i]
 		}
-		protocol := model.ParseProtocol(prefix)
+		protocol := model.ParseProtocol(name)
 		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
 			out = protocol
 		}

@@ -453,7 +453,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					az, sa, uid := "", "", ""
 					if pod != nil {
 						az = c.GetPodLocality(pod)
-						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
+						sa = secureNamingSAN(pod)
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
@@ -589,7 +589,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 	az, sa := "", ""
 	if pod != nil {
 		az = c.GetPodLocality(pod)
-		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
+		sa = secureNamingSAN(pod)
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -778,7 +778,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						ServicePortName: port.Name,
 						Labels:          labels,
 						UID:             uid,
-						ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace()),
+						ServiceAccount:  secureNamingSAN(pod),
 						Network:         c.endpointNetwork(ea.IP),
 					})
 				}

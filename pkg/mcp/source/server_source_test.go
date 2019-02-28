@@ -56,7 +56,7 @@ func TestServerSinkRateLimitter(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		ConnRateLimiter:    NewFakePerConnLimiter(),
+		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
 	s.rateLimiter = fakeLimiter
@@ -83,7 +83,7 @@ func TestServerSource(t *testing.T) {
 	}
 
 	authChecker := test.NewFakeAuthChecker()
-	rateLimiter := NewFakePerConnLimiter()
+	rateLimiter := test.NewFakePerConnLimiter()
 	// force ratelimiter Wait to return nil by closing WaitErr
 	close(rateLimiter.ErrCh)
 	options := &Options{

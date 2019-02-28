@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
+	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -147,7 +149,8 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	var checker server.AuthChecker = server.NewAllowAllChecker()
+	var checker server.AuthChecker
+	checker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -171,6 +174,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Watcher:            distributor,
 		Reporter:           s.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
 	if a.SinkAddress != "" {
@@ -183,7 +187,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	s.mcp = server.New(options, checker)
 
-	serverOptions := &source.ServerOptions{AuthChecker: checker}
+	serverOptions := &source.ServerOptions{
+		AuthChecker: checker,
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+	}
 	s.mcpSource = source.NewServer(options, serverOptions)
 
 	// get the network stuff setup

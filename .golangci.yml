@@ -1,3 +1,5 @@
+service:
+  golangci-lint-version: 1.15.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # default concurrency is a available CPU number
   concurrency: 4
