@@ -127,11 +127,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k, kubeMeta.Types.All()); err != nil {
+			if err := p.verifyResourceTypesPresence(k, sourceSchema.All()); err != nil {
 				return nil, err
 			}
 		} else {
-			found, err := p.findSupportedResources(k, kubeMeta.Types.All())
+			found, err := p.findSupportedResources(k, sourceSchema.All())
 			if err != nil {
 				return nil, err
 			}
