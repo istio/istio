@@ -36,7 +36,7 @@ const (
 	LivenessProbeClientIdentity   = "k8s.cluster.local"
 	probeCheckRequestedTTLMinutes = 60
 	// logEveryNChecks specifies we log once in every N successful checks.
-	logEveryNChecks = 20
+	logEveryNChecks = 100
 )
 
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
