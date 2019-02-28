@@ -212,7 +212,7 @@ func TestBuildTCPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildTCPFilter(tc.Service, tc.Option, true, false)
+		filter := buildTCPFilter(tc.Service, tc.Option, true)
 		if fn := "envoy.filters.network.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -276,6 +276,9 @@ func TestBuildHTTPFilter(t *testing.T) {
 	option := rbacOption{
 		authzPolicies: newAuthzPoliciesWithRolesAndBindings([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}),
 	}
+	// Since newAuthzPoliciesWithRolesAndBindings() doesn't detect AuthorizationPolicy being used, we
+	// need to manually set IsRbacV2 flag.
+	option.authzPolicies.IsRbacV2 = true
 
 	testCases := []struct {
 		Name    string
@@ -305,7 +308,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(tc.Service, tc.Option, true, true)
+		filter := buildHTTPFilter(tc.Service, tc.Option, true)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}

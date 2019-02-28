@@ -191,9 +191,9 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 }
 
 // nolint:deadcode
-func generateExpectRBACForSinglePolicy(serviceRoleName string, rbacPolicy *policy.Policy) *policy.RBAC {
+func generateExpectRBACForSinglePolicy(authzPolicyKey string, rbacPolicy *policy.Policy) *policy.RBAC {
 	// If |serviceRoleName| is empty, which means the current service does not have any matched ServiceRoles.
-	if serviceRoleName == "" {
+	if authzPolicyKey == "" {
 		return &policy.RBAC{
 			Action:   policy.RBAC_ALLOW,
 			Policies: map[string]*policy.Policy{},
@@ -202,7 +202,20 @@ func generateExpectRBACForSinglePolicy(serviceRoleName string, rbacPolicy *polic
 	return &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
-			serviceRoleName: rbacPolicy,
+			authzPolicyKey: rbacPolicy,
 		},
+	}
+}
+
+// nolint: deadcode
+func generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies(authzPolicyKeys []string, rbacPolicies []*policy.Policy) *policy.RBAC {
+	policies := map[string]*policy.Policy{}
+	for i, authzPolicyKey := range authzPolicyKeys {
+		policies[authzPolicyKey] = rbacPolicies[i]
+	}
+
+	return &policy.RBAC{
+		Action:   policy.RBAC_ALLOW,
+		Policies: policies,
 	}
 }

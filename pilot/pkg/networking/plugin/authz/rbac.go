@@ -341,14 +341,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	option := rbacOption{authzPolicies: authzPolicies, globalPermissiveMode: globalPermissive}
-	isRbacV2 := isRbacV2(attr.Namespace, option)
-	if isRbacV2 && isConflictingRbacVersion(attr.Namespace, option) {
-		return nil
-	}
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, option, util.IsProxyVersionGE11(in.Node), isRbacV2)
+		filter := buildTCPFilter(service, option, util.IsProxyVersionGE11(in.Node))
 		if filter != nil {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -357,7 +353,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		}
 	case plugin.ListenerProtocolHTTP:
 		rbacLog.Debugf("building http filter config for %v", *service)
-		filter := buildHTTPFilter(service, option, util.IsProxyVersionGE11(in.Node), isRbacV2)
+		filter := buildHTTPFilter(service, option, util.IsProxyVersionGE11(in.Node))
 		if filter != nil {
 			rbacLog.Infof("built http filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -429,14 +425,16 @@ func isRbacEnabled(svc string, ns string, authzPolicies *model.AuthorizationPoli
 	}
 }
 
-func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool, isRbacV2 bool) *listener.Filter {
+func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *listener.Filter {
 	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
 	var config *http_config.RBAC
-	if isRbacV2 {
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for TCP filter")
 		config = convertRbacRulesToFilterConfigV2(service, option)
 	} else {
+		rbacLog.Debugf("used RBAC v1 for TCP filter")
 		config = convertRbacRulesToFilterConfig(service, option)
 	}
 	tcpConfig := listener.Filter{
@@ -460,12 +458,14 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool, isRb
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool, isRbacV2 bool) *http_conn.HttpFilter {
+func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *http_conn.HttpFilter {
 	option.forTCPFilter = false
 	var config *http_config.RBAC
-	if isRbacV2 {
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for HTTP filter")
 		config = convertRbacRulesToFilterConfigV2(service, option)
 	} else {
+		rbacLog.Debugf("used RBAC v1 for HTTP filter")
 		config = convertRbacRulesToFilterConfig(service, option)
 	}
 	rbacLog.Debugf("generated http filter config: %v", *config)

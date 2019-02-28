@@ -305,76 +305,6 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 	}
 }
 
-func TestAuthzPolicyToAllowSubjects(t *testing.T) {
-	cases := []struct {
-		name                               string
-		authzPolicies                      *model.AuthorizationPolicies
-		ns                                 string
-		expectedAuthzPolicyToAllowSubjects map[string][]*rbacproto.ServiceRoleBinding
-	}{
-		{
-			name:                               "authzPolicies is nil",
-			authzPolicies:                      nil,
-			ns:                                 model.NamespaceAll,
-			expectedAuthzPolicyToAllowSubjects: map[string][]*rbacproto.ServiceRoleBinding{},
-		},
-		{
-			name: "authzPolicies has a binding",
-			authzPolicies: &model.AuthorizationPolicies{
-				NamespaceToAuthorizationConfigV2: map[string]*model.AuthorizationConfigV2{
-					"default": {
-						AuthzPolicies: []*model.AuthorizationPolicyConfig{
-							{
-								Name: "Authz-Policy-1",
-								Policy: &rbacproto.AuthorizationPolicy{
-									Allow: []*rbacproto.ServiceRoleBinding{
-										{
-											Subjects: []*rbacproto.Subject{
-												{
-													Names: []string{"allAuthenticatedUsers"},
-												},
-											},
-											RoleRef: &rbacproto.RoleRef{
-												Kind: "ServiceRole",
-												Name: "service-role-1",
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			ns: "default",
-			expectedAuthzPolicyToAllowSubjects: map[string][]*rbacproto.ServiceRoleBinding{
-				"Authz-Policy-1": {
-					{
-						Subjects: []*rbacproto.Subject{
-							{
-								Names: []string{"allAuthenticatedUsers"},
-							},
-						},
-						RoleRef: &rbacproto.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			actual := c.authzPolicies.AuthzPolicyToAllowSubjects(c.ns)
-			if !reflect.DeepEqual(c.expectedAuthzPolicyToAllowSubjects, actual) {
-				t.Errorf("Got different ServiceRoleBinding, Excepted:\n%v\n, Got: \n%v\n", c.expectedAuthzPolicyToAllowSubjects, actual)
-			}
-		})
-	}
-}
-
 func TestGetServiceRoleFromName(t *testing.T) {
 	cases := []struct {
 		name                               string
@@ -421,9 +351,9 @@ func TestGetServiceRoleFromName(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var actual *rbacproto.ServiceRole
 			if c.authzPolicies == nil {
-				actual = c.authzPolicies.GetServiceRoleFromName(c.ns, "")
+				actual = c.authzPolicies.RoleForNameAndNamespace(c.ns, "")
 			} else {
-				actual = c.authzPolicies.GetServiceRoleFromName(c.ns, c.roleName)
+				actual = c.authzPolicies.RoleForNameAndNamespace(c.ns, c.roleName)
 			}
 			if !reflect.DeepEqual(c.expectedTestGetServiceRoleFromName, actual) {
 				t.Errorf("Got different ServiceRole, Excepted:\n%v\n, Got: \n%v\n", c.expectedTestGetServiceRoleFromName, actual)
