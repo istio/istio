@@ -441,7 +441,8 @@ type ProxyConfig struct {
 	InterceptionMode ProxyConfig_InboundInterceptionMode `protobuf:"varint,18,opt,name=interception_mode,json=interceptionMode,proto3,enum=istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode" json:"interception_mode,omitempty"`
 	// Tracing configuration to be used by the proxy.
 	Tracing *Tracing `protobuf:"bytes,19,opt,name=tracing,proto3" json:"tracing,omitempty"`
-	// Absolute paths to cert/key files to watch for changes (e.g. /etc/certs/key.pem,/etc/certs/cert.pem)
+	// Absolute path to certs/key files used for istio mTLS. If omitted, defaults to
+	// /etc/certs/cert-chain.pem,/etc/certs/key.pem,/etc/certs/root-cert.pem
 	TlsCertsToWatch      []string `protobuf:"bytes,21,rep,name=tls_certs_to_watch,json=tlsCertsToWatch,proto3" json:"tls_certs_to_watch,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

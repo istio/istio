@@ -170,6 +170,7 @@ message ProxyConfig {
   // Tracing configuration to be used by the proxy.
   Tracing tracing = 19;
 
-  // Absolute paths to cert/key files to watch for changes (e.g. /etc/certs/key.pem,/etc/certs/cert.pem)
+  // Absolute path to certs/key files used for istio mTLS. If omitted, defaults to
+  // /etc/certs/cert-chain.pem,/etc/certs/key.pem,/etc/certs/root-cert.pem
   repeated string tls_certs_to_watch = 21;
 }
