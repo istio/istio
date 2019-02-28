@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -52,6 +53,17 @@ const (
 
 	// workload-bound annotations for controlling mixerfilter
 	policyCheckAnnotation = "policy.istio.io/check"
+
+	// workload-bound annotation for max number of retries on transport error
+	policyCheckRetriesAnnotation = "policy.istio.io/checkRetries"
+
+	// workload-bound annotation for base time to wait between retries, will be adjusted by backoff and jitter.
+	// In duration format. Example: 80ms.
+	policyCheckBaseRetryWaitTimeAnnotation = "policy.istio.io/checkBaseRetryWaitTime"
+
+	// workload-bound annotation for max time to wait between retries
+	// In duration format. Example: 1000ms.
+	policyCheckMaxRetryWaitTimeAnnotation = "policy.istio.io/checkMaxRetryWaitTime"
 
 	// force enable policy checks for both inbound and outbound calls
 	policyCheckEnable = "enable"
@@ -90,15 +102,29 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
-		filter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
+		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
+		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+			// For gateways, due to TLS termination, a listener marked as TCP could very well
+			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
+			// to decide the type of filter to attach
+			httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+			for cnum := range mutable.FilterChains {
+				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
+			}
+		} else {
+			for cnum := range mutable.FilterChains {
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+			}
 		}
 		return nil
 	}
@@ -247,25 +273,54 @@ func buildUpstreamName(address string) string {
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
 	// default to mesh
-	networkFailPolicy := mccpb.FAIL_CLOSE
+	policy := mccpb.FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
-		networkFailPolicy = mccpb.FAIL_OPEN
+		policy = mccpb.FAIL_OPEN
 	}
 
 	// apply proxy-level overrides
-	if policy, ok := node.Metadata[policyCheckAnnotation]; ok {
-		switch policy {
+	if annotation, ok := node.Metadata[policyCheckAnnotation]; ok {
+		switch annotation {
 		case policyCheckEnable:
-			networkFailPolicy = mccpb.FAIL_CLOSE
+			policy = mccpb.FAIL_CLOSE
 		case policyCheckEnableAllow, policyCheckDisable:
-			networkFailPolicy = mccpb.FAIL_OPEN
+			policy = mccpb.FAIL_OPEN
+		}
+	}
+
+	networkFailPolicy := &mccpb.NetworkFailPolicy{Policy: policy}
+
+	if annotation, ok := node.Metadata[policyCheckRetriesAnnotation]; ok {
+		retries, err := strconv.Atoi(annotation)
+		if err != nil {
+			log.Warnf("unable to parse retry limit %q.", annotation)
+		} else {
+			networkFailPolicy.MaxRetry = uint32(retries)
+		}
+	}
+
+	if annotation, ok := node.Metadata[policyCheckBaseRetryWaitTimeAnnotation]; ok {
+		dur, err := time.ParseDuration(annotation)
+		if err != nil {
+			log.Warnf("unable to parse base retry wait time %q.", annotation)
+		} else {
+			networkFailPolicy.BaseRetryWait = types.DurationProto(dur)
+		}
+	}
+
+	if annotation, ok := node.Metadata[policyCheckMaxRetryWaitTimeAnnotation]; ok {
+		dur, err := time.ParseDuration(annotation)
+		if err != nil {
+			log.Warnf("unable to parse max retry wait time %q.", annotation)
+		} else {
+			networkFailPolicy.MaxRetryWait = types.DurationProto(dur)
 		}
 	}
 
 	res := &mccpb.TransportConfig{
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
+		NetworkFailPolicy: networkFailPolicy,
 	}
 
 	return res

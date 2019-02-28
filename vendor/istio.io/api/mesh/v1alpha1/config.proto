@@ -21,9 +21,8 @@ import "networking/v1alpha3/destination_rule.proto";
 // $title: Service Mesh
 // $description: Configuration affecting the service mesh as a whole.
 // $location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
-// $aliases:
-// $  - /docs/reference/config/service-mesh.html
 
+// Configuration affecting the service mesh as a whole.
 package istio.mesh.v1alpha1;
 
 option go_package="istio.io/api/mesh/v1alpha1";
@@ -213,7 +212,7 @@ message MeshConfig {
   bool sds_use_k8s_sa_jwt = 29;
 
   // The trust domain corresponds to the trust root of a system.
-  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  // Refer to [SPIFEE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
@@ -306,7 +305,7 @@ message ConfigSource {
 // traffic originates and where it will terminate. These localities are
 // specified using arbitrary labels that designate a hierarchy of localities in
 // {region}/{zone}/{sub-zone} form. For additional detail refer to
-// https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
 // The following example shows how to setup locality weights mesh-wide.
 //
 // Given a mesh with workloads and their service deployed to "us-west/zone1/*"

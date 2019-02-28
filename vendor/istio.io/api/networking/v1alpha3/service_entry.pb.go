@@ -3,16 +3,23 @@
 
 package v1alpha3
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Location specifies whether the service is part of Istio mesh or
 // outside the mesh.  Location determines the behavior of several
@@ -37,6 +44,7 @@ var ServiceEntry_Location_name = map[int32]string{
 	0: "MESH_EXTERNAL",
 	1: "MESH_INTERNAL",
 }
+
 var ServiceEntry_Location_value = map[string]int32{
 	"MESH_EXTERNAL": 0,
 	"MESH_INTERNAL": 1,
@@ -45,8 +53,9 @@ var ServiceEntry_Location_value = map[string]int32{
 func (x ServiceEntry_Location) String() string {
 	return proto.EnumName(ServiceEntry_Location_name, int32(x))
 }
+
 func (ServiceEntry_Location) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorServiceEntry, []int{0, 0}
+	return fileDescriptor_9220e0fa673c4bf8, []int{0, 0}
 }
 
 // Resolution determines how the proxy will resolve the IP addresses of
@@ -86,6 +95,7 @@ var ServiceEntry_Resolution_name = map[int32]string{
 	1: "STATIC",
 	2: "DNS",
 }
+
 var ServiceEntry_Resolution_value = map[string]int32{
 	"NONE":   0,
 	"STATIC": 1,
@@ -95,8 +105,9 @@ var ServiceEntry_Resolution_value = map[string]int32{
 func (x ServiceEntry_Resolution) String() string {
 	return proto.EnumName(ServiceEntry_Resolution_name, int32(x))
 }
+
 func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorServiceEntry, []int{0, 1}
+	return fileDescriptor_9220e0fa673c4bf8, []int{0, 1}
 }
 
 // `ServiceEntry` enables adding additional entries into Istio's internal
@@ -213,7 +224,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
-// The 'export_to' field allows for control over the visibility of a service
+// The 'exportTo' field allows for control over the visibility of a service
 // declaration to other namespaces in the mesh. By default a service is exported
 // to all namespaces. The following example restricts the visibility to the
 // current namespace, represented by ".", so that it cannot be used by other
@@ -228,8 +239,8 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
-//   - .
+//   exportTo:
+//   - "."
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
@@ -274,7 +285,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // spec:
 //   hosts:
 //   - httpbin.com
-//   export_to:
+//   exportTo:
 //   - *
 //   gateways:
 //   - mesh
@@ -378,6 +389,33 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // specified above. In other words, a call to `http://foo.bar.com/baz` would
 // be translated to `http://uk.foo.bar.com/baz`.
 //
+// The following example illustrates the usage of a ServiceEntry
+// containing a subject alternate name
+// whose format conforms to the SPIFEE standard
+// <https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md>:
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: httpbin
+//   namespace : httpbin-ns
+// spec:
+//   hosts:
+//   - httpbin.com
+//   location: MESH_INTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: STATIC
+//   endpoints:
+//   - address: 2.2.2.2
+//   - address: 3.3.3.3
+//   subjectAltNames:
+//   - "spiffe://cluster.local/ns/httpbin-ns/sa/httpbin-service-account"
+// ```
+//
 type ServiceEntry struct {
 	// REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
 	// name with wildcard prefix (external services only). DNS names in hosts
@@ -385,7 +423,7 @@ type ServiceEntry struct {
 	// protocols such as mongo/opaque TCP/HTTPS. In such scenarios, the
 	// IP addresses specified in the Addresses field or the port will be used
 	// to uniquely identify the destination.
-	Hosts []string `protobuf:"bytes,1,rep,name=hosts" json:"hosts,omitempty"`
+	Hosts []string `protobuf:"bytes,1,rep,name=hosts,proto3" json:"hosts,omitempty"`
 	// The virtual IP addresses associated with the service. Could be CIDR
 	// prefix. For HTTP services, the addresses field will be ignored and
 	// the destination will be identified based on the HTTP Host/Authority
@@ -400,11 +438,11 @@ type ServiceEntry struct {
 	// simple TCP proxy, forwarding incoming traffic on a specified port to
 	// the specified destination endpoint IP/host. Unix domain socket
 	// addresses are not supported in this field.
-	Addresses []string `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty"`
+	Addresses []string `protobuf:"bytes,2,rep,name=addresses,proto3" json:"addresses,omitempty"`
 	// REQUIRED. The ports associated with the external service. If the
 	// Endpoints are unix domain socket addresses, there must be exactly one
 	// port.
-	Ports []*Port `protobuf:"bytes,3,rep,name=ports" json:"ports,omitempty"`
+	Ports []*Port `protobuf:"bytes,3,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Specify whether the service should be considered external to the mesh
 	// or part of the mesh.
 	Location ServiceEntry_Location `protobuf:"varint,4,opt,name=location,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Location" json:"location,omitempty"`
@@ -414,8 +452,7 @@ type ServiceEntry struct {
 	// said port will be allowed (i.e. 0.0.0.0:<port>).
 	Resolution ServiceEntry_Resolution `protobuf:"varint,5,opt,name=resolution,proto3,enum=istio.networking.v1alpha3.ServiceEntry_Resolution" json:"resolution,omitempty"`
 	// One or more endpoints associated with the service.
-	Endpoints []*ServiceEntry_Endpoint `protobuf:"bytes,6,rep,name=endpoints" json:"endpoints,omitempty"`
-	// $hide_from_docs
+	Endpoints []*ServiceEntry_Endpoint `protobuf:"bytes,6,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	// A list of namespaces to which this service is exported. Exporting a service
 	// allows it to used by sidecars, gateways and virtual services defined in
 	// other namespaces. This feature provides a mechanism for service owners
@@ -430,15 +467,52 @@ type ServiceEntry struct {
 	// defines an export to all namespaces.
 	//
 	// For a Kubernetes Service the equivalent effect can be achieved by setting
-	// the annotation "networking.istio.io/export_to" to a comma-separated list
+	// the annotation "networking.istio.io/exportTo" to a comma-separated list
 	// of namespace names.
-	ExportTo []string `protobuf:"bytes,7,rep,name=export_to,json=exportTo" json:"export_to,omitempty"`
+	ExportTo []string `protobuf:"bytes,7,rep,name=export_to,json=exportTo,proto3" json:"export_to,omitempty"`
+	// The list of subject alternate names allowed for workloads that
+	// implement this service. This information is used to enforce
+	// secure-naming <https://istio.io/docs/concepts/security/#secure-naming>.
+	// If specified, the proxy will verify that the server
+	// certificate's subject alternate name matches one of the specified values.
+	SubjectAltNames      []string `protobuf:"bytes,8,rep,name=subject_alt_names,json=subjectAltNames,proto3" json:"subject_alt_names,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ServiceEntry) Reset()                    { *m = ServiceEntry{} }
-func (m *ServiceEntry) String() string            { return proto.CompactTextString(m) }
-func (*ServiceEntry) ProtoMessage()               {}
-func (*ServiceEntry) Descriptor() ([]byte, []int) { return fileDescriptorServiceEntry, []int{0} }
+func (m *ServiceEntry) Reset()         { *m = ServiceEntry{} }
+func (m *ServiceEntry) String() string { return proto.CompactTextString(m) }
+func (*ServiceEntry) ProtoMessage()    {}
+func (*ServiceEntry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9220e0fa673c4bf8, []int{0}
+}
+func (m *ServiceEntry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ServiceEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ServiceEntry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ServiceEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceEntry.Merge(m, src)
+}
+func (m *ServiceEntry) XXX_Size() int {
+	return m.Size()
+}
+func (m *ServiceEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceEntry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceEntry proto.InternalMessageInfo
 
 func (m *ServiceEntry) GetHosts() []string {
 	if m != nil {
@@ -489,6 +563,13 @@ func (m *ServiceEntry) GetExportTo() []string {
 	return nil
 }
 
+func (m *ServiceEntry) GetSubjectAltNames() []string {
+	if m != nil {
+		return m.SubjectAltNames
+	}
+	return nil
+}
+
 // Endpoint defines a network address (IP or hostname) associated with
 // the mesh service.
 type ServiceEntry_Endpoint struct {
@@ -500,9 +581,9 @@ type ServiceEntry_Endpoint struct {
 	// Set of ports associated with the endpoint. The ports must be
 	// associated with a port name that was declared as part of the
 	// service. Do not use for unix:// addresses.
-	Ports map[string]uint32 `protobuf:"bytes,2,rep,name=ports" json:"ports,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	Ports map[string]uint32 `protobuf:"bytes,2,rep,name=ports,proto3" json:"ports,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	// One or more labels associated with the endpoint.
-	Labels map[string]string `protobuf:"bytes,3,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Labels map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Network enables Istio to group endpoints resident in the same L3
 	// domain/network. All endpoints in the same network are assumed to be
 	// directly reachable from one another. When endpoints in different
@@ -532,15 +613,44 @@ type ServiceEntry_Endpoint struct {
 	Locality string `protobuf:"bytes,5,opt,name=locality,proto3" json:"locality,omitempty"`
 	// The load balancing weight associated with the endpoint. Endpoints
 	// with higher weights will receive proportionally higher traffic.
-	Weight uint32 `protobuf:"varint,6,opt,name=weight,proto3" json:"weight,omitempty"`
+	Weight               uint32   `protobuf:"varint,6,opt,name=weight,proto3" json:"weight,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ServiceEntry_Endpoint) Reset()         { *m = ServiceEntry_Endpoint{} }
 func (m *ServiceEntry_Endpoint) String() string { return proto.CompactTextString(m) }
 func (*ServiceEntry_Endpoint) ProtoMessage()    {}
 func (*ServiceEntry_Endpoint) Descriptor() ([]byte, []int) {
-	return fileDescriptorServiceEntry, []int{0, 0}
+	return fileDescriptor_9220e0fa673c4bf8, []int{0, 0}
 }
+func (m *ServiceEntry_Endpoint) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ServiceEntry_Endpoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ServiceEntry_Endpoint.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ServiceEntry_Endpoint) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceEntry_Endpoint.Merge(m, src)
+}
+func (m *ServiceEntry_Endpoint) XXX_Size() int {
+	return m.Size()
+}
+func (m *ServiceEntry_Endpoint) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceEntry_Endpoint.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceEntry_Endpoint proto.InternalMessageInfo
 
 func (m *ServiceEntry_Endpoint) GetAddress() string {
 	if m != nil {
@@ -585,11 +695,55 @@ func (m *ServiceEntry_Endpoint) GetWeight() uint32 {
 }
 
 func init() {
-	proto.RegisterType((*ServiceEntry)(nil), "istio.networking.v1alpha3.ServiceEntry")
-	proto.RegisterType((*ServiceEntry_Endpoint)(nil), "istio.networking.v1alpha3.ServiceEntry.Endpoint")
 	proto.RegisterEnum("istio.networking.v1alpha3.ServiceEntry_Location", ServiceEntry_Location_name, ServiceEntry_Location_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.ServiceEntry_Resolution", ServiceEntry_Resolution_name, ServiceEntry_Resolution_value)
+	proto.RegisterType((*ServiceEntry)(nil), "istio.networking.v1alpha3.ServiceEntry")
+	proto.RegisterType((*ServiceEntry_Endpoint)(nil), "istio.networking.v1alpha3.ServiceEntry.Endpoint")
+	proto.RegisterMapType((map[string]string)(nil), "istio.networking.v1alpha3.ServiceEntry.Endpoint.LabelsEntry")
+	proto.RegisterMapType((map[string]uint32)(nil), "istio.networking.v1alpha3.ServiceEntry.Endpoint.PortsEntry")
 }
+
+func init() {
+	proto.RegisterFile("networking/v1alpha3/service_entry.proto", fileDescriptor_9220e0fa673c4bf8)
+}
+
+var fileDescriptor_9220e0fa673c4bf8 = []byte{
+	// 527 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xdf, 0x8e, 0xd2, 0x40,
+	0x14, 0xc6, 0x77, 0xe8, 0x52, 0xda, 0xb3, 0xae, 0xb2, 0x13, 0x63, 0x46, 0x34, 0x58, 0xb9, 0x91,
+	0x68, 0x52, 0x56, 0x36, 0x26, 0xeb, 0x9f, 0x1b, 0xd4, 0x26, 0x6e, 0x82, 0x55, 0x07, 0x2e, 0x8c,
+	0x37, 0x64, 0x80, 0x09, 0xd4, 0xad, 0x1d, 0xd2, 0x19, 0x40, 0xde, 0xc2, 0xa7, 0xf0, 0x59, 0xbc,
+	0xf4, 0x11, 0x0c, 0x4f, 0x62, 0x3a, 0x9d, 0x02, 0x17, 0xab, 0xbb, 0x7b, 0xd7, 0x73, 0xe6, 0x7c,
+	0xbf, 0x7e, 0x73, 0xce, 0x19, 0x78, 0x94, 0x70, 0xb5, 0x14, 0xe9, 0x79, 0x94, 0x4c, 0x5a, 0x8b,
+	0xa7, 0x2c, 0x9e, 0x4d, 0xd9, 0x49, 0x4b, 0xf2, 0x74, 0x11, 0x8d, 0xf8, 0x80, 0x27, 0x2a, 0x5d,
+	0xf9, 0xb3, 0x54, 0x28, 0x81, 0xef, 0x46, 0x52, 0x45, 0xc2, 0xdf, 0x96, 0xfb, 0x45, 0x79, 0xed,
+	0xe1, 0x45, 0x8c, 0x09, 0x53, 0x7c, 0xc9, 0x8c, 0xba, 0xf1, 0xb3, 0x02, 0x37, 0x7a, 0x39, 0x35,
+	0xc8, 0xa0, 0xf8, 0x36, 0x94, 0xa7, 0x42, 0x2a, 0x49, 0x90, 0x67, 0x35, 0x5d, 0x9a, 0x07, 0xf8,
+	0x3e, 0xb8, 0x6c, 0x3c, 0x4e, 0xb9, 0x94, 0x5c, 0x92, 0x92, 0x3e, 0xd9, 0x26, 0xf0, 0x33, 0x28,
+	0xcf, 0x44, 0xaa, 0x24, 0xb1, 0x3c, 0xab, 0x79, 0xd0, 0x7e, 0xe0, 0xff, 0xd3, 0x92, 0xff, 0x51,
+	0xa4, 0x8a, 0xe6, 0xd5, 0xb8, 0x0b, 0x4e, 0x2c, 0x46, 0x4c, 0x45, 0x22, 0x21, 0xfb, 0x1e, 0x6a,
+	0xde, 0x6c, 0x1f, 0xff, 0x47, 0xb9, 0xeb, 0xd2, 0xef, 0x1a, 0x1d, 0xdd, 0x10, 0x30, 0x05, 0x48,
+	0xb9, 0x14, 0xf1, 0x5c, 0xf3, 0xca, 0x9a, 0xd7, 0xbe, 0x2a, 0x8f, 0x6e, 0x94, 0x74, 0x87, 0x82,
+	0x43, 0x70, 0x79, 0x32, 0x9e, 0x89, 0x28, 0x51, 0x92, 0xd8, 0xfa, 0x72, 0x57, 0xb6, 0x18, 0x18,
+	0x21, 0xdd, 0x22, 0xf0, 0x3d, 0x70, 0xf9, 0xf7, 0xec, 0xf2, 0x03, 0x25, 0x48, 0x45, 0xb7, 0xd1,
+	0xc9, 0x13, 0x7d, 0x81, 0x1f, 0xc3, 0x91, 0x9c, 0x0f, 0xbf, 0xf2, 0x91, 0x1a, 0xb0, 0x58, 0x0d,
+	0x12, 0xf6, 0x8d, 0x4b, 0xe2, 0xe8, 0xa2, 0x5b, 0xe6, 0xa0, 0x13, 0xab, 0x30, 0x4b, 0xd7, 0x7e,
+	0x58, 0xe0, 0x14, 0x3f, 0xc0, 0x04, 0x2a, 0x66, 0x16, 0x04, 0x79, 0xa8, 0xe9, 0xd2, 0x22, 0xc4,
+	0x9f, 0x8a, 0xc1, 0x94, 0xb4, 0xf7, 0x97, 0xd7, 0xf5, 0xae, 0xc7, 0x25, 0x75, 0xae, 0x18, 0x5a,
+	0x1f, 0xec, 0x98, 0x0d, 0x79, 0x5c, 0x0c, 0xfb, 0xd5, 0xb5, 0x99, 0x5d, 0x2d, 0xcf, 0xa1, 0x86,
+	0x95, 0x5d, 0xc1, 0x00, 0xf4, 0x26, 0xb8, 0xb4, 0x08, 0x71, 0x2d, 0x5f, 0x92, 0x38, 0x52, 0x2b,
+	0x3d, 0x54, 0x97, 0x6e, 0x62, 0x7c, 0x07, 0xec, 0x25, 0x8f, 0x26, 0x53, 0x45, 0x6c, 0x0f, 0x35,
+	0x0f, 0xa9, 0x89, 0x6a, 0xa7, 0x00, 0x5b, 0xe3, 0xb8, 0x0a, 0xd6, 0x39, 0x5f, 0x99, 0xd6, 0x64,
+	0x9f, 0xd9, 0x8e, 0x2f, 0x58, 0x3c, 0xe7, 0xa4, 0xa4, 0x65, 0x79, 0xf0, 0xa2, 0x74, 0x8a, 0x6a,
+	0xcf, 0xe1, 0x60, 0xc7, 0xde, 0x65, 0x52, 0x77, 0x47, 0xda, 0x38, 0x06, 0xa7, 0xd8, 0x4a, 0x7c,
+	0x04, 0x87, 0xef, 0x83, 0xde, 0xbb, 0x41, 0xf0, 0xb9, 0x1f, 0xd0, 0xb0, 0xd3, 0xad, 0xee, 0x6d,
+	0x52, 0x67, 0xa1, 0x49, 0xa1, 0xc6, 0x13, 0x80, 0xed, 0xde, 0x61, 0x07, 0xf6, 0xc3, 0x0f, 0x61,
+	0x50, 0xdd, 0xc3, 0x00, 0x76, 0xaf, 0xdf, 0xe9, 0x9f, 0xbd, 0xa9, 0x22, 0x5c, 0x01, 0xeb, 0x6d,
+	0xd8, 0xab, 0x96, 0x5e, 0xfb, 0xbf, 0xd6, 0x75, 0xf4, 0x7b, 0x5d, 0x47, 0x7f, 0xd6, 0x75, 0xf4,
+	0xc5, 0xcb, 0x9b, 0x1e, 0x89, 0x16, 0x9b, 0x45, 0xad, 0x0b, 0x9e, 0xf9, 0xd0, 0xd6, 0xef, 0xfb,
+	0xe4, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x10, 0x53, 0xa9, 0xc0, 0x48, 0x04, 0x00, 0x00,
+}
+
 func (m *ServiceEntry) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -684,6 +838,24 @@ func (m *ServiceEntry) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if len(m.SubjectAltNames) > 0 {
+		for _, s := range m.SubjectAltNames {
+			dAtA[i] = 0x42
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -758,6 +930,9 @@ func (m *ServiceEntry_Endpoint) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Weight))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -771,6 +946,9 @@ func encodeVarintServiceEntry(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ServiceEntry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Hosts) > 0 {
@@ -809,10 +987,22 @@ func (m *ServiceEntry) Size() (n int) {
 			n += 1 + l + sovServiceEntry(uint64(l))
 		}
 	}
+	if len(m.SubjectAltNames) > 0 {
+		for _, s := range m.SubjectAltNames {
+			l = len(s)
+			n += 1 + l + sovServiceEntry(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *ServiceEntry_Endpoint) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Address)
@@ -846,6 +1036,9 @@ func (m *ServiceEntry_Endpoint) Size() (n int) {
 	if m.Weight != 0 {
 		n += 1 + sovServiceEntry(uint64(m.Weight))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -877,7 +1070,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -905,7 +1098,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -915,6 +1108,9 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -934,7 +1130,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -944,6 +1140,9 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -963,7 +1162,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -972,6 +1171,9 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -994,7 +1196,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Location |= (ServiceEntry_Location(b) & 0x7F) << shift
+				m.Location |= ServiceEntry_Location(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1013,7 +1215,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Resolution |= (ServiceEntry_Resolution(b) & 0x7F) << shift
+				m.Resolution |= ServiceEntry_Resolution(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1032,7 +1234,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1041,6 +1243,9 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1063,7 +1268,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1073,10 +1278,45 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			m.ExportTo = append(m.ExportTo, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SubjectAltNames", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServiceEntry
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SubjectAltNames = append(m.SubjectAltNames, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1087,9 +1327,13 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthServiceEntry
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1114,7 +1358,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1142,7 +1386,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1152,6 +1396,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1171,7 +1418,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1180,6 +1427,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1200,7 +1450,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1217,7 +1467,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1227,6 +1477,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthServiceEntry
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthServiceEntry
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1242,7 +1495,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapvalue |= (uint32(b) & 0x7F) << shift
+						mapvalue |= uint32(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1278,7 +1531,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1287,6 +1540,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1307,7 +1563,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1324,7 +1580,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1334,6 +1590,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthServiceEntry
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthServiceEntry
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1350,7 +1609,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						stringLenmapvalue |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1360,6 +1619,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthServiceEntry
 					}
 					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthServiceEntry
+					}
 					if postStringIndexmapvalue > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1396,7 +1658,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1406,6 +1668,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1425,7 +1690,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1435,6 +1700,9 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthServiceEntry
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1454,7 +1722,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Weight |= (uint32(b) & 0x7F) << shift
+				m.Weight |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1468,9 +1736,13 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthServiceEntry
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1534,8 +1806,11 @@ func skipServiceEntry(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthServiceEntry
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthServiceEntry
 			}
 			return iNdEx, nil
@@ -1566,6 +1841,9 @@ func skipServiceEntry(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthServiceEntry
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1584,41 +1862,3 @@ var (
 	ErrInvalidLengthServiceEntry = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowServiceEntry   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("networking/v1alpha3/service_entry.proto", fileDescriptorServiceEntry) }
-
-var fileDescriptorServiceEntry = []byte{
-	// 497 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xdf, 0x6e, 0xd3, 0x30,
-	0x14, 0xc6, 0xe7, 0x66, 0x4b, 0x93, 0x33, 0x86, 0x82, 0x85, 0x90, 0x09, 0xa8, 0x84, 0xde, 0x10,
-	0x09, 0x29, 0x1d, 0x9d, 0x90, 0xc6, 0x9f, 0x9b, 0x01, 0x91, 0x98, 0x54, 0x02, 0xb8, 0xb9, 0x40,
-	0xdc, 0x54, 0xd9, 0x6a, 0xb5, 0xd6, 0xa2, 0x38, 0x8a, 0xbd, 0x96, 0xbe, 0x05, 0x8f, 0xc5, 0x25,
-	0x8f, 0x80, 0xfa, 0x18, 0x5c, 0xa1, 0x38, 0x49, 0xd3, 0x8b, 0x01, 0xdb, 0x5d, 0xce, 0x89, 0xbf,
-	0x9f, 0x3e, 0x9f, 0xef, 0x18, 0x9e, 0x64, 0x4c, 0x2d, 0x45, 0x71, 0xc1, 0xb3, 0xd9, 0x60, 0xf1,
-	0x2c, 0x49, 0xf3, 0x79, 0x72, 0x34, 0x90, 0xac, 0x58, 0xf0, 0x73, 0x36, 0x61, 0x99, 0x2a, 0x56,
-	0x41, 0x5e, 0x08, 0x25, 0xf0, 0x7d, 0x2e, 0x15, 0x17, 0x41, 0x7b, 0x3c, 0x68, 0x8e, 0xbb, 0x8f,
-	0xaf, 0x62, 0xcc, 0x12, 0xc5, 0x96, 0x49, 0xad, 0xee, 0xff, 0x36, 0xe1, 0xd6, 0xb8, 0xa2, 0x86,
-	0x25, 0x14, 0xdf, 0x85, 0xbd, 0xb9, 0x90, 0x4a, 0x12, 0xe4, 0x19, 0xbe, 0x4d, 0xab, 0x02, 0x3f,
-	0x04, 0x3b, 0x99, 0x4e, 0x0b, 0x26, 0x25, 0x93, 0xa4, 0xa3, 0xff, 0xb4, 0x0d, 0xfc, 0x1c, 0xf6,
-	0x72, 0x51, 0x28, 0x49, 0x0c, 0xcf, 0xf0, 0xf7, 0x87, 0x8f, 0x82, 0xbf, 0x5a, 0x0a, 0x3e, 0x89,
-	0x42, 0xd1, 0xea, 0x34, 0x1e, 0x81, 0x95, 0x8a, 0xf3, 0x44, 0x71, 0x91, 0x91, 0x5d, 0x0f, 0xf9,
-	0xb7, 0x87, 0x87, 0xff, 0x50, 0x6e, 0xbb, 0x0c, 0x46, 0xb5, 0x8e, 0x6e, 0x08, 0x98, 0x02, 0x14,
-	0x4c, 0x8a, 0xf4, 0x52, 0xf3, 0xf6, 0x34, 0x6f, 0x78, 0x5d, 0x1e, 0xdd, 0x28, 0xe9, 0x16, 0x05,
-	0x47, 0x60, 0xb3, 0x6c, 0x9a, 0x0b, 0x9e, 0x29, 0x49, 0x4c, 0x7d, 0xb9, 0x6b, 0x5b, 0x0c, 0x6b,
-	0x21, 0x6d, 0x11, 0xf8, 0x01, 0xd8, 0xec, 0x5b, 0x79, 0xf9, 0x89, 0x12, 0xa4, 0xab, 0xc7, 0x68,
-	0x55, 0x8d, 0x58, 0xb8, 0xdf, 0x0d, 0xb0, 0x1a, 0x11, 0x26, 0xd0, 0xad, 0xe7, 0x4b, 0x90, 0x87,
-	0x7c, 0x9b, 0x36, 0x25, 0xfe, 0xdc, 0x0c, 0xbb, 0xa3, 0xfd, 0xbc, 0xba, 0xa9, 0x1f, 0x1d, 0x81,
-	0xd4, 0xbd, 0x26, 0x88, 0x18, 0xcc, 0x34, 0x39, 0x63, 0x69, 0x13, 0xe0, 0xeb, 0x1b, 0x33, 0x47,
-	0x5a, 0x5e, 0x41, 0x6b, 0x56, 0x79, 0x85, 0x1a, 0xa0, 0xd3, 0xb5, 0x69, 0x53, 0x62, 0xb7, 0x0a,
-	0x3e, 0xe5, 0x6a, 0xa5, 0x83, 0xb2, 0xe9, 0xa6, 0xc6, 0xf7, 0xc0, 0x5c, 0x32, 0x3e, 0x9b, 0x2b,
-	0x62, 0x7a, 0xc8, 0x3f, 0xa0, 0x75, 0xe5, 0x1e, 0x03, 0xb4, 0xc6, 0xb1, 0x03, 0xc6, 0x05, 0x5b,
-	0xd5, 0xa3, 0x29, 0x3f, 0xcb, 0xbd, 0x5d, 0x24, 0xe9, 0x25, 0x23, 0x1d, 0x2d, 0xab, 0x8a, 0x97,
-	0x9d, 0x63, 0xe4, 0xbe, 0x80, 0xfd, 0x2d, 0x7b, 0xff, 0x93, 0xda, 0x5b, 0xd2, 0xfe, 0x21, 0x58,
-	0xcd, 0xa6, 0xe1, 0x3b, 0x70, 0xf0, 0x21, 0x1c, 0xbf, 0x9f, 0x84, 0x5f, 0xe2, 0x90, 0x46, 0x27,
-	0x23, 0x67, 0x67, 0xd3, 0x3a, 0x8d, 0xea, 0x16, 0xea, 0x3f, 0x05, 0x68, 0x77, 0x09, 0x5b, 0xb0,
-	0x1b, 0x7d, 0x8c, 0x42, 0x67, 0x07, 0x03, 0x98, 0xe3, 0xf8, 0x24, 0x3e, 0x7d, 0xeb, 0x20, 0xdc,
-	0x05, 0xe3, 0x5d, 0x34, 0x76, 0x3a, 0x6f, 0x82, 0x1f, 0xeb, 0x1e, 0xfa, 0xb9, 0xee, 0xa1, 0x5f,
-	0xeb, 0x1e, 0xfa, 0xea, 0x55, 0x43, 0xe7, 0x62, 0x90, 0xe4, 0x7c, 0x70, 0xc5, 0xd3, 0x3d, 0x33,
-	0xf5, 0x9b, 0x3d, 0xfa, 0x13, 0x00, 0x00, 0xff, 0xff, 0xbf, 0xab, 0x5c, 0x44, 0x1c, 0x04, 0x00,
-	0x00,
-}

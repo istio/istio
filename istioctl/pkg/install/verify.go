@@ -121,7 +121,7 @@ func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(writer, "istio is installed successfully\n")
+	fmt.Fprintf(writer, "Istio is installed successfully\n")
 	return nil
 }
 
@@ -138,13 +138,17 @@ func NewVerifyCommand() *cobra.Command {
 		fileNameFlags = &genericclioptions.FileNameFlags{
 			Filenames: &filenames,
 			Recursive: boolPtr(true),
+			Usage:     "Istio YAML installation file.",
 		}
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install",
 		Short: "Verifies Istio Installation Status",
 		Long: `
-		verify-install Verifies Istio Installation Status
+		verify-install verifies Istio installation status against the installation file
+		you specified when you installed Istio. It loops through all the installation
+		resources defined in your installation file and reports whether all of them are
+		in ready status. It will report failure when any of them are not ready.
 `,
 		Example: `
 istioctl verify-install -f istio-demo.yaml

@@ -210,7 +210,7 @@ func createTestWebhook(
 	}
 }
 
-func makePilotConfig(t *testing.T, i int, validConfig bool) []byte {
+func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool) []byte { // nolint: unparam
 	t.Helper()
 
 	var key string
@@ -246,12 +246,23 @@ func makePilotConfig(t *testing.T, i int, validConfig bool) []byte {
 	if err != nil {
 		t.Fatalf("Marshal(%v) failed: %v", config.Name, err)
 	}
+	if includeBogusKey {
+		trial := make(map[string]interface{})
+		if err := json.Unmarshal(raw, &trial); err != nil {
+			t.Fatalf("Unmarshal(%v) failed: %v", config.Name, err)
+		}
+		trial["unexpected_key"] = "any value"
+		if raw, err = json.Marshal(&trial); err != nil {
+			t.Fatalf("re-Marshal(%v) failed: %v", config.Name, err)
+		}
+	}
 	return raw
 }
 
 func TestAdmitPilot(t *testing.T) {
-	valid := makePilotConfig(t, 0, true)
-	invalidConfig := makePilotConfig(t, 0, false)
+	valid := makePilotConfig(t, 0, true, false)
+	invalidConfig := makePilotConfig(t, 0, false, false)
+	extraKeyConfig := makePilotConfig(t, 0, true, true)
 
 	wh, cancel := createTestWebhook(t, dummyClient, createFakeWebhookSource(), createFakeEndpointsSource(), dummyConfig)
 	defer cancel()
@@ -266,7 +277,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -276,7 +287,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -286,7 +297,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Delete,
 			},
@@ -296,7 +307,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: admissionv1beta1.Create,
 			},
@@ -306,8 +317,18 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
+				Operation: admissionv1beta1.Create,
+			},
+			allowed: false,
+		},
+		{
+			name:  "invalid extra key create",
+			admit: wh.admitPilot,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: admissionv1beta1.Create,
 			},
 			allowed: false,
@@ -324,13 +345,16 @@ func TestAdmitPilot(t *testing.T) {
 	}
 }
 
-func makeMixerConfig(t *testing.T, i int) []byte {
+func makeMixerConfig(t *testing.T, i int, includeBogusKey bool) []byte {
 	t.Helper()
 	uns := &unstructured.Unstructured{}
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	uns.SetName(name)
 	uns.SetKind("mock")
 	uns.Object["spec"] = map[string]interface{}{"foo": 1}
+	if includeBogusKey {
+		uns.Object["unexpected_key"] = "any value"
+	}
 	raw, err := json.Marshal(uns)
 	if err != nil {
 		t.Fatalf("Marshal(%v) failed: %v", uns, err)
@@ -339,7 +363,8 @@ func makeMixerConfig(t *testing.T, i int) []byte {
 }
 
 func TestAdmitMixer(t *testing.T) {
-	rawConfig := makeMixerConfig(t, 0)
+	rawConfig := makeMixerConfig(t, 0, false)
+	extraKeyConfig := makeMixerConfig(t, 0, true)
 	wh, cancel := createTestWebhook(
 		t,
 		fake.NewSimpleClientset(),
@@ -452,6 +477,17 @@ func TestAdmitMixer(t *testing.T) {
 			validator: &fakeValidator{},
 			allowed:   false,
 		},
+		{
+			name: "invalid extra key create",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Name:      "invalid extra key create",
+				Object:    runtime.RawExtension{Raw: extraKeyConfig},
+				Operation: admissionv1beta1.Create,
+			},
+			validator: &fakeValidator{},
+			allowed:   false,
+		},
 	}
 
 	for i, c := range cases {
@@ -471,7 +507,7 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 		Request: &admissionv1beta1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
-				Raw: makePilotConfig(t, 0, valid),
+				Raw: makePilotConfig(t, 0, valid, false),
 			},
 			Operation: admissionv1beta1.Create,
 		},

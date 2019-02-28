@@ -21,6 +21,9 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+
 	"github.com/gogo/protobuf/types"
 	messagediff "gopkg.in/d4l3k/messagediff.v1"
 
@@ -372,6 +375,43 @@ func TestLocalityMatch(t *testing.T) {
 	}
 }
 
+func TestIsLocalityEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality *core.Locality
+		want     bool
+	}{
+		{
+			"non empty locality",
+			&core.Locality{
+				Region: "region",
+			},
+			false,
+		},
+		{
+			"empty locality",
+			&core.Locality{
+				Region: "",
+			},
+			true,
+		},
+		{
+			"nil locality",
+			nil,
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsLocalityEmpty(tt.locality)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
@@ -464,5 +504,31 @@ func buildFakeCluster() *v2.Cluster {
 				},
 			},
 		},
+	}
+}
+
+func TestIsHTTPFilterChain(t *testing.T) {
+	httpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.HTTPConnectionManager,
+			},
+		},
+	}
+
+	tcpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.TCPProxy,
+			},
+		},
+	}
+
+	if !IsHTTPFilterChain(httpFilterChain) {
+		t.Errorf("http Filter chain not detected properly")
+	}
+
+	if IsHTTPFilterChain(tcpFilterChain) {
+		t.Errorf("tcp filter chain detected as http filter chain")
 	}
 }

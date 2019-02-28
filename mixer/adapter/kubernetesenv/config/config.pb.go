@@ -5,7 +5,7 @@
 	Package config is a generated protocol buffer package.
 
 	The `kubernetesenv` adapter extracts information from a Kubernetes environment
-	and produces attribtes that can be used in downstream adapters.
+	and produces attributes that can be used in downstream adapters.
 
 	This adapter supports the [kubernetes template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
 
@@ -73,15 +73,15 @@ type Params struct {
 	//
 	// Default: 5 minutes
 	CacheRefreshDuration time.Duration `protobuf:"bytes,2,opt,name=cache_refresh_duration,json=cacheRefreshDuration,stdduration" json:"cache_refresh_duration"`
-	// Namespace for secret created for multi-cluster support.
+	// Namespace of the secret created for multicluster support.
 	//
-	// Details on multi-cluster and the kubernetes secret required to
-	// access the remote cluster's credentials can be found here:
-	// https://istio.io/docs/setup/kubernetes/multicluster-install
+	// Details on multicluster and the kubernetes secret required to
+	// access the remote cluster's credentials can be found in
+	// [multicluster install](https://istio.io/docs/setup/kubernetes/multicluster-install).
 	//
-	// NOTE: If cluster_registries_namespace is not set then the environmental
-	// variable POD_NAMESPACE will be checked/used. If POD_NAMESPACE is not
-	// set then cluster_registries_namespace will default to "istio-system".
+	// NOTE: If `cluster_registries_namespace` is not set then the environment
+	// variable `POD_NAMESPACE` is checked/used. If `POD_NAMESPACE` is not
+	// set then `cluster_registries_namespace` defaults to "istio-system".
 	//
 	// Default: "istio-system"
 	ClusterRegistriesNamespace string `protobuf:"bytes,7,opt,name=cluster_registries_namespace,json=clusterRegistriesNamespace,proto3" json:"cluster_registries_namespace,omitempty"`

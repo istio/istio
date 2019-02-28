@@ -1,0 +1,78 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kiali
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: kiali
+  template:
+    metadata:
+      name: kiali
+      labels:
+        app: kiali
+        chart: {{ template "kiali.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: kiali-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+      - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
+        name: kiali
+        command:
+        - "/opt/kiali/kiali"
+        - "-config"
+        - "/kiali-configuration/config.yaml"
+        - "-v"
+        - "4"
+        env:
+        - name: ACTIVE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SERVER_CREDENTIALS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dashboard.secretName }}
+              key: {{ .Values.dashboard.usernameKey }}
+              optional: true
+        - name: SERVER_CREDENTIALS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dashboard.secretName }}
+              key: {{ .Values.dashboard.passphraseKey }}
+              optional: true
+        - name: PROMETHEUS_SERVICE_URL
+          value: {{ .Values.prometheusAddr }}
+{{- if .Values.contextPath }}
+        - name: SERVER_WEB_ROOT
+          value: {{ .Values.contextPath }}
+{{- end }}
+        volumeMounts:
+        - name: kiali-configuration
+          mountPath: "/kiali-configuration"
+        resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+      volumes:
+      - name: kiali-configuration
+        configMap:
+          name: kiali
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

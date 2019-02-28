@@ -26,8 +26,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
@@ -280,6 +282,14 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
+// IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
+func IsLocalityEmpty(locality *core.Locality) bool {
+	if locality == nil || (len(locality.GetRegion()) == 0) {
+		return true
+	}
+	return false
+}
+
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
@@ -376,4 +386,14 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 			},
 		},
 	}
+}
+
+// IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
+func IsHTTPFilterChain(filterChain listener.FilterChain) bool {
+	for _, f := range filterChain.Filters {
+		if f.Name == xdsutil.HTTPConnectionManager {
+			return true
+		}
+	}
+	return false
 }

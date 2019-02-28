@@ -63,6 +63,9 @@ func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 // These are for reading only and should not be modified.
 type InputParams struct {
 	// ListenerProtocol is the protocol/class of listener (TCP, HTTP etc.). Must be set.
+	// This is valid only for the inbound listener
+	// Outbound listeners could have multiple filter chains, where one filter chain could be
+	// a HTTP connection manager with TLS context, while the other could be a tcp proxy with sni
 	ListenerProtocol ListenerProtocol
 	// ListenerCategory is the type of listener (sidecar_inbound, sidecar_outbound, gateway). Must be set
 	ListenerCategory networking.EnvoyFilter_ListenerMatch_ListenerType
@@ -103,6 +106,9 @@ type FilterChain struct {
 	// ListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
 	ListenerFilters []listener.ListenerFilter
+	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
+	// Note that HTTP filter chains can also have network filters
+	ListenerProtocol ListenerProtocol
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.

@@ -30,7 +30,6 @@ type Registry struct {
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
-	model.ServiceAccounts
 }
 
 var (

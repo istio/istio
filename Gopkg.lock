@@ -156,14 +156,6 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:9752dad5e89cd779096bf2477a4ded16bea7ac62de453c8d6b4bf841d51a8512"
-  name = "github.com/apache/thrift"
-  packages = ["lib/go/thrift"]
-  pruneopts = "NUT"
-  revision = "b2a4d4ae21c789b689dd162deb819665567f481c"
-  version = "0.10.0"
-
-[[projects]]
   digest = "1:07f4e60d8a08ca0759227bc0a7a12867bb3461f2c4ed376b5160153552199b4f"
   name = "github.com/aws/aws-sdk-go"
   packages = [
@@ -259,14 +251,6 @@
   packages = ["."]
   pruneopts = "T"
   revision = "c0b55c8239520f6b5aa15a0207ca8b28027ba49e"
-
-[[projects]]
-  branch = "master"
-  digest = "1:8ecb89af7dfe3ac401bdb0c9390b134ef96a97e85f732d2b0604fb7b3977839f"
-  name = "github.com/codahale/hdrhistogram"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
   branch = "v2"
@@ -1258,7 +1242,8 @@
   revision = "b75d8614f926c077e48d85f1f8f7885b758c6225"
 
 [[projects]]
-  digest = "1:985d7717b58bbf47525c1ef3c6c4c164acb4a1947cc8ece5d2b53228e689f999"
+  branch = "master"
+  digest = "1:f6a57f8794170a82d2f52e33712793e9014577be008078a51974ff80a2e124dd"
   name = "github.com/uber/jaeger-client-go"
   packages = [
     ".",
@@ -1266,6 +1251,7 @@
     "internal/spanlog",
     "internal/throttler",
     "log",
+    "thrift",
     "thrift-gen/agent",
     "thrift-gen/jaeger",
     "thrift-gen/sampling",
@@ -1276,16 +1262,15 @@
     "zipkin",
   ]
   pruneopts = "NUT"
-  revision = "c107110d057826281414cb964f167bce5be17588"
-  version = "v2.12.0"
+  revision = "64f57863bf63d3842dbe79cdc793d57baaff9ab5"
 
 [[projects]]
-  digest = "1:0da2810678a062e0567c3215911869b0423da0e497c56683ff8e87e7a6952597"
+  digest = "1:c9d69a04f7fa171f50360bbcc32196b4de8ab8837ef772f6302d0140a1e3e7f6"
   name = "github.com/uber/jaeger-lib"
   packages = ["metrics"]
   pruneopts = "NUT"
-  revision = "4267858c0679cd4e47cefed8d7f70fd386cfb567"
-  version = "v1.4.0"
+  revision = "0e30338a695636fe5bcf7301e8030ce8dd2a8530"
+  version = "v2.0.0"
 
 [[projects]]
   branch = "master"
@@ -1413,17 +1398,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9a0eeb972e14851a3a0490280d736de3b1c686745c7a4d660642ec2706a446e2"
+  digest = "1:dc47d62081c3865cd58181a50c62d33223597b3f360ef86cec770d8747eb0d16"
   name = "golang.org/x/oauth2"
   packages = [
     ".",
+    "clientcredentials",
     "google",
     "internal",
     "jws",
     "jwt",
   ]
   pruneopts = "NUT"
-  revision = "fdc9e635145ae97e6c2cb777c48305600cf515cb"
+  revision = "d668ce993890a79bda886613ee587a69dd5da7a6"
 
 [[projects]]
   branch = "master"
@@ -1678,7 +1664,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:aa6a547e81a0d63ed1fa636184622a79bc39796010ea8658d1c735e398f5855b"
+  digest = "1:e83838a23db4d8f03a4fb5069a2b27a732980a95c6e08d646549e3f702c126a4"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1694,7 +1680,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "e3015e7a46e52cbc44c8ed60bde57318eb7a2dd9"
+  revision = "eac219de3ebdeced584997a3f34873bacf3705e7"
 
 [[projects]]
   branch = "release-1.11"
@@ -2193,6 +2179,8 @@
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
     "golang.org/x/net/publicsuffix",
+    "golang.org/x/oauth2",
+    "golang.org/x/oauth2/clientcredentials",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/go/ast/astutil",
@@ -2249,6 +2237,7 @@
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
