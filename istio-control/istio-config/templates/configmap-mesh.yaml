@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio
+  name: istio-mesh-galley
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}

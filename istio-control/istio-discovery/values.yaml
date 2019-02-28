@@ -38,7 +38,7 @@ telemetry:
 
 policy:
   # Will not define mixerCheckServer and mixerReportServer
-  enabled: true
+  enabled: false
 
 
 ## TODO:

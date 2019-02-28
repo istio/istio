@@ -142,14 +142,16 @@ spec:
           secretName: istio.istio-galley-service-account
       - name: envoy-config
         configMap:
-          name: envoy-config
+          name: galley-envoy-config
   {{- end }}
       - name: config
         configMap:
           name: istio-galley-configuration
+      # Different config map from pilot, to allow independent config and rollout.
+      # Both are derived from values.yaml.
       - name: mesh-config
         configMap:
-          name: istio
+          name: istio-mesh-galley
 
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
