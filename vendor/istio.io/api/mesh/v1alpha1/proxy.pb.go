@@ -3,17 +3,24 @@
 
 package v1alpha1
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import google_protobuf "github.com/gogo/protobuf/types"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // AuthenticationPolicy defines authentication policy. It can be set for
 // different scopes (mesh, service …), and the most narrow scope with
@@ -36,6 +43,7 @@ var AuthenticationPolicy_name = map[int32]string{
 	1:    "MUTUAL_TLS",
 	1000: "INHERIT",
 }
+
 var AuthenticationPolicy_value = map[string]int32{
 	"NONE":       0,
 	"MUTUAL_TLS": 1,
@@ -45,7 +53,10 @@ var AuthenticationPolicy_value = map[string]int32{
 func (x AuthenticationPolicy) String() string {
 	return proto.EnumName(AuthenticationPolicy_name, int32(x))
 }
-func (AuthenticationPolicy) EnumDescriptor() ([]byte, []int) { return fileDescriptorProxy, []int{0} }
+
+func (AuthenticationPolicy) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_5efecd978cf3d28d, []int{0}
+}
 
 // The mode used to redirect inbound traffic to Envoy.
 // This setting has no effect on outbound traffic: iptables REDIRECT is always used for
@@ -67,6 +78,7 @@ var ProxyConfig_InboundInterceptionMode_name = map[int32]string{
 	0: "REDIRECT",
 	1: "TPROXY",
 }
+
 var ProxyConfig_InboundInterceptionMode_value = map[string]int32{
 	"REDIRECT": 0,
 	"TPROXY":   1,
@@ -75,8 +87,9 @@ var ProxyConfig_InboundInterceptionMode_value = map[string]int32{
 func (x ProxyConfig_InboundInterceptionMode) String() string {
 	return proto.EnumName(ProxyConfig_InboundInterceptionMode_name, int32(x))
 }
+
 func (ProxyConfig_InboundInterceptionMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorProxy, []int{1, 0}
+	return fileDescriptor_5efecd978cf3d28d, []int{1, 0}
 }
 
 // Tracing defines configuration for the tracing performed by Envoy instances.
@@ -86,14 +99,44 @@ type Tracing struct {
 	// Types that are valid to be assigned to Tracer:
 	//	*Tracing_Zipkin_
 	//	*Tracing_Lightstep_
-	//	*Tracing_Datadog_
-	Tracer isTracing_Tracer `protobuf_oneof:"tracer"`
+	Tracer               isTracing_Tracer `protobuf_oneof:"tracer"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *Tracing) Reset()                    { *m = Tracing{} }
-func (m *Tracing) String() string            { return proto.CompactTextString(m) }
-func (*Tracing) ProtoMessage()               {}
-func (*Tracing) Descriptor() ([]byte, []int) { return fileDescriptorProxy, []int{0} }
+func (m *Tracing) Reset()         { *m = Tracing{} }
+func (m *Tracing) String() string { return proto.CompactTextString(m) }
+func (*Tracing) ProtoMessage()    {}
+func (*Tracing) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5efecd978cf3d28d, []int{0}
+}
+func (m *Tracing) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Tracing) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Tracing.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Tracing) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Tracing.Merge(m, src)
+}
+func (m *Tracing) XXX_Size() int {
+	return m.Size()
+}
+func (m *Tracing) XXX_DiscardUnknown() {
+	xxx_messageInfo_Tracing.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Tracing proto.InternalMessageInfo
 
 type isTracing_Tracer interface {
 	isTracing_Tracer()
@@ -102,18 +145,14 @@ type isTracing_Tracer interface {
 }
 
 type Tracing_Zipkin_ struct {
-	Zipkin *Tracing_Zipkin `protobuf:"bytes,1,opt,name=zipkin,oneof"`
+	Zipkin *Tracing_Zipkin `protobuf:"bytes,1,opt,name=zipkin,proto3,oneof"`
 }
 type Tracing_Lightstep_ struct {
-	Lightstep *Tracing_Lightstep `protobuf:"bytes,2,opt,name=lightstep,oneof"`
-}
-type Tracing_Datadog_ struct {
-	Datadog *Tracing_Datadog `protobuf:"bytes,3,opt,name=datadog,oneof"`
+	Lightstep *Tracing_Lightstep `protobuf:"bytes,2,opt,name=lightstep,proto3,oneof"`
 }
 
 func (*Tracing_Zipkin_) isTracing_Tracer()    {}
 func (*Tracing_Lightstep_) isTracing_Tracer() {}
-func (*Tracing_Datadog_) isTracing_Tracer()   {}
 
 func (m *Tracing) GetTracer() isTracing_Tracer {
 	if m != nil {
@@ -136,19 +175,11 @@ func (m *Tracing) GetLightstep() *Tracing_Lightstep {
 	return nil
 }
 
-func (m *Tracing) GetDatadog() *Tracing_Datadog {
-	if x, ok := m.GetTracer().(*Tracing_Datadog_); ok {
-		return x.Datadog
-	}
-	return nil
-}
-
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Tracing) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _Tracing_OneofMarshaler, _Tracing_OneofUnmarshaler, _Tracing_OneofSizer, []interface{}{
 		(*Tracing_Zipkin_)(nil),
 		(*Tracing_Lightstep_)(nil),
-		(*Tracing_Datadog_)(nil),
 	}
 }
 
@@ -164,11 +195,6 @@ func _Tracing_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Tracing_Lightstep_:
 		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Lightstep); err != nil {
-			return err
-		}
-	case *Tracing_Datadog_:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Datadog); err != nil {
 			return err
 		}
 	case nil:
@@ -197,14 +223,6 @@ func _Tracing_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Tracer = &Tracing_Lightstep_{msg}
 		return true, err
-	case 3: // tracer.datadog
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Tracing_Datadog)
-		err := b.DecodeMessage(msg)
-		m.Tracer = &Tracing_Datadog_{msg}
-		return true, err
 	default:
 		return false, nil
 	}
@@ -216,17 +234,12 @@ func _Tracing_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.Tracer.(type) {
 	case *Tracing_Zipkin_:
 		s := proto.Size(x.Zipkin)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *Tracing_Lightstep_:
 		s := proto.Size(x.Lightstep)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Tracing_Datadog_:
-		s := proto.Size(x.Datadog)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -239,13 +252,44 @@ func _Tracing_OneofSizer(msg proto.Message) (n int) {
 // Zipkin defines configuration for a Zipkin tracer.
 type Tracing_Zipkin struct {
 	// Address of the Zipkin service (e.g. _zipkin:9411_).
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Tracing_Zipkin) Reset()                    { *m = Tracing_Zipkin{} }
-func (m *Tracing_Zipkin) String() string            { return proto.CompactTextString(m) }
-func (*Tracing_Zipkin) ProtoMessage()               {}
-func (*Tracing_Zipkin) Descriptor() ([]byte, []int) { return fileDescriptorProxy, []int{0, 0} }
+func (m *Tracing_Zipkin) Reset()         { *m = Tracing_Zipkin{} }
+func (m *Tracing_Zipkin) String() string { return proto.CompactTextString(m) }
+func (*Tracing_Zipkin) ProtoMessage()    {}
+func (*Tracing_Zipkin) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5efecd978cf3d28d, []int{0, 0}
+}
+func (m *Tracing_Zipkin) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Tracing_Zipkin) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Tracing_Zipkin.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Tracing_Zipkin) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Tracing_Zipkin.Merge(m, src)
+}
+func (m *Tracing_Zipkin) XXX_Size() int {
+	return m.Size()
+}
+func (m *Tracing_Zipkin) XXX_DiscardUnknown() {
+	xxx_messageInfo_Tracing_Zipkin.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Tracing_Zipkin proto.InternalMessageInfo
 
 func (m *Tracing_Zipkin) GetAddress() string {
 	if m != nil {
@@ -263,13 +307,44 @@ type Tracing_Lightstep struct {
 	// True if a secure connection should be used when communicating with the pool.
 	Secure bool `protobuf:"varint,3,opt,name=secure,proto3" json:"secure,omitempty"`
 	// Path to the trusted cacert used to authenticate the pool.
-	CacertPath string `protobuf:"bytes,4,opt,name=cacert_path,json=cacertPath,proto3" json:"cacert_path,omitempty"`
+	CacertPath           string   `protobuf:"bytes,4,opt,name=cacert_path,json=cacertPath,proto3" json:"cacert_path,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Tracing_Lightstep) Reset()                    { *m = Tracing_Lightstep{} }
-func (m *Tracing_Lightstep) String() string            { return proto.CompactTextString(m) }
-func (*Tracing_Lightstep) ProtoMessage()               {}
-func (*Tracing_Lightstep) Descriptor() ([]byte, []int) { return fileDescriptorProxy, []int{0, 1} }
+func (m *Tracing_Lightstep) Reset()         { *m = Tracing_Lightstep{} }
+func (m *Tracing_Lightstep) String() string { return proto.CompactTextString(m) }
+func (*Tracing_Lightstep) ProtoMessage()    {}
+func (*Tracing_Lightstep) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5efecd978cf3d28d, []int{0, 1}
+}
+func (m *Tracing_Lightstep) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Tracing_Lightstep) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Tracing_Lightstep.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Tracing_Lightstep) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Tracing_Lightstep.Merge(m, src)
+}
+func (m *Tracing_Lightstep) XXX_Size() int {
+	return m.Size()
+}
+func (m *Tracing_Lightstep) XXX_DiscardUnknown() {
+	xxx_messageInfo_Tracing_Lightstep.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Tracing_Lightstep proto.InternalMessageInfo
 
 func (m *Tracing_Lightstep) GetAddress() string {
 	if m != nil {
@@ -299,24 +374,6 @@ func (m *Tracing_Lightstep) GetCacertPath() string {
 	return ""
 }
 
-// Datadog defines configuration for a Datadog tracer.
-type Tracing_Datadog struct {
-	// Address of the Datadog Agent.
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *Tracing_Datadog) Reset()                    { *m = Tracing_Datadog{} }
-func (m *Tracing_Datadog) String() string            { return proto.CompactTextString(m) }
-func (*Tracing_Datadog) ProtoMessage()               {}
-func (*Tracing_Datadog) Descriptor() ([]byte, []int) { return fileDescriptorProxy, []int{0, 2} }
-
-func (m *Tracing_Datadog) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
 // ProxyConfig defines variables for individual Envoy instances.
 type ProxyConfig struct {
 	// Path to the generated configuration file directory.
@@ -340,26 +397,30 @@ type ProxyConfig struct {
 	ServiceCluster string `protobuf:"bytes,3,opt,name=service_cluster,json=serviceCluster,proto3" json:"service_cluster,omitempty"`
 	// The time in seconds that Envoy will drain connections during a hot
 	// restart. MUST be >=1s (e.g., _1s/1m/1h_)
-	DrainDuration *google_protobuf.Duration `protobuf:"bytes,4,opt,name=drain_duration,json=drainDuration" json:"drain_duration,omitempty"`
+	DrainDuration *types.Duration `protobuf:"bytes,4,opt,name=drain_duration,json=drainDuration,proto3" json:"drain_duration,omitempty"`
 	// The time in seconds that Envoy will wait before shutting down the
 	// parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
 	// MUST BE greater than _drain_duration_ parameter.
-	ParentShutdownDuration *google_protobuf.Duration `protobuf:"bytes,5,opt,name=parent_shutdown_duration,json=parentShutdownDuration" json:"parent_shutdown_duration,omitempty"`
+	ParentShutdownDuration *types.Duration `protobuf:"bytes,5,opt,name=parent_shutdown_duration,json=parentShutdownDuration,proto3" json:"parent_shutdown_duration,omitempty"`
 	// Address of the discovery service exposing xDS with mTLS connection.
 	DiscoveryAddress string `protobuf:"bytes,6,opt,name=discovery_address,json=discoveryAddress,proto3" json:"discovery_address,omitempty"`
 	// $hide_from_docs
-	DiscoveryRefreshDelay *google_protobuf.Duration `protobuf:"bytes,7,opt,name=discovery_refresh_delay,json=discoveryRefreshDelay" json:"discovery_refresh_delay,omitempty"`
+	DiscoveryRefreshDelay *types.Duration `protobuf:"bytes,7,opt,name=discovery_refresh_delay,json=discoveryRefreshDelay,proto3" json:"discovery_refresh_delay,omitempty"` // Deprecated: Do not use.
 	// Address of the Zipkin service (e.g. _zipkin:9411_).
 	// DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
-	ZipkinAddress string `protobuf:"bytes,8,opt,name=zipkin_address,json=zipkinAddress,proto3" json:"zipkin_address,omitempty"`
+	ZipkinAddress string `protobuf:"bytes,8,opt,name=zipkin_address,json=zipkinAddress,proto3" json:"zipkin_address,omitempty"` // Deprecated: Do not use.
 	// Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
-	ConnectTimeout *google_protobuf.Duration `protobuf:"bytes,9,opt,name=connect_timeout,json=connectTimeout" json:"connect_timeout,omitempty"`
+	ConnectTimeout *types.Duration `protobuf:"bytes,9,opt,name=connect_timeout,json=connectTimeout,proto3" json:"connect_timeout,omitempty"`
 	// IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
 	StatsdUdpAddress string `protobuf:"bytes,10,opt,name=statsd_udp_address,json=statsdUdpAddress,proto3" json:"statsd_udp_address,omitempty"`
+	// Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+	// for details about Envoy's Metrics Service API.
+	EnvoyMetricsServiceAddress string `protobuf:"bytes,20,opt,name=envoy_metrics_service_address,json=envoyMetricsServiceAddress,proto3" json:"envoy_metrics_service_address,omitempty"`
 	// Port on which Envoy should listen for administrative commands.
 	ProxyAdminPort int32 `protobuf:"varint,11,opt,name=proxy_admin_port,json=proxyAdminPort,proto3" json:"proxy_admin_port,omitempty"`
 	// $hide_from_docs
-	AvailabilityZone string `protobuf:"bytes,12,opt,name=availability_zone,json=availabilityZone,proto3" json:"availability_zone,omitempty"`
+	AvailabilityZone string `protobuf:"bytes,12,opt,name=availability_zone,json=availabilityZone,proto3" json:"availability_zone,omitempty"` // Deprecated: Do not use.
 	// Authentication policy defines the global switch to control authentication
 	// for Envoy-to-Envoy communication for istio components Mixer and Pilot.
 	ControlPlaneAuthPolicy AuthenticationPolicy `protobuf:"varint,13,opt,name=control_plane_auth_policy,json=controlPlaneAuthPolicy,proto3,enum=istio.mesh.v1alpha1.AuthenticationPolicy" json:"control_plane_auth_policy,omitempty"`
@@ -379,15 +440,46 @@ type ProxyConfig struct {
 	// The mode used to redirect inbound traffic to Envoy.
 	InterceptionMode ProxyConfig_InboundInterceptionMode `protobuf:"varint,18,opt,name=interception_mode,json=interceptionMode,proto3,enum=istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode" json:"interception_mode,omitempty"`
 	// Tracing configuration to be used by the proxy.
-	Tracing *Tracing `protobuf:"bytes,19,opt,name=tracing" json:"tracing,omitempty"`
+	Tracing *Tracing `protobuf:"bytes,19,opt,name=tracing,proto3" json:"tracing,omitempty"`
 	// Absolute paths to cert/key files to watch for changes (e.g. /etc/certs/key.pem,/etc/certs/cert.pem)
-	TlsCertsToWatch []string `protobuf:"bytes,20,rep,name=tls_certs_to_watch,json=tlsCertsToWatch" json:"tls_certs_to_watch,omitempty"`
+	TlsCertsToWatch      []string `protobuf:"bytes,21,rep,name=tls_certs_to_watch,json=tlsCertsToWatch,proto3" json:"tls_certs_to_watch,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
-func (m *ProxyConfig) String() string            { return proto.CompactTextString(m) }
-func (*ProxyConfig) ProtoMessage()               {}
-func (*ProxyConfig) Descriptor() ([]byte, []int) { return fileDescriptorProxy, []int{1} }
+func (m *ProxyConfig) Reset()         { *m = ProxyConfig{} }
+func (m *ProxyConfig) String() string { return proto.CompactTextString(m) }
+func (*ProxyConfig) ProtoMessage()    {}
+func (*ProxyConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5efecd978cf3d28d, []int{1}
+}
+func (m *ProxyConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ProxyConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ProxyConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ProxyConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProxyConfig.Merge(m, src)
+}
+func (m *ProxyConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *ProxyConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProxyConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ProxyConfig proto.InternalMessageInfo
 
 func (m *ProxyConfig) GetConfigPath() string {
 	if m != nil {
@@ -410,14 +502,14 @@ func (m *ProxyConfig) GetServiceCluster() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetDrainDuration() *google_protobuf.Duration {
+func (m *ProxyConfig) GetDrainDuration() *types.Duration {
 	if m != nil {
 		return m.DrainDuration
 	}
 	return nil
 }
 
-func (m *ProxyConfig) GetParentShutdownDuration() *google_protobuf.Duration {
+func (m *ProxyConfig) GetParentShutdownDuration() *types.Duration {
 	if m != nil {
 		return m.ParentShutdownDuration
 	}
@@ -431,13 +523,15 @@ func (m *ProxyConfig) GetDiscoveryAddress() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetDiscoveryRefreshDelay() *google_protobuf.Duration {
+// Deprecated: Do not use.
+func (m *ProxyConfig) GetDiscoveryRefreshDelay() *types.Duration {
 	if m != nil {
 		return m.DiscoveryRefreshDelay
 	}
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *ProxyConfig) GetZipkinAddress() string {
 	if m != nil {
 		return m.ZipkinAddress
@@ -445,7 +539,7 @@ func (m *ProxyConfig) GetZipkinAddress() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetConnectTimeout() *google_protobuf.Duration {
+func (m *ProxyConfig) GetConnectTimeout() *types.Duration {
 	if m != nil {
 		return m.ConnectTimeout
 	}
@@ -459,6 +553,13 @@ func (m *ProxyConfig) GetStatsdUdpAddress() string {
 	return ""
 }
 
+func (m *ProxyConfig) GetEnvoyMetricsServiceAddress() string {
+	if m != nil {
+		return m.EnvoyMetricsServiceAddress
+	}
+	return ""
+}
+
 func (m *ProxyConfig) GetProxyAdminPort() int32 {
 	if m != nil {
 		return m.ProxyAdminPort
@@ -466,6 +567,7 @@ func (m *ProxyConfig) GetProxyAdminPort() int32 {
 	return 0
 }
 
+// Deprecated: Do not use.
 func (m *ProxyConfig) GetAvailabilityZone() string {
 	if m != nil {
 		return m.AvailabilityZone
@@ -530,14 +632,78 @@ func (m *ProxyConfig) GetTlsCertsToWatch() []string {
 }
 
 func init() {
+	proto.RegisterEnum("istio.mesh.v1alpha1.AuthenticationPolicy", AuthenticationPolicy_name, AuthenticationPolicy_value)
+	proto.RegisterEnum("istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode", ProxyConfig_InboundInterceptionMode_name, ProxyConfig_InboundInterceptionMode_value)
 	proto.RegisterType((*Tracing)(nil), "istio.mesh.v1alpha1.Tracing")
 	proto.RegisterType((*Tracing_Zipkin)(nil), "istio.mesh.v1alpha1.Tracing.Zipkin")
 	proto.RegisterType((*Tracing_Lightstep)(nil), "istio.mesh.v1alpha1.Tracing.Lightstep")
-	proto.RegisterType((*Tracing_Datadog)(nil), "istio.mesh.v1alpha1.Tracing.Datadog")
 	proto.RegisterType((*ProxyConfig)(nil), "istio.mesh.v1alpha1.ProxyConfig")
-	proto.RegisterEnum("istio.mesh.v1alpha1.AuthenticationPolicy", AuthenticationPolicy_name, AuthenticationPolicy_value)
-	proto.RegisterEnum("istio.mesh.v1alpha1.ProxyConfig_InboundInterceptionMode", ProxyConfig_InboundInterceptionMode_name, ProxyConfig_InboundInterceptionMode_value)
 }
+
+func init() { proto.RegisterFile("mesh/v1alpha1/proxy.proto", fileDescriptor_5efecd978cf3d28d) }
+
+var fileDescriptor_5efecd978cf3d28d = []byte{
+	// 920 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x55, 0x4d, 0x6f, 0xdb, 0x36,
+	0x18, 0x8e, 0xd2, 0xd6, 0x1f, 0x74, 0xe2, 0x28, 0x6c, 0x9b, 0x2a, 0xc6, 0x96, 0x79, 0x19, 0xb0,
+	0xb9, 0xeb, 0x20, 0xa3, 0x29, 0x30, 0xec, 0xb2, 0x61, 0x76, 0x92, 0x22, 0x06, 0x92, 0xd4, 0x50,
+	0x14, 0x6c, 0xcb, 0x85, 0xa0, 0x29, 0xc6, 0x22, 0x2a, 0x93, 0x02, 0x49, 0xb9, 0x73, 0x6f, 0xfb,
+	0x6b, 0x3b, 0xed, 0xb8, 0x9f, 0x30, 0xe4, 0xb4, 0xf3, 0x7e, 0xc1, 0x40, 0x52, 0x72, 0xbd, 0x21,
+	0x4d, 0x6e, 0xe6, 0xf3, 0x3e, 0xcf, 0xa3, 0xf7, 0x83, 0x2f, 0x0d, 0x76, 0x67, 0x54, 0xa5, 0xfd,
+	0xf9, 0x4b, 0x9c, 0xe5, 0x29, 0x7e, 0xd9, 0xcf, 0xa5, 0xf8, 0x75, 0x11, 0xe6, 0x52, 0x68, 0x01,
+	0x1f, 0x33, 0xa5, 0x99, 0x08, 0x0d, 0x21, 0xac, 0x08, 0x9d, 0xbd, 0xa9, 0x10, 0xd3, 0x8c, 0xf6,
+	0x2d, 0x65, 0x52, 0x5c, 0xf7, 0x93, 0x42, 0x62, 0xcd, 0x04, 0x77, 0xa2, 0xfd, 0xdf, 0xd7, 0x41,
+	0x3d, 0x96, 0x98, 0x30, 0x3e, 0x85, 0xdf, 0x83, 0xda, 0x7b, 0x96, 0xbf, 0x65, 0x3c, 0xf0, 0xba,
+	0x5e, 0xaf, 0x75, 0xf0, 0x45, 0x78, 0x8b, 0x63, 0x58, 0xb2, 0xc3, 0x2b, 0x4b, 0x3d, 0x59, 0x8b,
+	0x4a, 0x11, 0x7c, 0x0d, 0x9a, 0x19, 0x9b, 0xa6, 0x5a, 0x69, 0x9a, 0x07, 0xeb, 0xd6, 0xe1, 0xcb,
+	0x3b, 0x1d, 0x4e, 0x2b, 0xf6, 0xc9, 0x5a, 0xf4, 0x41, 0xda, 0xd9, 0x07, 0x35, 0xe7, 0x0d, 0x03,
+	0x50, 0xc7, 0x49, 0x22, 0xa9, 0x52, 0x36, 0xa3, 0x66, 0x54, 0x1d, 0x3b, 0xbf, 0x79, 0xa0, 0xb9,
+	0x94, 0x7f, 0x9c, 0x07, 0x3f, 0x07, 0x1b, 0x98, 0x10, 0xaa, 0x14, 0xd2, 0xe2, 0x2d, 0xe5, 0x36,
+	0xad, 0x66, 0xd4, 0x72, 0x58, 0x6c, 0x20, 0xb8, 0x03, 0x6a, 0x8a, 0x92, 0x42, 0xd2, 0xe0, 0x41,
+	0xd7, 0xeb, 0x35, 0xa2, 0xf2, 0x04, 0x3f, 0x03, 0x2d, 0x82, 0x09, 0x95, 0x1a, 0xe5, 0x58, 0xa7,
+	0xc1, 0x43, 0xab, 0x04, 0x0e, 0x1a, 0x63, 0x9d, 0x0e, 0x1b, 0xa0, 0xa6, 0xa5, 0x39, 0xee, 0xff,
+	0xd3, 0x04, 0xad, 0xb1, 0x99, 0xc4, 0xa1, 0xe0, 0xd7, 0x6c, 0x6a, 0xa5, 0xf6, 0x97, 0x93, 0x7a,
+	0xa5, 0xd4, 0x42, 0x46, 0x6a, 0x08, 0x13, 0xc6, 0xb1, 0x5c, 0x38, 0x82, 0xcb, 0x0a, 0x38, 0xc8,
+	0x12, 0xbe, 0x02, 0x5b, 0x8a, 0xca, 0x39, 0x23, 0x14, 0x91, 0xac, 0x50, 0x9a, 0x4a, 0x9b, 0x5d,
+	0x33, 0x6a, 0x97, 0xf0, 0xa1, 0x43, 0xe1, 0x8f, 0xa0, 0x9d, 0x48, 0xcc, 0x38, 0xaa, 0xe6, 0x6a,
+	0x13, 0x6d, 0x1d, 0xec, 0x86, 0x6e, 0xf0, 0x61, 0x35, 0xf8, 0xf0, 0xa8, 0x24, 0x44, 0x9b, 0x56,
+	0x50, 0x1d, 0xe1, 0x05, 0x08, 0x72, 0x2c, 0x29, 0xd7, 0x48, 0xa5, 0x85, 0x4e, 0xc4, 0xbb, 0x15,
+	0xaf, 0x47, 0xf7, 0x79, 0xed, 0x38, 0xe9, 0x45, 0xa9, 0x5c, 0x9a, 0xbe, 0x00, 0xdb, 0x09, 0x53,
+	0x44, 0xcc, 0xa9, 0x5c, 0xa0, 0x6a, 0x36, 0x35, 0x5b, 0x81, 0xbf, 0x0c, 0x0c, 0xca, 0x21, 0x5d,
+	0x82, 0x67, 0x1f, 0xc8, 0x92, 0x5e, 0x4b, 0xaa, 0x52, 0x94, 0xd0, 0x0c, 0x2f, 0x82, 0xfa, 0x3d,
+	0x09, 0x0c, 0xd7, 0x03, 0x2f, 0x7a, 0xba, 0x54, 0x47, 0x4e, 0x7c, 0x64, 0xb4, 0xf0, 0x39, 0x68,
+	0xbb, 0x9b, 0xb9, 0x4c, 0xa0, 0x61, 0x12, 0xb0, 0x92, 0x4d, 0x17, 0xa9, 0x32, 0x18, 0x82, 0x2d,
+	0x22, 0x38, 0xa7, 0x44, 0x23, 0xcd, 0x66, 0x54, 0x14, 0x3a, 0x68, 0xde, 0x57, 0x7a, 0xbb, 0x54,
+	0xc4, 0x4e, 0x00, 0xbf, 0x01, 0x50, 0x69, 0xac, 0x55, 0x82, 0x8a, 0x24, 0x5f, 0x7e, 0x12, 0xb8,
+	0x9a, 0x5d, 0xe4, 0x32, 0xc9, 0xab, 0x2f, 0x0e, 0xc0, 0xa7, 0x94, 0xcf, 0xc5, 0x02, 0xcd, 0xa8,
+	0x96, 0x8c, 0x28, 0x54, 0x8d, 0xbb, 0x12, 0x3e, 0xb1, 0xc2, 0x8e, 0x25, 0x9d, 0x39, 0xce, 0x85,
+	0xa3, 0x54, 0x16, 0x3d, 0xe0, 0xdb, 0xf5, 0x47, 0x38, 0x99, 0x31, 0x8e, 0x72, 0x21, 0x75, 0xd0,
+	0xea, 0x7a, 0xbd, 0x47, 0x51, 0xdb, 0xe2, 0x03, 0x03, 0x8f, 0x85, 0xd4, 0xb0, 0x0f, 0xb6, 0xf1,
+	0x1c, 0xb3, 0x0c, 0x4f, 0x58, 0xc6, 0xf4, 0x02, 0xbd, 0x17, 0x9c, 0x06, 0x1b, 0xcb, 0x66, 0xf8,
+	0xab, 0xc1, 0x2b, 0xc1, 0x29, 0x4c, 0xc0, 0x2e, 0x11, 0x5c, 0x4b, 0x91, 0xa1, 0x3c, 0xc3, 0x9c,
+	0x22, 0x5c, 0xe8, 0x14, 0xe5, 0x22, 0x63, 0x64, 0x11, 0x6c, 0x76, 0xbd, 0x5e, 0xfb, 0xe0, 0xf9,
+	0xad, 0xab, 0x3d, 0x28, 0x74, 0x4a, 0xb9, 0x66, 0xc4, 0xf6, 0x68, 0x6c, 0x05, 0xd1, 0x4e, 0xe9,
+	0x35, 0x36, 0x56, 0x86, 0xe1, 0x70, 0xd3, 0x31, 0x52, 0x28, 0x2d, 0x66, 0xa8, 0xdc, 0x96, 0x6b,
+	0x96, 0xd1, 0xa0, 0xed, 0x3a, 0xe6, 0x22, 0x6e, 0xa1, 0x5e, 0xb3, 0x8c, 0x9a, 0x72, 0x4d, 0x17,
+	0x11, 0xc7, 0x33, 0x8a, 0x32, 0xca, 0xa7, 0x3a, 0x0d, 0xb6, 0x5c, 0xb9, 0x06, 0x3f, 0xc7, 0x33,
+	0x7a, 0x6a, 0x51, 0xd8, 0xb5, 0xeb, 0x47, 0x0a, 0x29, 0x29, 0x27, 0x8b, 0xc0, 0xb7, 0xa4, 0x55,
+	0xc8, 0x74, 0xdf, 0xb5, 0x6e, 0x22, 0x84, 0x56, 0x5a, 0xe2, 0x1c, 0x69, 0x3a, 0xcb, 0x33, 0xac,
+	0xa9, 0xdb, 0xc8, 0x6d, 0xd7, 0x7d, 0x4b, 0x1a, 0x56, 0x9c, 0xb8, 0xa4, 0xd8, 0x0d, 0xa5, 0x60,
+	0x9b, 0x71, 0x4d, 0x25, 0xa1, 0xb9, 0x29, 0x15, 0xcd, 0x44, 0x42, 0x03, 0x68, 0x5b, 0xf3, 0xdd,
+	0xad, 0xad, 0x59, 0x79, 0x20, 0xc2, 0x11, 0x9f, 0x88, 0x82, 0x27, 0xa3, 0x15, 0x83, 0x33, 0x91,
+	0xd0, 0xc8, 0x67, 0xff, 0x43, 0xe0, 0xb7, 0xa0, 0xae, 0xdd, 0x73, 0x19, 0x3c, 0xb6, 0x37, 0xf2,
+	0x93, 0xbb, 0x9e, 0xd4, 0xa8, 0x22, 0xc3, 0x17, 0x00, 0xea, 0x4c, 0x21, 0xf3, 0x58, 0x99, 0xb7,
+	0x0f, 0xbd, 0xc3, 0x9a, 0xa4, 0xc1, 0xd3, 0xee, 0x83, 0x5e, 0x33, 0xda, 0xd2, 0x99, 0x3a, 0x34,
+	0x81, 0x58, 0xfc, 0x64, 0xe0, 0xfd, 0x57, 0xe0, 0xd9, 0x47, 0x32, 0x82, 0x1b, 0xa0, 0x11, 0x1d,
+	0x1f, 0x8d, 0xa2, 0xe3, 0xc3, 0xd8, 0x5f, 0x83, 0x00, 0xd4, 0xe2, 0x71, 0xf4, 0xe6, 0xe7, 0x5f,
+	0x7c, 0xef, 0xeb, 0x1f, 0xc0, 0x93, 0xdb, 0xa6, 0x0d, 0x1b, 0xe0, 0xe1, 0xf9, 0x9b, 0xf3, 0x63,
+	0x7f, 0x0d, 0xb6, 0x01, 0x38, 0xbb, 0x8c, 0x2f, 0x07, 0xa7, 0x28, 0x3e, 0xbd, 0xf0, 0x3d, 0xb8,
+	0x01, 0xea, 0xa3, 0xf3, 0x93, 0xe3, 0x68, 0x14, 0xfb, 0x7f, 0xd7, 0x87, 0xbd, 0x3f, 0x6e, 0xf6,
+	0xbc, 0x3f, 0x6f, 0xf6, 0xbc, 0xbf, 0x6e, 0xf6, 0xbc, 0xab, 0x8e, 0xab, 0x8a, 0x89, 0x3e, 0xce,
+	0x59, 0xff, 0x3f, 0x7f, 0x72, 0x93, 0x9a, 0x5d, 0xbe, 0x57, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff,
+	0x65, 0x9b, 0x46, 0xaf, 0xfc, 0x06, 0x00, 0x00,
+}
+
 func (m *Tracing) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -559,6 +725,9 @@ func (m *Tracing) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn1
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -591,20 +760,6 @@ func (m *Tracing_Lightstep_) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *Tracing_Datadog_) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.Datadog != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(m.Datadog.Size()))
-		n4, err := m.Datadog.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	return i, nil
-}
 func (m *Tracing_Zipkin) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -625,6 +780,9 @@ func (m *Tracing_Zipkin) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
 		i += copy(dAtA[i:], m.Address)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -672,29 +830,8 @@ func (m *Tracing_Lightstep) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintProxy(dAtA, i, uint64(len(m.CacertPath)))
 		i += copy(dAtA[i:], m.CacertPath)
 	}
-	return i, nil
-}
-
-func (m *Tracing_Datadog) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Tracing_Datadog) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Address) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintProxy(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -736,21 +873,21 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.DrainDuration.Size()))
-		n5, err := m.DrainDuration.MarshalTo(dAtA[i:])
+		n4, err := m.DrainDuration.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n4
 	}
 	if m.ParentShutdownDuration != nil {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.ParentShutdownDuration.Size()))
-		n6, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
+		n5, err := m.ParentShutdownDuration.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n6
+		i += n5
 	}
 	if len(m.DiscoveryAddress) > 0 {
 		dAtA[i] = 0x32
@@ -762,11 +899,11 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.DiscoveryRefreshDelay.Size()))
-		n7, err := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
+		n6, err := m.DiscoveryRefreshDelay.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n6
 	}
 	if len(m.ZipkinAddress) > 0 {
 		dAtA[i] = 0x42
@@ -778,11 +915,11 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n8, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		n7, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n8
+		i += n7
 	}
 	if len(m.StatsdUdpAddress) > 0 {
 		dAtA[i] = 0x52
@@ -845,15 +982,23 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintProxy(dAtA, i, uint64(m.Tracing.Size()))
-		n9, err := m.Tracing.MarshalTo(dAtA[i:])
+		n8, err := m.Tracing.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n8
+	}
+	if len(m.EnvoyMetricsServiceAddress) > 0 {
+		dAtA[i] = 0xa2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintProxy(dAtA, i, uint64(len(m.EnvoyMetricsServiceAddress)))
+		i += copy(dAtA[i:], m.EnvoyMetricsServiceAddress)
 	}
 	if len(m.TlsCertsToWatch) > 0 {
 		for _, s := range m.TlsCertsToWatch {
-			dAtA[i] = 0xa2
+			dAtA[i] = 0xaa
 			i++
 			dAtA[i] = 0x1
 			i++
@@ -868,6 +1013,9 @@ func (m *ProxyConfig) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -881,15 +1029,24 @@ func encodeVarintProxy(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Tracing) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Tracer != nil {
 		n += m.Tracer.Size()
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Tracing_Zipkin_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Zipkin != nil {
@@ -899,6 +1056,9 @@ func (m *Tracing_Zipkin_) Size() (n int) {
 	return n
 }
 func (m *Tracing_Lightstep_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Lightstep != nil {
@@ -907,26 +1067,26 @@ func (m *Tracing_Lightstep_) Size() (n int) {
 	}
 	return n
 }
-func (m *Tracing_Datadog_) Size() (n int) {
-	var l int
-	_ = l
-	if m.Datadog != nil {
-		l = m.Datadog.Size()
-		n += 1 + l + sovProxy(uint64(l))
-	}
-	return n
-}
 func (m *Tracing_Zipkin) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Address)
 	if l > 0 {
 		n += 1 + l + sovProxy(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Tracing_Lightstep) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Address)
@@ -944,20 +1104,16 @@ func (m *Tracing_Lightstep) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovProxy(uint64(l))
 	}
-	return n
-}
-
-func (m *Tracing_Datadog) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Address)
-	if l > 0 {
-		n += 1 + l + sovProxy(uint64(l))
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
 func (m *ProxyConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ConfigPath)
@@ -1031,11 +1187,18 @@ func (m *ProxyConfig) Size() (n int) {
 		l = m.Tracing.Size()
 		n += 2 + l + sovProxy(uint64(l))
 	}
+	l = len(m.EnvoyMetricsServiceAddress)
+	if l > 0 {
+		n += 2 + l + sovProxy(uint64(l))
+	}
 	if len(m.TlsCertsToWatch) > 0 {
 		for _, s := range m.TlsCertsToWatch {
 			l = len(s)
 			n += 2 + l + sovProxy(uint64(l))
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1068,7 +1231,7 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1096,7 +1259,7 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1105,6 +1268,9 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1128,7 +1294,7 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1137,6 +1303,9 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1145,38 +1314,6 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			m.Tracer = &Tracing_Lightstep_{v}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Datadog", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthProxy
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &Tracing_Datadog{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.Tracer = &Tracing_Datadog_{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1187,9 +1324,13 @@ func (m *Tracing) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthProxy
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1214,7 +1355,7 @@ func (m *Tracing_Zipkin) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1242,7 +1383,7 @@ func (m *Tracing_Zipkin) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1252,6 +1393,9 @@ func (m *Tracing_Zipkin) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1266,9 +1410,13 @@ func (m *Tracing_Zipkin) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthProxy
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1293,7 +1441,7 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1321,7 +1469,7 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1331,6 +1479,9 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1350,7 +1501,7 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1360,6 +1511,9 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1379,7 +1533,7 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1399,7 +1553,7 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1409,6 +1563,9 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1423,88 +1580,13 @@ func (m *Tracing_Lightstep) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthProxy
 			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Tracing_Datadog) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowProxy
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Datadog: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Datadog: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowProxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthProxy
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Address = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipProxy(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthProxy
 			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1529,7 +1611,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1557,7 +1639,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1567,6 +1649,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1586,7 +1671,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1596,6 +1681,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1615,7 +1703,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1625,6 +1713,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1644,7 +1735,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1653,11 +1744,14 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DrainDuration == nil {
-				m.DrainDuration = &google_protobuf.Duration{}
+				m.DrainDuration = &types.Duration{}
 			}
 			if err := m.DrainDuration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1677,7 +1771,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1686,11 +1780,14 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ParentShutdownDuration == nil {
-				m.ParentShutdownDuration = &google_protobuf.Duration{}
+				m.ParentShutdownDuration = &types.Duration{}
 			}
 			if err := m.ParentShutdownDuration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1710,7 +1807,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1720,6 +1817,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1739,7 +1839,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1748,11 +1848,14 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DiscoveryRefreshDelay == nil {
-				m.DiscoveryRefreshDelay = &google_protobuf.Duration{}
+				m.DiscoveryRefreshDelay = &types.Duration{}
 			}
 			if err := m.DiscoveryRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1772,7 +1875,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1782,6 +1885,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1801,7 +1907,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1810,11 +1916,14 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ConnectTimeout == nil {
-				m.ConnectTimeout = &google_protobuf.Duration{}
+				m.ConnectTimeout = &types.Duration{}
 			}
 			if err := m.ConnectTimeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1834,7 +1943,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1844,6 +1953,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1863,7 +1975,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ProxyAdminPort |= (int32(b) & 0x7F) << shift
+				m.ProxyAdminPort |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1882,7 +1994,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1892,6 +2004,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1911,7 +2026,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ControlPlaneAuthPolicy |= (AuthenticationPolicy(b) & 0x7F) << shift
+				m.ControlPlaneAuthPolicy |= AuthenticationPolicy(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1930,7 +2045,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1940,6 +2055,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1959,7 +2077,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.StatNameLength |= (int32(b) & 0x7F) << shift
+				m.StatNameLength |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1978,7 +2096,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Concurrency |= (int32(b) & 0x7F) << shift
+				m.Concurrency |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1997,7 +2115,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2007,6 +2125,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2026,7 +2147,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.InterceptionMode |= (ProxyConfig_InboundInterceptionMode(b) & 0x7F) << shift
+				m.InterceptionMode |= ProxyConfig_InboundInterceptionMode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2045,7 +2166,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2054,6 +2175,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2065,6 +2189,38 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 20:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnvoyMetricsServiceAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowProxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthProxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.EnvoyMetricsServiceAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 21:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field TlsCertsToWatch", wireType)
 			}
@@ -2078,7 +2234,7 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2088,6 +2244,9 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2102,9 +2261,13 @@ func (m *ProxyConfig) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthProxy
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthProxy
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2168,8 +2331,11 @@ func skipProxy(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthProxy
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthProxy
 			}
 			return iNdEx, nil
@@ -2200,6 +2366,9 @@ func skipProxy(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthProxy
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -2218,67 +2387,3 @@ var (
 	ErrInvalidLengthProxy = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowProxy   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("mesh/v1alpha1/proxy.proto", fileDescriptorProxy) }
-
-var fileDescriptorProxy = []byte{
-	// 923 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x55, 0xdd, 0x6e, 0xdb, 0x36,
-	0x18, 0xb5, 0xfa, 0xe3, 0x9f, 0xcf, 0x89, 0xa3, 0xb0, 0x5d, 0xaa, 0x18, 0x5b, 0xe6, 0xa5, 0xc3,
-	0xe6, 0xae, 0x83, 0x8c, 0xa6, 0xc0, 0xb0, 0x9b, 0x0d, 0xb5, 0x93, 0x14, 0x31, 0x90, 0xa6, 0x86,
-	0xa2, 0x60, 0x5b, 0x6e, 0x08, 0x5a, 0x62, 0x2c, 0xa2, 0x32, 0x29, 0x50, 0x54, 0x3a, 0xf7, 0x6e,
-	0x8f, 0xb3, 0xab, 0xbd, 0xc6, 0x2e, 0xf7, 0x08, 0x43, 0xae, 0xf6, 0x18, 0x03, 0x49, 0xc9, 0xf5,
-	0x86, 0xfc, 0xdc, 0x59, 0x87, 0xe7, 0x1c, 0x9d, 0x43, 0xf1, 0xa3, 0x61, 0x7b, 0x4e, 0xf3, 0x64,
-	0x70, 0xf9, 0x82, 0xa4, 0x59, 0x42, 0x5e, 0x0c, 0x32, 0x29, 0x7e, 0x5d, 0xf8, 0x99, 0x14, 0x4a,
-	0xa0, 0x47, 0x2c, 0x57, 0x4c, 0xf8, 0x9a, 0xe0, 0x57, 0x84, 0xee, 0xce, 0x4c, 0x88, 0x59, 0x4a,
-	0x07, 0x86, 0x32, 0x2d, 0x2e, 0x06, 0x71, 0x21, 0x89, 0x62, 0x82, 0x5b, 0xd1, 0xee, 0xef, 0xf7,
-	0xa1, 0x11, 0x4a, 0x12, 0x31, 0x3e, 0x43, 0x3f, 0x40, 0xfd, 0x03, 0xcb, 0xde, 0x31, 0xee, 0x39,
-	0x3d, 0xa7, 0xdf, 0xde, 0x7b, 0xea, 0x5f, 0xe3, 0xe8, 0x97, 0x6c, 0xff, 0xdc, 0x50, 0x8f, 0x6a,
-	0x41, 0x29, 0x42, 0xaf, 0xa1, 0x95, 0xb2, 0x59, 0xa2, 0x72, 0x45, 0x33, 0xef, 0x9e, 0x71, 0xf8,
-	0xea, 0x56, 0x87, 0xe3, 0x8a, 0x7d, 0x54, 0x0b, 0x3e, 0x4a, 0xd1, 0x2b, 0x68, 0xc4, 0x44, 0x91,
-	0x58, 0xcc, 0xbc, 0xfb, 0xc6, 0xe5, 0xcb, 0x5b, 0x5d, 0x0e, 0x2c, 0xf7, 0xa8, 0x16, 0x54, 0xb2,
-	0xee, 0x2e, 0xd4, 0x6d, 0x3a, 0xe4, 0x41, 0x83, 0xc4, 0xb1, 0xa4, 0x79, 0x6e, 0x3a, 0xb5, 0x82,
-	0xea, 0xb1, 0xfb, 0x9b, 0x03, 0xad, 0x65, 0x80, 0x9b, 0x79, 0xe8, 0x0b, 0x58, 0x23, 0x51, 0x44,
-	0xf3, 0x1c, 0x2b, 0xf1, 0x8e, 0x72, 0x53, 0xac, 0x15, 0xb4, 0x2d, 0x16, 0x6a, 0x08, 0x6d, 0x41,
-	0x3d, 0xa7, 0x51, 0x21, 0xa9, 0xc9, 0xdb, 0x0c, 0xca, 0x27, 0xf4, 0x39, 0xb4, 0x23, 0x12, 0x51,
-	0xa9, 0x70, 0x46, 0x54, 0xe2, 0x3d, 0x30, 0x4a, 0xb0, 0xd0, 0x84, 0xa8, 0xa4, 0xfb, 0x14, 0x1a,
-	0x65, 0xfa, 0x9b, 0x03, 0x8c, 0x9a, 0x50, 0x57, 0x52, 0x6b, 0x76, 0xff, 0x68, 0x41, 0x7b, 0xa2,
-	0x3f, 0xf8, 0xbe, 0xe0, 0x17, 0x6c, 0x66, 0xfc, 0xcd, 0x2f, 0xeb, 0xef, 0x94, 0xfe, 0x06, 0xd2,
-	0xfe, 0x9a, 0x30, 0x65, 0x9c, 0xc8, 0x85, 0x25, 0xd8, 0xe8, 0x60, 0x21, 0x43, 0xf8, 0x1a, 0x36,
-	0x72, 0x2a, 0x2f, 0x59, 0x44, 0x71, 0x94, 0x16, 0xb9, 0xa2, 0xd2, 0x54, 0x68, 0x05, 0x9d, 0x12,
-	0xde, 0xb7, 0x28, 0x7a, 0x05, 0x9d, 0x58, 0x12, 0xc6, 0x71, 0x75, 0x7c, 0x4c, 0x9b, 0xf6, 0xde,
-	0xb6, 0x6f, 0xcf, 0x97, 0x5f, 0x9d, 0x2f, 0xff, 0xa0, 0x24, 0x04, 0xeb, 0x46, 0x50, 0x3d, 0xa2,
-	0x53, 0xf0, 0x32, 0x22, 0x29, 0x57, 0x38, 0x4f, 0x0a, 0x15, 0x8b, 0xf7, 0x2b, 0x5e, 0x0f, 0xef,
-	0xf2, 0xda, 0xb2, 0xd2, 0xd3, 0x52, 0xb9, 0x34, 0x7d, 0x0e, 0x9b, 0x31, 0xcb, 0x23, 0x71, 0x49,
-	0xe5, 0x02, 0x57, 0xfb, 0x57, 0x37, 0x0d, 0xdc, 0xe5, 0xc2, 0xb0, 0xfc, 0x92, 0x67, 0xf0, 0xe4,
-	0x23, 0x59, 0xd2, 0x0b, 0x49, 0xf3, 0x04, 0xc7, 0x34, 0x25, 0x0b, 0xaf, 0x71, 0x47, 0x80, 0xd1,
-	0x3d, 0xcf, 0x09, 0x3e, 0x59, 0xaa, 0x03, 0x2b, 0x3e, 0xd0, 0x5a, 0xf4, 0x0c, 0x3a, 0x76, 0x00,
-	0x96, 0x01, 0x9a, 0x3a, 0x80, 0x91, 0xac, 0xdb, 0x95, 0x2a, 0xc1, 0x08, 0x36, 0x22, 0xc1, 0x39,
-	0x8d, 0x14, 0x56, 0x6c, 0x4e, 0x45, 0xa1, 0xbc, 0xd6, 0x5d, 0xd5, 0x3b, 0xa5, 0x22, 0xb4, 0x02,
-	0xf4, 0x2d, 0xa0, 0x5c, 0x11, 0x95, 0xc7, 0xb8, 0x88, 0xb3, 0xe5, 0x2b, 0xc1, 0x76, 0xb6, 0x2b,
-	0x67, 0x71, 0x56, 0xbd, 0xb1, 0x0f, 0xae, 0xb9, 0x22, 0x30, 0x89, 0xe7, 0x8c, 0xe3, 0x4c, 0x48,
-	0xe5, 0xb5, 0x7b, 0x4e, 0xff, 0x61, 0xd0, 0x31, 0xf8, 0x50, 0xc3, 0x13, 0x21, 0x15, 0x1a, 0xc0,
-	0x26, 0xb9, 0x24, 0x2c, 0x25, 0x53, 0x96, 0x32, 0xb5, 0xc0, 0x1f, 0x04, 0xa7, 0xde, 0xda, 0xb2,
-	0x89, 0xbb, 0xba, 0x78, 0x2e, 0x38, 0x45, 0x31, 0x6c, 0x47, 0x82, 0x2b, 0x29, 0x52, 0x9c, 0xa5,
-	0x84, 0x53, 0x4c, 0x0a, 0x95, 0xe0, 0x4c, 0xa4, 0x2c, 0x5a, 0x78, 0xeb, 0x3d, 0xa7, 0xdf, 0xd9,
-	0x7b, 0x76, 0xed, 0xe0, 0x0e, 0x0b, 0x95, 0x50, 0xae, 0x58, 0x64, 0x0a, 0x4e, 0x8c, 0x20, 0xd8,
-	0x2a, 0xbd, 0x26, 0xda, 0x4a, 0x33, 0x2c, 0xae, 0xeb, 0x46, 0x45, 0xae, 0xc4, 0x1c, 0x97, 0x47,
-	0xfd, 0x82, 0xa5, 0xd4, 0xeb, 0xd8, 0xba, 0x76, 0xc5, 0x4e, 0xc3, 0x6b, 0x96, 0x52, 0x5d, 0x57,
-	0x6f, 0x01, 0xe6, 0x64, 0x4e, 0x71, 0x4a, 0xf9, 0x4c, 0x25, 0xde, 0x86, 0xad, 0xab, 0xf1, 0x13,
-	0x32, 0xa7, 0xc7, 0x06, 0x45, 0x3d, 0x33, 0x3b, 0x51, 0x21, 0x25, 0xe5, 0xd1, 0xc2, 0x73, 0x0d,
-	0x69, 0x15, 0x42, 0x43, 0xf8, 0xcc, 0x6e, 0xdd, 0x54, 0x08, 0x95, 0x2b, 0x49, 0x32, 0xac, 0xe8,
-	0x3c, 0x4b, 0x89, 0xa2, 0x76, 0x9c, 0x36, 0x4d, 0x88, 0xae, 0x21, 0x8d, 0x2a, 0x4e, 0x58, 0x52,
-	0xcc, 0x78, 0x51, 0xd8, 0x64, 0x5c, 0x51, 0x19, 0xd1, 0x4c, 0x57, 0xc5, 0x73, 0x11, 0x53, 0x0f,
-	0x99, 0xad, 0xf9, 0xfe, 0xda, 0xad, 0x59, 0x99, 0x6e, 0x7f, 0xcc, 0xa7, 0xa2, 0xe0, 0xf1, 0x78,
-	0xc5, 0xe0, 0x8d, 0x88, 0x69, 0xe0, 0xb2, 0xff, 0x21, 0xe8, 0x3b, 0x68, 0x28, 0x7b, 0x19, 0x7a,
-	0x8f, 0xcc, 0x71, 0xfa, 0xf4, 0xb6, 0x0b, 0x33, 0xa8, 0xc8, 0xe8, 0x39, 0x20, 0x95, 0xe6, 0x58,
-	0x5f, 0x47, 0xfa, 0x76, 0xc3, 0xef, 0x89, 0x8a, 0x12, 0xef, 0x71, 0xef, 0x7e, 0xbf, 0x15, 0x6c,
-	0xa8, 0x34, 0xdf, 0xd7, 0x0b, 0xa1, 0xf8, 0x49, 0xc3, 0xbb, 0x2f, 0xe1, 0xc9, 0x0d, 0x89, 0xd0,
-	0x1a, 0x34, 0x83, 0xc3, 0x83, 0x71, 0x70, 0xb8, 0x1f, 0xba, 0x35, 0x04, 0x50, 0x0f, 0x27, 0xc1,
-	0xdb, 0x9f, 0x7f, 0x71, 0x9d, 0x6f, 0x7e, 0x84, 0xc7, 0xd7, 0x7d, 0x6d, 0xd4, 0x84, 0x07, 0x27,
-	0x6f, 0x4f, 0x0e, 0xdd, 0x1a, 0xea, 0x00, 0xbc, 0x39, 0x0b, 0xcf, 0x86, 0xc7, 0x38, 0x3c, 0x3e,
-	0x75, 0x1d, 0xb4, 0x06, 0x8d, 0xf1, 0xc9, 0xd1, 0x61, 0x30, 0x0e, 0xdd, 0x7f, 0x1a, 0xa3, 0xfe,
-	0x9f, 0x57, 0x3b, 0xce, 0x5f, 0x57, 0x3b, 0xce, 0xdf, 0x57, 0x3b, 0xce, 0x79, 0xd7, 0xb6, 0x62,
-	0x62, 0x40, 0x32, 0x36, 0xf8, 0xcf, 0x1f, 0xe1, 0xb4, 0x6e, 0x26, 0xe7, 0xe5, 0xbf, 0x01, 0x00,
-	0x00, 0xff, 0xff, 0x60, 0x95, 0x68, 0xd7, 0x20, 0x07, 0x00, 0x00,
-}
