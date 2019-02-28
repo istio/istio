@@ -36,9 +36,9 @@ var (
 	}
 	productpage = []*api.CatalogService{
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "111-111-111",
+			ID:             "istio-node-id",
 			ServiceID:      "productpage",
 			ServiceName:    "productpage",
 			ServiceTags:    []string{"version|v1"},
@@ -48,9 +48,9 @@ var (
 	}
 	reviews = []*api.CatalogService{
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "222-222-222",
+			ID:             "istio-node-id",
 			ServiceID:      "reviews",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v1"},
@@ -58,9 +58,9 @@ var (
 			ServicePort:    9081,
 		},
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "333-333-333",
+			ID:             "istio-node-id",
 			ServiceID:      "reviews",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v2"},
@@ -68,9 +68,9 @@ var (
 			ServicePort:    9081,
 		},
 		{
-			Node:           "istio",
+			Node:           "istio-node",
 			Address:        "172.19.0.5",
-			ID:             "444-444-444",
+			ID:             "istio-node-id",
 			ServiceID:      "reviews",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v3"},
@@ -83,7 +83,7 @@ var (
 		{
 			Node:           "istio",
 			Address:        "172.19.0.6",
-			ID:             "555-555-555",
+			ID:             "istio-node-id",
 			ServiceID:      "rating",
 			ServiceName:    "rating",
 			ServiceTags:    []string{"version|v1"},
