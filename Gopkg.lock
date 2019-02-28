@@ -1209,7 +1209,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f6a57f8794170a82d2f52e33712793e9014577be008078a51974ff80a2e124dd"
+  digest = "1:7e32901e0ca321e3244947211bcb69702f76cfe0f385ae55da832a11565b21e0"
   name = "github.com/uber/jaeger-client-go"
   packages = [
     ".",
@@ -1228,7 +1228,7 @@
     "zipkin",
   ]
   pruneopts = "NUT"
-  revision = "64f57863bf63d3842dbe79cdc793d57baaff9ab5"
+  revision = "ecf2d03a9e8070e6f4ff8fe19247a22f5c650b33"
 
 [[projects]]
   digest = "1:c9d69a04f7fa171f50360bbcc32196b4de8ab8837ef772f6302d0140a1e3e7f6"
