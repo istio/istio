@@ -318,10 +318,6 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ $key }}
-      chart: {{ template "mixer.chart" $ }}
-      heritage: {{ $.Release.Service }}
-      release: {{ $.Release.Name }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
