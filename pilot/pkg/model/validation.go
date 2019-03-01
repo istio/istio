@@ -1073,6 +1073,17 @@ func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
 	return ValidateProxyAddress(z.GetAddress())
 }
 
+// ValidateDatadogCollector validates the configuration for sending envoy spans to Datadog
+func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
+	var errs error
+	if d.GetAddress() != "" {
+		if err := ValidateProxyAddress(d.GetAddress()); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog address:"))
+		}
+	}
+	return errs
+}
+
 // ValidateConnectTimeout validates the envoy conncection timeout
 func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
@@ -1155,6 +1166,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if tracer := config.GetTracing().GetZipkin(); tracer != nil {
 		if err := ValidateZipkinCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid zipkin config:"))
+		}
+	}
+
+	if tracer := config.GetTracing().GetDatadog(); tracer != nil {
+		if err := ValidateDatadogCollector(tracer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
 		}
 	}
 

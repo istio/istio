@@ -67,6 +67,8 @@ var (
 	lightstepAccessToken       string
 	lightstepSecure            bool
 	lightstepCacertPath        string
+	datadogEnabled             bool
+	datadogAgentAddress        string
 	connectTimeout             time.Duration
 	statsdUDPAddress           string
 	envoyMetricsServiceAddress string
@@ -219,6 +221,14 @@ var (
 					Tracer: &meshconfig.Tracing_Zipkin_{
 						Zipkin: &meshconfig.Tracing_Zipkin{
 							Address: zipkinAddress,
+						},
+					},
+				}
+			} else if datadogEnabled {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Datadog_{
+						Datadog: &meshconfig.Tracing_Datadog{
+							Address: datadogAgentAddress,
 						},
 					},
 				}
@@ -437,6 +447,10 @@ func init() {
 		"Should connection to the LightStep Satellite pool be secure")
 	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "",
 		"Path to the trusted cacert used to authenticate the pool")
+	proxyCmd.PersistentFlags().BoolVar(&datadogEnabled, "datadog", false,
+		"Use the Datadog tracing provider")
+	proxyCmd.PersistentFlags().StringVar(&datadogAgentAddress, "datadogAgentAddress", "",
+		"Address of the Datadog Agent")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),
 		"Connection timeout used by Envoy for supporting services")
