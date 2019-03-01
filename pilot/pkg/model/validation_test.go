@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/stretchr/testify/require"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -542,6 +543,29 @@ func TestValidateMeshConfig(t *testing.T) {
 		ProxyListenPort:   0,
 		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
+		MeshTrafficServerCertPaths: &meshconfig.ServerCertPaths{
+			CertChain: "",
+			Key:       "",
+			RootCert:  "not-absolute.pem",
+		},
+	}
+
+	expectedErrorStrings := []string{
+		"invalid Policy Check Server address: unable to split \"10.0.0.100\": address 10.0.0.100: missing port in address",
+		"invalid Telemetry Server address: unable to split \"10.0.0.100\": address 10.0.0.100: missing port in address",
+		"invalid proxy listen port: port number 0 must be in the range 1..65535",
+		"invalid connect timeout: duration must be greater than 1ms",
+		"config path must be set",
+		"binary path must be set",
+		"service cluster must be set",
+		"invalid parent and drain time combination invalid drain duration: duration: nil Duration",
+		"invalid parent and drain time combination invalid parent shutdown duration: duration: nil Duration",
+		"discovery address must be set to the proxy discovery service",
+		"invalid connect timeout: duration: nil Duration",
+		"invalid proxy admin port: port number 0 must be in the range 1..65535",
+		"MeshTrafficServerCertPaths.Key:  cert file path must be non-empty and absolute: ",
+		"MeshTrafficServerCertPaths.CertChain:  cert file path must be non-empty and absolute: ",
+		"MeshTrafficServerCertPaths.RootCert:  cert file path must be non-empty and absolute: not-absolute.pem",
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -550,10 +574,14 @@ func TestValidateMeshConfig(t *testing.T) {
 	} else {
 		switch err.(type) {
 		case *multierror.Error:
-			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
-				t.Errorf("expected an error for each field %v", err)
+			actualErrors := err.(*multierror.Error).Errors
+			actualErrorStrings := make([]string, len(actualErrors))
+			for i, err := range actualErrors {
+				actualErrorStrings[i] = err.Error()
+				// Uncomment this as needed and paste output into value of expectedErrorStrings
+				// fmt.Printf("%q,\n", actualErrorStrings[i])
 			}
+			require.ElementsMatch(t, actualErrorStrings, expectedErrorStrings)
 		default:
 			t.Errorf("expected a multi error as output")
 		}
@@ -573,6 +601,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		ControlPlaneAuthPolicy: 1,
 		Tracing:                nil,
+		TlsCertsToWatch:        []string{"/absolute/path/to/cert.pem", "/etc/certs/key.pem"},
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -649,6 +678,25 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "control plane auth policy invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ControlPlaneAuthPolicy = -1 }),
+			isValid: false,
+		},
+		{
+			name:    "cert files to watch invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.TlsCertsToWatch = []string{"cert.pem"} }),
+			isValid: false,
+		},
+		{
+			name: "cert files to watch partially invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.TlsCertsToWatch = []string{"/valid/path/cert.pem", "invalid/path/key.pem"}
+			}),
+			isValid: false,
+		},
+		{
+			name: "cert files to watch empty string",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.TlsCertsToWatch = []string{""}
+			}),
 			isValid: false,
 		},
 		{

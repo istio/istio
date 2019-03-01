@@ -78,6 +78,7 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
+	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 
 	wg sync.WaitGroup
@@ -142,6 +143,19 @@ var (
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
+			// Watch default cert locations if none were set
+			if len(tlsCertsToWatch) == 0 {
+				tlsCertsToWatch = []string{
+					path.Join(model.AuthCertsPath, model.CertChainFilename),
+					path.Join(model.AuthCertsPath, model.KeyFilename),
+					path.Join(model.AuthCertsPath, model.RootCertFilename),
+				}
+				if role.Type == model.Ingress {
+					tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressCertFilename))
+					tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressKeyFilename))
+				}
+			}
+
 			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
@@ -156,6 +170,7 @@ var (
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
+			proxyConfig.TlsCertsToWatch = tlsCertsToWatch
 
 			var pilotSAN []string
 			ns := ""
@@ -242,25 +257,11 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := []envoy.CertSource{
-				{
-					Directory: model.AuthCertsPath,
-					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
-				},
-			}
-
-			if role.Type == model.Ingress {
-				certs = append(certs, envoy.CertSource{
-					Directory: model.IngressCertsPath,
-					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
-				})
-			}
-
-			log.Infof("Monitored certs: %#v", certs)
+			log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 			// since Envoy needs the certs for mTLS, we wait for them to become available before starting it
 			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				for _, cs := range certs {
-					waitForCerts(path.Join(cs.Directory, cs.Files[0]), 2*time.Minute)
+				for _, cert := range tlsCertsToWatch {
+					waitForCerts(cert, 2*time.Minute)
 				}
 			}
 
@@ -337,7 +338,7 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
-			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
+			watcher := envoy.NewWatcher(proxyConfig.TlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
 			go waitForCompletion(ctx, watcher.Run)
@@ -497,7 +498,8 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-
+	proxyCmd.PersistentFlags().StringSlice("tlsCertsToWatch", tlsCertsToWatch,
+		"Comma-separated list of absolute cert file paths to watch for changes. (e.g. /etc/certs/key.pem,/etc/certs/cert.pem)")
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 

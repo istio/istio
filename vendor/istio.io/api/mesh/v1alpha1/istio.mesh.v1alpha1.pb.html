@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 20
+number_of_entries: 21
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -456,7 +456,7 @@ services can be monitored.</p>
 <td><code>string</code></td>
 <td>
 <p>Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-Use secret-mount files instead of SDS if set to empty.</p>
+Use mesh<em>traffic</em>server<em>cert</em>paths instead of SDS if set to empty.</p>
 
 </td>
 </tr>
@@ -485,6 +485,19 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
 <td>
 <p>Locality based load balancing distribution or failover settings.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-mesh_traffic_server_cert_paths">
+<td><code>meshTrafficServerCertPaths</code></td>
+<td><code><a href="#ServerCertPaths">ServerCertPaths</a></code></td>
+<td>
+<p>The cert files to use when configuring Envoy listeners for mesh traffic.
+Used only when sds<em>uds</em>path is not set.
+If not set these defaults will be used:
+ cert<em>chain = &lsquo;/etc/certs/cert-chain.pem&rsquo;
+ key = &lsquo;/etc/certs/key.pem&rsquo;
+ root</em>cert = &lsquo;/etc/certs/root-cert.pem&rsquo;</p>
 
 </td>
 </tr>
@@ -966,6 +979,15 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-tls_certs_to_watch">
+<td><code>tlsCertsToWatch</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Absolute path to certs/key files used for istio mTLS. If omitted, defaults to
+/etc/certs/cert-chain.pem,/etc/certs/key.pem,/etc/certs/root-cert.pem</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -999,6 +1021,41 @@ source and destination IP addresses and ports, so that they can be used for adva
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServerCertPaths">ServerCertPaths</h2>
+<section>
+<p>Defines absolute file paths for certs + key used by a TLS server
+All fields are required.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServerCertPaths-cert_chain">
+<td><code>certChain</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ServerCertPaths-key">
+<td><code>key</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="ServerCertPaths-root_cert">
+<td><code>rootCert</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 </tr>
 </tbody>

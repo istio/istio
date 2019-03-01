@@ -23,10 +23,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/stretchr/testify/require"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -532,6 +534,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 	cases := []struct {
 		name              string
 		in                *authn.Policy
+		serverCertPaths   *meshconfig.ServerCertPaths
 		sdsUdsPath        string
 		useTrustworthyJwt bool
 		useNormalJwt      bool
@@ -655,11 +658,99 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "StrictMTLS with configured cert paths",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			serverCertPaths: &meshconfig.ServerCertPaths{
+				CertChain: "/custom/path/to/cert-chain.pem",
+				Key:       "/custom-key.pem",
+				RootCert:  "/custom/path/to/root.pem",
+			},
+			// Only one filter chain with mTLS settings should be generated.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificates: []*auth.TlsCertificate{
+								{
+									CertificateChain: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom/path/to/cert-chain.pem",
+										},
+									},
+									PrivateKey: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom-key.pem",
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom/path/to/root.pem",
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: proto.BoolTrue,
+					},
+				},
+			},
+		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.serverCertPaths, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
+	}
+}
+
+func TestDefaultServerCertPaths(t *testing.T) {
+	cases := []struct {
+		name string
+
+		basePath string
+		expected meshconfig.ServerCertPaths
+	}{
+		{
+			name:     "empty base path",
+			basePath: "",
+			expected: meshconfig.ServerCertPaths{
+				CertChain: "/etc/certs/cert-chain.pem",
+				Key:       "/etc/certs/key.pem",
+				RootCert:  "/etc/certs/root-cert.pem",
+			},
+		},
+		{
+			name:     "with base path",
+			basePath: "/basePath",
+			expected: meshconfig.ServerCertPaths{
+				CertChain: "/basePath/etc/certs/cert-chain.pem",
+				Key:       "/basePath/etc/certs/key.pem",
+				RootCert:  "/basePath/etc/certs/root-cert.pem",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := defaultServerCertPaths(c.basePath)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 

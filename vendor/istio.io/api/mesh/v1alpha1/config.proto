@@ -183,7 +183,7 @@ message MeshConfig {
   bool enable_client_side_policy_check = 19;
 
   // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
-  // Use secret-mount files instead of SDS if set to empty.
+  // Use mesh_traffic_server_cert_paths instead of SDS if set to empty.
   string sds_uds_path = 20;
 
   // $hide_from_docs
@@ -279,9 +279,16 @@ message MeshConfig {
   // Locality based load balancing distribution or failover settings.
   LocalityLoadBalancerSetting locality_lb_setting = 35;
 
+  // The cert files to use when configuring Envoy listeners for mesh traffic.
+  // Used only when sds_uds_path is not set.
+  // If not set these defaults will be used:
+  //  cert_chain = '/etc/certs/cert-chain.pem'
+  //  key = '/etc/certs/key.pem'
+  //  root_cert = '/etc/certs/root-cert.pem'
+  ServerCertPaths mesh_traffic_server_cert_paths = 36;
 
   // $hide_from_docs
-  // Next available field number: 36
+  // Next available field number: 37
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -392,4 +399,13 @@ message LocalityLoadBalancerSetting{
   // Should be used together with OutlierDetection to detect unhealthy endpoints.
   // Note: if no OutlierDetection specified, this will not take effect.
   repeated Failover failover = 2;
+}
+
+
+// Defines absolute file paths for certs + key used by a TLS server
+// All fields are required.
+message ServerCertPaths {
+  string cert_chain = 1;
+  string key = 2;
+  string root_cert = 3;
 }
