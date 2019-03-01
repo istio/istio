@@ -858,7 +858,10 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		}
 	}
 
-	return crd.NewController(configClient, args.Config.ControllerOptions), nil
+	controller := crd.NewController(configClient, args.Config.ControllerOptions).(*crd.Controller)
+	dummyStop := make(chan struct{})
+	controller.WaitForSync(dummyStop)
+	return controller, nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
@@ -880,6 +883,8 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	dummyStop := make(chan struct{})
+	kubectl.WaitForSync(dummyStop)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{

@@ -254,6 +254,12 @@ func (c *Controller) HasSynced() bool {
 	return true
 }
 
+// WaitForSync blocks until all data is synced
+func (c *Controller) WaitForSync(stop <-chan struct{}) {
+	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
+		c.services.informer.HasSynced)
+}
+
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	go c.queue.Run(stop)

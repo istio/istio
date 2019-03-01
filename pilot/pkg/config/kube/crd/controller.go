@@ -33,9 +33,9 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// controller is a collection of synchronized resource watchers.
+// Controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
-type controller struct {
+type Controller struct {
 	client *Client
 	queue  kube.Queue
 	kinds  map[string]cacheHandler
@@ -68,13 +68,13 @@ func init() {
 	prometheus.MustRegister(k8sErrors)
 }
 
-// NewController creates a new Kubernetes controller for CRDs
+// NewController creates a new Kubernetes Controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
-	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
+	log.Infof("CRD Controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
-	out := &controller{
+	out := &Controller{
 		client: client,
 		queue:  kube.NewQueue(1 * time.Second),
 		kinds:  make(map[string]cacheHandler),
@@ -88,7 +88,7 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 	return out
 }
 
-func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
+func (c *Controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
 	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
@@ -124,7 +124,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *controller) notify(obj interface{}, event model.Event) error {
+func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -135,7 +135,7 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) createInformer(
+func (c *Controller) createInformer(
 	o runtime.Object,
 	otype string,
 	resyncPeriod time.Duration,
@@ -173,7 +173,7 @@ func (c *controller) createInformer(
 	return cacheHandler{informer: informer, handler: handler}
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *Controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	schema, exists := c.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return
@@ -192,32 +192,41 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	})
 }
 
-func (c *controller) HasSynced() bool {
-	for kind, ctl := range c.kinds {
+func (c *Controller) HasSynced() bool {
+	for _, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {
-			log.Infof("controller %q is syncing...", kind)
 			return false
 		}
 	}
 	return true
 }
 
-func (c *controller) Run(stop <-chan struct{}) {
+func (c *Controller) WaitForSync(stop <-chan struct{}) {
+	for _, ctl := range c.kinds {
+		cache.WaitForCacheSync(stop, ctl.informer.HasSynced)
+	}
+}
+
+func (c *Controller) Run(stop <-chan struct{}) {
 	go c.queue.Run(stop)
 
 	for _, ctl := range c.kinds {
 		go ctl.informer.Run(stop)
 	}
 
+	for _, ctl := range c.kinds {
+		cache.WaitForCacheSync(stop, ctl.informer.HasSynced)
+	}
+
 	<-stop
-	log.Info("controller terminated")
+	log.Info("Controller terminated")
 }
 
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *Controller) ConfigDescriptor() model.ConfigDescriptor {
 	return c.client.ConfigDescriptor()
 }
 
-func (c *controller) Get(typ, name, namespace string) *model.Config {
+func (c *Controller) Get(typ, name, namespace string) *model.Config {
 	schema, exists := c.client.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return nil
@@ -247,19 +256,19 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	return config
 }
 
-func (c *controller) Create(config model.Config) (string, error) {
+func (c *Controller) Create(config model.Config) (string, error) {
 	return c.client.Create(config)
 }
 
-func (c *controller) Update(config model.Config) (string, error) {
+func (c *Controller) Update(config model.Config) (string, error) {
 	return c.client.Update(config)
 }
 
-func (c *controller) Delete(typ, name, namespace string) error {
+func (c *Controller) Delete(typ, name, namespace string) error {
 	return c.client.Delete(typ, name, namespace)
 }
 
-func (c *controller) List(typ, namespace string) ([]model.Config, error) {
+func (c *Controller) List(typ, namespace string) ([]model.Config, error) {
 	schema, ok := c.client.ConfigDescriptor().GetByType(typ)
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
