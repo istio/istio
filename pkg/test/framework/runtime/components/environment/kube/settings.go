@@ -42,7 +42,7 @@ const (
 	DefaultSystemNamespace = "istio-system"
 
 	// DefaultValuesFile for Istio Helm deployment.
-	DefaultValuesFile = "values-istio-mcp.yaml"
+	DefaultValuesFile = "test-values/values-istio-mcp.yaml"
 
 	// LatestTag value
 	LatestTag = "latest"
