@@ -639,6 +639,10 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
+
+# This is used to @include values-istio-demo-common.yaml file
+istio-demo.yaml istio-demo-auth.yaml: export EXTRA_HELM_SETTINGS+=--values install/kubernetes/helm/istio/values-istio-demo-common.yaml
+
 # creates istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
@@ -652,8 +656,6 @@ istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HEL
 		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		--set gateways.istio-egressgateway.enabled=true \
-		--set global.outboundTrafficPolicy.mode=REGISTRY_ONLY \
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
