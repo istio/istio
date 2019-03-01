@@ -15,6 +15,8 @@
 package model
 
 import (
+	"fmt"
+
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -64,6 +66,9 @@ type AuthorizationPolicies struct {
 
 	// The mesh global RbacConfig.
 	RbacConfig *rbacproto.RbacConfig
+
+	// True if using RBAC v2 (i.e. AuthorizationPolicy and no ServiceRoleBinding).
+	IsRbacV2 bool
 }
 
 func (policy *AuthorizationPolicies) addServiceRole(role *Config) {
@@ -191,6 +196,23 @@ func (policy *AuthorizationPolicies) RoleToBindingsForNamespace(ns string) map[s
 	return rolesAndBindings.RoleNameToBindings
 }
 
+// RoleForNameAndNamespace returns a ServiceRole from this namespace, given the ServiceRole name and namespace.
+// This function always return a non nil struct instance.
+func (policy *AuthorizationPolicies) RoleForNameAndNamespace(roleName, ns string) *rbacproto.ServiceRole {
+	if policy == nil || policy.NamespaceToAuthorizationConfigV2 == nil {
+		return &rbacproto.ServiceRole{}
+	}
+	nsToAuthzConfigV2 := policy.NamespaceToAuthorizationConfigV2[ns]
+	if nsToAuthzConfigV2 == nil {
+		return &rbacproto.ServiceRole{}
+	}
+	serviceRole, exist := nsToAuthzConfigV2.NameToServiceRoles[roleName]
+	if !exist {
+		return &rbacproto.ServiceRole{}
+	}
+	return serviceRole
+}
+
 // NewAuthzPolicies returns the AuthorizationPolicies constructed from raw authorization policies by
 // storing policies into different namespaces.
 func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
@@ -206,6 +228,7 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 		NamespaceToPolicies:              map[string]*RolesAndBindings{},
 		NamespaceToAuthorizationConfigV2: map[string]*AuthorizationConfigV2{},
 		RbacConfig:                       rbacConfig.Spec.(*rbacproto.RbacConfig),
+		IsRbacV2:                         false,
 	}
 
 	roles, err := env.List(ServiceRole.Type, NamespaceAll)
@@ -227,6 +250,12 @@ func NewAuthzPolicies(env *Environment) (*AuthorizationPolicies, error) {
 	v2Policies, err := env.List(AuthorizationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
+	}
+	if len(v2Policies) > 0 {
+		if len(bindings) > 0 {
+			return nil, fmt.Errorf("had both AuthorizationPolicy and ServiceRoleBinding")
+		}
+		policy.IsRbacV2 = true
 	}
 	for _, v2Policy := range v2Policies {
 		policy.AddConfig(&v2Policy)

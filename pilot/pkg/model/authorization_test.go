@@ -305,6 +305,58 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 	}
 }
 
+func TestRoleForNameAndNamespace(t *testing.T) {
+	cases := []struct {
+		name                                string
+		authzPolicies                       *model.AuthorizationPolicies
+		ns                                  string
+		roleName                            string
+		expectedTestRoleForNameAndNamespace *rbacproto.ServiceRole
+	}{
+		{
+			name:                                "authzPolicies is nil",
+			authzPolicies:                       nil,
+			ns:                                  model.NamespaceAll,
+			roleName:                            "",
+			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{},
+		},
+		{
+			name: "authzPolicies has one ServiceRole",
+			authzPolicies: &model.AuthorizationPolicies{
+				NamespaceToAuthorizationConfigV2: map[string]*model.AuthorizationConfigV2{
+					"default": {
+						AuthzPolicies: []*model.AuthorizationPolicyConfig{
+							{
+								Name:   "Authz-Policy-1",
+								Policy: &rbacproto.AuthorizationPolicy{},
+							},
+						},
+						NameToServiceRoles: map[string]*rbacproto.ServiceRole{
+							"test-svc-1": {
+								Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
+							},
+						},
+					},
+				},
+			},
+			ns:       "default",
+			roleName: "test-svc-1",
+			expectedTestRoleForNameAndNamespace: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := c.authzPolicies.RoleForNameAndNamespace(c.roleName, c.ns)
+			if !reflect.DeepEqual(c.expectedTestRoleForNameAndNamespace, actual) {
+				t.Errorf("Got different ServiceRole, Got: \n%v\n, Excepted:\n%v\n", actual, c.expectedTestRoleForNameAndNamespace)
+			}
+		})
+	}
+}
+
 func TestNewAuthzPolicies(t *testing.T) {
 	clusterRbacConfig := &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	rbacConfig := &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_OFF}
