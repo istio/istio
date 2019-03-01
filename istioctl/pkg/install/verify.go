@@ -33,7 +33,8 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 )
 
-func verifyInstall(enableVerbose bool, istioNamespaceFlag *string, restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
+	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	crdCount := 0
 	istioDeploymentCount := 0
 	if len(options.Filenames) == 0 {
