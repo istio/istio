@@ -89,7 +89,13 @@ func GetMutualTLS(policy *authn.Policy) *authn.MutualTls {
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn.Policy, serverCertPaths *meshconfig.ServerCertPaths, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
+func setupFilterChains(authnPolicy *authn.Policy,
+	serverCertPaths *meshconfig.ServerCertPaths,
+	sdsUdsPath string,
+	sdsUseTrustworthyJwt,
+	sdsUseNormalJwt bool,
+	meta map[string]string,
+) []plugin.FilterChain {
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
@@ -181,7 +187,13 @@ func setupFilterChains(authnPolicy *authn.Policy, serverCertPaths *meshconfig.Se
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy, in.Env.Mesh.MeshTrafficServerCertPaths, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt, in.Node.Metadata)
+	return setupFilterChains(authnPolicy,
+		in.Env.Mesh.MeshTrafficServerCertPaths,
+		in.Env.Mesh.SdsUdsPath,
+		in.Env.Mesh.EnableSdsTokenMount,
+		in.Env.Mesh.SdsUseK8SSaJwt,
+		in.Node.Metadata,
+	)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
