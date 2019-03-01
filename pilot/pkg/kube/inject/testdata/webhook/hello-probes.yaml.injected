@@ -20,22 +20,19 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            path: /app-health/hello/livez
-            port: 15020
+            port: http
         name: hello
         ports:
         - containerPort: 80
           name: http
         readinessProbe:
           httpGet:
-            path: /app-health/hello/readyz
-            port: 15020
+            port: 3333
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            path: /app-health/world/livez
-            port: 15020
+            port: http
         name: world
         ports:
         - containerPort: 90
@@ -100,8 +97,6 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
