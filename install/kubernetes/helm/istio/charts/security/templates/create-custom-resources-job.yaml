@@ -51,8 +51,7 @@ subjects:
     name: istio-security-post-install-account	
     namespace: {{ .Release.Namespace }}	
 ---	
-
- apiVersion: batch/v1	
+apiVersion: batch/v1
 kind: Job	
 metadata:	
   name: istio-security-post-install-{{ .Values.global.tag | printf "%v" | trunc 32  }}	
