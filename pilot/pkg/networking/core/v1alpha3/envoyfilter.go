@@ -256,11 +256,12 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 	filterStruct := listener.Filter{
 		Name: xdsutil.HTTPConnectionManager,
 	}
-	if is11 {
-		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
-	} else {
-		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
-	}
+	filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	//if is11 {
+	//	filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	//} else {
+	//	filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	//}
 	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))

@@ -1594,11 +1594,12 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 				filter := listener.Filter{
 					Name: xdsutil.HTTPConnectionManager,
 				}
-				if util.IsProxyVersionGE11(pluginParams.Node) {
-					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
-				} else {
-					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
-				}
+				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				//if util.IsProxyVersionGE11(pluginParams.Node) {
+				//	filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				//} else {
+				//	filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				//}
 				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 					len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)

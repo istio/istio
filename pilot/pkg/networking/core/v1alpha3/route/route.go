@@ -322,12 +322,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Match:    translateRouteMatch(match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
-
-	if util.IsProxyVersionGE11(node) {
-		out.TypedPerFilterConfig = make(map[string]*types.Any)
-	} else {
-		out.PerFilterConfig = make(map[string]*types.Struct)
-	}
+	out.PerFilterConfig = make(map[string]*types.Struct)
+	//if util.IsProxyVersionGE11(node) {
+	//	out.TypedPerFilterConfig = make(map[string]*types.Any)
+	//} else {
+	//	out.PerFilterConfig = make(map[string]*types.Struct)
+	//}
 
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
