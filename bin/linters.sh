@@ -32,22 +32,10 @@ function ensure_pilot_types() {
     echo 'Pilot types generation OK'
 }
 
-function format() {
-    echo 'Running format/imports check ....'
-    bin/fmt.sh -c
-    echo 'Format/imports check OK'
-}
-
 function check_licenses() {
     echo 'Checking licenses'
     bin/check_license.sh
     echo 'licenses OK'
-}
-
-function check_spelling() {
-    echo 'Checking spelling'
-    bin/check_spelling.sh
-    echo 'spelling OK'
 }
 
 function has_latest_gometalinter() {
@@ -69,42 +57,45 @@ function has_latest_gometalinter() {
 function install_gometalinter() {
     gometalinter=$(command -v gometalinter 2> /dev/null || echo "${ISTIO_BIN}/gometalinter")
     latest_version=$(curl -L -s https://api.github.com/repos/alecthomas/gometalinter/releases/latest \
-	    | grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | sed "s/v//")
+      | grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | sed "s/v//")
 
     if has_latest_gometalinter "${gometalinter}" "${latest_version}"; then
-        echo "Skipping gometalinter installation, we already have the latest version"
-        return 0
+      echo "Skipping gometalinter installation, we already have the latest version"
+      return 0
     fi
 
     echo 'Installing gometalinter ....'
     curl -s "https://raw.githubusercontent.com/alecthomas/gometalinter/v${latest_version}/scripts/install.sh" | bash -s -- -b "${ISTIO_BIN}"
     if [ ! -x "${ISTIO_BIN}/gometalinter" ]; then
-        echo "Installation of gometalinter failed"
-        exit 1
+      echo "Installation of gometalinter failed"
+      exit 1
     fi
 
     echo 'Gometalinter installed successfully'
 }
 
 function install_golangcilint() {
-  GOLANGCI_VERSION="v1.14.0"
-  curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
-  golangci-lint --version
+    GOLANGCI_VERSION="v1.15.0"
+    curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
+    golangci-lint --version
 }
 
-function run_gometalinter() {
-    echo 'Running gometalinter on adapters ....'
+function run_adapter_lint() {
+    echo 'Running adapterlinter ....'
     pushd mixer/tools/adapterlinter
     go install .
     popd
 
     $gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
     echo 'gometalinter on adapters OK'
+}
 
+function run_test_lint() {
     echo 'Running testlinter ...'
     pushd tests/util/checker/testlinter
     go install .
     popd
+
     $gometalinter --config=./tests/util/checker/testlinter/testlinter.json ./...
     echo 'testlinter OK'
 }
@@ -133,12 +124,11 @@ function check_licenses() {
 }
 
 ensure_pilot_types
-# format
 check_licenses
-check_spelling
 install_golangcilint
 run_golangcilint
 install_gometalinter
-run_gometalinter
+run_adapter_lint
+run_test_lint
 run_helm_lint
 check_grafana_dashboards

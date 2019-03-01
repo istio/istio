@@ -186,7 +186,6 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	}
 
 	return &x509.Certificate{
-		// nolint: goimports
 		SerialNumber:          serialNum,
 		Subject:               subject,
 		NotBefore:             now,
@@ -251,7 +250,6 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 	}
 
 	return &x509.Certificate{
-		// nolint: goimports
 		SerialNumber:          serialNum,
 		Subject:               subject,
 		NotBefore:             notBefore,

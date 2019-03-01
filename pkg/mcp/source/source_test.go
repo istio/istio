@@ -32,7 +32,6 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -204,11 +203,7 @@ func (h *sourceTestHarness) Watch(req *Request, pushResponse PushResponseFunc) C
 		ch <- struct{}{}
 	}
 
-	return func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		delete(h.watchResponses, req.Collection)
-	}
+	return func() {}
 }
 
 func (h *sourceTestHarness) injectWatchResponse(response *WatchResponse) {
@@ -221,6 +216,7 @@ func (h *sourceTestHarness) injectWatchResponse(response *WatchResponse) {
 		for _, watch := range watches {
 			watch(response)
 		}
+		delete(h.pushResponseFuncs, collection)
 	} else {
 		h.watchResponses[collection] = response
 	}
@@ -257,7 +253,7 @@ func makeWatchResponse(collection string, version string, incremental bool, fake
 }
 
 func makeSourceUnderTest(w Watcher) *Source {
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            w,
@@ -409,7 +405,7 @@ func TestConnRateLimit(t *testing.T) {
 
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
@@ -439,7 +435,7 @@ func TestConnRateLimitError(t *testing.T) {
 
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
@@ -493,7 +489,7 @@ func TestSourceReceiveError(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		ConnRateLimiter:    NewFakePerConnLimiter(),
+		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
@@ -729,7 +725,7 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 		Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
 	}))
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
@@ -839,30 +835,4 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 			t.Fatal("subtest failed")
 		}
 	}
-}
-
-type FakePerConnLimiter struct {
-	fakeLimiter *test.FakeRateLimiter
-	CreateCh    chan struct{}
-	WaitCh      chan context.Context
-	ErrCh       chan error
-}
-
-func NewFakePerConnLimiter() *FakePerConnLimiter {
-	waitErr := make(chan error)
-	fakeLimiter := test.NewFakeRateLimiter()
-	fakeLimiter.WaitErr = waitErr
-
-	f := &FakePerConnLimiter{
-		fakeLimiter: fakeLimiter,
-		CreateCh:    make(chan struct{}, 10),
-		WaitCh:      fakeLimiter.WaitCh,
-		ErrCh:       waitErr,
-	}
-	return f
-}
-
-func (f *FakePerConnLimiter) Create() internal.RateLimit {
-	f.CreateCh <- struct{}{}
-	return f.fakeLimiter
 }

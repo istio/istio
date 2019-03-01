@@ -70,7 +70,8 @@ func TestStartWithNilHandlerShouldError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Create the source
-	_, client := createMocks()
+	w, client := createMocks()
+	defer w.Stop()
 	spec := schema.ResourceSpec{
 		Kind:      "List",
 		Singular:  "List",
@@ -88,7 +89,8 @@ func TestStartTwiceShouldError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Create the source
-	_, client := createMocks()
+	w, client := createMocks()
+	defer w.Stop()
 	spec := schema.ResourceSpec{
 		Kind:      "List",
 		Singular:  "List",
@@ -109,7 +111,8 @@ func TestStartTwiceShouldError(t *testing.T) {
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
 	// Create the source
-	_, client := createMocks()
+	w, client := createMocks()
+	defer w.Stop()
 	spec := schema.ResourceSpec{
 		Kind:      "List",
 		Singular:  "List",
@@ -130,6 +133,7 @@ func TestEvents(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	w, client := createMocks()
+	defer w.Stop()
 
 	spec := schema.ResourceSpec{
 		Kind:      "List",
@@ -208,6 +212,7 @@ func TestEvents(t *testing.T) {
 
 func TestSource_BasicEvents_NoConversion(t *testing.T) {
 	w, client := createMocks()
+	defer w.Stop()
 
 	spec := schema.ResourceSpec{
 		Kind:      "List",
@@ -244,6 +249,7 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 
 func TestSource_ProtoConversionError(t *testing.T) {
 	w, client := createMocks()
+	defer w.Stop()
 
 	spec := schema.ResourceSpec{
 		Kind:     "foo",
@@ -284,6 +290,7 @@ func TestSource_MangledNames(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	w, client := createMocks()
+	defer w.Stop()
 
 	spec := schema.ResourceSpec{
 		Kind:     "foo",
