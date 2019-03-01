@@ -1,0 +1,106 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: galley
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "galley.name" . }}
+        chart: {{ template "galley.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}      
+        istio: galley
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-galley-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: galley
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+          - containerPort: 443
+          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 9901
+          command:
+          - /usr/local/bin/galley
+          - server
+          - --meshConfigFile=/etc/mesh-config/mesh
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
+          - --readinessProbeInterval=1s
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+          - --insecure=false
+{{- else }}
+          - --insecure=true
+{{- end }}
+{{- if not $.Values.global.useMCP }}
+          - --enable-server=false
+{{- end }}
+          - --validation-webhook-config-file
+          - /etc/config/validatingwebhookconfiguration.yaml
+          - --monitoringPort={{ .Values.global.monitoringPort }}
+          volumeMounts:
+          - name: certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: config
+            mountPath: /etc/config
+            readOnly: true
+          - name: mesh-config
+            mountPath: /etc/mesh-config
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/healthliveness
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/healthready
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+      volumes:
+      - name: certs
+        secret:
+          secretName: istio.istio-galley-service-account
+      - name: config
+        configMap:
+          name: istio-galley-configuration
+      - name: mesh-config
+        configMap:
+          name: istio
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

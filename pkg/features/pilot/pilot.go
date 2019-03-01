@@ -90,7 +90,14 @@ var (
 	// be used, "/"
 	BaseDir = "BASE"
 
-	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-sagent shutdown.
+	// HTTP10 enables the use of HTTP10 in the outbound HTTP listeners, to support legacy applications.
+	// Will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
+	//
+	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
+	// where Sidecar is enabled.
+	HTTP10 = os.Getenv("PILOT_HTTP10") == "1"
+
+	// TerminationDrainDuration is the amount of time allowed for connections to complete on pilot-agent shutdown.
 	// On receiving SIGTERM or SIGINT, pilot-agent tells the active Envoy to start draining,
 	// preventing any new connections and allowing existing connections to complete. It then
 	// sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.
@@ -105,6 +112,13 @@ var (
 			return defaultDuration
 		}
 		return time.Second * time.Duration(duration)
+	}
+
+	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
+	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
+	// This is an experimental feature.
+	EnableLocalityLoadBalancing = func() bool {
+		return len(os.Getenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING")) != 0
 	}
 )
 

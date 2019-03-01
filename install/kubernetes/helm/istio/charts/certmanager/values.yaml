@@ -1,0 +1,11 @@
+# Certmanager uses ACME to sign certificates. Since Istio gateways are
+# mounting the TLS secrets the Certificate CRDs must be created in the
+# istio-system namespace. Once the certificate has been created, the
+# gateway must be updated by adding 'secretVolumes'. After the gateway
+# restart, DestinationRules can be created using the ACME-signed certificates.
+enabled: false
+hub: quay.io/jetstack
+tag: v0.6.2
+resources: {}
+nodeSelector: {}
+

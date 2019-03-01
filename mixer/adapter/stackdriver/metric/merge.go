@@ -25,65 +25,7 @@ import (
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
-
-	"istio.io/istio/mixer/pkg/adapter"
 )
-
-const usec int32 = int32(1 * time.Microsecond)
-
-// We can only send 1 point per timeseries per ~minute, so for each batch we group together all points for the same timeseries.
-func merge(series []*monitoring.TimeSeries, logger adapter.Logger) []*monitoring.TimeSeries {
-	grouped := groupBySeries(series)
-	return mergeSeries(grouped, logger)
-}
-
-func groupBySeries(series []*monitoring.TimeSeries) map[uint64][]*monitoring.TimeSeries {
-	bySeries := make(map[uint64][]*monitoring.TimeSeries)
-	for _, ts := range series {
-		if ts.MetricKind == metricpb.MetricDescriptor_DELTA || ts.MetricKind == metricpb.MetricDescriptor_CUMULATIVE {
-			// DELTA and CUMULATIVE metrics cannot have the same start and end time, so if they are the same we munge
-			// the data by unit of least precision that Stackdriver stores (microsecond).
-			if compareUSec(ts.Points[0].Interval.StartTime, ts.Points[0].Interval.EndTime) == 0 {
-				ts.Points[0].Interval.EndTime = &timestamp.Timestamp{
-					Seconds: ts.Points[0].Interval.EndTime.Seconds,
-					Nanos:   ts.Points[0].Interval.EndTime.Nanos + usec,
-				}
-			}
-		}
-		k := toKey(ts.Metric, ts.Resource)
-		bySeries[k] = append(bySeries[k], ts)
-	}
-	return bySeries
-}
-
-func mergeSeries(bySeries map[uint64][]*monitoring.TimeSeries, logger adapter.Logger) []*monitoring.TimeSeries {
-	var err error
-	out := make([]*monitoring.TimeSeries, 0, len(bySeries))
-	for _, ts := range bySeries {
-		current := ts[0]
-		start := current.Points[0].Interval.StartTime
-		end := current.Points[0].Interval.EndTime
-		for i := 1; i < len(ts); i++ {
-			if current, err = mergePoints(current, ts[i]); err != nil {
-				logger.Warningf("failed to merge timeseries: %v", err)
-				continue
-			}
-			if compareUSec(start, ts[i].Points[0].Interval.StartTime) > 0 {
-				start = ts[i].Points[0].Interval.StartTime
-			}
-			if compareUSec(end, ts[i].Points[0].Interval.EndTime) < 0 {
-				end = ts[i].Points[0].Interval.EndTime
-			}
-		}
-
-		current.Points[0].Interval = &monitoring.TimeInterval{
-			StartTime: start,
-			EndTime:   end,
-		}
-		out = append(out, current)
-	}
-	return out
-}
 
 // Attempts to merge two timeseries; if they are not of the same type we return an error and a, unchanged, as the resulting timeseries.
 // Given the way that stackdriver metrics work, and our grouping by timeseries, we should never see two timeseries merged with different value types.
@@ -126,6 +68,12 @@ func mergePoints(a, b *monitoring.TimeSeries) (*monitoring.TimeSeries, error) {
 	default:
 		// illegal anyway, since we can't have DELTA/CUMULATIVE metrics on anything else
 		return a, fmt.Errorf("invalid type for DELTA metric: %v", a.Points[0].Value)
+	}
+	if compareUSec(a.Points[0].Interval.StartTime, b.Points[0].Interval.StartTime) > 0 {
+		a.Points[0].Interval.StartTime = b.Points[0].Interval.StartTime
+	}
+	if compareUSec(a.Points[0].Interval.EndTime, b.Points[0].Interval.EndTime) < 0 {
+		a.Points[0].Interval.EndTime = b.Points[0].Interval.EndTime
 	}
 	return a, nil
 }

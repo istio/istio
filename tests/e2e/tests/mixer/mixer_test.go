@@ -67,9 +67,6 @@ const (
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
 
-	checkPath  = "/istio.mixer.v1.Mixer/Check"
-	reportPath = "/istio.mixer.v1.Mixer/Report"
-
 	testRetryTimes = 5
 
 	redisInstallDir  = "stable/redis"
@@ -1313,20 +1310,6 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Logf("Values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		t.Errorf("Expected at least one metric with 'istio-telemetry' as the destination, got %d", len(vec))
 	}
-
-	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
-	logs, err :=
-		util.Shell(`kubectl -n %s logs -l istio-mixer-type=telemetry -c mixer --tail 1000 | grep -e "%s" -e "%s"`,
-			tc.Kube.Namespace, checkPath, reportPath)
-	if err != nil {
-		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
-	}
-	wantLines := 4
-	gotLines := strings.Count(logs, "\n")
-	if gotLines < wantLines {
-		t.Errorf("Expected at least %v lines of Mixer-specific access logs, got %d", wantLines, gotLines)
-	}
-
 }
 
 func allowRuleSync() {

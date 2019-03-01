@@ -366,7 +366,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
+		if in.ListenerProtocol == plugin.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)

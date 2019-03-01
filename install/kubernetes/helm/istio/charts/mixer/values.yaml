@@ -1,0 +1,47 @@
+#
+# mixer configuration
+#
+image: mixer
+
+env:
+  GODEBUG: gctrace=1
+
+policy:
+  replicaCount: 1
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
+
+telemetry:
+  replicaCount: 1
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  cpu:
+    targetAverageUtilization: 80
+  sessionAffinityEnabled: false
+
+  # mixer load shedding configuration.
+  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+  loadshedding:
+    # disabled, logonly or enforce
+    mode: logonly
+    # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
+    latencyThreshold: 100ms
+
+podAnnotations: {}
+nodeSelector: {}
+
+adapters:
+  kubernetesenv:
+    enabled: true
+  stdio:
+    enabled: true
+    outputAsJson: true
+  prometheus:
+    enabled: true
+    metricsExpiryDuration: 10m
+  # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+  useAdapterCRDs: true
