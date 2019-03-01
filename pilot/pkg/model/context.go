@@ -549,6 +549,22 @@ const (
 
 	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
 	NodeMetadataDNSDomains = "DNS_DOMAINS"
+
+	// NodeMetadataPolicyCheckRetries determines the policy for behavior when unable to connect to mixer
+	// If not set, FAIL_CLOSE is set, rejecting requests.
+	NodeMetadataPolicyCheck = "policy.istio.io/check"
+
+	// NodeMetadataPolicyCheckRetries is the max number of retries on transport error to mixer
+	// If not set, this will be 0, indicating no retries.
+	NodeMetadataPolicyCheckRetries = "policy.istio.io/checkRetries"
+
+	// NodeMetadataPolicyCheckBaseRetryWaitTime for base time to wait between retries, will be adjusted by backoff and jitter.
+	// In duration format. If not set, this will be 80ms.
+	NodeMetadataPolicyCheckBaseRetryWaitTime = "policy.istio.io/checkBaseRetryWaitTime"
+
+	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
+	// In duration format. If not set, this will be 1000ms.
+	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
