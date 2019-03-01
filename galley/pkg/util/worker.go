@@ -65,10 +65,10 @@ func NewWorker(name string, scope *log.Scope) *Worker {
 	return worker
 }
 
-// Start the worker thread via the provided lambda. The run lambda is run in a
+// Start the worker thread via the provided lambda. The runFn lambda is run in a
 // go routine and is provided a context to trigger the exit of the function. If
 // this Worker was already started, returns an error.
-func (w *Worker) Start(run func(c context.Context)) error {
+func (w *Worker) Start(runFn func(c context.Context)) error {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 
@@ -79,7 +79,7 @@ func (w *Worker) Start(run func(c context.Context)) error {
 
 	go func() {
 		// Run the user-supplied lambda
-		run(w.ctx)
+		runFn(w.ctx)
 
 		// Signal back to the Stop method that the worker thread has stopped.
 		close(w.stoppedCh)

@@ -92,16 +92,14 @@ func (s *source) Start(handler resource.EventHandler) error {
 				},
 			})
 
-		// Start CRD shared informer background process.
-		go s.informer.Run(ctx.Done())
-
 		// Send the an event after the cache syncs.
 		go func() {
 			_ = cache.WaitForCacheSync(ctx.Done(), s.informer.HasSynced)
 			handler(resource.FullSyncEvent)
 		}()
 
-		<-ctx.Done()
+		// Start CRD shared informer and wait for it to exit.
+		s.informer.Run(ctx.Done())
 	})
 }
 
