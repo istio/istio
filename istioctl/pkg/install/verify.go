@@ -168,7 +168,8 @@ func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 istioctl verify-install -f istio-demo.yaml
 `,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags,
+				fileNameFlags.ToOptions(), c.OutOrStderr())
 		},
 	}
 
