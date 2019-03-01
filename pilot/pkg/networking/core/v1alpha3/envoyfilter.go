@@ -257,7 +257,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 		Name: xdsutil.HTTPConnectionManager,
 	}
 	if is11 {
-		filterStruct.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
+		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	} else {
 		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	}

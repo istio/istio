@@ -59,12 +59,13 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		acc := &accesslog.AccessLog{
 			Name: xdsutil.FileAccessLog,
 		}
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
+		acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		//if util.IsProxyVersionGE11(node) {
+		//	buildAccessLog(fl, env)
+		//	acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		//} else {
+		//	acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		//}
 
 		config.AccessLog = []*accesslog.AccessLog{acc}
 
@@ -73,11 +74,12 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
 	}
-	if util.IsProxyVersionGE11(node) {
-		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if util.IsProxyVersionGE11(node) {
+	//	tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 	return tcpFilter
 }
 
@@ -180,11 +182,12 @@ func buildMongoFilter(statPrefix string, is11 bool) listener.Filter {
 	out := listener.Filter{
 		Name: xdsutil.MongoProxy,
 	}
-	if is11 {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if is11 {
+	//	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
@@ -219,11 +222,12 @@ func buildRedisFilter(statPrefix, clusterName string, is11 bool) listener.Filter
 	out := listener.Filter{
 		Name: xdsutil.RedisProxy,
 	}
-	if is11 {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if is11 {
+	//	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
@@ -237,12 +241,12 @@ func buildMySQLFilter(statPrefix string, is11 bool) listener.Filter {
 	out := listener.Filter{
 		Name: xdsutil.MySQLProxy,
 	}
-
-	if is11 {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if is11 {
+	//	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }

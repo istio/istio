@@ -212,11 +212,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
+		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+		//if util.IsProxyVersionGE11(node) {
+		//	filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		//} else {
+		//	filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+		//}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
@@ -1426,12 +1427,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: xdsutil.FileAccessLog,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
+		acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		//if util.IsProxyVersionGE11(node) {
+		//	buildAccessLog(fl, env)
+		//	acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		//} else {
+		//	acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		//}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{acc}
 	}
@@ -1593,7 +1595,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 					Name: xdsutil.HTTPConnectionManager,
 				}
 				if util.IsProxyVersionGE11(pluginParams.Node) {
-					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
 				} else {
 					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
 				}

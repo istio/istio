@@ -53,12 +53,12 @@ func buildHealthCheckFilter(probe *model.Probe, is11 bool) *http_conn.HttpFilter
 	out := &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
 	}
-
-	if is11 {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//if is11 {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }

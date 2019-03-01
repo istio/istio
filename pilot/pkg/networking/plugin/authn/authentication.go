@@ -306,11 +306,12 @@ func BuildJwtFilter(policy *authn.Policy, is11 bool) *http_conn.HttpFilter {
 	out := &http_conn.HttpFilter{
 		Name: JwtFilterName,
 	}
-	if is11 {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	//if is11 {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	//}
 	return out
 }
 
@@ -323,11 +324,12 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType, is11 bool)
 	out := &http_conn.HttpFilter{
 		Name: AuthnFilterName,
 	}
-	if is11 {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	//if is11 {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	//}
 	return out
 }
 

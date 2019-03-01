@@ -231,7 +231,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
 		return
 	}
-	is11 := util.IsProxyVersionGE11(in.Node)
+	//is11 := util.IsProxyVersionGE11(in.Node)
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
@@ -239,11 +239,12 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			host := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(host.Routes); j++ {
 				route := host.Routes[j]
-				if is11 {
-					route.TypedPerFilterConfig = addTypedServiceConfig(route.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
-				} else {
-					route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
-				}
+				route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+				//if is11 {
+				//	route.TypedPerFilterConfig = addTypedServiceConfig(route.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+				//} else {
+				//	route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+				//}
 				host.Routes[j] = route
 			}
 			routeConfiguration.VirtualHosts[i] = host
@@ -344,12 +345,12 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	out := &http_conn.HttpFilter{
 		Name: mixer,
 	}
-
-	if util.IsProxyVersionGE11(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//if util.IsProxyVersionGE11(node) {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
@@ -368,36 +369,40 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	out := &http_conn.HttpFilter{
 		Name: mixer,
 	}
-
-	if util.IsProxyVersionGE11(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//if util.IsProxyVersionGE11(node) {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
-	is11 := util.IsProxyVersionGE11(in.Node)
+	//is11 := util.IsProxyVersionGE11(in.Node)
 
 	// default config, to be overridden by per-weighted cluster
-	if is11 {
-		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-		})
-	} else {
-		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-		})
-	}
+	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+		DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+	})
+
+	//if is11 {
+	//	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+	//		DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+	//	})
+	//} else {
+	//	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+	//		DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
+	//	})
+	//}
 	switch action := httpRoute.Action.(type) {
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
 			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-			if is11 {
+			if false {
 				httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -415,7 +420,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-				if is11 {
+				if false {
 					weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
 						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 						MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -481,12 +486,12 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	out := listener.Filter{
 		Name: mixer,
 	}
-
-	if util.IsProxyVersionGE11(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if util.IsProxyVersionGE11(node) {
+	//	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
@@ -500,12 +505,12 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	out := listener.Filter{
 		Name: mixer,
 	}
-
-	if util.IsProxyVersionGE11(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//if util.IsProxyVersionGE11(node) {
+	//	out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }

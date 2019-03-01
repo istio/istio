@@ -429,12 +429,12 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *lis
 		ShadowRules: config.ShadowRules,
 		StatPrefix:  rbacTCPFilterStatPrefix,
 	}
-
-	if is11 {
-		tcpConfig.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		tcpConfig.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
-	}
+	tcpConfig.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
+	//if is11 {
+	//	tcpConfig.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
+	//} else {
+	//	tcpConfig.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
+	//}
 
 	rbacLog.Debugf("generated tcp filter config: %v", tcpConfig)
 	return &tcpConfig
@@ -449,12 +449,12 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *ht
 	out := &http_conn.HttpFilter{
 		Name: rbacHTTPFilterName,
 	}
-
-	if is11 {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
-	}
+	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//if is11 {
+	//	out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	//} else {
+	//	out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	//}
 
 	return out
 }
