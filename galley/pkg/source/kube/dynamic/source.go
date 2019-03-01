@@ -79,7 +79,7 @@ func New(
 
 // Start the source. This will commence listening and dispatching of events.
 func (s *source) Start(handler resource.EventHandler) error {
-	return s.worker.Start(func(ctx context.Context) {
+	return s.worker.Start(nil, func(ctx context.Context) {
 		if handler == nil {
 			panic("dynamic source provided with nil event handler")
 		}

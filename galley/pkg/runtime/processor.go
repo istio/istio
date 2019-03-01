@@ -40,6 +40,8 @@ type Processor struct {
 	// handler for events.
 	handler processing.Handler
 
+	eventCh chan resource.Event
+
 	// The current in-memory configuration State
 	state *State
 
@@ -70,6 +72,7 @@ func newProcessor(
 		handler:         buildDispatcher(state),
 		state:           state,
 		source:          src,
+		eventCh:         make(chan resource.Event, 1024),
 		postProcessHook: postProcessHook,
 		worker:          util.NewWorker("runtime processor", scope),
 		lastEventTime:   now,
@@ -79,21 +82,24 @@ func newProcessor(
 // Start the processor. This will cause processor to listen to incoming events from the provider
 // and publish component configuration via the Distributor.
 func (p *Processor) Start() error {
-	return p.worker.Start(func(ctx context.Context) {
+	setupFn := func() error {
+		err := p.source.Start(func(e resource.Event) {
+			p.eventCh <- e
+		})
+		if err != nil {
+			return fmt.Errorf("runtime unable to Start source: %v", err)
+		}
+		return nil
+	}
+
+	runFn := func(ctx context.Context) {
 		scope.Info("Starting processor...")
-		eventCh := make(chan resource.Event, 1024)
 		defer func() {
 			scope.Debugf("Process.process: Exiting worker thread")
-			close(eventCh)
+			close(p.eventCh)
 			p.state.close()
 		}()
 
-		err := p.source.Start(func(e resource.Event) {
-			eventCh <- e
-		})
-		if err != nil {
-			panic(fmt.Sprintf("runtime unable to Start source: %v", err))
-		}
 		defer p.source.Stop()
 
 		scope.Debug("Starting process loop")
@@ -104,7 +110,7 @@ func (p *Processor) Start() error {
 				// Graceful termination.
 				scope.Debug("Processor.process: done")
 				return
-			case e := <-eventCh:
+			case e := <-p.eventCh:
 				p.processEvent(e)
 			case <-p.state.strategy.Publish:
 				scope.Debug("Processor.process: publish")
@@ -115,7 +121,9 @@ func (p *Processor) Start() error {
 				p.postProcessHook()
 			}
 		}
-	})
+	}
+
+	return p.worker.Start(setupFn, runFn)
 }
 
 // Stop the processor.

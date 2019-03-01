@@ -16,6 +16,7 @@ package util_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -29,6 +30,23 @@ func TestStopBeforeStartShouldNotPanic(t *testing.T) {
 	w.Stop()
 }
 
+func TestSetupError(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	w := newWorker()
+
+	expected := errors.New("fake error")
+	setupFn := func() error {
+		return expected
+	}
+	startFn := func(ctx context.Context) {
+		<-ctx.Done()
+	}
+
+	err := w.Start(setupFn, startFn)
+	g.Expect(err).To(Equal(expected))
+}
+
 func TestStartTwiceShouldFail(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -38,12 +56,12 @@ func TestStartTwiceShouldFail(t *testing.T) {
 		<-ctx.Done()
 	}
 
-	err := w.Start(startFn)
+	err := w.Start(nil, startFn)
 	g.Expect(err).To(BeNil())
 	defer w.Stop()
 
 	// Second call should fail
-	err = w.Start(startFn)
+	err = w.Start(nil, startFn)
 	g.Expect(err).ToNot(BeNil())
 }
 
@@ -65,7 +83,7 @@ func TestStopWaitsForRunToExit(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	err := w.Start(startFn)
+	err := w.Start(nil, startFn)
 	g.Expect(err).To(BeNil())
 
 	// Now stop it.

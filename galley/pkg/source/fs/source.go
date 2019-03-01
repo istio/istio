@@ -275,7 +275,7 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 
 // Start implements runtime.Source
 func (s *source) Start(handler resource.EventHandler) error {
-	return s.worker.Start(func(ctx context.Context) {
+	return s.worker.Start(nil, func(ctx context.Context) {
 		s.handler = handler
 
 		watcher, err := fsnotify.NewWatcher()
