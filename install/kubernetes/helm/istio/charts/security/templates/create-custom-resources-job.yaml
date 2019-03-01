@@ -32,7 +32,7 @@ rules:
 - apiGroups: ["extensions"]	
   resources: ["deployments", "replicasets"]	
   verbs: ["get", "list", "watch"]	
----	
+---
 apiVersion: rbac.authorization.k8s.io/v1beta1	
 kind: ClusterRoleBinding	
 metadata:	
@@ -50,7 +50,7 @@ subjects:
   - kind: ServiceAccount	
     name: istio-security-post-install-account	
     namespace: {{ .Release.Namespace }}	
----	
+---
 apiVersion: batch/v1
 kind: Job	
 metadata:	
