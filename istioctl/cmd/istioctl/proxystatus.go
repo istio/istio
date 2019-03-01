@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -57,7 +56,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewComparator(os.Stdout, pilotDumps, envoyDump)
+				c, err := compare.NewComparator(c.OutOrStdout(), pilotDumps, envoyDump)
 				if err != nil {
 					return err
 				}
