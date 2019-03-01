@@ -56,18 +56,18 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // For all valid UIDs supplied, this adapter generates output
 // values containing information about the related pods.
 type Params struct {
-	// File path to discover kubeconfig. For in-cluster configuration,
+	// File path to discover `kubeconfig`. For in-cluster configuration,
 	// this should be left unset. For local configuration, this should
-	// be set to the path of a kubeconfig file that can be used to
+	// be set to the path of a `kubeconfig` file that can be used to
 	// reach a kubernetes API server.
 	//
-	// NOTE: The kubernetes adapter will use the value of the env var
-	// KUBECONFIG in the case where it is set (overriding any value configured
+	// NOTE: The `kubernetesenv` adapter will use the value of the `KUBECONFIG` environment variable
+	// in the case where it is set (overriding any value configured
 	// through this proto).
 	//
 	// Default: "" (unset)
 	KubeconfigPath string `protobuf:"bytes,1,opt,name=kubeconfig_path,json=kubeconfigPath,proto3" json:"kubeconfig_path,omitempty"`
-	// Controls the resync period of the kubernetes cluster info cache.
+	// Controls the resync period of the Kubernetes cluster info cache.
 	// The cache will watch for events and every so often completely resync.
 	// This controls how frequently the complete resync occurs.
 	//
@@ -75,9 +75,9 @@ type Params struct {
 	CacheRefreshDuration time.Duration `protobuf:"bytes,2,opt,name=cache_refresh_duration,json=cacheRefreshDuration,stdduration" json:"cache_refresh_duration"`
 	// Namespace of the secret created for multicluster support.
 	//
-	// Details on multicluster and the kubernetes secret required to
+	// Details on multicluster and the Kubernetes secret required to
 	// access the remote cluster's credentials can be found in
-	// [multicluster install](https://istio.io/docs/setup/kubernetes/multicluster-install).
+	// [multicluster install](https://istio.io/docs/setup/kubernetes/multicluster/).
 	//
 	// NOTE: If `cluster_registries_namespace` is not set then the environment
 	// variable `POD_NAMESPACE` is checked/used. If `POD_NAMESPACE` is not
