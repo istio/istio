@@ -23,7 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -749,7 +749,7 @@ func TestDefaultServerCertPaths(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			actual := defaultServerCertPaths(c.basePath)
-			require.Equal(t, c.expected, actual)
+			assert.Equal(t, c.expected, actual)
 		})
 	}
 }

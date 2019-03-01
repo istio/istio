@@ -23,7 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -581,7 +581,7 @@ func TestValidateMeshConfig(t *testing.T) {
 				// Uncomment this as needed and paste output into value of expectedErrorStrings
 				// fmt.Printf("%q,\n", actualErrorStrings[i])
 			}
-			require.ElementsMatch(t, actualErrorStrings, expectedErrorStrings)
+			assert.ElementsMatch(t, actualErrorStrings, expectedErrorStrings)
 		default:
 			t.Errorf("expected a multi error as output")
 		}
