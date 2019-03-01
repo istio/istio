@@ -82,11 +82,11 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 				}
 				// Check to make sure that the current service (caller) is the one this rule is applying to.
 				if !service.areConstraintsMatched(rule) {
-					rbacLog.Errorf("rule has constraints but doesn't match with the service (found in %s)", binding.RoleRef.Name)
+					rbacLog.Debugf("rule has constraints but doesn't match with the service (found in %s)", binding.RoleRef.Name)
 					continue
 				}
 				if option.forTCPFilter {
-					// TODO(yangminzhu): Move the validate logic to push context and add metrics.
+					// TODO(yangminzhu): Add metrics.
 					if err := validateRuleForTCPFilter(rule); err != nil {
 						// It's a user misconfiguration if a HTTP rule is specified to a TCP service.
 						// For safety consideration, we ignore the whole rule which means no access is opened to

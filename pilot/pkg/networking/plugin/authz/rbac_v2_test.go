@@ -26,6 +26,19 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						NotMethods: []string{"DELETE"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "destination.labels[app]", Values: []string{"foo"}},
+						},
+					},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -80,6 +93,47 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "authz-policy-selector-with-no-match"},
+			Spec: &rbacproto.AuthorizationPolicy{
+				WorkloadSelector: &rbacproto.WorkloadSelector{
+					Labels: map[string]string{
+						"app": "bar",
+					},
+				},
+				Allow: []*rbacproto.ServiceRoleBinding{
+					{
+						Subjects: []*rbacproto.Subject{
+							{
+								Names: []string{"allUsers"},
+							},
+						},
+						RoleRef: &rbacproto.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-2",
+						},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "authz-policy-single-binding-all-authned-users"},
+			Spec: &rbacproto.AuthorizationPolicy{
+				Allow: []*rbacproto.ServiceRoleBinding{
+					{
+						Subjects: []*rbacproto.Subject{
+							{
+								Names: []string{"allAuthenticatedUsers"},
+							},
+						},
+						RoleRef: &rbacproto.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-2",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	notDeleteMethodPermissions := []*policy.Permission{
@@ -112,6 +166,32 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 									{
 										Identifier: &policy.Principal_Any{
 											Any: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	anyAuthenticatedPrincipals := []*policy.Principal{{
+		Identifier: &policy.Principal_AndIds{
+			AndIds: &policy.Principal_Set{
+				Ids: []*policy.Principal{
+					{
+						Identifier: &policy.Principal_OrIds{
+							OrIds: &policy.Principal_Set{
+								Ids: []*policy.Principal{
+									{
+										Identifier: &policy.Principal_Metadata{
+											Metadata: generateMetadataStringMatcher(
+												attrSrcPrincipal, &metadata.StringMatcher{
+													MatchPattern: &metadata.StringMatcher_Regex{
+														Regex: ".*",
+													}},
+												authn.AuthnFilterName),
 										},
 									},
 								},
@@ -160,6 +240,10 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 		Permissions: notDeleteMethodPermissions,
 		Principals:  testingNamespacePrincipals,
 	}
+	policy4 := &policy.Policy{
+		Permissions: notDeleteMethodPermissions,
+		Principals:  anyAuthenticatedPrincipals,
+	}
 
 	expectRbac1 := generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies([]string{
 		"authz-policy-authz-policy-single-binding-allow[0]"},
@@ -169,6 +253,10 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 		"authz-policy-authz-policy-multiple-bindings-with-selector-allow[1]",
 		"authz-policy-authz-policy-single-binding-allow[0]"},
 		[]*policy.Policy{policy2, policy3, policy1})
+	expectRbac3 := generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies([]string{
+		"authz-policy-authz-policy-single-binding-all-authned-users-allow[0]",
+		"authz-policy-authz-policy-single-binding-allow[0]"},
+		[]*policy.Policy{policy4, policy1})
 
 	authzPolicies := newAuthzPoliciesWithRolesAndBindings(roles, bindings)
 	option := rbacOption{authzPolicies: authzPolicies}
@@ -197,14 +285,21 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 			rbac:   expectRbac2,
 			option: option,
 		},
+		{
+			name: "service no selector matched",
+			service: &serviceMetadata{
+				name:   "service-2",
+				labels: map[string]string{"app": "foo"},
+			},
+			rbac:   expectRbac3,
+			option: option,
+		},
 	}
 
 	for _, tc := range testCases {
-		//if tc.name != "service with workload selector" {
 		rbac := convertRbacRulesToFilterConfigV2(tc.service, tc.option)
 		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
 			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
 		}
 	}
-	//}
 }
