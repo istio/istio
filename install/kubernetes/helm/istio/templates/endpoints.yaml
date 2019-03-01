@@ -1,3 +1,4 @@
+{{- if .Values.global.istioRemote }}
 {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Endpoints
@@ -60,4 +61,5 @@ subsets:
     port: 15014
   - name: prometheus
     port: 42422
+{{- end }}
 {{- end }}
