@@ -23,7 +23,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{ else }}
   namespace: {{ .Release.Namespace }}
+  {{ end }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
@@ -40,12 +44,14 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 # Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
+# Customer should add similar destination rules for other services that
+# dont' have sidecar. Note that this has to be in the default namespace,
+# i.e. the namespace where kubernetes.default.svc service is present.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-  namespace: {{ .Release.Namespace }}
+  namespace: default
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
