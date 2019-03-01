@@ -859,8 +859,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	}
 
 	controller := crd.NewController(configClient, args.Config.ControllerOptions).(*crd.Controller)
-	dummyStop := make(chan struct{})
-	controller.WaitForSync(dummyStop)
+	//dummyStop := make(chan struct{})
+	//controller.WaitForSync(dummyStop)
 	return controller, nil
 }
 

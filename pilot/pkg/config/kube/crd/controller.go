@@ -202,9 +202,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) WaitForSync(stop <-chan struct{}) {
-	for _, ctl := range c.kinds {
-		cache.WaitForCacheSync(stop, ctl.informer.HasSynced)
-	}
+	cache.WaitForCacheSync(stop, c.HasSynced)
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -212,10 +210,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	for _, ctl := range c.kinds {
 		go ctl.informer.Run(stop)
-	}
-
-	for _, ctl := range c.kinds {
-		cache.WaitForCacheSync(stop, ctl.informer.HasSynced)
 	}
 
 	<-stop
