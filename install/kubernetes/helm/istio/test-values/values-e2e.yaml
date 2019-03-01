@@ -12,6 +12,8 @@ global:
     enableCoreDump: true
 
   disablePolicyChecks: false
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
 
 prometheus:
   scrapeInterval: 5s
@@ -19,6 +21,8 @@ prometheus:
 gateways:
   istio-ingressgateway:
     autoscaleMax: 1
+  istio-egressgateway:
+    enabled: true
 
 mixer:
   policy:
