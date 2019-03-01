@@ -332,7 +332,7 @@ var (
 					ApplicationPorts: parsedPorts,
 					AppProbeMap:      appProbeMap,
 				})
-				go waitForCompletion(ctx, statusServer.Run)
+				go waitForCompletion(ctx, statusServer.RunAndTerminateProcessOnError)
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)

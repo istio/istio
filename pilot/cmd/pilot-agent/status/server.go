@@ -53,16 +53,33 @@ func NewServer(config Config) *Server {
 	return s
 }
 
-// Run opens a the status port and begins accepting probes.
-func (s *Server) Run(ctx context.Context) {
+// RunAndTerminateProcessOnError runs the server and terminates this process (via SIGTERM)
+// if a (non-graceful, i.e. ErrServerClosed) serving error occurs. When the status server
+// is down, the the pilot-agent will no longer be able to pass readiness or liveness
+// probes. For this reason, the pilot agent calls this variant of Run.
+func (s *Server) RunAndTerminateProcessOnError(ctx context.Context) {
+	if err := s.Run(ctx); err != nil {
+		p, err := os.FindProcess(os.Getpid())
+		if err != nil {
+			log.Errora(err)
+		}
+		// TODO(nmittler): Should this be in an 'else'?
+		log.Errora(p.Signal(syscall.SIGTERM))
+	}
+}
+
+// Run opens a the status port and begins accepting probes. This should only be called directly
+// from tests.
+func (s *Server) Run(ctx context.Context) error {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.config.StatusPort))
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
-		return
+		return err
 	}
 	defer func() { _ = l.Close() }()
 
-	// for testing.
+	// Set the status port used by the listener. This may have been dynamically assigned if
+	// StatusPort was originally set to 0.
 	if s.config.StatusPort == 0 {
 		s.mutex.Lock()
 		s.config.StatusPort = uint16(l.Addr().(*net.TCPAddr).Port)
@@ -76,30 +93,45 @@ func (s *Server) Run(ctx context.Context) {
 	ready.RegisterHTTPHandlerFunc(handler, s.config.ProxyAdminPort, s.config.ApplicationPorts)
 	app.RegisterHTTPHandlerFunc(handler, s.config.AppProbeMap)
 
+	httpServer := &http.Server{
+		Handler: handler,
+	}
+
+	// Used to detect any non-graceful errors encountered while serving requests.
+	var servingErr error
+
+	servingStopped := make(chan struct{}, 1)
 	go func() {
-		// Indicate that the server is ready.
+		// When this function exits, signal back that serving thread has terminated.
+		defer close(servingStopped)
+
+		// Indicate that the server is now serving requests.
 		s.notifyReady()
 
-		if err := http.Serve(l, handler); err != nil {
-			log.Errorf("Status HTTP server exited with err: %s", err.Error())
-
-			// If the server errors then pilot-agent can never pass readiness or liveness probes
-			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
-			p, err := os.FindProcess(os.Getpid())
-			if err != nil {
-				log.Errora(err)
-			}
-			log.Errora(p.Signal(syscall.SIGTERM))
+		if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
+			// Save the serving error.
+			servingErr = err
+			log.Errorf("status HTTP server exited with err: %s", err.Error())
 		}
 	}()
 
-	// Wait for the agent to be shut down.
-	<-ctx.Done()
-	log.Info("Status server has successfully terminated")
-	s.notifyReady()
+	// When a shutdown is triggered, close the server.
+	go func() {
+		<-ctx.Done()
+		_ = httpServer.Close()
+	}()
+
+	// Wait for the serving thread to exit.
+	<-servingStopped
+
+	log.Info("Status server has terminated")
+
+	// Return any error encountered while serving
+	return servingErr
 }
 
 // WaitForReady waits until the server is up and running and capable of receiving requests.
+// For testing purposes only.
 func (s *Server) WaitForReady() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -116,6 +148,8 @@ func (s *Server) GetConfig() Config {
 	return s.config
 }
 
+// notifyReady is used to provide a signal to the caller of WaitForReady that this server is now
+// running (i.e. serving HTTP).
 func (s *Server) notifyReady() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

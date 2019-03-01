@@ -26,16 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type handler struct{}
-
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	_, _ = w.Write([]byte("welcome, it works"))
-}
-
 func TestAppProbe(t *testing.T) {
 	// Starts the application first.
 	listener, err := net.Listen("tcp", ":0")
@@ -64,7 +54,13 @@ func TestAppProbe(t *testing.T) {
 		return
 	}
 
-	go server.Run(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		if err := server.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	// Extract the actual status port.
 	server.WaitForReady()
@@ -117,4 +113,14 @@ func kubePort(port int) intstr.IntOrString {
 		Type:   intstr.Int,
 		IntVal: int32(port),
 	}
+}
+
+type handler struct{}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	_, _ = w.Write([]byte("welcome, it works"))
 }
