@@ -176,13 +176,13 @@ type TransportConfig struct {
 	// Specifies the behavior when the client is unable to connect to Mixer.
 	// This is the mesh level policy. The default value for policy is FAIL_OPEN.
 	NetworkFailPolicy *NetworkFailPolicy `protobuf:"bytes,4,opt,name=network_fail_policy,json=networkFailPolicy,proto3" json:"network_fail_policy,omitempty"`
-	// Specify refresh interval to write mixer client statistics to Envoy share
+	// Specify refresh interval to write Mixer client statistics to Envoy share
 	// memory. If not specified, the interval is 10 seconds.
 	StatsUpdateInterval *types.Duration `protobuf:"bytes,5,opt,name=stats_update_interval,json=statsUpdateInterval,proto3" json:"stats_update_interval,omitempty"`
 	// Name of the cluster that will forward check calls to a pool of mixer
 	// servers. Defaults to "mixer_server". By using different names for
 	// checkCluster and reportCluster, it is possible to have one set of
-	// mixer servers handle check calls, while another set of mixer servers
+	// Mixer servers handle check calls, while another set of Mixer servers
 	// handle report calls.
 	//
 	// NOTE: Any value other than the default "mixer_server" will require the
@@ -191,13 +191,13 @@ type TransportConfig struct {
 	// Name of the cluster that will forward report calls to a pool of mixer
 	// servers. Defaults to "mixer_server". By using different names for
 	// checkCluster and reportCluster, it is possible to have one set of
-	// mixer servers handle check calls, while another set of mixer servers
+	// Mixer servers handle check calls, while another set of Mixer servers
 	// handle report calls.
 	//
 	// NOTE: Any value other than the default "mixer_server" will require the
 	// Istio Grafana dashboards to be reconfigured to use the new name.
 	ReportCluster string `protobuf:"bytes,7,opt,name=report_cluster,json=reportCluster,proto3" json:"report_cluster,omitempty"`
-	// Default attributes to forward to mixer upstream. This typically
+	// Default attributes to forward to Mixer upstream. This typically
 	// includes the "source.ip" and "source.uid" attributes. These
 	// attributes are consumed by the proxy in front of mixer.
 	AttributesForMixerProxy *v1.Attributes `protobuf:"bytes,8,opt,name=attributes_for_mixer_proxy,json=attributesForMixerProxy,proto3" json:"attributes_for_mixer_proxy,omitempty"`
@@ -295,9 +295,9 @@ type TcpClientConfig struct {
 	// Report. This typically includes "destination.ip" and
 	// "destination.uid" attributes.
 	MixerAttributes *v1.Attributes `protobuf:"bytes,2,opt,name=mixer_attributes,json=mixerAttributes,proto3" json:"mixer_attributes,omitempty"`
-	// If set to true, disables mixer check calls.
+	// If set to true, disables Mixer check calls.
 	DisableCheckCalls bool `protobuf:"varint,3,opt,name=disable_check_calls,json=disableCheckCalls,proto3" json:"disable_check_calls,omitempty"`
-	// If set to true, disables mixer check calls.
+	// If set to true, disables Mixer check calls.
 	DisableReportCalls bool `protobuf:"varint,4,opt,name=disable_report_calls,json=disableReportCalls,proto3" json:"disable_report_calls,omitempty"`
 	// Quota specifications to generate quota requirements.
 	// It applies on the new TCP connections.

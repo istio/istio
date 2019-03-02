@@ -34,7 +34,7 @@ const (
 	// contain any annotation or whose annotations match the value
 	// specified in the ingress_class parameter described earlier. Use this
 	// mode if Istio ingress controller will be the default ingress
-	// controller for the entire kubernetes cluster.
+	// controller for the entireKubernetes cluster.
 	MeshConfig_DEFAULT MeshConfig_IngressControllerMode = 1
 	// Istio ingress controller will only act on ingress resources whose
 	// annotations match the value specified in the ingress_class parameter
@@ -156,8 +156,8 @@ func (MeshConfig_OutboundTrafficPolicy_Mode) EnumDescriptor() ([]byte, []int) {
 type MeshConfig struct {
 	// Address of the server that will be used by the proxies for policy
 	// check calls. By using different names for mixerCheckServer and
-	// mixerReportServer, it is possible to have one set of mixer servers handle
-	// policy check calls while another set of mixer servers handle telemetry
+	// mixerReportServer, it is possible to have one set of Mixer servers handle
+	// policy check calls while another set of Mixer servers handle telemetry
 	// calls.
 	//
 	// NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
@@ -166,15 +166,15 @@ type MeshConfig struct {
 	// Address of the server that will be used by the proxies for policy report
 	// calls.
 	MixerReportServer string `protobuf:"bytes,2,opt,name=mixer_report_server,json=mixerReportServer,proto3" json:"mixer_report_server,omitempty"`
-	// Disable policy checks by the mixer service. Default
-	// is false, i.e. mixer policy check is enabled by default.
+	// Disable policy checks by the Mixer service. Default
+	// is false, i.e. Mixer policy check is enabled by default.
 	DisablePolicyChecks bool `protobuf:"varint,3,opt,name=disable_policy_checks,json=disablePolicyChecks,proto3" json:"disable_policy_checks,omitempty"`
-	// Allow all traffic in cases when the mixer policy service cannot be reached.
+	// Allow all traffic in cases when the Mixer policy service cannot be reached.
 	// Default is false which means the traffic is denied when the client is unable
 	// to connect to Mixer.
 	PolicyCheckFailOpen bool `protobuf:"varint,25,opt,name=policy_check_fail_open,json=policyCheckFailOpen,proto3" json:"policy_check_fail_open,omitempty"`
-	// Enable session affinity for envoy mixer reports so that calls from a proxy will
-	// always target the same mixer instance.
+	// Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+	// always target the same Mixer instance.
 	SidecarToTelemetrySessionAffinity bool `protobuf:"varint,30,opt,name=sidecar_to_telemetry_session_affinity,json=sidecarToTelemetrySessionAffinity,proto3" json:"sidecar_to_telemetry_session_affinity,omitempty"`
 	// Port on which Envoy should listen for incoming connections from
 	// other services.
@@ -189,7 +189,7 @@ type MeshConfig struct {
 	// controller.  This corresponds to the value of
 	// "kubernetes.io/ingress.class" annotation.
 	IngressClass string `protobuf:"bytes,7,opt,name=ingress_class,json=ingressClass,proto3" json:"ingress_class,omitempty"`
-	// Name of the kubernetes service used for the istio ingress controller.
+	// Name of theKubernetes service used for the istio ingress controller.
 	IngressService string `protobuf:"bytes,8,opt,name=ingress_service,json=ingressService,proto3" json:"ingress_service,omitempty"`
 	// Defines whether to use Istio ingress controller for annotated or all ingress resources.
 	IngressControllerMode MeshConfig_IngressControllerMode `protobuf:"varint,9,opt,name=ingress_controller_mode,json=ingressControllerMode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_IngressControllerMode" json:"ingress_controller_mode,omitempty"`
@@ -228,7 +228,7 @@ type MeshConfig struct {
 	OutboundTrafficPolicy *MeshConfig_OutboundTrafficPolicy `protobuf:"bytes,17,opt,name=outbound_traffic_policy,json=outboundTrafficPolicy,proto3" json:"outbound_traffic_policy,omitempty"`
 	// Enables clide side policy checks.
 	EnableClientSidePolicyCheck bool `protobuf:"varint,19,opt,name=enable_client_side_policy_check,json=enableClientSidePolicyCheck,proto3" json:"enable_client_side_policy_check,omitempty"`
-	// Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+	// Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	// Use secret-mount files instead of SDS if set to empty.
 	SdsUdsPath string `protobuf:"bytes,20,opt,name=sds_uds_path,json=sdsUdsPath,proto3" json:"sds_uds_path,omitempty"`
 	// $hide_from_docs
@@ -240,13 +240,13 @@ type MeshConfig struct {
 	// $hide_from_docs
 	// This flag is used by secret discovery service(SDS).
 	// If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-	// for k8s service account trustworthy JWT(which is avaialbe for k8s 1.12 or higher), so that K8s API server
-	// mounts k8s service account trustworthy JWT to envoy container, which will be used to request key/cert eventually.
-	// This isn't supported for non-k8s case.
+	// for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server
+	// mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually.
+	// This isn't supported for non-Kubernetes cases.
 	EnableSdsTokenMount bool `protobuf:"varint,23,opt,name=enable_sds_token_mount,json=enableSdsTokenMount,proto3" json:"enable_sds_token_mount,omitempty"`
 	// $hide_from_docs
 	// This flag is used by secret discovery service(SDS).
-	// If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+	// If set to true, Envoy will fetch a normal Kubernetes service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
 	// (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
 	// and pass to sds server, which will be used to request key/cert eventually.
 	// If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
@@ -643,7 +643,7 @@ type ConfigSource struct {
 	// Use fs:/// to specify a file-based backend with absolute path to the directory.
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Use the tls_settings to specify the tls mode to use. If the MCP server
-	// uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+	// uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
 	// mode as ISTIO_MUTUAL.
 	TlsSettings          *v1alpha3.TLSSettings `protobuf:"bytes,2,opt,name=tls_settings,json=tlsSettings,proto3" json:"tls_settings,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`

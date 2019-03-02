@@ -75,10 +75,10 @@ Use fs:/// to specify a file-based backend with absolute path to the directory.<
 </tr>
 <tr id="ConfigSource-tls_settings">
 <td><code>tlsSettings</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
 <td>
 <p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
-uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
 mode as ISTIO</em>MUTUAL.</p>
 
 </td>
@@ -275,8 +275,8 @@ tracing configuration).</p>
 <td>
 <p>Address of the server that will be used by the proxies for policy
 check calls. By using different names for mixerCheckServer and
-mixerReportServer, it is possible to have one set of mixer servers handle
-policy check calls while another set of mixer servers handle telemetry
+mixerReportServer, it is possible to have one set of Mixer servers handle
+policy check calls while another set of Mixer servers handle telemetry
 calls.</p>
 
 <p>NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
@@ -297,8 +297,8 @@ calls.</p>
 <td><code>disablePolicyChecks</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Disable policy checks by the mixer service. Default
-is false, i.e. mixer policy check is enabled by default.</p>
+<p>Disable policy checks by the Mixer service. Default
+is false, i.e. Mixer policy check is enabled by default.</p>
 
 </td>
 </tr>
@@ -306,7 +306,7 @@ is false, i.e. mixer policy check is enabled by default.</p>
 <td><code>policyCheckFailOpen</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Allow all traffic in cases when the mixer policy service cannot be reached.
+<p>Allow all traffic in cases when the Mixer policy service cannot be reached.
 Default is false which means the traffic is denied when the client is unable
 to connect to Mixer.</p>
 
@@ -316,8 +316,8 @@ to connect to Mixer.</p>
 <td><code>sidecarToTelemetrySessionAffinity</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
-always target the same mixer instance.</p>
+<p>Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+always target the same Mixer instance.</p>
 
 </td>
 </tr>
@@ -348,7 +348,7 @@ other services.</p>
 </tr>
 <tr id="MeshConfig-tcp_keepalive">
 <td><code>tcpKeepalive</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
 <td>
 <p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
 
@@ -368,7 +368,7 @@ controller.  This corresponds to the value of
 <td><code>ingressService</code></td>
 <td><code>string</code></td>
 <td>
-<p>Name of the kubernetes service used for the istio ingress controller.</p>
+<p>Name of theKubernetes service used for the istio ingress controller.</p>
 
 </td>
 </tr>
@@ -455,7 +455,7 @@ services can be monitored.</p>
 <td><code>sdsUdsPath</code></td>
 <td><code>string</code></td>
 <td>
-<p>Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+<p>Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 Use secret-mount files instead of SDS if set to empty.</p>
 
 </td>
@@ -538,7 +538,7 @@ Fallback to old identity format(without trust domain) if not set.</p>
 contain any annotation or whose annotations match the value
 specified in the ingress_class parameter described earlier. Use this
 mode if Istio ingress controller will be the default ingress
-controller for the entire kubernetes cluster.</p>
+controller for the entireKubernetes cluster.</p>
 
 </td>
 </tr>
@@ -614,7 +614,7 @@ inside a mesh and how to route to endpoints in each network. For example</p>
 networks:
 - network1:
   - endpoints:
-    - fromRegistry: registry1 #must match secret name in kubernetes
+    - fromRegistry: registry1 #must match secret name inKubernetes
     - fromCidr: 192.168.100.0/22 #a VM network for example
     gateways:
     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
