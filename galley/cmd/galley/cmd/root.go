@@ -156,8 +156,6 @@ func GetRootCmd(args []string) *cobra.Command {
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
 	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.SinkMeta, "sinkMeta",
 		serverArgs.SinkMeta, "Comma-separated list of key=values to attach as metadata to outgoing sink connections. Ex: 'key=value,key2=value2'")
-	rootCmd.PersistentFlags().BoolVar(&serverArgs.UpgradeAuthenticationPolicyToV2, "upgradeAuthenticationPolicyToV2", serverArgs.UpgradeAuthenticationPolicyToV2,
-		"Upgrade Istio Authentication Policy to v2 version")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

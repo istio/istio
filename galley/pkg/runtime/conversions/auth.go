@@ -24,37 +24,38 @@ import (
 	"strings"
 )
 
+// ServiceToSelector maps service to label selectors.
 type ServiceToSelector struct {
+	// Name maps the service name to its label selector. e.g. "httpbin": {"app": "httpbin", "version": "v1"}
 	Name map[string]resource.Labels
 }
 
+// AuthConverter is used to retrieve label selector for a service with given name and namespace.
 type AuthConverter struct {
+	// Namespace maps the namespace name to the ServiceToSelector for the given namespace.
 	Namespace map[string]ServiceToSelector
 }
 
 // AddService adds a service name and its associated selector labels to the AuthConverter.
 func (ac *AuthConverter) AddService(fullName resource.FullName, selector resource.Labels) {
 	if len(selector) == 0 {
-		// Ignore empty selector for stateless service.
+		// Ignore empty selector for headless service.
 		// TODO: Figure out what is the best way to handle this.
 		return
 	}
 
-	namespace, name := fullName.InterpretAsNamespaceAndName()
-
+	// The Namespace could be nil for the first time calling AddService(). Create the map for later use.
 	if ac.Namespace == nil {
 		ac.Namespace = make(map[string]ServiceToSelector)
 	}
 
+	namespace, name := fullName.InterpretAsNamespaceAndName()
 	serviceToSelector, ok := ac.Namespace[namespace]
 	if !ok {
 		ac.Namespace[namespace] = ServiceToSelector{Name: map[string]resource.Labels{name: selector}}
 		return
 	}
 
-	if serviceToSelector.Name == nil {
-		serviceToSelector.Name = make(map[string]resource.Labels)
-	}
 	serviceToSelector.Name[name] = selector
 	return
 }
@@ -64,8 +65,8 @@ func (ac *AuthConverter) AddService(fullName resource.FullName, selector resourc
 // use exact match and the returned list contains 1 element at most.
 func (ac AuthConverter) GetSelectors(name, namespace string, allowPrefixSuffixName bool) []resource.Labels {
 	ret := make([]resource.Labels, 0)
-	serviceToSelector := ac.Namespace[namespace]
-	if len(serviceToSelector.Name) == 0 {
+	serviceToSelector, ok := ac.Namespace[namespace]
+	if !ok || len(serviceToSelector.Name) == 0 {
 		return ret
 	}
 

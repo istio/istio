@@ -23,8 +23,4 @@ type Config struct {
 
 	// Domain suffix to use
 	DomainSuffix string
-
-	// If true, Galley will upgrade the Istio Authentication policy to v2. This includes converting
-	// the service name to label selector and other necessary modifications in the policy.
-	UpgradeAuthenticationPolicyToV2 bool
 }

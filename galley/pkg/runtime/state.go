@@ -196,10 +196,8 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	// Build entities that are derived from existing ones.
 	s.buildProjections(b)
 
-	if s.config.UpgradeAuthenticationPolicyToV2 {
-		// upgrade the AuthenticationPolicy to v2 version.
-		s.upgradeAuthenticationPolicyToV2(b)
-	}
+	// Populate label selector in Authentication policy from the service name.
+	s.populateLabelSelectorInAuthenticationPolicy(b)
 
 	return b.Build()
 }
@@ -233,7 +231,7 @@ func (s *State) createAuthConverter() *conversions.AuthConverter {
 	return &authConverter
 }
 
-func (s *State) upgradeAuthenticationPolicyToV2(b *snapshot.InMemoryBuilder) {
+func (s *State) populateLabelSelectorInAuthenticationPolicy(_ *snapshot.InMemoryBuilder) {
 	authConverter := s.createAuthConverter()
 	if authConverter == nil {
 		return
@@ -244,12 +242,12 @@ func (s *State) upgradeAuthenticationPolicyToV2(b *snapshot.InMemoryBuilder) {
 		return
 	}
 
-	// Upgrade the authentication to v2 version, currently this only includes converting service name
-	// to label selectors in the policy.
+	// Populate the label selector field by mapping the service field to corresponding label selectors
+	// based on k8s Service spec.
 	for name, entry := range state.entries {
 		policy, err := conversions.ToAuthenticationPolicy(entry)
 		if err != nil {
-			scope.Errorf("error updating authentication policy: %s", err)
+			scope.Errorf("error converting authentication policy", err)
 			return
 		}
 
@@ -258,7 +256,7 @@ func (s *State) upgradeAuthenticationPolicyToV2(b *snapshot.InMemoryBuilder) {
 			selectors := authConverter.GetSelectors(target.Name, namespace, false)
 
 			if len(selectors) != 1 {
-				scope.Warnf("found no selectors for authentication policy %s/%s", namespace, target.Name)
+				scope.Warnf("no selector for authentication policy %s/%s", namespace, target.Name)
 				continue
 			}
 			scope.Debugf("matched authentication policy %s/%s with selectors: %s",
