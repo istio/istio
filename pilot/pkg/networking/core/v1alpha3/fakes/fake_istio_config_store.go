@@ -136,11 +136,12 @@ type IstioConfigStore struct {
 	quotaSpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	AuthenticationPolicyByDestinationStub        func(service *model.Service, port *model.Port) *model.Config
+	AuthenticationPolicyByDestinationStub        func(service *model.Service, port *model.Port, labels model.Labels) *model.Config
 	authenticationPolicyByDestinationMutex       sync.RWMutex
 	authenticationPolicyByDestinationArgsForCall []struct {
 		service *model.Service
 		port    *model.Port
+		labels  model.Labels
 	}
 	authenticationPolicyByDestinationReturns struct {
 		result1 *model.Config
@@ -718,17 +719,18 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestination(service *model.Service, port *model.Port) *model.Config {
+func (fake *IstioConfigStore) AuthenticationPolicyByDestination(service *model.Service, port *model.Port, labels model.Labels) *model.Config {
 	fake.authenticationPolicyByDestinationMutex.Lock()
 	ret, specificReturn := fake.authenticationPolicyByDestinationReturnsOnCall[len(fake.authenticationPolicyByDestinationArgsForCall)]
 	fake.authenticationPolicyByDestinationArgsForCall = append(fake.authenticationPolicyByDestinationArgsForCall, struct {
 		service *model.Service
 		port    *model.Port
-	}{service, port})
-	fake.recordInvocation("AuthenticationPolicyByDestination", []interface{}{service, port})
+		labels  model.Labels
+	}{service, port, labels})
+	fake.recordInvocation("AuthenticationPolicyByDestination", []interface{}{service, port, labels})
 	fake.authenticationPolicyByDestinationMutex.Unlock()
 	if fake.AuthenticationPolicyByDestinationStub != nil {
-		return fake.AuthenticationPolicyByDestinationStub(service, port)
+		return fake.AuthenticationPolicyByDestinationStub(service, port, labels)
 	}
 	if specificReturn {
 		return ret.result1
@@ -742,10 +744,10 @@ func (fake *IstioConfigStore) AuthenticationPolicyByDestinationCallCount() int {
 	return len(fake.authenticationPolicyByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyByDestinationArgsForCall(i int) (*model.Service, *model.Port) {
+func (fake *IstioConfigStore) AuthenticationPolicyByDestinationArgsForCall(i int) (*model.Service, *model.Port, model.Labels) {
 	fake.authenticationPolicyByDestinationMutex.RLock()
 	defer fake.authenticationPolicyByDestinationMutex.RUnlock()
-	return fake.authenticationPolicyByDestinationArgsForCall[i].service, fake.authenticationPolicyByDestinationArgsForCall[i].port
+	return fake.authenticationPolicyByDestinationArgsForCall[i].service, fake.authenticationPolicyByDestinationArgsForCall[i].port, fake.authenticationPolicyByDestinationArgsForCall[i].labels
 }
 
 func (fake *IstioConfigStore) AuthenticationPolicyByDestinationReturns(result1 *model.Config) {

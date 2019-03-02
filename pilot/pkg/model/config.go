@@ -267,12 +267,12 @@ type IstioConfigStore interface {
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
 
 	// AuthenticationPolicyByDestination selects authentication policy associated
-	// with a service + port.
+	// with a service (or labels if specified) + port.
 	// If there are more than one policies at different scopes (global, namespace, service)
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(service *Service, port *Port) *Config
+	AuthenticationPolicyByDestination(service *Service, port *Port, labels Labels) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -868,7 +868,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port, labels Labels) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -889,8 +889,18 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Servic
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
-					continue
+				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
+				if len(dest.Labels) != 0 {
+					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
+					destLabels := Labels(dest.Labels)
+					if !destLabels.SubsetOf(labels) {
+						continue
+					}
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+				} else {
+					if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
+						continue
+					}
 				}
 				// If destination port is defined, it must match.
 				if len(dest.Ports) > 0 {
