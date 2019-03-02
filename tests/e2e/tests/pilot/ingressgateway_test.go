@@ -255,7 +255,7 @@ cleanup:
 			}
 			if count["200"] != len(resp.Code) {
 				// have entries other than 200
-				t.Errorf("Got non 200 status code while changing rules: %+v", count)
+				t.Errorf("Got non 200 status code while changing rules: %+v; sequence was %#v", count, resp.Code)
 			} else {
 				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
 			}
