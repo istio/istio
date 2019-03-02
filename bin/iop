@@ -3,6 +3,10 @@
 # Example script to install - will be replaced by operator or other tools, used for testing and as sample.
 
 set -x
+
+BASE=${BASE:-`pwd`}
+OUT=${OUT:-$BASE/out}
+
 #
 # Params:
 # - namespace
@@ -22,8 +26,8 @@ function iop() {
     local tmpl=$1
     shift
 
-    # Defaults
-    local cfg="-f $IBASE/global.yaml"
+    # Global settings - base is expected to be set to a directory including them
+    local cfg="-f $BASE/global.yaml"
 
     # User overrides
     if [ -f $HOME/.istio-values.yaml ]; then
@@ -51,7 +55,20 @@ function iop() {
         # Apply will make sure that any old config with the same tag that is no longer present will
         # be removed. The release MUST be unique across cluster.
         kubectl create  ns $ns > /dev/null  2>&1
-        helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
+
+        if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
+
+            mkdir -p $OUT/$ns/$rel/
+            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* > $OUT/$ns/$rel/k8s.yaml
+            cp ${BASE}/kustomize/$ns/$rel/* $OUT/$ns/$rel/
+            kustomize build $OUT/$ns/$rel > $OUT/$ns/$rel.yaml
+            kubectl apply -n $ns --prune -l release=$ns-$rel -f $OUT/$ns/$rel.yaml
+            echo "Applied $OUT/$ns/$rel.yaml"
+        else
+
+            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
+
+        fi
     fi
 }
 

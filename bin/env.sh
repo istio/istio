@@ -33,14 +33,14 @@ if [ -f $HOME/.istio.rc ]; then
 fi
 
 if [ "$TOP" == "" ]; then
-  IBASE=.
+  BASE=.
 else
-  IBASE=$TOP/src/github.com/costinm/istio-install
+  BASE=$TOP/src/github.com/costinm/istio-install
 fi
 
 # Contains values overrides for all configs.
 # Can point to a different file, based on env or .istio.rc
-ISTIO_CONFIG=${ISTIO_CONFIG:-${IBASE}/user-values.yaml}
+ISTIO_CONFIG=${ISTIO_CONFIG:-${BASE}/user-values.yaml}
 
 # Default control plane for advanced installer.
 alias kis='kubectl -n istio-system'
@@ -75,25 +75,29 @@ function iop_istio() {
 
     #### Security
     # Citadel must be in istio-system, where the secrets are stored.
-    iop istio-system citadel $IBASE/security/citadel  $*
+    iop istio-system citadel ${BASE}/security/citadel  $*
 
     #### Control plane
     # Galley, Pilot and auto-inject in istio-control. Similar security risks.
     # Can be updated independently, each is optiona.
-    iop istio-control galley $IBASE/istio-control/istio-config --set configValidation=true
-    iop istio-control pilot $IBASE/istio-control/istio-discovery
-    iop istio-control autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
+    iop istio-control galley ${BASE}/istio-control/istio-config --set configValidation=true
+    iop istio-control pilot ${BASE}/istio-control/istio-discovery
+
+    # Enable core dumps - for debugging
+    iop istio-control autoinject ${BASE}/istio-control/istio-autoinject \
+        --set enableNamespacesByDefault=true  \
+        --set global.proxy.enableCoreDump=true
 
     #### Gateways
-    iop istio-gateway gateway $IBASE/gateways/istio-ingress
+    iop istio-gateway gateway ${BASE}/gateways/istio-ingress
 
     #### Telemetry
-    iop istio-telemetry mixer $IBASE/istio-telemetry/mixer-telemetry
-    iop istio-telemetry prometheus $IBASE/istio-telemetry/prometheus
-    iop istio-telemetry grafana $IBASE/istio-telemetry/grafana
+    iop istio-telemetry mixer ${BASE}/istio-telemetry/mixer-telemetry
+    iop istio-telemetry prometheus ${BASE}/istio-telemetry/prometheus
+    iop istio-telemetry grafana ${BASE}/istio-telemetry/grafana
 
     #### Policy
-    iop istio-policy policy $IBASE/istio-policy
+    iop istio-policy policy ${BASE}/istio-policy
 }
 
 
@@ -104,28 +108,28 @@ function iop_istio() {
 #
 # Uses shared (singleton) system citadel.
 function iop_master() {
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master galley $IBASE/istio-control/istio-config
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master galley ${BASE}/istio-control/istio-config
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master pilot $IBASE/istio-control/istio-discovery \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master pilot ${BASE}/istio-control/istio-discovery \
        --set policy.enable=false \
        --set global.istioNamespace=istio-master \
        --set global.telemetryNamespace=istio-telemetry-master \
        --set global.policyNamespace=istio-policy-master \
        $*
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master autoinject $IBASE/istio-control/istio-autoinject \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master autoinject ${BASE}/istio-control/istio-autoinject \
       --set global.istioNamespace=istio-master
 
-   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master mixer $IBASE/istio-telemetry/mixer-telemetry \
+   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master mixer ${BASE}/istio-telemetry/mixer-telemetry \
         --set global.istioNamespace=istio-master $*
 
    # TODO: set flag to use the main prometheus ( it's a large install, can be shared across istio versions )
    # We want multiple Grafana variants so changes can be tested, it's lighter.
    # This verifies we can point to a different prometheus install
-   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master grafana $IBASE/istio-telemetry/grafana \
+   TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-telemetry-master grafana ${BASE}/istio-telemetry/grafana \
         --set global.istioNamespace=istio-master --set prometheusNamespace=istio-telemetry $*
 
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-gateway-master gateway $IBASE/gateways/istio-ingress \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-gateway-master gateway ${BASE}/gateways/istio-ingress \
         --set global.istioNamespace=istio-master \
         $*
 
@@ -137,7 +141,7 @@ function iop_k8s_ingress() {
 
     # No MCP or injector - dedicated for the gateway ( perf and scale characteristics are different from main pilot,
     # and we may want custom settings anyways )
-    iop istio-ingress istio-ingress-pilot $IBASE/istio-control/istio-discovery \
+    iop istio-ingress istio-ingress-pilot ${BASE}/istio-control/istio-discovery \
          --set ingress.ingressControllerMode=DEFAULT \
          --set env.K8S_INGRESS_NS=istio-ingress \
          --set global.controlPlaneSecurityEnabled=false \
@@ -150,7 +154,7 @@ function iop_k8s_ingress() {
      # Also --set ingress.ingressClass=istio-...
 
      # As an example and to test, ingress is installed using Tiller.
-    IOP_MODE=helm iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress \
+    IOP_MODE=helm iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress \
         --set k8sIngress=true \
         --set global.controlPlaneSecurityEnabled=false \
         --set global.istioNamespace=istio-ingress \
@@ -161,7 +165,7 @@ function iop_k8s_ingress() {
 
 # Optional egress gateway
 function iop_egress() {
-    iop istio-egress istio-egress $IBASE/gateways/istio-egress $*
+    iop istio-egress istio-egress ${BASE}/gateways/istio-egress $*
 }
 
 # Install full istio1.1 in istio-system (using the new script and env)
@@ -172,12 +176,12 @@ function iop_istio11_istio_system() {
 # Install just CNI, in istio-system
 # TODO: verify it ignores auto-installed, opt-in possible
 function iop_cni() {
-    iop istio-system cni $IBASE/optional/istio-cni
+    iop istio-system cni ${BASE}/optional/istio-cni
 }
 
 # Install a load generating namespace
 function iop_load() {
-    iop load load $IBASE/test/pilotload $*
+    iop load load ${BASE}/test/pilotload $*
 }
 
 
@@ -269,18 +273,18 @@ function iop_test_apps() {
     # Fortio-control - uses istio-control env with explicit label
     # TODO: test that the injection has the proper version
     kubectl label namespace fortio-control istio-env=istio-control --overwrite
-    iop fortio-control fortio-control $IBASE/test/fortio --set domain=$DOMAIN $*
+    iop fortio-control fortio-control ${BASE}/test/fortio --set domain=$DOMAIN $*
 
     # Fortio-master - using explicit istio-master label
     kubectl label namespace fortio-master istio-env=istio-master --overwrite
-    iop fortio-master fortio-master $IBASE/test/fortio --set domain=$DOMAIN $*
+    iop fortio-master fortio-master ${BASE}/test/fortio --set domain=$DOMAIN $*
 
 
     kubectl create ns fortio-nolabel
-    iop fortio-nolabel fortio-nolabel $IBASE/test/fortio --set domain=$DOMAIN $*
+    iop fortio-nolabel fortio-nolabel ${BASE}/test/fortio --set domain=$DOMAIN $*
 
 
-    iop none none $IBASE/test/none $*
+    iop none none ${BASE}/test/none $*
 
     # Using istio-system (can be pilot10 or pilot11) annotation
     kubectl create ns test
@@ -298,7 +302,7 @@ function iop_test_apps() {
     kubectl -n bookinfo apply -f $TOP/src/istio.io/samples/bookinfo/kube/bookinfo.yaml
 
     kubectl create ns httpbin
-    kubectl -n httpbin apply -f $TOP/src/istio.io/samples/httpbin/httpbin.yaml
+    kubectl -n httpbin apply -f ${BASE}/test/k8s/httpbin.yaml
 
     #kubectl -n cassandra apply -f test/cassandra
 }
@@ -432,6 +436,6 @@ function istio_cfg() {
 
 
 function iop() {
-    $IBASE/bin/iop $*
+    ${BASE}/bin/iop $*
 }
 
