@@ -146,7 +146,6 @@ func startEnvoy() error {
 //-  http proxy on 15002 (so tests can be run without iptables)
 //- config from $ISTIO_CONFIG dir (defaults to in-source tests/testdata/config)
 func startPilot() error {
-	stop := make(chan struct{})
 
 	mcfg := model.DefaultMeshConfig()
 	mcfg.ProxyHttpPort = 15002
@@ -176,6 +175,7 @@ func startPilot() error {
 		},
 		MeshConfig:       &mcfg,
 		KeepaliveOptions: keepalive.DefaultOption(),
+		Stop:             make(chan struct{}),
 	}
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
@@ -193,7 +193,7 @@ func startPilot() error {
 	}
 
 	// Start the server.
-	if err := s.Start(stop); err != nil {
+	if err := s.Start(args.Stop); err != nil {
 		return err
 	}
 	return nil

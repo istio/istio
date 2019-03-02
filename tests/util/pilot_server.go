@@ -104,6 +104,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		},
 		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
 		KeepaliveOptions:  keepalive.DefaultOption(),
+		Stop:              make(chan struct{}),
 		ForceStop:         true,
 		// TODO: add the plugins, so local tests are closer to reality and test full generation
 		// Plugins:           bootstrap.DefaultPlugins,
@@ -123,9 +124,8 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		return nil, nil, err
 	}
 
-	stop := make(chan struct{})
 	// Start the server.
-	if err := s.Start(stop); err != nil {
+	if err := s.Start(args.Stop); err != nil {
 		return nil, nil, err
 	}
 
@@ -166,6 +166,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		return false, nil
 	})
 	return s, func() {
-		close(stop)
+		close(args.Stop)
 	}, err
 }

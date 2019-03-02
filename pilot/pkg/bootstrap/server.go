@@ -178,6 +178,7 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
+	Stop                 chan struct{}
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -225,6 +226,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		} else {
 			args.Config.ClusterRegistriesNamespace = model.IstioSystemNamespace
 		}
+	}
+	if args.Config.ControllerOptions.Stop == nil {
+		args.Config.ControllerOptions.Stop = args.Stop
 	}
 
 	s := &Server{
@@ -858,10 +862,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		}
 	}
 
-	controller := crd.NewController(configClient, args.Config.ControllerOptions).(*crd.Controller)
-	//dummyStop := make(chan struct{})
-	//controller.WaitForSync(dummyStop)
-	return controller, nil
+	return crd.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
@@ -883,8 +884,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	dummyStop := make(chan struct{})
-	kubectl.WaitForSync(dummyStop)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{

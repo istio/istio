@@ -91,6 +91,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		DomainSuffix:     m.DomainSuffix,
 		XDSUpdater:       m.XDSUpdater,
 		ClusterID:        clusterID,
+		Stop:             stopCh,
 	})
 	kubectl.InitNetworkLookup(m.meshNetworks)
 

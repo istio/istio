@@ -85,7 +85,7 @@ type ControllerOptions struct {
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
 
-	stop chan struct{}
+	Stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -146,6 +146,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[model.Hostname]*model.Service),
 		externalNameSvcInstanceMap: make(map[model.Hostname][]*model.ServiceInstance),
+		stop:                       options.Stop,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -161,6 +162,16 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
+
+	go out.queue.Run(out.stop)
+
+	go out.services.informer.Run(out.stop)
+	go out.pods.informer.Run(out.stop)
+	go out.nodes.informer.Run(out.stop)
+	go out.endpoints.informer.Run(out.stop)
+
+	cache.WaitForCacheSync(out.stop, out.nodes.informer.HasSynced, out.pods.informer.HasSynced,
+		out.services.informer.HasSynced, out.endpoints.informer.HasSynced)
 
 	return out
 }
@@ -262,18 +273,6 @@ func (c *Controller) WaitForSync(stop <-chan struct{}) {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
-
-	go c.services.informer.Run(stop)
-	go c.pods.informer.Run(stop)
-	go c.nodes.informer.Run(stop)
-
-	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced)
-
-	go c.endpoints.informer.Run(stop)
-
 	<-stop
 	log.Infof("Controller terminated")
 }

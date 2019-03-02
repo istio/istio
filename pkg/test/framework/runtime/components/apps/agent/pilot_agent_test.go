@@ -256,6 +256,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			Registries: []string{},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		Stop:             make(chan struct{}),
 		ForceStop:        true,
 	}
 
@@ -266,13 +267,12 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 	}
 
 	// Start the server
-	stop := make(chan struct{})
-	if err := server.Start(stop); err != nil {
+	if err := server.Start(bootstrapArgs.Stop); err != nil {
 		t.Fatal(err)
 	}
 
 	stopFn := func() {
-		stop <- struct{}{}
+		bootstrapArgs.Stop <- struct{}{}
 	}
 	return server, stopFn
 }

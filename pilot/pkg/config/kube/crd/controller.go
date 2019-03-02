@@ -84,6 +84,11 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 	for _, schema := range client.ConfigDescriptor() {
 		out.addInformer(schema, options.WatchedNamespace, options.ResyncPeriod)
 	}
+	go out.queue.Run(options.Stop)
+
+	for _, ctl := range out.kinds {
+		go ctl.informer.Run(options.Stop)
+	}
 
 	return out
 }
@@ -206,11 +211,6 @@ func (c *Controller) WaitForSync(stop <-chan struct{}) {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
-
-	for _, ctl := range c.kinds {
-		go ctl.informer.Run(stop)
-	}
 
 	<-stop
 	log.Info("Controller terminated")

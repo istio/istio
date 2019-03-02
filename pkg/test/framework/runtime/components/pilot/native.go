@@ -103,6 +103,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		},
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:   bootstrap.DefaultPlugins,
+		Stop:      c.stopChan,
 		ForceStop: true,
 	}
 

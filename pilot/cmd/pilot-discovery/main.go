@@ -41,6 +41,7 @@ var (
 		CtrlZOptions:         ctrlz.DefaultOptions(),
 		MCPCredentialOptions: creds.DefaultOptions(),
 		KeepaliveOptions:     keepalive.DefaultOption(),
+		Stop:                 make(chan struct{}),
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -63,10 +64,6 @@ var (
 			}
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
-
-			// Create the stop channel for all of the servers.
-			stop := make(chan struct{})
-
 			// Create the server for the discovery service.
 			discoveryServer, err := bootstrap.NewServer(serverArgs)
 			if err != nil {
@@ -74,11 +71,11 @@ var (
 			}
 
 			// Start the server
-			if err := discoveryServer.Start(stop); err != nil {
+			if err := discoveryServer.Start(serverArgs.Stop); err != nil {
 				return fmt.Errorf("failed to start discovery service: %v", err)
 			}
 
-			cmd.WaitSignal(stop)
+			cmd.WaitSignal(serverArgs.Stop)
 			return nil
 		},
 	}

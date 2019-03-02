@@ -157,7 +157,7 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	return nil
 }
 
-func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
+func initLocalPilot(IstioSrc string, stop chan struct{}) (*bootstrap.Server, error) {
 
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
@@ -180,6 +180,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 				string(serviceregistry.KubernetesRegistry)},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		Stop:             stop,
 		ForceStop:        true,
 	}
 	// Create the server for the discovery service.
@@ -222,7 +223,7 @@ func TestLocalPilotStart(t *testing.T) {
 	}()
 
 	istioPath := os.Getenv("GOPATH") + "/src/istio.io/istio"
-	pilot, err := initLocalPilot(istioPath)
+	pilot, err := initLocalPilot(istioPath, stop)
 	if err != nil {
 		t.Fatalf("Failed to initialize pilot")
 	}

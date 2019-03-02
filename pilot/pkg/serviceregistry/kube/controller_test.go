@@ -150,7 +150,7 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
+		Stop:             make(chan struct{}),
 	})
 	go ctl.Run(ctl.stop)
 	return ctl, fx
@@ -164,7 +164,7 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
+		Stop:             make(chan struct{}),
 	})
 	c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
 		t.Log("Instance event received")
