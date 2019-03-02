@@ -247,7 +247,7 @@ func (s *State) populateLabelSelectorInAuthenticationPolicy(_ *snapshot.InMemory
 	for name, entry := range state.entries {
 		policy, err := conversions.ToAuthenticationPolicy(entry)
 		if err != nil {
-			scope.Errorf("error converting authentication policy", err)
+			scope.Errorf("error converting authentication policy: %v", err)
 			return
 		}
 

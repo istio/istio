@@ -15,10 +15,11 @@
 package conversions
 
 import (
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"reflect"
 	"sort"
 	"testing"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 func TestAuthConverter(t *testing.T) {

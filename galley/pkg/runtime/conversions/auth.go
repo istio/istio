@@ -16,12 +16,14 @@ package conversions
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/gogo/protobuf/proto"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"strings"
 )
 
 // ServiceToSelector maps service to label selectors.
