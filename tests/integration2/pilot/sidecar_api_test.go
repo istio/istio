@@ -2,7 +2,14 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework2"
+	"istio.io/istio/pkg/test/framework2/components/galley"
+	"istio.io/istio/pkg/test/framework2/components/mixer"
+	pilot2 "istio.io/istio/pkg/test/framework2/components/pilot"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,30 +18,23 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/ids"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
-	ctx := framework.GetContext(t)
+	ctx := framework2.NewContext(t)
 	// TODO - remove prior to checkin
 	scopes.Framework.SetOutputLevel(log.DebugLevel)
 
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
-	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Pilot)
 
+	galley := galley.NewOrFail(t, ctx)
+	pilot := pilot2.NewOrFail(t, ctx)
 	// Get the port for mixer checks
-	mixerCheckPort := components.GetMixer(ctx, t).GetCheckAddress().(*net.TCPAddr).Port
-	pilot := components.GetPilot(ctx, t)
+	mixerCheckPort := mixer.NewOrFail(t, ctx).GetCheckAddress().(*net.TCPAddr).Port
 
 	// Simulate proxy identity of a sidecar ...
 	nodeID := &model.Proxy{
@@ -72,34 +72,31 @@ func TestSidecarListeners(t *testing.T) {
 		t.Fatalf("Failed to test as no resource accepted: %v", err)
 	}
 
-	/*
-		// TODO - Re-enable once Galley is wired into Pilot
-		// Load the canonical dataset into Galley and by implication Pilot
-		gal := components.GetGalley(ctx, t)
-		// Apply some config
-		path, err := filepath.Abs("../../testdata/config")
-		if err != nil {
-			t.Fatalf("No such directory: %v", err)
-		}
-		err = gal.ApplyConfigDir(path)
-		if err != nil {
-			t.Fatalf("Error applying directory: %v", err)
-		}
+	// Load the canonical dataset into Galley and by implication Pilot
+	gal := components.GetGalley(ctx, t)
+	// Apply some config
+	path, err := filepath.Abs("../../testdata/config")
+	if err != nil {
+		t.Fatalf("No such directory: %v", err)
+	}
+	err = gal.ApplyConfigDir(path)
+	if err != nil {
+		t.Fatalf("Error applying directory: %v", err)
+	}
 
-		// Now continue to watch on the same stream
-		err = pilot.WatchDiscovery(time.Second*5000,
-			func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-				validator := structpath.AssertThatProto(t, response)
-				if !validator.Accept("{.resources[?(@.address.socketAddress.xxxValue==%v)]}", mixerCheckPort) {
-					return false, nil
-				}
-				validateListenersNoConfig(t, validator, mixerCheckPort)
-				return true, nil
-			})
-		if err != nil {
-			t.Fatalf("Failed to test as no resource accepted: %v", err)
-		}
-	*/
+	// Now continue to watch on the same stream
+	err = pilot.WatchDiscovery(time.Second*5000,
+		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+			validator := structpath.AssertThatProto(t, response)
+			if !validator.Accept("{.resources[?(@.address.socketAddress.xxxValue==%v)]}", mixerCheckPort) {
+				return false, nil
+			}
+			validateListenersNoConfig(t, validator, mixerCheckPort)
+			return true, nil
+		})
+	if err != nil {
+		t.Fatalf("Failed to test as no resource accepted: %v", err)
+	}
 }
 
 /*

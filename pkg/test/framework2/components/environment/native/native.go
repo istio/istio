@@ -15,17 +15,19 @@
 package native
 
 import (
+	meshConfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
-	//// Mesh for configuring pilot.
-	//Mesh *meshConfig.MeshConfig
+	// Mesh for configuring pilot.
+	Mesh *meshConfig.MeshConfig
 
-	//// ServiceManager for all deployed services.
-	//ServiceManager *service.Manager
+	// ServiceManager for all deployed services.
+	ServiceManager *service.Manager
 }
 
 var _ environment.Instance = &Environment{}
