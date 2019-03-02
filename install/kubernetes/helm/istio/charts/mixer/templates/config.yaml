@@ -45,6 +45,8 @@ spec:
       valueType: TIMESTAMP
     request.useragent:
       valueType: STRING
+    request.grpc_message_count:
+      valueType: INT64
     response.code:
       valueType: INT64
     response.duration:
@@ -61,6 +63,8 @@ spec:
       valueType: STRING
     response.grpc_message:
       valueType: STRING
+    response.grpc_message_count:
+      valueType: INT64
     source.uid:
       valueType: STRING
     source.user: # DEPRECATED
