@@ -23,8 +23,8 @@ import (
 
 // Namespace represents a Kubernetes namespace. It is tracked as a resource.
 type Namespace struct {
-	ns string
-	a *kube.Accessor
+	Name string
+	a    *kube.Accessor
 }
 
 var _ io.Closer = &Namespace{}
@@ -32,9 +32,9 @@ var _ resource.Dumper = &Namespace{}
 
 // Close implements io.Closer
 func (n *Namespace) Close() error {
-	if n.ns != "" {
-		ns := n.ns
-		n.ns = ""
+	if n.Name != "" {
+		ns := n.Name
+		n.Name = ""
 		return n.a.DeleteNamespace(ns)
 	}
 

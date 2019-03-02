@@ -33,7 +33,7 @@ func TestBasic(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 
 		gl := galley.NewOrFail(t, s)
-		mx := mixer.NewOrFail(s, gl)
+		mx := mixer.NewOrFail(t, s, gl)
 
 		gl.ApplyConfig(`
 apiVersion: "config.istio.io/v1alpha2"

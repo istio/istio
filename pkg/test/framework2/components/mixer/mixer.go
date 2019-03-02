@@ -43,18 +43,17 @@ func (c *CheckResponse) Succeeded() bool {
 
 func New(s resource.Context, g galley.Instance) (Instance, error) {
 	switch s.Environment().Name() {
-	case native.Name:
+	case environment.Native:
 		return newNative(s, s.Environment().(*native.Environment), g)
 	default:
 		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
 	}
 }
 
-func NewOrFail(c *runtime.TestContext, g galley.Instance) Instance {
+func NewOrFail(t *testing.T, c *runtime.TestContext, g galley.Instance) Instance {
 	i, err := New(c, g)
 	if err != nil {
-		c.T().Fatalf("Error creating Mixer: %v", err)
+		t.Fatalf("Error creating Mixer: %v", err)
 	}
-
 	return i
 }

@@ -196,7 +196,7 @@ metadata:
   name: %s
 spec:
   backend_address: policy-backend.%s.svc.cluster.local:1071
-`, name, c.namespace)
+`, name, c.namespace.Name)
 }
 
 func (c *kubeComponent) Reset() error {

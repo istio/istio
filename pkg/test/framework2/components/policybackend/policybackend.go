@@ -45,17 +45,17 @@ type Instance interface {
 
 func New(s resource.Context) (Instance, error) {
 	switch s.Environment().Name() {
-	case native.Name:
+	case environment.Native:
 		return newNative(s, s.Environment().(*native.Environment))
 	default:
 		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
 	}
 }
 
-func NewOrFail(c *runtime.TestContext) Instance {
+func NewOrFail(t *testing.T, c *runtime.TestContext) Instance {
 	i, err := New(c)
 	if err != nil {
-		c.T().Fatalf("Error creating PolicyBackend: %v", err)
+		t.Fatalf("Error creating PolicyBackend: %v", err)
 	}
 
 	return i

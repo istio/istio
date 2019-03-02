@@ -28,8 +28,8 @@ import (
 
 func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(s)
-		mxr := mixer.NewOrFail(s, gal)
+		gal := galley.NewOrFail(t, s)
+		mxr := mixer.NewOrFail(t, s, gal)
 		be := policybackend.NewOrFail(s)
 
 		gal.ApplyConfig(

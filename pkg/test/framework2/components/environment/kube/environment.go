@@ -96,6 +96,6 @@ func (e *Environment) NewNamespace(s resource.Context, prefix string, inject boo
 
 // ApplyContents applies the given yaml contents to the namespace.
 func (e *Environment) ApplyContents(ns *Namespace, yml string) error {
-	_, err := e.Accessor.ApplyContents(ns.ns, yml)
+	_, err := e.Accessor.ApplyContents(ns.Name, yml)
 	return err
 }
