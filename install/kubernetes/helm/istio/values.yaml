@@ -1,3 +1,12 @@
+# Top level istio values file has the following sections.
+#
+# global: This file is the authoritative and exhaustive source for the global section.
+#
+# chart sections: Every subdirectory inside the charts/ directory has a top level
+#       configuration key in this file. This file overrides the values specified
+#       by the charts/${chartname}/values.yaml.
+#       Check the chart level values file for exhaustive list of configuration options.
+
 #
 # Gateways Configuration, refer to the charts/gateways/values.yaml
 # for detailed configuration
@@ -22,10 +31,15 @@ galley:
 #
 # mixer configuration
 #
-# @see charts/mixer/values.yaml
+# @see charts/mixer/values.yaml, it takes precedence
 mixer:
   enabled: true
+  policy:
+    # if policy is enabled the global.disablePolicyChecks has affect.
+    enabled: false
 
+  telemetry:
+    enabled: true
 #
 # pilot configuration
 #
@@ -221,6 +235,7 @@ global:
   controlPlaneSecurityEnabled: false
 
   # disablePolicyChecks disables mixer policy checks.
+  # if mixer.policy.enabled==true then disablePolicyChecks has affect.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: true
 

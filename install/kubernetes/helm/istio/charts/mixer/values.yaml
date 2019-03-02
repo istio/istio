@@ -10,6 +10,7 @@ env:
   GOMAXPROCS: "6"
 
 policy:
+  # if policy is enabled, global.disablePolicyChecks has affect.
   enabled: false
   replicaCount: 1
   autoscaleEnabled: true
