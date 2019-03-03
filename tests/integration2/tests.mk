@@ -72,6 +72,7 @@ test.integration.kube: | $(JUNIT_REPORT)
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.kube.deploy \
+	--istio.test.kube.deployTimeout 10m \
 	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))

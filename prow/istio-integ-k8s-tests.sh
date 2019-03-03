@@ -73,6 +73,6 @@ make init
 setup_cluster
 
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
-T="-v --istio.test.kube.deployTimeout 10m" \
+T="-v" \
 make test.integration.kube
 
