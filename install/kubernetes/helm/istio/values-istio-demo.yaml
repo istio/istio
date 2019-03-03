@@ -4,11 +4,12 @@
 global:
   proxy:
     accessLogFile: "/dev/stdout"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
 
   disablePolicyChecks: false
-  
-  outboundTrafficPolicy:
-    mode: ALLOW_ANY  
 
 pilot:
   traceSampling: 100.0
@@ -17,6 +18,13 @@ mixer:
   adapters:
     stdio:
       enabled: true
+  resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
  
 grafana:
   enabled: true
@@ -30,3 +38,7 @@ servicegraph:
 kiali:
   enabled: true
   createDemoSecret: true
+
+gateways:
+  istio-egressgateway:
+    enabled: true

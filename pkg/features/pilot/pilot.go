@@ -113,6 +113,13 @@ var (
 		}
 		return time.Second * time.Duration(duration)
 	}
+
+	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
+	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
+	// This is an experimental feature.
+	EnableLocalityLoadBalancing = func() bool {
+		return len(os.Getenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING")) != 0
+	}
 )
 
 var (

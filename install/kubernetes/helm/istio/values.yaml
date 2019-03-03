@@ -4,6 +4,12 @@
 #
 gateways:
   enabled: true
+  istio-egressgateway:
+    # If you are using [egress gateway rules](https://istio.io/docs/examples/advanced-egress/egress-gateway/),
+    # you will need to update Istio and set this enabled option to true. 
+    # Depending on expected egress traffic, you should also adjust CPU 
+    # request and max autoscale replicas for the egress gateway.
+    enabled: false
 
 #
 # sidecar-injector webhook configuration, refer to the
@@ -380,12 +386,15 @@ global:
   trustDomain: ""
 
   # Set the default behavior of the sidecar for handling outbound traffic from the application:
-  # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
-  #   as those defined through ServiceEntries
   # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
   #   services or ServiceEntries for the destination port
+  # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+  #   as those defined through ServiceEntries
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
+  # to services outside of the mesh without any ServiceEntry.
+  # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
   outboundTrafficPolicy:
-    mode: REGISTRY_ONLY
+    mode: ALLOW_ANY
 
   # The namespace where globally shared configurations should be present.
   # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
@@ -397,8 +406,8 @@ global:
   # should be one of the following two options:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
   # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
-  defaultConfigVisibilitySettings:
-  - '*'
+  #defaultConfigVisibilitySettings:
+  #- '*'
 
   sds:
     # SDS enabled. IF set to true, mTLS certificates for the sidecars will be

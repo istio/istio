@@ -119,6 +119,11 @@ message ProxyConfig {
   // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
   string statsd_udp_address = 10;
 
+  // Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+  // See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+  // for details about Envoy's Metrics Service API.
+  string envoy_metrics_service_address = 20;
+
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
   

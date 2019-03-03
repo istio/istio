@@ -60,23 +60,42 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 		// http listener, tcp filter
 		// tcp listener, http filter -- invalid
 
-		// http, http case
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-			// Insert into http connection manager
-			for cnum := range listener.FilterChains {
-				insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsProxyVersionGE11(in.Node))
-			}
-		} else {
-			// tcp listener with some opaque filter or http listener with some opaque filter
-			// We treat both as insert network filter X into network filter chain.
-			// We cannot insert a HTTP in filter in network filter chain.
-			// Even HTTP connection manager is a network filter
-			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
-					f.FilterName)
-				continue
-			}
-			for cnum := range listener.FilterChains {
+		for cnum, lFilterChain := range listener.FilterChains {
+			if util.IsHTTPFilterChain(lFilterChain) {
+				// The listener match logic does not take into account the listener protocol
+				// because filter chains in a listener can have multiple protocols.
+				// for each filter chain, if the filter chain has a http connection manager,
+				// treat it as a http listener
+				if f.ListenerMatch == nil || f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_HTTP {
+					continue
+				}
+
+				// Now that the match condition is true, insert the filter if compatible
+				// http listener, http filter case
+				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+					// Insert into http connection manager
+					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsProxyVersionGE11(in.Node))
+				} else {
+					// http listener, tcp filter
+					insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+				}
+			} else {
+				// The listener match logic does not take into account the listener protocol
+				// because filter chains in a listener can have multiple protocols.
+				// for each filter chain, if the filter chain does not have a http connection manager,
+				// treat it as a tcp listener
+				if f.ListenerMatch == nil || f.ListenerMatch.ListenerProtocol != networking.EnvoyFilter_ListenerMatch_TCP {
+					continue
+				}
+
+				// treat both as insert network filter X into network filter chain.
+				// We cannot insert a HTTP in filter in network filter chain.
+				// Even HTTP connection manager is a network filter
+				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+					log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
+						f.FilterName)
+					continue
+				}
 				insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
 			}
 		}
@@ -158,17 +177,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 		}
 	}
 
-	// Listener protocol
-	switch matchCondition.ListenerProtocol {
-	case networking.EnvoyFilter_ListenerMatch_HTTP:
-		if in.ListenerProtocol != plugin.ListenerProtocolHTTP {
-			return false
-		}
-	case networking.EnvoyFilter_ListenerMatch_TCP:
-		if in.ListenerProtocol != plugin.ListenerProtocolTCP {
-			return false
-		}
-	}
+	// Listener protocol will be matched as we try to insert the filters
 
 	if len(matchCondition.Address) > 0 {
 		if listenerIP == nil {
