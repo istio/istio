@@ -56,12 +56,10 @@ spec:
           - --monitoringAddr=:{{ .Values.global.monitoringPort }}
           - --domain
           - {{ .Values.global.proxy.clusterDomain }}
-          - --appNamespaces
-{{- if .Values.appNamespaces }}
-          - {{ .Values.appNamespaces }}
-{{- else }}
-          - ""
-{{- end }}  
+{{- if .Values.appNamespace }}
+          - --appNamespace
+          - {{ .Values.appNamespace }}
+{{- end }}
 {{- if $.Values.global.controlPlaneSecurityEnabled}}
     {{- if not .Values.sidecar }}
           - --secureGrpcAddr
