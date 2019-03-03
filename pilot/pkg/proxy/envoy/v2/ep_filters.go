@@ -109,7 +109,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 					}
 				}
 
-				// If a gateway address is provided in the configuration use it. If the gateway address 
+				// If a gateway address is provided in the configuration use it. If the gateway address
 				// in the config was a hostname it got already resolved and replaced with an IP address
 				// when loading the config
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
