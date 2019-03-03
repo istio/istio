@@ -39,8 +39,8 @@ option go_package="istio.io/api/mesh/v1alpha1";
 message MeshConfig {
   // Address of the server that will be used by the proxies for policy
   // check calls. By using different names for mixerCheckServer and
-  // mixerReportServer, it is possible to have one set of mixer servers handle
-  // policy check calls while another set of mixer servers handle telemetry
+  // mixerReportServer, it is possible to have one set of Mixer servers handle
+  // policy check calls while another set of Mixer servers handle telemetry
   // calls.
   //
   // NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
@@ -51,17 +51,17 @@ message MeshConfig {
   // calls.
   string mixer_report_server = 2;
 
-  // Disable policy checks by the mixer service. Default
-  // is false, i.e. mixer policy check is enabled by default.
+  // Disable policy checks by the Mixer service. Default
+  // is false, i.e. Mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
 
-  // Allow all traffic in cases when the mixer policy service cannot be reached.
+  // Allow all traffic in cases when the Mixer policy service cannot be reached.
   // Default is false which means the traffic is denied when the client is unable
   // to connect to Mixer.
   bool policy_check_fail_open = 25;
 
-  // Enable session affinity for envoy mixer reports so that calls from a proxy will
-  // always target the same mixer instance.
+  // Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+  // always target the same Mixer instance.
   bool sidecar_to_telemetry_session_affinity = 30;
 
   // Port on which Envoy should listen for incoming connections from
@@ -82,7 +82,7 @@ message MeshConfig {
   // "kubernetes.io/ingress.class" annotation.
   string ingress_class = 7;
 
-  // Name of the kubernetes service used for the istio ingress controller.
+  // Name of theKubernetes service used for the istio ingress controller.
   string ingress_service = 8;
 
   enum IngressControllerMode {
@@ -93,7 +93,7 @@ message MeshConfig {
     // contain any annotation or whose annotations match the value
     // specified in the ingress_class parameter described earlier. Use this
     // mode if Istio ingress controller will be the default ingress
-    // controller for the entire kubernetes cluster.
+    // controller for the entireKubernetes cluster.
     DEFAULT = 1;
 
     // Istio ingress controller will only act on ingress resources whose
@@ -182,7 +182,7 @@ message MeshConfig {
   // Enables clide side policy checks.
   bool enable_client_side_policy_check = 19;
 
-  // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+  // Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
 
@@ -197,14 +197,14 @@ message MeshConfig {
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS).
   // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-  // for k8s service account trustworthy JWT(which is avaialbe for k8s 1.12 or higher), so that K8s API server
-  // mounts k8s service account trustworthy JWT to envoy container, which will be used to request key/cert eventually.
-  // This isn't supported for non-k8s case.
+  // for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server
+  // mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually.
+  // This isn't supported for non-Kubernetes cases.
   bool enable_sds_token_mount = 23;
 
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS).
-  // If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+  // If set to true, Envoy will fetch a normal Kubernetes service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
   // (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
   // and pass to sds server, which will be used to request key/cert eventually.
   // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
@@ -294,7 +294,7 @@ message ConfigSource {
   string address = 1;
 
   // Use the tls_settings to specify the tls mode to use. If the MCP server
-  // uses Istio MTLS and shares the root CA with Pilot, specify the TLS
+  // uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
   // mode as ISTIO_MUTUAL.
   istio.networking.v1alpha3.TLSSettings tls_settings = 2;
 }

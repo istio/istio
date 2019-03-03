@@ -270,7 +270,7 @@ message Instance {
 // Each adapter implementation defines its own `params` proto.
 //
 // In the following example we define a `metrics` handler for the `prometheus` adapter.
-// The example is in the form of a kubernetes resource:
+// The example is in the form of a Kubernetes resource:
 // * The `metadata.name` is the name of the handler
 // * The `kind` refers to the adapter name
 // * The `spec` block represents adapter-specific configuration as well as the connection information
@@ -318,7 +318,7 @@ message Instance {
 // ---
 // ```
 message Handler {
-  // Required. Must be unique in the entire mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
+  // Required. Must be unique in the entire Mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
   // to refer to this handler.
   string name = 1;
 
@@ -514,19 +514,19 @@ message OAuth {
   map<string, string> endpoint_params = 5;
 }
 
-// Mutual let operator specify tls config for mixer as client if mtls is used to
+// Mutual let operator specify TLS configuration for Mixer as client if mutual TLS is used to
 // secure connection to adapter backend.
 message Mutual {
-  // The path to the file holding the private key for mtls. If omitted, the
-  // default mixer private key will be used.
+  // The path to the file holding the private key for mutual TLS. If omitted, the
+  // default Mixer private key will be used.
   string private_key = 1;
 
-  // The path to the file holding client certificate for mtls. If omitted, the
-  // default mixer certificates will be used.
+  // The path to the file holding client certificate for mutual TLS. If omitted, the
+  // default Mixer certificates will be used.
   string client_certificate = 2;
 
   // The path to the file holding additional CA certificates that are needed to
-  // verify the presented adapter certificates. By default mixer should already
+  // verify the presented adapter certificates. By default Mixer should already
   // include Istio CA certificates and system certificates in cert pool.
   string ca_certificates = 3;
 

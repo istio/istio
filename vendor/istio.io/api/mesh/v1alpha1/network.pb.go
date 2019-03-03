@@ -425,7 +425,7 @@ func _Network_IstioNetworkGateway_OneofSizer(msg proto.Message) (n int) {
 // networks:
 // - network1:
 //   - endpoints:
-//     - fromRegistry: registry1 #must match secret name in kubernetes
+//     - fromRegistry: registry1 #must match secret name inKubernetes
 //     - fromCidr: 192.168.100.0/22 #a VM network for example
 //     gateways:
 //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local

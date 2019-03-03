@@ -8,5 +8,4 @@ HUB=gcr.io/istio-testing
 VERSION=$(date +%Y-%m-%d)
 
 docker build --no-cache -t $HUB/api-build-tools:$VERSION .
-
-gcloud docker -- push $HUB/api-build-tools:$VERSION
+docker push $HUB/api-build-tools:$VERSION

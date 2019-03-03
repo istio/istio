@@ -29,29 +29,7 @@
 // actual choice of the version is determined by the proxy/sidecar, enabling the
 // application code to decouple itself from the evolution of dependent
 // services.
-
-package v1alpha3
-
-import (
-	encoding_binary "encoding/binary"
-	fmt "fmt"
-	proto "github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
-	io "io"
-	math "math"
-)
-
-// Reference imports to suppress errors if they are not otherwise used.
-var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
-
+//
 // A `VirtualService` defines a set of traffic routing rules to apply when a host is
 // addressed. Each routing rule defines matching criteria for traffic of a specific
 // protocol. If the traffic is matched, then it is sent to a named destination service
@@ -112,6 +90,29 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //       version: v2
 // ```
 //
+
+package v1alpha3
+
+import (
+	encoding_binary "encoding/binary"
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+)
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 type VirtualService struct {
 	// REQUIRED. The destination hosts to which traffic is being sent. Could
 	// be a DNS name with wildcard prefix or an IP address.  Depending on the
@@ -169,7 +170,7 @@ type VirtualService struct {
 	// matching an incoming request is used.
 	Tcp []*TCPRoute `protobuf:"bytes,4,rep,name=tcp,proto3" json:"tcp,omitempty"`
 	// A list of namespaces to which this virtual service is exported. Exporting a
-	// virtual service allows it to used by sidecars and gateways defined in
+	// virtual service allows it to be used by sidecars and gateways defined in
 	// other namespaces. This feature provides a mechanism for service owners
 	// and mesh administrators to control the visibility of virtual services
 	// across namespace boundaries.
@@ -178,8 +179,11 @@ type VirtualService struct {
 	// namespaces by default.
 	//
 	// The value "." is reserved and defines an export to the same namespace that
-	// the virtual service is declared in, similarly the value "*" is reserved and
+	// the virtual service is declared in. Similarly the value "*" is reserved and
 	// defines an export to all namespaces.
+	//
+	// NOTE: in the current release, the `exportTo` value is restricted to
+	// "." or "*" (i.e., the current namespace or all namespaces).
 	ExportTo             []string `protobuf:"bytes,6,rep,name=export_to,json=exportTo,proto3" json:"export_to,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -267,7 +271,7 @@ func (m *VirtualService) GetExportTo() []string {
 // registry. Istio's service registry is composed of all the services found
 // in the platform's service registry (e.g., Kubernetes services, Consul
 // services), as well as services declared through the
-// [ServiceEntry](#ServiceEntry) resource.
+// [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry) resource.
 //
 // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -280,7 +284,7 @@ func (m *VirtualService) GetExportTo() []string {
 //
 // The following Kubernetes example routes all traffic by default to pods
 // of the reviews service with label "version: v1" (i.e., subset v1), and
-// some to subset v2, in a kubernetes environment.
+// some to subset v2, in a Kubernetes environment.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -392,7 +396,7 @@ type Destination struct {
 	// REQUIRED. The name of a service from the service registry. Service
 	// names are looked up from the platform's service registry (e.g.,
 	// Kubernetes services, Consul services, etc.) and from the hosts
-	// declared by [ServiceEntry](#ServiceEntry). Traffic forwarded to
+	// declared by [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Traffic forwarded to
 	// destinations that are not found in either of the two, will be dropped.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"

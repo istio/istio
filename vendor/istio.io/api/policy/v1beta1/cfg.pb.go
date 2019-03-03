@@ -672,7 +672,7 @@ func (m *Instance) GetAttributeBindings() map[string]string {
 // Each adapter implementation defines its own `params` proto.
 //
 // In the following example we define a `metrics` handler for the `prometheus` adapter.
-// The example is in the form of a kubernetes resource:
+// The example is in the form of a Kubernetes resource:
 // * The `metadata.name` is the name of the handler
 // * The `kind` refers to the adapter name
 // * The `spec` block represents adapter-specific configuration as well as the connection information
@@ -720,7 +720,7 @@ func (m *Instance) GetAttributeBindings() map[string]string {
 // ---
 // ```
 type Handler struct {
-	// Required. Must be unique in the entire mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
+	// Required. Must be unique in the entire Mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
 	// to refer to this handler.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. The name of the compiled in adapter this handler instantiates. For referencing non compiled-in
@@ -1625,17 +1625,17 @@ func (m *OAuth) GetEndpointParams() map[string]string {
 	return nil
 }
 
-// Mutual let operator specify tls config for mixer as client if mtls is used to
+// Mutual let operator specify TLS configuration for Mixer as client if mutual TLS is used to
 // secure connection to adapter backend.
 type Mutual struct {
-	// The path to the file holding the private key for mtls. If omitted, the
-	// default mixer private key will be used.
+	// The path to the file holding the private key for mutual TLS. If omitted, the
+	// default Mixer private key will be used.
 	PrivateKey string `protobuf:"bytes,1,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
-	// The path to the file holding client certificate for mtls. If omitted, the
-	// default mixer certificates will be used.
+	// The path to the file holding client certificate for mutual TLS. If omitted, the
+	// default Mixer certificates will be used.
 	ClientCertificate string `protobuf:"bytes,2,opt,name=client_certificate,json=clientCertificate,proto3" json:"client_certificate,omitempty"`
 	// The path to the file holding additional CA certificates that are needed to
-	// verify the presented adapter certificates. By default mixer should already
+	// verify the presented adapter certificates. By default Mixer should already
 	// include Istio CA certificates and system certificates in cert pool.
 	CaCertificates string `protobuf:"bytes,3,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
 	// Indicates the name of adapter backend server which is useful for routing with
