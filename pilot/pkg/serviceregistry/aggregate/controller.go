@@ -144,6 +144,13 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				sp.Mutex.Lock()
 				sp.ClusterVIPs[r.ClusterID] = s.Address
 				sp.Mutex.Unlock()
+
+				if sp.ExternalAddresses == nil {
+					sp.ExternalAddresses = make(map[string][]string)
+				}
+				sp.Mutex.Lock()
+				sp.ExternalAddresses[r.ClusterID] = s.Attributes.LoadBalancerAddresses
+				sp.Mutex.Unlock()
 			}
 		}
 		clusterAddressesMutex.Unlock()

@@ -88,30 +88,50 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				continue
 			}
 
+			var registryName string
+			for _, eps := range networkConf.Endpoints {
+				if eps != nil && len(eps.GetFromRegistry()) > 0 {
+					registryName = eps.GetFromRegistry()
+				}
+			}
+
 			// There may be multiple gateways for the network. Add an LbEndpoint for
 			// each one of them
 			for _, gw := range gws {
 				var gwEp *endpoint.LbEndpoint
-				//TODO add support for getting the gateway address from the service registry
+				var gwAddresses []string
 
-				// If the gateway address in the config was a hostname it got already resolved
-				// and replaced with an IP address when loading the config
-				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-					addr := util.BuildAddress(gw.GetAddress(), gw.Port)
-					gwEp = &endpoint.LbEndpoint{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-							Endpoint: &endpoint.Endpoint{
-								Address: &addr,
-							},
-						},
-						LoadBalancingWeight: &types.UInt32Value{
-							Value: w,
-						},
+				// First, try to find the gateway addresses by the provided service name
+				if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+					svc, err := env.GetService(model.Hostname(gwSvcName))
+					if svcAddress, found := svc.ExternalAddresses[registryName]; err == nil && found && len(svcAddress) > 0 {
+						gwAddresses = svcAddress
 					}
 				}
 
-				if gwEp != nil {
-					lbEndpoints = append(lbEndpoints, *gwEp)
+				// If a gateway address is provided in the configuration use it. If the gateway address 
+				// in the config was a hostname it got already resolved and replaced with an IP address
+				// when loading the config
+				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+					gwAddresses = []string{gw.GetAddress()}
+				}
+
+				// If gateway addresses were found, create an endpoint for each one of them
+				if len(gwAddresses) > 0 {
+					for _, gwAddr := range gwAddresses {
+						epAddr := util.BuildAddress(gwAddr, gw.Port)
+						gwEp = &endpoint.LbEndpoint{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &epAddr,
+								},
+							},
+							LoadBalancingWeight: &types.UInt32Value{
+								Value: w,
+							},
+						}
+						lbEndpoints = append(lbEndpoints, *gwEp)
+					}
 				}
 			}
 		}
