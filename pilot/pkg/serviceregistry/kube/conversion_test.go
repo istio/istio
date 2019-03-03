@@ -351,7 +351,7 @@ func TestLBServiceConversion(t *testing.T) {
 					Protocol: v1.ProtocolTCP,
 				},
 			},
-			Type:         v1.ServiceTypeLoadBalancer,
+			Type: v1.ServiceTypeLoadBalancer,
 		},
 		Status: v1.ServiceStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
@@ -371,7 +371,7 @@ func TestLBServiceConversion(t *testing.T) {
 
 	for i, addr := range addresses {
 		var want string
-		if len(addr.IP)>0 {
+		if len(addr.IP) > 0 {
 			want = addr.IP
 		} else {
 			want = addr.Hostname
@@ -381,7 +381,7 @@ func TestLBServiceConversion(t *testing.T) {
 			t.Errorf("Expected address %s but got %s", want, service.Attributes.LoadBalancerAddresses[i])
 		}
 	}
- }
+}
 
 func TestProbesToPortsConversion(t *testing.T) {
 
