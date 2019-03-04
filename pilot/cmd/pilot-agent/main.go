@@ -78,6 +78,12 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
+	tlsServerCertChain       string
+	tlsServerKey             string
+	tlsServerRootCert        string
+	tlsClientCertChain       string
+	tlsClientKey             string
+	tlsClientRootCert        string
 	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 
@@ -143,18 +149,39 @@ var (
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
-			// Watch default cert locations if none were set
-			if len(tlsCertsToWatch) == 0 {
-				tlsCertsToWatch = []string{
-					path.Join(model.AuthCertsPath, model.CertChainFilename),
-					path.Join(model.AuthCertsPath, model.KeyFilename),
-					path.Join(model.AuthCertsPath, model.RootCertFilename),
-				}
-				if role.Type == model.Ingress {
-					tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressCertFilename))
-					tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressKeyFilename))
-				}
+			// Add cert paths as node metadata only if they differ from defaults
+			if tlsServerCertChain != model.DefaultCertChain {
+				role.Metadata[model.NodeMetadataTlsServerCertChain] = tlsServerCertChain
 			}
+			if tlsServerKey != model.DefaultKey {
+				role.Metadata[model.NodeMetadataTlsServerKey] = tlsServerKey
+			}
+			if tlsServerRootCert != model.DefaultRootCert {
+				role.Metadata[model.NodeMetadataTlsServerRootCert] = tlsServerRootCert
+			}
+
+			if tlsClientCertChain != model.DefaultCertChain {
+				role.Metadata[model.NodeMetadataTlsClientCertChain] = tlsClientCertChain
+			}
+			if tlsClientKey != model.DefaultKey {
+				role.Metadata[model.NodeMetadataTlsClientKey] = tlsClientKey
+			}
+			if tlsClientRootCert != model.DefaultRootCert {
+				role.Metadata[model.NodeMetadataTlsClientRootCert] = tlsClientRootCert
+			}
+
+			tlsCertsToWatch = []string{
+				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
+				tlsClientCertChain, tlsClientKey, tlsClientCertChain,
+			}
+
+			if role.Type == model.Ingress {
+				tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressCertFilename))
+				tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressKeyFilename))
+			}
+
+			// dedupe cert paths so we don't set up 2 watchers for the same file:
+			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
 			proxyConfig := model.DefaultProxyConfig()
 
@@ -170,7 +197,6 @@ var (
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
-			proxyConfig.TlsCertsToWatch = tlsCertsToWatch
 
 			var pilotSAN []string
 			ns := ""
@@ -338,7 +364,7 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
-			watcher := envoy.NewWatcher(proxyConfig.TlsCertsToWatch, agent.ConfigCh())
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
 			go waitForCompletion(ctx, watcher.Run)
@@ -348,6 +374,18 @@ var (
 		},
 	}
 )
+
+func dedupeStrings(in []string) []string {
+	stringMap := map[string]bool{}
+	for _, c := range in {
+		stringMap[c] = true
+	}
+	unique := make([]string, 0)
+	for c := range stringMap {
+		unique = append(unique, c)
+	}
+	return unique
+}
 
 func waitForCompletion(ctx context.Context, fn func(context.Context)) {
 	wg.Add(1)
@@ -498,8 +536,23 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-	proxyCmd.PersistentFlags().StringSlice("tlsCertsToWatch", tlsCertsToWatch,
-		"Comma-separated list of absolute cert file paths to watch for changes. (e.g. /etc/certs/key.pem,/etc/certs/cert.pem)")
+
+	// server certs
+	proxyCmd.PersistentFlags().StringVar(&tlsServerCertChain, "tlsServerCertChain",
+		model.DefaultCertChain, "Absolute path to server cert-chain file used for istio mTLS")
+	proxyCmd.PersistentFlags().StringVar(&tlsServerKey, "tlsServerKey",
+		model.DefaultKey, "Absolute path to server private key file used for istio mTLS")
+	proxyCmd.PersistentFlags().StringVar(&tlsServerRootCert, "tlsServerRootCert",
+		model.DefaultRootCert, "Absolute path to server root cert file used for istio mTLS")
+
+	// client certs
+	proxyCmd.PersistentFlags().StringVar(&tlsClientCertChain, "tlsClientCertChain",
+		model.DefaultCertChain, "Absolute path to client cert-chain file used for istio mTLS")
+	proxyCmd.PersistentFlags().StringVar(&tlsClientKey, "tlsSClientKey",
+		model.DefaultKey, "Absolute path to client key file used for istio mTLS")
+	proxyCmd.PersistentFlags().StringVar(&tlsClientRootCert, "tlsClientRootCert",
+		model.DefaultRootCert, "Absolute path to client root cert file used for istio mTLS")
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 

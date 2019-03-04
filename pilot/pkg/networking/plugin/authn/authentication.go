@@ -29,11 +29,9 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -89,13 +87,7 @@ func GetMutualTLS(policy *authn.Policy) *authn.MutualTls {
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn.Policy,
-	serverCertPaths *meshconfig.ServerCertPaths,
-	sdsUdsPath string,
-	sdsUseTrustworthyJwt,
-	sdsUseNormalJwt bool,
-	meta map[string]string,
-) []plugin.FilterChain {
+func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
@@ -118,23 +110,33 @@ func setupFilterChains(authnPolicy *authn.Policy,
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
-
-		if serverCertPaths == nil {
-			paths := defaultServerCertPaths(meta[pilot.BaseDir])
-			serverCertPaths = &paths
+		tlsServerRootCert := model.DefaultRootCert
+		if tlsServerRootCertFromMetadata, ok := meta[model.NodeMetadataTlsServerRootCert]; ok {
+			tlsServerRootCert = tlsServerRootCertFromMetadata
 		}
 
-		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(serverCertPaths.RootCert, []string{} /*subjectAltNames*/)
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
+
+		tlsServerCertChain := model.DefaultCertChain
+		if tlsServerCertChainFromMetadata, ok := meta[model.NodeMetadataTlsServerCertChain]; ok {
+			tlsServerCertChain = tlsServerCertChainFromMetadata
+		}
+
+		tlsServerKey := model.DefaultKey
+		if tlsServerKeyFromMetadata, ok := meta[model.NodeMetadataTlsServerKey]; ok {
+			tlsServerKey = tlsServerKeyFromMetadata
+		}
+
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: serverCertPaths.CertChain,
+						Filename: tlsServerCertChain,
 					},
 				},
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: serverCertPaths.Key,
+						Filename: tlsServerKey,
 					},
 				},
 			},
@@ -187,13 +189,7 @@ func setupFilterChains(authnPolicy *authn.Policy,
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy,
-		in.Env.Mesh.MeshTrafficServerCertPaths,
-		in.Env.Mesh.SdsUdsPath,
-		in.Env.Mesh.EnableSdsTokenMount,
-		in.Env.Mesh.SdsUseK8SSaJwt,
-		in.Node.Metadata,
-	)
+	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt, in.Node.Metadata)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
@@ -395,15 +391,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	}
 
 	return nil
-}
-
-func defaultServerCertPaths(configuredBasePath string) meshconfig.ServerCertPaths {
-	base := configuredBasePath + model.AuthCertsPath
-	return meshconfig.ServerCertPaths{
-		CertChain: base + model.CertChainFilename,
-		Key:       base + model.KeyFilename,
-		RootCert:  base + model.RootCertFilename,
-	}
 }
 
 // OnInboundCluster implements the Plugin interface method.

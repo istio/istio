@@ -20,7 +20,6 @@ import (
 	"net"
 	"net/http"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -106,14 +105,6 @@ func ValidatePort(port int) error {
 		return nil
 	}
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
-}
-
-// ValidateCertPath checks that tls cert path to watch is absolute
-func ValidateCertPath(certPath string) error {
-	if filepath.IsAbs(certPath) {
-		return nil
-	}
-	return fmt.Errorf("cert file path must be non-empty and absolute: %s", certPath)
 }
 
 // Validate checks that each name conforms to the spec and has a ProtoMessage
@@ -1116,14 +1107,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
-	if mesh.MeshTrafficServerCertPaths != nil {
-		errs = multierror.Append(errs,
-			multierror.Prefix(ValidateCertPath(mesh.MeshTrafficServerCertPaths.Key), "MeshTrafficServerCertPaths.Key: "),
-			multierror.Prefix(ValidateCertPath(mesh.MeshTrafficServerCertPaths.CertChain), "MeshTrafficServerCertPaths.CertChain: "),
-			multierror.Prefix(ValidateCertPath(mesh.MeshTrafficServerCertPaths.RootCert), "MeshTrafficServerCertPaths.RootCert: "),
-		)
-	}
-
 	return
 }
 
@@ -1185,12 +1168,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	default:
 		errs = multierror.Append(errs,
 			fmt.Errorf("unrecognized control plane auth policy %q", config.ControlPlaneAuthPolicy))
-	}
-
-	for _, certPath := range config.TlsCertsToWatch {
-		if err := ValidateCertPath(certPath); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy tls cert path:"))
-		}
 	}
 
 	return
