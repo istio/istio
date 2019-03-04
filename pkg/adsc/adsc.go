@@ -358,9 +358,9 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
 			// ignore for now
-		// Disabling the Redis filter to fix the issue mentioned in https://github.com/istio/istio/issues/12139
-		// } else if f0.Name == "envoy.redis_proxy" {
-		// 	// ignore for now
+			// Disabling the Redis filter to fix the issue mentioned in https://github.com/istio/istio/issues/12139
+			// } else if f0.Name == "envoy.redis_proxy" {
+			// 	// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now
 		} else {
