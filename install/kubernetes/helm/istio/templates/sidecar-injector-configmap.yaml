@@ -189,9 +189,13 @@ data:
           value: |
                  {{ "[[ toJSON .ObjectMeta.Labels ]]" }}
         {{ "[[ end ]]" }}
+        {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapMerge`) ]]" }}
+        - name: ISTIO_BOOTSTRAP_MERGE
+          value: "/etc/istio/bootstrap-merge/bootstrap_merge.json"
+        {{ "[[- end ]]" }}
         {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
-        - name: ISTIO_BOOTSTRAP_OVERRIDE
-          value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
+        - name: ISTIO_BOOTSTRAP
+          value: "/etc/istio/bootstrap-override/bootstrap_override.json"
         {{ "[[- end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
@@ -232,9 +236,13 @@ data:
 {{- end }}
         {{ "[[ end -]]" }}
         volumeMounts:
+        {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapMerge`) ]]" }}
+        - mountPath: /etc/istio/bootstrap-merge
+          name: bootstrap-merge-volume
+        {{ "[[- end ]]" }}
         {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
-        - mountPath: /etc/istio/custom-bootstrap
-          name: custom-bootstrap-volume
+        - mountPath: /etc/istio/bootstrap-override
+          name: bootstrap-override-volume
         {{ "[[- end ]]" }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -263,8 +271,13 @@ data:
           {{ "[[ end ]]" }}
           {{ "[[- end ]]" }}
       volumes:
+      {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapMerge`) ]]" }}
+      - name: bootstrap-merge-volume
+        configMap:
+          name: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/bootstrapMerge` `` ]]" }}
+      {{ "[[- end ]]" }}
       {{ "[[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]" }}
-      - name: custom-bootstrap-volume
+      - name: bootstrap-override-volume
         configMap:
           name: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` `` ]]" }}
       {{ "[[- end ]]" }}

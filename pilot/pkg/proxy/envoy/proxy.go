@@ -116,7 +116,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE"))
+	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_MERGE"))
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */

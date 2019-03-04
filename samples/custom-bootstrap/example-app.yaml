@@ -7,7 +7,8 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/bootstrapOverride: "istio-custom-bootstrap-config"
+        sidecar.istio.io/bootstrapMerge: "istio-bootstrap-merge-config"
+        sidecar.istio.io/bootstrapOverride: "istio-bootstrap-override-config"
       labels:
         app: helloworld
         version: v1
