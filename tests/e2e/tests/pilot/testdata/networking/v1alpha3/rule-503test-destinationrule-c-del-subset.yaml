@@ -4,8 +4,11 @@ metadata:
   name: destination-rule-c
 spec:
   host: c
-  {{if eq .globalMTlsEnable "true"}}
   trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1
+  {{if eq .globalMTlsEnable "true"}}
     tls:
       mode: ISTIO_MUTUAL
   {{end}}
