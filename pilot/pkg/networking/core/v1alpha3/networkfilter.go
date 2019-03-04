@@ -143,7 +143,9 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 			filterstack = append(filterstack, *tcpFilter)
 		}
 	case model.ProtocolMySQL:
-		filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		if util.IsProxyVersionGE11(node) {
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		}
 		filterstack = append(filterstack, *tcpFilter)
 	default:
 		filterstack = append(filterstack, *tcpFilter)
