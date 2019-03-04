@@ -136,12 +136,13 @@ func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *li
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
 		filterstack = append(filterstack, *tcpFilter)
-	case model.ProtocolRedis:
-		if util.IsProxyVersionGE11(node) {
-			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
-		} else {
-			filterstack = append(filterstack, *tcpFilter)
-		}
+	// Disabling the Redis filter to fix the issue mentioned in https://github.com/istio/istio/issues/12139
+	// case model.ProtocolRedis:
+	// 	if util.IsProxyVersionGE11(node) {
+	// 		filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsProxyVersionGE11(node)))
+	// 	} else {
+	// 		filterstack = append(filterstack, *tcpFilter)
+	// 	}
 	case model.ProtocolMySQL:
 		if util.IsProxyVersionGE11(node) {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
