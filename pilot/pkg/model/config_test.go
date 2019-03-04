@@ -425,7 +425,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
 		}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyByDestination(service, port, testCase.labels)
+		out := store.AuthenticationPolicyForWorkload(service, port, testCase.labels)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
@@ -547,10 +547,10 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 				Namespace: testCase.namespace,
 			},
 		}
-		out := store.AuthenticationPolicyByDestination(service, port, nil)
+		out := store.AuthenticationPolicyForWorkload(service, port, nil)
 
 		if out == nil {
-			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
+			// With global authentication policy, it's guarantee AuthenticationPolicyForWorkload always
 			// return non `nill` config.
 			t.Errorf("AuthenticationPolicy(%s:%d) => cannot be nil", testCase.hostname, testCase.port)
 		} else {

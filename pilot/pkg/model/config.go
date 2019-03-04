@@ -266,13 +266,13 @@ type IstioConfigStore interface {
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
 
-	// AuthenticationPolicyByDestination selects authentication policy associated
-	// with a service (or labels if specified) + port.
+	// AuthenticationPolicyForWorkload selects authentication policy associated
+	// with a workload (or labels if specified) + port.
 	// If there are more than one policies at different scopes (global, namespace, service)
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(service *Service, port *Port, labels Labels) *Config
+	AuthenticationPolicyForWorkload(service *Service, port *Port, labels Labels) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -868,7 +868,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port, labels Labels) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, port *Port, labels Labels) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}

@@ -366,7 +366,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Port: p.Port,
 			}
 			// TODO: support querying with labels.
-			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p, nil)
+			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyForWorkload(ss, p, nil)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
