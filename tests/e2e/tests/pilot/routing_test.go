@@ -715,13 +715,16 @@ func TestDestinationRuleExportTo(t *testing.T) {
 		expectedSuccess bool
 		onFailure       func()
 	}{
-		{
-			testName:        "private destination rule in same namespace",
-			rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
-			src:             "a",
-			dst:             "c",
-			expectedSuccess: true,
-		},
+		// TODO: this test cannot be enabled until we start running e2e tests in multiple namespaces or
+		// in a namespace other than istio-system - which happens to be the config root namespace
+		// only public rules work in the config root namespace
+		//{
+		//	testName:        "private destination rule in same namespace",
+		//	rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
+		//	src:             "a",
+		//	dst:             "c",
+		//	expectedSuccess: true,
+		//},
 		{
 			testName:        "private destination rule in different namespaces",
 			rules:           map[string][]string{"dns1": {"destination-rule-c-private.yaml"}},
