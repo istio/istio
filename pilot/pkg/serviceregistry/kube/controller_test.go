@@ -237,18 +237,7 @@ func TestServices(t *testing.T) {
 
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
-
-	test.Eventually(t, "successfully created endpoints", func() bool {
-		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil {
-			t.Errorf("error gettings instance by port: %v", anotherErr)
-			return false
-		}
-		if len(ep) == 2 {
-			return true
-		}
-		return false
-	})
+	<-fx.Events
 
 	svc, err := sds.GetService(hostname)
 	if err != nil {
