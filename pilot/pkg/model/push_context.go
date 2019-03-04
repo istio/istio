@@ -502,7 +502,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return nil
 	}
 
-	// HACK: If the proxy config namespace is same as the root config namespace
+	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
 	// Destination rules are defined here for global purposes. We dont want these
