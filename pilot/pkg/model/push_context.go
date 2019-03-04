@@ -502,9 +502,11 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return nil
 	}
 
-	// TODO: once we move default DestinationRule to root config namespace, remove the below line.
-	if proxy.ConfigNamespace != IstioSystemNamespace ||
-		(ps.Env != nil && ps.Env.Mesh != nil && ps.Env.Mesh.RootNamespace != "") {
+	// TODO: once we move default DestinationRule to root config namespace, remove the check below.
+	// Until then, we need an exception for istio-system namespace, as it happens to be the home of
+	// global dest rules for mTLS, as well as the home of the gateway proxy. The root config namespace
+	// is technically not supposed to have any proxy
+	if proxy.ConfigNamespace != IstioSystemNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if host, ok := MostSpecificHostMatch(service.Hostname,
