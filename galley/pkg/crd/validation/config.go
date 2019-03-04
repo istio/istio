@@ -31,16 +31,27 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admissionregistration/v1beta1"
+<<<<<<< HEAD
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+=======
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+<<<<<<< HEAD
 	"istio.io/pkg/log"
+=======
+
+	"istio.io/istio/pkg/log"
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 )
 
 var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
@@ -57,6 +68,7 @@ var (
 	}
 )
 
+<<<<<<< HEAD
 // WebhookConfigController implements the validating admission webhook for validating Istio configuration.
 type WebhookConfigController struct {
 	mu                   sync.RWMutex
@@ -66,6 +78,24 @@ type WebhookConfigController struct {
 	webhookParameters    *WebhookParameters
 	ownerRefs            []v1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
+=======
+// WebhookConfig implements the validating admission webhook for validating Istio configuration.
+type WebhookConfig struct {
+	mu                            sync.RWMutex
+	cert                          *tls.Certificate
+	keyCertWatcher                *fsnotify.Watcher
+	configWatcher                 *fsnotify.Watcher
+	certFile                      string
+	keyFile                       string
+	caFile                        string
+	webhookConfigFile             string
+	clientset                     clientset.Interface
+	webhookName                   string
+	deploymentAndServiceNamespace string
+	deploymentName                string
+	ownerRefs                     []metav1.OwnerReference
+	webhookConfiguration          *v1beta1.ValidatingWebhookConfiguration
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 
 	// test hook for informers
 	createInformerWebhookSource createInformerWebhookSource
@@ -73,10 +103,17 @@ type WebhookConfigController struct {
 
 // Run an informer that watches the current webhook configuration
 // for changes.
+<<<<<<< HEAD
 func (whc *WebhookConfigController) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
 	webhookChangedCh := make(chan struct{}, 1000)
 	_, controller := cache.NewInformer(
 		whc.createInformerWebhookSource(whc.webhookParameters.Clientset, whc.webhookParameters.WebhookName),
+=======
+func (whc *WebhookConfig) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
+	webhookChangedCh := make(chan struct{}, 1000)
+	_, controller := cache.NewInformer(
+		whc.createInformerWebhookSource(whc.clientset, whc.webhookName),
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 		&v1beta1.ValidatingWebhookConfiguration{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -99,14 +136,22 @@ func (whc *WebhookConfigController) monitorWebhookChanges(stopC <-chan struct{})
 	return webhookChangedCh
 }
 
+<<<<<<< HEAD
 func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
+=======
+func (whc *WebhookConfig) createOrUpdateWebhookConfig() {
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	if whc.webhookConfiguration == nil {
 		scope.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
 		return
 	}
 
+<<<<<<< HEAD
 	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+=======
+	client := whc.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	updated, err := createOrUpdateWebhookConfigHelper(client, whc.webhookConfiguration)
 	if err != nil {
 		scope.Errorf("%v validatingwebhookconfiguration update failed: %v", whc.webhookConfiguration.Name, err)
@@ -147,6 +192,7 @@ func createOrUpdateWebhookConfigHelper(
 	return false, nil
 }
 
+<<<<<<< HEAD
 // Delete validatingwebhookconfiguration if the validation is disabled
 func (whc *WebhookConfigController) deleteWebhookConfig() {
 	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
@@ -157,6 +203,18 @@ func (whc *WebhookConfigController) deleteWebhookConfig() {
 		reportValidationConfigDeleteError(err)
 	}
 	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookParameters.WebhookName, deleted)
+=======
+// Delete validatingwebhookconfiguration if exists to cover the case in which update from enabled validation to disabled validation
+func (whc *WebhookConfig) deleteWebhookConfig() {
+	client := whc.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	deleted, err := deleteWebhookConfigHelper(client, whc.webhookName)
+	if err != nil {
+		scope.Errorf("%v validatingwebhookconfiguration delete failed: %v", whc.webhookName, err)
+		reportValidationConfigDeleteError(err)
+	}
+	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookName, deleted)
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 }
 
 // Delete validatingwebhookconfiguration if exists. otherwise, do nothing
@@ -176,11 +234,19 @@ func deleteWebhookConfigHelper(
 }
 
 // Rebuild the validatingwebhookconfiguration and save for subsequent calls to createOrUpdateWebhookConfig.
+<<<<<<< HEAD
 func (whc *WebhookConfigController) rebuildWebhookConfig() error {
 	webhookConfig, err := rebuildWebhookConfigHelper(
 		whc.webhookParameters.CACertFile,
 		whc.webhookParameters.WebhookConfigFile,
 		whc.webhookParameters.WebhookName,
+=======
+func (whc *WebhookConfig) rebuildWebhookConfig() error {
+	webhookConfig, err := rebuildWebhookConfigHelper(
+		whc.caFile,
+		whc.webhookConfigFile,
+		whc.webhookName,
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 		whc.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
@@ -277,8 +343,13 @@ func rebuildWebhookConfigHelper(
 }
 
 // Reload the server's cert/key for TLS from file.
+<<<<<<< HEAD
 func (whc *WebhookConfigController) reloadKeyCert() {
 	pair, err := tls.LoadX509KeyPair(whc.webhookParameters.CertFile, whc.webhookParameters.KeyFile)
+=======
+func (whc *WebhookConfig) reloadKeyCert() {
+	pair, err := tls.LoadX509KeyPair(whc.certFile, whc.keyFile)
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	if err != nil {
 		reportValidationCertKeyUpdateError(err)
 		scope.Errorf("Cert/Key reload error: %v", err)
@@ -292,8 +363,21 @@ func (whc *WebhookConfigController) reloadKeyCert() {
 	scope.Info("Cert and Key reloaded")
 }
 
+<<<<<<< HEAD
 // NewWebhookConfigController manages validating webhook configuration.
 func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, error) {
+=======
+func (whc *WebhookConfig) modifyWebhookConfig(vc *WebhookParameters) {
+	if !vc.EnableValidation {
+		whc.deleteWebhookConfig()
+	} else {
+		whc.createOrUpdateWebhookConfig()
+	}
+}
+
+// NewWebhookConfig manages validating webhook configuration.
+func NewWebhookConfig(p WebhookParameters) (*WebhookConfig, error) {
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
@@ -356,8 +440,25 @@ func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, 
 	return whc, nil
 }
 
+<<<<<<< HEAD
 //reconcile monitors the keycert and webhook configuration changes, rebuild and reconcile the configuration
 func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
+=======
+// ReconcileWebhookConfiguration reconciles the ValidatingWebhookConfiguration
+func ReconcileWebhookConfiguration(stopCh <-chan struct{}, kubeConfig string, vc *WebhookParameters) {
+
+	clientset, err := kube.CreateClientset(kubeConfig, "")
+	if err != nil {
+		log.Fatalf("could not create k8s clientset: %v", err)
+	}
+	vc.Clientset = clientset
+
+	whc, err := NewWebhookConfig(*vc)
+	if err != nil {
+		log.Fatalf("cannot create validation webhook config: %v", err)
+	}
+
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 	defer whc.keyCertWatcher.Close() // nolint: errcheck
 	defer whc.configWatcher.Close()  // nolint: errcheck
 
@@ -388,12 +489,17 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 				whc.createOrUpdateWebhookConfig()
 			}
 		case <-webhookChangedCh:
+<<<<<<< HEAD
 			if !whc.webhookParameters.EnableValidation {
 				whc.deleteWebhookConfig()
 			} else {
 				// reconcile the desired configuration
 				whc.createOrUpdateWebhookConfig()
 			}
+=======
+			// reconcile the desired configuration
+			whc.modifyWebhookConfig(vc)
+>>>>>>> decouple webhook configuration reconciliation from http handler running
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
@@ -411,6 +517,7 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 		}
 	}
 }
+<<<<<<< HEAD
 
 // ReconcileWebhookConfiguration reconciles the ValidatingWebhookConfiguration when the webhook server is ready
 func ReconcileWebhookConfiguration(webhookServerReady, stopCh <-chan struct{},
@@ -434,3 +541,5 @@ func ReconcileWebhookConfiguration(webhookServerReady, stopCh <-chan struct{},
 	whc.reconcile(stopCh)
 
 }
+=======
+>>>>>>> decouple webhook configuration reconciliation from http handler running
