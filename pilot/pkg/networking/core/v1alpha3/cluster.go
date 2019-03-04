@@ -980,6 +980,8 @@ func buildDefaultPassthroughCluster() *apiv2.Cluster {
 		Type:           apiv2.Cluster_ORIGINAL_DST,
 		ConnectTimeout: 1 * time.Second,
 		LbPolicy:       apiv2.Cluster_ORIGINAL_DST_LB,
+		// Disable keep alive
+		MaxRequestsPerConnection: &types.UInt32Value{Value: 1},
 	}
 	return cluster
 }
@@ -992,6 +994,10 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		Name: name,
 		Type: discoveryType,
 	}
+
+	// Default to 1 request per connection. This effectively disables HTTP keep-alives for both H1 and H2
+	// and eliminates a bunch of 503 issues
+	cluster.MaxRequestsPerConnection = &types.UInt32Value{Value: 1}
 
 	if discoveryType == apiv2.Cluster_STRICT_DNS || discoveryType == apiv2.Cluster_LOGICAL_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY

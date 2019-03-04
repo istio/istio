@@ -502,11 +502,21 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return nil
 	}
 
-	// search through the DestinationRules in proxy's namespace first
-	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-			return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+	// TODO: once we move default DestinationRule to root config namespace,
+	// remove the hacky check below.  Until then, we need an exception for
+	// istio-system namespace, as it happens to be the home of global dest
+	// rules for mTLS, as well as the home of the gateway proxy. The root
+	// config namespace is technically not supposed to have any proxy
+	// istio-ingressgateway and istio-egressgateway wont hit this if block.
+	// instead, dest rules will first be looked up from the service's own namespace
+	// if not found, we look at ALL dest rules across all namespaces. This is the old behavior
+	if proxy.ConfigNamespace != IstioSystemNamespace {
+		// search through the DestinationRules in proxy's namespace first
+		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+			if host, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+			}
 		}
 	}
 
@@ -521,8 +531,20 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule across all namespaces
-	if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
-		return ps.allExportedDestRules.destRule[host].config
+	// if and only if there is no config root namespace defined. If a config root namespace is defined,
+	// only look for the destination rule from the config root namespace
+	if ps.Env != nil && ps.Env.Mesh != nil && ps.Env.Mesh.RootNamespace != "" {
+		if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
+			if host, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
+				return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[host].config
+			}
+		}
+	} else {
+		// no config root namespace. Look in all namespaces.
+		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+			return ps.allExportedDestRules.destRule[host].config
+		}
 	}
 
 	return nil
