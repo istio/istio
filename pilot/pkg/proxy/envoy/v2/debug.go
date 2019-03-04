@@ -464,6 +464,12 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	if s.KubeController != nil {
+		if !s.KubeController.HasSynced() {
+			w.WriteHeader(503)
+			return
+		}
+	}
 	w.WriteHeader(200)
 }
 
