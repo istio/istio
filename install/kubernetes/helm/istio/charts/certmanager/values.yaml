@@ -5,7 +5,7 @@
 # restart, DestinationRules can be created using the ACME-signed certificates.
 enabled: false
 hub: quay.io/jetstack
-tag: v0.5.0
+tag: v0.6.2
 resources: {}
 nodeSelector: {}
 

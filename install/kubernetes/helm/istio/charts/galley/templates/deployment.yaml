@@ -41,6 +41,7 @@ spec:
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
+          - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
           - --livenessProbePath=/healthliveness

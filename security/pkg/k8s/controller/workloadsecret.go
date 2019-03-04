@@ -21,10 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	v1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,6 +31,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -95,8 +94,8 @@ type SecretController struct {
 	// Whether the certificates are for CAs.
 	forCA bool
 
-	// DNS-enabled service account/service pair
-	dnsNames map[string]DNSNameEntry
+	// DNS-enabled serviceAccount.namespace to service pair
+	dnsNames map[string]*DNSNameEntry
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -112,7 +111,8 @@ type SecretController struct {
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -134,14 +134,17 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		monitoring:       newMonitoringMetrics(),
 	}
 
-	saLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(namespace).Watch(options)
-		},
-	}
+	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.ServiceAccounts(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.ServiceAccounts(namespace).Watch(options)
+			},
+		}
+	})
+
 	rehf := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.saAdded,
 		DeleteFunc: c.saDeleted,
@@ -150,16 +153,18 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
 	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioSecretType}).String()
-	scrtLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).Watch(options)
-		},
-	}
+	scrtLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector = istioSecretSelector
+				return core.Secrets(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector = istioSecretSelector
+				return core.Secrets(namespace).Watch(options)
+			},
+		}
+	})
 	c.scrtStore, c.scrtController =
 		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
 			DeleteFunc: c.scrtDeleted,
@@ -312,13 +317,14 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
 			}
 		}
-		// Custom overrides using CLI
+		// Custom adds more DNS entries using CLI
 		if e, ok := sc.dnsNames[saName+"."+saNamespace]; ok {
 			for _, d := range e.CustomDomains {
 				id += "," + d
 			}
 		}
 	}
+
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,

@@ -23,11 +23,11 @@ spec:
     - --serviceCluster
     - hellopod.default
     - --drainDuration
-    - 2s
+    - 45s
     - --parentShutdownDuration
-    - 3s
+    - 1m0s
     - --discoveryAddress
-    - istio-pilot:15007
+    - istio-pilot:15010
     - --connectTimeout
     - 1s
     - --statsdUdpAddress
