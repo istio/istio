@@ -338,8 +338,8 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+			spiffe.GenSpiffeURI("default", "serviceaccount1"),
+			spiffe.GenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

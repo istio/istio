@@ -69,7 +69,7 @@ var (
 
 func defaultPilotSan() []string {
 	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
+		spiffe.GenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func configFile(config string, epoch int) string {

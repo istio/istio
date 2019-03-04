@@ -26,10 +26,10 @@ const (
 
 // GetMixerSAN returns the SAN used for mixer mTLS
 func GetMixerSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, mixerSvcAccName)
+	return spiffe.GenSpiffeURI(ns, mixerSvcAccName)
 }
 
 // GetPilotSAN returns the SAN used for pilot mTLS
 func GetPilotSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, pilotSvcAccName)
+	return spiffe.GenSpiffeURI(ns, pilotSvcAccName)
 }

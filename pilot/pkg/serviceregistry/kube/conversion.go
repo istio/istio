@@ -156,7 +156,7 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
 func kubeToIstioServiceAccount(saname string, ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, saname)
+	return spiffe.GenSpiffeURI(ns, saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
