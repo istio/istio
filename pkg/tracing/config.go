@@ -133,9 +133,9 @@ func configure(serviceName string, options *Options, nz newZipkin) (io.Closer, e
 		zipkinPropagator := zk.NewZipkinB3HTTPHeaderPropagator()
 		injector := jaeger.TracerOptions.Injector(ot.HTTPHeaders, zipkinPropagator)
 		extractor := jaeger.TracerOptions.Extractor(ot.HTTPHeaders, zipkinPropagator)
-		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans, injector, extractor)
+		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans, injector, extractor, jaeger.TracerOptions.Gen128Bit(true))
 	} else {
-		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans)
+		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans, jaeger.TracerOptions.Gen128Bit(true))
 	}
 
 	// NOTE: global side effect!

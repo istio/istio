@@ -9,7 +9,7 @@ autoscaleMax: 5
 # replicaCount: 1
 image: pilot
 sidecar: true
-traceSampling: 100.0
+traceSampling: 1.0
 # Resources for a small pilot install
 resources:
   requests:
@@ -17,7 +17,7 @@ resources:
     memory: 2048Mi
 env:
   PILOT_PUSH_THROTTLE_COUNT: 100
-  GODEBUG: gctrace=2
+  GODEBUG: gctrace=1
 cpu:
   targetAverageUtilization: 80
 nodeSelector: {}

@@ -12,6 +12,8 @@ global:
     enableCoreDump: true
 
   disablePolicyChecks: false
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
 
 prometheus:
   scrapeInterval: 5s
@@ -19,23 +21,32 @@ prometheus:
 gateways:
   istio-ingressgateway:
     autoscaleMax: 1
+  istio-egressgateway:
+    enabled: true
 
 mixer:
   policy:
     enabled: true
     replicaCount: 2
     autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
   telemetry:
     enabled: true
     loadshedding:
       mode: disabled
-  adapters:
-    stdio:
-      enabled: true
-  resources:
+    resources:
       requests:
         cpu: 50m
         memory: 100Mi
       limits:
         cpu: 100m
         memory: 100Mi
+  adapters:
+    stdio:
+      enabled: true

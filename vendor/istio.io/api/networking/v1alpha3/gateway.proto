@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
+// $title: Gateway
+// $description: Configuration affecting edge load balancer.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html
 
 // `Gateway` describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections. The specification
@@ -58,7 +58,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - uk.bookinfo.com
 //     - eu.bookinfo.com
 //     tls:
-//       mode: SIMPLE #enables HTTPS on this port
+//       mode: SIMPLE # enables HTTPS on this port
 //       serverCertificate: /etc/certs/servercert.pem
 //       privateKey: /etc/certs/privatekey.pem
 //   - port:
@@ -140,7 +140,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   namespace: bookinfo-namespace
 // spec:
 //   hosts:
-//   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
+//   - mongosvr.prod.svc.cluster.local # name of internal Mongo service
 //   gateways:
 //   - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
 //                                        namespace as virtual service.
@@ -153,6 +153,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //         port:
 //           number: 5555
 // ```
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
@@ -228,30 +232,40 @@ message Gateway {
 // ```
 message Server {
   // REQUIRED: The Port on which the proxy should listen for incoming
-  // connections. If using unix domain socket, use 0 as the port number,
+  // connections. If using Unix domain socket, use 0 as the port number,
   // with a valid protocol and port name, along with the bind parameter.
   Port port = 1;
 
   // $hide_from_docs
-  // The ip or the unix domain socket to which the listener should be bound
-  // to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
+  // The ip or the Unix domain socket to which the listener should be bound
+  // to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux
   // abstract namespace).
   string bind = 4;
 
-  // REQUIRED. A list of hosts exposed by this gateway. At least one
-  // host is required. While typically applicable to
-  // HTTP services, it can also be used for TCP services using TLS with
-  // SNI. May contain a wildcard prefix for the bottom-level component of
-  // a domain name. For example `*.foo.com` matches `bar.foo.com`
-  // and `*.com` matches `bar.foo.com`, `example.com`, and so on.
+  // REQUIRED. One or more hosts exposed by this gateway.
+  // While typically applicable to
+  // HTTP services, it can also be used for TCP services using TLS with SNI.
+  // A host is specified as a `dnsName` with an optional `namespace/` prefix.
+  // The `dnsName` should be specified using FQDN format, opionally including
+  // a wildcard character in the left-most component (e.g., `prod/*.example.com`).
+  // Set the `dnsName` to `*` to select all `VirtualService` hosts from the
+  // specified namespace (e.g.,`prod/*`). If no `namespace/` is specified,
+  // the `VirtualService` hosts will be selected from any available namespace.
+  // Any associated `DestinationRule` in the same namespace will also be used.
   //
-  // **Note**: A `VirtualService` that is bound to a gateway must have one
-  // or more hosts that match the hosts specified in a server. The match
+  // A `VirtualService` must be bound to the gateway and must have one or
+  // more hosts that match the hosts specified in a server. The match
   // could be an exact match or a suffix match with the server's hosts. For
-  // example, if the server's hosts specifies "*.example.com",
-  // VirtualServices with hosts dev.example.com, prod.example.com will
-  // match. However, VirtualServices with hosts example.com or
-  // newexample.com will not match.
+  // example, if the server's hosts specifies `*.example.com`, a
+  // `VirtualService` with hosts `dev.example.com` or `prod.example.com` will
+  // match. However, a `VirtualService` with host `example.com` or
+  // `newexample.com` will not match.
+  //
+  // NOTE: Only virtual services exported to the gateway's namespace
+  // (e.g., `exportTo` value of `*`) can be referenced.
+  // Private configurations (e.g., `exportTo` set to `.`) will not be
+  // available. Refer to the `exportTo` setting in `VirtualService`,
+  // `DestinationRule`, and `ServiceEntry` configurations for details.
   repeated string hosts = 2;
 
   message TLSOptions {
@@ -357,9 +371,9 @@ message Server {
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
 
-  // The loopback IP endpoint or unix domain socket to which traffic should
-  // be forwarded to by default. Format should be 127.0.0.1:PORT or
-  // unix:///path/to/socket or unix://@foobar (Linux abstract namespace).
+  // The loopback IP endpoint or Unix domain socket to which traffic should
+  // be forwarded to by default. Format should be `127.0.0.1:PORT` or
+  // `unix:///path/to/socket` or `unix://@foobar` (Linux abstract namespace).
   string default_endpoint = 5;
 }
 

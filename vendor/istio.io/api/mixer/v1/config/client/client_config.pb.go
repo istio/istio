@@ -3,25 +3,30 @@
 
 package client
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import google_protobuf1 "github.com/gogo/protobuf/types"
-import istio_mixer_v1 "istio.io/api/mixer/v1"
-
-import strconv "strconv"
-
-import strings "strings"
-import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
-
-import io "io"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+	types "github.com/gogo/protobuf/types"
+	io "io"
+	v1 "istio.io/api/mixer/v1"
+	math "math"
+	reflect "reflect"
+	strconv "strconv"
+	strings "strings"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Describes the policy.
 type NetworkFailPolicy_FailPolicy int32
@@ -38,13 +43,14 @@ var NetworkFailPolicy_FailPolicy_name = map[int32]string{
 	0: "FAIL_OPEN",
 	1: "FAIL_CLOSE",
 }
+
 var NetworkFailPolicy_FailPolicy_value = map[string]int32{
 	"FAIL_OPEN":  0,
 	"FAIL_CLOSE": 1,
 }
 
 func (NetworkFailPolicy_FailPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorClientConfig, []int{0, 0}
+	return fileDescriptor_27bf0dec365e2f6f, []int{0, 0}
 }
 
 // Specifies the behavior when the client is unable to connect to Mixer.
@@ -55,14 +61,42 @@ type NetworkFailPolicy struct {
 	MaxRetry uint32 `protobuf:"varint,2,opt,name=max_retry,json=maxRetry,proto3" json:"max_retry,omitempty"`
 	// Base time to wait between retries.  Will be adjusted by exponential
 	// backoff and jitter.
-	BaseRetryWait *google_protobuf1.Duration `protobuf:"bytes,3,opt,name=base_retry_wait,json=baseRetryWait" json:"base_retry_wait,omitempty"`
+	BaseRetryWait *types.Duration `protobuf:"bytes,3,opt,name=base_retry_wait,json=baseRetryWait,proto3" json:"base_retry_wait,omitempty"`
 	// Max time to wait between retries.
-	MaxRetryWait *google_protobuf1.Duration `protobuf:"bytes,4,opt,name=max_retry_wait,json=maxRetryWait" json:"max_retry_wait,omitempty"`
+	MaxRetryWait *types.Duration `protobuf:"bytes,4,opt,name=max_retry_wait,json=maxRetryWait,proto3" json:"max_retry_wait,omitempty"`
 }
 
-func (m *NetworkFailPolicy) Reset()                    { *m = NetworkFailPolicy{} }
-func (*NetworkFailPolicy) ProtoMessage()               {}
-func (*NetworkFailPolicy) Descriptor() ([]byte, []int) { return fileDescriptorClientConfig, []int{0} }
+func (m *NetworkFailPolicy) Reset()      { *m = NetworkFailPolicy{} }
+func (*NetworkFailPolicy) ProtoMessage() {}
+func (*NetworkFailPolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_27bf0dec365e2f6f, []int{0}
+}
+func (m *NetworkFailPolicy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NetworkFailPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NetworkFailPolicy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *NetworkFailPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NetworkFailPolicy.Merge(m, src)
+}
+func (m *NetworkFailPolicy) XXX_Size() int {
+	return m.Size()
+}
+func (m *NetworkFailPolicy) XXX_DiscardUnknown() {
+	xxx_messageInfo_NetworkFailPolicy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NetworkFailPolicy proto.InternalMessageInfo
 
 // Defines the per-service client configuration.
 type ServiceConfig struct {
@@ -74,16 +108,16 @@ type ServiceConfig struct {
 	// typically includes the "destination.service" attribute.
 	// In case of a per-route override, per-route attributes take precedence
 	// over the attributes supplied in the client configuration.
-	MixerAttributes *istio_mixer_v1.Attributes `protobuf:"bytes,3,opt,name=mixer_attributes,json=mixerAttributes" json:"mixer_attributes,omitempty"`
+	MixerAttributes *v1.Attributes `protobuf:"bytes,3,opt,name=mixer_attributes,json=mixerAttributes,proto3" json:"mixer_attributes,omitempty"`
 	// HTTP API specifications to generate API attributes.
-	HttpApiSpec []*HTTPAPISpec `protobuf:"bytes,4,rep,name=http_api_spec,json=httpApiSpec" json:"http_api_spec,omitempty"`
+	HttpApiSpec []*HTTPAPISpec `protobuf:"bytes,4,rep,name=http_api_spec,json=httpApiSpec,proto3" json:"http_api_spec,omitempty"`
 	// Quota specifications to generate quota requirements.
-	QuotaSpec []*QuotaSpec `protobuf:"bytes,5,rep,name=quota_spec,json=quotaSpec" json:"quota_spec,omitempty"`
+	QuotaSpec []*QuotaSpec `protobuf:"bytes,5,rep,name=quota_spec,json=quotaSpec,proto3" json:"quota_spec,omitempty"`
 	// Specifies the behavior when the client is unable to connect to Mixer.
 	// This is the service-level policy. It overrides
 	// [mesh-level
 	// policy][istio.mixer.v1.config.client.TransportConfig.network_fail_policy].
-	NetworkFailPolicy *NetworkFailPolicy `protobuf:"bytes,7,opt,name=network_fail_policy,json=networkFailPolicy" json:"network_fail_policy,omitempty"`
+	NetworkFailPolicy *NetworkFailPolicy `protobuf:"bytes,7,opt,name=network_fail_policy,json=networkFailPolicy,proto3" json:"network_fail_policy,omitempty"`
 	// Default attributes to forward to upstream. This typically
 	// includes the "source.ip" and "source.uid" attributes.
 	// In case of a per-route override, per-route attributes take precedence
@@ -96,12 +130,40 @@ type ServiceConfig struct {
 	// 3. forwarded attributes from the source filter config (if any);
 	// 4. forwarded attributes from the source route config (if any);
 	// 5. derived attributes from the request metadata.
-	ForwardAttributes *istio_mixer_v1.Attributes `protobuf:"bytes,8,opt,name=forward_attributes,json=forwardAttributes" json:"forward_attributes,omitempty"`
+	ForwardAttributes *v1.Attributes `protobuf:"bytes,8,opt,name=forward_attributes,json=forwardAttributes,proto3" json:"forward_attributes,omitempty"`
 }
 
-func (m *ServiceConfig) Reset()                    { *m = ServiceConfig{} }
-func (*ServiceConfig) ProtoMessage()               {}
-func (*ServiceConfig) Descriptor() ([]byte, []int) { return fileDescriptorClientConfig, []int{1} }
+func (m *ServiceConfig) Reset()      { *m = ServiceConfig{} }
+func (*ServiceConfig) ProtoMessage() {}
+func (*ServiceConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_27bf0dec365e2f6f, []int{1}
+}
+func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ServiceConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceConfig.Merge(m, src)
+}
+func (m *ServiceConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *ServiceConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceConfig proto.InternalMessageInfo
 
 // Defines the transport config on how to call Mixer.
 type TransportConfig struct {
@@ -113,14 +175,14 @@ type TransportConfig struct {
 	DisableReportBatch bool `protobuf:"varint,3,opt,name=disable_report_batch,json=disableReportBatch,proto3" json:"disable_report_batch,omitempty"`
 	// Specifies the behavior when the client is unable to connect to Mixer.
 	// This is the mesh level policy. The default value for policy is FAIL_OPEN.
-	NetworkFailPolicy *NetworkFailPolicy `protobuf:"bytes,4,opt,name=network_fail_policy,json=networkFailPolicy" json:"network_fail_policy,omitempty"`
-	// Specify refresh interval to write mixer client statistics to Envoy share
+	NetworkFailPolicy *NetworkFailPolicy `protobuf:"bytes,4,opt,name=network_fail_policy,json=networkFailPolicy,proto3" json:"network_fail_policy,omitempty"`
+	// Specify refresh interval to write Mixer client statistics to Envoy share
 	// memory. If not specified, the interval is 10 seconds.
-	StatsUpdateInterval *google_protobuf1.Duration `protobuf:"bytes,5,opt,name=stats_update_interval,json=statsUpdateInterval" json:"stats_update_interval,omitempty"`
+	StatsUpdateInterval *types.Duration `protobuf:"bytes,5,opt,name=stats_update_interval,json=statsUpdateInterval,proto3" json:"stats_update_interval,omitempty"`
 	// Name of the cluster that will forward check calls to a pool of mixer
 	// servers. Defaults to "mixer_server". By using different names for
 	// checkCluster and reportCluster, it is possible to have one set of
-	// mixer servers handle check calls, while another set of mixer servers
+	// Mixer servers handle check calls, while another set of Mixer servers
 	// handle report calls.
 	//
 	// NOTE: Any value other than the default "mixer_server" will require the
@@ -129,79 +191,233 @@ type TransportConfig struct {
 	// Name of the cluster that will forward report calls to a pool of mixer
 	// servers. Defaults to "mixer_server". By using different names for
 	// checkCluster and reportCluster, it is possible to have one set of
-	// mixer servers handle check calls, while another set of mixer servers
+	// Mixer servers handle check calls, while another set of Mixer servers
 	// handle report calls.
 	//
 	// NOTE: Any value other than the default "mixer_server" will require the
 	// Istio Grafana dashboards to be reconfigured to use the new name.
 	ReportCluster string `protobuf:"bytes,7,opt,name=report_cluster,json=reportCluster,proto3" json:"report_cluster,omitempty"`
-	// Default attributes to forward to mixer upstream. This typically
+	// Default attributes to forward to Mixer upstream. This typically
 	// includes the "source.ip" and "source.uid" attributes. These
 	// attributes are consumed by the proxy in front of mixer.
-	AttributesForMixerProxy *istio_mixer_v1.Attributes `protobuf:"bytes,8,opt,name=attributes_for_mixer_proxy,json=attributesForMixerProxy" json:"attributes_for_mixer_proxy,omitempty"`
+	AttributesForMixerProxy *v1.Attributes `protobuf:"bytes,8,opt,name=attributes_for_mixer_proxy,json=attributesForMixerProxy,proto3" json:"attributes_for_mixer_proxy,omitempty"`
 }
 
-func (m *TransportConfig) Reset()                    { *m = TransportConfig{} }
-func (*TransportConfig) ProtoMessage()               {}
-func (*TransportConfig) Descriptor() ([]byte, []int) { return fileDescriptorClientConfig, []int{2} }
+func (m *TransportConfig) Reset()      { *m = TransportConfig{} }
+func (*TransportConfig) ProtoMessage() {}
+func (*TransportConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_27bf0dec365e2f6f, []int{2}
+}
+func (m *TransportConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TransportConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TransportConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TransportConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransportConfig.Merge(m, src)
+}
+func (m *TransportConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *TransportConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransportConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransportConfig proto.InternalMessageInfo
 
 // Defines the client config for HTTP.
 type HttpClientConfig struct {
 	// The transport config.
-	Transport *TransportConfig `protobuf:"bytes,1,opt,name=transport" json:"transport,omitempty"`
+	Transport *TransportConfig `protobuf:"bytes,1,opt,name=transport,proto3" json:"transport,omitempty"`
 	// Map of control configuration indexed by destination.service. This
 	// is used to support per-service configuration for cases where a
 	// mixerclient serves multiple services.
-	ServiceConfigs map[string]*ServiceConfig `protobuf:"bytes,2,rep,name=service_configs,json=serviceConfigs" json:"service_configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	ServiceConfigs map[string]*ServiceConfig `protobuf:"bytes,2,rep,name=service_configs,json=serviceConfigs,proto3" json:"service_configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Default destination service name if none was specified in the
 	// client request.
 	DefaultDestinationService string `protobuf:"bytes,3,opt,name=default_destination_service,json=defaultDestinationService,proto3" json:"default_destination_service,omitempty"`
 	// Default attributes to send to Mixer in both Check and
 	// Report. This typically includes "destination.ip" and
 	// "destination.uid" attributes.
-	MixerAttributes *istio_mixer_v1.Attributes `protobuf:"bytes,4,opt,name=mixer_attributes,json=mixerAttributes" json:"mixer_attributes,omitempty"`
+	MixerAttributes *v1.Attributes `protobuf:"bytes,4,opt,name=mixer_attributes,json=mixerAttributes,proto3" json:"mixer_attributes,omitempty"`
 	// Default attributes to forward to upstream. This typically
 	// includes the "source.ip" and "source.uid" attributes.
-	ForwardAttributes *istio_mixer_v1.Attributes `protobuf:"bytes,5,opt,name=forward_attributes,json=forwardAttributes" json:"forward_attributes,omitempty"`
+	ForwardAttributes *v1.Attributes `protobuf:"bytes,5,opt,name=forward_attributes,json=forwardAttributes,proto3" json:"forward_attributes,omitempty"`
 }
 
-func (m *HttpClientConfig) Reset()                    { *m = HttpClientConfig{} }
-func (*HttpClientConfig) ProtoMessage()               {}
-func (*HttpClientConfig) Descriptor() ([]byte, []int) { return fileDescriptorClientConfig, []int{3} }
+func (m *HttpClientConfig) Reset()      { *m = HttpClientConfig{} }
+func (*HttpClientConfig) ProtoMessage() {}
+func (*HttpClientConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_27bf0dec365e2f6f, []int{3}
+}
+func (m *HttpClientConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HttpClientConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HttpClientConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HttpClientConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpClientConfig.Merge(m, src)
+}
+func (m *HttpClientConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *HttpClientConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_HttpClientConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HttpClientConfig proto.InternalMessageInfo
 
 // Defines the client config for TCP.
 type TcpClientConfig struct {
 	// The transport config.
-	Transport *TransportConfig `protobuf:"bytes,1,opt,name=transport" json:"transport,omitempty"`
+	Transport *TransportConfig `protobuf:"bytes,1,opt,name=transport,proto3" json:"transport,omitempty"`
 	// Default attributes to send to Mixer in both Check and
 	// Report. This typically includes "destination.ip" and
 	// "destination.uid" attributes.
-	MixerAttributes *istio_mixer_v1.Attributes `protobuf:"bytes,2,opt,name=mixer_attributes,json=mixerAttributes" json:"mixer_attributes,omitempty"`
-	// If set to true, disables mixer check calls.
+	MixerAttributes *v1.Attributes `protobuf:"bytes,2,opt,name=mixer_attributes,json=mixerAttributes,proto3" json:"mixer_attributes,omitempty"`
+	// If set to true, disables Mixer check calls.
 	DisableCheckCalls bool `protobuf:"varint,3,opt,name=disable_check_calls,json=disableCheckCalls,proto3" json:"disable_check_calls,omitempty"`
-	// If set to true, disables mixer check calls.
+	// If set to true, disables Mixer check calls.
 	DisableReportCalls bool `protobuf:"varint,4,opt,name=disable_report_calls,json=disableReportCalls,proto3" json:"disable_report_calls,omitempty"`
 	// Quota specifications to generate quota requirements.
 	// It applies on the new TCP connections.
-	ConnectionQuotaSpec *QuotaSpec `protobuf:"bytes,5,opt,name=connection_quota_spec,json=connectionQuotaSpec" json:"connection_quota_spec,omitempty"`
+	ConnectionQuotaSpec *QuotaSpec `protobuf:"bytes,5,opt,name=connection_quota_spec,json=connectionQuotaSpec,proto3" json:"connection_quota_spec,omitempty"`
 	// Specify report interval to send periodical reports for long TCP
 	// connections. If not specified, the interval is 10 seconds. This interval
 	// should not be less than 1 second, otherwise it will be reset to 1 second.
-	ReportInterval *google_protobuf1.Duration `protobuf:"bytes,6,opt,name=report_interval,json=reportInterval" json:"report_interval,omitempty"`
+	ReportInterval *types.Duration `protobuf:"bytes,6,opt,name=report_interval,json=reportInterval,proto3" json:"report_interval,omitempty"`
 }
 
-func (m *TcpClientConfig) Reset()                    { *m = TcpClientConfig{} }
-func (*TcpClientConfig) ProtoMessage()               {}
-func (*TcpClientConfig) Descriptor() ([]byte, []int) { return fileDescriptorClientConfig, []int{4} }
+func (m *TcpClientConfig) Reset()      { *m = TcpClientConfig{} }
+func (*TcpClientConfig) ProtoMessage() {}
+func (*TcpClientConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_27bf0dec365e2f6f, []int{4}
+}
+func (m *TcpClientConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TcpClientConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TcpClientConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TcpClientConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpClientConfig.Merge(m, src)
+}
+func (m *TcpClientConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *TcpClientConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_TcpClientConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TcpClientConfig proto.InternalMessageInfo
 
 func init() {
+	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", NetworkFailPolicy_FailPolicy_name, NetworkFailPolicy_FailPolicy_value)
 	proto.RegisterType((*NetworkFailPolicy)(nil), "istio.mixer.v1.config.client.NetworkFailPolicy")
 	proto.RegisterType((*ServiceConfig)(nil), "istio.mixer.v1.config.client.ServiceConfig")
 	proto.RegisterType((*TransportConfig)(nil), "istio.mixer.v1.config.client.TransportConfig")
 	proto.RegisterType((*HttpClientConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig")
+	proto.RegisterMapType((map[string]*ServiceConfig)(nil), "istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry")
 	proto.RegisterType((*TcpClientConfig)(nil), "istio.mixer.v1.config.client.TcpClientConfig")
-	proto.RegisterEnum("istio.mixer.v1.config.client.NetworkFailPolicy_FailPolicy", NetworkFailPolicy_FailPolicy_name, NetworkFailPolicy_FailPolicy_value)
 }
+
+func init() {
+	proto.RegisterFile("mixer/v1/config/client/client_config.proto", fileDescriptor_27bf0dec365e2f6f)
+}
+
+var fileDescriptor_27bf0dec365e2f6f = []byte{
+	// 954 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x4d, 0x6f, 0x1a, 0x47,
+	0x18, 0xde, 0x05, 0xec, 0x98, 0x71, 0xf8, 0xf0, 0x90, 0xa8, 0x98, 0x54, 0x2b, 0x44, 0x14, 0x95,
+	0x36, 0xea, 0xd2, 0xd0, 0x4b, 0x95, 0x43, 0x2b, 0x4c, 0x6c, 0xc5, 0x6a, 0x9c, 0xd0, 0xb5, 0xab,
+	0x48, 0xad, 0xaa, 0xd1, 0xb0, 0x0c, 0x30, 0xf2, 0x7a, 0x67, 0x33, 0x3b, 0x60, 0xfb, 0xd6, 0x5f,
+	0x50, 0xf5, 0x67, 0xe4, 0x0f, 0xf4, 0x3f, 0xe4, 0xe8, 0x63, 0x8e, 0x35, 0xbe, 0xf4, 0x98, 0x63,
+	0xa5, 0x5e, 0xaa, 0x9d, 0x19, 0x58, 0x63, 0xf3, 0x51, 0xaa, 0xf6, 0xc4, 0xec, 0xfb, 0x3e, 0xcf,
+	0xcb, 0xec, 0xf3, 0x3e, 0xf3, 0xce, 0x82, 0xcf, 0x4e, 0xe8, 0x19, 0xe1, 0xb5, 0xe1, 0x93, 0x9a,
+	0xcb, 0xfc, 0x2e, 0xed, 0xd5, 0x5c, 0x8f, 0x12, 0x5f, 0xe8, 0x1f, 0xa4, 0x82, 0x76, 0xc0, 0x99,
+	0x60, 0xf0, 0x63, 0x1a, 0x0a, 0xca, 0x6c, 0xc9, 0xb0, 0x87, 0x4f, 0x6c, 0x9d, 0x54, 0xd0, 0xd2,
+	0xbd, 0x1e, 0xeb, 0x31, 0x09, 0xac, 0x45, 0x2b, 0xc5, 0x29, 0x59, 0x3d, 0xc6, 0x7a, 0x1e, 0xa9,
+	0xc9, 0xa7, 0xf6, 0xa0, 0x5b, 0xeb, 0x0c, 0x38, 0x16, 0x94, 0xf9, 0x3a, 0xbf, 0x3d, 0xf9, 0x7f,
+	0x2c, 0x04, 0xa7, 0xed, 0x81, 0x20, 0xa1, 0x4e, 0x3d, 0x9a, 0xb3, 0x35, 0x1c, 0x50, 0x14, 0x06,
+	0xc4, 0xd5, 0xb0, 0xca, 0x1c, 0xd8, 0x9b, 0x01, 0x13, 0x58, 0x61, 0x2a, 0xbf, 0x25, 0xc0, 0xd6,
+	0x4b, 0x22, 0x4e, 0x19, 0x3f, 0xde, 0xc3, 0xd4, 0x6b, 0x31, 0x8f, 0xba, 0xe7, 0xd0, 0x01, 0xeb,
+	0x81, 0x5c, 0x15, 0xcd, 0xb2, 0x59, 0xcd, 0xd6, 0x9f, 0xda, 0x8b, 0x5e, 0xd0, 0xbe, 0x55, 0xc0,
+	0x8e, 0x97, 0x8e, 0xae, 0x04, 0x1f, 0x80, 0xf4, 0x09, 0x3e, 0x43, 0x9c, 0x08, 0x7e, 0x5e, 0x4c,
+	0x94, 0xcd, 0x6a, 0xc6, 0xd9, 0x38, 0xc1, 0x67, 0x4e, 0xf4, 0x0c, 0x1b, 0x20, 0xd7, 0xc6, 0x21,
+	0x51, 0x59, 0x74, 0x8a, 0xa9, 0x28, 0x26, 0xcb, 0x66, 0x75, 0xb3, 0xbe, 0x6d, 0x2b, 0x99, 0xec,
+	0xb1, 0x4c, 0xf6, 0x33, 0x2d, 0x93, 0x93, 0x89, 0x18, 0x92, 0xfe, 0x1a, 0x53, 0x01, 0xbf, 0x01,
+	0xd9, 0x49, 0x7d, 0x55, 0x21, 0xb5, 0xac, 0xc2, 0xdd, 0xf1, 0xff, 0x47, 0x05, 0x2a, 0x8f, 0x01,
+	0xb8, 0x26, 0x41, 0x06, 0xa4, 0xf7, 0x1a, 0xfb, 0x2f, 0xd0, 0xab, 0xd6, 0xee, 0xcb, 0xbc, 0x01,
+	0xb3, 0x00, 0xc8, 0xc7, 0xe6, 0x8b, 0x57, 0x87, 0xbb, 0x79, 0xb3, 0xf2, 0x57, 0x12, 0x64, 0x0e,
+	0x09, 0x1f, 0x52, 0x97, 0x34, 0xa5, 0x16, 0xd0, 0x06, 0x85, 0x0e, 0x0d, 0x71, 0xdb, 0x23, 0xc8,
+	0xed, 0x13, 0xf7, 0x18, 0xb9, 0xd8, 0xf3, 0x42, 0x29, 0xe0, 0x86, 0xb3, 0xa5, 0x53, 0xcd, 0x28,
+	0xd3, 0x8c, 0x12, 0xf0, 0x0b, 0x70, 0x6f, 0x8c, 0xe7, 0x24, 0x60, 0x5c, 0x68, 0x42, 0x42, 0x12,
+	0xa0, 0xce, 0x39, 0x32, 0xa5, 0x18, 0xbb, 0x20, 0x2f, 0x1b, 0x80, 0x62, 0x43, 0x68, 0x95, 0x4a,
+	0x37, 0xfb, 0xd3, 0x98, 0x20, 0x9c, 0x9c, 0x0c, 0xc6, 0x01, 0x78, 0x00, 0x32, 0x7d, 0x21, 0x02,
+	0x34, 0x76, 0x4b, 0x31, 0x55, 0x4e, 0x56, 0x37, 0xeb, 0x9f, 0x2e, 0xee, 0xf1, 0xf3, 0xa3, 0xa3,
+	0x56, 0xa3, 0xb5, 0x7f, 0x18, 0x10, 0xd7, 0xd9, 0x8c, 0xf8, 0x8d, 0x80, 0x46, 0x0f, 0x70, 0x0f,
+	0x00, 0x69, 0x28, 0x55, 0x6b, 0x4d, 0xd6, 0xfa, 0x64, 0x71, 0xad, 0xef, 0x22, 0xbc, 0xac, 0x94,
+	0x7e, 0x33, 0x5e, 0x42, 0x04, 0x0a, 0xbe, 0xf2, 0x11, 0xea, 0x62, 0xea, 0x21, 0x6d, 0xc0, 0x3b,
+	0xf2, 0x05, 0x6b, 0x2b, 0x1a, 0xd0, 0xd9, 0xf2, 0x6f, 0x99, 0x7a, 0x1f, 0xc0, 0x2e, 0xe3, 0xa7,
+	0x98, 0x77, 0xae, 0x0b, 0xb8, 0xb1, 0x54, 0xc0, 0x2d, 0xcd, 0x8a, 0x43, 0x95, 0x3f, 0x93, 0x20,
+	0x77, 0xc4, 0xb1, 0x1f, 0xca, 0xe6, 0xcc, 0xed, 0xbf, 0xdb, 0x27, 0xb3, 0xfb, 0xef, 0xf6, 0xc9,
+	0x75, 0xbc, 0xd2, 0x4f, 0xe1, 0x13, 0x53, 0x78, 0xa9, 0x94, 0xc2, 0xdf, 0xf6, 0x4b, 0x1b, 0x0b,
+	0xb7, 0x2f, 0x1d, 0x70, 0xd3, 0x2f, 0x3b, 0x51, 0x66, 0x9e, 0xa2, 0xa9, 0xff, 0x4c, 0xd1, 0x03,
+	0x70, 0x3f, 0x14, 0x58, 0x84, 0x68, 0x10, 0x74, 0xb0, 0x20, 0x88, 0xfa, 0x82, 0xf0, 0x21, 0xf6,
+	0x8a, 0x6b, 0xcb, 0x4e, 0x5e, 0x41, 0xf2, 0xbe, 0x97, 0xb4, 0x7d, 0xcd, 0x82, 0x0f, 0x41, 0x46,
+	0x2b, 0xe7, 0x0d, 0x42, 0x41, 0x78, 0x71, 0xbd, 0x6c, 0x56, 0xd3, 0xce, 0x5d, 0x19, 0x6c, 0xaa,
+	0x18, 0x7c, 0x04, 0xb2, 0xe3, 0xe3, 0xa2, 0x51, 0x77, 0x24, 0x2a, 0xa3, 0xa2, 0x63, 0xd8, 0x6b,
+	0x50, 0x8a, 0x9b, 0x8c, 0xba, 0x8c, 0x23, 0x75, 0x74, 0x02, 0xce, 0xce, 0xce, 0xff, 0x41, 0xd3,
+	0x3f, 0x8a, 0xd9, 0x7b, 0x8c, 0x1f, 0x44, 0x88, 0x56, 0x44, 0xad, 0xfc, 0x92, 0x02, 0xf9, 0xe7,
+	0x42, 0x04, 0x4d, 0xa9, 0x93, 0xee, 0xfd, 0xb7, 0x20, 0x2d, 0xc6, 0x76, 0x90, 0x1d, 0xdf, 0xac,
+	0x7f, 0xbe, 0x58, 0xdf, 0x1b, 0xee, 0x71, 0x62, 0x3e, 0x3c, 0x06, 0xb9, 0x50, 0x4d, 0x16, 0x7d,
+	0xc9, 0x44, 0x33, 0x21, 0x3a, 0x55, 0x3b, 0x4b, 0x4e, 0xe8, 0x8d, 0x5d, 0xd9, 0x53, 0xf3, 0x29,
+	0xdc, 0xf5, 0x05, 0x3f, 0x77, 0xb2, 0xe1, 0x54, 0x10, 0x7e, 0x0d, 0x1e, 0x74, 0x48, 0x17, 0x0f,
+	0x3c, 0x81, 0x3a, 0x24, 0x14, 0xd4, 0x97, 0xfd, 0x41, 0x1a, 0x25, 0xcd, 0x95, 0x76, 0xb6, 0x35,
+	0xe4, 0x59, 0x8c, 0xd0, 0xb5, 0x67, 0xce, 0xa4, 0xd4, 0xea, 0x33, 0x69, 0xf6, 0xd9, 0x5c, 0xfb,
+	0x17, 0x67, 0xb3, 0xe4, 0x83, 0xc2, 0x8c, 0x17, 0x87, 0x79, 0x90, 0x3c, 0x26, 0xea, 0x3e, 0x4b,
+	0x3b, 0xd1, 0x12, 0x36, 0xc0, 0xda, 0x10, 0x7b, 0x03, 0x75, 0xe4, 0x36, 0xeb, 0x8f, 0x17, 0xab,
+	0x3b, 0x55, 0xd3, 0x51, 0xcc, 0xa7, 0x89, 0xaf, 0xcc, 0xca, 0xdb, 0x68, 0x16, 0xb8, 0xff, 0xa3,
+	0x1f, 0x66, 0x49, 0x9c, 0x58, 0x5d, 0xe2, 0x39, 0xf7, 0x53, 0x72, 0xd5, 0xfb, 0x29, 0x35, 0xf7,
+	0x7e, 0xfa, 0x11, 0xdc, 0x77, 0x99, 0xef, 0x13, 0x57, 0x5a, 0x68, 0xea, 0x52, 0x30, 0x57, 0xb9,
+	0x14, 0x0a, 0x71, 0x95, 0x49, 0x10, 0xee, 0x80, 0x9c, 0xde, 0xc6, 0x64, 0xca, 0xac, 0x2f, 0x9b,
+	0x32, 0x7a, 0x52, 0x8c, 0x07, 0xcc, 0xce, 0x4f, 0xef, 0x2e, 0x2d, 0xe3, 0xe2, 0xd2, 0x32, 0xde,
+	0x5f, 0x5a, 0xc6, 0x87, 0x4b, 0xcb, 0xf8, 0x79, 0x64, 0x99, 0x6f, 0x47, 0x96, 0xf1, 0x6e, 0x64,
+	0x99, 0x17, 0x23, 0xcb, 0xfc, 0x7d, 0x64, 0x99, 0x7f, 0x8c, 0x2c, 0xe3, 0xc3, 0xc8, 0x32, 0x7f,
+	0xbd, 0xb2, 0x8c, 0x8b, 0x2b, 0xcb, 0x78, 0x7f, 0x65, 0x19, 0x3f, 0x3c, 0x54, 0x5b, 0xa7, 0x2c,
+	0xfa, 0xc6, 0xaa, 0xcd, 0xfe, 0xae, 0x6a, 0xaf, 0xcb, 0x1d, 0x7c, 0xf9, 0x77, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0x1b, 0xe3, 0x81, 0xd2, 0x3a, 0x0a, 0x00, 0x00,
+}
+
 func (x NetworkFailPolicy_FailPolicy) String() string {
 	s, ok := NetworkFailPolicy_FailPolicy_name[int32(x)]
 	if ok {
@@ -609,6 +825,9 @@ func encodeVarintClientConfig(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *NetworkFailPolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Policy != 0 {
@@ -629,6 +848,9 @@ func (m *NetworkFailPolicy) Size() (n int) {
 }
 
 func (m *ServiceConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DisableCheckCalls {
@@ -665,6 +887,9 @@ func (m *ServiceConfig) Size() (n int) {
 }
 
 func (m *TransportConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DisableCheckCache {
@@ -700,6 +925,9 @@ func (m *TransportConfig) Size() (n int) {
 }
 
 func (m *HttpClientConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Transport != nil {
@@ -735,6 +963,9 @@ func (m *HttpClientConfig) Size() (n int) {
 }
 
 func (m *TcpClientConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Transport != nil {
@@ -782,8 +1013,8 @@ func (this *NetworkFailPolicy) String() string {
 	s := strings.Join([]string{`&NetworkFailPolicy{`,
 		`Policy:` + fmt.Sprintf("%v", this.Policy) + `,`,
 		`MaxRetry:` + fmt.Sprintf("%v", this.MaxRetry) + `,`,
-		`BaseRetryWait:` + strings.Replace(fmt.Sprintf("%v", this.BaseRetryWait), "Duration", "google_protobuf1.Duration", 1) + `,`,
-		`MaxRetryWait:` + strings.Replace(fmt.Sprintf("%v", this.MaxRetryWait), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`BaseRetryWait:` + strings.Replace(fmt.Sprintf("%v", this.BaseRetryWait), "Duration", "types.Duration", 1) + `,`,
+		`MaxRetryWait:` + strings.Replace(fmt.Sprintf("%v", this.MaxRetryWait), "Duration", "types.Duration", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -795,11 +1026,11 @@ func (this *ServiceConfig) String() string {
 	s := strings.Join([]string{`&ServiceConfig{`,
 		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,
 		`DisableReportCalls:` + fmt.Sprintf("%v", this.DisableReportCalls) + `,`,
-		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
+		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`HttpApiSpec:` + strings.Replace(fmt.Sprintf("%v", this.HttpApiSpec), "HTTPAPISpec", "HTTPAPISpec", 1) + `,`,
 		`QuotaSpec:` + strings.Replace(fmt.Sprintf("%v", this.QuotaSpec), "QuotaSpec", "QuotaSpec", 1) + `,`,
 		`NetworkFailPolicy:` + strings.Replace(fmt.Sprintf("%v", this.NetworkFailPolicy), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
-		`ForwardAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ForwardAttributes), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
+		`ForwardAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ForwardAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -813,10 +1044,10 @@ func (this *TransportConfig) String() string {
 		`DisableQuotaCache:` + fmt.Sprintf("%v", this.DisableQuotaCache) + `,`,
 		`DisableReportBatch:` + fmt.Sprintf("%v", this.DisableReportBatch) + `,`,
 		`NetworkFailPolicy:` + strings.Replace(fmt.Sprintf("%v", this.NetworkFailPolicy), "NetworkFailPolicy", "NetworkFailPolicy", 1) + `,`,
-		`StatsUpdateInterval:` + strings.Replace(fmt.Sprintf("%v", this.StatsUpdateInterval), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`StatsUpdateInterval:` + strings.Replace(fmt.Sprintf("%v", this.StatsUpdateInterval), "Duration", "types.Duration", 1) + `,`,
 		`CheckCluster:` + fmt.Sprintf("%v", this.CheckCluster) + `,`,
 		`ReportCluster:` + fmt.Sprintf("%v", this.ReportCluster) + `,`,
-		`AttributesForMixerProxy:` + strings.Replace(fmt.Sprintf("%v", this.AttributesForMixerProxy), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
+		`AttributesForMixerProxy:` + strings.Replace(fmt.Sprintf("%v", this.AttributesForMixerProxy), "Attributes", "v1.Attributes", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -829,7 +1060,7 @@ func (this *HttpClientConfig) String() string {
 	for k, _ := range this.ServiceConfigs {
 		keysForServiceConfigs = append(keysForServiceConfigs, k)
 	}
-	sortkeys.Strings(keysForServiceConfigs)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForServiceConfigs)
 	mapStringForServiceConfigs := "map[string]*ServiceConfig{"
 	for _, k := range keysForServiceConfigs {
 		mapStringForServiceConfigs += fmt.Sprintf("%v: %v,", k, this.ServiceConfigs[k])
@@ -839,8 +1070,8 @@ func (this *HttpClientConfig) String() string {
 		`Transport:` + strings.Replace(fmt.Sprintf("%v", this.Transport), "TransportConfig", "TransportConfig", 1) + `,`,
 		`ServiceConfigs:` + mapStringForServiceConfigs + `,`,
 		`DefaultDestinationService:` + fmt.Sprintf("%v", this.DefaultDestinationService) + `,`,
-		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
-		`ForwardAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ForwardAttributes), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
+		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
+		`ForwardAttributes:` + strings.Replace(fmt.Sprintf("%v", this.ForwardAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -851,11 +1082,11 @@ func (this *TcpClientConfig) String() string {
 	}
 	s := strings.Join([]string{`&TcpClientConfig{`,
 		`Transport:` + strings.Replace(fmt.Sprintf("%v", this.Transport), "TransportConfig", "TransportConfig", 1) + `,`,
-		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "istio_mixer_v1.Attributes", 1) + `,`,
+		`MixerAttributes:` + strings.Replace(fmt.Sprintf("%v", this.MixerAttributes), "Attributes", "v1.Attributes", 1) + `,`,
 		`DisableCheckCalls:` + fmt.Sprintf("%v", this.DisableCheckCalls) + `,`,
 		`DisableReportCalls:` + fmt.Sprintf("%v", this.DisableReportCalls) + `,`,
 		`ConnectionQuotaSpec:` + strings.Replace(fmt.Sprintf("%v", this.ConnectionQuotaSpec), "QuotaSpec", "QuotaSpec", 1) + `,`,
-		`ReportInterval:` + strings.Replace(fmt.Sprintf("%v", this.ReportInterval), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`ReportInterval:` + strings.Replace(fmt.Sprintf("%v", this.ReportInterval), "Duration", "types.Duration", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -883,7 +1114,7 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -911,7 +1142,7 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Policy |= (NetworkFailPolicy_FailPolicy(b) & 0x7F) << shift
+				m.Policy |= NetworkFailPolicy_FailPolicy(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -930,7 +1161,7 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.MaxRetry |= (uint32(b) & 0x7F) << shift
+				m.MaxRetry |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -949,7 +1180,7 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -958,11 +1189,14 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.BaseRetryWait == nil {
-				m.BaseRetryWait = &google_protobuf1.Duration{}
+				m.BaseRetryWait = &types.Duration{}
 			}
 			if err := m.BaseRetryWait.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -982,7 +1216,7 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -991,11 +1225,14 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxRetryWait == nil {
-				m.MaxRetryWait = &google_protobuf1.Duration{}
+				m.MaxRetryWait = &types.Duration{}
 			}
 			if err := m.MaxRetryWait.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1008,6 +1245,9 @@ func (m *NetworkFailPolicy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthClientConfig
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthClientConfig
 			}
 			if (iNdEx + skippy) > l {
@@ -1037,7 +1277,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1065,7 +1305,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1085,7 +1325,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1105,7 +1345,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1114,11 +1354,14 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MixerAttributes == nil {
-				m.MixerAttributes = &istio_mixer_v1.Attributes{}
+				m.MixerAttributes = &v1.Attributes{}
 			}
 			if err := m.MixerAttributes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1138,7 +1381,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1147,6 +1390,9 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1169,7 +1415,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1178,6 +1424,9 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1200,7 +1449,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1209,6 +1458,9 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1233,7 +1485,7 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1242,11 +1494,14 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ForwardAttributes == nil {
-				m.ForwardAttributes = &istio_mixer_v1.Attributes{}
+				m.ForwardAttributes = &v1.Attributes{}
 			}
 			if err := m.ForwardAttributes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1259,6 +1514,9 @@ func (m *ServiceConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthClientConfig
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthClientConfig
 			}
 			if (iNdEx + skippy) > l {
@@ -1288,7 +1546,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1316,7 +1574,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1336,7 +1594,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1356,7 +1614,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1376,7 +1634,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1385,6 +1643,9 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1409,7 +1670,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1418,11 +1679,14 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.StatsUpdateInterval == nil {
-				m.StatsUpdateInterval = &google_protobuf1.Duration{}
+				m.StatsUpdateInterval = &types.Duration{}
 			}
 			if err := m.StatsUpdateInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1442,7 +1706,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1452,6 +1716,9 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1471,7 +1738,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1481,6 +1748,9 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1500,7 +1770,7 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1509,11 +1779,14 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AttributesForMixerProxy == nil {
-				m.AttributesForMixerProxy = &istio_mixer_v1.Attributes{}
+				m.AttributesForMixerProxy = &v1.Attributes{}
 			}
 			if err := m.AttributesForMixerProxy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1526,6 +1799,9 @@ func (m *TransportConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthClientConfig
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthClientConfig
 			}
 			if (iNdEx + skippy) > l {
@@ -1555,7 +1831,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1583,7 +1859,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1592,6 +1868,9 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1616,7 +1895,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1625,6 +1904,9 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1645,7 +1927,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1662,7 +1944,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1672,6 +1954,9 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthClientConfig
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthClientConfig
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1688,7 +1973,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1697,7 +1982,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthClientConfig
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthClientConfig
 					}
 					if postmsgIndex > l {
@@ -1739,7 +2024,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1749,6 +2034,9 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1768,7 +2056,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1777,11 +2065,14 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MixerAttributes == nil {
-				m.MixerAttributes = &istio_mixer_v1.Attributes{}
+				m.MixerAttributes = &v1.Attributes{}
 			}
 			if err := m.MixerAttributes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1801,7 +2092,7 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1810,11 +2101,14 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ForwardAttributes == nil {
-				m.ForwardAttributes = &istio_mixer_v1.Attributes{}
+				m.ForwardAttributes = &v1.Attributes{}
 			}
 			if err := m.ForwardAttributes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1827,6 +2121,9 @@ func (m *HttpClientConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthClientConfig
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthClientConfig
 			}
 			if (iNdEx + skippy) > l {
@@ -1856,7 +2153,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1884,7 +2181,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1893,6 +2190,9 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1917,7 +2217,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1926,11 +2226,14 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MixerAttributes == nil {
-				m.MixerAttributes = &istio_mixer_v1.Attributes{}
+				m.MixerAttributes = &v1.Attributes{}
 			}
 			if err := m.MixerAttributes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1950,7 +2253,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1970,7 +2273,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1990,7 +2293,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1999,6 +2302,9 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2023,7 +2329,7 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2032,11 +2338,14 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthClientConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthClientConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ReportInterval == nil {
-				m.ReportInterval = &google_protobuf1.Duration{}
+				m.ReportInterval = &types.Duration{}
 			}
 			if err := m.ReportInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2049,6 +2358,9 @@ func (m *TcpClientConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthClientConfig
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthClientConfig
 			}
 			if (iNdEx + skippy) > l {
@@ -2117,8 +2429,11 @@ func skipClientConfig(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthClientConfig
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthClientConfig
 			}
 			return iNdEx, nil
@@ -2149,6 +2464,9 @@ func skipClientConfig(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthClientConfig
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -2167,71 +2485,3 @@ var (
 	ErrInvalidLengthClientConfig = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowClientConfig   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() {
-	proto.RegisterFile("mixer/v1/config/client/client_config.proto", fileDescriptorClientConfig)
-}
-
-var fileDescriptorClientConfig = []byte{
-	// 945 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x4d, 0x6f, 0x1a, 0x47,
-	0x18, 0x66, 0x01, 0x3b, 0x66, 0x08, 0x1f, 0x1e, 0x12, 0x15, 0x93, 0x6a, 0x85, 0x88, 0xa2, 0xd2,
-	0x46, 0x5d, 0x1a, 0x7a, 0xa9, 0x72, 0x68, 0x85, 0x89, 0xad, 0x58, 0x8d, 0x13, 0xba, 0x76, 0x14,
-	0xa9, 0x3d, 0x8c, 0x86, 0x65, 0x80, 0x91, 0xd7, 0x3b, 0x9b, 0xd9, 0x01, 0xdb, 0xb7, 0xfe, 0x82,
-	0xaa, 0x3f, 0x23, 0x7f, 0xa0, 0xff, 0x21, 0xc7, 0x1c, 0x7b, 0xac, 0xe9, 0xa5, 0x47, 0x1f, 0x2b,
-	0xf5, 0x52, 0xed, 0xcc, 0x2c, 0x6b, 0x6c, 0x3e, 0x4a, 0xd5, 0x9e, 0x98, 0x7d, 0xdf, 0xe7, 0x79,
-	0x77, 0xf6, 0x79, 0x9f, 0x79, 0x07, 0xf0, 0xd9, 0x29, 0x3d, 0x27, 0xbc, 0x31, 0x7e, 0xd2, 0x70,
-	0x98, 0xd7, 0xa7, 0x83, 0x86, 0xe3, 0x52, 0xe2, 0x09, 0xfd, 0x83, 0x54, 0xd0, 0xf2, 0x39, 0x13,
-	0x0c, 0x7e, 0x4c, 0x03, 0x41, 0x99, 0x25, 0x19, 0xd6, 0xf8, 0x89, 0xa5, 0x93, 0x0a, 0x5a, 0xb9,
-	0x37, 0x60, 0x03, 0x26, 0x81, 0x8d, 0x70, 0xa5, 0x38, 0x15, 0x73, 0xc0, 0xd8, 0xc0, 0x25, 0x0d,
-	0xf9, 0xd4, 0x1d, 0xf5, 0x1b, 0xbd, 0x11, 0xc7, 0x82, 0x32, 0x4f, 0xe7, 0x77, 0xa6, 0xef, 0xc7,
-	0x42, 0x70, 0xda, 0x1d, 0x09, 0x12, 0xe8, 0xd4, 0xa3, 0x05, 0x5b, 0xc3, 0x3e, 0x45, 0x81, 0x4f,
-	0x1c, 0x0d, 0xab, 0x2d, 0x80, 0xbd, 0x1d, 0x31, 0x81, 0x15, 0xa6, 0xf6, 0x4b, 0x12, 0x6c, 0xbf,
-	0x24, 0xe2, 0x8c, 0xf1, 0x93, 0x7d, 0x4c, 0xdd, 0x0e, 0x73, 0xa9, 0x73, 0x01, 0x6d, 0xb0, 0xe9,
-	0xcb, 0x55, 0xd9, 0xa8, 0x1a, 0xf5, 0x7c, 0xf3, 0xa9, 0xb5, 0xec, 0x03, 0xad, 0x5b, 0x05, 0xac,
-	0x78, 0x69, 0xeb, 0x4a, 0xf0, 0x01, 0xc8, 0x9c, 0xe2, 0x73, 0xc4, 0x89, 0xe0, 0x17, 0xe5, 0x64,
-	0xd5, 0xa8, 0xe7, 0xec, 0xad, 0x53, 0x7c, 0x6e, 0x87, 0xcf, 0xb0, 0x05, 0x0a, 0x5d, 0x1c, 0x10,
-	0x95, 0x45, 0x67, 0x98, 0x8a, 0x72, 0xaa, 0x6a, 0xd4, 0xb3, 0xcd, 0x1d, 0x4b, 0xc9, 0x64, 0x45,
-	0x32, 0x59, 0xcf, 0xb4, 0x4c, 0x76, 0x2e, 0x64, 0x48, 0xfa, 0x1b, 0x4c, 0x05, 0xfc, 0x06, 0xe4,
-	0xa7, 0xf5, 0x55, 0x85, 0xf4, 0xaa, 0x0a, 0x77, 0xa3, 0xf7, 0x87, 0x05, 0x6a, 0x8f, 0x01, 0xb8,
-	0x26, 0x41, 0x0e, 0x64, 0xf6, 0x5b, 0x07, 0x2f, 0xd0, 0xab, 0xce, 0xde, 0xcb, 0x62, 0x02, 0xe6,
-	0x01, 0x90, 0x8f, 0xed, 0x17, 0xaf, 0x8e, 0xf6, 0x8a, 0x46, 0xed, 0xaf, 0x14, 0xc8, 0x1d, 0x11,
-	0x3e, 0xa6, 0x0e, 0x69, 0x4b, 0x2d, 0xa0, 0x05, 0x4a, 0x3d, 0x1a, 0xe0, 0xae, 0x4b, 0x90, 0x33,
-	0x24, 0xce, 0x09, 0x72, 0xb0, 0xeb, 0x06, 0x52, 0xc0, 0x2d, 0x7b, 0x5b, 0xa7, 0xda, 0x61, 0xa6,
-	0x1d, 0x26, 0xe0, 0x17, 0xe0, 0x5e, 0x84, 0xe7, 0xc4, 0x67, 0x5c, 0x68, 0x42, 0x52, 0x12, 0xa0,
-	0xce, 0xd9, 0x32, 0xa5, 0x18, 0x7b, 0xa0, 0x28, 0x1b, 0x80, 0x62, 0x43, 0x68, 0x95, 0x2a, 0x37,
-	0xfb, 0xd3, 0x9a, 0x22, 0xec, 0x82, 0x0c, 0xc6, 0x01, 0x78, 0x08, 0x72, 0x43, 0x21, 0x7c, 0x14,
-	0xb9, 0xa5, 0x9c, 0xae, 0xa6, 0xea, 0xd9, 0xe6, 0xa7, 0xcb, 0x7b, 0xfc, 0xfc, 0xf8, 0xb8, 0xd3,
-	0xea, 0x1c, 0x1c, 0xf9, 0xc4, 0xb1, 0xb3, 0x21, 0xbf, 0xe5, 0xd3, 0xf0, 0x01, 0xee, 0x03, 0x20,
-	0x0d, 0xa5, 0x6a, 0x6d, 0xc8, 0x5a, 0x9f, 0x2c, 0xaf, 0xf5, 0x5d, 0x88, 0x97, 0x95, 0x32, 0x6f,
-	0xa3, 0x25, 0x44, 0xa0, 0xe4, 0x29, 0x1f, 0xa1, 0x3e, 0xa6, 0x2e, 0xd2, 0x06, 0xbc, 0x23, 0x3f,
-	0xb0, 0xb1, 0xa6, 0x01, 0xed, 0x6d, 0xef, 0x96, 0xa9, 0x0f, 0x00, 0xec, 0x33, 0x7e, 0x86, 0x79,
-	0xef, 0xba, 0x80, 0x5b, 0x2b, 0x05, 0xdc, 0xd6, 0xac, 0x38, 0x54, 0xfb, 0x33, 0x05, 0x0a, 0xc7,
-	0x1c, 0x7b, 0x81, 0x6c, 0xce, 0xc2, 0xfe, 0x3b, 0x43, 0x32, 0xbf, 0xff, 0xce, 0x90, 0x5c, 0xc7,
-	0x2b, 0xfd, 0x14, 0x3e, 0x39, 0x83, 0x97, 0x4a, 0x29, 0xfc, 0x6d, 0xbf, 0x74, 0xb1, 0x70, 0x86,
-	0xd2, 0x01, 0x37, 0xfd, 0xb2, 0x1b, 0x66, 0x16, 0x29, 0x9a, 0xfe, 0xcf, 0x14, 0x3d, 0x04, 0xf7,
-	0x03, 0x81, 0x45, 0x80, 0x46, 0x7e, 0x0f, 0x0b, 0x82, 0xa8, 0x27, 0x08, 0x1f, 0x63, 0xb7, 0xbc,
-	0xb1, 0xea, 0xe4, 0x95, 0x24, 0xef, 0xb5, 0xa4, 0x1d, 0x68, 0x16, 0x7c, 0x08, 0x72, 0x5a, 0x39,
-	0x77, 0x14, 0x08, 0xc2, 0xcb, 0x9b, 0x55, 0xa3, 0x9e, 0xb1, 0xef, 0xca, 0x60, 0x5b, 0xc5, 0xe0,
-	0x23, 0x90, 0x8f, 0x8e, 0x8b, 0x46, 0xdd, 0x91, 0xa8, 0x9c, 0x8a, 0x46, 0xb0, 0x37, 0xa0, 0x12,
-	0x37, 0x19, 0xf5, 0x19, 0x47, 0xea, 0xe8, 0xf8, 0x9c, 0x9d, 0x5f, 0xfc, 0x83, 0xa6, 0x7f, 0x14,
-	0xb3, 0xf7, 0x19, 0x3f, 0x0c, 0x11, 0x9d, 0x90, 0x5a, 0xfb, 0x29, 0x0d, 0x8a, 0xcf, 0x85, 0xf0,
-	0xdb, 0x52, 0x27, 0xdd, 0xfb, 0x6f, 0x41, 0x46, 0x44, 0x76, 0x90, 0x1d, 0xcf, 0x36, 0x3f, 0x5f,
-	0xae, 0xef, 0x0d, 0xf7, 0xd8, 0x31, 0x1f, 0x9e, 0x80, 0x42, 0xa0, 0x26, 0x8b, 0xbe, 0x64, 0xc2,
-	0x99, 0x10, 0x9e, 0xaa, 0xdd, 0x15, 0x27, 0xf4, 0xc6, 0xae, 0xac, 0x99, 0xf9, 0x14, 0xec, 0x79,
-	0x82, 0x5f, 0xd8, 0xf9, 0x60, 0x26, 0x08, 0xbf, 0x06, 0x0f, 0x7a, 0xa4, 0x8f, 0x47, 0xae, 0x40,
-	0x3d, 0x12, 0x08, 0xea, 0xc9, 0xfe, 0x20, 0x8d, 0x92, 0xe6, 0xca, 0xd8, 0x3b, 0x1a, 0xf2, 0x2c,
-	0x46, 0xe8, 0xda, 0x73, 0x67, 0x52, 0x7a, 0xfd, 0x99, 0x34, 0xff, 0x6c, 0x6e, 0xfc, 0x8b, 0xb3,
-	0x59, 0xf1, 0x40, 0x69, 0xce, 0x87, 0xc3, 0x22, 0x48, 0x9d, 0x10, 0x75, 0x9f, 0x65, 0xec, 0x70,
-	0x09, 0x5b, 0x60, 0x63, 0x8c, 0xdd, 0x91, 0x3a, 0x72, 0xd9, 0xe6, 0xe3, 0xe5, 0xea, 0xce, 0xd4,
-	0xb4, 0x15, 0xf3, 0x69, 0xf2, 0x2b, 0xa3, 0xf6, 0x2e, 0x9c, 0x05, 0xce, 0xff, 0xe8, 0x87, 0x79,
-	0x12, 0x27, 0xd7, 0x97, 0x78, 0xc1, 0xfd, 0x94, 0x5a, 0xf7, 0x7e, 0x4a, 0x2f, 0xbc, 0x9f, 0x7e,
-	0x00, 0xf7, 0x1d, 0xe6, 0x79, 0xc4, 0x91, 0x16, 0x9a, 0xb9, 0x14, 0x8c, 0x75, 0x2e, 0x85, 0x52,
-	0x5c, 0x65, 0x1a, 0x84, 0xbb, 0xa0, 0xa0, 0xb7, 0x31, 0x9d, 0x32, 0x9b, 0xab, 0xa6, 0x8c, 0x9e,
-	0x14, 0xd1, 0x80, 0xd9, 0x7d, 0xfd, 0xfe, 0xd2, 0x4c, 0x7c, 0xb8, 0x34, 0x13, 0xbf, 0x5e, 0x9a,
-	0x89, 0xab, 0x4b, 0x33, 0xf1, 0xe3, 0xc4, 0x34, 0xde, 0x4d, 0xcc, 0xc4, 0xfb, 0x89, 0x69, 0x7c,
-	0x98, 0x98, 0xc6, 0x6f, 0x13, 0xd3, 0xf8, 0x63, 0x62, 0x26, 0xae, 0x26, 0xa6, 0xf1, 0xf3, 0xef,
-	0x66, 0xe2, 0xfb, 0x87, 0x6a, 0xcb, 0x94, 0x85, 0xff, 0xad, 0x1a, 0xf3, 0xff, 0x4f, 0x75, 0x37,
-	0xe5, 0x9b, 0xbf, 0xfc, 0x3b, 0x00, 0x00, 0xff, 0xff, 0x85, 0x74, 0xc6, 0xd6, 0x32, 0x0a, 0x00,
-	0x00,
-}

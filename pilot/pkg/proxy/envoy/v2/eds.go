@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -226,8 +228,10 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
+	s.mutex.RLock()
 	// The service was never updated - do the full update
 	se, f := s.EndpointShardsByService[string(hostname)]
+	s.mutex.RUnlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -534,6 +538,21 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	defer s.mutex.Unlock()
 	requireFull := false
 
+	// To prevent memory leak.
+	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	if len(istioEndpoints) == 0 {
+		if s.EndpointShardsByService[serviceName] != nil {
+			s.EndpointShardsByService[serviceName].mutex.Lock()
+			delete(s.EndpointShardsByService[serviceName].Shards, shard)
+			svcShards := len(s.EndpointShardsByService[serviceName].Shards)
+			s.EndpointShardsByService[serviceName].mutex.Unlock()
+			if svcShards == 0 {
+				delete(s.EndpointShardsByService, serviceName)
+			}
+		}
+		return
+	}
+
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
 	ep, f := s.EndpointShardsByService[serviceName]
@@ -784,6 +803,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
+		}
+
+		// If location prioritized load balancing is enabled, prioritize endpoints.
+		if pilot.EnableLocalityLoadBalancing() {
+			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+			clonedCLA := util.CloneClusterLoadAssignment(l)
+			l = &clonedCLA
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
 		}
 
 		endpoints += len(l.Endpoints)

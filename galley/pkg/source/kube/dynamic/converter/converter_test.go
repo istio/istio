@@ -257,7 +257,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						Name: "foo",
 					}},
 					Peers: []*authn.PeerAuthenticationMethod{{
-						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+						Params: &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 					}},
 				},
 			},
@@ -312,7 +312,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						Name: "foo",
 					}},
 					Peers: []*authn.PeerAuthenticationMethod{{
-						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+						Params: &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 					}},
 				},
 			},
@@ -535,7 +535,7 @@ func TestShouldProcessIngress(t *testing.T) {
 		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
 		{ingressMode: meshcfg.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
 		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: istio, shouldProcess: false},
 		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
 		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
 		{ingressMode: -1, shouldProcess: false},
@@ -567,8 +567,8 @@ func TestShouldProcessIngress(t *testing.T) {
 		}
 
 		if c.shouldProcess != shouldProcessIngress(&cfg, &ing) {
-			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
-				c.ingressClass, !c.shouldProcess, c.shouldProcess)
+			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v for mesh config %v",
+				c.ingressClass, !c.shouldProcess, c.shouldProcess, c.ingressMode)
 		}
 	}
 }

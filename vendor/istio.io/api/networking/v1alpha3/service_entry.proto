@@ -16,9 +16,9 @@ syntax = "proto3";
 
 import "networking/v1alpha3/gateway.proto";
 
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
+// $title: Service Entry
+// $description: Configuration affecting service registry.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/service-entry.html
 
 // `ServiceEntry` enables adding additional entries into Istio's internal
 // service registry, so that auto-discovered services in the mesh can
@@ -135,7 +135,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
 // The 'exportTo' field allows for control over the visibility of a service
-// declaration to other namespaces in the mesh. By default a service is exported
+// declaration to other namespaces in the mesh. By default, a service is exported
 // to all namespaces. The following example restricts the visibility to the
 // current namespace, represented by ".", so that it cannot be used by other
 // namespaces.
@@ -196,7 +196,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   hosts:
 //   - httpbin.com
 //   exportTo:
-//   - *
+//   - "*"
 //   gateways:
 //   - mesh
 //   - istio-egressgateway
@@ -326,6 +326,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   - "spiffe://cluster.local/ns/httpbin-ns/sa/httpbin-service-account"
 // ```
 //
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message ServiceEntry {
   // REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
   // name with wildcard prefix (external services only). DNS names in hosts
@@ -352,7 +356,7 @@ message ServiceEntry {
   repeated string addresses = 2;
 
   // REQUIRED. The ports associated with the external service. If the
-  // Endpoints are unix domain socket addresses, there must be exactly one
+  // Endpoints are Unix domain socket addresses, there must be exactly one
   // port.
   repeated Port ports = 3;
 
@@ -422,7 +426,7 @@ message ServiceEntry {
     // REQUIRED: Address associated with the network endpoint without the
     // port.  Domain names can be used if and only if the resolution is set
     // to DNS, and must be fully-qualified without wildcards. Use the form
-    // unix:///absolute/path/to/socket for unix domain socket endpoints.
+    // unix:///absolute/path/to/socket for Unix domain socket endpoints.
     string address = 1;
 
     // Set of ports associated with the endpoint. The ports must be
@@ -471,7 +475,7 @@ message ServiceEntry {
   repeated Endpoint endpoints = 6;
 
   // A list of namespaces to which this service is exported. Exporting a service
-  // allows it to used by sidecars, gateways and virtual services defined in
+  // allows it to be used by sidecars, gateways and virtual services defined in
   // other namespaces. This feature provides a mechanism for service owners
   // and mesh administrators to control the visibility of services across
   // namespace boundaries.
@@ -480,17 +484,20 @@ message ServiceEntry {
   // namespaces by default.
   //
   // The value "." is reserved and defines an export to the same namespace that
-  // the service is declared in, similarly the value "*" is reserved and
+  // the service is declared in. Similarly the value "*" is reserved and
   // defines an export to all namespaces.
   //
-  // For a Kubernetes Service the equivalent effect can be achieved by setting
+  // For a Kubernetes Service, the equivalent effect can be achieved by setting
   // the annotation "networking.istio.io/exportTo" to a comma-separated list
   // of namespace names.
+  //
+  // NOTE: in the current release, the `exportTo` value is restricted to
+  // "." or "*" (i.e., the current namespace or all namespaces).
   repeated string export_to = 7;
 
   // The list of subject alternate names allowed for workloads that
   // implement this service. This information is used to enforce
-  // secure-naming <https://istio.io/docs/concepts/security/#secure-naming>.
+  // [secure-naming](/docs/concepts/security/#secure-naming).
   // If specified, the proxy will verify that the server
   // certificate's subject alternate name matches one of the specified values.
   repeated string subject_alt_names = 8;

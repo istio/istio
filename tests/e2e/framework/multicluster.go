@@ -105,6 +105,12 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 			log.Infof("Endpoint for service %s not found", svc)
 		}
 	}
+	// Setting selfSigned to false because the primary and the remote clusters
+	// are running with a shared root CA
+	helmSetContent += " --set security.selfSigned=false"
+	// Enabling access log because some tests (e.g. TestGrpc) are validating
+	// based on the pods logs
+	helmSetContent += " --set global.proxy.accessLogFile=\"/dev/stdout\""
 	if !useAutoInject {
 		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
 		log.Infof("Remote cluster auto-sidecar injection disabled")
