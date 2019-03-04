@@ -230,16 +230,14 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	// plus 2 extra due to the mem registry
-	// TODO: change to 6 once the mem registry thing is fixed
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 8 {
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
 		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 
 	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	// and 2 subsets of http1), 1 blackhole, 1 passthrough
 	// plus 2 extra due to the mem registry
-	// TODO: change to 10 once the mem registry thing is fixed
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 12 {
+	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
 		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
 	}
 

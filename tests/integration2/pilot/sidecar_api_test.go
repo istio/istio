@@ -158,34 +158,16 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Structpath, mi
 			Equals("FAIL_CLOSE", "{.transport.network_fail_policy.policy}")
 
 	})
-	t.Run("validate-legacy-port-3333", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
-			Select("{.resources[?(@.address.socketAddress.portValue==3333)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|3333|http|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
-	})
-	t.Run("validate-legacy-port-9999", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
-			Select("{.resources[?(@.address.socketAddress.portValue==9999)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|9999|custom|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
-	})
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.ForTest(t).
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
+			// Current default for egress is allowed ( based on user feedback ).
+			// TODO: add test for blocked by default, based on setting.
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
 			Equals(true, "{.useOriginalDst}")
 	})
 }
