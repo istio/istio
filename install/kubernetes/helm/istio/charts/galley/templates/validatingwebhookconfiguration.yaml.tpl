@@ -62,6 +62,7 @@ webhooks:
         - envoyfilters
         - gateways
         - serviceentries
+        - sidecars
         - virtualservices
     failurePolicy: Fail
   - name: mixer.validation.istio.io
