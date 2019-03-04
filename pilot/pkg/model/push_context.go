@@ -502,11 +502,15 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return nil
 	}
 
-	// search through the DestinationRules in proxy's namespace first
-	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-			return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+	// TODO: once we move default DestinationRule to root config namespace, remove the below line.
+	if proxy.ConfigNamespace != IstioSystemNamespace ||
+		(ps.Env != nil && ps.Env.Mesh != nil && ps.Env.Mesh.RootNamespace != "") {
+		// search through the DestinationRules in proxy's namespace first
+		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+			if host, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+			}
 		}
 	}
 
