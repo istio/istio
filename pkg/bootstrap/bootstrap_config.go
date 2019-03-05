@@ -313,6 +313,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		StoreHostPort(h, p, "statsd", opts)
 	}
 
+	if config.EnvoyMetricsServiceAddress != "" {
+		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_metrics_service", opts)
+	}
+
 	fout, err := os.Create(fname)
 	if err != nil {
 		return "", err
