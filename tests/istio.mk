@@ -137,6 +137,9 @@ e2e_all_run_junit_report:
 e2e_pilot: out_dir istioctl generate_yaml
 	go test -v -timeout 25m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+e2e_rbacv2: out_dir istioctl generate_yaml
+	go test -v -timeout 25m ./tests/e2e/tests/pilot --test.run TestRBACV2 --cluster_wide ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
 e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
