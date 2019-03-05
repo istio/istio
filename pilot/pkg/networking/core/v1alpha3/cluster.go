@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -561,7 +560,12 @@ func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType 
 }
 
 // conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, sni string) *networking.TLSSettings {
+func conditionallyConvertToIstioMtls(
+	tls *networking.TLSSettings,
+	serviceAccounts []string,
+	sni string,
+	metadata map[string]string,
+) *networking.TLSSettings {
 	if tls == nil {
 		return nil
 	}
@@ -576,18 +580,18 @@ func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccount
 		if subjectAltNamesToUse == nil || len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse)
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, metadata)
 	}
 	return tls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSettings {
+func buildIstioMutualTLS(serviceAccounts []string, sni string, metadata map[string]string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
-		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
-		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+		CaCertificates:    model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientRootCert, model.DefaultRootCert),
+		ClientCertificate: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientCertChain, model.DefaultCertChain),
+		PrivateKey:        model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientKey, model.DefaultKey),
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}
@@ -652,7 +656,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
-		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
+		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni, metadata)
 		applyUpstreamTLSSettings(env, cluster, tls, metadata)
 	}
 }

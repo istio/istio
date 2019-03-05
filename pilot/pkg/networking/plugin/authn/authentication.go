@@ -18,6 +18,8 @@ import (
 	"crypto/sha1"
 	"fmt"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -110,22 +112,13 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
-		tlsServerRootCert := model.DefaultRootCert
-		if tlsServerRootCertFromMetadata, ok := meta[model.NodeMetadataTlsServerRootCert]; ok {
-			tlsServerRootCert = tlsServerRootCertFromMetadata
-		}
+		base := meta[pilot.BaseDir] + model.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerRootCert, base+model.RootCertFilename)
 
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
-		tlsServerCertChain := model.DefaultCertChain
-		if tlsServerCertChainFromMetadata, ok := meta[model.NodeMetadataTlsServerCertChain]; ok {
-			tlsServerCertChain = tlsServerCertChainFromMetadata
-		}
-
-		tlsServerKey := model.DefaultKey
-		if tlsServerKeyFromMetadata, ok := meta[model.NodeMetadataTlsServerKey]; ok {
-			tlsServerKey = tlsServerKeyFromMetadata
-		}
+		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerCertChain, base+model.CertChainFilename)
+		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerKey, base+model.KeyFilename)
 
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
@@ -189,7 +182,12 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt, in.Node.Metadata)
+	return setupFilterChains(authnPolicy,
+		in.Env.Mesh.SdsUdsPath,
+		in.Env.Mesh.EnableSdsTokenMount,
+		in.Env.Mesh.SdsUseK8SSaJwt,
+		in.Node.Metadata,
+	)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This

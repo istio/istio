@@ -297,6 +297,18 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	return out, nil
 }
 
+// GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
+// or does not contain the key. Useful when retrieving node metadata fields.
+func GetOrDefaultFromMap(stringMap map[string]string, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return valFromMap
+	}
+	return defaultVal
+}
+
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
 // from the proxy metadata or the proxy ID
 func GetProxyConfigNamespace(proxy *Proxy) string {
