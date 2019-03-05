@@ -19,10 +19,6 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "security.name" . }}
-        chart: {{ template "security.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"

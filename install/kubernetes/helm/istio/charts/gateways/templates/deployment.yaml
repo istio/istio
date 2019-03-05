@@ -24,9 +24,6 @@ spec:
   template:
     metadata:
       labels:
-        chart: {{ template "gateway.chart" $ }}
-        heritage: {{ $.Release.Service }}
-        release: {{ $.Release.Name }}
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
