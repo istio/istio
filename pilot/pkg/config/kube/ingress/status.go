@@ -104,18 +104,6 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 			},
 		}
 	}), &v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
-	
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
-			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
-			},
-		},
-		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
-	)
 
 	st := StatusSyncer{
 		client:              client,
