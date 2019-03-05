@@ -1,5 +1,4 @@
-{{ end }}
-
+---
 {{- if .Values.global.meshExpansion.enabled }}
 {{- if .Values.global.meshExpansion.useILB }}
 apiVersion: networking.istio.io/v1alpha3
