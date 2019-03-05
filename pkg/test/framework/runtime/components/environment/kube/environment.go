@@ -249,7 +249,7 @@ func (e *Environment) deployIstio() (err error) {
 		WorkDir:      e.ctx.WorkDir(),
 		ChartDir:     e.s.ChartDir,
 		CrdsFilesDir: e.s.CrdsFilesDir,
-		ValuesFile:   e.s.ValuesFile,
+		ValuesFiles:  []string{BaseValuesFile, e.s.ValuesFile},
 		Values:       e.s.Values,
 	})
 	if err == nil {
