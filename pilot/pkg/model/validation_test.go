@@ -1532,7 +1532,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
-			"server certificate"},
+			""},
 		{"simple sds no private key",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
@@ -1540,7 +1540,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
-			"private key"},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -1571,7 +1571,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
-			"server certificate"},
+			""},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,

@@ -1,4 +1,4 @@
-# istio-rbac-rules.yaml to enforce access control for both http and tcp services using Istio RBAC v2 rules.
+# istio-rbac-v2-rules.yaml to enforce access control for both http and tcp services using Istio RBAC v2 rules.
 
 # For service a, allow no one to access it.
 # This will also result a default tcp rule for service a that denies all access.
@@ -56,7 +56,11 @@ spec:
         kind: ServiceRole
         name: "access-b-http-tcp"
 ---
-# Allow GET requests at every path, except /admin*
+
+# For service c:
+# * Allow GET requests for any path, except paths ending with /admin for service account a.
+# * Deny all requests for service account b.
+# * Deny anyone else (e.g. service d) by default.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -67,7 +71,6 @@ spec:
     not_paths: ["*/admin"]
     paths: ["*"]
 ---
-# Deny all access requests
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -76,9 +79,6 @@ spec:
   rules:
   - not_methods: ["*"]
 ---
-# Use deny-get-at-admin-prefix-path-rules for service account a for the same namespace.
-# Use deny-all-access-rules for the service account d for the same namespace.
-# Service d requests to c are denied by default.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: AuthorizationPolicy
 metadata:
@@ -99,6 +99,7 @@ spec:
         kind: ServiceRole
         name: "deny-all-access-rules"
 ---
+
 # For service d, anyone can access it via HTTP requests or TCP at port 9090.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole

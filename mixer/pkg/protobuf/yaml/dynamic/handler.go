@@ -60,6 +60,9 @@ type (
 
 		// timeout for remote handle calls.
 		timeout time.Duration
+
+		// ah provides auth option for remote grpc handler.
+		ah *authHelper
 	}
 
 	// Svc encapsulates abstract service
@@ -92,7 +95,7 @@ type (
 
 // BuildHandler creates a dynamic handler object exposing specific handler interfaces.
 func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig proto.Marshaler,
-	templateConfig []*TemplateConfig) (hh *Handler, err error) {
+	templateConfig []*TemplateConfig, insecureSkipVerify bool) (hh *Handler, err error) {
 
 	// validate params
 	if connConfig == nil || connConfig.Address == "" {
@@ -129,6 +132,7 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 	}
 
 	hh.n.Store(rand.Uint64())
+	hh.ah = getAuthHelper(connConfig.GetAuthentication(), insecureSkipVerify)
 	if err = hh.connect(); err != nil {
 		return nil, err
 	}
@@ -145,9 +149,11 @@ func (h *Handler) Close() error {
 }
 
 func (h *Handler) connect() (err error) {
-	// TODO add simple secure option
-	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions()); err != nil {
+	opts, err := h.ah.getAuthOpt()
+	if err != nil {
+		return err
+	}
+	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), opts...); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
