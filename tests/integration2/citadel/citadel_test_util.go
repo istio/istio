@@ -41,8 +41,10 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
-
+	expectedID, err := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
+	if err != nil {
+		return err
+	}
 	verifyFields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,

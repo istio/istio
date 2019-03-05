@@ -307,7 +307,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := spiffe.GenSpiffeURI(saNamespace, saName)
+	id := spiffe.MustGenSpiffeURI(saNamespace, saName)
 	if sc.dnsNames != nil {
 		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {

@@ -1,6 +1,7 @@
 package spiffe
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -12,15 +13,16 @@ func TestGenSpiffeURI(t *testing.T) {
 		namespace      string
 		trustDomain    string
 		serviceAccount string
+		expectedError  string
 		expectedURI    string
 	}{
 		{
 			serviceAccount: "sa",
-			expectedURI:    "spiffe://cluster.local/ns//sa/sa",
+			expectedError:  "namespace or service account can't be empty",
 		},
 		{
-			namespace:   "ns",
-			expectedURI: "spiffe://cluster.local/ns/ns/sa/",
+			namespace:     "ns",
+			expectedError: "namespace or service account can't be empty",
 		},
 		{
 			namespace:      "namespace-foo",
@@ -39,18 +41,29 @@ func TestGenSpiffeURI(t *testing.T) {
 			expectedURI:    "spiffe://kube-federating-id.testproj.iam.gserviceaccount.com/ns/foo/sa/bar",
 		},
 	}
-
-	for _, tc := range testCases {
+	for id, tc := range testCases {
 		if tc.trustDomain == "" {
 			SetTrustDomain(defaultTrustDomain)
 		} else {
 			SetTrustDomain(tc.trustDomain)
 		}
 
-		got := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		if tc.expectedError == "" && err != nil {
+			t.Errorf("teste case [%v] failed, error %v", id, tc)
+		}
+		if tc.expectedError != "" {
+			if err == nil {
+				t.Errorf("want get error %v, got nil", tc.expectedError)
+			} else if !strings.Contains(err.Error(), tc.expectedError) {
+				t.Errorf("want error contains %v,  got error %v", tc.expectedError, err)
+			}
+			continue
+		}
 		if got != tc.expectedURI {
 			t.Errorf("unexpected subject name, want %v, got %v", tc.expectedURI, got)
 		}
+
 	}
 }
 
@@ -64,7 +77,7 @@ func TestGetSetTrustDomain(t *testing.T) {
 }
 
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := GenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }
