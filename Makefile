@@ -83,9 +83,6 @@ export ENABLE_COREDUMP ?= false
 # Enable Istio CNI in helm template commands
 export ENABLE_ISTIO_CNI ?= false
 
-# NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
-
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
