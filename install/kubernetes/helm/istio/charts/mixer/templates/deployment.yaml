@@ -60,7 +60,9 @@
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
+{{- if .Values.policy.resources }}
+{{ toYaml .Values.policy.resources | indent 10 }}
+{{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
@@ -209,7 +211,9 @@
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
+{{- if .Values.telemetry.resources }}
+{{ toYaml .Values.telemetry.resources | indent 10 }}
+{{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}

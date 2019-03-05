@@ -23,7 +23,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Template provides the details of a mixer template.
+// Template provides the details of a Mixer template.
 type Template struct {
 	// Base64 encoded proto descriptor of the template.
 	Descriptor_ string `protobuf:"bytes,1,opt,name=descriptor,proto3" json:"descriptor,omitempty"`

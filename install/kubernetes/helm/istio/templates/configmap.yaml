@@ -115,13 +115,12 @@ data:
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
-    {{- if .Values.global.configRootNamespace }}
     # The namespace to treat as the administrative root namespace for istio
-    # configuration. Set this field to a dedicated namespace if you want to
-    # all sidecars to be able to communicate with services in their
-    # namespace alone. This dedicated namespace should have a default
-    # Sidecar config
+    # configuration.
+    {{- if .Values.global.configRootNamespace }}
     rootNamespace: {{ .Values.global.configRootNamespace }}
+    {{- else }}    
+    rootNamespace: {{ .Release.Namespace }}
     {{- end }}
 
     {{- if .Values.global.defaultConfigVisibilitySettings }}

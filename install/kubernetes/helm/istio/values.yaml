@@ -1,15 +1,18 @@
+# Top level istio values file has the following sections.
+#
+# global: This file is the authoritative and exhaustive source for the global section.
+#
+# chart sections: Every subdirectory inside the charts/ directory has a top level
+#       configuration key in this file. This file overrides the values specified
+#       by the charts/${chartname}/values.yaml.
+#       Check the chart level values file for exhaustive list of configuration options.
+
 #
 # Gateways Configuration, refer to the charts/gateways/values.yaml
 # for detailed configuration
 #
 gateways:
   enabled: true
-  istio-egressgateway:
-    # If you are using [egress gateway rules](https://istio.io/docs/examples/advanced-egress/egress-gateway/),
-    # you will need to update Istio and set this enabled option to true. 
-    # Depending on expected egress traffic, you should also adjust CPU 
-    # request and max autoscale replicas for the egress gateway.
-    enabled: false
 
 #
 # sidecar-injector webhook configuration, refer to the
@@ -17,10 +20,6 @@ gateways:
 #
 sidecarInjectorWebhook:
   enabled: true
-  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
-  # health check to redirect request to sidecar. This makes liveness check work
-  # even when mTLS is enabled.
-  rewriteAppHTTPProbe: false
 
 #
 # galley configuration, refer to charts/galley/values.yaml
@@ -32,37 +31,21 @@ galley:
 #
 # mixer configuration
 #
+# @see charts/mixer/values.yaml, it takes precedence
 mixer:
+  enabled: true
   policy:
-    enabled: true
+    # if policy is enabled the global.disablePolicyChecks has affect.
+    enabled: false
+
   telemetry:
     enabled: true
-  # mixer load shedding configuration.
-  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
-  loadshedding:
-    # disabled, logonly or enforce
-    mode: enforce
-
-  adapters:
-    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
-    stdio:
-      enabled: false
-  resources:
-    requests:
-      cpu: 1000m
-      memory: 1G
-    limits:
-      # It is best to do horizontal scaling of mixer using moderate cpu allocation.
-      # We have experimentally found that these values work well.
-      cpu: 4800m
-      memory: 4G
-
 #
 # pilot configuration
 #
+# @see charts/pilot/values.yaml
 pilot:
   enabled: true
-  traceSampling: 1.0
 
 #
 # security configuration
@@ -170,7 +153,7 @@ global:
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
-    concurrency: 0
+    concurrency: 2
 
     # Configures the access log for each sidecar.
     # Options:
@@ -252,8 +235,9 @@ global:
   controlPlaneSecurityEnabled: false
 
   # disablePolicyChecks disables mixer policy checks.
+  # if mixer.policy.enabled==true then disablePolicyChecks has affect.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
-  disablePolicyChecks: false
+  disablePolicyChecks: true
 
   # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
   # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
