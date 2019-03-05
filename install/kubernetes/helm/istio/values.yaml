@@ -36,7 +36,7 @@ mixer:
   enabled: true
   policy:
     # if policy is enabled the global.disablePolicyChecks has affect.
-    enabled: false
+    enabled: true
 
   telemetry:
     enabled: true
