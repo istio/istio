@@ -36,7 +36,7 @@ type kubeController struct {
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	WatchedNamespace  string
+	WatchedNamespaces string
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
@@ -50,7 +50,7 @@ type Multicluster struct {
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
-	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
+	watchedNamespaces string, domainSuffix string, resycnPeriod time.Duration,
 	serviceController *aggregate.Controller, xds model.XDSUpdater, meshNetworks *meshconfig.MeshNetworks) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
@@ -60,7 +60,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		WatchedNamespace:      watchedNamespace,
+		WatchedNamespaces:     watchedNamespaces,
 		DomainSuffix:          domainSuffix,
 		ResyncPeriod:          resycnPeriod,
 		serviceController:     serviceController,
@@ -86,11 +86,11 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
 	kubectl := kube.NewController(clientset, kube.ControllerOptions{
-		WatchedNamespace: m.WatchedNamespace,
-		ResyncPeriod:     m.ResyncPeriod,
-		DomainSuffix:     m.DomainSuffix,
-		XDSUpdater:       m.XDSUpdater,
-		ClusterID:        clusterID,
+		WatchedNamespaces: m.WatchedNamespaces,
+		ResyncPeriod:      m.ResyncPeriod,
+		DomainSuffix:      m.DomainSuffix,
+		XDSUpdater:        m.XDSUpdater,
+		ClusterID:         clusterID,
 	})
 	kubectl.InitNetworkLookup(m.meshNetworks)
 
