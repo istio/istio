@@ -1165,6 +1165,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		}
 	}
 
+	if config.EnvoyMetricsServiceAddress != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
+		}
+	}
+
 	if err := ValidatePort(int(config.ProxyAdminPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
