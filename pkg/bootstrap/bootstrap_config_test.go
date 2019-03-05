@@ -80,7 +80,7 @@ func TestGolden(t *testing.T) {
 		{
 			base: "stats_inclusion",
 			annotations: map[string]string{
-				"sidecar.istio.io/v1alpha1/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
 			},
 		},
 	}

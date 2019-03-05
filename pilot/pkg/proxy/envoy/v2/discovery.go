@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
 )
 
@@ -103,6 +104,9 @@ type DiscoveryServer struct {
 
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
+
+	// KubeController provides readiness info (if initial sync is complete)
+	KubeController *kube.Controller
 
 	// rate limiter for sending updates during full ads push.
 	rateLimiter *rate.Limiter
@@ -186,11 +190,17 @@ func intEnv(envVal string, def int) int {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, ctl model.Controller, configCache model.ConfigStoreCache) *DiscoveryServer {
+func NewDiscoveryServer(
+	env *model.Environment,
+	generator core.ConfigGenerator,
+	ctl model.Controller,
+	kuebController *kube.Controller,
+	configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
+		KubeController:          kuebController,
 		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},

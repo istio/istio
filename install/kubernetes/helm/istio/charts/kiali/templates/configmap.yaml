@@ -14,6 +14,8 @@ data:
     server:
       port: 20001
     external_services:
+      istio:
+        url_service_version: http://istio-pilot:8080/version
       jaeger:
         url: {{ .Values.dashboard.jaegerURL }}
       grafana:
