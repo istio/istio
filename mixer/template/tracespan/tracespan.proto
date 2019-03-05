@@ -62,118 +62,86 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 message Template {
-    // Trace ID is the unique identifier for a trace. All spans from the same
-    // trace share the same Trace ID.
-    //
-    // Required.
-    string trace_id = 1;
+  // Required. Trace ID is the unique identifier for a trace. All spans from the
+  // same trace share the same Trace ID.
+  string trace_id = 1;
 
-    // Span ID is the unique identifier for a span within a trace. It is assigned
-    // when the span is created.
-    //
-    // Optional.
-    string span_id = 2;
+  // Optional. Span ID is the unique identifier for a span within a trace. It is
+  // assigned when the span is created.
+  string span_id = 2;
 
-    // Parent Span ID is the unique identifier for a parent span of this span
-    // instance. If this is a root span, then this field MUST be empty.
-    //
-    // Optional.
-    string parent_span_id = 3;
+  // Optional. Parent Span ID is the unique identifier for a parent span of this
+  // span instance. If this is a root span, then this field MUST be empty.
+  string parent_span_id = 3;
 
-    // Span name is a description of the span's operation.
-    //
-    // For example, the name can be a qualified method name or a file name
-    // and a line number where the operation is called. A best practice is to use
-    // the same display name within an application and at the same call point.
-    // This makes it easier to correlate spans in different traces.
-    //
-    // Required.
-    string span_name = 4;
+  // Required. Span name is a description of the span's operation.
+  //
+  // For example, the name can be a qualified method name or a file name
+  // and a line number where the operation is called. A best practice is to use
+  // the same display name within an application and at the same call point.
+  // This makes it easier to correlate spans in different traces.
+  string span_name = 4;
 
-    // The start time of the span.
-    //
-    // Required.
-    istio.policy.v1beta1.TimeStamp start_time = 5;
+  // Required. The start time of the span.
+  // (-- api-linter: standard-fields=disabled --)
+  istio.policy.v1beta1.TimeStamp start_time = 5;
 
-    // The end time of the span.
-    //
-    // Required.
-    istio.policy.v1beta1.TimeStamp end_time = 6;
+  // Required. The end time of the span.
+  // (-- api-linter: standard-fields=disabled --)
+  istio.policy.v1beta1.TimeStamp end_time = 6;
 
-    // Span tags are a set of < key, value > pairs that provide metadata for the
-    // entire span. The values can be specified in the form of expressions.
-    //
-    // Optional.
-    map<string, istio.policy.v1beta1.Value> span_tags = 7;
+  // Optional. Span tags are a set of < key, value > pairs that provide metadata
+  // for the entire span. The values can be specified in the form of
+  // expressions.
+  map<string, istio.policy.v1beta1.Value> span_tags = 7;
 
-    // HTTP status code used to set the span status. If unset or set to 0, the
-    // span status will be assumed to be successful.
-    int64 httpStatusCode = 8;
+  // Optional. HTTP status code used to set the span status. If unset or set to
+  // 0, the span status will be assumed to be successful.
+  int64 http_status_code = 8;
 
-    // client_span indicates the span kind. True for client spans and False or
-    // not provided for server spans. Using bool instead of enum is a temporary
-    // work around since mixer expression language does not yet support enum
-    // type.
-    //
-    // Optional
-    bool client_span = 9;
+  // Optional. client_span indicates the span kind. True for client spans and
+  // False or not provided for server spans. Using bool instead of enum is a
+  // temporary work around since mixer expression language does not yet support
+  // enum type.
+  bool client_span = 9;
 
-    // rewrite_client_span_id is used to indicate whether to create a new client
-    // span id to accommodate Zipkin shared span model. Some tracing systems like
-    // Stackdriver separates a RPC into client span and server span. To solve this
-    // incompatibility, deterministically rewriting both span id of client span and
-    // parent span id of server span to the same newly generated id.
-    //
-    // Optional
-    bool rewrite_client_span_id = 10;
+  // Optional. rewrite_client_span_id is used to indicate whether to create a
+  // new client span id to accommodate Zipkin shared span model. Some tracing
+  // systems like Stackdriver separates a RPC into client span and server span.
+  // To solve this incompatibility, deterministically rewriting both span id of
+  // client span and parent span id of server span to the same newly generated
+  // id.
+  bool rewrite_client_span_id = 10;
 
-    // Identifies the source (client side) of this span.
-    // Should usually be set to `source.workload.name`.
-    //
-    // Optional.
-    string source_name = 11;
+  // Optional. Identifies the source (client side) of this span.
+  // Should usually be set to `source.workload.name`.
+  string source_name = 11;
 
-    // Client IP address. Should usually be set to `source.ip`.
-    //
-    // Optional.
-    istio.policy.v1beta1.IPAddress source_ip = 12;
+  // Optional. Client IP address. Should usually be set to `source.ip`.
+  istio.policy.v1beta1.IPAddress source_ip = 12;
 
-    // Identifies the destination (server side) of this span.
-    // Should usually be set to `destination.workload.name`.
-    //
-    // Optional.
-    string destination_name = 13;
+  // Optional. Identifies the destination (server side) of this span.
+  // Should usually be set to `destination.workload.name`.
+  string destination_name = 13;
 
-    // Server IP address. Should usually be set to `destination.ip`.
-    //
-    // Optional.
-    istio.policy.v1beta1.IPAddress destination_ip = 14;
+  // Optional. Server IP address. Should usually be set to `destination.ip`.
+  istio.policy.v1beta1.IPAddress destination_ip = 14;
 
-    // Request body size. Should usually be set to `request.size`.
-    //
-    // Optional.
-    int64 request_size = 15;
+  // Optional. Request body size. Should usually be set to `request.size`.
+  int64 request_size = 15;
 
-    // Total request size (headers and body).
-    // Should usually be set to `request.total_size`.
-    //
-    // Optional.
-    int64 request_total_size = 16;
+  // Optional. Total request size (headers and body).
+  // Should usually be set to `request.total_size`.
+  int64 request_total_size = 16;
 
-    // Response body size. Should usually be set to `response.size`.
-    //
-    // Optional.
-    int64 response_size = 17;
+  // Optional. Response body size. Should usually be set to `response.size`.
+  int64 response_size = 17;
 
-    // Response total size (headers and body).
-    // Should usually be set to `response.total_size`.
-    //
-    // Optional.
-    int64 response_total_size = 18;
+  // Optional. Response total size (headers and body).
+  // Should usually be set to `response.total_size`.
+  int64 response_total_size = 18;
 
-    // One of "http", "https", or "grpc" or any other value of
-    // the `api.protocol` attribute. Should usually be set to `api.protocol`.
-    //
-    // Optional.
-    string api_protocol = 19;
+  // Optional. One of "http", "https", or "grpc" or any other value of
+  // the `api.protocol` attribute. Should usually be set to `api.protocol`.
+  string api_protocol = 19;
 }
