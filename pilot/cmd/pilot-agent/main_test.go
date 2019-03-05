@@ -227,5 +227,5 @@ func TestDedupeStrings(t *testing.T) {
 
 	actual := dedupeStrings(in)
 
-	g.Expect(actual).To(gomega.Equal(expected))
+	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
