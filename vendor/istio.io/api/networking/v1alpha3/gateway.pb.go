@@ -7,12 +7,12 @@
 // use, SNI configuration for the load balancer, etc.
 //
 // For example, the following Gateway configuration sets up a proxy to act
-// as a load balancer exposing port 80 and 9080 (http), 443 (https), and
-// port 2379 (TCP) for ingress.  The gateway will be applied to the proxy
-// running on a pod with labels `app: my-gateway-controller`. While Istio
-// will configure the proxy to listen on these ports, it is the
-// responsibility of the user to ensure that external traffic to these
-// ports are allowed into the mesh.
+// as a load balancer exposing port 80 and 9080 (http), 443 (https),
+// 9443(https) and port 2379 (TCP) for ingress.  The gateway will be
+// applied to the proxy running on a pod with labels `app:
+// my-gateway-controller`. While Istio will configure the proxy to listen
+// on these ports, it is the responsibility of the user to ensure that
+// external traffic to these ports are allowed into the mesh.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -45,6 +45,15 @@
 //       serverCertificate: /etc/certs/servercert.pem
 //       privateKey: /etc/certs/privatekey.pem
 //   - port:
+//       number: 9443
+//       name: https
+//       protocol: HTTPS
+//     hosts:
+//     - "bookinfo-namespace/*.bookinfo.com"
+//     tls:
+//       mode: SIMPLE # enables HTTPS on this port
+//       credentialName: bookinfo-secret # fetches certs from kubernetes secret
+//   - port:
 //       number: 9080
 //       name: http-wildcard
 //       protocol: HTTP
@@ -57,6 +66,7 @@
 //     hosts:
 //     - "*"
 // ```
+//
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
 // the forwarding of traffic arriving at a particular host or gateway port.
@@ -136,6 +146,32 @@
 //         port:
 //           number: 5555
 // ```
+//
+// It is possible to restrict the set of virtual services that can bind to
+// a gateway server using the namespace/hostname syntax in the hosts field.
+// For example, the following Gateway allows any virtual service in the ns1
+// namespace to bind to it, while restricting only the virtual service with
+// foo.bar.com host in the ns2 namespace to bind to it.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-gateway
+//   namespace: some-config-namespace
+// spec:
+//   selector:
+//     app: my-gateway-controller
+//   servers:
+//   - port:
+//       number: 80
+//       name: http
+//       protocol: HTTP
+//     hosts:
+//     - "ns1/*"
+//     - "ns2/foo.bar.com"
+// ```
+//
 
 package v1alpha3
 
@@ -369,13 +405,13 @@ func (m *Gateway) GetSelector() map[string]string {
 // ```
 type Server struct {
 	// REQUIRED: The Port on which the proxy should listen for incoming
-	// connections. If using Unix domain socket, use 0 as the port number,
-	// with a valid protocol and port name, along with the bind parameter.
+	// connections.
 	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// $hide_from_docs
 	// The ip or the Unix domain socket to which the listener should be bound
-	// to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux
-	// abstract namespace).
+	// to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar`
+	// (Linux abstract namespace). When using unix domain sockets, the port
+	// number should be 0.
 	Bind string `protobuf:"bytes,4,opt,name=bind,proto3" json:"bind,omitempty"`
 	// REQUIRED. One or more hosts exposed by this gateway.
 	// While typically applicable to
@@ -502,18 +538,21 @@ type Server_TLSOptions struct {
 	// client side certificate.
 	CaCertificates string `protobuf:"bytes,5,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
 	// The credentialName stands for a unique identifier that can be used
-	// to identify the serverCertificate and the privateKey. The credentialName
-	// appended with suffix "-cacert" is used to identify the CaCertificates
-	// associated with this server. Gateway workloads capable of fetching
-	// credentials from a remote credential store will be configured to retrieve
-	// the serverCertificate and the privateKey using credentialName, instead of
-	// using the file system paths specified above. If using mutual TLS,
+	// to identify the serverCertificate and the privateKey. The
+	// credentialName appended with suffix "-cacert" is used to identify
+	// the CaCertificates associated with this server. Gateway workloads
+	// capable of fetching credentials from a remote credential store such
+	// as kubernetes secrets, will be configured to retrieve the
+	// serverCertificate and the privateKey using credentialName, instead
+	// of using the file system paths specified above. If using mutual TLS,
 	// gateway workloads will retrieve the CaCertificates using
-	// credentialName-cacert. The semantics of the name are platform dependent.
-	// In Kubernetes, the default Istio supplied credential server expects the
-	// credentialName to match the name of the Kubernetes secret that holds the
-	// server certificate, the private key, and the CA certificate
-	// (if using mutual TLS).
+	// credentialName-cacert. The semantics of the name are platform
+	// dependent.  In Kubernetes, the default Istio supplied credential
+	// server expects the credentialName to match the name of the
+	// Kubernetes secret that holds the server certificate, the private
+	// key, and the CA certificate (if using mutual TLS). Set the
+	// ISTIO_META_USER_SDS metadata variable in the gateway's proxy to
+	// enable the dynamic credential fetching feature.
 	CredentialName string `protobuf:"bytes,10,opt,name=credential_name,json=credentialName,proto3" json:"credential_name,omitempty"`
 	// A list of alternate names to verify the subject identity in the
 	// certificate presented by the client.

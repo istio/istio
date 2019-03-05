@@ -997,6 +997,11 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 	}
 
+	if discoveryType == apiv2.Cluster_STRICT_DNS {
+		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
+		cluster.DnsRefreshRate = &dnsRate
+	}
+
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS ||
 		discoveryType == apiv2.Cluster_LOGICAL_DNS {
 		cluster.LoadAssignment = &apiv2.ClusterLoadAssignment{

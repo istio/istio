@@ -159,7 +159,7 @@ global:
     # Options:
     #   "" - disables access log
     #   "/dev/stdout" - enables access log
-    accessLogFile: ""
+    accessLogFile: "/dev/stdout"
 
     # Configure how and what fields are displayed in sidecar access log. Setting to
     # empty string will result in default log format
@@ -167,6 +167,9 @@ global:
 
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
+
+    # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
+    dnsRefreshRate: 5s
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -242,7 +245,7 @@ global:
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
