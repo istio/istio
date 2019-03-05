@@ -589,9 +589,9 @@ func conditionallyConvertToIstioMtls(
 func buildIstioMutualTLS(serviceAccounts []string, sni string, metadata map[string]string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientRootCert, model.DefaultRootCert),
-		ClientCertificate: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientCertChain, model.DefaultCertChain),
-		PrivateKey:        model.GetOrDefaultFromMap(metadata, model.NodeMetadataTlsClientKey, model.DefaultKey),
+		CaCertificates:    model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientRootCert, model.DefaultRootCert),
+		ClientCertificate: model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientCertChain, model.DefaultCertChain),
+		PrivateKey:        model.GetOrDefaultFromMap(metadata, model.NodeMetadataTLSClientKey, model.DefaultKey),
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}

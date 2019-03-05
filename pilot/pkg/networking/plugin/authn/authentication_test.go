@@ -670,9 +670,9 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 			meta: map[string]string{
-				model.NodeMetadataTlsServerCertChain: "/custom/path/to/cert-chain.pem",
-				model.NodeMetadataTlsServerKey:       "/custom-key.pem",
-				model.NodeMetadataTlsServerRootCert:  "/custom/path/to/root.pem",
+				model.NodeMetadataTLSServerCertChain: "/custom/path/to/cert-chain.pem",
+				model.NodeMetadataTLSServerKey:       "/custom-key.pem",
+				model.NodeMetadataTLSServerRootCert:  "/custom/path/to/root.pem",
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{

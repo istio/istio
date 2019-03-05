@@ -113,12 +113,12 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	if sdsUdsPath == "" {
 		base := meta[pilot.BaseDir] + model.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerRootCert, base+model.RootCertFilename)
+		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
 
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
-		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerCertChain, base+model.CertChainFilename)
-		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTlsServerKey, base+model.KeyFilename)
+		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+model.CertChainFilename)
+		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+model.KeyFilename)
 
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{

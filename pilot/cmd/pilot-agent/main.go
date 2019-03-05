@@ -151,23 +151,23 @@ var (
 
 			// Add cert paths as node metadata only if they differ from defaults
 			if tlsServerCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTlsServerCertChain] = tlsServerCertChain
+				role.Metadata[model.NodeMetadataTLSServerCertChain] = tlsServerCertChain
 			}
 			if tlsServerKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTlsServerKey] = tlsServerKey
+				role.Metadata[model.NodeMetadataTLSServerKey] = tlsServerKey
 			}
 			if tlsServerRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTlsServerRootCert] = tlsServerRootCert
+				role.Metadata[model.NodeMetadataTLSServerRootCert] = tlsServerRootCert
 			}
 
 			if tlsClientCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTlsClientCertChain] = tlsClientCertChain
+				role.Metadata[model.NodeMetadataTLSClientCertChain] = tlsClientCertChain
 			}
 			if tlsClientKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTlsClientKey] = tlsClientKey
+				role.Metadata[model.NodeMetadataTLSClientKey] = tlsClientKey
 			}
 			if tlsClientRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTlsClientRootCert] = tlsClientRootCert
+				role.Metadata[model.NodeMetadataTLSClientRootCert] = tlsClientRootCert
 			}
 
 			tlsCertsToWatch = []string{

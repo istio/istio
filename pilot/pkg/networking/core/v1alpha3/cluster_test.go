@@ -509,9 +509,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{},
 			"",
 			map[string]string{
-				model.NodeMetadataTlsClientCertChain: "/custom/chain.pem",
-				model.NodeMetadataTlsClientKey:       "/custom/key.pem",
-				model.NodeMetadataTlsClientRootCert:  "/custom/root.pem",
+				model.NodeMetadataTLSClientCertChain: "/custom/chain.pem",
+				model.NodeMetadataTLSClientKey:       "/custom/key.pem",
+				model.NodeMetadataTLSClientRootCert:  "/custom/root.pem",
 			},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,

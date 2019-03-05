@@ -578,23 +578,23 @@ const (
 	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
 	NodeMetadataDNSDomains = "DNS_DOMAINS"
 
-	// NodeMetadataTlsServerCertChain is the absolute path to server cert-chain file
-	NodeMetadataTlsServerCertChain = "TLS_SERVER_CERT_CHAIN"
+	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
+	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
 
-	// NodeMetadataTlsServerKey is the absolute path to server private key file
-	NodeMetadataTlsServerKey = "TLS_SERVER_KEY"
+	// NodeMetadataTLSServerKey is the absolute path to server private key file
+	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
 
-	// NodeMetadataTlsServerRootCert is the absolute path to server root cert file
-	NodeMetadataTlsServerRootCert = "TLS_SERVER_ROOT_CERT"
+	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
+	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
 
-	// NodeMetadataTlsClientCertChain is the absolute path to client cert-chain file
-	NodeMetadataTlsClientCertChain = "TLS_CLIENT_CERT_CHAIN"
+	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
+	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
 
-	// NodeMetadataTlsClientKey is the absolute path to client private key file
-	NodeMetadataTlsClientKey = "TLS_CLIENT_KEY"
+	// NodeMetadataTLSClientKey is the absolute path to client private key file
+	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
 
-	// NodeMetadataTlsClientRootCert is the absolute path to client root cert file
-	NodeMetadataTlsClientRootCert = "TLS_CLIENT_ROOT_CERT"
+	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
+	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
