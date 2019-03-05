@@ -60,12 +60,6 @@ nodeagent:
   enabled: false
 
 #
-# ingress configuration
-#
-ingress:
-  enabled: false
-
-#
 # addon grafana configuration
 #
 grafana:
