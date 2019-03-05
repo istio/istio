@@ -58,9 +58,9 @@ spec:
 {{- end}}
           - --domain
           - {{ .Values.global.proxy.clusterDomain }}
-{{- if .Values.global.oneNamespace }}
-          - "-a"
-          - {{ .Release.Namespace }}
+{{- if .Values.appNamespace }}
+          - --appNamespace
+          - {{ .Values.appNamespace }}
 {{- end }}
 {{- if $.Values.global.controlPlaneSecurityEnabled}}
     {{- if not .Values.sidecar }}

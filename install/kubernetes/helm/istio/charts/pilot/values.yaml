@@ -10,6 +10,12 @@ autoscaleMax: 5
 image: pilot
 sidecar: true
 traceSampling: 1.0
+# specify the applications namespace pilot manages, separated by comma, if not empty,
+# the value must contain the namespace in which Istio control plane located('istio-system' by default);
+# if the field is set to empty, pilot watches all namespaces.
+# example: appNamespace: "istio-system, istio-apps"
+# pilot would watch services, endpoints, pods and nodes in these two namespaces
+appNamespace: ""
 # Resources for a small pilot install
 resources:
   requests:
