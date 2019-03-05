@@ -27,8 +27,8 @@ spec:
         name: "access-a-http"
 ---
 
-# For service b, allow authenticated user to access it with GET at any paths except /secret*
-# or at tcp port 90 and 9090.
+# For service b, only allow authenticated user to access it with GET at any paths except /secret*
+# or only access it at tcp port 90 and 9090.
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
@@ -46,7 +46,7 @@ kind: AuthorizationPolicy
 metadata:
   name: authz-policy-access-b-http-tcp
 spec:
-  selector:
+  workload_selector:
     labels:
       app: b
   allow:
@@ -55,4 +55,72 @@ spec:
       roleRef:
         kind: ServiceRole
         name: "access-b-http-tcp"
+---
+# Allow GET requests at every path, except /admin*
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: deny-get-at-admin-prefix-path-rules
+spec:
+  rules:
+  - methods: ["GET"]
+    not_paths: ["*/admin"]
+    paths: ["*"]
+---
+# Deny all access requests
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: deny-all-access-rules
+spec:
+  rules:
+  - not_methods: ["*"]
+---
+# Use deny-get-at-admin-prefix-path-rules for service account a for the same namespace.
+# Use deny-all-access-rules for the service account d for the same namespace.
+# Service d requests to c are denied by default.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-c
+spec:
+  workload_selector:
+    labels:
+      app: c
+  allow:
+    - subjects:
+      - names: ["cluster.local/ns/{{ .Namespace }}/sa/a"]
+      roleRef:
+        kind: ServiceRole
+        name: "deny-get-at-admin-prefix-path-rules"
+    - subjects:
+      - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+      roleRef:
+        kind: ServiceRole
+        name: "deny-all-access-rules"
+---
+# For service d, anyone can access it via HTTP requests or TCP at port 9090.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-d-http-tcp
+spec:
+  rules:
+  - methods: ["*"]
+  - ports: [9090]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-d-http-tcp
+spec:
+  workload_selector:
+    labels:
+      app: d
+  allow:
+    - subjects:
+      - names: ["allUsers"]
+      roleRef:
+        kind: ServiceRole
+        name: "access-d-http-tcp"
 ---
