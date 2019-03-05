@@ -48,55 +48,55 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 //   timestamp: request.time
 //   sourceUid: source.uid | "Unknown"
 //   sourceOwner: source.owner | "Unknown"
-//   sourceWorkloadName: source.workload.name | "Unknown"
+//   sourceWorkload: source.workload.name | "Unknown"
 //   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
 //   destinationUid: destination.uid | "Unknown"
 //   destinationOwner: destination.owner | "Unknown"
-//   destinationWorkloadName: destination.workload.name | "Unknown"
+//   destinationWorkload: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
-//   destinationServiceName: destination.service.name | "Unknown"
+//   destinationService: destination.service.name | "Unknown"
 //   destinationServiceNamespace: destination.service.namespace | "Unknown"
-//   apiProtocol: api.protocol | "Unknown"
 //   contextProtocol: context.protocol | "Unknown"
 // ```
 message Template {
 
-  // Timestamp of the edge
+  // Timestamp of the edge.
   istio.policy.v1beta1.TimeStamp timestamp = 1;
 
-  // Namespace of the source workload
+  // The Istio workload namespace for the source. For a Kubernetes pod this
+  // could be for instance 'istio-system'.
   string source_workload_namespace = 10;
 
-  // Name of the source workload
-  string source_workload_name = 11;
+  // The Istio workload name for the source. For a Kubernetes pod this could be
+  // for instance 'istio-policy'.
+  string source_workload = 11;
 
-  // Owner of the source workload (often k8s deployment)
+  // Owner of the source workload (often k8s deployment).
   string source_owner = 12;
 
-  // UID of the source workload
+  // UID of the source workload.
   string source_uid = 13;
 
-  // Namespace of the destination workload
+  // The Istio workload namespace for the destination. For a Kubernetes pod this
+  // could be for instance 'istio-system'.
   string destination_workload_namespace = 20;
 
-  // Name of the destination workload
-  string destination_workload_name = 21;
+  // The Istio workload name for the destination. For a Kubernetes pod this
+  // could be for instance 'istio-telemetry'.
+  string destination_workload = 21;
 
-  // Owner of the destination workload (often k8s deployment)
+  // Owner of the destination workload (often k8s deployment).
   string destination_owner = 22;
 
-  // UID of the destination workload
+  // UID of the destination workload.
   string destination_uid = 23;
 
-  // Namespace of the destination Service
+  // Namespace of the destination Service.
   string destination_service_namespace = 24;
 
   // Name of the destination Service
   string destination_service_name = 25;
 
-  // Protocol used for communication (http, tcp)
+  // Protocol of the request or connection being proxied. E.g. http, tcp.
   string context_protocol = 30;
-
-  // The protocol type of the API call (http, https, grpc)
-  string api_protocol = 31;
 }
