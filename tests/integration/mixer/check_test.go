@@ -29,8 +29,10 @@ import (
 func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 		gal := galley.NewOrFail(t, s)
-		mxr := mixer.NewOrFail(t, s, gal)
-		be := policybackend.NewOrFail(s)
+		mxr := mixer.NewOrFail(t, s, &mixer.Config{
+			Galley: gal,
+		})
+		be := policybackend.NewOrFail(t, s)
 
 		gal.ApplyConfig(
 			test.JoinConfigs(

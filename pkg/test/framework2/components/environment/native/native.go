@@ -16,6 +16,7 @@ package native
 
 import (
 	meshConfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 )
@@ -34,7 +35,11 @@ var _ environment.Instance = &Environment{}
 
 // New returns a new native environment.
 func New(_ environment.Context) (environment.Instance, error) {
-	return &Environment{}, nil
+	mesh := model.DefaultMeshConfig()
+	return &Environment{
+		Mesh:           &mesh,
+		ServiceManager: service.NewManager(),
+	}, nil
 }
 
 // Type implements environment.Instance

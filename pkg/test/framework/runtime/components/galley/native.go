@@ -22,7 +22,7 @@ import (
 	"path"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/test/framework/api/component"

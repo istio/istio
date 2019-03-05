@@ -16,9 +16,10 @@ package pilot
 
 import (
 	"io"
+	"net"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
-	"net"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -31,19 +32,22 @@ var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 
 // NewNativeComponent factory function for the component
-func newNative(s resource.Context, e *native.Environment) (Instance, error) {
-	return &nativeComponent{
-		stopChan: make(chan struct{}),
-	}, nil
+func newNative(s resource.Context, e *native.Environment, config *Config) (Instance, error) {
+	instance := &nativeComponent{
+		environment: e,
+		stopChan:    make(chan struct{}),
+		config:      config,
+	}
+	return instance, instance.Start()
 }
 
 type nativeComponent struct {
-	context     resource.Context
 	environment *native.Environment
 	*client
 	model.ConfigStoreCache
 	server   *bootstrap.Server
 	stopChan chan struct{}
+	config   *Config
 }
 
 func (c *nativeComponent) Start() (err error) {
@@ -69,9 +73,6 @@ func (c *nativeComponent) Start() (err error) {
 		Namespace:        "istio-system",
 		DiscoveryOptions: options,
 		MeshConfig:       c.environment.Mesh,
-		Config: bootstrap.ConfigArgs{
-			Controller: c.environment.ServiceManager.ConfigStore,
-		},
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -80,6 +81,16 @@ func (c *nativeComponent) Start() (err error) {
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:   bootstrap.DefaultPlugins,
 		ForceStop: true,
+	}
+
+	if c.config.Galley != nil {
+		// Set as MCP address, note needs to strip 'tcp://' from the address prefix
+		bootstrapArgs.MCPServerAddrs = []string{"mcp://" + c.config.Galley.Address()[6:]}
+		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
+	} else {
+		bootstrapArgs.Config = bootstrap.ConfigArgs{
+			Controller: c.environment.ServiceManager.ConfigStore,
+		}
 	}
 
 	// Save the config store.

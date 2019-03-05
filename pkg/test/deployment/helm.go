@@ -63,8 +63,6 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	deploymentName := fmt.Sprintf("%s-%v", c.Namespace, time.Now().UnixNano())
 	scopes.CI.Infof("Generated Helm Instance name: %s", deploymentName)
 
-
-
 	yamlFilePath := path.Join(c.WorkDir, deploymentName+".yaml")
 
 	// Convert the valuesFile to an absolute file path.
@@ -150,6 +148,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
+	// TODO cleanup
 	// Adding cni dependency as a workaround for now.
 	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
 	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {

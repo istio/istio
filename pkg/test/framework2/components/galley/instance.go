@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 // Instance of Galley
@@ -30,6 +29,9 @@ type Instance interface {
 
 	// ApplyConfig applies the given config yaml file via Galley.
 	ApplyConfig(yamlText string) error
+
+	// ApplyConfigDir recursively applies all the config files in the specified directory
+	ApplyConfigDir(configDir string) error
 
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
@@ -42,22 +44,20 @@ type Instance interface {
 }
 
 // New returns a new Galley instance.
-func New(s resource.Context) (Instance, error) {
-	switch s.Environment().Name() {
-		case environment.Native:
-			return newNative(s, s.Environment().(*native.Environment))
-		default:
-			return nil, environment.UnsupportedEnvironment(s.Environment().Name())
+func New(c resource.Context) (Instance, error) {
+	switch c.Environment().Name() {
+	case environment.Native:
+		return newNative(c, c.Environment().(*native.Environment))
+	default:
+		return nil, environment.UnsupportedEnvironment(c.Environment().Name())
 	}
 }
 
 // NewOrFail returns a new Galley instance, or fails.
-func NewOrFail(t *testing.T, c *runtime.TestContext) (Instance) {
-	t.Helper()
+func NewOrFail(t *testing.T, c resource.Context) Instance {
 	i, err := New(c)
 	if err != nil {
 		t.Fatalf("Error creating Galley: %v", err)
 	}
-
 	return i
 }

@@ -28,9 +28,6 @@ type Galley interface {
 	// ApplyConfig applies the given config yaml file via Galley.
 	ApplyConfig(yamlText string) error
 
-	// ApplyConfigDir recursively applies all the config files in the specified directory
-	ApplyConfigDir(configDir string) error
-
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
 

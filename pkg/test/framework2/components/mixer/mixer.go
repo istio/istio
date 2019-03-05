@@ -15,6 +15,7 @@
 package mixer
 
 import (
+	"net"
 	"testing"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -23,12 +24,13 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/resource"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 type Instance interface {
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
+	GetCheckAddress() net.Addr
+	GetReportAddress() net.Addr
 }
 
 // CheckResponse that is returned from a Mixer Check call.
@@ -36,22 +38,27 @@ type CheckResponse struct {
 	Raw *istioMixerV1.CheckResponse
 }
 
+type Config struct {
+	Galley galley.Instance
+}
+
 // Succeeded returns true if the precondition check was successful.
 func (c *CheckResponse) Succeeded() bool {
 	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
 }
 
-func New(s resource.Context, g galley.Instance) (Instance, error) {
-	switch s.Environment().Name() {
+// TODO: pass Galley in
+func New(c resource.Context, config *Config) (Instance, error) {
+	switch c.Environment().Name() {
 	case environment.Native:
-		return newNative(s, s.Environment().(*native.Environment), g)
+		return newNative(c, c.Environment().(*native.Environment), config)
 	default:
-		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
+		return nil, environment.UnsupportedEnvironment(c.Environment().Name())
 	}
 }
 
-func NewOrFail(t *testing.T, c *runtime.TestContext, g galley.Instance) Instance {
-	i, err := New(c, g)
+func NewOrFail(t *testing.T, c resource.Context, config *Config) Instance {
+	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("Error creating Mixer: %v", err)
 	}

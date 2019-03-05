@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -73,12 +73,19 @@ func (p *Structpath) ForTest(t *testing.T) *Structpath {
 func (p *Structpath) Accept(path string, args ...interface{}) bool {
 	p.t.Helper()
 	path = fmt.Sprintf(path, args...)
-	if p.findValue(path) == nil {
-		jsonText, _ := json.Marshal(p.structure)
-		p.t.Logf("Did not accept %v \n %v", path, jsonText)
-		return false
+	parser := jsonpath.New("path")
+	err := parser.Parse(p.fixPath(path))
+	if err != nil {
+		p.t.Fatalf("invalid path: %v - %v", path, err)
 	}
-	return true
+	values, err := parser.AllowMissingKeys(true).FindResults(p.structure)
+	if err != nil {
+		p.t.Fatalf("err finding results for path: %v - %v", path, err)
+	}
+	if len(values[0]) > 0 {
+		return true
+	}
+	return false
 }
 
 func (p *Structpath) Select(path string, args ...interface{}) *Structpath {

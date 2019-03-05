@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -117,6 +118,23 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	}
 
 	return
+}
+
+// ApplyConfigDir implements Galley.ApplyConfigDir.
+func (c *nativeComponent) ApplyConfigDir(sourceDir string) (err error) {
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
+		if info.IsDir() {
+			scopes.Framework.Debugf("Making dir: %v", targetPath)
+			return os.MkdirAll(targetPath, os.ModePerm)
+		}
+		scopes.Framework.Debugf("Copying file to: %v", targetPath)
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+		return ioutil.WriteFile(targetPath, contents, os.ModePerm)
+	})
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.

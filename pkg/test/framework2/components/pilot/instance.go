@@ -15,14 +15,15 @@
 package pilot
 
 import (
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
-	"istio.io/istio/pkg/test/framework2/runtime"
+	"fmt"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"istio.io/istio/pkg/test/framework2/components/environment"
+	"istio.io/istio/pkg/test/framework2/components/environment/native"
+	"istio.io/istio/pkg/test/framework2/components/galley"
+	"istio.io/istio/pkg/test/framework2/resource"
 )
 
 // Instance of Pilot
@@ -32,23 +33,28 @@ type Instance interface {
 	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
 }
 
+// Structured config for the Pilot component
+type Config struct {
+	fmt.Stringer
+	// If set then pilot takes a dependency on the referenced Galley instance
+	Galley galley.Instance
+}
+
 // New returns a new Galley instance.
-func New(s resource.Context) (Instance, error) {
-	switch s.Environment().Name() {
+func New(c resource.Context, config *Config) (Instance, error) {
+	switch c.Environment().Name() {
 	case environment.Native:
-		return newNative(s, s.Environment().(*native.Environment))
+		return newNative(c, c.Environment().(*native.Environment), config)
 	default:
-		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
+		return nil, environment.UnsupportedEnvironment(c.Environment().Name())
 	}
 }
 
 // NewOrFail returns a new Galley instance, or fails.
-func NewOrFail(t *testing.T, c *runtime.TestContext) (Instance) {
-	t.Helper()
-	i, err := New(c)
+func NewOrFail(t *testing.T, c resource.Context, config *Config) Instance {
+	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("Error creating Galley: %v", err)
 	}
 	return i
 }
-

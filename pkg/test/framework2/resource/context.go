@@ -25,7 +25,7 @@ type Context interface {
 	// cleaned up.
 	TrackResource(r interface{})
 
-	// The Environment in whcih the tests run
+	// The Environment in which the tests run
 	Environment() environment.Instance
 
 	// Settings returns common settings
