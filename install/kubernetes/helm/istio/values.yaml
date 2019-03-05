@@ -116,20 +116,6 @@ global:
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
-  k8sIngress:
-    enabled: false
-    # Gateway used for legacy k8s Ingress resources. By default it is
-    # using 'istio:ingress', to match 0.8 config. It requires that
-    # ingress.enabled is set to true. You can also set it
-    # to ingressgateway, or any other gateway you define in the 'gateway'
-    # section.
-    gatewayName: ingress
-    # enableHttps will add port 443 on the ingress.
-    # It REQUIRES that the certificates are installed  in the
-    # expected secrets - enabling this option without certificates
-    # will result in LDS rejection and the ingress will not work.
-    enableHttps: false
-
   proxy:
     image: proxyv2
 
