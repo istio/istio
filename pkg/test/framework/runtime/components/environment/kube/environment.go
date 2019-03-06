@@ -178,6 +178,7 @@ func (e *Environment) MinikubeIngress() bool {
 func (e *Environment) HelmValueMap() map[string]string {
 	out := make(map[string]string)
 	vals := e.s.Values()
+	// fmt.Println("jianfeih debug HelmValueMap call ", vals)
 	for k, v := range vals {
 		out[k] = v
 	}
@@ -191,7 +192,9 @@ func (e *Environment) Configure(config component.Configuration) error {
 	if !ok {
 		return fmt.Errorf("supplied configuration was not an IstioConfiguration, got %T (%v)", config, config)
 	}
-	e.s.IstioDeploymentConfig = istioDeploymentConfig
+	for k, v := range istioDeploymentConfig.Values {
+		e.s.IstioDeploymentConfig.Values[k] = v
+	}
 	scopes.CI.Debugf("Kubernetes environment specifies customized configuration %v", e.s.IstioDeploymentConfig)
 	return nil
 }
@@ -268,6 +271,7 @@ func (e *Environment) deployIstio() (err error) {
 		ValuesFile:   e.s.ValuesFile,
 		Values:       e.HelmValueMap(),
 	})
+	// fmt.Println("helmvalue map jianfeih debug ", e.HelmValueMap())
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))
 	}

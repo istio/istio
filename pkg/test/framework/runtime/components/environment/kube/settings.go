@@ -180,6 +180,7 @@ func newSettings() (*settings, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("jianfeih debug parsed helm values from flag is ", val)
 	for k, v := range val {
 		s.IstioDeploymentConfig.Values[k] = v
 	}
