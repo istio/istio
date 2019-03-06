@@ -256,7 +256,10 @@ func (c *Controller) HasSynced() bool {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
+	go func() {
+		cache.WaitForCacheSync(stop, c.HasSynced)
+		c.queue.Run(stop)
+	}()
 
 	go c.services.informer.Run(stop)
 	go c.pods.informer.Run(stop)

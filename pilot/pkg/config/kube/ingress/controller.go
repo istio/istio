@@ -161,7 +161,10 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
+	go func() {
+		cache.WaitForCacheSync(stop, c.HasSynced)
+		c.queue.Run(stop)
+	}()
 	go c.informer.Run(stop)
 	<-stop
 }
