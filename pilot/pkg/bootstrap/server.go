@@ -1034,7 +1034,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
-			if !s.waitForCacheSync(stop) {
+			if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
 				return
 			}
 
@@ -1086,7 +1086,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
-				if !s.waitForCacheSync(stop) {
+				if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
 					return
 				}
 
@@ -1264,10 +1264,6 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	if !pilot.EnableWaitCacheSync {
-		return true
-	}
-
 	// TODO: remove dependency on k8s lib
 	if !cache.WaitForCacheSync(stop, func() bool {
 		if s.kubeRegistry != nil {
