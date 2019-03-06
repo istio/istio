@@ -1000,6 +1000,11 @@
                 "id": 35,
                 "name": "locality_lb_setting",
                 "type": "LocalityLoadBalancerSetting"
+              },
+              {
+                "id": 36,
+                "name": "dns_refresh_rate",
+                "type": "google.protobuf.Duration"
               }
             ],
             "reserved_ids": [

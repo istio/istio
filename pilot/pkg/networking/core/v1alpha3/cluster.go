@@ -993,8 +993,11 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		Type: discoveryType,
 	}
 
+	// TODO does Istio use type LOGICAL_DNS anywhere - remove logical DNS logic if not
 	if discoveryType == apiv2.Cluster_STRICT_DNS || discoveryType == apiv2.Cluster_LOGICAL_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
+		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
+		cluster.DnsRefreshRate = &dnsRate
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS ||
