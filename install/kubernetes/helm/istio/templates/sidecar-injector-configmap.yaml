@@ -138,7 +138,7 @@ data:
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
         - --concurrency
-        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
+        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/concurrency` .ProxyConfig.Concurrency ]]" }}
         {{ "[[ end -]]" }}
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
