@@ -140,6 +140,7 @@ find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --p
 popd
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 
 # merge values-istio-demo-common.yaml into values-istio-demo yaml files
 cat"${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"
