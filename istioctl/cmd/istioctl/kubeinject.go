@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -326,13 +325,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 		},
 	}
 )
-
-func getBoolEnv(key string, defaultVal bool) bool {
-	if svalue, ok := os.LookupEnv(key); ok {
-		return strings.ToLower(svalue) == "true" || svalue == "1"
-	}
-	return defaultVal
-}
 
 const (
 	defaultMeshConfigMapName   = "istio"
