@@ -114,7 +114,7 @@ func TestServerSource(t *testing.T) {
 		t.Fatalf("Stream exited with error: got %v", err)
 	}
 
-	// processStream error
+	// ProcessStream error
 	go func() {
 		errc <- s.EstablishResourceStream(h)
 	}()
