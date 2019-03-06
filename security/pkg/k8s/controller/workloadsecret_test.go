@@ -58,10 +58,6 @@ func TestSecretController(t *testing.T) {
 		Resource: "secrets",
 		Version:  "v1",
 	}
-	gvrNS := schema.GroupVersionResource{
-		Resource: "namespaces",
-		Version:  "v1",
-	}
 	testCases := map[string]struct {
 		existingSecret   *v1.Secret
 		saToAdd          *v1.ServiceAccount
@@ -82,7 +78,6 @@ func TestSecretController(t *testing.T) {
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
@@ -100,15 +95,12 @@ func TestSecretController(t *testing.T) {
 			existingSecret:   istioTestSecret,
 			saToAdd:          createServiceAccount("test", "test-ns"),
 			gracePeriodRatio: defaultGracePeriodRatio,
-			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
-			},
-			shouldFail: false,
+			expectedActions:  []ktesting.Action{},
+			shouldFail:       false,
 		},
 		"adding service account retries when failed": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
@@ -120,7 +112,6 @@ func TestSecretController(t *testing.T) {
 		"adding webhook service account": {
 			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns",
 					ca.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
 			},
