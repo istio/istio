@@ -215,7 +215,6 @@ func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
 
 	if ns.Labels != nil {
 		if v, ok := ns.Labels[label]; ok {
-			fmt.Println(ns.Labels[label])
 			switch strings.ToLower(v) {
 			case "enabled", "enable", "true", "yes", "y":
 				enabled = true
@@ -232,7 +231,7 @@ func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	if sc.istioEnabledObject(acct.GetObjectMeta()) {
+	if !sc.explicitOptIn || sc.istioEnabledObject(acct.GetObjectMeta()) {
 		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 	}
 	sc.monitoring.ServiceAccountCreation.Inc()
