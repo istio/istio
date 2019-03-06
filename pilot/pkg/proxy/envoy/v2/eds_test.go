@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -46,12 +47,22 @@ func TestEds(t *testing.T) {
 	// will be checked in the direct request test
 	addUdsEndpoint(server)
 
+	// enable locality load balancing and add relevant endpoints in order to test
+	os.Setenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "ON")
+	addLocalityEndpoints(server)
+
+	// Add the test ads client to list of service instances in order to test the context dependent locality coloring.
+	addTestClientEndpoint(server)
+
 	adsc := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adsc.Close()
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adsc, t)
 		testEdsz(t)
+	})
+	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
+		testLocalityPrioritizedEndpoints(adsc, t)
 	})
 	t.Run("UDSEndpoints", func(t *testing.T) {
 		testUdsEndpoints(server, adsc, t)
@@ -107,6 +118,34 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	return adsc
 }
 
+var asdcLocality = "region1/zone1/subzone1"
+
+func addTestClientEndpoint(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("test-1.default", &model.Service{
+		Hostname: "test-1.default",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: fmt.Sprintf("10.10.10.10"),
+			Port:    80,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
+			},
+			Locality: asdcLocality,
+		},
+	})
+	server.EnvoyXdsServer.Push(true, nil)
+}
+
 // Verify server sends the endpoint. This check for a single endpoint with the given
 // address.
 func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
@@ -126,6 +165,32 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 	t.Errorf("Expecting %s got %v", expected, lbe.Endpoints[0].LbEndpoints)
 	if total != 1 {
 		t.Error("Expecting 1, got ", total)
+	}
+}
+
+func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, t *testing.T) {
+	items := strings.SplitN(asdcLocality, "/", 3)
+	region, zone, subzone := items[0], items[1], items[2]
+	for _, ep := range adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints() {
+		if ep.GetLocality().Region == region {
+			if ep.GetLocality().Zone == zone {
+				if ep.GetLocality().SubZone == subzone {
+					if ep.GetPriority() != 0 {
+						t.Errorf("expected endpoint pool from same locality to have priority of 0, got %v", ep.GetPriority())
+					}
+				} else if ep.GetPriority() != 1 {
+					t.Errorf("expected endpoint pool from a different subzone to have priority of 1, got %v", ep.GetPriority())
+				}
+			} else {
+				if ep.GetPriority() != 2 {
+					t.Errorf("expected endpoint pool from a different zone to have priority of 2, got %v", ep.GetPriority())
+				}
+			}
+		} else {
+			if ep.GetPriority() != 3 {
+				t.Errorf("expected endpoint pool from a different region to have priority of 3, got %v", ep.GetPriority())
+			}
+		}
 	}
 }
 
@@ -408,6 +473,40 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Labels: map[string]string{"socket": "unix"},
 	})
 
+	server.EnvoyXdsServer.Push(true, nil)
+}
+
+func addLocalityEndpoints(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("locality.cluster.local", &model.Service{
+		Hostname: "locality.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	})
+	localities := []string{
+		"region1/zone1/subzone1",
+		"region1/zone1/subzone2",
+		"region1/zone2/subzone2",
+		"region2/zone1/subzone1",
+	}
+	for i, locality := range localities {
+		server.EnvoyXdsServer.MemRegistry.AddInstance("locality.cluster.local", &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address: fmt.Sprintf("10.0.0.%v", i),
+				Port:    80,
+				ServicePort: &model.Port{
+					Name:     "http",
+					Port:     80,
+					Protocol: model.ProtocolHTTP,
+				},
+				Locality: locality,
+			},
+		})
+	}
 	server.EnvoyXdsServer.Push(true, nil)
 }
 

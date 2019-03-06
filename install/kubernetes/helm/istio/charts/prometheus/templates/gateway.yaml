@@ -54,7 +54,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - {{ .Release.Namespace }}/istio-prometheus-gateway
+  - istio-prometheus-gateway
   http:
   - match:
     - port: 15030

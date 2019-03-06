@@ -113,7 +113,7 @@ istio-ingressgateway:
   nodeSelector: {}
 
 istio-egressgateway:
-  enabled: true
+  enabled: false
   labels:
     app: istio-egressgateway
     istio: egressgateway

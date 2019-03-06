@@ -196,8 +196,10 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "*.global"
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
   exportTo:
   - '*'
+  {{- end }}
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL

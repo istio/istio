@@ -378,20 +378,21 @@ var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:             ConfigPathDir,
-		BinaryPath:             BinaryPathFilename,
-		ServiceCluster:         ServiceClusterName,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		DiscoveryAddress:       DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(1 * time.Second),
-		StatsdUdpAddress:       "",
-		ProxyAdminPort:         15000,
-		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
-		CustomConfigFile:       "",
-		Concurrency:            0,
-		StatNameLength:         189,
-		Tracing:                nil,
+		ConfigPath:                 ConfigPathDir,
+		BinaryPath:                 BinaryPathFilename,
+		ServiceCluster:             ServiceClusterName,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		DiscoveryAddress:           DiscoveryPlainAddress,
+		ConnectTimeout:             types.DurationProto(1 * time.Second),
+		StatsdUdpAddress:           "",
+		EnvoyMetricsServiceAddress: "",
+		ProxyAdminPort:             15000,
+		ControlPlaneAuthPolicy:     meshconfig.AuthenticationPolicy_NONE,
+		CustomConfigFile:           "",
+		Concurrency:                0,
+		StatNameLength:             189,
+		Tracing:                    nil,
 	}
 }
 
@@ -404,9 +405,9 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DisablePolicyChecks:               true,
 		PolicyCheckFailOpen:               false,
 		SidecarToTelemetrySessionAffinity: false,
+		RootNamespace:                     IstioSystemNamespace,
 		ProxyListenPort:                   15001,
 		ConnectTimeout:                    types.DurationProto(1 * time.Second),
-		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
 		IngressService:                    "istio-ingressgateway",
 		EnableTracing:                     true,
 		AccessLogFile:                     "/dev/stdout",
@@ -419,6 +420,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 	}
 }
 
@@ -550,6 +552,22 @@ const (
 
 	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
 	NodeMetadataDNSDomains = "DNS_DOMAINS"
+
+	// NodeMetadataPolicyCheckRetries determines the policy for behavior when unable to connect to mixer
+	// If not set, FAIL_CLOSE is set, rejecting requests.
+	NodeMetadataPolicyCheck = "policy.istio.io/check"
+
+	// NodeMetadataPolicyCheckRetries is the max number of retries on transport error to mixer
+	// If not set, this will be 0, indicating no retries.
+	NodeMetadataPolicyCheckRetries = "policy.istio.io/checkRetries"
+
+	// NodeMetadataPolicyCheckBaseRetryWaitTime for base time to wait between retries, will be adjusted by backoff and jitter.
+	// In duration format. If not set, this will be 80ms.
+	NodeMetadataPolicyCheckBaseRetryWaitTime = "policy.istio.io/checkBaseRetryWaitTime"
+
+	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
+	// In duration format. If not set, this will be 1000ms.
+	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

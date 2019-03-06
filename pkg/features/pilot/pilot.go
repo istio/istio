@@ -113,6 +113,17 @@ var (
 		}
 		return time.Second * time.Duration(duration)
 	}
+
+	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
+	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
+	// This is an experimental feature.
+	EnableLocalityLoadBalancing = func() bool {
+		return len(os.Getenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING")) != 0
+	}
+
+	// EnableWaitCacheSync provides an option to specify whether it should wait
+	// for cache sync before Pilot bootstrap. Set env PILOT_ENABLE_WAIT_CACHE_SYNC = 0 to disable it.
+	EnableWaitCacheSync = os.Getenv("PILOT_ENABLE_WAIT_CACHE_SYNC") != "0"
 )
 
 var (

@@ -118,7 +118,10 @@ func TestCreateSidecarScope(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			ps := NewPushContext()
-
+			meshConfig := DefaultMeshConfig()
+			ps.Env = &Environment{
+				Mesh: &meshConfig,
+			}
 			configuredServices := 0
 			if tt.services != nil {
 				for _, s := range tt.services {

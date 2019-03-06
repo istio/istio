@@ -130,6 +130,10 @@ data:
         - --statsdUdpAddress
         - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
       {{- end }}
+      {{- if .Values.global.proxy.envoyMetricsService.enabled }}
+        - --envoyMetricsServiceAddress
+        - {{ "[[ .ProxyConfig.EnvoyMetricsServiceAddress ]]" }}
+      {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}

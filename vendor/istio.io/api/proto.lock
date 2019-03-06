@@ -1000,6 +1000,11 @@
                 "id": 35,
                 "name": "locality_lb_setting",
                 "type": "LocalityLoadBalancerSetting"
+              },
+              {
+                "id": 36,
+                "name": "dns_refresh_rate",
+                "type": "google.protobuf.Duration"
               }
             ],
             "reserved_ids": [
@@ -1309,6 +1314,11 @@
               {
                 "id": 10,
                 "name": "statsd_udp_address",
+                "type": "string"
+              },
+              {
+                "id": 20,
+                "name": "envoy_metrics_service_address",
                 "type": "string"
               },
               {

@@ -128,9 +128,12 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 
 	if err != nil {
 		var notFound []string
-		for plural := range search {
-			notFound = append(notFound, plural)
+		for _, spec := range search {
+			notFound = append(notFound, spec.Kind)
 		}
+		log.Scope.Errorf("Expected resources (CRDs) not found: %v", notFound)
+		log.Scope.Error("To stop Galley from waiting for these resources (CRDs), consider using the --excludedResourceKinds flag")
+
 		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
 	}
 

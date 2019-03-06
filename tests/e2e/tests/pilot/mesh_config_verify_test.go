@@ -27,6 +27,7 @@ import (
 )
 
 const maxDeploymentTimeout = 480 * time.Second
+const propagationTime = 5 * time.Second
 
 func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[string][]string) error {
 	retry := util.Retrier{
@@ -56,6 +57,7 @@ func addRemoteCluster() error {
 		log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
 		return err
 	}
+	time.Sleep(propagationTime)
 	return nil
 }
 
@@ -63,6 +65,7 @@ func deleteRemoteCluster() error {
 	if err := util.DeleteMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
 		return err
 	}
+	time.Sleep(propagationTime)
 	return nil
 }
 
@@ -269,7 +272,7 @@ func verifyPod(istioctl *framework.Istioctl, podName string, appEPs map[string][
 	for app, portIPs := range epInfo {
 		for _, IPs := range portIPs {
 			if !verifyEndpoints(appEPs[app], IPs) {
-				err = fmt.Errorf("endpoints for app '%s' in proxy config in pod %s are not correct: %v vs %v", app, podName, IPs, appEPs[app])
+				err = fmt.Errorf("endpoints for app '%s' in proxy config in pod %s are not correct, got: %v but expected: %v", app, podName, IPs, appEPs[app])
 				log.Errorf("%v", err)
 				return err
 			}

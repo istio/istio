@@ -40,7 +40,10 @@ func TestTransportConfig(t *testing.T) {
 				Metadata: map[string]string{},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy: mccpb.FAIL_CLOSE,
+				Policy:        mccpb.FAIL_CLOSE,
+				MaxRetry:      defaultRetries,
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 		{
@@ -48,9 +51,9 @@ func TestTransportConfig(t *testing.T) {
 			mesh: context.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					policyCheckRetriesAnnotation:           "5",
-					policyCheckBaseRetryWaitTimeAnnotation: "1m",
-					policyCheckMaxRetryWaitTimeAnnotation:  "1.5s",
+					model.NodeMetadataPolicyCheckRetries:           "5",
+					model.NodeMetadataPolicyCheckBaseRetryWaitTime: "1m",
+					model.NodeMetadataPolicyCheckMaxRetryWaitTime:  "1.5s",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
@@ -65,12 +68,14 @@ func TestTransportConfig(t *testing.T) {
 			mesh: context.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					policyCheckRetriesAnnotation: "1",
+					model.NodeMetadataPolicyCheckRetries: "1",
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy:   mccpb.FAIL_CLOSE,
-				MaxRetry: 1,
+				Policy:        mccpb.FAIL_CLOSE,
+				MaxRetry:      1,
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 		{
@@ -78,11 +83,14 @@ func TestTransportConfig(t *testing.T) {
 			mesh: context.DefaultMeshConfig(),
 			node: model.Proxy{
 				Metadata: map[string]string{
-					policyCheckAnnotation: policyCheckDisable,
+					model.NodeMetadataPolicyCheck: policyCheckDisable,
 				},
 			},
 			expect: &mccpb.NetworkFailPolicy{
-				Policy: mccpb.FAIL_OPEN,
+				Policy:        mccpb.FAIL_OPEN,
+				MaxRetry:      defaultRetries,
+				BaseRetryWait: defaultBaseRetryWaitTime,
+				MaxRetryWait:  defaultMaxRetryWaitTime,
 			},
 		},
 	}

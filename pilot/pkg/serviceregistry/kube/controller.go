@@ -27,7 +27,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -36,6 +35,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -257,7 +257,12 @@ func (c *Controller) HasSynced() bool {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
+	go func() {
+		if pilot.EnableWaitCacheSync {
+			cache.WaitForCacheSync(stop, c.HasSynced)
+		}
+		c.queue.Run(stop)
+	}()
 
 	go c.services.informer.Run(stop)
 	go c.pods.informer.Run(stop)
@@ -699,11 +704,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		// Do not handle "kube-system" services
-		if svc.Namespace == meta_v1.NamespaceSystem {
-			return nil
-		}
-
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		hostname := svc.Name + "." + svc.Namespace
@@ -763,10 +763,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			}
 		}
 
-		// Do not handle "kube-system" endpoints
-		if ep.Namespace == meta_v1.NamespaceSystem {
-			return nil
-		}
 		c.updateEDS(ep, event)
 
 		return nil
