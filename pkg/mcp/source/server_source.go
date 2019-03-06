@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/mcp/internal"
+	"istio.io/istio/pkg/mcp/rate"
 )
 
 // TODO: consolidate common interfaces in source/server_source.go and sink/server_sink.go
@@ -43,7 +43,7 @@ type AuthChecker interface {
 // configuration to the client.
 type Server struct {
 	authCheck   AuthChecker
-	rateLimiter internal.RateLimit
+	rateLimiter rate.Limit
 	src         *Source
 }
 
@@ -52,7 +52,7 @@ var _ mcp.ResourceSourceServer = &Server{}
 // ServerOptions contains sink server specific options
 type ServerOptions struct {
 	AuthChecker AuthChecker
-	RateLimiter internal.RateLimit
+	RateLimiter rate.Limit
 }
 
 // NewServer creates a new instance of a MCP source server.
@@ -67,8 +67,11 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 
 // EstablishResourceStream implements the ResourceSourceServer interface.
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishResourceStreamServer) error {
-	if err := s.rateLimiter.Wait(stream.Context()); err != nil {
-		return err
+	if s.rateLimiter != nil {
+		if err := s.rateLimiter.Wait(stream.Context()); err != nil {
+			return err
+		}
+
 	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {

@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/pkg/mcp/internal"
+	"istio.io/istio/pkg/mcp/rate"
 )
 
 // RateLimiter is partially representing standard lib's rate limiter
@@ -56,7 +56,7 @@ var _ mcp.ResourceSinkServer = &Server{}
 // ServerOptions contains source server specific options
 type ServerOptions struct {
 	AuthChecker AuthChecker
-	RateLimiter internal.RateLimit
+	RateLimiter rate.Limit
 }
 
 // NewServer creates a new instance of a MCP sink server.

@@ -82,8 +82,6 @@ const (
 
 	methodHeader = ":method"
 	pathHeader   = ":path"
-
-	spiffePrefix = spiffe.Scheme + "://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.
@@ -226,7 +224,7 @@ func generateMetadataListMatcher(filter string, keys []string, v string) *metada
 func createStringMatcher(v string, forceRegexPattern, prependSpiffe bool) *metadata.StringMatcher {
 	extraPrefix := ""
 	if prependSpiffe {
-		extraPrefix = spiffePrefix
+		extraPrefix = spiffe.URIPrefix
 	}
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
