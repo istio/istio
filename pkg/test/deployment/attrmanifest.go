@@ -32,8 +32,7 @@ func ExtractAttributeManifest(workDir string) (string, error) {
 		"istio-system",
 		env.IstioChartDir,
 		workDir,
-		[]string{},
-		make(map[string]string))
+		"", make(map[string]string))
 	if err != nil {
 		return "", err
 	}

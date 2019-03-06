@@ -52,8 +52,8 @@ type HelmConfig struct {
 	CrdsFilesDir string
 
 	// Can be either a file name under ChartDir or an absolute file path.
-	ValuesFiles []string
-	Values      map[string]string
+	ValuesFile string
+	Values     map[string]string
 }
 
 // NewHelmDeployment creates a new Helm-based deployment instance.
@@ -64,13 +64,12 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 
 	yamlFilePath := path.Join(c.WorkDir, deploymentName+".yaml")
 
-	// Convert the valuesFiles to an absolute file path.
-	for i, valuesFile := range c.ValuesFiles {
+	// Convert the valuesFile to an absolute file path.
+	valuesFile := c.ValuesFile
+	if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
+		valuesFile = filepath.Join(c.ChartDir, valuesFile)
 		if _, err := os.Stat(valuesFile); os.IsNotExist(err) {
-			c.ValuesFiles[i] = filepath.Join(c.ChartDir, valuesFile)
-			if _, err := os.Stat(c.ValuesFiles[i]); os.IsNotExist(err) {
-				return nil, err
-			}
+			return nil, err
 		}
 	}
 
@@ -81,7 +80,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		c.Namespace,
 		c.ChartDir,
 		c.WorkDir,
-		c.ValuesFiles,
+		valuesFile,
 		c.Values); err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
@@ -120,7 +119,7 @@ func getCrdsYamlFiles(c HelmConfig) (string, error) {
 }
 
 // HelmTemplate calls "helm template".
-func HelmTemplate(deploymentName, namespace, chartDir, workDir string, valuesFile []string, values map[string]string) (string, error) {
+func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
 	// Apply the overrides for the values file.
 	valuesString := ""
 	for k, v := range values {
@@ -128,8 +127,8 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir string, valuesFil
 	}
 
 	valuesFileString := ""
-	for _, f := range valuesFile {
-		valuesFileString += fmt.Sprintf(" --values %s", f)
+	if valuesFile != "" {
+		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
 	}
 
 	helmRepoDir := filepath.Join(workDir, "helmrepo")

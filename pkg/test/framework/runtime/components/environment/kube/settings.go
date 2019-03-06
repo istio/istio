@@ -44,9 +44,6 @@ const (
 	// DefaultValuesFile for Istio Helm deployment.
 	DefaultValuesFile = "test-values/values-istio-mcp.yaml"
 
-	// BaseValuesFile for Istio Helm deployment, used to set defaults like resource requests
-	BaseValuesFile = "test-values/values-e2e.yaml"
-
 	// LatestTag value
 	LatestTag = "latest"
 
