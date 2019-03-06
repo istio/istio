@@ -104,7 +104,7 @@ const (
 
 const (
 	// UnspecifiedIP constant for empty IP address
-	UnspecifiedIP = "0.0.0.0"
+	UnspecifiedIP = "::"
 
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
