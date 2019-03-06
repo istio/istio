@@ -84,7 +84,7 @@ func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishReso
 		return status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
-	err := s.src.processStream(stream)
+	err := s.src.ProcessStream(stream)
 	code := status.Code(err)
 	if code == codes.OK || code == codes.Canceled || err == io.EOF {
 		return nil
