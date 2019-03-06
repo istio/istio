@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	wildcardIP = "0.0.0.0"
+	wildcardIP = "::"
 )
 
 var (
