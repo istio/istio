@@ -135,7 +135,6 @@ spec:
       - response_size
       - request_size
       - request_id
-      - client_trace_id
       - latency
       - service_authentication_policy
       - user_agent
@@ -261,6 +260,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -293,13 +294,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -324,6 +327,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -356,13 +361,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -387,6 +394,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -419,13 +428,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -450,6 +461,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -482,13 +495,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -509,6 +524,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -537,13 +554,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -564,6 +583,8 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_container"'
   monitoredResourceDimensions:
     project_id: '""'
@@ -592,13 +613,15 @@ spec:
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_workload_name: destination.workload.name | "unknown"
     destination_owner: destination.owner | "unknown"
+    destination_principal: destination.principal | "unknown"
+    source_principal: source.principal | "unknown"
   monitoredResourceType: '"k8s_pod"'
   monitoredResourceDimensions:
     project_id: '""'
     cluster_name: '""'
-    namespace_name: destination.workload.namespace | "unknown"
+    namespace_name: source.workload.namespace | "unknown"
     location: '""'
-    pod_name: destination.name | "unknown"
+    pod_name: source.name | "unknown"
 ---
 #################################################
 ############## Logging Config ###################
@@ -641,7 +664,6 @@ spec:
     response_size: response.size | 0
     request_size: request.size | 0
     request_id: request.headers["x-request-id"] | ""
-    client_trace_id: request.headers["x-client-trace-id"] | ""
     latency: response.duration | "0ms"
     service_authentication_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     user_agent: request.useragent | ""
@@ -770,7 +792,7 @@ metadata:
   name: stackdriver-tracing-rule
   namespace: istio-system
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"  # If omitted match is true.
+  match: (context.protocol == "http" || context.protocol == "grpc") && request.headers["x-b3-sampled"] == "1" && destination.workload.name != "istio-telemetry" && destination.workload.name != "istio-pilot"
   actions:
   - handler: handler.stackdriver
     instances:
