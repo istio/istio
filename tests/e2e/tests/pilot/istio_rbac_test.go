@@ -136,6 +136,16 @@ func TestRBACForSidecar(t *testing.T) {
 		{dst: "d", src: "c", port: 9090, allow: allow},
 	}
 
+	runRbacTestCases(t, cases)
+}
+
+func runRbacTestCases(t *testing.T, cases []struct {
+	dst   string
+	src   string
+	path  string
+	port  uint32
+	allow bool
+}) {
 	for _, req := range cases {
 		for cluster := range tc.Kube.Clusters {
 			port := ""
