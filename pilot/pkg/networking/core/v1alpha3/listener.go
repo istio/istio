@@ -55,9 +55,10 @@ const (
 	VirtualListenerName = "virtual"
 
 	// WildcardAddress binds to all IP addresses
-	WildcardAddress = "0.0.0.0"
+	WildcardAddress = "::"
 
 	// LocalhostAddress for local binding
+	// Todo 127.0.0.1 works for IPv4/IPv6 dual stack, but we may need to use ::1 for IPv6 only
 	LocalhostAddress = "127.0.0.1"
 
 	// EnvoyTextLogFormat format for envoy text based access logs
