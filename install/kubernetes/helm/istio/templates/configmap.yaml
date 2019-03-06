@@ -77,10 +77,7 @@ data:
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
     {{- end }}
 
-    {{- if .Values.ingress.enabled }}
-    # This is the k8s ingress service name, update if you used a different name
-    ingressService: istio-{{ .Values.global.k8sIngressSelector }}
-    {{- else if .Values.gateways.enabled }}
+    {{- if .Values.gateways.enabled }}
     # Let Pilot give ingresses the public IP of the Istio ingressgateway
     ingressService: istio-ingressgateway
     {{- end }}

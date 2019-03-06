@@ -60,12 +60,6 @@ nodeagent:
   enabled: false
 
 #
-# ingress configuration
-#
-ingress:
-  enabled: false
-
-#
 # addon grafana configuration
 #
 grafana:
@@ -124,12 +118,11 @@ global:
 
   k8sIngress:
     enabled: false
-    # Gateway used for legacy k8s Ingress resources. By default it is
-    # using 'istio:ingress', to match 0.8 config. It requires that
-    # ingress.enabled is set to true. You can also set it
-    # to ingressgateway, or any other gateway you define in the 'gateway'
-    # section.
-    gatewayName: ingress
+    # Gateway used for k8s Ingress resources. By default it is
+    # using 'istio:ingressgateway' that will be installed by setting
+    # 'gateways.enabled' and 'gateways.istio-ingressgateway.enabled'
+    # flags to true.
+    gatewayName: ingressgateway
     # enableHttps will add port 443 on the ingress.
     # It REQUIRES that the certificates are installed  in the
     # expected secrets - enabling this option without certificates

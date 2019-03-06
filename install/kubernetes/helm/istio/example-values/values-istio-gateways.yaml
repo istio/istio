@@ -101,9 +101,6 @@ gateways:
       mountPath: /etc/istio/customgateway-ca-certs
 
 # all other components are disabled except the gateways
-ingress:
-  enabled: false
-
 security:
   enabled: false
 
