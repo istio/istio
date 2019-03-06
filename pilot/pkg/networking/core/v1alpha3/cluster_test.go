@@ -103,7 +103,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds(directionInfo.direction)))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))

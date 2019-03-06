@@ -42,42 +42,43 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
-	namespaceMap := map[string]struct{}{}
-	clustersByNamespaceAndLocality := map[string]map[string][]*xdsapi.Cluster{}
-
-	// We have to separate caches. One for the gateways and one for the sidecars. The caches for the sidecar are
-	// stored in the associated SidecarScope while those for the gateways are stored in here.
-	// TODO: unify this
-
-	// List of all namespaces in the system
-	services := push.Services(nil)
-	for _, svc := range services {
-		namespaceMap[svc.Attributes.Namespace] = struct{}{}
-	}
-	namespaceMap[""] = struct{}{}
-
-	// generate outbound clusters for all namespaces in parallel.
-	// TODO: for large number of clusters this may result in OOM, needs rate control !!!
-	wg := &sync.WaitGroup{}
-	wg.Add(len(namespaceMap))
-	for ns := range namespaceMap {
-		go func(ns string) {
-			defer wg.Done()
-			dummyNode := model.Proxy{
-				ConfigNamespace: ns,
-				Type:            model.Router,
-			}
-			clusters := configgen.buildOutboundClusters(env, &dummyNode, push)
-			configgen.gatewayCDSMutex.Lock()
-			// This is the default cds output for nodes without a locality
-			clustersByNamespaceAndLocality[ns] = map[string][]*xdsapi.Cluster{util.NoProxyLocality: clusters}
-			configgen.gatewayCDSMutex.Unlock()
-		}(ns)
-	}
-	wg.Wait()
-
-	configgen.PrecomputedOutboundClustersForGateways = clustersByNamespaceAndLocality
-	return configgen.buildSharedPushStateForSidecars(env, push)
+	//namespaceMap := map[string]struct{}{}
+	//clustersByNamespaceAndLocality := map[string]map[string][]*xdsapi.Cluster{}
+	//
+	//// We have to separate caches. One for the gateways and one for the sidecars. The caches for the sidecar are
+	//// stored in the associated SidecarScope while those for the gateways are stored in here.
+	//// TODO: unify this
+	//
+	//// List of all namespaces in the system
+	//services := push.Services(nil)
+	//for _, svc := range services {
+	//	namespaceMap[svc.Attributes.Namespace] = struct{}{}
+	//}
+	//namespaceMap[""] = struct{}{}
+	//
+	//// generate outbound clusters for all namespaces in parallel.
+	//// TODO: for large number of clusters this may result in OOM, needs rate control !!!
+	//wg := &sync.WaitGroup{}
+	//wg.Add(len(namespaceMap))
+	//for ns := range namespaceMap {
+	//	go func(ns string) {
+	//		defer wg.Done()
+	//		dummyNode := model.Proxy{
+	//			ConfigNamespace: ns,
+	//			Type:            model.Router,
+	//		}
+	//		clusters := configgen.buildOutboundClusters(env, &dummyNode, push)
+	//		configgen.gatewayCDSMutex.Lock()
+	//		// This is the default cds output for nodes without a locality
+	//		clustersByNamespaceAndLocality[ns] = map[string][]*xdsapi.Cluster{util.NoProxyLocality: clusters}
+	//		configgen.gatewayCDSMutex.Unlock()
+	//	}(ns)
+	//}
+	//wg.Wait()
+	//
+	//configgen.PrecomputedOutboundClustersForGateways = clustersByNamespaceAndLocality
+	//return configgen.buildSharedPushStateForSidecars(env, push)
+	return nil
 }
 
 func (configgen *ConfigGeneratorImpl) buildSharedPushStateForSidecars(env *model.Environment, push *model.PushContext) error {

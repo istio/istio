@@ -58,8 +58,8 @@ var (
 	}
 )
 
-// GetDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func GetDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
+// getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
+func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
 	if direction == model.TrafficDirectionInbound {
 		thresholds := defaultInboundCircuitBreakerThresholds
 		return &thresholds
@@ -663,7 +663,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		return
 	}
 
-	threshold := GetDefaultCircuitBreakerThresholds(direction)
+	threshold := getDefaultCircuitBreakerThresholds(direction)
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
