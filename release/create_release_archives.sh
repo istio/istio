@@ -139,6 +139,10 @@ find install/tools -type f -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
+# merge values-istio-demo-common.yaml into values-istio-demo yaml files
+cat ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml >> ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml
+cat ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml >> ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml
+
 for unwanted_manifest in \
     istio-auth-non-mcp.yaml \
     istio-auth-sds.yaml \
