@@ -1034,7 +1034,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
-			if s.waitForCacheSync(stop) {
+			if !s.waitForCacheSync(stop) {
 				return
 			}
 
@@ -1086,7 +1086,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
-				if s.waitForCacheSync(stop) {
+				if !s.waitForCacheSync(stop) {
 					return
 				}
 
