@@ -265,13 +265,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
 			// so must be specified together. hub and tag no longer have defaults.
 			if hub != "" || tag != "" {
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
-				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
-					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
-						"use the following command to get the current injector file\n" +
-						"kubectl -n istio-system get configmap istio-sidecar-injector " +
-						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
-				}
 
 				if hub == "" || tag == "" {
 					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
@@ -412,7 +405,9 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
 	deprecatedFlags := []string{"coreDump", "imagePullPolicy", "includeIPRanges", "excludeIPRanges", "hub", "tag",
-		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString"}
+		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString",
+		"readinessFailureThreshold", "readinessInitialDelaySeconds", "readinessPeriodSeconds", "rewriteAppProbe",
+		"statusPort"}
 	for _, opt := range deprecatedFlags {
 		_ = injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
 	}
