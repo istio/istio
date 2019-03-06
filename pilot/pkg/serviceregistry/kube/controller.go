@@ -594,6 +594,10 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
 
+	if svc == nil {
+		return out
+	}
+
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
 		if !exists {
