@@ -96,6 +96,12 @@ type SecretController struct {
 	// If true, generate a PKCS#8 private key.
 	pkcs8Key bool
 
+	// whether ServiceAccount objects must explicitly opt-in for secrets.
+	// Object explicit opt-in is based on "istio-inject" NS label value.
+	// The default value should be read from a configmap and applied consistently
+	// to all control plane operations
+	explicitOptIn bool
+
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*DNSNameEntry
 
@@ -111,7 +117,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
+func NewSecretController(ca ca.CertificateAuthority, requireOptIn bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
@@ -133,6 +139,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		core:             core,
 		forCA:            forCA,
 		pkcs8Key:         pkcs8Key,
+		explicitOptIn:    requireOptIn,
 		dnsNames:         dnsNames,
 		monitoring:       newMonitoringMetrics(),
 	}
@@ -192,10 +199,42 @@ func GetSecretName(saName string) string {
 	return secretNamePrefix + saName
 }
 
+// Determine if the object is "enabled" for Istio.
+// Currently this looks at the object's namespace annotation, but could be
+// extended to allow hierarchy of global < namespace < object annotations/labels.
+func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
+	const label = "istio-injection"
+	enabled := !sc.explicitOptIn // for backward compatibility, Citadel always creates secrets
+	// @todo this should be changed to false once we communicate behavior change and ensure customers
+	// correctly mark their namespaces. Currently controlled via command line
+
+	ns, err := sc.core.Namespaces().Get(obj.GetNamespace(), metav1.GetOptions{})
+	if err != nil || ns == nil { // @todo handle errors? Unit tests mocks don't create NS, only secrets
+		return enabled
+	}
+
+	if ns.Labels != nil {
+		if v, ok := ns.Labels[label]; ok {
+			fmt.Println(ns.Labels[label])
+			switch strings.ToLower(v) {
+			case "enabled", "enable", "true", "yes", "y":
+				enabled = true
+			case "disabled", "disable", "false", "no", "n":
+				enabled = false
+			default: // leave default unchanged
+				break
+			}
+		}
+	}
+	return enabled
+}
+
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	if sc.istioEnabledObject(acct.GetObjectMeta()) {
+		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	}
 	sc.monitoring.ServiceAccountCreation.Inc()
 }
 

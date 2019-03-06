@@ -43,6 +43,8 @@ const (
 )
 
 var (
+	requireExplicitOptIn = false
+
 	caCert          = []byte("fake CA cert")
 	caKey           = []byte("fake private key")
 	certChain       = []byte("fake cert chain")
@@ -54,6 +56,10 @@ var (
 func TestSecretController(t *testing.T) {
 	gvr := schema.GroupVersionResource{
 		Resource: "secrets",
+		Version:  "v1",
+	}
+	gvrNS := schema.GroupVersionResource{
+		Resource: "namespaces",
 		Version:  "v1",
 	}
 	testCases := map[string]struct {
@@ -76,6 +82,7 @@ func TestSecretController(t *testing.T) {
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
@@ -93,12 +100,15 @@ func TestSecretController(t *testing.T) {
 			existingSecret:   istioTestSecret,
 			saToAdd:          createServiceAccount("test", "test-ns"),
 			gracePeriodRatio: defaultGracePeriodRatio,
-			expectedActions:  []ktesting.Action{},
-			shouldFail:       false,
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
+			},
+			shouldFail: false,
 		},
 		"adding service account retries when failed": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
 				ktesting.NewCreateAction(gvr, "test-ns", istioTestSecret),
@@ -110,6 +120,7 @@ func TestSecretController(t *testing.T) {
 		"adding webhook service account": {
 			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
 			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(gvrNS, "test-ns", "test-ns"),
 				ktesting.NewCreateAction(gvr, "test-ns",
 					ca.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
 			},
@@ -125,9 +136,11 @@ func TestSecretController(t *testing.T) {
 			callCount := 0
 			// PrependReactor to ensure action handled by our handler.
 			client.Fake.PrependReactor("*", "*", func(a ktesting.Action) (bool, runtime.Object, error) {
-				callCount++
-				if callCount < secretCreationRetry {
-					return true, nil, errors.New("failed to create secret deliberately")
+				if a.GetVerb() == "create" {
+					callCount++
+					if callCount < secretCreationRetry {
+						return true, nil, errors.New("failed to create secret deliberately")
+					}
 				}
 				return true, nil, nil
 			})
@@ -139,7 +152,7 @@ func TestSecretController(t *testing.T) {
 				Namespace:   "test-ns",
 			},
 		}
-		controller, err := NewSecretController(createFakeCA(), defaultTTL,
+		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 			[]string{metav1.NamespaceAll}, webhooks)
 		if tc.shouldFail {
@@ -177,7 +190,7 @@ func TestSecretContent(t *testing.T) {
 	saName := "test-serviceaccount"
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
+	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
@@ -189,6 +202,7 @@ func TestSecretContent(t *testing.T) {
 	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
+		return
 	}
 	if !bytes.Equal(rootCert, secret.Data[RootCertID]) {
 		t.Errorf("Root cert verification error: expected %v but got %v", rootCert, secret.Data[RootCertID])
@@ -199,7 +213,7 @@ func TestSecretContent(t *testing.T) {
 }
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
+	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, nil)
 	if err != nil {
@@ -318,10 +332,10 @@ func TestUpdateSecret(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller, err := NewSecretController(createFakeCA(), time.Hour,
+
+		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, false,
-			[]string{metav1.NamespaceAll},
-			nil)
+			[]string{metav1.NamespaceAll}, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
