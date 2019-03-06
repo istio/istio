@@ -54,7 +54,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - {{ .Release.Namespace }}/istio-grafana-gateway
+  - istio-grafana-gateway
   http:
   - match:
     - port: 15031
