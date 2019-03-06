@@ -279,9 +279,11 @@ message MeshConfig {
   // Locality based load balancing distribution or failover settings.
   LocalityLoadBalancerSetting locality_lb_setting = 35;
 
+  // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
+  google.protobuf.Duration dns_refresh_rate = 36;
 
   // $hide_from_docs
-  // Next available field number: 36
+  // Next available field number: 37
 }
 
 // ConfigSource describes information about a configuration store inside a

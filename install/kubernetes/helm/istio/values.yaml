@@ -168,6 +168,10 @@ global:
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
 
+    # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
+    # 5 seconds is the default refresh rate used by Envoy
+    dnsRefreshRate: 5s
+
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
 

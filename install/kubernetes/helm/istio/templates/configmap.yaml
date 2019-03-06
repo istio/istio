@@ -85,6 +85,9 @@ data:
     ingressService: istio-ingressgateway
     {{- end }}
 
+    # DNS refresh rate for Envoy clusters of type STRICT_DNS
+    dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
+
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
     sdsUdsPath: {{ .Values.global.sds.udsPath }}

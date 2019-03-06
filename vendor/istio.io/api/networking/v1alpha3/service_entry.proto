@@ -28,6 +28,28 @@ import "networking/v1alpha3/gateway.proto";
 // APIs) or mesh-internal services that are not part of the platform's
 // service registry (e.g., a set of VMs talking to services in Kubernetes).
 //
+// The following example declares a few external APIs accessed by internal
+// applications over HTTPS. The sidecar inspects the SNI value in the
+// ClientHello message to route to the appropriate external service.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-https
+// spec:
+//   hosts:
+//   - api.dropboxapi.com
+//   - www.googleapis.com
+//   - api.facebook.com
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 443
+//     name: https
+//     protocol: TLS
+//   resolution: DNS
+// ```
+//
 // The following configuration adds a set of MongoDB instances running on
 // unmanaged VMs to Istio's registry, so that these services can be treated
 // as any other service in the mesh. The associated DestinationRule is used
@@ -72,27 +94,24 @@ import "networking/v1alpha3/gateway.proto";
 // ```
 //
 // The following example uses a combination of service entry and TLS
-// routing in virtual service to demonstrate the use of SNI routing to
-// forward unterminated TLS traffic from the application to external
-// services via the sidecar. The sidecar inspects the SNI value in the
-// ClientHello message to route to the appropriate external service.
+// routing in a virtual service to steer traffic based on the SNI value to
+// an internal egress firewall.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: ServiceEntry
 // metadata:
-//   name: external-svc-https
+//   name: external-svc-redirect
 // spec:
 //   hosts:
-//   - api.dropboxapi.com
-//   - www.googleapis.com
-//   - api.facebook.com
+//   - wikipedia.org
+//   - "*.wikipedia.org"
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 443
 //     name: https
 //     protocol: TLS
-//   resolution: DNS
+//   resolution: NONE
 // ```
 //
 // And the associated VirtualService to route based on the SNI value.
@@ -104,33 +123,21 @@ import "networking/v1alpha3/gateway.proto";
 //   name: tls-routing
 // spec:
 //   hosts:
-//   - api.dropboxapi.com
-//   - www.googleapis.com
-//   - api.facebook.com
+//   - wikipedia.org
+//   - "*.wikipedia.org"
 //   tls:
 //   - match:
-//     - port: 443
-//       sniHosts:
-//       - api.dropboxapi.com
+//     - sniHosts:
+//       - wikipedia.org
+//       - "*.wikipedia.org"
 //     route:
 //     - destination:
-//         host: api.dropboxapi.com
-//   - match:
-//     - port: 443
-//       sniHosts:
-//       - www.googleapis.com
-//     route:
-//     - destination:
-//         host: www.googleapis.com
-//   - match:
-//     - port: 443
-//       sniHosts:
-//       - api.facebook.com
-//     route:
-//     - destination:
-//         host: api.facebook.com
-//
+//         host: internal-egress-firewall.ns1.svc.cluster.local
 // ```
+//
+// The virtual service with TLS match serves to override the default SNI
+// match. In the absence of a virtual service, traffic will be forwarded to
+// the wikipedia domains.
 //
 // The following example demonstrates the use of a dedicated egress gateway
 // through which all external service traffic is forwarded.
