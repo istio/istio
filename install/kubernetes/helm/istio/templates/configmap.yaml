@@ -85,6 +85,9 @@ data:
     ingressService: istio-ingressgateway
     {{- end }}
 
+    # DNS refresh rate for Envoy clusters of type STRICT_DNS
+    dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
+
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
     sdsUdsPath: {{ .Values.global.sds.udsPath }}
@@ -217,6 +220,12 @@ data:
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
       statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
+
+    {{- if .Values.global.proxy.envoyMetricsService.enabled }}
+      #
+      # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
+      envoyMetricsServiceAddress: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+    {{- end}}
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}

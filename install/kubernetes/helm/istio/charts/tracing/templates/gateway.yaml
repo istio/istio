@@ -39,7 +39,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - {{ .Release.Namespace }}/istio-tracing-gateway
+  - istio-tracing-gateway
   http:
   - match:
     - port: 15032

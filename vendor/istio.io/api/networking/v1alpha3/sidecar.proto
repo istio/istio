@@ -97,6 +97,106 @@ import "networking/v1alpha3/gateway.proto";
 //     - "prod-us1/*"
 // ```
 //
+// If the workload is deployed without IP tables based traffic capture, the
+// Sidecar resource is the only way to configure the ports on the proxy
+// attached to the workload. The following example declares a Sidecar
+// resource in the prod-us1 namespace for all pods with labels "app:
+// productpage" belonging to the productpage.prod-us1 service. Assuming
+// that these pods are deployed without IPtable rules (i.e. the Istio init
+// container) and the proxy metadata ISTIO_META_INTERCEPTION_MODE is set to
+// NONE, the specification below allows such pods to receive HTTP traffic
+// on port 9080 and forward it to the application listening on
+// 127.0.0.1:8080. It also allows the application to communicate with a
+// backing MySQL database on 127.0.0.1:3306, that then gets proxied to the
+// externally hosted MySQL service at mysql.foo.com:3306.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: no-ip-tables
+//   namespace: prod-us1
+// spec:
+//   workloadSelector:
+//     labels:
+//       app: productpage
+//   ingress:
+//   - port:
+//       number: 9080 # binds to 0.0.0.0:9080
+//       protocol: HTTP
+//       name: somename
+//     defaultEndpoint: 127.0.0.1:8080
+//     captureMode: NONE # not needed if metadata is set for entire proxy
+//   egress:
+//   - port:
+//       number: 3306
+//       protocol: MYSQL
+//       name: egressmysql
+//     captureMode: NONE # not needed if metadata is set for entire proxy
+//     bind: 127.0.0.1
+//     hosts:
+//     - "*/mysql.foo.com"
+// ```
+//
+// And the associated service entry for routing to mysql.foo.com:3306
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-mysql
+//   namespace: ns1
+// spec:
+//   hosts:
+//   - mysql.foo.com
+//   ports:
+//   - number: 3306
+//     name: mysql
+//     protocol: MYSQL
+//   location: MESH_EXTERNAL
+//   resolution: DNS
+// ```
+//
+// It is also possible to mix and match traffic capture modes in a single
+// proxy. For example, consider a setup where internal services are on the
+// 192.168.0.0/16 subnet. So, IP tables are setup on the VM to capture all
+// outbound traffic on 192.168.0.0/16 subnet. Assume that the VM has an
+// additional network interface on 172.16.0.0/16 subnet for inbound
+// traffic. The following Sidecar configuration allows the VM to expose a
+// listener on 172.16.1.32:80 (the VM's IP) for traffic arriving from the
+// 172.16.0.0/16 subnet. Note that in this scenario, the
+// ISTIO_META_INTERCEPTION_MODE metadata on the proxy in the VM should
+// contain "REDIRECT" or "TPROXY" as its value, implying that IP tables
+// based traffic capture is active.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: partial-ip-tables
+//   namespace: prod-us1
+// spec:
+//   workloadSelector:
+//     labels:
+//       app: productpage
+//   ingress:
+//   - bind: 172.16.1.32
+//     port:
+//       number: 80 # binds to 172.16.1.32:80
+//       protocol: HTTP
+//       name: somename
+//     defaultEndpoint: 127.0.0.1:8080
+//     captureMode: NONE
+//   egress:
+//     # use the system detected defaults
+//     # sets up configuration to handle outbound traffic to services
+//     # in 192.168.0.0/16 subnet, based on information provided by the
+//     # service registry
+//   - captureMode: IPTABLES
+//     hosts:
+//     - "*/*"
+// ```
+//
 package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
@@ -112,7 +212,8 @@ message Sidecar {
   // inbound traffic to the attached workload. If omitted, Istio will
   // automatically configure the sidecar based on the information about the workload
   // obtained from the orchestration platform (e.g., exposed ports, services,
-  // etc.).
+  // etc.). If specified, inbound ports are configured if and only if the
+  // workload is associated with a service.
   repeated IstioIngressListener ingress = 2;
 
   // Egress specifies the configuration of the sidecar for processing
