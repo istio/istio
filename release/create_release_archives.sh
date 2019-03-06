@@ -140,8 +140,8 @@ find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --p
 popd
 
 # merge values-istio-demo-common.yaml into values-istio-demo yaml files
-cat ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml >> ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml
-cat ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml >> ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml
+cat"${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"
+cat "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml"
 
 for unwanted_manifest in \
     istio-auth-non-mcp.yaml \
@@ -163,6 +163,7 @@ done
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
+rm "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml"
 rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/test-values/"
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
