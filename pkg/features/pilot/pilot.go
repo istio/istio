@@ -120,6 +120,10 @@ var (
 	EnableLocalityLoadBalancing = func() bool {
 		return len(os.Getenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING")) != 0
 	}
+
+	// EnableWaitCacheSync provides an option to specify whether it should wait
+	// for cache sync before Pilot bootstrap. Set env PILOT_ENABLE_WAIT_CACHE_SYNC = 0 to disable it.
+	EnableWaitCacheSync = os.Getenv("PILOT_ENABLE_WAIT_CACHE_SYNC") != "0"
 )
 
 var (

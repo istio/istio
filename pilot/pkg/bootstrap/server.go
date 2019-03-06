@@ -1264,6 +1264,11 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
+	if !pilot.EnableWaitCacheSync {
+		return true
+	}
+
+	// TODO: remove dependency on k8s lib
 	if !cache.WaitForCacheSync(stop, func() bool {
 		if s.kubeRegistry != nil {
 			if !s.kubeRegistry.HasSynced() {
