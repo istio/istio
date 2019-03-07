@@ -26,7 +26,9 @@ set -e
 set -u
 # Print commands
 set -x
-
+export ENABLE_ISTIO_CNI=true
+export RESOURCE_TYPE="gke-e2e-test-latest"
+export E2E_ARGS+=" --kube_inject_configmap=istio-sidecar-injector"
 # Run tests with auth disabled
 #echo 'Running mixer e2e tests (v1alpha3, noauth)'
 ./prow/e2e-suite.sh --single_test e2e_mixer
