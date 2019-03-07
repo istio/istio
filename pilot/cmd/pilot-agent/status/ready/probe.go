@@ -28,7 +28,7 @@ type Probe struct {
 	ApplicationPorts []uint16
 }
 
-// Check executes the probe and returns an error is the probe fails.
+// Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
 	// First, check that Envoy has received a configuration update from Pilot.
 	if err := p.checkUpdated(); err != nil {
@@ -50,7 +50,7 @@ func (p *Probe) checkInboundConfigured() error {
 
 		// Only those container ports exposed through the service receive a configuration from Pilot. Since we don't know
 		// which ports are defined by the service, just ensure that at least one container port has a cluster/listener
-		// confuration in Envoy. The CDS/LDS updates will contain everything, so just ensuring at least one port has
+		// configuration in Envoy. The CDS/LDS updates will contain everything, so just ensuring at least one port has
 		// been configured should be sufficient.
 		for _, appPort := range p.ApplicationPorts {
 			if listeningPorts[appPort] {
