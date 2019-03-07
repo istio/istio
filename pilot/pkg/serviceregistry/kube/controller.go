@@ -35,7 +35,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -258,9 +257,7 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	go func() {
-		if pilot.EnableWaitCacheSync {
-			cache.WaitForCacheSync(stop, c.HasSynced)
-		}
+		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
 

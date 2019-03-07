@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -81,12 +82,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-
+	cdsCachingEnabled := pilot.EnableCDSPrecomputation()
 	switch proxy.Type {
 	case model.SidecarProxy:
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
 				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
 				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
@@ -114,7 +115,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	default: // Gateways
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if configgen.PrecomputedOutboundClustersForGateways != nil {
 				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)

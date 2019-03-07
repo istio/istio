@@ -30,7 +30,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -205,9 +204,7 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		if pilot.EnableWaitCacheSync {
-			cache.WaitForCacheSync(stop, c.HasSynced)
-		}
+		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
 
