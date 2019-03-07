@@ -21,8 +21,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/pkg/webhook/pki/util"
+	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"

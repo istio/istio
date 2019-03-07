@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	pkiutil "istio.io/istio/pkg/webhook/pki/util"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
-	pkiutil "istio.io/istio/pkg/webhook/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 	pb "istio.io/istio/security/proto"

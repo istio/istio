@@ -32,10 +32,10 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/webhook/pki/util"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 const (
