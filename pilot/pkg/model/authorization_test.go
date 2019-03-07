@@ -103,10 +103,10 @@ func TestAddConfig(t *testing.T) {
 				AuthzPolicies: []*model.AuthorizationPolicyConfig{
 					{
 						Name: "test-authz-1", Policy: &rbacproto.AuthorizationPolicy{
-						WorkloadSelector: &rbacproto.WorkloadSelector{
-							Labels: map[string]string{"app": "test"},
-						},
-					}},
+							WorkloadSelector: &rbacproto.WorkloadSelector{
+								Labels: map[string]string{"app": "test"},
+							},
+						}},
 				},
 				NameToServiceRoles: map[string]*rbacproto.ServiceRole{
 					"test-role-1": {Rules: []*rbacproto.AccessRule{{Services: []string{"test-svc-1"}}}},
