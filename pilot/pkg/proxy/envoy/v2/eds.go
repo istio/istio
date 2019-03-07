@@ -371,8 +371,17 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	s.mutex.Lock()
 	for k, v := range svc2account {
-		ep := s.EndpointShardsByService[k]
-		ep.ServiceAccounts = v
+		if ep := s.EndpointShardsByService[k]; ep != nil {
+			ep.ServiceAccounts = v
+			continue
+		}
+		// we have not seen this service before.
+		// We will let edsUpdate() add endpoints to the list.
+		// Just record service accounts here.
+		s.EndpointShardsByService[k] = &EndpointShards{
+			Shards:          map[string][]*model.IstioEndpoint{},
+			ServiceAccounts: v,
+		}
 	}
 	s.mutex.Unlock()
 
