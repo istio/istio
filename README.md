@@ -170,10 +170,10 @@ Galley provides config access and validation. Only one environment should enable
 currently supported in multiple namespaces.
 
 ```bash  
-     iop istio-control istio-config istio-config --set configValidation=true
+     iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
 
     # Second Galley, using master version of istio
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master istio-config
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
 ```
 
 Other MCP providers can be used - currently the address and credentials need to match what galley is using. 
@@ -193,6 +193,7 @@ and it is recommended to have Pilot running in each region and in multiple avail
     TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
                 --set policy.enable=false \
                --set global.istioNamespace=istio-master \
+               --set global.configNamespace=istio-master \
                --set global.telemetryNamespace=istio-telemetry-master \
                --set global.policyNamespace=istio-policy-maste
 
@@ -213,11 +214,11 @@ the default disabled, test it, and move the default from istio-system to istio-c
 
 
 ```bash
-    iop istio-control istio-autoinject $IBASE/istio-autoinject --set enableNamespacesByDefault=true
+    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
     
     # Second auto-inject using master version of istio
     # Notice the different options
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-autoinject \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
              --set global.istioNamespace=istio-master 
 
 ```
