@@ -214,11 +214,11 @@ the default disabled, test it, and move the default from istio-system to istio-c
 
 
 ```bash
-    iop istio-control istio-autoinject $IBASE/istio-autoinject --set enableNamespacesByDefault=true
+    iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set enableNamespacesByDefault=true
     
     # Second auto-inject using master version of istio
     # Notice the different options
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-autoinject \
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-autoinject-master $IBASE/istio-control/istio-autoinject \
              --set global.istioNamespace=istio-master 
 
 ```
