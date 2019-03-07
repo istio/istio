@@ -20,6 +20,14 @@ global:
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
 
+pilot:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
 prometheus:
   scrapeInterval: 5s
 
