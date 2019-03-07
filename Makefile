@@ -72,7 +72,8 @@ else
    # export GOOS_LOCAL ?= windows
 endif
 
-export GOOS ?= $(GOOS_LOCAL)
+# export GOOS ?= $(GOOS_LOCAL)
+export GOOS ?= linux
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
