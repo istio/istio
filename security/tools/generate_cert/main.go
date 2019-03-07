@@ -29,7 +29,7 @@ import (
 
 	k8s "k8s.io/api/core/v1"
 
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 const (

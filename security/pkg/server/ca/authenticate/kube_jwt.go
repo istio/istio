@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"istio.io/istio/security/pkg/k8s/tokenreview"
+	"istio.io/istio/pkg/webhook/k8s/tokenreview"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 	"github.com/hashicorp/vault/api"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 // Config for prototyping purpose

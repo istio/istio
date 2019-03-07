@@ -26,15 +26,15 @@ import (
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/caclient/protocol/mock"
-	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/ca"
+	"istio.io/istio/pkg/webhook/pki/util"
 	pb "istio.io/istio/security/proto"
 )
 
 func TestGcpGetServiceIdentity(t *testing.T) {
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
-		"../pki/testdata/multilevelpki/int-cert.pem", "../pki/testdata/multilevelpki/int-key.pem",
-		"", "../pki/testdata/multilevelpki/root-cert.pem")
+		"../../../pkg/webhook/pki/testdata/multilevelpki/int-cert.pem", "../../../pkg/webhook/pki/testdata/multilevelpki/int-key.pem",
+		"", "../../../pkg/webhook/pki/testdata/multilevelpki/root-cert.pem")
 	if err != nil {
 		t.Error(err)
 	}

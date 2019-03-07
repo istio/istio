@@ -25,8 +25,8 @@ import (
 
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
-	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/ca"
+	"istio.io/istio/pkg/webhook/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
 )

@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 const (

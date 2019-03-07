@@ -28,7 +28,7 @@ import (
 
 	"strings"
 
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 // OnPremClientImpl is the implementation of on premise metadata client.

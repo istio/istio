@@ -27,8 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/k8s/configmap"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 var (

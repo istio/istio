@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/ca"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 /* #nosec: disable gas linter */

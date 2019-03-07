@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"sync"
 
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.

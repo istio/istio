@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
+	pkiutil "istio.io/istio/pkg/webhook/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )

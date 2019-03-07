@@ -24,7 +24,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 
-	"istio.io/istio/security/pkg/k8s/tokenreview"
+	"istio.io/istio/pkg/webhook/k8s/tokenreview"
 )
 
 type mockTokenReviewClient struct {

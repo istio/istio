@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	pkiutil "istio.io/istio/security/pkg/pki/util"
-	pkimock "istio.io/istio/security/pkg/pki/util/mock"
+	pkiutil "istio.io/istio/pkg/webhook/pki/util"
+	pkimock "istio.io/istio/pkg/webhook/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
 	utilmock "istio.io/istio/security/pkg/util/mock"
 )

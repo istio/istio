@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/k8s/configmap"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/k8s/configmap"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 const (

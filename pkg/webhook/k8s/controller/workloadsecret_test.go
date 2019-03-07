@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
-	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-	"istio.io/istio/security/pkg/pki/util"
-	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/pkg/webhook/pki/ca"
+	mockca "istio.io/istio/pkg/webhook/pki/ca/mock"
+	"istio.io/istio/pkg/webhook/pki/util"
+	mockutil "istio.io/istio/pkg/webhook/pki/util/mock"
 )
 
 const (

@@ -27,9 +27,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/security/pkg/pki/ca"
-	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/pkg/webhook/pki/ca"
+	mockca "istio.io/istio/pkg/webhook/pki/ca/mock"
+	mockutil "istio.io/istio/pkg/webhook/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
