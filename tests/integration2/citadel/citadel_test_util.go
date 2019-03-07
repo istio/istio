@@ -22,8 +22,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/security/pkg/k8s/controller"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/k8s/controller"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 // ExamineSecret examines the content of an Istio secret to make sure that

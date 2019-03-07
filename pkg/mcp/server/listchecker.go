@@ -26,7 +26,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/pkg/webhook/pki/util"
 )
 
 // AllowAllChecker is a simple auth checker that allows all requests.
