@@ -37,9 +37,6 @@ service:
   loadBalancerIP:
   loadBalancerSourceRanges:
 
-gateway:
-  enabled: false
-
 datasources:
   datasources.yaml:
     apiVersion: 1

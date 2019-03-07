@@ -53,6 +53,3 @@ ingress:
     #   hosts:
     #     - tracing.local
 
-gateway:
-  enabled: false
-  name: ingressgateway

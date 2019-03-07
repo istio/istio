@@ -33,8 +33,5 @@ service:
     enabled: false
     port: 32090
 
-gateway:
-  enabled: false
-
 security:
   enabled: true
