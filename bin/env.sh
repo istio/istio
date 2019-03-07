@@ -146,10 +146,10 @@ function iop_k8s_ingress() {
          --set env.K8S_INGRESS_NS=istio-ingress \
          --set global.controlPlaneSecurityEnabled=false \
          --set global.mtls.enabled=false \
-         --set policy.enabled=false \
-         --set useMCP=false
+         --set policy.enabled=false --set global.configNamespace=istio-control \
           $*
 
+         # --set useMCP=false
     # If installing a second ingress, please set "--set ingress.ingressControllerMode=STRICT" or bad things will happen.
      # Also --set ingress.ingressClass=istio-...
 
