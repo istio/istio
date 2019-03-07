@@ -24,8 +24,6 @@ gateway:
   enabled: false
 dashboard:
   secretName: kiali
-  usernameKey: username
-  passphraseKey: passphrase
 
   # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
   # grafanaURL:
