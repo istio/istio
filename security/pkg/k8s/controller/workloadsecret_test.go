@@ -357,6 +357,83 @@ func TestUpdateSecret(t *testing.T) {
 	}
 }
 
+func TestSecretOptIn(t *testing.T) {
+	nsSchema := schema.GroupVersionResource{
+		Resource: "namespaces",
+		Version:  "v1",
+	}
+	secretSchema := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+
+	testCases := map[string]struct {
+		requireOptIn    bool
+		ns              *v1.Namespace
+		secret          *v1.Secret
+		expectedActions []ktesting.Action
+	}{
+		"always create when opt-in not required": {
+			requireOptIn: false,
+			ns:           createNS("unlabeled", map[string]string{}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
+				ktesting.NewCreateAction(secretSchema, "unlabeled", ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType)),
+			},
+		},
+		"opt-in required, no label => disabled": {
+			requireOptIn: true,
+			ns:           createNS("unlabeled", map[string]string{}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
+				ktesting.NewGetAction(nsSchema, "", "unlabeled"),
+			},
+		},
+		"opt-in required, disabled label => disabled": {
+			requireOptIn: true,
+			ns:           createNS("disabled-ns", map[string]string{"istio-injection": "disabled"}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-injection": "disabled"})),
+				ktesting.NewGetAction(nsSchema, "", "disabled-ns"),
+			},
+		},
+		"opt-in required, enabled label => enabled": {
+			requireOptIn: true,
+			ns:           createNS("enabled-ns", map[string]string{"istio-injection": "enabled"}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-injection": "enabled"})),
+				ktesting.NewGetAction(nsSchema, "", "enabled-ns"),
+				ktesting.NewCreateAction(secretSchema, "enabled-ns", ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		controller, err := NewSecretController(createFakeCA(), tc.requireOptIn, defaultTTL,
+			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
+			metav1.NamespaceAll, nil)
+		if err != nil {
+			t.Errorf("failed to create secret controller: %v", err)
+		}
+		client.ClearActions()
+
+		_, err = client.Core().Namespaces().Create(tc.ns)
+		if err != nil {
+			t.Errorf("failed to create ns in %s: %v", k, err)
+		}
+		controller.saAdded(createServiceAccount("test-sa", tc.ns.Name))
+
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Failure in test case %s: %v", k, err)
+		}
+	}
+}
+
 func checkActions(actual, expected []ktesting.Action) error {
 	if len(actual) != len(expected) {
 		return fmt.Errorf("unexpected number of actions, want %d but got %d", len(expected), len(actual))
@@ -392,6 +469,15 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func createNS(name string, labels map[string]string) *v1.Namespace {
+	return &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }
