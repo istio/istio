@@ -178,7 +178,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 			return portList
 		}
 	}
-	log.Infof("Aggregate - didn't find any management port info for %s cluster: %s, registry type: %s", addr, r.ClusterID, string(r.Name))
+	log.Infof("Aggregate - didn't find any management port info for %s", addr)
 	return nil
 }
 
@@ -191,7 +191,7 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			return probeList
 		}
 	}
-	log.Infof("Aggregate - didn't find any workload health info for %s cluster: %s, registry type: %s", addr, r.ClusterID, string(r.Name))
+	log.Infof("Aggregate - didn't find any workload health info for %s", addr)
 	return nil
 }
 
