@@ -170,10 +170,10 @@ Galley provides config access and validation. Only one environment should enable
 currently supported in multiple namespaces.
 
 ```bash  
-     iop istio-control istio-config istio-config --set configValidation=true
+     iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
 
     # Second Galley, using master version of istio
-    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master istio-config
+    TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-config-master $IBASE/istio-control/istio-config
 ```
 
 Other MCP providers can be used - currently the address and credentials need to match what galley is using. 
