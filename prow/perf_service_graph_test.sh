@@ -42,7 +42,7 @@ pushd ${GOPATH}/src/istio.io/tools/perf/twoPodTest/runner
   for i in `seq 1 $count`;
   do
     sleep 1m
-    python prom.py http://localhost:8060 60 >> ${perf_metrics}
+    python prom.py http://localhost:8060 60 --no-aggregate >> ${perf_metrics}
   done
 
 #  gsutil -q cp ${perf_metrics} "gs://$CB_GCS_BUILD_PATH/perf_metrics.txt"
