@@ -188,7 +188,9 @@ var (
 			}
 
 			// Parse the DNSDomain based upon service registry type into a registry specific domain.
-			DNSDomain = getDNSDomain(DNSDomain)
+			if DNSDomain == "" {
+				DNSDomain = getDNSDomain(DNSDomain)
+			}
 			setSpiffeTrustDomain(DNSDomain)
 			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
 			role.DNSDomains = make([]string, 1)
