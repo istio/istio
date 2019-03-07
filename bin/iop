@@ -42,7 +42,7 @@ function iop() {
         helm template --namespace $ns -n $rel $tmpl  $cfg $*
     elif [ "$1" == "-d" ]; then
         shift
-        kubectl delete --namespace $ns -l release=$rel $*
+        kubectl delete --namespace $ns -l release=$ns-$rel $*
     elif [ "$IOP_MODE" == "helm" ] ; then
         echo helm upgrade --wait -i $n $cfg $*
         helm upgrade --namespace $ns --wait -i $rel $tmpl $cfg $*

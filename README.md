@@ -193,6 +193,7 @@ and it is recommended to have Pilot running in each region and in multiple avail
     TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
                 --set policy.enable=false \
                --set global.istioNamespace=istio-master \
+               --set global.configNamespace=istio-master \
                --set global.telemetryNamespace=istio-telemetry-master \
                --set global.policyNamespace=istio-policy-maste
 
