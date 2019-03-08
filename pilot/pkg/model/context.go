@@ -637,6 +637,6 @@ func GetUniqueSuffixes(stringSlice []string) []string {
 		out = append(out, domain)
 	}
 
-	sort.Stable(out)
+	sort.Strings(out)
 	return out
 }
