@@ -53,7 +53,6 @@ var (
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
-	DNSDomain        string
 
 	// proxy config flags (named identically)
 	configPath                 string
@@ -186,16 +185,8 @@ var (
 					}
 				}
 			}
-
-			// Parse the DNSDomain based upon service registry type into a registry specific domain.
-			DNSDomain = getDNSDomain(DNSDomain)
-
-			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
-			role.DNSDomains = make([]string, 1)
-			role.DNSDomains[0] = DNSDomain
-
-			// Obtain the SAN to later create a Envoy proxy.
-			pilotSAN = getPilotSAN(DNSDomain, ns)
+			role.DNSDomain = getDNSDomain(role.DNSDomain)
+			pilotSAN = getPilotSAN(role.DNSDomain, ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -410,7 +401,7 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&DNSDomain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
