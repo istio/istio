@@ -69,7 +69,7 @@ e2e_simple: istioctl generate_e2e_yaml e2e_simple_run
 
 e2e_simple_cni: istioctl
 e2e_simple_cni: export ENABLE_ISTIO_CNI=true
-e2e_simple_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
+#TODO need to create the CNI helm charts and install the CNI
 e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
 e2e_simple_cni: generate_e2e_yaml e2e_simple_run
 
