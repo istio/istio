@@ -218,7 +218,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 	return con
 }
 
-func (s *Source) processStream(stream Stream) error {
+func (s *Source) ProcessStream(stream Stream) error {
 	con := s.newConnection(stream)
 
 	defer s.closeConnection(con)
@@ -401,7 +401,7 @@ func (con *connection) close() {
 func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 	collection := req.Collection
 
-	con.reporter.RecordRequestSize(collection, con.id, req.Size())
+	con.reporter.RecordRequestSize(collection, con.id, internal.ProtoSize(req))
 
 	w, ok := con.watches[collection]
 	if !ok {

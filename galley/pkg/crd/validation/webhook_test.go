@@ -278,7 +278,7 @@ func TestAdmitPilot(t *testing.T) {
 			in: &admissionv1beta1.AdmissionRequest{
 				Kind:      metav1.GroupVersionKind{}, // TODO
 				Object:    runtime.RawExtension{Raw: valid},
-				Operation: admissionv1beta1.Create,
+				Operation: admissionv1beta1.Update,
 			},
 			allowed: true,
 		},
