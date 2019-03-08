@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -607,8 +608,12 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	return InterceptionRedirect
 }
 
-// GetUniqueSuffixes Return a slice containing the strings with the longesest
-// unique suffixes
+// GetUniqueSuffixes returns a list of longest unique DNS suffixes for a proxy
+// from all possible DNS suffixes provided to it. For example, given DNS suffixes
+// global, foo.global, ns1, ns1.svc, ns1.svc.cluster, ns1.svc.cluster.local
+// this function returns foo.global and ns1.svc.cluster.local as the two longest
+// and unique DNS suffixes. This will then be used by RDS code to generate all possible
+// combinations of virtual hosts for a given service.
 func GetUniqueSuffixes(stringSlice []string) []string {
 	domainMap := map[string]struct{}{}
 
@@ -632,5 +637,6 @@ func GetUniqueSuffixes(stringSlice []string) []string {
 		out = append(out, domain)
 	}
 
+	sort.Stable(out)
 	return out
 }
