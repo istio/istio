@@ -15,6 +15,7 @@
 package converter
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -32,6 +33,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshcfg "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
@@ -189,6 +191,135 @@ func TestIdentity_NilResource(t *testing.T) {
 
 	if key != entries[0].Key {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, entries[0].Key)
+	}
+}
+
+func TestServiceRoleBindingToAuthzPolicy(t *testing.T) {
+	b := resource.NewSchemaBuilder()
+	b.Register("istio/rbac/v1alpha1/authorizationpolicies",
+		"type.googleapis.com/istio.rbac.v1alpha1.AuthorizationPolicy")
+	s := b.Build()
+
+	info := s.Get("istio/rbac/v1alpha1/authorizationpolicies")
+
+	spec := map[string]interface{}{
+		"subjects": []map[string]interface{}{
+			{
+				"properties": map[string]interface{}{
+					"source.namespace": "istio-system",
+				},
+			},
+		},
+		"roleRef": map[string]interface{}{
+			"kind": "ServiceRole",
+			"name": "service-viewer",
+		},
+	}
+
+	binding := map[string]interface{}{
+		"apiVersion": "rbac.istio.io/v1alpha1",
+		"kind":       "ServiceRoleBinding",
+		"spec":       spec,
+	}
+
+	authzPolicyBinding := map[string]interface{}{
+		"apiVersion": "rbac.istio.io/v1alpha1",
+		"kind":       "AuthorizationPolicy",
+		"spec": map[string]interface{}{
+			"allow": []map[string]interface{}{
+				{
+					"subjects": []map[string]interface{}{
+						{
+							"properties": map[string]interface{}{
+								"source.namespace": "istio-system",
+							},
+						},
+					},
+					"roleRef": map[string]interface{}{
+						"kind": "ServiceRole",
+						"name": "service-viewer",
+					},
+				},
+			},
+		},
+	}
+	bindingJSON, err := json.Marshal(binding)
+	if err != nil {
+		t.Fatalf("Failed to convert binding.")
+	}
+	authzPolicyBindingJSON, err := json.Marshal(authzPolicyBinding)
+	if err != nil {
+		t.Fatalf("Failed to convert authzPolicyBinding.")
+	}
+
+	key := resource.FullNameFromNamespaceAndName("", "Key")
+
+	cases := []struct {
+		name string
+		in   *unstructured.Unstructured
+		want Entry
+	}{
+		{
+			name: "valid ServiceRoleBinding",
+			in: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
+						"annotations": map[string]interface{}{
+							"key": string(bindingJSON),
+						},
+						"labels": map[string]interface{}{},
+					},
+					"spec": spec,
+				},
+			},
+			want: Entry{
+				Key: key,
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"key": string(authzPolicyBindingJSON),
+					},
+				},
+				Resource: &rbacproto.AuthorizationPolicy{
+					Allow: []*rbacproto.ServiceRoleBinding{
+						{
+							Subjects: []*rbacproto.Subject{
+								{
+									Properties: map[string]string{
+										"source.namespace": "istio-system",
+									},
+								},
+							},
+							RoleRef: &rbacproto.RoleRef{
+								Kind: "ServiceRole",
+								Name: "service-viewer",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(tt *testing.T) {
+
+			entries, err := serviceRoleBindingToAuthzPolicy(nil, info, key, "", c.in)
+
+			if err != nil {
+				tt.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(entries) != 1 {
+				tt.Fatalf("Expected one entry: %v", entries)
+			}
+
+			got := entries[0]
+
+			if !reflect.DeepEqual(got, c.want) {
+				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, c.want)
+			}
+		})
 	}
 }
 

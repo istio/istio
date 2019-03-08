@@ -51,6 +51,7 @@ var converters = func() map[string]Fn {
 	// is acceptable to the lint check-in gate, and nolint annotations do not work.
 	m["identity"] = identity
 	m["nil"] = nilConverter
+	m["service-role-binding-to-authz-policy"] = serviceRoleBindingToAuthzPolicy
 	m["auth-policy-resource"] = authPolicyResource
 	m["kube-ingress-resource"] = kubeIngressResource
 	m["kube-service-resource"] = kubeServiceResource
@@ -90,18 +91,67 @@ func identity(_ *Config, destination resource.Info, name resource.FullName, _ st
 		metadata.Labels = u.GetLabels()
 		metadata.Annotations = u.GetAnnotations()
 	}
-
 	e := Entry{
 		Key:      name,
 		Metadata: metadata,
 		Resource: p,
 	}
-
 	return []Entry{e}, nil
 }
 
 func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *unstructured.Unstructured) ([]Entry, error) {
 	return nil, nil
+}
+
+// serviceRoleBindingToAuthzPolicy converts ServiceRoleBinding unstructured type into AuthorizationPolicy unstructured type,
+// and calls the identity() function to convert this unstructured type.
+func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, name resource.FullName, kind string,
+	u *unstructured.Unstructured) ([]Entry, error) {
+	log.Warnf("ServiceRoleBinding is deprecated. Convert ServiceRoleBinding to AuthorizationPolicy")
+	authzPolicyStr := "AuthorizationPolicy"
+	// Create a new unstructured struct for AuthorizationPolicy with exact information from ServiceRoleBinding.
+	authzPolicyU := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": u.GetAPIVersion(),
+			"kind":       authzPolicyStr,
+			"metadata": map[string]interface{}{
+				"creationTimestamp": u.GetCreationTimestamp(),
+				"annotations":       u.GetAnnotations(),
+				"labels":            u.GetLabels(),
+			},
+			"spec": map[string]interface{}{
+				"allow": []interface{}{u.Object["spec"]},
+			},
+		},
+	}
+
+	// Get ServiceRoleBinding annotations and change it to AuthorizationPolicy's annotations.
+	srbAnnotations := u.GetAnnotations()
+	var key string
+	for k := range srbAnnotations {
+		key = k
+	}
+	// Convert JSON string to map[string]interface{} for the bindings in ServiceRoleBinding.
+	bindings := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(srbAnnotations[key]), &bindings); err != nil {
+		return nil, err
+	}
+
+	spec := bindings["spec"]
+	bindings["spec"] = map[string]interface{}{
+		"allow": []interface{}{spec},
+	}
+	bindings["kind"] = authzPolicyStr
+
+	bindingsJSON, err := json.Marshal(bindings)
+	if err != nil {
+		return nil, err
+	}
+
+	srbAnnotations[key] = string(bindingsJSON)
+	authzPolicyU.SetAnnotations(srbAnnotations)
+
+	return identity(config, destination, name, kind, authzPolicyU)
 }
 
 func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
