@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -608,35 +607,28 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	return InterceptionRedirect
 }
 
-// GetUniqueSuffixes returns a list of longest unique DNS suffixes for a proxy
-// from all possible DNS suffixes provided to it. For example, given DNS suffixes
-// global, foo.global, ns1, ns1.svc, ns1.svc.cluster, ns1.svc.cluster.local
-// this function returns foo.global and ns1.svc.cluster.local as the two longest
-// and unique DNS suffixes. This will then be used by RDS code to generate all possible
-// combinations of virtual hosts for a given service.
+// GetUniqueSuffixes Return a slice containing the strings with the longesest
+// unique suffixes
 func GetUniqueSuffixes(stringSlice []string) []string {
-	domainMap := map[string]struct{}{}
+	out := []string{}
 
 	// Iterate through the slice finding longest strings with unique suffixes
-	for i := 0; i < len(stringSlice); i++ {
-		domainMap[stringSlice[i]] = struct{}{}
-		for j := 0; j < len(stringSlice); j++ {
-			if j != i {
-				// If strings have same suffix
-				if strings.HasSuffix(stringSlice[j], stringSlice[i]) {
-					delete(domainMap, stringSlice[i])
-					domainMap[stringSlice[j]] = struct{}{}
+	for _, stringOne := range stringSlice {
+		workString := ""
+		for _, stringTwo := range stringSlice {
+			// If strings have same suffix
+			if strings.HasSuffix(stringOne, stringTwo) {
+				// Keep the longest string from the first range
+				if len(stringOne) > len(stringTwo) {
+					workString = stringOne
 				}
 			}
 		}
+
+		// Append first range working string if a new one was found
+		if workString != "" {
+			out = append(out, workString)
+		}
 	}
-
-	out := make([]string, 0, len(domainMap))
-
-	for domain := range domainMap {
-		out = append(out, domain)
-	}
-
-	sort.Strings(out)
 	return out
 }
