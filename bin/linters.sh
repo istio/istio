@@ -54,7 +54,7 @@ function run_adapter_lint() {
 function run_test_lint() {
     echo 'Running testlinter ...'
     go build -o bin/testlinter tests/util/checker/testlinter/*.go
-    bin/testlinter ./...
+    bin/testlinter
     echo 'testlinter OK'
 }
 
