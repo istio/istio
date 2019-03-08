@@ -451,7 +451,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	svcNode.Type = model.Ingress
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
-	svcNode.DNSDomains = []string{"nsa.svc.cluster.local"}
+	svcNode.DNSDomain = "nsa.svc.cluster.local"
 	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
