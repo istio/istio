@@ -363,3 +363,7 @@ ignored = [
 [[constraint]]
   name = "github.com/google/go-cmp"
   version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/google/cel-go"
+  version = "0.1.0"
