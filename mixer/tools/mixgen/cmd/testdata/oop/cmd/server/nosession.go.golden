@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -390,6 +391,9 @@ func transformValue(in interface{}) interface{} {
 
 // HandleMetricEntry handles 'MetricEntry' instances.
 func (s *NoSession) HandleMetricEntry(ctx context.Context, r *istio_mixer_adapter_metricentry.HandleMetricEntryRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getMetricEntryHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -405,6 +409,9 @@ func (s *NoSession) HandleMetricEntry(ctx context.Context, r *istio_mixer_adapte
 
 // HandleQuota handles 'Quota' instances.
 func (s *NoSession) HandleQuota(ctx context.Context, r *istio_mixer_adapter_quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getQuotaHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -438,6 +445,9 @@ func (s *NoSession) HandleQuota(ctx context.Context, r *istio_mixer_adapter_quot
 
 // HandleMylistChecker handles 'MylistChecker' instances.
 func (s *NoSession) HandleMylistChecker(ctx context.Context, r *foo_bar_mylistchecker.HandleMylistCheckerRequest) (*adptModel.CheckResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getMylistCheckerHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err

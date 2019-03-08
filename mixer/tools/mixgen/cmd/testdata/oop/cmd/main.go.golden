@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ func main() {
 }
 
 func runServer(args *Args) {
-	s, err := server.NewStackdriverNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
+	s, err := server.NewTestAdapterNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
 	if err != nil {
 		fmt.Printf("unable to start server: %v", err)
 		os.Exit(-1)

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -262,6 +263,15 @@ func tracespanInstances(in []*tracespan.InstanceMsg) []*tracespan.Instance {
 			HttpStatusCode:      inst.HttpStatusCode,
 			ClientSpan:          inst.ClientSpan,
 			RewriteClientSpanId: inst.RewriteClientSpanId,
+			SourceName:          inst.SourceName,
+			SourceIp:            inst.SourceIp.Value,
+			DestinationName:     inst.DestinationName,
+			DestinationIp:       inst.DestinationIp.Value,
+			RequestSize:         inst.RequestSize,
+			RequestTotalSize:    inst.RequestTotalSize,
+			ResponseSize:        inst.ResponseSize,
+			ResponseTotalSize:   inst.ResponseTotalSize,
+			ApiProtocol:         inst.ApiProtocol,
 		})
 	}
 	return out
@@ -287,6 +297,8 @@ func edgeInstances(in []*edge.InstanceMsg) []*edge.Instance {
 			DestinationWorkloadName:      inst.DestinationWorkloadName,
 			DestinationOwner:             inst.DestinationOwner,
 			DestinationUid:               inst.DestinationUid,
+			DestinationServiceNamespace:  inst.DestinationServiceNamespace,
+			DestinationServiceName:       inst.DestinationServiceName,
 			ContextProtocol:              inst.ContextProtocol,
 			ApiProtocol:                  inst.ApiProtocol,
 		})
@@ -325,6 +337,9 @@ func transformValue(in interface{}) interface{} {
 
 // HandleMetric handles 'Metric' instances.
 func (s *NoSession) HandleMetric(ctx context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getMetricHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -340,6 +355,9 @@ func (s *NoSession) HandleMetric(ctx context.Context, r *metric.HandleMetricRequ
 
 // HandleLogEntry handles 'LogEntry' instances.
 func (s *NoSession) HandleLogEntry(ctx context.Context, r *logentry.HandleLogEntryRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getLogEntryHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -355,6 +373,9 @@ func (s *NoSession) HandleLogEntry(ctx context.Context, r *logentry.HandleLogEnt
 
 // HandleTraceSpan handles 'TraceSpan' instances.
 func (s *NoSession) HandleTraceSpan(ctx context.Context, r *tracespan.HandleTraceSpanRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getTraceSpanHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -370,6 +391,9 @@ func (s *NoSession) HandleTraceSpan(ctx context.Context, r *tracespan.HandleTrac
 
 // HandleEdge handles 'Edge' instances.
 func (s *NoSession) HandleEdge(ctx context.Context, r *edge.HandleEdgeRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.getEdgeHandler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err

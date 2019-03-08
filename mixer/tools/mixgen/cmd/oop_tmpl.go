@@ -1,6 +1,6 @@
 package cmd
 
-var oopMainTempl = `// Copyright 2018 Istio Authors
+var oopMainTempl = `// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ func main() {
 }
 
 func runServer(args *Args) {
-	s, err := server.NewStackdriverNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
+	s, err := server.New{{Capitalize .AdapterName}}NoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
 	if err != nil {
 		fmt.Printf("unable to start server: %v", err)
 		os.Exit(-1)
@@ -92,7 +92,7 @@ func runServer(args *Args) {
 }
 `
 
-var noSessionServerTempl = `// Copyright 2018 Istio Authors
+var noSessionServerTempl = `// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,6 +114,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -427,6 +428,9 @@ func transformValue(in interface{}) interface{} {
 // Handle{{.InterfaceName}} handles '{{.InterfaceName}}' instances.
 {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
 func (s *NoSession) Handle{{.InterfaceName -}}(ctx context.Context, r *{{.GoPackageName}}.Handle{{.InterfaceName -}}Request) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.get{{.InterfaceName -}}Handler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -441,6 +445,9 @@ func (s *NoSession) Handle{{.InterfaceName -}}(ctx context.Context, r *{{.GoPack
 }
 {{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
 func (s *NoSession) Handle{{.InterfaceName -}}(ctx context.Context, r *{{.GoPackageName}}.Handle{{.InterfaceName -}}Request) (*adptModel.CheckResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.get{{.InterfaceName -}}Handler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
@@ -462,6 +469,9 @@ func (s *NoSession) Handle{{.InterfaceName -}}(ctx context.Context, r *{{.GoPack
 }
 {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
 func (s *NoSession) Handle{{.InterfaceName -}}(ctx context.Context, r *{{.GoPackageName}}.Handle{{.InterfaceName -}}Request) (*adptModel.QuotaResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
 	h, err := s.get{{.InterfaceName -}}Handler(r.AdapterConfig.Value)
 	if err != nil {
 		return nil, err
