@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	ot "github.com/opentracing/opentracing-go"
@@ -139,6 +138,11 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	s.Probe = probe.NewProbe()
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
 
 	// construct the gRPC options
 
@@ -203,7 +207,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
-	if err := st.WaitForSynced(30 * time.Second); err != nil {
+	if err := st.WaitForSynced(a.ConfigWaitTimeout); err != nil {
 		return nil, err
 	}
 	s.configStore = st
@@ -247,12 +251,6 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
-
-	if a.LivenessProbeOptions.IsValid() {
-		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
-		s.RegisterProbe(s.livenessProbe, "server")
-		s.livenessProbe.Start()
-	}
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

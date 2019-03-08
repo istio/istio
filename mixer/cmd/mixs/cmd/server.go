@@ -63,6 +63,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", sa.ConfigDefaultNamespace,
 		"Namespace used to store mesh wide configuration.")
+	serverCmd.PersistentFlags().DurationVarP(&sa.ConfigWaitTimeout, "configWaitTimeout", "", sa.ConfigWaitTimeout,
+		"Timeout until the initial set of configurations are received, before declaring as ready.")
 
 	serverCmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
 		"Path to the file for the liveness probe.")
