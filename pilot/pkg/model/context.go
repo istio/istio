@@ -610,32 +610,27 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 // GetUniqueSuffixes Return a slice containing the strings with the longesest
 // unique suffixes
 func GetUniqueSuffixes(stringSlice []string) []string {
-	stringMap := make(map[string]bool)
+	domainMap := map[string]struct{}{}
 
-	// Indicate all strings in map are valid
-	for _, stringOne := range stringSlice {
-		stringMap[stringOne] = true
-	}
-
-	// Iterate the list falsifying strings that don't meet criteria
-	for _, stringOne := range stringSlice {
-		for _, stringTwo := range stringSlice {
-			// Potentially falisify matching strings with same suffix
-			if stringOne != stringTwo && strings.HasSuffix(stringTwo, stringOne) {
-				// Falsify the shortest string
-				if len(stringOne) < len(stringTwo) {
-					stringMap[stringOne] = false
+	// Iterate through the slice finding longest strings with unique suffixes
+	for i := 0; i < len(stringSlice); i++ {
+		domainMap[stringSlice[i]] = struct{}{}
+		for j := 0; j < len(stringSlice); j++ {
+			if j != i {
+				// If strings have same suffix
+				if strings.HasSuffix(stringSlice[j], stringSlice[i]) {
+					delete(domainMap, stringSlice[i])
+					domainMap[stringSlice[j]] = struct{}{}
 				}
 			}
 		}
 	}
 
-	// Produce a slice from the map of non-falsified strings
-	out := []string{}
-	for uniqueString, v := range stringMap {
-		if v == true {
-			out = append(out, uniqueString)
-		}
+	out := make([]string, 0, len(domainMap))
+
+	for domain := range domainMap {
+		out = append(out, domain)
 	}
+
 	return out
 }
