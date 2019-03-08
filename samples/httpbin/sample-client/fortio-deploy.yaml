@@ -6,6 +6,10 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # This annotation allows istio-proxy sidecar to become ready.  Without
+        # it Envoy logs "Envoy proxy is NOT ready" and "envoy missing listener for inbound application port"
+        status.sidecar.istio.io/port: "0"
       labels:
         app: fortio
     spec:
