@@ -85,6 +85,10 @@ func TestGetUniqueSuffixes(t *testing.T) {
 			in:  []string{"global", "istio-system.global", "global"},
 			out: []string{"istio-system.global"},
 		},
+		{
+			in:  []string{"global", "istio-system.global", "default.svc.local"},
+			out: []string{"istio-system.global", "default.svc.local"},
+		},
 	}
 	for _, datum := range data {
 		out := model.GetUniqueSuffixes(datum.in)
