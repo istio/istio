@@ -24,7 +24,7 @@ Learn more about Mixer
 [here](https://istio.io/docs/concepts/policies-and-telemetry/).
 
 Mixer's 
-[Adapter Developer's Guide](https://github.com/istio/istio/wiki/Mixer-Adapter-Dev-Guide) 
+[Adapter Developer's Guide](https://github.com/istio/istio/wiki/Mixer-Out-Of-Process-Adapter-Dev-Guide) 
 presents everything you need to know about extending Mixer to provide support 
 for new backends through the development of new
 [adapters](https://istio.io/docs/concepts/policies-and-telemetry/#adapters).
