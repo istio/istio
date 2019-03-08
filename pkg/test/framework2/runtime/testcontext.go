@@ -54,8 +54,8 @@ func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestCont
 }
 
 // Settings returns the current runtime.Settings.
-func (s *TestContext) Settings() *common.Settings {
-	return s.suite.settings
+func (c *TestContext) Settings() *common.Settings {
+	return c.suite.settings
 }
 
 // TrackResource adds a new resource to track to the context at this level.

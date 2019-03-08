@@ -12,42 +12,35 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package mixer
+package pilot
 
 import (
-	"net"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
-	istioMixerV1 "istio.io/api/mixer/v1"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/resource"
 )
 
+// Instance of Pilot
 type Instance interface {
-	Report(t testing.TB, attributes map[string]interface{})
-	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
-	GetCheckAddress() net.Addr
-	GetReportAddress() net.Addr
+	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
+	StartDiscovery(req *xdsapi.DiscoveryRequest) error
+	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
 }
 
-// CheckResponse that is returned from a Mixer Check call.
-type CheckResponse struct {
-	Raw *istioMixerV1.CheckResponse
-}
-
+// Structured config for the Pilot component
 type Config struct {
+	fmt.Stringer
+	// If set then pilot takes a dependency on the referenced Galley instance
 	Galley galley.Instance
 }
 
-// Succeeded returns true if the precondition check was successful.
-func (c *CheckResponse) Succeeded() bool {
-	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
-}
-
-// TODO: pass Galley in
+// New returns a new Galley instance.
 func New(c resource.Context, config *Config) (Instance, error) {
 	switch c.Environment().Name() {
 	case environment.Native:
@@ -57,10 +50,11 @@ func New(c resource.Context, config *Config) (Instance, error) {
 	}
 }
 
+// NewOrFail returns a new Galley instance, or fails.
 func NewOrFail(t *testing.T, c resource.Context, config *Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
-		t.Fatalf("Error creating Mixer: %v", err)
+		t.Fatalf("Error creating Galley: %v", err)
 	}
 	return i
 }

@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"io"
+	"net"
 	"testing"
 	"time"
 
@@ -50,11 +51,11 @@ type nativeComponent struct {
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 
-func newNative(ctx resource.Context, env *native.Environment, g galley.Instance) (Instance, error) {
+func newNative(ctx resource.Context, env *native.Environment, config *Config) (Instance, error) {
 	n := &nativeComponent{
 		ctx:    ctx,
 		env:    env,
-		galley: g,
+		galley: config.Galley,
 	}
 
 	n.client = &client{
@@ -78,7 +79,11 @@ func newNative(ctx resource.Context, env *native.Environment, g galley.Instance)
 		return nil, err
 	}
 
-	n.client.attributeManifest, err = deployment.ExtractAttributeManifest(n.client.workdir)
+	helmExtractDir, err := ctx.CreateTmpDirectory("helm-mixer-attribute-extract")
+	if err != nil {
+		return nil, err
+	}
+	n.client.attributeManifest, err = deployment.ExtractAttributeManifest(helmExtractDir)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +91,7 @@ func newNative(ctx resource.Context, env *native.Environment, g galley.Instance)
 	n.client.args = server.DefaultArgs()
 	n.client.args.APIPort = 0
 	n.client.args.MonitoringPort = 0
-	n.client.args.ConfigStoreURL = g.Address()
+	n.client.args.ConfigStoreURL = "mcp://" + g.Address()[6:]
 	n.client.args.Templates = generatedTmplRepo.SupportedTmplInfo
 	n.client.args.Adapters = adapter.Inventory()
 
@@ -170,6 +175,14 @@ func (c *nativeComponent) Report(t testing.TB, attributes map[string]interface{}
 
 func (c *nativeComponent) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
 	return c.client.Check(t, attributes)
+}
+
+func (c *nativeComponent) GetCheckAddress() net.Addr {
+	return c.client.server.Addr()
+}
+
+func (c *nativeComponent) GetReportAddress() net.Addr {
+	return c.client.server.Addr()
 }
 
 //

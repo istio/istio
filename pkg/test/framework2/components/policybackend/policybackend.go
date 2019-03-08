@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.
@@ -52,8 +51,8 @@ func New(s resource.Context) (Instance, error) {
 	}
 }
 
-func NewOrFail(t *testing.T, c *runtime.TestContext) Instance {
-	i, err := New(c)
+func NewOrFail(t *testing.T, s resource.Context) Instance {
+	i, err := New(s)
 	if err != nil {
 		t.Fatalf("Error creating PolicyBackend: %v", err)
 	}
