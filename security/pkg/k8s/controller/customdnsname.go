@@ -21,7 +21,7 @@ import (
 )
 
 func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
-		namespace string, customDNSNames string) map[string]*DNSNameEntry {
+	namespace string, customDNSNames string) map[string]*DNSNameEntry {
 	result := make(map[string]*DNSNameEntry)
 	for i, svcAccount := range serviceAccounts {
 		result[svcAccount] = &DNSNameEntry{
@@ -49,7 +49,7 @@ func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
 				}
 			} else {
 				log.Warnf("Cannot process this invalid custom defined names %v, it "+
-						"should follow SERVICE_ACCOUNT.NAMESPACE:DOMAIN format", customName)
+					"should follow SERVICE_ACCOUNT.NAMESPACE:DOMAIN format", customName)
 			}
 		}
 	}
