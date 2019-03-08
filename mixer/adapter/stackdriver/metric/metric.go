@@ -24,12 +24,10 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	gax "github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
-	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -54,14 +52,12 @@ type (
 
 	builder struct {
 		createClient createClientFunc
-		metrics      map[string]*metric.Type
 		cfg          *config.Params
 		mg           helper.MetadataGenerator
 	}
 
 	info struct {
 		ttype string
-		vtype descriptor.ValueType
 		minfo *config.Params_MetricInfo
 	}
 
@@ -95,23 +91,6 @@ const (
 )
 
 var (
-	// TODO: evaluate how we actually want to do this mapping - this first stab w/ everything as String probably
-	// isn't what we really want.
-	// The better path forward is probably to constrain the input types and err on bad combos.
-	labelMap = map[descriptor.ValueType]labelpb.LabelDescriptor_ValueType{
-		descriptor.STRING:        labelpb.LabelDescriptor_STRING,
-		descriptor.INT64:         labelpb.LabelDescriptor_INT64,
-		descriptor.DOUBLE:        labelpb.LabelDescriptor_INT64,
-		descriptor.BOOL:          labelpb.LabelDescriptor_BOOL,
-		descriptor.TIMESTAMP:     labelpb.LabelDescriptor_INT64,
-		descriptor.IP_ADDRESS:    labelpb.LabelDescriptor_STRING,
-		descriptor.EMAIL_ADDRESS: labelpb.LabelDescriptor_STRING,
-		descriptor.URI:           labelpb.LabelDescriptor_STRING,
-		descriptor.DNS_NAME:      labelpb.LabelDescriptor_STRING,
-		descriptor.DURATION:      labelpb.LabelDescriptor_INT64,
-		descriptor.STRING_MAP:    labelpb.LabelDescriptor_STRING,
-	}
-
 	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
 )
@@ -125,9 +104,7 @@ func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
 }
 
-func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
-	b.metrics = metrics
-}
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {}
 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.cfg = cfg.(*config.Params)
@@ -144,22 +121,16 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		// Try to fill project ID if it is not provided with metadata.
 		cfg.ProjectId = md.ProjectID
 	}
-	types := make(map[string]info, len(b.metrics))
-	for name, t := range b.metrics {
-		i, found := cfg.MetricInfo[name]
-		if !found {
-			env.Logger().Warningf("No stackdriver info found for metric %s, skipping it", name)
-			continue
-		}
-		mt := i.MetricType
+	types := make(map[string]info, len(cfg.MetricInfo))
+	for name, t := range cfg.MetricInfo {
+		mt := t.MetricType
 		if mt == "" {
 			mt = customMetricType(name)
 		}
 		// TODO: do we want to make sure that the definition conforms to stackdrvier requirements? Really that needs to happen during config validation
 		types[name] = info{
 			ttype: mt,
-			vtype: t.Value,
-			minfo: i,
+			minfo: t,
 		}
 	}
 
@@ -278,10 +249,10 @@ func toTypedVal(val interface{}, i info) *monitoringpb.TypedValue {
 		return v
 	}
 
-	switch labelMap[i.vtype] {
-	case labelpb.LabelDescriptor_BOOL:
+	switch val.(type) {
+	case bool:
 		return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
-	case labelpb.LabelDescriptor_INT64:
+	case int64:
 		if t, ok := val.(time.Time); ok {
 			val = t.Nanosecond() / int(time.Microsecond)
 		} else if d, ok := val.(time.Duration); ok {

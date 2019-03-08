@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: stackdriveradapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: stackdriveradapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/stackdriveradapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: stackdriveradapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

@@ -55,22 +55,15 @@ func TestBuild(t *testing.T) {
 	}
 
 	tests := []struct {
-		name  string
-		types map[string]*logentry.Type
-		cfg   *config.Params
-		logs  []string
+		name string
+		cfg  *config.Params
+		logs []string
 	}{
-		{"empty", map[string]*logentry.Type{}, &config.Params{}, []string{}},
-		{"missing",
-			map[string]*logentry.Type{},
-			&config.Params{LogInfo: map[string]*config.Params_LogInfo{"missing": {}}},
-			[]string{"which is not an Istio log"}},
+		{"empty", &config.Params{}, []string{}},
 		{"bad tmpl",
-			map[string]*logentry.Type{"bad": {}},
 			&config.Params{LogInfo: map[string]*config.Params_LogInfo{"bad": {PayloadTemplate: "{{}"}}},
 			[]string{"failed to evaluate template"}},
 		{"happy",
-			map[string]*logentry.Type{"good": {}},
 			&config.Params{LogInfo: map[string]*config.Params_LogInfo{"good": {PayloadTemplate: "literal"}}},
 			[]string{}},
 	}
@@ -84,7 +77,6 @@ func TestBuild(t *testing.T) {
 			}, makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 				return &logadmin.Client{}, nil
 			}, mg: dummyMetadataGenerator}
-			b.SetLogEntryTypes(tt.types)
 			b.SetAdapterConfig(tt.cfg)
 			if _, err := b.Build(context.Background(), env); err != nil {
 				t.Fatalf("Unexpected error building the handler: %v", err)
