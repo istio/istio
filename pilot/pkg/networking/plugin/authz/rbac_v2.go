@@ -75,10 +75,10 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 			// Convert role.
 			role := option.authzPolicies.RoleForNameAndNamespace(namespace, binding.RoleRef.Name)
 			for _, rule := range role.Rules {
-				// Check to make sure the services field does not exist in the ServiceRole.
+				// Since ServiceRoleBinding has been converted to AuthorizationPolicy in Galley, we're effectively
+				// using RBAC v2 for all cases. But since the `services` field is deprecated in RBAC v2, we will simply ignore it.
 				if len(rule.Services) > 0 {
-					rbacLog.Errorf("should not have services field in ServiceRole (found in %s)", binding.RoleRef.Name)
-					continue
+					rbacLog.Warnf("should not have services field in ServiceRole if using RBAC v2 (found in %s)", binding.RoleRef.Name)
 				}
 				// Check to make sure that the current service (caller) is the one this rule is applying to.
 				if !service.areConstraintsMatched(rule) {
