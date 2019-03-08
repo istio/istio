@@ -79,21 +79,17 @@ func TestGetUniqueSuffixes(t *testing.T) {
 	}{
 		{
 			in:  []string{"part1.part2.com", "part2.com", "default.svc.local", "kube.default.svc.local"},
-			out: []string{"kube.default.svc.local", "part1.part2.com"},
+			out: []string{"part1.part2.com", "kube.default.svc.local"},
 		},
 		{
 			in:  []string{"global", "istio-system.global", "global"},
 			out: []string{"istio-system.global"},
 		},
-		{
-			in:  []string{"global", "istio-system.global", "default.svc.local"},
-			out: []string{"default.svc.local", "istio-system.global"},
-		},
 	}
 	for _, datum := range data {
 		out := model.GetUniqueSuffixes(datum.in)
 		if !reflect.DeepEqual(datum.out, out) {
-			t.Errorf("GetUniqueSuffixes() =>\n Got %s\nwant %s", out, datum.out)
+			t.Errorf("GetSuperString() =>\n Got %s\nwant %s", out, datum.out)
 		}
 	}
 }
