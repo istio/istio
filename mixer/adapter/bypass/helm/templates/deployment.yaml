@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: bypassadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: bypassadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/bypassadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: bypassadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

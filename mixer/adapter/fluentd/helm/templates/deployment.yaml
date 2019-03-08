@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fluentdadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fluentdadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/fluentdadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: fluentdadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

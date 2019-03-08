@@ -1,0 +1,7 @@
+image:
+  repository: your-repo
+  tag: 0.1.0
+  pullPolicy: Always
+
+service:
+  portNumber: 8080

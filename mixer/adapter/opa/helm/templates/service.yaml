@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opaadapter
+  labels:
+    app: opaadapter
+spec:
+  ports:
+  - name: http
+    port: {{ .Values.service.portNumber }}
+  selector:
+    app: opaadapter

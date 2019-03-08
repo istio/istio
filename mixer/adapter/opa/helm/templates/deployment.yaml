@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: opaadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: opaadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/opaadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: opaadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

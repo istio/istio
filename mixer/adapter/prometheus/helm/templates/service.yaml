@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheusadapter
+  labels:
+    app: prometheusadapter
+spec:
+  ports:
+  - name: http
+    port: {{ .Values.service.portNumber }}
+  selector:
+    app: prometheusadapter

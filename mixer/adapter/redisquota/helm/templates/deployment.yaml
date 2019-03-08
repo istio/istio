@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: zipkinadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: zipkinadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/zipkinadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: zipkinadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

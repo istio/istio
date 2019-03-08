@@ -1,0 +1,3 @@
+name: cloudwatchadapter
+description: Istio cloudwatch out of process adapter
+version: 0.1.0

@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: memquotaadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: memquotaadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/memquotaadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: memquotaadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

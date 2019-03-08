@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: signalfxadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: signalfxadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/signalfxadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: signalfxadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

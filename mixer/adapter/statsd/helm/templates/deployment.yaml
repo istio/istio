@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: statsdadapter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: statsdadapter
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}/statsdadapter:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: statsdadapter
+        ports:
+        - containerPort: {{ .Values.service.portNumber }}

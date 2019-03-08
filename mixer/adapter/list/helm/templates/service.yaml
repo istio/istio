@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: listcheckeradapter
+  labels:
+    app: listcheckeradapter
+spec:
+  ports:
+  - name: http
+    port: {{ .Values.service.portNumber }}
+  selector:
+    app: listcheckeradapter

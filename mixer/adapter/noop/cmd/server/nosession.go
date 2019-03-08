@@ -33,14 +33,17 @@ import (
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
-	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
-	config "istio.io/istio/mixer/adapter/stackdriver/config"
+	noop "istio.io/istio/mixer/adapter/noop"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/handler"
-	"istio.io/istio/mixer/template/edge"
+	"istio.io/istio/mixer/template/authorization"
+	"istio.io/istio/mixer/template/checknothing"
+	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/mixer/template/reportnothing"
 	"istio.io/istio/mixer/template/tracespan"
 )
 
@@ -101,24 +104,14 @@ func (c *Cert) AttachCobraFlags(cmd *cobra.Command) {
 
 var _ metric.HandleMetricServiceServer = &NoSession{}
 var _ logentry.HandleLogEntryServiceServer = &NoSession{}
+var _ reportnothing.HandleReportNothingServiceServer = &NoSession{}
+var _ authorization.HandleAuthorizationServiceServer = &NoSession{}
+var _ checknothing.HandleCheckNothingServiceServer = &NoSession{}
+var _ listentry.HandleListEntryServiceServer = &NoSession{}
+var _ quota.HandleQuotaServiceServer = &NoSession{}
 var _ tracespan.HandleTraceSpanServiceServer = &NoSession{}
-var _ edge.HandleEdgeServiceServer = &NoSession{}
 
 func (s *NoSession) updateHandlers(rawcfg []byte) (adapter.Handler, error) {
-	cfg := &config.Params{}
-
-	if err := cfg.Unmarshal(rawcfg); err != nil {
-		return nil, err
-	}
-
-	s.builderLock.Lock()
-	defer s.builderLock.Unlock()
-	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
-		return handler, nil
-	}
-
-	s.env.Logger().Infof("Loaded handler with: %v", cfg)
-	s.builder.SetAdapterConfig(cfg)
 
 	if ce := s.builder.Validate(); ce != nil {
 		return nil, ce
@@ -167,6 +160,91 @@ func (s *NoSession) getLogEntryHandler(rawcfg []byte) (logentry.Handler, error) 
 	return h.(logentry.Handler), nil
 }
 
+func (s *NoSession) getReportNothingHandler(rawcfg []byte) (reportnothing.Handler, error) {
+	s.builderLock.RLock()
+	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
+		h := handler.(reportnothing.Handler)
+		s.builderLock.RUnlock()
+		return h, nil
+	}
+	s.builderLock.RUnlock()
+	h, err := s.updateHandlers(rawcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// establish session
+	return h.(reportnothing.Handler), nil
+}
+
+func (s *NoSession) getAuthorizationHandler(rawcfg []byte) (authorization.Handler, error) {
+	s.builderLock.RLock()
+	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
+		h := handler.(authorization.Handler)
+		s.builderLock.RUnlock()
+		return h, nil
+	}
+	s.builderLock.RUnlock()
+	h, err := s.updateHandlers(rawcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// establish session
+	return h.(authorization.Handler), nil
+}
+
+func (s *NoSession) getCheckNothingHandler(rawcfg []byte) (checknothing.Handler, error) {
+	s.builderLock.RLock()
+	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
+		h := handler.(checknothing.Handler)
+		s.builderLock.RUnlock()
+		return h, nil
+	}
+	s.builderLock.RUnlock()
+	h, err := s.updateHandlers(rawcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// establish session
+	return h.(checknothing.Handler), nil
+}
+
+func (s *NoSession) getListEntryHandler(rawcfg []byte) (listentry.Handler, error) {
+	s.builderLock.RLock()
+	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
+		h := handler.(listentry.Handler)
+		s.builderLock.RUnlock()
+		return h, nil
+	}
+	s.builderLock.RUnlock()
+	h, err := s.updateHandlers(rawcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// establish session
+	return h.(listentry.Handler), nil
+}
+
+func (s *NoSession) getQuotaHandler(rawcfg []byte) (quota.Handler, error) {
+	s.builderLock.RLock()
+	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
+		h := handler.(quota.Handler)
+		s.builderLock.RUnlock()
+		return h, nil
+	}
+	s.builderLock.RUnlock()
+	h, err := s.updateHandlers(rawcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// establish session
+	return h.(quota.Handler), nil
+}
+
 func (s *NoSession) getTraceSpanHandler(rawcfg []byte) (tracespan.Handler, error) {
 	s.builderLock.RLock()
 	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
@@ -184,21 +262,62 @@ func (s *NoSession) getTraceSpanHandler(rawcfg []byte) (tracespan.Handler, error
 	return h.(tracespan.Handler), nil
 }
 
-func (s *NoSession) getEdgeHandler(rawcfg []byte) (edge.Handler, error) {
-	s.builderLock.RLock()
-	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
-		h := handler.(edge.Handler)
-		s.builderLock.RUnlock()
-		return h, nil
-	}
-	s.builderLock.RUnlock()
-	h, err := s.updateHandlers(rawcfg)
-	if err != nil {
-		return nil, err
-	}
+// nolint:deadcode
+func transformauthorizationSubjectMsg(inst *authorization.SubjectMsg) *authorization.Subject {
+	return &authorization.Subject{
 
-	// establish session
-	return h.(edge.Handler), nil
+		User:       inst.User,
+		Groups:     inst.Groups,
+		Properties: transformValueMap(inst.Properties),
+	}
+}
+
+// nolint:deadcode
+func transformauthorizationSubjectMsgSlice(insts []*authorization.SubjectMsg) []*authorization.Subject {
+	ret := make([]*authorization.Subject, 0, len(insts))
+	for _, inst := range insts {
+		ret = append(ret, transformauthorizationSubjectMsg(inst))
+	}
+	return ret
+}
+
+// nolint:deadcode
+func transformauthorizationSubjectMsgMap(insts map[string]*authorization.SubjectMsg) map[string]*authorization.Subject {
+	ret := make(map[string]*authorization.Subject)
+	for k, inst := range insts {
+		ret[k] = transformauthorizationSubjectMsg(inst)
+	}
+	return ret
+}
+
+// nolint:deadcode
+func transformauthorizationActionMsg(inst *authorization.ActionMsg) *authorization.Action {
+	return &authorization.Action{
+
+		Namespace:  inst.Namespace,
+		Service:    inst.Service,
+		Method:     inst.Method,
+		Path:       inst.Path,
+		Properties: transformValueMap(inst.Properties),
+	}
+}
+
+// nolint:deadcode
+func transformauthorizationActionMsgSlice(insts []*authorization.ActionMsg) []*authorization.Action {
+	ret := make([]*authorization.Action, 0, len(insts))
+	for _, inst := range insts {
+		ret = append(ret, transformauthorizationActionMsg(inst))
+	}
+	return ret
+}
+
+// nolint:deadcode
+func transformauthorizationActionMsgMap(insts map[string]*authorization.ActionMsg) map[string]*authorization.Action {
+	ret := make(map[string]*authorization.Action)
+	for k, inst := range insts {
+		ret[k] = transformauthorizationActionMsg(inst)
+	}
+	return ret
 }
 
 func metricInstances(in []*metric.InstanceMsg) []*metric.Instance {
@@ -238,6 +357,48 @@ func logentryInstances(in []*logentry.InstanceMsg) []*logentry.Instance {
 	return out
 }
 
+func reportnothingInstances(in []*reportnothing.InstanceMsg) []*reportnothing.Instance {
+	out := make([]*reportnothing.Instance, 0, len(in))
+
+	for _, inst := range in {
+		out = append(out, &reportnothing.Instance{
+			Name: inst.Name,
+		})
+	}
+	return out
+}
+
+func authorizationInstance(inst *authorization.InstanceMsg) *authorization.Instance {
+	return &authorization.Instance{
+		Name: inst.Name,
+
+		Subject: transformauthorizationSubjectMsg(inst.Subject),
+		Action:  transformauthorizationActionMsg(inst.Action),
+	}
+}
+
+func checknothingInstance(inst *checknothing.InstanceMsg) *checknothing.Instance {
+	return &checknothing.Instance{
+		Name: inst.Name,
+	}
+}
+
+func listentryInstance(inst *listentry.InstanceMsg) *listentry.Instance {
+	return &listentry.Instance{
+		Name: inst.Name,
+
+		Value: transformValue(inst.Value.GetValue()),
+	}
+}
+
+func quotaInstance(inst *quota.InstanceMsg) *quota.Instance {
+	return &quota.Instance{
+		Name: inst.Name,
+
+		Dimensions: transformValueMap(inst.Dimensions),
+	}
+}
+
 func tracespanInstances(in []*tracespan.InstanceMsg) []*tracespan.Instance {
 	out := make([]*tracespan.Instance, 0, len(in))
 
@@ -272,35 +433,6 @@ func tracespanInstances(in []*tracespan.InstanceMsg) []*tracespan.Instance {
 			ResponseSize:        inst.ResponseSize,
 			ResponseTotalSize:   inst.ResponseTotalSize,
 			ApiProtocol:         inst.ApiProtocol,
-		})
-	}
-	return out
-}
-
-func edgeInstances(in []*edge.InstanceMsg) []*edge.Instance {
-	out := make([]*edge.Instance, 0, len(in))
-
-	for _, inst := range in {
-		tmpTimestamp, err := proto.TimestampFromProto(inst.Timestamp.GetValue())
-		if err != nil {
-			continue
-		}
-		out = append(out, &edge.Instance{
-			Name: inst.Name,
-
-			Timestamp:                    tmpTimestamp,
-			SourceWorkloadNamespace:      inst.SourceWorkloadNamespace,
-			SourceWorkloadName:           inst.SourceWorkloadName,
-			SourceOwner:                  inst.SourceOwner,
-			SourceUid:                    inst.SourceUid,
-			DestinationWorkloadNamespace: inst.DestinationWorkloadNamespace,
-			DestinationWorkloadName:      inst.DestinationWorkloadName,
-			DestinationOwner:             inst.DestinationOwner,
-			DestinationUid:               inst.DestinationUid,
-			DestinationServiceNamespace:  inst.DestinationServiceNamespace,
-			DestinationServiceName:       inst.DestinationServiceName,
-			ContextProtocol:              inst.ContextProtocol,
-			ApiProtocol:                  inst.ApiProtocol,
 		})
 	}
 	return out
@@ -381,6 +513,135 @@ func (s *NoSession) HandleLogEntry(ctx context.Context, r *logentry.HandleLogEnt
 	return &adptModel.ReportResult{}, nil
 }
 
+// HandleReportNothing handles 'ReportNothing' instances.
+func (s *NoSession) HandleReportNothing(ctx context.Context, r *reportnothing.HandleReportNothingRequest) (*adptModel.ReportResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
+	h, err := s.getReportNothingHandler(r.AdapterConfig.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = h.HandleReportNothing(ctx, reportnothingInstances(r.Instances)); err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
+		return nil, err
+	}
+
+	return &adptModel.ReportResult{}, nil
+}
+
+// HandleAuthorization handles 'Authorization' instances.
+func (s *NoSession) HandleAuthorization(ctx context.Context, r *authorization.HandleAuthorizationRequest) (*adptModel.CheckResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
+	h, err := s.getAuthorizationHandler(r.AdapterConfig.Value)
+	if err != nil {
+		return nil, err
+	}
+	inst := authorizationInstance(r.Instance)
+	if inst == nil {
+		return nil, fmt.Errorf("cannot transform instance")
+	}
+	cr, err := h.HandleAuthorization(ctx, inst)
+	if err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
+		return nil, err
+	}
+	return &adptModel.CheckResult{
+		Status:        cr.Status,
+		ValidDuration: cr.ValidDuration,
+		ValidUseCount: cr.ValidUseCount,
+	}, nil
+}
+
+// HandleCheckNothing handles 'CheckNothing' instances.
+func (s *NoSession) HandleCheckNothing(ctx context.Context, r *checknothing.HandleCheckNothingRequest) (*adptModel.CheckResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
+	h, err := s.getCheckNothingHandler(r.AdapterConfig.Value)
+	if err != nil {
+		return nil, err
+	}
+	inst := checknothingInstance(r.Instance)
+	if inst == nil {
+		return nil, fmt.Errorf("cannot transform instance")
+	}
+	cr, err := h.HandleCheckNothing(ctx, inst)
+	if err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
+		return nil, err
+	}
+	return &adptModel.CheckResult{
+		Status:        cr.Status,
+		ValidDuration: cr.ValidDuration,
+		ValidUseCount: cr.ValidUseCount,
+	}, nil
+}
+
+// HandleListEntry handles 'ListEntry' instances.
+func (s *NoSession) HandleListEntry(ctx context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
+	h, err := s.getListEntryHandler(r.AdapterConfig.Value)
+	if err != nil {
+		return nil, err
+	}
+	inst := listentryInstance(r.Instance)
+	if inst == nil {
+		return nil, fmt.Errorf("cannot transform instance")
+	}
+	cr, err := h.HandleListEntry(ctx, inst)
+	if err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
+		return nil, err
+	}
+	return &adptModel.CheckResult{
+		Status:        cr.Status,
+		ValidDuration: cr.ValidDuration,
+		ValidUseCount: cr.ValidUseCount,
+	}, nil
+}
+
+// HandleQuota handles 'Quota' instances.
+func (s *NoSession) HandleQuota(ctx context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
+	if r.AdapterConfig == nil {
+		return nil, errors.New("adapter config cannot be empty")
+	}
+	h, err := s.getQuotaHandler(r.AdapterConfig.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	qi := quotaInstance(r.Instance)
+	resp := adptModel.QuotaResult{
+		Quotas: make(map[string]adptModel.QuotaResult_Result),
+	}
+	for qt, p := range r.QuotaRequest.Quotas {
+		qa := adapter.QuotaArgs{
+			DeduplicationID: r.DedupId,
+			QuotaAmount:     p.Amount,
+			BestEffort:      p.BestEffort,
+		}
+		qr, err := h.HandleQuota(ctx, qi, qa)
+		if err != nil {
+			return nil, err
+		}
+		resp.Quotas[qt] = adptModel.QuotaResult_Result{
+			ValidDuration: qr.ValidDuration,
+			GrantedAmount: qr.Amount,
+		}
+	}
+	if err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // HandleTraceSpan handles 'TraceSpan' instances.
 func (s *NoSession) HandleTraceSpan(ctx context.Context, r *tracespan.HandleTraceSpanRequest) (*adptModel.ReportResult, error) {
 	if r.AdapterConfig == nil {
@@ -392,24 +653,6 @@ func (s *NoSession) HandleTraceSpan(ctx context.Context, r *tracespan.HandleTrac
 	}
 
 	if err = h.HandleTraceSpan(ctx, tracespanInstances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
-	}
-
-	return &adptModel.ReportResult{}, nil
-}
-
-// HandleEdge handles 'Edge' instances.
-func (s *NoSession) HandleEdge(ctx context.Context, r *edge.HandleEdgeRequest) (*adptModel.ReportResult, error) {
-	if r.AdapterConfig == nil {
-		return nil, errors.New("adapter config cannot be empty")
-	}
-	h, err := s.getEdgeHandler(r.AdapterConfig.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = h.HandleEdge(ctx, edgeInstances(r.Instances)); err != nil {
 		s.env.Logger().Errorf("Could not process: %v", err)
 		return nil, err
 	}
@@ -488,15 +731,15 @@ func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
 	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
 }
 
-// NewStackdriverNoSessionServer creates a new no session server based on given args.
-func NewStackdriverNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
+// NewNoopNoSessionServer creates a new no session server based on given args.
+func NewNoopNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
 	saddr := fmt.Sprintf(":%d", addr)
 
 	gp := pool.NewGoroutinePool(poolSize, false)
-	inf := stackdriver.GetInfo()
+	inf := noop.GetInfo()
 	s := &NoSession{
 		builder:    inf.NewBuilder(),
-		env:        handler.NewEnv(0, "stackdriver-nosession", gp),
+		env:        handler.NewEnv(0, "noop-nosession", gp),
 		handlerMap: make(map[string]adapter.Handler),
 	}
 	var err error
@@ -518,8 +761,12 @@ func NewStackdriverNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSessi
 
 	metric.RegisterHandleMetricServiceServer(s.server, s)
 	logentry.RegisterHandleLogEntryServiceServer(s.server, s)
+	reportnothing.RegisterHandleReportNothingServiceServer(s.server, s)
+	authorization.RegisterHandleAuthorizationServiceServer(s.server, s)
+	checknothing.RegisterHandleCheckNothingServiceServer(s.server, s)
+	listentry.RegisterHandleListEntryServiceServer(s.server, s)
+	quota.RegisterHandleQuotaServiceServer(s.server, s)
 	tracespan.RegisterHandleTraceSpanServiceServer(s.server, s)
-	edge.RegisterHandleEdgeServiceServer(s.server, s)
 
 	return s, nil
 }

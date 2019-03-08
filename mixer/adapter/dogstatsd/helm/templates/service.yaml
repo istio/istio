@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dogstatsdadapter
+  labels:
+    app: dogstatsdadapter
+spec:
+  ports:
+  - name: http
+    port: {{ .Values.service.portNumber }}
+  selector:
+    app: dogstatsdadapter

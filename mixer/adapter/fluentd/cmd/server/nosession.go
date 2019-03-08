@@ -33,15 +33,12 @@ import (
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
-	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
-	config "istio.io/istio/mixer/adapter/stackdriver/config"
+	fluentd "istio.io/istio/mixer/adapter/fluentd"
+	config "istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/handler"
-	"istio.io/istio/mixer/template/edge"
 	"istio.io/istio/mixer/template/logentry"
-	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/mixer/template/tracespan"
 )
 
 type (
@@ -99,10 +96,7 @@ func (c *Cert) AttachCobraFlags(cmd *cobra.Command) {
 		"")
 }
 
-var _ metric.HandleMetricServiceServer = &NoSession{}
 var _ logentry.HandleLogEntryServiceServer = &NoSession{}
-var _ tracespan.HandleTraceSpanServiceServer = &NoSession{}
-var _ edge.HandleEdgeServiceServer = &NoSession{}
 
 func (s *NoSession) updateHandlers(rawcfg []byte) (adapter.Handler, error) {
 	cfg := &config.Params{}
@@ -133,23 +127,6 @@ func (s *NoSession) updateHandlers(rawcfg []byte) (adapter.Handler, error) {
 	return h, nil
 }
 
-func (s *NoSession) getMetricHandler(rawcfg []byte) (metric.Handler, error) {
-	s.builderLock.RLock()
-	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
-		h := handler.(metric.Handler)
-		s.builderLock.RUnlock()
-		return h, nil
-	}
-	s.builderLock.RUnlock()
-	h, err := s.updateHandlers(rawcfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// establish session
-	return h.(metric.Handler), nil
-}
-
 func (s *NoSession) getLogEntryHandler(rawcfg []byte) (logentry.Handler, error) {
 	s.builderLock.RLock()
 	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
@@ -165,56 +142,6 @@ func (s *NoSession) getLogEntryHandler(rawcfg []byte) (logentry.Handler, error) 
 
 	// establish session
 	return h.(logentry.Handler), nil
-}
-
-func (s *NoSession) getTraceSpanHandler(rawcfg []byte) (tracespan.Handler, error) {
-	s.builderLock.RLock()
-	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
-		h := handler.(tracespan.Handler)
-		s.builderLock.RUnlock()
-		return h, nil
-	}
-	s.builderLock.RUnlock()
-	h, err := s.updateHandlers(rawcfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// establish session
-	return h.(tracespan.Handler), nil
-}
-
-func (s *NoSession) getEdgeHandler(rawcfg []byte) (edge.Handler, error) {
-	s.builderLock.RLock()
-	if handler, ok := s.handlerMap[string(rawcfg)]; ok {
-		h := handler.(edge.Handler)
-		s.builderLock.RUnlock()
-		return h, nil
-	}
-	s.builderLock.RUnlock()
-	h, err := s.updateHandlers(rawcfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// establish session
-	return h.(edge.Handler), nil
-}
-
-func metricInstances(in []*metric.InstanceMsg) []*metric.Instance {
-	out := make([]*metric.Instance, 0, len(in))
-
-	for _, inst := range in {
-		out = append(out, &metric.Instance{
-			Name: inst.Name,
-
-			Value:                       transformValue(inst.Value.GetValue()),
-			Dimensions:                  transformValueMap(inst.Dimensions),
-			MonitoredResourceType:       inst.MonitoredResourceType,
-			MonitoredResourceDimensions: transformValueMap(inst.MonitoredResourceDimensions),
-		})
-	}
-	return out
 }
 
 func logentryInstances(in []*logentry.InstanceMsg) []*logentry.Instance {
@@ -233,74 +160,6 @@ func logentryInstances(in []*logentry.InstanceMsg) []*logentry.Instance {
 			Severity:                    inst.Severity,
 			MonitoredResourceType:       inst.MonitoredResourceType,
 			MonitoredResourceDimensions: transformValueMap(inst.MonitoredResourceDimensions),
-		})
-	}
-	return out
-}
-
-func tracespanInstances(in []*tracespan.InstanceMsg) []*tracespan.Instance {
-	out := make([]*tracespan.Instance, 0, len(in))
-
-	for _, inst := range in {
-		tmpStartTime, err := proto.TimestampFromProto(inst.StartTime.GetValue())
-		if err != nil {
-			continue
-		}
-		tmpEndTime, err := proto.TimestampFromProto(inst.EndTime.GetValue())
-		if err != nil {
-			continue
-		}
-		out = append(out, &tracespan.Instance{
-			Name: inst.Name,
-
-			TraceId:             inst.TraceId,
-			SpanId:              inst.SpanId,
-			ParentSpanId:        inst.ParentSpanId,
-			SpanName:            inst.SpanName,
-			StartTime:           tmpStartTime,
-			EndTime:             tmpEndTime,
-			SpanTags:            transformValueMap(inst.SpanTags),
-			HttpStatusCode:      inst.HttpStatusCode,
-			ClientSpan:          inst.ClientSpan,
-			RewriteClientSpanId: inst.RewriteClientSpanId,
-			SourceName:          inst.SourceName,
-			SourceIp:            inst.SourceIp.Value,
-			DestinationName:     inst.DestinationName,
-			DestinationIp:       inst.DestinationIp.Value,
-			RequestSize:         inst.RequestSize,
-			RequestTotalSize:    inst.RequestTotalSize,
-			ResponseSize:        inst.ResponseSize,
-			ResponseTotalSize:   inst.ResponseTotalSize,
-			ApiProtocol:         inst.ApiProtocol,
-		})
-	}
-	return out
-}
-
-func edgeInstances(in []*edge.InstanceMsg) []*edge.Instance {
-	out := make([]*edge.Instance, 0, len(in))
-
-	for _, inst := range in {
-		tmpTimestamp, err := proto.TimestampFromProto(inst.Timestamp.GetValue())
-		if err != nil {
-			continue
-		}
-		out = append(out, &edge.Instance{
-			Name: inst.Name,
-
-			Timestamp:                    tmpTimestamp,
-			SourceWorkloadNamespace:      inst.SourceWorkloadNamespace,
-			SourceWorkloadName:           inst.SourceWorkloadName,
-			SourceOwner:                  inst.SourceOwner,
-			SourceUid:                    inst.SourceUid,
-			DestinationWorkloadNamespace: inst.DestinationWorkloadNamespace,
-			DestinationWorkloadName:      inst.DestinationWorkloadName,
-			DestinationOwner:             inst.DestinationOwner,
-			DestinationUid:               inst.DestinationUid,
-			DestinationServiceNamespace:  inst.DestinationServiceNamespace,
-			DestinationServiceName:       inst.DestinationServiceName,
-			ContextProtocol:              inst.ContextProtocol,
-			ApiProtocol:                  inst.ApiProtocol,
 		})
 	}
 	return out
@@ -345,24 +204,6 @@ func transformValue(in interface{}) interface{} {
 	}
 }
 
-// HandleMetric handles 'Metric' instances.
-func (s *NoSession) HandleMetric(ctx context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
-	if r.AdapterConfig == nil {
-		return nil, errors.New("adapter config cannot be empty")
-	}
-	h, err := s.getMetricHandler(r.AdapterConfig.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = h.HandleMetric(ctx, metricInstances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
-	}
-
-	return &adptModel.ReportResult{}, nil
-}
-
 // HandleLogEntry handles 'LogEntry' instances.
 func (s *NoSession) HandleLogEntry(ctx context.Context, r *logentry.HandleLogEntryRequest) (*adptModel.ReportResult, error) {
 	if r.AdapterConfig == nil {
@@ -374,42 +215,6 @@ func (s *NoSession) HandleLogEntry(ctx context.Context, r *logentry.HandleLogEnt
 	}
 
 	if err = h.HandleLogEntry(ctx, logentryInstances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
-	}
-
-	return &adptModel.ReportResult{}, nil
-}
-
-// HandleTraceSpan handles 'TraceSpan' instances.
-func (s *NoSession) HandleTraceSpan(ctx context.Context, r *tracespan.HandleTraceSpanRequest) (*adptModel.ReportResult, error) {
-	if r.AdapterConfig == nil {
-		return nil, errors.New("adapter config cannot be empty")
-	}
-	h, err := s.getTraceSpanHandler(r.AdapterConfig.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = h.HandleTraceSpan(ctx, tracespanInstances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
-	}
-
-	return &adptModel.ReportResult{}, nil
-}
-
-// HandleEdge handles 'Edge' instances.
-func (s *NoSession) HandleEdge(ctx context.Context, r *edge.HandleEdgeRequest) (*adptModel.ReportResult, error) {
-	if r.AdapterConfig == nil {
-		return nil, errors.New("adapter config cannot be empty")
-	}
-	h, err := s.getEdgeHandler(r.AdapterConfig.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = h.HandleEdge(ctx, edgeInstances(r.Instances)); err != nil {
 		s.env.Logger().Errorf("Could not process: %v", err)
 		return nil, err
 	}
@@ -488,15 +293,15 @@ func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
 	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
 }
 
-// NewStackdriverNoSessionServer creates a new no session server based on given args.
-func NewStackdriverNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
+// NewFluentdNoSessionServer creates a new no session server based on given args.
+func NewFluentdNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
 	saddr := fmt.Sprintf(":%d", addr)
 
 	gp := pool.NewGoroutinePool(poolSize, false)
-	inf := stackdriver.GetInfo()
+	inf := fluentd.GetInfo()
 	s := &NoSession{
 		builder:    inf.NewBuilder(),
-		env:        handler.NewEnv(0, "stackdriver-nosession", gp),
+		env:        handler.NewEnv(0, "fluentd-nosession", gp),
 		handlerMap: make(map[string]adapter.Handler),
 	}
 	var err error
@@ -516,10 +321,7 @@ func NewStackdriverNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSessi
 		s.server = grpc.NewServer()
 	}
 
-	metric.RegisterHandleMetricServiceServer(s.server, s)
 	logentry.RegisterHandleLogEntryServiceServer(s.server, s)
-	tracespan.RegisterHandleTraceSpanServiceServer(s.server, s)
-	edge.RegisterHandleEdgeServiceServer(s.server, s)
 
 	return s, nil
 }
