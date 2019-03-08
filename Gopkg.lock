@@ -245,14 +245,6 @@
   revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
 
 [[projects]]
-  branch = "master"
-  digest = "1:2f8c5c83ec48ebde068dcab3cc6ab5d5311af1a6cb193ceabcab0ebc521f52fc"
-  name = "github.com/client9/misspell"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "c0b55c8239520f6b5aa15a0207ca8b28027ba49e"
-
-[[projects]]
   branch = "v2"
   digest = "1:c91a5363a19174cb0181832821a7bb9da0aeefb5e2180724614b1005c2269712"
   name = "github.com/coreos/go-oidc"
@@ -2041,7 +2033,6 @@
     "github.com/cenkalti/backoff",
     "github.com/circonus-labs/circonus-gometrics",
     "github.com/circonus-labs/circonus-gometrics/checkmgr",
-    "github.com/client9/misspell",
     "github.com/coreos/go-oidc",
     "github.com/davecgh/go-spew/spew",
     "github.com/emicklei/go-restful",
