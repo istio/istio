@@ -66,25 +66,6 @@ func TestNewSource(t *testing.T) {
 	_ = newOrFail(t, client, spec)
 }
 
-func TestStartWithNilHandlerShouldError(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	// Create the source
-	w, client := createMocks()
-	defer w.Stop()
-	spec := schema.ResourceSpec{
-		Kind:      "List",
-		Singular:  "List",
-		Plural:    "foos",
-		Target:    emptyInfo,
-		Converter: converter.Get("identity"),
-	}
-	s := newOrFail(t, client, spec)
-
-	err := s.Start(nil)
-	g.Expect(err).ToNot(BeNil())
-}
-
 func TestStartTwiceShouldError(t *testing.T) {
 	g := NewGomegaWithT(t)
 

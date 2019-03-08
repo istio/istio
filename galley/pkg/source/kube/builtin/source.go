@@ -15,9 +15,9 @@
 package builtin
 
 import (
+	"context"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/stats"
 	"istio.io/istio/galley/pkg/source/kube/tombstone"
+	"istio.io/istio/galley/pkg/util"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -46,85 +47,65 @@ func newSource(sharedInformers informers.SharedInformerFactory, t *Type) runtime
 	return &source{
 		t:               t,
 		sharedInformers: sharedInformers,
+		worker:          util.NewWorker("built-in kubernetes source", log.Scope),
 	}
 }
 
 type source struct {
-	// Lock for changing the running state of the source
-	stateLock sync.Mutex
-
 	// The built-in type that is processed by this source.
 	t *Type
 
 	sharedInformers informers.SharedInformerFactory
 	informer        cache.SharedIndexInformer
 
-	// stopCh is used to quiesce the background activity during shutdown
-	stopCh  chan struct{}
 	handler resource.EventHandler
+
+	worker *util.Worker
 }
 
 // Start the source. This will commence listening and dispatching of events.
 func (s *source) Start(handler resource.EventHandler) error {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
+	return s.worker.Start(nil, func(ctx context.Context) {
+		if handler == nil {
+			panic("built-in kubernetes source provided with nil handler")
+		}
 
-	if s.stopCh != nil {
-		return fmt.Errorf("already synchronizing resources: name='%s', gv='%v'",
-			s.t.GetSpec().Singular, s.t.GetSpec().GroupVersion())
-	}
-	if handler == nil {
-		return fmt.Errorf("invalid handler")
-	}
+		log.Scope.Debugf("Starting source for %s(%v)", s.t.GetSpec().Singular, s.t.GetSpec().GroupVersion())
 
-	log.Scope.Debugf("Starting source for %s(%v)", s.t.GetSpec().Singular, s.t.GetSpec().GroupVersion())
+		s.handler = handler
+		s.informer = s.t.NewInformer(s.sharedInformers)
+		s.informer.AddEventHandler(
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					s.handleEvent(resource.Added, obj)
+				},
+				UpdateFunc: func(old, new interface{}) {
+					if s.t.IsEqual(old, new) {
+						// Periodic resync will send update events for all known resources.
+						// Two different versions of the same resource will always have different RVs.
+						return
+					}
+					s.handleEvent(resource.Updated, new)
+				},
+				DeleteFunc: func(obj interface{}) {
+					s.handleEvent(resource.Deleted, obj)
+				},
+			})
 
-	s.stopCh = make(chan struct{})
-	s.handler = handler
+		// Send the an event after the cache syncs.
+		go func() {
+			_ = cache.WaitForCacheSync(ctx.Done(), s.informer.HasSynced)
+			handler(resource.FullSyncEvent)
+		}()
 
-	s.informer = s.t.NewInformer(s.sharedInformers)
-	s.informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				s.handleEvent(resource.Added, obj)
-			},
-			UpdateFunc: func(old, new interface{}) {
-				if s.t.IsEqual(old, new) {
-					// Periodic resync will send update events for all known resources.
-					// Two different versions of the same resource will always have different RVs.
-					return
-				}
-				s.handleEvent(resource.Updated, new)
-			},
-			DeleteFunc: func(obj interface{}) {
-				s.handleEvent(resource.Deleted, obj)
-			},
-		})
-
-	// Start CRD shared informer background process.
-	go s.informer.Run(s.stopCh)
-
-	// Send the an event after the cache syncs.
-	go func() {
-		_ = cache.WaitForCacheSync(s.stopCh, s.informer.HasSynced)
-		handler(resource.FullSyncEvent)
-	}()
-
-	return nil
+		// Start CRD shared informer and wait for it to exit.
+		s.informer.Run(ctx.Done())
+	})
 }
 
 // Stop the source. This will stop publishing of events.
 func (s *source) Stop() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-
-	if s.stopCh == nil {
-		log.Scope.Warn("built-in kubernetes source already stopped")
-		return
-	}
-
-	close(s.stopCh)
-	s.stopCh = nil
+	s.worker.Stop()
 }
 
 func (s *source) handleEvent(kind resource.EventKind, obj interface{}) {
@@ -138,7 +119,9 @@ func (s *source) handleEvent(kind resource.EventKind, obj interface{}) {
 
 	fullName := resource.FullNameFromNamespaceAndName(object.GetNamespace(), object.GetName())
 
-	log.Scope.Debugf("Sending event: [%v] from: %s", kind, s.t.GetSpec().CanonicalResourceName())
+	if log.Scope.DebugEnabled() {
+		log.Scope.Debugf("Sending event: [%v] from: %s", kind, s.t.GetSpec().CanonicalResourceName())
+	}
 
 	event := resource.Event{
 		Kind: kind,
@@ -172,7 +155,10 @@ func (s *source) handleEvent(kind resource.EventKind, obj interface{}) {
 		event.Entry.Item = item
 	}
 
-	log.Scope.Debugf("Dispatching source event: %v", event)
+	if log.Scope.DebugEnabled() {
+		log.Scope.Debugf("Dispatching source event: %v", event)
+	}
+
 	s.handler(event)
 	stats.RecordEventSuccess()
 }
