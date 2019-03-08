@@ -17,18 +17,19 @@
 package healthcheck
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/scopes"
-
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 func TestMain(m *testing.M) {
@@ -38,24 +39,21 @@ func TestMain(m *testing.M) {
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
-
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
 
 	// TODO: remove before merge.
 	scopes.Framework.SetOutputLevel(log.DebugLevel)
 	scopes.CI.SetOutputLevel(log.DebugLevel)
-	// Test requires this Helm flag to be enabled.
-	// kube.RegisterHelmOverrides(map[string]string{
-	// 	"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
-	// })
 
 	// Kube environment only used for this test since it requires istio installed with specific helm
 	// values.
 	kubeEnvironment := descriptors.KubernetesEnvironment
+
+	// Test requires this Helm flag to be enabled.
 	kubeEnvironment.Configuration = kube.IstioConfiguration{
 		Values: map[string]string{
-			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
+			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "false",
 		},
 	}
 	ctx.RequireOrSkip(t, lifecycle.Test, &kubeEnvironment)
@@ -70,6 +68,10 @@ func TestMtlsHealthCheck(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to deploy %v", err)
 	}
+	// Ensure the app is ready.
+
+	fmt.Println("jianfeih passing!")
+	time.Sleep(1000 * time.Second)
 }
 
 func deployTestApp(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {

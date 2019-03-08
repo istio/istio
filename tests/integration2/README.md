@@ -94,7 +94,6 @@ func TestMain(m *testing.M) {
 _INTEGRATION_TEST_NAMES = galley mixer mycomponent
 ``` 
 
-
 ## Diagnosing Failures
 
 The test framework will generate additional diagnostic output in its work directory. Typically, this is 
@@ -118,10 +117,20 @@ In CircleCI, these files can be found in the artifacts section on the test job p
 
 ![CircleCI Artifacts Tab Screenshot](https://circleci.com/docs/assets/img/docs/artifacts.png)
 
+You can also turn on debugging log in your code.
 
+```go
+func TestFeatureX(t *testing.T) {
+  scopes.Framework.SetOutputLevel(log.DebugLevel)
+  scopes.CI.SetOutputLevel(log.DebugLevel)
+}
+```
 
 ## Reference
 
+### Helm Values Overrides
+
+TODO(incfly): describe it.
 
 ### Command-Line Flags
 
