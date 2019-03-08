@@ -466,19 +466,19 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name     string
-		tls      *networking.TLSSettings
-		sans     []string
-		sni      string
-		metadata map[string]string
-		want     *networking.TLSSettings
+		name  string
+		tls   *networking.TLSSettings
+		sans  []string
+		sni   string
+		proxy *model.Proxy
+		want  *networking.TLSSettings
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
-			map[string]string{},
+			&model.Proxy{Metadata: map[string]string{}},
 			tlsSettings,
 		},
 		{
@@ -493,7 +493,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			},
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
-			map[string]string{},
+			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    model.DefaultRootCert,
@@ -508,11 +508,11 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			tlsSettings,
 			[]string{},
 			"",
-			map[string]string{
+			&model.Proxy{Metadata: map[string]string{
 				model.NodeMetadataTLSClientCertChain: "/custom/chain.pem",
 				model.NodeMetadataTLSClientKey:       "/custom/key.pem",
 				model.NodeMetadataTLSClientRootCert:  "/custom/root.pem",
-			},
+			}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -526,7 +526,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.metadata)
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}
