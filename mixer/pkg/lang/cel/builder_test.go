@@ -19,6 +19,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -573,12 +574,14 @@ var (
 	}
 )
 
-func testExpression(env celgo.Env, provider *attributeProvider, test testCase) func(t *testing.T) {
+func testExpression(env celgo.Env, provider *attributeProvider, test testCase, mutex *sync.RWMutex) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
 		// expressions must parse
+		mutex.Lock()
 		expr, iss := env.Parse(test.text)
+		mutex.Unlock()
 		if iss != nil && iss.Err() != nil {
 			t.Fatalf("unexpected parsing error: %v", iss.Err())
 		}
@@ -637,8 +640,9 @@ func testExpression(env celgo.Env, provider *attributeProvider, test testCase) f
 func TestCELExpressions(t *testing.T) {
 	provider := newAttributeProvider(attrs)
 	env := provider.newEnvironment()
+	mutex := &sync.RWMutex{}
 
 	for _, test := range tests {
-		t.Run(test.text, testExpression(env, provider, test))
+		t.Run(test.text, testExpression(env, provider, test, mutex))
 	}
 }
