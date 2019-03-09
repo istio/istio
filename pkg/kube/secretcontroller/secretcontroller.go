@@ -42,6 +42,8 @@ const (
 // DO NOT USE - TEST ONLY.
 var LoadKubeConfig = clientcmd.Load
 
+var ValidateClientConfig = clientcmd.Validate
+
 // CreateInterfaceFromClusterConfig is a unit test override variable for interface create.
 // DO NOT USE - TEST ONLY.
 var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
@@ -230,7 +232,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				continue
 			}
 
-			if err := clientcmd.Validate(*clientConfig); err != nil {
+			if err := ValidateClientConfig(*clientConfig); err != nil {
 				log.Errorf("Data '%s' in the secret %s in namespace %s is not a valid kubeconfig: %v",
 					clusterID, secretName, s.Namespace, err)
 				continue
