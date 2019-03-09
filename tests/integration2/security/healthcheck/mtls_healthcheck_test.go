@@ -23,11 +23,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/api/components"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/components/apps"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -64,11 +67,12 @@ func TestMtlsHealthCheck(t *testing.T) {
 	}
 
 	// Deploy app now.
-	_, err = deployTestApp(env, lifecycle.Test)
-	if err != nil {
-		t.Errorf("failed to deploy %v", err)
-	}
-	// Ensure the app is ready.
+	// TODO: figure out why apps configuration not take effect.
+	kubeApps := descriptors.Apps
+	kubeApps.Configuration = apps.KubeAppsConfig{apps.KubeApp{Name: "health-check-app"}}
+	ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
+	apps := components.GetApps(ctx, t)
+	apps.GetAppOrFail("health-check-app", t)
 
 	fmt.Println("jianfeih passing!")
 	time.Sleep(1000 * time.Second)

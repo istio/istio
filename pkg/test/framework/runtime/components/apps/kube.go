@@ -126,10 +126,8 @@ spec:
           - "{{ .port5 }}"
           - --grpc
           - "{{ .port6 }}"
-{{- if eq .healthPort "true" }}
           - --port
           - "3333"
-{{- end }}
           - --version
           - "{{ .version }}"
         ports:
@@ -139,23 +137,21 @@ spec:
         - containerPort: {{ .port4 }}
         - containerPort: {{ .port5 }}
         - containerPort: {{ .port6 }}
-{{- if eq .healthPort "true" }}
         - name: tcp-health-port
           containerPort: 3333
-        livenessProbe:
+        readinessProbe:
           httpGet:
             path: /healthz
             port: 3333
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-        readinessProbe:
+        livenessProbe:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-{{- end }}
 ---
 `
 )
@@ -272,10 +268,25 @@ func appSelector(serviceName string) string {
 }
 
 type kubeComponent struct {
-	scope       lifecycle.Scope
-	deployments []*deployment.Instance
-	apps        []components.App
-	env         *kube.Environment
+	scope lifecycle.Scope
+	// requiredApps is specified by the test.
+	requiredApps KubeAppsConfig
+	deployments  []*deployment.Instance
+	apps         []components.App
+	env          *kube.Environment
+}
+
+// KubeAppsConfig specifies Kubernetes app configuration.
+type KubeAppsConfig []KubeApp
+
+// KubeApp specifies the configuration for a Kubernetes app.
+type KubeApp struct {
+	Name string
+}
+
+// String implements String interface required for api.Configuration.
+func (ka KubeAppsConfig) String() string {
+	return ""
 }
 
 // NewKubeComponent factory function for the component
@@ -284,6 +295,18 @@ func NewKubeComponent() (api.Component, error) {
 		apps:        make([]components.App, 0),
 		deployments: make([]*deployment.Instance, len(deploymentFactories)),
 	}, nil
+}
+
+// Configure implements pkg/test/framework/runtime/api/Configurable interface to allow test suites
+// specify customized apps.
+func (c *kubeComponent) Configure(config component.Configuration) error {
+	fmt.Println("jianfeih debug configure kube component...", config)
+	apps, ok := config.(KubeAppsConfig)
+	if !ok {
+		return fmt.Errorf("supplied configuration was not an KubeAppConfig, got %T (%v)", config, config)
+	}
+	c.requiredApps = apps
+	return nil
 }
 
 func (c *kubeComponent) Descriptor() component.Descriptor {
@@ -302,26 +325,62 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		return err
 	}
 	c.env = env
+	namespace := env.NamespaceForScope(scope)
 
-	// Apply all the configs for the deployments.
-	for i, factory := range deploymentFactories {
-		var e error
-		c.deployments[i], e = factory.newDeployment(env, scope)
-		if e != nil {
-			return multierror.Append(err, e)
+	// If test not require their apps explicitly, we deploy a suite of default apps.
+	if len(c.requiredApps) == 0 {
+		// Apply all the configs for the deployments.
+		for i, factory := range deploymentFactories {
+			var e error
+			c.deployments[i], e = factory.newDeployment(env, scope)
+			if e != nil {
+				return multierror.Append(err, e)
+			}
 		}
+
+		// Wait for the pods to transition to running.
+		for _, d := range deploymentFactories {
+			pod, err := d.waitUntilPodIsReady(env, scope)
+			if err != nil {
+				return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
+			}
+			client, err := newKubeApp(d.service, namespace, pod, env)
+			if err != nil {
+				return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
+			}
+			c.apps = append(c.apps, client)
+		}
+		return nil
 	}
 
-	// Wait for the pods to transition to running.
-	namespace := env.NamespaceForScope(scope)
-	for _, d := range deploymentFactories {
-		pod, err := d.waitUntilPodIsReady(env, scope)
-		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
+	// Only deploy apps required by the test.
+	for _, app := range c.requiredApps {
+		factory := deploymentFactory{
+			deployment:     app.Name,
+			service:        app.Name,
+			version:        "v1",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
 		}
-		client, err := newKubeApp(d.service, namespace, pod, env)
+		d, err := factory.newDeployment(env, scope)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
+			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", factory.deployment))
+		}
+		c.deployments = append(c.deployments, d)
+		pod, err := factory.waitUntilPodIsReady(env, scope)
+		if err != nil {
+			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Name))
+		}
+		client, err := newKubeApp(app.Name, namespace, pod, env)
+		if err != nil {
+			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Name))
 		}
 		c.apps = append(c.apps, client)
 	}
@@ -612,7 +671,6 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 		"port4":           strconv.Itoa(d.port4),
 		"port5":           strconv.Itoa(d.port5),
 		"port6":           strconv.Itoa(d.port6),
-		"healthPort":      "true",
 		"injectProxy":     strconv.FormatBool(d.injectProxy),
 		"headless":        strconv.FormatBool(d.headless),
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
