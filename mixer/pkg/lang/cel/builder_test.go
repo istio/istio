@@ -35,13 +35,15 @@ import (
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
-func compatTest(test ilt.TestInfo) func(t *testing.T) {
+func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
 		finder := ast.NewFinder(test.Conf())
 		builder := NewBuilder(finder, LegacySyntaxCEL)
+		mutex.Lock()
 		ex, typ, err := builder.Compile(test.E)
+		mutex.Unlock()
 
 		if err != nil {
 			if test.CompileErr != "" {
@@ -102,12 +104,13 @@ func compatTest(test ilt.TestInfo) func(t *testing.T) {
 }
 
 func TestCEXLCompatibility(t *testing.T) {
+	mutex := &sync.Mutex{}
 	for _, test := range ilt.TestData {
 		if test.E == "" {
 			continue
 		}
 
-		t.Run(test.TestName(), compatTest(test))
+		t.Run(test.TestName(), compatTest(test, mutex))
 	}
 }
 
