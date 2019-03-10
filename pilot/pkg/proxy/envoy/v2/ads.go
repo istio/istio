@@ -929,6 +929,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
+			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
+		}
 	}
 }
 
