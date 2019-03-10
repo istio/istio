@@ -7,10 +7,10 @@
 		"lastStableSHA": "9d0bda2f5771ebd5733b8492f5aa1c62ba548aa3"
 	},
 	{
-                "_comment": "",
-                "name": "CNI_REPO_SHA",
-                "repoName": "cni",
-                "file": "",
-                "lastStableSHA": "de2ae6dcce2cd3ac55823b9aa099c2b462a8ba6e"
-        }
+		"_comment": "",
+		"name": "CNI_REPO_SHA",
+		"repoName": "cni",
+		"file": "",
+		"lastStableSHA": "388f90d5a48ecd02a081b5466e85cfb9f3867161"
+	}
 ]
