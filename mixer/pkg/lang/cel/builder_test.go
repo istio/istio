@@ -104,6 +104,8 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 }
 
 func TestCEXLCompatibility(t *testing.T) {
+	//TODO remove the mutex once CEL data race is fixed
+	//ref: https://github.com/google/cel-go/issues/175
 	mutex := &sync.Mutex{}
 	for _, test := range ilt.TestData {
 		if test.E == "" {
@@ -643,6 +645,9 @@ func testExpression(env celgo.Env, provider *attributeProvider, test testCase, m
 func TestCELExpressions(t *testing.T) {
 	provider := newAttributeProvider(attrs)
 	env := provider.newEnvironment()
+
+	//TODO remove the mutex once CEL data race is fixed
+	//ref: https://github.com/google/cel-go/issues/175
 	mutex := &sync.Mutex{}
 
 	for _, test := range tests {
