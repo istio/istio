@@ -18,6 +18,8 @@ import (
 	"os"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -213,4 +215,17 @@ func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
 	mixerSAN := envoy.GetSAN("", role.MixerIdentity)
 
 	g.Expect(mixerSAN).To(gomega.Equal("spiffe://mesh.com/mixer-identity"))
+}
+
+func TestDedupeStrings(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	in := []string{
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+	}
+	expected := []string{model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert}
+
+	actual := dedupeStrings(in)
+
+	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
