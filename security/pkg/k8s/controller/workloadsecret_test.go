@@ -133,8 +133,8 @@ func TestSecretController(t *testing.T) {
 			})
 		}
 
-		webhooks := map[string]DNSNameEntry{
-			sidecarInjectorSvcAccount: {
+		webhooks := map[string]*DNSNameEntry{
+			sidecarInjectorSvcAccount: &DNSNameEntry{
 				ServiceName: sidecarInjectorSvc,
 				Namespace:   "test-ns",
 			},
@@ -179,7 +179,7 @@ func TestSecretContent(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		metav1.NamespaceAll, map[string]DNSNameEntry{})
+		metav1.NamespaceAll, map[string]*DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
