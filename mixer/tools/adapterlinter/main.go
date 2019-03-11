@@ -45,7 +45,7 @@ const (
 func main() {
 	flag.Parse()
 	for _, r := range getReport(flag.Args()) {
-		// check if it skipped
+		// check if the line in the file has nolint annotation
 		if dat, err := ioutil.ReadFile(r.file); err == nil {
 			lines := strings.Split(string(dat), "\n")
 			line := strings.Replace(lines[r.line-1], " ", "", -1)
