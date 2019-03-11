@@ -8,6 +8,8 @@ metadata:
     chart: {{ template "istiocoredns.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  annotations:
+    networking.istio.io/exportTo: "."
 spec:
   selector:
     app: istiocoredns

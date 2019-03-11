@@ -4,6 +4,7 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   annotations:
+    networking.istio.io/exportTo: "."    
     {{- range $key, $val := .Values.service.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}

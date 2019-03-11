@@ -9,6 +9,8 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
     istio: sidecar-injector
+  annotations:
+    networking.istio.io/exportTo: "."
 spec:
   ports:
   - port: 443

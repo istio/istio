@@ -8,6 +8,8 @@ metadata:
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  annotations:
+    networking.istio.io/exportTo: "."
 items:
 - apiVersion: v1
   kind: Service
