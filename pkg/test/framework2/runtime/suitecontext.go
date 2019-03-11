@@ -30,11 +30,14 @@ type SuiteContext struct {
 	settings    *common.Settings
 	environment environment.Instance
 
+	// context-level resources
+	globalScope *scope
+
 	contextMu    sync.Mutex
 	contextNames map[string]struct{}
 
-	// context-level resources
-	globalScope *scope
+	skipAll    bool
+	skipReason string
 }
 
 var _ resource.Context = &SuiteContext{}
@@ -91,6 +94,14 @@ func (s *SuiteContext) Environment() environment.Instance {
 // Settings returns the current runtime.Settings.
 func (s *SuiteContext) Settings() *common.Settings {
 	return s.settings
+}
+
+// Skip indicates that all of the tests in this suite should be skipped.
+func (s *SuiteContext) Skip(reason string) {
+	if !s.skipAll {
+		s.skipReason = reason
+	}
+	s.skipAll = true
 }
 
 func (s *SuiteContext) done() error {

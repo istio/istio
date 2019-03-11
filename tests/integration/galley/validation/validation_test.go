@@ -118,6 +118,13 @@ func TestMain(m *testing.M) {
 }
 
 func setup(s *runtime.SuiteContext) error {
-	// TODO: WE should do a require check at the framework level.
-	return istio.Deploy(s)
+	switch s.Environment().EnvironmentName() {
+	case environment.Kube:
+		return istio.Deploy(s)
+	case environment.Native:
+		s.Skip("Native environment is not supported for validation")
+		return nil
+	}
+
+	return nil
 }

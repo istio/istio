@@ -46,6 +46,11 @@ var _ resource.Context = &TestContext{}
 
 func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestContext {
 	id := s.allocateContextID(t.Name())
+
+	if s.skipAll {
+		t.Skipf("Skipping: %s", s.skipReason)
+	}
+
 	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), t.Name())
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
