@@ -26,7 +26,7 @@ integrationDefaults: &integrationDefaults
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
 
-# Common procedure to initialize working directory
+# Common procedure to initialize working directoryf
 initWorkingDir: &initWorkingDir
   type: shell
   name: Initialize Working Directory
@@ -717,7 +717,7 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
+                 - release-1.1
                  - release-1.0
                  - dev-networking
     jobs: #daisy chained steps ending with docker push
