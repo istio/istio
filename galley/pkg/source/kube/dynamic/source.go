@@ -116,10 +116,7 @@ func (s *source) Start(handler resource.EventHandler) error {
 
 	// If the target of the policy is a ServiceRoleBinding CRD, convert it to AuthorizationPolicy CRD.
 	// Since ServiceRoleBinding will be deprecating in RBAC v2.
-	fmt.Println("FOO Target is ")
-	fmt.Println(s.spec.Target)
 	if s.spec.Target == metadata.IstioRbacV1alpha1Servicerolebindings {
-		fmt.Println("FOO Changed")
 		s.spec = *kube.Types.Get("AuthorizationPolicy")
 		s.spec.Converter = converter.Get("service-role-binding-to-authz-policy")
 	}

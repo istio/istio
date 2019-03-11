@@ -17,7 +17,6 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -125,6 +124,11 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 		},
 	}
 
+	fmt.Println("Labels")
+	fmt.Println(u.GetLabels())
+	fmt.Println("FOO old annotation")
+	fmt.Println(u.GetAnnotations())
+
 	// Get ServiceRoleBinding annotations and change it to AuthorizationPolicy's annotations.
 	srbAnnotations := u.GetAnnotations()
 	var key string
@@ -139,6 +143,7 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 
 	spec := bindings["spec"]
 	bindings["spec"] = map[string]interface{}{
+		"workload_selector": map[string]string{},
 		"allow": []interface{}{spec},
 	}
 	bindings["kind"] = authzPolicyStr
@@ -151,6 +156,8 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 	srbAnnotations[key] = string(bindingsJSON)
 	authzPolicyU.SetAnnotations(srbAnnotations)
 
+	fmt.Println("New annotation")
+	fmt.Println(authzPolicyU.GetAnnotations())
 	return identity(config, destination, name, kind, authzPolicyU)
 }
 
@@ -247,6 +254,7 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	if err := convertJSON(u, &service); err != nil {
 		return nil, err
 	}
+
 	se := networking.ServiceEntry{
 		Hosts:      []string{fmt.Sprintf("%s.%s.svc.%s", service.Name, service.Namespace, cfg.DomainSuffix)},
 		Addresses:  append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
