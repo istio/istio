@@ -40,7 +40,7 @@ type SuiteContext struct {
 var _ resource.Context = &SuiteContext{}
 
 func newSuiteContext(s *common.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
-	scopeID := fmt.Sprint("[suite(%s)]", s.TestID)
+	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
 	c := &SuiteContext{
 		settings:    s,
