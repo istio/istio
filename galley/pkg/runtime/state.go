@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -39,12 +38,8 @@ var _ processing.Handler = &State{}
 
 // State is the in-memory state of Galley.
 type State struct {
-	name   string
-	schema *resource.Schema
-
-	distribute  bool
-	strategy    *publish.Strategy
-	distributor publish.Distributor
+	schema   *resource.Schema
+	listener processing.Listener
 
 	config *Config
 
@@ -76,15 +71,11 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(name string, schema *resource.Schema, cfg *Config, strategy *publish.Strategy,
-	distributor publish.Distributor) *State {
-
+func newState(schema *resource.Schema, cfg *Config, listener processing.Listener) *State {
 	now := time.Now()
 	s := &State{
-		name:             name,
 		schema:           schema,
-		strategy:         strategy,
-		distributor:      distributor,
+		listener:         listener,
 		config:           cfg,
 		entries:          make(map[resource.Collection]*resourceTypeState),
 		lastSnapshotTime: now,
@@ -100,25 +91,6 @@ func newState(name string, schema *resource.Schema, cfg *Config, strategy *publi
 	}
 
 	return s
-}
-
-func (s *State) close() {
-	s.strategy.Reset()
-}
-
-func (s *State) publish() {
-	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
-	s.lastSnapshotTime = now
-	sn := s.buildSnapshot()
-
-	s.distributor.SetSnapshot(s.name, sn)
-	s.pendingEvents = 0
-}
-
-func (s *State) onFullSync() {
-	s.distribute = true
-	s.strategy.OnChange()
 }
 
 // Handle implements the processing.Handler interface.
@@ -163,9 +135,7 @@ func (s *State) Handle(event resource.Event) {
 
 	log.Scope.Debugf("In-memory State has changed:\n%v\n", s)
 	s.pendingEvents++
-	if s.distribute {
-		s.strategy.OnChange()
-	}
+	s.listener.CollectionChanged(event.Entry.ID.Collection)
 }
 
 func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
@@ -179,6 +149,10 @@ func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeSta
 func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
+
+	now := time.Now()
+	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
+	s.lastSnapshotTime = now
 
 	b := snapshot.NewInMemoryBuilder()
 
@@ -194,7 +168,9 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	// Build entities that are derived from existing ones.
 	s.buildProjections(b)
 
-	return b.Build()
+	sn := b.Build()
+	s.pendingEvents = 0
+	return sn
 }
 
 func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
