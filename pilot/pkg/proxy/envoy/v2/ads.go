@@ -148,7 +148,7 @@ var (
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
+		Buckets: []float64{1, 3, 5, 10, 20, 30, 50, 100},
 	})
 
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
