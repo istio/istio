@@ -184,7 +184,7 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 		// config telemetry service discovery to be strict_dns for session affinity.
 		// To enable session affinity, DNS needs to provide only one and the same telemetry instance IP
 		// (e.g. in k8s, telemetry service spec needs to have SessionAffinity: ClientIP)
-		cluster.Type = xdsapi.Cluster_STRICT_DNS
+		cluster.ClusterDiscoveryType = &xdsapi.Cluster_Type{Type: xdsapi.Cluster_STRICT_DNS}
 		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
 		cluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 			ClusterName: cluster.Name,
