@@ -28,7 +28,7 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
- {{- if .Values.global.priorityClassName }}
+{{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
