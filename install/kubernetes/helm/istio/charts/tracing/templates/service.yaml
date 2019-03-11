@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
   annotations:
-    networking.istio.io/exportTo: "."
+    networking.istio.io/exportTo: "*"
 items:
 - apiVersion: v1
   kind: Service
