@@ -17,4 +17,5 @@ spec:
     - "./*"
     - "istio-system/istio-telemetry.istio-system.svc.cluster.local"
     - "istio-system/istio-policy.istio-system.svc.cluster.local"
+    - "istio-system/tracing.istio-system.svc.cluster.local"
 ---
