@@ -3953,6 +3953,19 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"Port without name", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, true},
 		{"UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
