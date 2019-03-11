@@ -20,7 +20,6 @@ import (
 	"sort"
 	"strings"
 
-	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
 	"github.com/golang/protobuf/proto"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -280,20 +279,12 @@ type IstioConfigStore interface {
 
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
-
-	// AspenMeshExperiments returns all Experiments in a map keyed by the Original
-	// Service
-	AspenMeshExperiments() map[string][]*aspenmeshconfig.ExperimentSpec
 }
 
 const (
 	// IstioAPIGroupDomain defines API group domain of all Istio configuration resources.
 	// Group domain suffix to the proto schema's group to generate the full resource group.
 	IstioAPIGroupDomain = ".istio.io"
-
-	// AspenMeshAPIGroupDomain defines API group domain of all Aspen Mesh custom
-	// resources.
-	AspenMeshAPIGroupDomain = ".aspenmesh.io"
 
 	// Default API version of an Istio config proto message.
 	istioAPIVersion = "v1alpha2"
@@ -482,18 +473,6 @@ var (
 		Validate:      ValidateRbacConfig,
 	}
 
-	// AspenMesh CRDs
-
-	// Experiment describes an Aspen Mesh experiment.
-	Experiment = ProtoSchema{
-		Type:        "experiment",
-		Plural:      "experiments",
-		Group:       "config",
-		Version:     "v1alpha1",
-		MessageName: "aspenmesh.config.v1alpha1.ExperimentSpec",
-		Validate:    ValidateExperiment,
-	}
-
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		VirtualService,
@@ -510,7 +489,6 @@ var (
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
-		Experiment,
 	}
 )
 
@@ -927,34 +905,6 @@ func (store *istioConfigStore) RbacConfig() *Config {
 		}
 	}
 	return nil
-}
-
-func (store *istioConfigStore) AspenMeshExperiments() map[string][]*aspenmeshconfig.ExperimentSpec {
-	configs, err := store.List(Experiment.Type, NamespaceAll)
-	if err != nil {
-		log.Warnf("Could not load Aspen Mesh Experiments. Error:\n %s \n", err)
-		return nil
-	}
-	out := map[string][]*aspenmeshconfig.ExperimentSpec{}
-	for _, config := range configs {
-		exp := config.Spec.(*aspenmeshconfig.ExperimentSpec)
-		if valid, err := isExperimentValid(exp); !valid {
-			log.Errorf("%s", err)
-			continue
-		}
-		spec := exp.GetSpec()
-		for _, ss := range spec.GetServices() {
-			os := ss.GetOriginal()
-			key := ConvertExpServiceToFqdn(os)
-			_, ok := out[key]
-			if ok {
-				out[key] = append(out[key], exp)
-			} else {
-				out[key] = []*aspenmeshconfig.ExperimentSpec{exp}
-			}
-		}
-	}
-	return out
 }
 
 // SortHTTPAPISpec sorts a slice in a stable manner.

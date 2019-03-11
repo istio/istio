@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
-
 	authn "istio.io/api/authentication/v1alpha1"
 )
 
@@ -862,18 +860,4 @@ func (s Service) GetServiceAddressForProxy(node *Proxy) string {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
-}
-
-// ConvertExpServiceShortNameToFqdn converts experiment shortname to FQDN
-func ConvertExpServiceShortNameToFqdn(shortname string) string {
-	return shortname + ".svc.cluster.local"
-}
-
-// ConvertExpServiceToFqdn converts an experiment service to FQDN
-func ConvertExpServiceToFqdn(svc *aspenmeshconfig.Service) string {
-	if len(svc.GetName()) > 0 && len(svc.GetNamespace()) > 0 {
-		return ConvertExpServiceShortNameToFqdn(svc.GetName() + "." +
-			svc.GetNamespace())
-	}
-	return ""
 }

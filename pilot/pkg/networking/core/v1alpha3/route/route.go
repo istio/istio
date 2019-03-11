@@ -94,7 +94,6 @@ func BuildVirtualHostsFromConfigAndRegistry(
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := push.VirtualServices(meshGateway)
-	amExperiments := push.AspenMeshExperiments()
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
@@ -126,7 +125,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   AddExperimentRoutes(BuildDefaultHTTPRoute(node, cluster, traceOperation), amExperiments),
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
 				})
 			}
 		}
@@ -256,7 +255,6 @@ func BuildHTTPRoutesForVirtualService(
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
 
-	amExperiments := push.AspenMeshExperiments()
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -269,13 +267,13 @@ allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-				out = append(out, AddExperimentRoutes(r, amExperiments)...)
+				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
-					out = append(out, AddExperimentRoutes(r, amExperiments)...)
+					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
 						// We have a catch all route. No point building other routes, with match conditions
