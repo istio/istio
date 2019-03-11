@@ -77,7 +77,8 @@ services:
               "--httpAddr", ":15007",
               "--registries", "Consul",
               "--consulserverURL", "http://consul:8500",
-              "--kubeconfig", "/etc/istio/config/kubeconfig"
+              "--kubeconfig", "/etc/istio/config/kubeconfig",
+              "--secureGrpcAddr", "",
               ]
     volumes:
       - ./kubeconfig:/etc/istio/config/kubeconfig

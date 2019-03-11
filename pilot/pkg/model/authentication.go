@@ -60,10 +60,15 @@ const (
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-// GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(service, port)
+// GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
+// hostname (or label selector if specified) and port, if defined.
+// It also tries to resolve JWKS URI if necessary.
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance *ServiceInstance) *authn.Policy {
+	service := serviceInstance.Service
+	port := serviceInstance.Endpoint.ServicePort
+	labels := serviceInstance.Labels
+
+	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {

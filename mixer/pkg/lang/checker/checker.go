@@ -26,38 +26,27 @@ import (
 type TypeChecker interface {
 	// EvalType produces the type of an expression or an error if the type cannot be evaluated.
 	// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).
-	EvalType(expr string, finder ast.AttributeDescriptorFinder) (dpb.ValueType, error)
-
-	// AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
-	// the expected type we return nil, and return an error otherwise.
-	AssertType(expr string, finder ast.AttributeDescriptorFinder, expectedType dpb.ValueType) error
+	EvalType(expr string) (dpb.ValueType, error)
 }
 
 // checker for a c-like expression language.
 type checker struct {
+	finder    ast.AttributeDescriptorFinder
 	functions map[string]ast.FunctionMetadata
 }
 
-func (c *checker) EvalType(expression string, attrFinder ast.AttributeDescriptorFinder) (dpb.ValueType, error) {
+func (c *checker) EvalType(expression string) (dpb.ValueType, error) {
 	v, err := ast.Parse(expression)
 	if err != nil {
 		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expression, err)
 	}
-	return v.EvalType(attrFinder, c.functions)
-}
-
-func (c *checker) AssertType(expression string, finder ast.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := c.EvalType(expression, finder); err != nil {
-		return err
-	} else if t != expectedType {
-		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expression, t, expectedType)
-	}
-	return nil
+	return v.EvalType(c.finder, c.functions)
 }
 
 // NewTypeChecker returns a new TypeChecker implementation.
-func NewTypeChecker() TypeChecker {
+func NewTypeChecker(finder ast.AttributeDescriptorFinder) TypeChecker {
 	return &checker{
+		finder:    finder,
 		functions: ast.FuncMap(lang.ExternFunctionMetadata),
 	}
 }
