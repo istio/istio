@@ -141,12 +141,6 @@ func (isc IstioConfiguration) String() string {
 	return out
 }
 
-// RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
-// This allows some test to specify a customized Istio deployment by specifying additional Helm values.
-// func RegisterHelmOverrides(values map[string]string) {
-// 	helmOverridesByTest = values
-// }
-
 // Values returns the Helm values used for Istio deployment.
 func (s *settings) Values() map[string]string {
 	return s.IstioDeploymentConfig.Values
@@ -216,12 +210,6 @@ func parseHelmValuesFromFlag() (map[string]string, error) {
 	for k, v := range defaultHelmValues {
 		values[k] = v
 	}
-	// Copy the values specified by the test.
-	// for k, v := range helmOverridesByTest {
-	// 	values[k] = v
-	// }
-	// Reset the value overrides by the test.
-	// helmOverridesByTest = map[string]string{}
 
 	// Copy the user values.
 	for k, v := range valuesByFlag {

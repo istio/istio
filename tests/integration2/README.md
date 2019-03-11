@@ -69,28 +69,28 @@ $ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/conf
 
 Please follow the general guidance for adding new tests:
 
- * Create a new top-level folder for top-level components (i.e. mixer, pilot galley).
+* Create a new top-level folder for top-level components (i.e. mixer, pilot galley).
 
 ```console 
 $ cd ${ISTIO}/tests/integration2
 $ mkdir mycomponent
 ```
 
- * In that folder, create a new Go test with a TestMain specified:
- 
+* In that folder, create a new Go test with a TestMain specified:
+
  ```go
 func TestMain(m *testing.M) {
-	framework.Run("mycomponent_test", m)
+  framework.Run("mycomponent_test", m)
 }
  ```
- 
-  * Add your folder name to the top-level 
+
+* Add your folder name to the top-level 
   [tests.mk](https://github.com/istio/istio/tree/master/tests/integration2/tests.mk) to file get it included 
   in make targets and check-in gates:
   
 ```make
 _INTEGRATION_TEST_NAMES = galley mixer mycomponent
-``` 
+```
 
 ## Diagnosing Failures
 
@@ -128,7 +128,8 @@ func TestFeatureX(t *testing.T) {
 
 ### Helm Values Overrides
 
-TODO(incfly): describe it.
+If your tests require special Helm values flags, you can specify your Helm values via additional
+`Configuration` for Kubernetes environments. See [mtls_healthcheck_test.go](tests/integration2/security/healthcheck/mtls_healthcheck_test.go) for example.
 
 ### Command-Line Flags
 
@@ -151,3 +152,5 @@ Kubernetes Environment Flags:
 ### Testing Apps
 
 Testing application implementations can be found at [`pkg/test/application`](https://github.com/istio/istio/tree/master/pkg/test/application).
+
+Kubernetes environment `Apps` component allows cutomized [configuration](https://github.com/istio/istio/tree/master/tests/integration2/security/healthcheck/mtls_healthcheck_test.go) to only deploy the apps you need.
