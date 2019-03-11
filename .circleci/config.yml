@@ -717,7 +717,7 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
+                 - release-1.1
                  - release-1.0
                  - dev-networking
     jobs: #daisy chained steps ending with docker push
