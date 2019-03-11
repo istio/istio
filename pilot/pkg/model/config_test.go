@@ -351,6 +351,15 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			},
 			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
+		"httpbin": {
+			Targets: []*authn.TargetSelector{{
+				Name:   "hello",
+				Labels: map[string]string{"app": "httpbin", "version": "v1"},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
 	}
 	for key, value := range authNPolicies {
 		config := model.Config{
@@ -374,6 +383,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		namespace string
 		port      int
 		expected  string
+		labels    map[string]string
 	}{
 		{
 			hostname:  "hello.default.svc.cluster.local",
@@ -399,6 +409,13 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			port:      8080,
 			expected:  "",
 		},
+		{
+			hostname:  "httpbin.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  "httpbin",
+			labels:    map[string]string{"app": "httpbin", "version": "v1", "env": "prod"},
+		},
 	}
 
 	for _, testCase := range cases {
@@ -408,7 +425,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
 		}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyByDestination(service, port)
+		out := store.AuthenticationPolicyForWorkload(service, testCase.labels, port)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
@@ -530,10 +547,10 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 				Namespace: testCase.namespace,
 			},
 		}
-		out := store.AuthenticationPolicyByDestination(service, port)
+		out := store.AuthenticationPolicyForWorkload(service, nil, port)
 
 		if out == nil {
-			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
+			// With global authentication policy, it's guarantee AuthenticationPolicyForWorkload always
 			// return non `nill` config.
 			t.Errorf("AuthenticationPolicy(%s:%d) => cannot be nil", testCase.hostname, testCase.port)
 		} else {
