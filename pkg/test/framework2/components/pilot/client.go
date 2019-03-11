@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -32,6 +33,8 @@ type client struct {
 	conn          *grpc.ClientConn
 	stream        adsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	lastRequest   *xdsapi.DiscoveryRequest
+
+	wg sync.WaitGroup
 }
 
 func newClient(discoveryAddr *net.TCPAddr) (*client, error) {
@@ -74,7 +77,11 @@ func (c *client) StartDiscovery(req *xdsapi.DiscoveryRequest) error {
 func (c *client) WatchDiscovery(timeout time.Duration,
 	accept func(*xdsapi.DiscoveryResponse) (bool, error)) error {
 	c1 := make(chan error, 1)
+
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
+
 		for {
 			result, err := c.stream.Recv()
 			if err != nil {
@@ -118,5 +125,8 @@ func (c *client) Close() (err error) {
 	if c.conn != nil {
 		err = multierror.Append(err, c.conn.Close()).ErrorOrNil()
 	}
+
+	c.wg.Wait()
+
 	return
 }

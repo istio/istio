@@ -18,4 +18,3 @@ package resource
 type Resetter interface {
 	Reset() error
 }
-

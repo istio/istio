@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -28,6 +29,9 @@ import (
 
 // TestContext for the currently executing test.
 type TestContext struct {
+	// The id of the test context. useful for debugging the test framework itself.
+	id string
+
 	// suite-level context
 	suite *SuiteContext
 
@@ -41,14 +45,20 @@ type TestContext struct {
 var _ resource.Context = &TestContext{}
 
 func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestContext {
+	id := s.allocateContextID(t.Name())
+	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), t.Name())
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
 		t.Fatalf("Error creating work dir %q: %v", workDir, err)
 	}
 
+	scopes.Framework.Debugf("Creating new TestContext: %q", id)
+
+	scopeID := fmt.Sprintf("[%s]", id)
 	return &TestContext{
+		id:      id,
 		suite:   s,
-		scope:   newScope(parentScope),
+		scope:   newScope(scopeID, parentScope),
 		workDir: workDir,
 	}
 }
@@ -59,7 +69,7 @@ func (c *TestContext) Settings() *common.Settings {
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (c *TestContext) TrackResource(r interface{}) {
+func (c *TestContext) TrackResource(r resource.Instance) {
 	c.scope.add(r)
 }
 
@@ -100,7 +110,7 @@ func (c *TestContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) stri
 // RequireOrSkip skips the test if the environment is not as expected.
 func (c *TestContext) RequireOrSkip(t *testing.T, envName environment.Name) {
 	t.Helper()
-	if c.Environment().Name() != envName {
+	if c.Environment().EnvironmentName() != envName {
 		t.Skipf("Skipping %q: expected environment not found: %s", t.Name(), envName)
 	}
 }
@@ -111,7 +121,9 @@ func (c *TestContext) newChild(t *testing.T) *TestContext {
 
 // Done should be called when this scope is cleaned up.
 func (c *TestContext) Done(t *testing.T) {
+	scopes.Framework.Debugf("Begin cleaning up TestContext: %q", c.id)
 	if err := c.scope.done(c.suite.settings.NoCleanup); err != nil {
 		t.Fatalf("error scope cleanup: %v", err)
 	}
+	scopes.Framework.Debugf("Completed cleaning up TestContext: %q", c.id)
 }

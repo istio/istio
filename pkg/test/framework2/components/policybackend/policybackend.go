@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
@@ -43,11 +44,11 @@ type Instance interface {
 }
 
 func New(s resource.Context) (Instance, error) {
-	switch s.Environment().Name() {
+	switch s.Environment().EnvironmentName() {
 	case environment.Native:
 		return newNative(s, s.Environment().(*native.Environment))
 	default:
-		return nil, environment.UnsupportedEnvironment(s.Environment().Name())
+		return nil, environment.UnsupportedEnvironment(s.Environment().EnvironmentName())
 	}
 }
 

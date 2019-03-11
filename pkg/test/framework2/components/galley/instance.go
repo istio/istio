@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/components/environment"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
 )
@@ -45,11 +46,11 @@ type Instance interface {
 
 // New returns a new Galley instance.
 func New(c resource.Context) (Instance, error) {
-	switch c.Environment().Name() {
+	switch c.Environment().EnvironmentName() {
 	case environment.Native:
 		return newNative(c, c.Environment().(*native.Environment))
 	default:
-		return nil, environment.UnsupportedEnvironment(c.Environment().Name())
+		return nil, environment.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 

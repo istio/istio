@@ -185,7 +185,7 @@ var _datasetExtensionsV1beta1Ingress_basic_expectedJson = []byte(`{
     }
   ],
 
-  "type.googleapis.com/istio.networking.v1alpha3.VirtualService": [
+  "istio/networking/v1alpha3/virtualservices": [
   ]
 }
 `)

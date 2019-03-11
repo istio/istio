@@ -15,7 +15,9 @@
 package runtime
 
 import (
+	"fmt"
 	"io/ioutil"
+	"sync"
 
 	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
@@ -28,6 +30,9 @@ type SuiteContext struct {
 	settings    *common.Settings
 	environment environment.Instance
 
+	contextMu    sync.Mutex
+	contextNames map[string]struct{}
+
 	// context-level resources
 	globalScope *scope
 }
@@ -35,9 +40,13 @@ type SuiteContext struct {
 var _ resource.Context = &SuiteContext{}
 
 func newSuiteContext(s *common.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
+	scopeID := fmt.Sprint("[suite(%s)]", s.TestID)
+
 	c := &SuiteContext{
 		settings:    s,
-		globalScope: newScope(nil),
+		globalScope: newScope(scopeID, nil),
+
+		contextNames: make(map[string]struct{}),
 	}
 
 	env, err := envFn(s.Environment, c)
@@ -50,8 +59,27 @@ func newSuiteContext(s *common.Settings, envFn environment.FactoryFn) (*SuiteCon
 	return c, nil
 }
 
+// allocateContextID allocates a unique context id for TestContexts. Useful for creating unique names to help with
+// debugging
+func (s *SuiteContext) allocateContextID(prefix string) string {
+	s.contextMu.Lock()
+	defer s.contextMu.Unlock()
+
+	candidate := prefix
+	discriminator := 0
+	for {
+		if _, found := s.contextNames[candidate]; !found {
+			s.contextNames[candidate] = struct{}{}
+			return candidate
+		}
+
+		candidate = fmt.Sprintf("%s-%d", prefix, discriminator)
+		discriminator++
+	}
+}
+
 // TrackResource adds a new resource to track to the context at this level.
-func (s *SuiteContext) TrackResource(r interface{}) {
+func (s *SuiteContext) TrackResource(r resource.Instance) {
 	s.globalScope.add(r)
 }
 

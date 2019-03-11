@@ -23,7 +23,7 @@ import (
 type Context interface {
 	// TrackResource tracks a resource in this context. If the context is closed, then the resource will be
 	// cleaned up.
-	TrackResource(r interface{})
+	TrackResource(r Instance)
 
 	// The Environment in which the tests run
 	Environment() environment.Instance

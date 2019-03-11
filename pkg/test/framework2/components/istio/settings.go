@@ -22,8 +22,8 @@ import (
 	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
-	"istio.io/istio/pkg/test/framework2/common"
 
+	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/env"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -105,7 +105,7 @@ type settings struct {
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
-	
+
 	ChartRepo string
 
 	// The top-level Helm chart dir.

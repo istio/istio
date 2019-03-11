@@ -19,13 +19,13 @@ import (
 	"testing"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/kube"
 )
 

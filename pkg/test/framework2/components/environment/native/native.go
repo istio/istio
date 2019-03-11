@@ -15,6 +15,8 @@
 package native
 
 import (
+	"fmt"
+
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
@@ -43,6 +45,11 @@ func New(_ environment.Context) (environment.Instance, error) {
 }
 
 // Type implements environment.Instance
-func (e *Environment) Name() environment.Name {
+func (e *Environment) EnvironmentName() environment.Name {
 	return environment.Native
+}
+
+// FriendlyName implements resource.Instance
+func (e *Environment) FriendlyName() string {
+	return fmt.Sprintf("[Environment %s]", environment.Native.String())
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/resource"
@@ -73,6 +74,13 @@ type nativeComponent struct {
 	meshConfigFile string
 
 	server *server.Server
+}
+
+var _ resource.Instance = &nativeComponent{}
+
+// FriendlyName implements resource.Instance
+func (c *nativeComponent) FriendlyName() string {
+	return "[Galley(native)]"
 }
 
 // Address of the Galley MCP Server.
@@ -211,15 +219,19 @@ func (c *nativeComponent) restart() error {
 // Close implements io.Closer.
 func (c *nativeComponent) Close() (err error) {
 	if c.client != nil {
+		scopes.Framework.Debugf("%s closing client", c.FriendlyName())
 		err = c.client.Close()
 		c.client = nil
 	}
 	if c.server != nil {
+		scopes.Framework.Debugf("%s closing server", c.FriendlyName())
 		err = multierror.Append(c.server.Close()).ErrorOrNil()
 		if err != nil {
 			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
 		}
 		c.server = nil
 	}
+
+	scopes.Framework.Debugf("%s close complete (err:%v)", err)
 	return
 }

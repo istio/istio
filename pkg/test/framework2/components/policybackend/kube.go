@@ -19,6 +19,7 @@ import (
 	"io"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pkg/test/deployment"
@@ -88,8 +89,8 @@ func newKube() (Instance, error) {
 type kubeComponent struct {
 	*client
 
-	kubeEnv    *kube.Environment
-	namespace  *kube.Namespace
+	kubeEnv   *kube.Environment
+	namespace *kube.Namespace
 
 	forwarder  testKube.PortForwarder
 	deployment *deployment.Instance
