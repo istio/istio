@@ -772,11 +772,15 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol))
 
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
@@ -790,7 +794,6 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 		}
 	} else {
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
