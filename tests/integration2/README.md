@@ -65,8 +65,6 @@ removed**.
 $ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/config
 ```
 
-
-
 ## Adding New Tests
 
 Please follow the general guidance for adding new tests:
@@ -149,3 +147,7 @@ Kubernetes Environment Flags:
 --istio.test.kube.helm.values <string>         The overrides for helm values. For example, to change Docker image settings:
                                                global.hub=gcr.io/my-hub,global.tag=latest,global.imagePullPolicy=Always
 ```
+
+### Testing Apps
+
+Testing application implementations can be found at [`pkg/test/application`](https://github.com/istio/istio/tree/master/pkg/test/application).

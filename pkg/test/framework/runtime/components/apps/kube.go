@@ -141,8 +141,8 @@ spec:
           containerPort: 3333
         readinessProbe:
           httpGet:
-            path: /healthz
-            port: 3333
+            path: /
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
@@ -300,7 +300,6 @@ func NewKubeComponent() (api.Component, error) {
 // Configure implements pkg/test/framework/runtime/api/Configurable interface to allow test suites
 // specify customized apps.
 func (c *kubeComponent) Configure(config component.Configuration) error {
-	fmt.Println("jianfeih debug configure kube component...", config)
 	apps, ok := config.(KubeAppsConfig)
 	if !ok {
 		return fmt.Errorf("supplied configuration was not an KubeAppConfig, got %T (%v)", config, config)

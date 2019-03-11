@@ -17,17 +17,13 @@
 package healthcheck
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/api/components"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/apps"
@@ -56,7 +52,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	// Test requires this Helm flag to be enabled.
 	kubeEnvironment.Configuration = kube.IstioConfiguration{
 		Values: map[string]string{
-			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "false",
+			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
 		},
 	}
 	ctx.RequireOrSkip(t, lifecycle.Test, &kubeEnvironment)
@@ -67,36 +63,10 @@ func TestMtlsHealthCheck(t *testing.T) {
 	}
 
 	// Deploy app now.
-	// TODO: figure out why apps configuration not take effect.
-	kubeApps := descriptors.Apps
-	kubeApps.Configuration = apps.KubeAppsConfig{apps.KubeApp{Name: "health-check-app"}}
+	kubeApps := &descriptors.Apps
+	kubeApps.Configuration = apps.KubeAppsConfig{apps.KubeApp{Name: "healthcheck"}}
 	ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
-	apps := components.GetApps(ctx, t)
-	apps.GetAppOrFail("health-check-app", t)
-
-	fmt.Println("jianfeih passing!")
+	apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
+	apps.GetAppOrFail("healthcheck", t)
 	time.Sleep(1000 * time.Second)
-}
-
-func deployTestApp(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
-	helmValues := e.HelmValueMap()
-	b, err := ioutil.ReadFile("healthcheck.yaml")
-	if err != nil {
-		return nil, err
-	}
-	templateContent := string(b)
-	result, err := e.EvaluateWithParams(templateContent, map[string]string{
-		"Hub":             helmValues[kube.HubValuesKey],
-		"Tag":             helmValues[kube.TagValuesKey],
-		"ImagePullPolicy": helmValues[kube.ImagePullPolicyValuesKey],
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	out := deployment.NewYamlContentDeployment(e.NamespaceForScope(scope), result)
-	if err = out.Deploy(e.Accessor, true); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
