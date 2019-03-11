@@ -23,8 +23,8 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 
-	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework2/common"
 
 	kubeCore "k8s.io/api/core/v1"
 )

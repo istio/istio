@@ -48,7 +48,6 @@ func (c *CheckResponse) Succeeded() bool {
 	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
 }
 
-// TODO: pass Galley in
 func New(c resource.Context, config *Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
 	case environment.Native:

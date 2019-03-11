@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -121,6 +122,14 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	}
 
 	return
+}
+
+func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, yamlText string) {
+	t.Helper()
+	err := c.ApplyConfig(yamlText)
+	if err != nil {
+		t.Fatalf("Galley.ApplyConfigOrFail: %v", err)
+	}
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.

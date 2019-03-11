@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -126,6 +127,15 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	}
 
 	return
+}
+
+// ApplyConfigOrFail applies the given config yaml file via Galley.
+func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, yamlText string) {
+	t.Helper()
+	err := c.ApplyConfig(yamlText)
+	if err != nil {
+		t.Fatalf("Galley.ApplyConfigOrFail: %v", err)
+	}
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.

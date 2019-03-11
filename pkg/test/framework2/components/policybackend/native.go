@@ -35,6 +35,7 @@ var (
 	_ Instance          = &nativeComponent{}
 	_ io.Closer         = &nativeComponent{}
 	_ resource.Resetter = &nativeComponent{}
+	_ resource.Instance = &nativeComponent{}
 )
 
 type nativeComponent struct {
@@ -48,10 +49,19 @@ type nativeComponent struct {
 
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, env *native.Environment) (Instance, error) {
-	return &nativeComponent{
+	n := &nativeComponent{
 		ctx: ctx,
 		env: env,
-	}, nil
+	}
+
+	ctx.TrackResource(n)
+
+	err := n.Start(ctx, env)
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
 }
 
 func (c *nativeComponent) Start(ctx resource.Context, environment *native.Environment) (err error) {
@@ -105,6 +115,10 @@ func (c *nativeComponent) Reset() error {
 		return c.client.Reset()
 	}
 	return nil
+}
+
+func (c *nativeComponent) FriendlyName() string {
+	return "[PolicyBackend(native)]"
 }
 
 func (c *nativeComponent) Close() (err error) {

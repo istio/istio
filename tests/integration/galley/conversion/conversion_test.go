@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/runtime"
+
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/environment"
@@ -27,10 +29,6 @@ import (
 func TestConversion(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
-
-	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-	// component
-	ctx.RequireOrSkip(t, environment.Native)
 
 	dataset, err := testdata.Load()
 	if err != nil {
@@ -100,5 +98,18 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 }
 
 func TestMain(m *testing.M) {
-	framework2.RunSuite("galley_conversion", m, nil)
+	framework2.RunSuite("galley_conversion", m, setup)
+}
+
+func setup(s *runtime.SuiteContext) error {
+	switch s.Environment().EnvironmentName() {
+	case environment.Kube:
+		// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
+		// component
+		s.Skip("Kubernetes environment is not supported for conversion")
+	case environment.Native:
+		return nil
+	}
+
+	return nil
 }

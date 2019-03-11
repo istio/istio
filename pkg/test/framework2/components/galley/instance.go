@@ -31,6 +31,9 @@ type Instance interface {
 	// ApplyConfig applies the given config yaml file via Galley.
 	ApplyConfig(yamlText string) error
 
+	// ApplyConfigOrFail applies the given config yaml file via Galley.
+	ApplyConfigOrFail(t *testing.T, yamlText string)
+
 	// ApplyConfigDir recursively applies all the config files in the specified directory
 	ApplyConfigDir(configDir string) error
 
