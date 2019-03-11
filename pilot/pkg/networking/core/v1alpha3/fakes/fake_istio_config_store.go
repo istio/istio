@@ -136,12 +136,12 @@ type IstioConfigStore struct {
 	quotaSpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	AuthenticationPolicyForWorkloadStub        func(service *model.Service, port *model.Port, labels model.Labels) *model.Config
+	AuthenticationPolicyForWorkloadStub        func(service *model.Service, labels model.Labels, port *model.Port) *model.Config
 	authenticationPolicyForWorkloadMutex       sync.RWMutex
 	authenticationPolicyForWorkloadArgsForCall []struct {
 		service *model.Service
-		port    *model.Port
 		labels  model.Labels
+		port    *model.Port
 	}
 	authenticationPolicyForWorkloadReturns struct {
 		result1 *model.Config
@@ -719,18 +719,18 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(service *model.Service, port *model.Port, labels model.Labels) *model.Config {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(service *model.Service, labels model.Labels, port *model.Port) *model.Config {
 	fake.authenticationPolicyForWorkloadMutex.Lock()
 	ret, specificReturn := fake.authenticationPolicyForWorkloadReturnsOnCall[len(fake.authenticationPolicyForWorkloadArgsForCall)]
 	fake.authenticationPolicyForWorkloadArgsForCall = append(fake.authenticationPolicyForWorkloadArgsForCall, struct {
 		service *model.Service
-		port    *model.Port
 		labels  model.Labels
-	}{service, port, labels})
-	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{service, port, labels})
+		port    *model.Port
+	}{service, labels, port})
+	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{service, labels, port})
 	fake.authenticationPolicyForWorkloadMutex.Unlock()
 	if fake.AuthenticationPolicyForWorkloadStub != nil {
-		return fake.AuthenticationPolicyForWorkloadStub(service, port, labels)
+		return fake.AuthenticationPolicyForWorkloadStub(service, labels, port)
 	}
 	if specificReturn {
 		return ret.result1
@@ -744,10 +744,10 @@ func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadCallCount() int {
 	return len(fake.authenticationPolicyForWorkloadArgsForCall)
 }
 
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, *model.Port, model.Labels) {
+func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, model.Labels, *model.Port) {
 	fake.authenticationPolicyForWorkloadMutex.RLock()
 	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
-	return fake.authenticationPolicyForWorkloadArgsForCall[i].service, fake.authenticationPolicyForWorkloadArgsForCall[i].port, fake.authenticationPolicyForWorkloadArgsForCall[i].labels
+	return fake.authenticationPolicyForWorkloadArgsForCall[i].service, fake.authenticationPolicyForWorkloadArgsForCall[i].labels, fake.authenticationPolicyForWorkloadArgsForCall[i].port
 }
 
 func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturns(result1 *model.Config) {

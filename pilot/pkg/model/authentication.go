@@ -68,7 +68,7 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance 
 	port := serviceInstance.Endpoint.ServicePort
 	labels := serviceInstance.Labels
 
-	config := store.AuthenticationPolicyForWorkload(service, port, labels)
+	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {

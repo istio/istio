@@ -272,7 +272,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyForWorkload(service *Service, port *Port, labels Labels) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -868,7 +868,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, port *Port, labels Labels) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
