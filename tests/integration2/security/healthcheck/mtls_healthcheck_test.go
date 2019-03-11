@@ -19,16 +19,13 @@ package healthcheck
 import (
 	"os"
 	"testing"
-	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/apps"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 func TestMain(m *testing.M) {
@@ -42,14 +39,15 @@ func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
 
 	// TODO: remove before merge.
-	scopes.Framework.SetOutputLevel(log.DebugLevel)
-	scopes.CI.SetOutputLevel(log.DebugLevel)
+	// scopes.Framework.SetOutputLevel(log.DebugLevel)
+	// scopes.CI.SetOutputLevel(log.DebugLevel)
 
 	// Kube environment only used for this test since it requires istio installed with specific helm
 	// values.
 	kubeEnvironment := descriptors.KubernetesEnvironment
 
 	// Test requires this Helm flag to be enabled.
+	// No need for special clean up since this is system level component.
 	kubeEnvironment.Configuration = kube.IstioConfiguration{
 		Values: map[string]string{
 			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
@@ -67,6 +65,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	kubeApps.Configuration = apps.KubeAppsConfig{apps.KubeApp{Name: "healthcheck"}}
 	ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
 	apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
+
+	// Being able to resolve healthcheck apps means that the health check is done.
 	apps.GetAppOrFail("healthcheck", t)
-	time.Sleep(1000 * time.Second)
 }

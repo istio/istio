@@ -178,7 +178,6 @@ func (e *Environment) MinikubeIngress() bool {
 func (e *Environment) HelmValueMap() map[string]string {
 	out := make(map[string]string)
 	vals := e.s.Values()
-	// fmt.Println("jianfeih debug HelmValueMap call ", vals)
 	for k, v := range vals {
 		out[k] = v
 	}
@@ -271,7 +270,6 @@ func (e *Environment) deployIstio() (err error) {
 		ValuesFile:   e.s.ValuesFile,
 		Values:       e.HelmValueMap(),
 	})
-	// fmt.Println("helmvalue map jianfeih debug ", e.HelmValueMap())
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))
 	}
