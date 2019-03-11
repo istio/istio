@@ -53,12 +53,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
-	push := &model.PushContext{}
-
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -80,7 +78,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		configStore.DestinationRuleReturns(cnfg)
 
-		_, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		_, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
