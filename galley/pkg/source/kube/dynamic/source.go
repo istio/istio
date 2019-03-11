@@ -19,9 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/metadata/kube"
-
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -117,10 +114,10 @@ func (s *source) Start(handler resource.EventHandler) error {
 
 	// If the target of the policy is a ServiceRoleBinding CRD, convert it to AuthorizationPolicy CRD.
 	// Since ServiceRoleBinding will be deprecating in RBAC v2.
-	if s.spec.Target == metadata.IstioRbacV1alpha1Servicerolebindings {
-		s.spec = *kube.Types.Get("AuthorizationPolicy")
-		s.spec.Converter = converter.Get("service-role-binding-to-authz-policy")
-	}
+	//if s.spec.Target == metadata.IstioRbacV1alpha1Servicerolebindings {
+	//	s.spec = *kube.Types.Get("AuthorizationPolicy")
+	//	s.spec.Converter = converter.Get("service-role-binding-to-authz-policy")
+	//}
 
 	s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { s.handleEvent(resource.Added, obj) },

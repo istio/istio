@@ -597,7 +597,7 @@ func init() {
 		Version:   "v1alpha1",
 		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("istio/rbac/v1alpha1/servicerolebindings"),
-		Converter: converter.Get("service-role-binding-to-authz-policy"),
+		Converter: converter.Get("identity"),
 	})
 
 	b.Add(schema.ResourceSpec{
