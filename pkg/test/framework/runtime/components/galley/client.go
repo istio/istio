@@ -18,9 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
 
@@ -28,6 +29,7 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/test/framework/api/components"
 	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,7 +40,7 @@ type client struct {
 	ctx     tcontext.Instance
 }
 
-func (c *client) waitForSnapshot(collection string, snapshot []map[string]interface{}) error {
+func (c *client) waitForSnapshot(collection string, validator components.SnapshotValidator) error {
 	conn, err := c.dialGrpc()
 	if err != nil {
 		return err
@@ -63,12 +65,11 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
 		items := u.Get(collection)
-		result, err = c.checkSnapshot(items, snapshot)
+		result, err = c.checkSnapshot(items, validator)
 		if err != nil {
 			return nil, false, err
 		}
-		err = result.generateError()
-		return nil, err == nil, err
+		return nil, result.err == nil, result.err
 	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
 
 	return err
@@ -87,90 +88,73 @@ func (c *client) waitForStartup() (err error) {
 	return
 }
 
-func (c *client) checkSnapshot(actual []*sink.Object, expected []map[string]interface{}) (*comparisonResult, error) {
-	expectedMap := make(map[string]interface{})
-	for _, e := range expected {
-		name, err := extractName(e)
-		if err != nil {
-			return nil, err
-		}
-		expectedMap[name] = e
-	}
-
-	actualMap := make(map[string]interface{})
+func (c *client) checkSnapshot(actual []*sink.Object, validator components.SnapshotValidator) (*comparisonResult, error) {
+	// Convert the actuals to a map indexed by name.
+	actualMap := make(map[string]*sink.Object)
 	for _, a := range actual {
-		// Exclude ephemeral fields from comparison
-		a.Metadata.CreateTime = nil
-		a.Metadata.Version = ""
-
-		b, err := json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-		o := make(map[string]interface{})
-		if err = json.Unmarshal(b, &o); err != nil {
-			return nil, err
-		}
-
-		name := a.Metadata.Name
-		actualMap[name] = o
+		actualMap[a.Metadata.Name] = a
 	}
 
 	var extraActual []string
 	var missingExpected []string
 	var conflicting []string
+	var err error
 
-	for name, a := range actualMap {
-		e, found := expectedMap[name]
-		if !found {
-			extraActual = append(extraActual, name)
-			continue
+	// If the given validator is a composite, compare the actual and expected maps.
+	if compositeValidator, ok := validator.(components.CompositeSnapshotValidator); ok {
+		// Check for missing expected objects.
+		for name, a := range actualMap {
+			if _, found := compositeValidator[name]; !found {
+				extraActual = append(extraActual, name)
+
+				// Create the error message.
+				js, er := json.MarshalIndent(a, "", "  ")
+				if er != nil {
+					return nil, er
+				}
+				err = multierror.Append(err, fmt.Errorf("unexpected resource found: %s\n%v", name, string(js)))
+
+				// Delete this key so we don't check for conflicts below.
+				delete(actualMap, name)
+				continue
+			}
 		}
 
-		if !reflect.DeepEqual(a, e) {
-			conflicting = append(conflicting, name)
+		// Now check for missing actual objects.
+		for name := range compositeValidator {
+			if _, found := actualMap[name]; !found {
+				missingExpected = append(missingExpected, name)
+				err = multierror.Append(err, fmt.Errorf("expected resource not found: %s", name))
+
+				// Note: We do not remove the key here, since we don't want to
+				// modify the map that was passed in. In the conflict check below,
+				// we iterate across the actualMap anyway, so we don't really care
+				// about removing these elements.
+				continue
+			}
 		}
 	}
 
-	for name := range expectedMap {
-		_, found := actualMap[name]
-		if !found {
-			missingExpected = append(missingExpected, name)
-			continue
+	// Now check for conflicts between actual and expected.
+	for name, a := range actualMap {
+		// Convert to SnapshotObject, which is a protobuf message.
+		snapshotObj := &components.SnapshotObject{
+			TypeURL:  a.TypeURL,
+			Metadata: a.Metadata,
+			Body:     a.Body,
+		}
+		if er := validator.ValidateObject(snapshotObj); er != nil {
+			conflicting = append(conflicting, name)
+			err = multierror.Append(err, er)
 		}
 	}
 
 	return &comparisonResult{
-		expected:        expectedMap,
-		actual:          actualMap,
 		extraActual:     extraActual,
 		missingExpected: missingExpected,
 		conflicting:     conflicting,
+		err:             err,
 	}, nil
-}
-
-func extractName(i map[string]interface{}) (string, error) {
-	m, found := i["Metadata"]
-	if !found {
-		return "", fmt.Errorf("metadata section not found in resource")
-	}
-
-	meta, ok := m.(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("metadata section is not a map")
-	}
-
-	n, found := meta["name"]
-	if !found {
-		return "", fmt.Errorf("metadata section does not contain name")
-	}
-
-	name, ok := n.(string)
-	if !ok {
-		return "", fmt.Errorf("name field is not a string")
-	}
-
-	return name, nil
 }
 
 func (c *client) dialGrpc() (*grpc.ClientConn, error) {
@@ -191,6 +175,12 @@ func (c *client) dialGrpc() (*grpc.ClientConn, error) {
 
 // Close implements io.Closer.
 func (c *client) Close() (err error) {
-
 	return err
+}
+
+type comparisonResult struct {
+	extraActual     []string
+	missingExpected []string
+	conflicting     []string
+	err             error
 }

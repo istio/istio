@@ -124,8 +124,8 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
-func (c *nativeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
-	return c.client.waitForSnapshot(collection, snapshot)
+func (c *nativeComponent) WaitForSnapshot(collection string, validator components.SnapshotValidator) error {
+	return c.client.waitForSnapshot(collection, validator)
 }
 
 // Start implements Component.Start.

@@ -40,32 +40,33 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			// Call Requires to explicitly initialize dependencies that the test needs.
-			ctx := framework.GetContext(t)
-
-			// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-			// component
-			ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.NativeEnvironment)
-
-			ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
-
-			gal := components.GetGalley(ctx, t)
-
-			for i, fset := range d.FileSets() {
-				testName := d.TestName()
-				if len(d.FileSets()) != 1 {
-					runTest(t, fset, gal)
-					testName = fmt.Sprintf("%s_%d", d.TestName(), i)
+			if len(d.FileSets()) == 1 {
+				// Only a single test, just run it using the current test.
+				runTest(t, d.FileSets()[0])
+			} else {
+				// This test is composed of multiple sub-tests. Run each separately.
+				for i, fset := range d.FileSets() {
+					testName := fmt.Sprintf("%s_%d", d.TestName(), i)
+					t.Run(testName, func(t *testing.T) {
+						runTest(t, fset)
+					})
 				}
-				t.Run(testName, func(t *testing.T) {
-					runTest(t, fset, gal)
-				})
 			}
 		})
 	}
 }
 
-func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
+func runTest(t *testing.T, fset *testdata.FileSet) {
+	// Call Requires to explicitly initialize dependencies that the test needs.
+	ctx := framework.GetContext(t)
+
+	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
+	//  component
+	ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.NativeEnvironment)
+
+	ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
+	gal := components.GetGalley(ctx, t)
+
 	input, err := fset.LoadInputFile()
 	if err != nil {
 		t.Fatalf("Unable to load input test data: %v", err)
@@ -95,8 +96,13 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
 	}
 
 	for collection, e := range expected {
-		if err = gal.WaitForSnapshot(collection, e...); err != nil {
-			t.Errorf("Error waiting for %s:\n%v\n", collection, err)
+		validator, err := components.CompositeGoldenValidator(e)
+		if err != nil {
+			t.Fatalf("unable to create validator for expected resource: %v", err)
+		}
+
+		if err = gal.WaitForSnapshot(collection, validator); err != nil {
+			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
 		}
 	}
 }

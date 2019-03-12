@@ -10,6 +10,7 @@
 // dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml
 // dataset/extensions/v1beta1/ingress_merge_1.yaml
 // dataset/extensions/v1beta1/ingress_merge_1_expected.json
+// dataset/extensions/v1beta1/ingress_merge_1_meshconfig.yaml
 // dataset/networking.istio.io/v1alpha3/destinationRule.yaml
 // dataset/networking.istio.io/v1alpha3/destinationRule_expected.json
 // dataset/networking.istio.io/v1alpha3/gateway.yaml
@@ -610,6 +611,25 @@ func datasetExtensionsV1beta1Ingress_merge_1_expectedJson() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_1_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetExtensionsV1beta1Ingress_merge_1_meshconfigYaml = []byte(`ingressClass: cls
+ingressControllerMode: STRICT
+`)
+
+func datasetExtensionsV1beta1Ingress_merge_1_meshconfigYamlBytes() ([]byte, error) {
+	return _datasetExtensionsV1beta1Ingress_merge_1_meshconfigYaml, nil
+}
+
+func datasetExtensionsV1beta1Ingress_merge_1_meshconfigYaml() (*asset, error) {
+	bytes, err := datasetExtensionsV1beta1Ingress_merge_1_meshconfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_1_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2067,6 +2087,7 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml": datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
 	"dataset/extensions/v1beta1/ingress_merge_1.yaml": datasetExtensionsV1beta1Ingress_merge_1Yaml,
 	"dataset/extensions/v1beta1/ingress_merge_1_expected.json": datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
+	"dataset/extensions/v1beta1/ingress_merge_1_meshconfig.yaml": datasetExtensionsV1beta1Ingress_merge_1_meshconfigYaml,
 	"dataset/networking.istio.io/v1alpha3/destinationRule.yaml": datasetNetworkingIstioIoV1alpha3DestinationruleYaml,
 	"dataset/networking.istio.io/v1alpha3/destinationRule_expected.json": datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/gateway.yaml": datasetNetworkingIstioIoV1alpha3GatewayYaml,
@@ -2138,6 +2159,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"ingress_merge_0_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml, map[string]*bintree{}},
 				"ingress_merge_1.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_1Yaml, map[string]*bintree{}},
 				"ingress_merge_1_expected.json": &bintree{datasetExtensionsV1beta1Ingress_merge_1_expectedJson, map[string]*bintree{}},
+				"ingress_merge_1_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_1_meshconfigYaml, map[string]*bintree{}},
 			}},
 		}},
 		"networking.istio.io": &bintree{nil, map[string]*bintree{

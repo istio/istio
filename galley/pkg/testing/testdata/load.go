@@ -36,7 +36,7 @@ func Load() ([]*TestInfo, error) {
 			continue
 		}
 
-		baseFileName, idxSuffix, index, err := parseFileName(asset)
+		baseFileName, subtestSuffix, subtestIndex, err := parseFileName(asset)
 		if err != nil {
 			return nil, err
 		}
@@ -62,8 +62,8 @@ func Load() ([]*TestInfo, error) {
 			continue
 		}
 
-		meshConfigFile := fmt.Sprintf("%s%s_meshconfig.yaml", baseFileName, idxSuffix)
-		expectedFile := fmt.Sprintf("%s%s_expected.json", baseFileName, idxSuffix)
+		meshConfigFile := fmt.Sprintf("%s%s_meshconfig.yaml", baseFileName, subtestSuffix)
+		expectedFile := fmt.Sprintf("%s%s_expected.json", baseFileName, subtestSuffix)
 
 		// The expected file is required
 		if _, err := AssetInfo(expectedFile); err != nil {
@@ -81,25 +81,25 @@ func Load() ([]*TestInfo, error) {
 			meshConfigFile: meshConfigFile,
 		}
 
-		if len(info.files) <= index {
-			arr := make([]*FileSet, index+1)
+		if len(info.files) <= subtestIndex {
+			arr := make([]*FileSet, subtestIndex+1)
 			copy(arr, info.files)
 			info.files = arr
 		}
 
-		if info.files[index] != nil {
-			return nil, fmt.Errorf("Duplicate entry found for %q at index %d", baseFileName, index)
+		if info.files[subtestIndex] != nil {
+			return nil, fmt.Errorf("duplicate entry found for %q at index %d", baseFileName, subtestIndex)
 		}
-		info.files[index] = fs
+		info.files[subtestIndex] = fs
 	}
 
 	var result []*TestInfo
 
-	// Do a sanity check to ensure there is data for each stage.
+	// Do a sanity check to ensure there is data for each subtest.
 	for _, i := range infos {
 		for j, fs := range i.files {
 			if fs == nil {
-				return nil, fmt.Errorf("missing stage '%d' for test %q", j, i.TestName())
+				return nil, fmt.Errorf("missing subtest '%d' for test %q", j, i.TestName())
 			}
 		}
 		result = append(result, i)
@@ -122,9 +122,9 @@ func generateTestName(baseFileName string) string {
 
 // parseFileName that is in the form foo/bar_1.yaml or foo/bar.yaml
 // testName will be foo/bar.
-// suffix will be either _1, _2 etc, or it will be empty if there is a single stage.
-// stage is the stage number for the files. If no numeric suffix is defined, stage will default to 0.
-func parseFileName(name string) (baseName, suffix string, stage int, err error) {
+// subtestSuffix will be either _0, _1, _2 etc., or it will be empty if there is a single test.
+// subtestIndex is the subtest number for the files. If no numeric suffix is defined, subtestIndex will default to 0.
+func parseFileName(name string) (baseName, subtestSuffix string, subtestIndex int, err error) {
 	// nameNoExtension is foo/bar_1 or foo/bar
 	nameNoExtension := name[:len(name)-len(".yaml")]
 
@@ -133,13 +133,13 @@ func parseFileName(name string) (baseName, suffix string, stage int, err error) 
 		return nameNoExtension, "", 0, nil
 	}
 
-	suffix = parts[len(parts)-1]
-	i, err := strconv.ParseInt(suffix, 10, 32)
+	subtestSuffix = parts[len(parts)-1]
+	i, err := strconv.ParseInt(subtestSuffix, 10, 32)
 	if err != nil {
 		return nameNoExtension, "", 0, nil
 	}
 
-	suffix = "_" + suffix
-	baseName = nameNoExtension[0 : len(nameNoExtension)-len(suffix)]
-	return baseName, suffix, int(i), nil
+	subtestSuffix = "_" + subtestSuffix
+	baseName = nameNoExtension[0 : len(nameNoExtension)-len(subtestSuffix)]
+	return baseName, subtestSuffix, int(i), nil
 }

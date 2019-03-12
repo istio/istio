@@ -27,20 +27,21 @@ Tests can be ignored by adding a .skip file
 .../dataset/**/<testname>.skip
 ```
 
-The test file structure also allows multiple stages:
+The test file structure also supports subtests:
 ```
-# Input file for the test
+# Input file for a test with subtests.
 .../dataset/**/<testname>_<stageNo>.yaml
 .../dataset/**/<testname>_<stageNo>_meshconfig.yaml
 .../dataset/**/<testname>_<stageNo>_expected.json
 
 e.g.
-# First stage files. Meshconfig carries over to the next stage
+# First subtest files.
 .../dataset/**/foo_0.yaml
 .../dataset/**/foo_0_meshconfig.yaml
 .../dataset/**/foo_0_expected.json
-# Second stage files.
+# Second subtest files.
 .../dataset/**/foo_1.yaml
+.../dataset/**/foo_1_meshconfig.yaml
 .../dataset/**/foo_1_expected.json
 
 ```
