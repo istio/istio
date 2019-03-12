@@ -1,0 +1,15 @@
+# Local build of Istio
+platform: linux
+image_resource:
+  type: docker-image
+  source:
+    repository: costinm/istio-base
+inputs:
+  - name: istio
+    path: src/istio.io/istio
+  - name: istio-installer
+    path: src/github.com/istio-ecosystem/istio-installer
+run:
+  path: src/github.com/istio-ecosystem/istio-installer/.circleci/build.sh
+  args: [build test]
+  user: root
