@@ -133,6 +133,16 @@ func (m *DiscoveryResponse) Validate() error {
 
 	// no validation rules for Nonce
 
+	if v, ok := interface{}(m.GetControlPlane()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return DiscoveryResponseValidationError{
+				Field:  "ControlPlane",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -167,17 +177,17 @@ func (e DiscoveryResponseValidationError) Error() string {
 
 var _ error = DiscoveryResponseValidationError{}
 
-// Validate checks the field values on IncrementalDiscoveryRequest with the
-// rules defined in the proto definition for this message. If any rules are
+// Validate checks the field values on DeltaDiscoveryRequest with the rules
+// defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
-func (m *IncrementalDiscoveryRequest) Validate() error {
+func (m *DeltaDiscoveryRequest) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return IncrementalDiscoveryRequestValidationError{
+			return DeltaDiscoveryRequestValidationError{
 				Field:  "Node",
 				Reason: "embedded message failed validation",
 				Cause:  err,
@@ -193,7 +203,7 @@ func (m *IncrementalDiscoveryRequest) Validate() error {
 
 	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return IncrementalDiscoveryRequestValidationError{
+			return DeltaDiscoveryRequestValidationError{
 				Field:  "ErrorDetail",
 				Reason: "embedded message failed validation",
 				Cause:  err,
@@ -204,10 +214,9 @@ func (m *IncrementalDiscoveryRequest) Validate() error {
 	return nil
 }
 
-// IncrementalDiscoveryRequestValidationError is the validation error returned
-// by IncrementalDiscoveryRequest.Validate if the designated constraints
-// aren't met.
-type IncrementalDiscoveryRequestValidationError struct {
+// DeltaDiscoveryRequestValidationError is the validation error returned by
+// DeltaDiscoveryRequest.Validate if the designated constraints aren't met.
+type DeltaDiscoveryRequestValidationError struct {
 	Field  string
 	Reason string
 	Cause  error
@@ -215,7 +224,7 @@ type IncrementalDiscoveryRequestValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-func (e IncrementalDiscoveryRequestValidationError) Error() string {
+func (e DeltaDiscoveryRequestValidationError) Error() string {
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -227,19 +236,19 @@ func (e IncrementalDiscoveryRequestValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sIncrementalDiscoveryRequest.%s: %s%s",
+		"invalid %sDeltaDiscoveryRequest.%s: %s%s",
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-var _ error = IncrementalDiscoveryRequestValidationError{}
+var _ error = DeltaDiscoveryRequestValidationError{}
 
-// Validate checks the field values on IncrementalDiscoveryResponse with the
-// rules defined in the proto definition for this message. If any rules are
+// Validate checks the field values on DeltaDiscoveryResponse with the rules
+// defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
-func (m *IncrementalDiscoveryResponse) Validate() error {
+func (m *DeltaDiscoveryResponse) Validate() error {
 	if m == nil {
 		return nil
 	}
@@ -251,7 +260,7 @@ func (m *IncrementalDiscoveryResponse) Validate() error {
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				return IncrementalDiscoveryResponseValidationError{
+				return DeltaDiscoveryResponseValidationError{
 					Field:  fmt.Sprintf("Resources[%v]", idx),
 					Reason: "embedded message failed validation",
 					Cause:  err,
@@ -266,10 +275,9 @@ func (m *IncrementalDiscoveryResponse) Validate() error {
 	return nil
 }
 
-// IncrementalDiscoveryResponseValidationError is the validation error returned
-// by IncrementalDiscoveryResponse.Validate if the designated constraints
-// aren't met.
-type IncrementalDiscoveryResponseValidationError struct {
+// DeltaDiscoveryResponseValidationError is the validation error returned by
+// DeltaDiscoveryResponse.Validate if the designated constraints aren't met.
+type DeltaDiscoveryResponseValidationError struct {
 	Field  string
 	Reason string
 	Cause  error
@@ -277,7 +285,7 @@ type IncrementalDiscoveryResponseValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-func (e IncrementalDiscoveryResponseValidationError) Error() string {
+func (e DeltaDiscoveryResponseValidationError) Error() string {
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -289,14 +297,14 @@ func (e IncrementalDiscoveryResponseValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sIncrementalDiscoveryResponse.%s: %s%s",
+		"invalid %sDeltaDiscoveryResponse.%s: %s%s",
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-var _ error = IncrementalDiscoveryResponseValidationError{}
+var _ error = DeltaDiscoveryResponseValidationError{}
 
 // Validate checks the field values on Resource with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
@@ -304,6 +312,8 @@ func (m *Resource) Validate() error {
 	if m == nil {
 		return nil
 	}
+
+	// no validation rules for Name
 
 	// no validation rules for Version
 

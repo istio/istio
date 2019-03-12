@@ -113,6 +113,17 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for ServerName
 
+	if wrapper := m.GetMaxRequestHeadersKb(); wrapper != nil {
+
+		if wrapper.GetValue() > 96 {
+			return HttpConnectionManagerValidationError{
+				Field:  "MaxRequestHeadersKb",
+				Reason: "value must be less than or equal to 96",
+			}
+		}
+
+	}
+
 	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -248,16 +259,6 @@ func (m *HttpConnectionManager) Validate() error {
 			}
 		}
 
-	}
-
-	if v, ok := interface{}(m.GetBugfixReverseEncodeOrder()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpConnectionManagerValidationError{
-				Field:  "BugfixReverseEncodeOrder",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
 	}
 
 	switch m.RouteSpecifier.(type) {
@@ -506,6 +507,8 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for Verbose
 
 	return nil
 }
