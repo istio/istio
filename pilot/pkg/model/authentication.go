@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -253,7 +254,7 @@ type fbMetadataAnyKey struct {
 	headerKey     string
 }
 
-var fileBasedMetadataConfigAnyMap = map[fbMetadataAnyKey]*types.Any{}
+var fileBasedMetadataConfigAnyMap sync.Map
 
 // findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
 // by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
@@ -269,10 +270,11 @@ func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMet
 		tokenFileName: tokenFileName,
 		headerKey:     headerKey,
 	}
-	if marshalAny, found := fileBasedMetadataConfigAnyMap[key]; found {
-		return marshalAny
+	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
+		marshalAny := v.(types.Any)
+		return &marshalAny
 	}
 	any, _ := types.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap[key] = any
+	fileBasedMetadataConfigAnyMap.Store(key, *any)
 	return any
 }
