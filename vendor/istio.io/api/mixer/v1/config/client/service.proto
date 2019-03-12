@@ -23,6 +23,7 @@ import "gogoproto/gogo.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // NOTE: this is a duplicate of proxy.v1.config.IstioService from
 // proxy/v1alpha1/config/route_rules.proto.

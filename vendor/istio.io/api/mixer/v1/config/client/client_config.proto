@@ -31,6 +31,7 @@ option go_package = "istio.io/api/mixer/v1/config/client";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // Specifies the behavior when the client is unable to connect to Mixer.
 message NetworkFailPolicy {
