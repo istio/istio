@@ -42,6 +42,11 @@ spec:
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
+  {{- if .Values.configValidation }}
+          - --enable-validation=true
+  {{- else }}
+          - --enable-validation=false
+  {{- end }}
           - --enable-server=true
           - --deployment-namespace={{ .Release.Namespace }}
           - --validation-webhook-config-file
