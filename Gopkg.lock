@@ -140,6 +140,14 @@
   version = "2.3.2"
 
 [[projects]]
+  digest = "1:d04889482897652dedae6d8575b479c06fa3eb3c3abe248163b25d3df5fab43e"
+  name = "github.com/antlr/antlr4"
+  packages = ["runtime/Go/antlr"]
+  pruneopts = "NUT"
+  revision = "be58ebffde8e29c154192c019608f0a5b8e6a064"
+  version = "4.7.2"
+
+[[projects]]
   digest = "1:975108e8d4f5dab096fc991326e96a5716ee8d02e5e7386bb4796171afc4ab9a"
   name = "github.com/aokoli/goutils"
   packages = ["."]
@@ -485,9 +493,10 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  digest = "1:0321890c082a214113d5b96983303f252bf1a42bcd834454c7bb799ba425de32"
+  digest = "1:5c4ec7f9d044b5ab80e7e0fea1f1418158dc2a19da9663520495f8c3537fd78c"
   name = "github.com/golang/protobuf"
   packages = [
+    "descriptor",
     "proto",
     "protoc-gen-go/descriptor",
     "protoc-gen-go/plugin",
@@ -526,6 +535,31 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
+
+[[projects]]
+  digest = "1:eb97836c12a177bf479aa00c3c2247590eebfc252fce6d953e2cbc2405e2643c"
+  name = "github.com/google/cel-go"
+  packages = [
+    "cel",
+    "checker",
+    "checker/decls",
+    "common",
+    "common/debug",
+    "common/operators",
+    "common/overloads",
+    "common/packages",
+    "common/types",
+    "common/types/pb",
+    "common/types/ref",
+    "common/types/traits",
+    "interpreter",
+    "interpreter/functions",
+    "parser",
+    "parser/gen",
+  ]
+  pruneopts = "NUT"
+  revision = "81d826ac4515a47311b5e8734449e3a6ac7afceb"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
@@ -1398,7 +1432,7 @@
   revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
 
 [[projects]]
-  digest = "1:8a12cbc891b7130d3f660f8a309e5c0b083f831e6ac38cdaa1f12e63c12d6bea"
+  digest = "1:2c4e3b27329379d7b5f889038b48086140ea60708fb92e4b19d6a775926ea30b"
   name = "golang.org/x/text"
   packages = [
     "collate",
@@ -1427,6 +1461,7 @@
     "unicode/cldr",
     "unicode/norm",
     "unicode/rangetable",
+    "width",
   ]
   pruneopts = "NUT"
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
@@ -1496,11 +1531,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:738b8929764f49c7bd229657a96d7207073431c29ec9eb6c85a7b7f0552d556d"
+  digest = "1:a523c1e433f7412be0da8b0b6bdbcbdda8288bb2d4d659bda01cc0edaa6feb5e"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
     "googleapis/api/distribution",
+    "googleapis/api/expr/v1alpha1",
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
@@ -1626,8 +1662,8 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "release-1.1"
-  digest = "1:a273ea91d5c3c8335dcdeeb84d020bd79e97f305d05b8c6fb85ca9c770830050"
+  branch = "master"
+  digest = "1:a609b55b6a19de8e3941b073d86596c537ca1e94bf3aa994f0a56d6a1df939ae"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1643,7 +1679,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "1b39429492ff584547a70b6afa64dd38939e4777"
+  revision = "53b11a3dc9ff646d30dfd23785d0b99b11b221ef"
 
 [[projects]]
   branch = "release-1.11"
@@ -2055,10 +2091,23 @@
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
+    "github.com/golang/protobuf/ptypes/duration",
     "github.com/golang/protobuf/ptypes/empty",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
+    "github.com/google/cel-go/cel",
+    "github.com/google/cel-go/checker",
+    "github.com/google/cel-go/checker/decls",
+    "github.com/google/cel-go/common",
+    "github.com/google/cel-go/common/debug",
+    "github.com/google/cel-go/common/operators",
+    "github.com/google/cel-go/common/types",
+    "github.com/google/cel-go/common/types/ref",
+    "github.com/google/cel-go/common/types/traits",
+    "github.com/google/cel-go/interpreter",
+    "github.com/google/cel-go/interpreter/functions",
+    "github.com/google/cel-go/parser",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
@@ -2132,12 +2181,14 @@
     "golang.org/x/net/publicsuffix",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
+    "golang.org/x/tools/go/ast/astutil",
     "golang.org/x/tools/imports",
     "google.golang.org/api/cloudtrace/v1",
     "google.golang.org/api/iterator",
     "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
     "google.golang.org/genproto/googleapis/api/distribution",
+    "google.golang.org/genproto/googleapis/api/expr/v1alpha1",
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
@@ -2179,6 +2230,7 @@
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
+    "k8s.io/api/policy/v1beta1",
     "k8s.io/api/rbac/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
@@ -2210,8 +2262,35 @@
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
+    "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/apps/v1",
+    "k8s.io/client-go/kubernetes/typed/apps/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/apps/v1beta2",
+    "k8s.io/client-go/kubernetes/typed/authentication/v1",
+    "k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/authorization/v1",
+    "k8s.io/client-go/kubernetes/typed/authorization/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/autoscaling/v1",
+    "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1",
+    "k8s.io/client-go/kubernetes/typed/batch/v1",
+    "k8s.io/client-go/kubernetes/typed/batch/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+    "k8s.io/client-go/kubernetes/typed/certificates/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/kubernetes/typed/events/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/networking/v1",
+    "k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/rbac/v1",
+    "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/rbac/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/settings/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/storage/v1",
+    "k8s.io/client-go/kubernetes/typed/storage/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/storage/v1beta1",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",

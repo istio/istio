@@ -83,8 +83,9 @@ func TestBuiltin(t *testing.T) {
 			PodCIDR: "10.40.0.0/24",
 		},
 	}
-	var err error
-	node, err = ki.Client.CoreV1().Nodes().Create(node)
+	kubeClient, err := ki.KubeClient()
+	g.Expect(err).To(BeNil())
+	node, err = kubeClient.CoreV1().Nodes().Create(node)
 	g.Expect(err).To(BeNil())
 
 	expected := toEvent(resource.Added, spec, node, &node.Spec)

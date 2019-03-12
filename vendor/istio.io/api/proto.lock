@@ -1218,6 +1218,11 @@
                 "id": 2,
                 "name": "lightstep",
                 "type": "Lightstep"
+              },
+              {
+                "id": 3,
+                "name": "datadog",
+                "type": "Datadog"
               }
             ],
             "messages": [
@@ -1252,6 +1257,16 @@
                   {
                     "id": 4,
                     "name": "cacert_path",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "name": "Datadog",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "address",
                     "type": "string"
                   }
                 ]

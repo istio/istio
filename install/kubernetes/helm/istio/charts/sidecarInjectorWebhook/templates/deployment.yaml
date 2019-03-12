@@ -28,12 +28,16 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
- {{- if .Values.global.priorityClassName }}
+{{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: sidecar-injector-webhook
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - --caCertFile=/etc/istio/certs/root-cert.pem

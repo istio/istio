@@ -16,6 +16,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/util"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -59,8 +61,6 @@ type source struct {
 	// Config File Path
 	root string
 
-	donec chan struct{}
-
 	mu sync.RWMutex
 
 	// map to store namespace/name : shas
@@ -78,6 +78,8 @@ type source struct {
 	version int64
 
 	watcher *fsnotify.Watcher
+
+	worker *util.Worker
 }
 
 func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
@@ -106,7 +108,7 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 }
 
 func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileResource {
-	result := []*fileResource{}
+	result := make([]*fileResource, 0)
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -228,8 +230,7 @@ func (s *source) initialCheck() {
 
 // Stop implements runtime.Source
 func (s *source) Stop() {
-	close(s.donec)
-	_ = s.watcher.Close()
+	s.worker.Stop()
 }
 
 func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *fileResource) {
@@ -274,17 +275,23 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 
 // Start implements runtime.Source
 func (s *source) Start(handler resource.EventHandler) error {
-	s.handler = handler
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	s.watcher = watcher
-	_ = s.watcher.Watch(s.root)
-	s.initialCheck()
-	go func() {
+	return s.worker.Start(nil, func(ctx context.Context) {
+		s.handler = handler
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			panic(err)
+		}
+		defer func() { _ = s.watcher.Close() }()
+
+		s.watcher = watcher
+		_ = s.watcher.Watch(s.root)
+		s.initialCheck()
 		for {
 			select {
+			case <-ctx.Done():
+				// Graceful shutdown.
+				return
 			// watch for events
 			case ev, more := <-s.watcher.Event:
 				if !more {
@@ -325,12 +332,9 @@ func (s *source) Start(handler resource.EventHandler) error {
 						}
 					}
 				}
-			case <-s.donec:
-				return
 			}
 		}
-	}()
-	return nil
+	})
 }
 
 // New returns a File System implementation of runtime.Source.
@@ -340,7 +344,7 @@ func New(root string, schema *schema.Instance, config *converter.Config) (runtim
 		root:             root,
 		kinds:            map[string]bool{},
 		fileResourceKeys: map[string][]*fileResourceKey{},
-		donec:            make(chan struct{}),
+		worker:           util.NewWorker("fs source", log.Scope),
 		shas:             map[fileResourceKey][sha1.Size]byte{},
 		version:          0,
 	}

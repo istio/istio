@@ -1,5 +1,5 @@
 #
-# addon jeager tracing configuration
+# addon jaeger tracing configuration
 #
 enabled: false
 
