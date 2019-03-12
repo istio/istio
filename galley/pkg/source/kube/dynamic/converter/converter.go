@@ -115,6 +115,7 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 			"kind":       authzPolicyStr,
 			"metadata": map[string]interface{}{
 				"creationTimestamp": u.GetCreationTimestamp(),
+				"name":					u.GetName(),
 				"annotations":       u.GetAnnotations(),
 				"labels":            u.GetLabels(),
 			},
@@ -123,11 +124,6 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 			},
 		},
 	}
-
-	fmt.Println("Labels")
-	fmt.Println(u.GetLabels())
-	fmt.Println("FOO old annotation")
-	fmt.Println(u.GetAnnotations())
 
 	// Get ServiceRoleBinding annotations and change it to AuthorizationPolicy's annotations.
 	srbAnnotations := u.GetAnnotations()
@@ -156,8 +152,6 @@ func serviceRoleBindingToAuthzPolicy(config *Config, destination resource.Info, 
 	srbAnnotations[key] = string(bindingsJSON)
 	authzPolicyU.SetAnnotations(srbAnnotations)
 
-	fmt.Println("New annotation")
-	fmt.Println(authzPolicyU.GetAnnotations())
 	return identity(config, destination, name, kind, authzPolicyU)
 }
 
@@ -250,6 +244,7 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 }
 
 func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	fmt.Println("FOO kubeServiceResource")
 	var service corev1.Service
 	if err := convertJSON(u, &service); err != nil {
 		return nil, err
@@ -268,11 +263,25 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 			Protocol: string(kube.ConvertProtocol(kubePort.Name, kubePort.Protocol)),
 		})
 	}
+	// We don't need this after https://github.com/istio/istio/pull/11293.
+	annotations := service.Annotations
+	if selector, err := json.Marshal(service.Spec.Selector); err != nil {
+		scope.Errorf("failed to marshal service selector: %v", err)
+	} else {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		// Store the selector in a special annotation which will later be used to convert authentication
+		// policy to use label selectors instead of service names.
+		annotations["_istio_service_spec_selector_"] = string(selector)
+	}
+
 	return []Entry{{
 		Key: name,
 		Metadata: resource.Metadata{
 			Labels:      service.Labels,
-			Annotations: service.Annotations,
+			Annotations: annotations,
 			CreateTime:  service.CreationTimestamp.Time,
 		},
 		Resource: &se,

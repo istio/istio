@@ -16,7 +16,9 @@ package runtime
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"sort"
 	"strings"
 	"sync"
@@ -194,7 +196,94 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	// Build entities that are derived from existing ones.
 	s.buildProjections(b)
 
+	// Populate label selector in ServiceRoleBinding when converting to AuthorizationPolicy.
+	s.populateLabelSelectorInServiceRoleBinding(b)
+
 	return b.Build()
+}
+
+func (s *State) createAuthzConverter() *conversions.AuthzConverter {
+	fmt.Println("At createAuthzConverter")
+	serviceState := s.entries[metadata.K8sCoreV1Services.Collection]
+	if serviceState == nil {
+		fmt.Println("serviceState is nil")
+		return nil
+	}
+
+	fmt.Println("ServiceState is")
+	fmt.Println(serviceState)
+
+	authConverter := conversions.AuthzConverter{}
+	for name, entry := range serviceState.entries {
+		fmt.Println("Going through service entries")
+		fmt.Println("Name")
+		fmt.Println(name)
+		fmt.Println("Entry")
+		fmt.Println(entry)
+		selector := make(resource.Labels)
+		// The entry is actually the ServiceEntry, not the k8s Service due to the conversion happened in
+		// kubeServiceResource(). We have to look into the annotation to get the mapping relations between
+		// a service name and the workload labels.
+		// We don't need this after https://github.com/istio/istio/pull/11293.
+		data := entry.Metadata.Annotations["_istio_service_spec_selector_"]
+		if err := json.Unmarshal([]byte(data), &selector); err != nil {
+			scope.Errorf("failed to unmarshal service %s: %v", name, err)
+			continue
+		}
+		authConverter.AddService(name, selector)
+	}
+
+	scope.Debugf("created auth converter: %s", authConverter)
+	return &authConverter
+}
+
+func (s *State) populateLabelSelectorInServiceRoleBinding(_ *snapshot.InMemoryBuilder) {
+	authzConverter := s.createAuthzConverter()
+	if authzConverter == nil {
+		return
+	}
+
+	state := s.entries[metadata.IstioRbacV1alpha1Servicerolebindings.Collection]
+	if state == nil {
+		return
+	}
+
+	// Populate the label selector field by mapping the service field to corresponding label selectors
+	// based on k8s Service spec.
+	for name, entry := range state.entries {
+		//binding, err := conversions.GetServiecRoleBinding(entry)
+		//if err != nil {
+		//	scope.Errorf("error converting authentication policy: %v", err)
+		//	return
+		//}
+
+		namespace, bindingName := name.InterpretAsNamespaceAndName()
+		selectors := authzConverter.GetSelectors(bindingName, namespace, false)
+
+		if len(selectors) != 1 {
+			scope.Warnf("no selector for authentication policy %s/%s", namespace, bindingName)
+			return
+		}
+		scope.Debugf("matched authentication policy %s/%s with selectors: %s", namespace, bindingName, selectors)
+
+		// Create a new AuthorizationPolicy based on the ServiceRoleBinding.
+		authzPolicy, err := conversions.GetNewAuthorizationPolicy()
+		if err != nil {
+			scope.Errorf("error converting authentication policy: %v", err)
+			return
+		}
+
+		authzPolicy.WorkloadSelector.Labels = selectors[0]
+
+
+		if entry.Body.Value, err = proto.Marshal(authzPolicy); err != nil {
+			scope.Errorf("failed to marshal updated authentication policy: %s", err)
+			continue
+		}
+		scope.Debugf("updated authentication policy: %v", entry)
+		fmt.Println("Updated authentication policy")
+		fmt.Println(entry)
+	}
 }
 
 func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
