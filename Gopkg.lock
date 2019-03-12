@@ -307,7 +307,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:cd72afc3a00653fbd8b3e64169e4e444641dc1e0077df43aa41a5986f46ec0f6"
+  digest = "1:837b53240a3ebcc273546e938e8fe29ebdb39c7af1ca185f933f1effcf0f48c7"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -337,6 +337,7 @@
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
+    "envoy/service/tap/v2alpha",
     "envoy/type",
     "envoy/type/matcher",
     "pkg/cache",
@@ -345,8 +346,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "eb553e72ac8724721a99ed85fcb116467c7a2bac"
-  version = "v0.6.7"
+  revision = "0ad6fa1cf0b9b6ca8f3617a7188a568e81f40b87"
+  version = "v0.6.9"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -1627,7 +1628,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:a66e80d007012e8a7082625377a3490962237ac6ff51940004d9fd43d939d052"
+  digest = "1:5a59f3403993f88b5ea09839f4ee0944349403fb8f0e8c15dc19201cff620858"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1643,7 +1644,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "e1557ace81b4f794d65ae2b769ebfc153e22a662"
+  revision = "0791ae64224c0c50dad4899d94c6d2e3f35d8d4a"
 
 [[projects]]
   branch = "release-1.11"
