@@ -103,7 +103,7 @@ useMCP: true
 
 # Custom MCP server. HTTPS is required.
 # By default a galley in same namespace with pilot is used.
-mcpAddr:  istio-galley.istio-control.svc:15019
+mcpAddr:  istio-galley:15019
 
 traceSampling: 10.0
 
