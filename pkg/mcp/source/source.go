@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/rate"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -112,7 +113,7 @@ type Options struct {
 	Watcher            Watcher
 	CollectionsOptions []CollectionOptions
 	Reporter           monitoring.Reporter
-	ConnRateLimiter    internal.ConnectionRateLimit
+	ConnRateLimiter    rate.LimitFactory
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -130,7 +131,7 @@ type Source struct {
 	nextStreamID   int64
 	reporter       monitoring.Reporter
 	connections    int64
-	requestLimiter internal.ConnectionRateLimit
+	requestLimiter rate.LimitFactory
 }
 
 // watch maintains local push state of the most recent watch per-type.
@@ -160,23 +161,18 @@ type connection struct {
 	watcher  Watcher
 
 	reporter monitoring.Reporter
-	limiter  internal.RateLimit
+	limiter  rate.Limit
 
 	queue *internal.UniqueQueue
 }
 
 // New creates a new resource source.
 func New(options *Options) *Source {
-	requestLimiter := options.ConnRateLimiter
-	if requestLimiter == nil {
-		requestLimiter = internal.NewNoopConnRateLimiter()
-	}
-
 	s := &Source{
 		watcher:        options.Watcher,
 		collections:    options.CollectionsOptions,
 		reporter:       options.Reporter,
-		requestLimiter: requestLimiter,
+		requestLimiter: options.ConnRateLimiter,
 	}
 	return s
 }
@@ -222,7 +218,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 	return con
 }
 
-func (s *Source) processStream(stream Stream) error {
+func (s *Source) ProcessStream(stream Stream) error {
 	con := s.newConnection(stream)
 
 	defer s.closeConnection(con)
@@ -254,8 +250,11 @@ func (s *Source) processStream(stream Stream) error {
 			if !more {
 				return con.reqError
 			}
-			if err := con.limiter.Wait(stream.Context()); err != nil {
-				return err
+			if con.limiter != nil {
+				if err := con.limiter.Wait(stream.Context()); err != nil {
+					return err
+				}
+
 			}
 			if err := con.processClientRequest(req); err != nil {
 				return err
@@ -402,7 +401,7 @@ func (con *connection) close() {
 func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 	collection := req.Collection
 
-	con.reporter.RecordRequestSize(collection, con.id, req.Size())
+	con.reporter.RecordRequestSize(collection, con.id, internal.ProtoSize(req))
 
 	w, ok := con.watches[collection]
 	if !ok {

@@ -112,18 +112,23 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	if sdsUdsPath == "" {
 		base := meta[pilot.BaseDir] + model.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
 
-		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(base+model.RootCertFilename, []string{} /*subjectAltNames*/)
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
+
+		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+model.CertChainFilename)
+		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+model.KeyFilename)
+
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: base + model.CertChainFilename,
+						Filename: tlsServerCertChain,
 					},
 				},
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: base + model.KeyFilename,
+						Filename: tlsServerKey,
 					},
 				},
 			},
@@ -174,9 +179,13 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	port := in.ServiceInstance.Endpoint.ServicePort
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt, in.Node.Metadata)
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance)
+	return setupFilterChains(authnPolicy,
+		in.Env.Mesh.SdsUdsPath,
+		in.Env.Mesh.EnableSdsTokenMount,
+		in.Env.Mesh.SdsUseK8SSaJwt,
+		in.Node.Metadata,
+	)
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (pointers) defined the policy. This
@@ -359,8 +368,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.IstioConfigStore, in.ServiceInstance.Service, in.ServiceInstance.Endpoint.ServicePort)
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))

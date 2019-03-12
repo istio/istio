@@ -258,7 +258,7 @@ func (h *sinkHarness) openStream(t *testing.T) {
 
 	h.errgrp = errgroup.Group{}
 	h.errgrp.Go(func() error {
-		err := h.sink.processStream(h)
+		err := h.sink.ProcessStream(h)
 		return err
 	})
 }

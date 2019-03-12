@@ -67,8 +67,6 @@ type cliOptions struct { // nolint: maligned
 	// The minimum grace period for workload cert rotation.
 	workloadCertMinGracePeriod time.Duration
 
-	// TODO(incfly): delete this field once we deprecate flag --grpc-hostname.
-	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
 	grpcHosts  string
 	grpcPort   int
@@ -199,9 +197,6 @@ func init() {
 	flags.BoolVar(&opts.serverOnly, "server-only", false, "When set, Citadel only serves as a server without writing "+
 		"the Kubernetes secrets.")
 
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "deprecated")
-	flags.MarkDeprecated("grpc-hostname", "please use --grpc-host-identities instead")
-
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 
 	// Monitoring configuration
@@ -272,32 +267,10 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
-	var webhooks map[string]controller.DNSNameEntry
+	var webhooks map[string]*controller.DNSNameEntry
 	if opts.appendDNSNames {
-		webhooks = make(map[string]controller.DNSNameEntry)
-		for i, svcAccount := range webhookServiceAccounts {
-			webhooks[svcAccount] = controller.DNSNameEntry{
-				ServiceName: webhookServiceNames[i],
-				Namespace:   opts.istioCaStorageNamespace,
-			}
-		}
-		if len(opts.customDNSNames) > 0 {
-			customNames := strings.Split(opts.customDNSNames, ",")
-			for _, customName := range customNames {
-				nameDomain := strings.Split(customName, ":")
-				if len(nameDomain) == 2 {
-					override, ok := webhooks[nameDomain[0]]
-					if ok {
-						override.CustomDomains = append(override.CustomDomains, nameDomain[1])
-					} else {
-						webhooks[nameDomain[0]] = controller.DNSNameEntry{
-							ServiceName:   nameDomain[0],
-							CustomDomains: []string{nameDomain[1]},
-						}
-					}
-				}
-			}
-		}
+		webhooks = controller.ConstructCustomDNSNames(webhookServiceAccounts,
+			webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
 	}
 
 	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")

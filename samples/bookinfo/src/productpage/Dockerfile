@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir -r test-requirements.txt
 COPY productpage.py /opt/microservices/
 COPY tests/unit/* /opt/microservices/
 COPY templates /opt/microservices/templates
+COPY static /opt/microservices/static
 COPY requirements.txt /opt/microservices/
 
 EXPOSE 9080

@@ -18,9 +18,12 @@ import (
 	"os"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -30,7 +33,8 @@ func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 	role.TrustDomain = ""
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.BeNil())
 }
@@ -42,7 +46,8 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -54,7 +59,8 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -68,7 +74,8 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -80,7 +87,8 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -92,7 +100,8 @@ func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -146,7 +155,8 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
@@ -160,7 +170,62 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(DNSDomain, "anything")
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
+}
+
+func TestCustomPilotSanIfAuthenticationMutualDomainKubernetesNoTrustDomain(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	DNSDomain = ""
+	role.PilotIdentity = "pilot-identity"
+	registry = serviceregistry.KubernetesRegistry
+	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/pilot-identity"}))
+}
+
+func TestCustomPilotSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	DNSDomain = ""
+	role.TrustDomain = "mesh.com"
+	role.PilotIdentity = "pilot-identity"
+	registry = serviceregistry.KubernetesRegistry
+	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+
+	setSpiffeTrustDomain(DNSDomain)
+	pilotSAN := getSAN("anything", envoy.PilotSvcAccName, role.PilotIdentity)
+
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://mesh.com/pilot-identity"}))
+}
+
+func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	DNSDomain = ""
+	role.TrustDomain = "mesh.com"
+	role.MixerIdentity = "mixer-identity"
+	registry = serviceregistry.KubernetesRegistry
+	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
+
+	setSpiffeTrustDomain(DNSDomain)
+	mixerSAN := envoy.GetSAN("", role.MixerIdentity)
+
+	g.Expect(mixerSAN).To(gomega.Equal("spiffe://mesh.com/mixer-identity"))
+}
+
+func TestDedupeStrings(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	in := []string{
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+	}
+	expected := []string{model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert}
+
+	actual := dedupeStrings(in)
+
+	g.Expect(actual).To(gomega.ConsistOf(expected))
 }

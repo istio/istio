@@ -23,7 +23,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -92,6 +92,15 @@ type Proxy struct {
 
 	// TrustDomain defines the trust domain of the certificate
 	TrustDomain string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
+	//spiffe://{TrustDomain}/{PilotIdentity}
+	PilotIdentity string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
+	//spiffe://{TrustDomain}/{MixerIdentity}
+	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
+	MixerIdentity string
 
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
@@ -288,6 +297,18 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	return out, nil
 }
 
+// GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
+// or does not contain the key. Useful when retrieving node metadata fields.
+func GetOrDefaultFromMap(stringMap map[string]string, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return valFromMap
+	}
+	return defaultVal
+}
+
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
 // from the proxy metadata or the proxy ID
 func GetProxyConfigNamespace(proxy *Proxy) string {
@@ -341,11 +362,20 @@ const (
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
 
+	// DefaultServerCertChain is the default path to the mTLS chain file
+	DefaultCertChain = AuthCertsPath + CertChainFilename
+
 	// KeyFilename is mTLS private key
 	KeyFilename = "key.pem"
 
+	// DefaultServerKey is the default path to the mTLS private key file
+	DefaultKey = AuthCertsPath + KeyFilename
+
 	// RootCertFilename is mTLS root cert
 	RootCertFilename = "root-cert.pem"
+
+	// DefaultRootCert is the default path to the mTLS root cert file
+	DefaultRootCert = AuthCertsPath + RootCertFilename
 
 	// IngressCertFilename is the ingress cert file name
 	IngressCertFilename = "tls.crt"
@@ -541,12 +571,30 @@ const (
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
 	NodeMetadataInstanceIPs = "INSTANCE_IPS"
 
-	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
+	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 
 	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
 	NodeMetadataDNSDomains = "DNS_DOMAINS"
+
+	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
+	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
+
+	// NodeMetadataTLSServerKey is the absolute path to server private key file
+	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
+
+	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
+	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
+
+	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
+	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
+
+	// NodeMetadataTLSClientKey is the absolute path to client private key file
+	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
+
+	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
+	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

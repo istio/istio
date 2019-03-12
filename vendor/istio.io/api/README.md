@@ -21,3 +21,13 @@ changes.
 
 
 If releasing a new tagged version, please update python/istio-api/setup.py version to reflect.
+
+## Backwards Incompatible Changes
+
+If a PR tries to make backwards incompatible changes, it will be
+blocked by protolock. To force these changes in, install
+[protolock](https://github.com/nilslice/protolock) and run
+`protolock commit --force`.
+
+You must include a note in your PR that you had to force the
+protolock and why.

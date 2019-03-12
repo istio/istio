@@ -93,8 +93,8 @@ type SecretController struct {
 	// Whether the certificates are for CAs.
 	forCA bool
 
-	// DNS-enabled service account/service pair
-	dnsNames map[string]DNSNameEntry
+	// DNS-enabled serviceAccount.namespace to service pair
+	dnsNames map[string]*DNSNameEntry
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -110,7 +110,8 @@ type SecretController struct {
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespace string,
+	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -285,13 +286,14 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
 			}
 		}
-		// Custom overrides using CLI
+		// Custom adds more DNS entries using CLI
 		if e, ok := sc.dnsNames[saName+"."+saNamespace]; ok {
 			for _, d := range e.CustomDomains {
 				id += "," + d
 			}
 		}
 	}
+
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,

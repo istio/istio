@@ -27,12 +27,12 @@ import (
 
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/internal/test"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -236,6 +236,36 @@ func verifySentResources(t *testing.T, h *sourceTestHarness, want *mcp.Resources
 	}
 }
 
+func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
+	t.Helper()
+
+	gotResources := make(map[string]*mcp.Resources)
+	for {
+		select {
+		case got := <-h.resourcesChan:
+			if _, ok := gotResources[got.Collection]; ok {
+				t.Fatalf("gotResources duplicate response for type %v: %v", got.Collection, got)
+			}
+			gotResources[got.Collection] = got
+
+			want, ok := wantResources[got.Collection]
+			if !ok {
+				t.Fatalf("gotResources unexpected response for type %v: %v", got.Collection, got)
+			}
+
+			if diff := cmp.Diff(*got, *want, cmpopts.IgnoreFields(mcp.Resources{}, "Nonce")); diff != "" {
+				t.Fatalf("wrong responses for %v: \n got %+v \nwant %+v \n diff %v", got.Collection, got, want, diff)
+			}
+
+			if len(gotResources) == len(wantResources) {
+				return gotResources
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for all responses: gotResources %v", gotResources)
+		}
+	}
+}
+
 func makeWatchResponse(collection string, version string, incremental bool, fakes ...*test.Fake) *WatchResponse { // nolint: unparam
 	r := &WatchResponse{
 		Collection: collection,
@@ -254,7 +284,7 @@ func makeWatchResponse(collection string, version string, incremental bool, fake
 }
 
 func makeSourceUnderTest(w Watcher) *Source {
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            w,
@@ -275,7 +305,7 @@ func TestSourceACKAddUpdateDelete(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -359,7 +389,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -390,7 +420,7 @@ func TestSourceWatchClosed(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
 }
@@ -406,12 +436,12 @@ func TestConnRateLimit(t *testing.T) {
 
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
 
-	go s.processStream(h)
+	go s.ProcessStream(h)
 
 	<-fakeLimiter.CreateCh
 	c := <-fakeLimiter.WaitCh
@@ -436,14 +466,14 @@ func TestConnRateLimitError(t *testing.T) {
 
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
 
 	errC := make(chan error)
 	go func() {
-		errC <- s.processStream(h)
+		errC <- s.ProcessStream(h)
 	}()
 
 	expectedErr := "rate limiting went wrong"
@@ -469,7 +499,7 @@ func TestSourceSendError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -490,11 +520,11 @@ func TestSourceReceiveError(t *testing.T) {
 		Watcher:            h,
 		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
-		ConnRateLimiter:    NewFakePerConnLimiter(),
+		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -512,7 +542,7 @@ func TestSourceUnsupportedTypeError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -524,7 +554,7 @@ func TestSourceStaleNonce(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -569,7 +599,7 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -726,7 +756,7 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 		Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
 	}))
 
-	fakeLimiter := NewFakePerConnLimiter()
+	fakeLimiter := test.NewFakePerConnLimiter()
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
@@ -756,7 +786,7 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -836,30 +866,4 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 			t.Fatal("subtest failed")
 		}
 	}
-}
-
-type FakePerConnLimiter struct {
-	fakeLimiter *test.FakeRateLimiter
-	CreateCh    chan struct{}
-	WaitCh      chan context.Context
-	ErrCh       chan error
-}
-
-func NewFakePerConnLimiter() *FakePerConnLimiter {
-	waitErr := make(chan error)
-	fakeLimiter := test.NewFakeRateLimiter()
-	fakeLimiter.WaitErr = waitErr
-
-	f := &FakePerConnLimiter{
-		fakeLimiter: fakeLimiter,
-		CreateCh:    make(chan struct{}, 10),
-		WaitCh:      fakeLimiter.WaitCh,
-		ErrCh:       waitErr,
-	}
-	return f
-}
-
-func (f *FakePerConnLimiter) Create() internal.RateLimit {
-	f.CreateCh <- struct{}{}
-	return f.fakeLimiter
 }

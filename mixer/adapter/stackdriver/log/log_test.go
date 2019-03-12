@@ -17,6 +17,7 @@ package log
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -191,7 +192,7 @@ func TestHandleLogEntry(t *testing.T) {
 		{"req map",
 			map[string]info{"reqmap": {
 				tmpl:   template.Must(template.New("").Parse("literal")),
-				labels: []string{"foo"},
+				labels: []string{"foo", "source_ip"},
 				req: &config.Params_LogInfo_HttpRequestMapping{
 					Status:       "status",
 					LocalIp:      "localip",
@@ -205,21 +206,22 @@ func TestHandleLogEntry(t *testing.T) {
 			[]*logentry.Instance{{
 				Name: "reqmap",
 				Variables: map[string]interface{}{
-					"foo":      "bar",
-					"time":     fmt.Sprintf("%v", now),
-					"status":   int64(200),
-					"localip":  "127.0.0.1",
-					"remoteip": "1.0.0.127",
-					"latency":  time.Second,
-					"reqsize":  123,
-					"respsize": int64(456),
+					"foo":       "bar",
+					"time":      fmt.Sprintf("%v", now),
+					"status":    int64(200),
+					"localip":   "127.0.0.1",
+					"remoteip":  []byte(net.ParseIP("1.0.0.127")),
+					"source_ip": []byte(net.ParseIP("1.0.0.127")),
+					"latency":   time.Second,
+					"reqsize":   123,
+					"respsize":  int64(456),
 				},
 			}},
 			[]logging.Entry{
 				{
 					Timestamp: now,
 					Severity:  logging.Default,
-					Labels:    map[string]string{"foo": "bar"},
+					Labels:    map[string]string{"foo": "bar", "source_ip": "1.0.0.127"},
 					Payload:   "literal",
 					HTTPRequest: &logging.HTTPRequest{
 						Status:       200,
@@ -343,7 +345,6 @@ func TestProjectMetadata(t *testing.T) {
 			"filled",
 			[]*logentry.Instance{
 				{
-					// nolint: goimports
 					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
@@ -366,7 +367,6 @@ func TestProjectMetadata(t *testing.T) {
 			"empty",
 			[]*logentry.Instance{
 				{
-					// nolint: goimports
 					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
