@@ -1,0 +1,21 @@
+# For egress gateway, allow pod a to access it with GET at any paths.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-gw-http-tcp
+spec:
+  rules:
+    - services: ["istio-egressgateway.{{ .IstioNamespace }}.svc.cluster.local"]
+      methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-access-gw-http-tcp
+spec:
+  subjects:
+    - user: "cluster.local/ns/{{ .Namespace }}/sa/a"
+  roleRef:
+    kind: ServiceRole
+    name: "access-gw-http-tcp"
+---

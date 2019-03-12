@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/log"
+
 	"strings"
 
 	"istio.io/istio/tests/util"
@@ -28,7 +30,7 @@ const (
 	rbacRulesTmpl  = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
 )
 
-func TestRBAC(t *testing.T) {
+func setupRbacRules(t *testing.T, rules []string) *deployableConfig {
 	if !tc.Kube.RBACEnabled {
 		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
 	}
@@ -37,25 +39,36 @@ func TestRBAC(t *testing.T) {
 		"IstioNamespace": tc.Kube.IstioSystemNamespace(),
 		"Namespace":      tc.Kube.Namespace,
 	}
-	rbackEnableYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacEnableTmpl, params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rbackRulesYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacRulesTmpl, params)
-	if err != nil {
-		t.Fatal(err)
+	var yamlFiles []string
+	for _, rule := range rules {
+		yamlFile, err := util.CreateAndFill(tc.Info.TempDir, rule, params)
+		if err != nil {
+			t.Fatal(err)
+			return nil
+		}
+		yamlFiles = append(yamlFiles, yamlFile)
 	}
 
 	// Push all of the configs
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
+		YamlFiles:  yamlFiles,
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
+		return nil
 	}
-	defer cfgs.Teardown()
+	return cfgs
+}
+
+func TestRBACForSidecar(t *testing.T) {
+	cfgs := setupRbacRules(t, []string{rbacEnableTmpl, rbacRulesTmpl})
+	if cfgs != nil {
+		defer cfgs.Teardown()
+	} else {
+		return
+	}
 
 	// Some services are only accessible when auth is enabled.
 	allow := false
@@ -157,6 +170,60 @@ func TestRBAC(t *testing.T) {
 					}
 				}
 
+				return errAgain
+			})
+		}
+	}
+}
+
+func TestRBACForEgressGateway(t *testing.T) {
+	cfgs := setupRbacRules(t, []string{
+		"testdata/rbac/v1alpha1/istio-rbac-enable-gateway.yaml.tmpl",
+		"testdata/rbac/v1alpha1/istio-rbac-rules-gateway.yaml.tmpl",
+		"testdata/networking/v1alpha3/disable-mtls-egressgateway.yaml",
+		"testdata/networking/v1alpha3/egressgateway.yaml",
+		"testdata/networking/v1alpha3/service-entry-bookinfo.yaml",
+		"testdata/networking/v1alpha3/rule-route-via-egressgateway.yaml"})
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	} else {
+		return
+	}
+	defer cfgs.Teardown()
+
+	testCases := []struct {
+		app    string
+		expect bool
+	}{
+		{app: "a", expect: true},
+		{app: "b", expect: false},
+	}
+
+	for _, test := range testCases {
+		for cluster := range tc.Kube.Clusters {
+			name := fmt.Sprintf("%s from %s cluster->istio-egressgateway[%v]", test.app, cluster, test.expect)
+			runRetriableTest(t, name, 30, func() error {
+				// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
+				reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
+				resp := ClientRequest(cluster, test.app, reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
+				count := make(map[string]int)
+				for _, elt := range resp.Host {
+					count[elt]++
+				}
+				for _, elt := range resp.Code {
+					count[elt]++
+				}
+				handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
+				log.Infof("request counts %v", count)
+				if test.expect {
+					if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
+						return nil
+					}
+				} else {
+					if count["403"] >= 95 {
+						return nil
+					}
+				}
 				return errAgain
 			})
 		}
