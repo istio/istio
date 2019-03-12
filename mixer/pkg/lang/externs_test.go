@@ -73,7 +73,7 @@ func TestExternDuration(t *testing.T) {
 		t.Fatalf("unexpected duration: %v", d)
 	}
 
-	d, err = externDuration("asdf")
+	_, err = externDuration("asdf")
 	if err == nil {
 		t.Fatalf("expected error for duration")
 	}
