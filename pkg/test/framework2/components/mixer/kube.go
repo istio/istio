@@ -72,7 +72,7 @@ package mixer
 //func (c *kubeComponent) Configure(t testing.TB, scope lifecycle.Scope, contents string) {
 //	contents, err := c.env.Evaluate(contents)
 //	if err != nil {
-//		c.env.DumpState(t.Name())
+//		c.env.DumpState(t.EnvironmentName())
 //		t.Fatalf("Error expanding configuration template: %v", err)
 //	}
 //
@@ -132,7 +132,7 @@ package mixer
 //
 //		options := &testKube.PodSelectOptions{
 //			PodNamespace: pod.Namespace,
-//			PodName:      pod.Name,
+//			PodName:      pod.EnvironmentName,
 //		}
 //		forwarder, err := c.env.NewPortForwarder(options, 0, port)
 //		if err != nil {
@@ -173,7 +173,7 @@ package mixer
 //		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 //	}
 //	for _, portInfo := range svc.Spec.Ports {
-//		if portInfo.Name == grpcPortName {
+//		if portInfo.EnvironmentName == grpcPortName {
 //			return uint16(portInfo.TargetPort.IntValue()), nil
 //		}
 //	}

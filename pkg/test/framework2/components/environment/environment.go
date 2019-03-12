@@ -16,13 +16,15 @@ package environment
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/test/framework2/common"
 )
 
 // FactoryFn is used to create a new environment.
 type FactoryFn func(string, Context) (Instance, error)
 
 // Name of environment
-type Name string
+type Name common.EnvironmentName
 
 // String implements fmt.Stringer
 func (n Name) String() string {
@@ -36,7 +38,10 @@ func UnsupportedEnvironment(name Name) error {
 
 // Instance of environment.
 type Instance interface {
-	Name() Name
+	// TODO: This creates an import cycle. We should resolve this in the future.
+	FriendlyName() string
+
+	EnvironmentName() Name
 }
 
 // Context for environments

@@ -12,15 +12,34 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package common
 
-import "istio.io/istio/pkg/test/framework2/common"
-
-// Const version of names. These are used as part of API surface.
+// Keep the environment names here to avoid layering/circular dependency problems.
 
 const (
 	// Native environment name
-	Native = Name(common.Native)
+	Native EnvironmentName = "native"
 	// Kube environment name
-	Kube = Name(common.Kube)
+	Kube EnvironmentName = "kube"
 )
+
+// EnvironmentNames of supported environments
+func EnvironmentNames() []EnvironmentName {
+	return []EnvironmentName{
+		Native,
+		Kube,
+	}
+}
+
+// DefaultName is the name of the default environment
+func DefaultEnvironmentName() EnvironmentName {
+	return Native
+}
+
+// EnvironmentName of environment
+type EnvironmentName string
+
+// String implements fmt.Stringer
+func (n EnvironmentName) String() string {
+	return string(n)
+}

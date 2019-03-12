@@ -23,10 +23,11 @@ import (
 	"regexp"
 	"strings"
 
+	"istio.io/istio/pkg/test/framework2/components/environment"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/helm"
@@ -63,7 +64,7 @@ func Deploy(context resource.Context) error {
 		}
 	}()
 
-	switch context.Environment().Name() {
+	switch context.Environment().EnvironmentName() {
 	case environment.Kube:
 		s, err := newSettings(context.Settings())
 		if err != nil {
@@ -74,7 +75,7 @@ func Deploy(context resource.Context) error {
 			return err
 		}
 	default:
-		return environment.UnsupportedEnvironment(context.Environment().Name())
+		return environment.UnsupportedEnvironment(context.Environment().EnvironmentName())
 	}
 
 	return nil

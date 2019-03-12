@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/framework2/runtime"
@@ -40,9 +41,14 @@ type Environment struct {
 
 var _ environment.Instance = &Environment{}
 
-// Name implements environment.Instance
-func (e *Environment) Name() environment.Name {
+// EnvironmentName implements environment.Instance
+func (e *Environment) EnvironmentName() environment.Name {
 	return environment.Kube
+}
+
+// FriendlyIname implements resource.Instance
+func (e *Environment) FriendlyName() string {
+	return fmt.Sprintf("[Environment %s]", environment.Kube.String())
 }
 
 // New returns a new Kubernetes environment

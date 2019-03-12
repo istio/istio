@@ -21,6 +21,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/resource"
@@ -50,6 +51,7 @@ type nativeComponent struct {
 
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
+var _ resource.Instance = &nativeComponent{}
 
 func newNative(ctx resource.Context, env *native.Environment, config *Config) (Instance, error) {
 	n := &nativeComponent{
@@ -91,7 +93,7 @@ func newNative(ctx resource.Context, env *native.Environment, config *Config) (I
 	n.client.args = server.DefaultArgs()
 	n.client.args.APIPort = 0
 	n.client.args.MonitoringPort = 0
-	n.client.args.ConfigStoreURL = "mcp://" + g.Address()[6:]
+	n.client.args.ConfigStoreURL = "mcp://" + config.Galley.Address()[6:]
 	n.client.args.Templates = generatedTmplRepo.SupportedTmplInfo
 	n.client.args.Adapters = adapter.Inventory()
 
@@ -141,7 +143,12 @@ func newNative(ctx resource.Context, env *native.Environment, config *Config) (I
 		return nil, err
 	}
 
+	ctx.TrackResource(n)
 	return n, nil
+}
+
+func (c *nativeComponent) FriendlyName() string {
+	return "[Mixer(native)]"
 }
 
 //
@@ -149,7 +156,7 @@ func newNative(ctx resource.Context, env *native.Environment, config *Config) (I
 //func (c *nativeComponent) Configure(t testing.TB, cfg string) {
 //	cfg, err := c.env.Evaluate(cfg)
 //	if err != nil {
-//		c.env.DumpState(t.Name())
+//		c.env.DumpState(t.EnvironmentName())
 //		t.Fatalf("Error expanding configuration template: %v", err)
 //	}
 //
@@ -260,7 +267,7 @@ func (c *nativeComponent) GetReportAddress() net.Addr {
 //	// Add a service entry for Mixer.
 //	_, err = env.ServiceManager.Create(localServiceName, "", model.PortList{
 //		&model.Port{
-//			Name:     grpcPortName,
+//			EnvironmentName:     grpcPortName,
 //			Protocol: model.ProtocolGRPC,
 //			Port:     port,
 //		},

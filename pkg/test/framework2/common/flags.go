@@ -18,8 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
-	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 
 var (
@@ -45,7 +43,7 @@ func init() {
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
 	flag.StringVar((*string)(&settingsFromCommandLine.Environment), "istio.test.env", string(settingsFromCommandLine.Environment),
-		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", environment.Names()))
+		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", EnvironmentNames()))
 
 	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.noCleanup", settingsFromCommandLine.NoCleanup,
 		"Do not cleanup resources after test completion")

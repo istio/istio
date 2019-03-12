@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+
 	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment/factory"
 	"istio.io/istio/pkg/test/framework2/runtime"

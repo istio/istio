@@ -23,6 +23,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/util/retry"
 )

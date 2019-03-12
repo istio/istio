@@ -13,16 +13,13 @@ import (
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework2.NewContext(t)
-	// TODO - remove prior to checkin
-	scopes.Framework.SetOutputLevel(log.DebugLevel)
+	defer ctx.Done(t)
 
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
@@ -53,7 +50,7 @@ func TestSidecarListeners(t *testing.T) {
 	}
 
 	// Test the empty case where no config is loaded
-	err = pilotInst.WatchDiscovery(time.Second*10,
+	err = pilotInst.WatchDiscovery(time.Second*30,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.AssertThatProto(t, response)
 			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001) {
@@ -77,7 +74,7 @@ func TestSidecarListeners(t *testing.T) {
 	}
 
 	// Now continue to watch on the same stream
-	err = pilotInst.WatchDiscovery(time.Second*10,
+	err = pilotInst.WatchDiscovery(time.Second*30,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.AssertThatProto(t, response)
 			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==27018)]}") {

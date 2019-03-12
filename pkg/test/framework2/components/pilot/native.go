@@ -30,6 +30,7 @@ import (
 
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
+var _ resource.Instance = &nativeComponent{}
 
 // NewNativeComponent factory function for the component
 func newNative(s resource.Context, e *native.Environment, config *Config) (Instance, error) {
@@ -38,6 +39,8 @@ func newNative(s resource.Context, e *native.Environment, config *Config) (Insta
 		stopChan:    make(chan struct{}),
 		config:      config,
 	}
+
+	s.TrackResource(instance)
 	return instance, instance.Start()
 }
 
@@ -48,6 +51,11 @@ type nativeComponent struct {
 	server   *bootstrap.Server
 	stopChan chan struct{}
 	config   *Config
+}
+
+// FriendlyName implements resource.Instance
+func (c *nativeComponent) FriendlyName() string {
+	return "[Pilot(native)]"
 }
 
 func (c *nativeComponent) Start() (err error) {

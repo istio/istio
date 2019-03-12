@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"io"
 
 	"istio.io/istio/pkg/test/framework2/resource"
@@ -28,7 +29,12 @@ type Namespace struct {
 }
 
 var _ io.Closer = &Namespace{}
+var _ resource.Instance = &Namespace{}
 var _ resource.Dumper = &Namespace{}
+
+func (n *Namespace) FriendlyName() string {
+	return fmt.Sprintf("[Namespace %s]", n.Name)
+}
 
 // Close implements io.Closer
 func (n *Namespace) Close() error {

@@ -17,21 +17,28 @@ package runtime
 import (
 	"io"
 
+	"istio.io/istio/pkg/test/scopes"
+
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework2/resource"
 )
 
 // scope hold resources in a particular scope.
 type scope struct {
+	// friendly name for the scope for debugging purposes.
+	id string
+
 	parent *scope
 
-	resources []interface{}
+	resources []resource.Instance
 
 	children []*scope
 }
 
-func newScope(p *scope) *scope {
+func newScope(id string, p *scope) *scope {
 	s := &scope{
+		id:     id,
 		parent: p,
 	}
 
@@ -42,18 +49,25 @@ func newScope(p *scope) *scope {
 	return s
 }
 
-func (s *scope) add(r interface{}) {
+func (s *scope) add(r resource.Instance) {
+	scopes.Framework.Debugf("Adding resource for tracking: %v", r.FriendlyName())
 	s.resources = append(s.resources, r)
 }
 
 func (s *scope) done(nocleanup bool) error {
 	var err error
 	if !nocleanup {
-		for _, c := range s.resources {
-			if closer, ok := c.(io.Closer); ok {
+
+		// Do reverse walk for cleanup.
+		for i := len(s.resources) - 1; i >= 0; i-- {
+			r := s.resources[i]
+			if closer, ok := r.(io.Closer); ok {
+				scopes.Framework.Debugf("Begin cleaning up resource: %v", r.FriendlyName())
 				if e := closer.Close(); e != nil {
+					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.FriendlyName(), err)
 					err = multierror.Append(e, err)
 				}
+				scopes.Framework.Debugf("Resource cleanup complete: %v", r.FriendlyName())
 			}
 		}
 	}
@@ -68,10 +82,11 @@ func (s *scope) done(nocleanup bool) error {
 
 func (s *scope) reset() error {
 	var err error
-	for _, c := range s.resources {
-		if r, ok := c.(resource.Resetter); ok {
-
-			if e := r.Reset(); e != nil {
+	for _, r := range s.resources {
+		if res, ok := r.(resource.Resetter); ok {
+			scopes.Framework.Debugf("Resetting resource: %s", r.FriendlyName())
+			if e := res.Reset(); e != nil {
+				scopes.Framework.Debugf("Error resetting resource %s: %v", r.FriendlyName(), e)
 				err = multierror.Append(e, err)
 			}
 		}
