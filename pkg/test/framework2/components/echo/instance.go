@@ -16,9 +16,10 @@ package echo
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"net/http"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"

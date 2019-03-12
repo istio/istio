@@ -31,6 +31,13 @@ import (
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 var _ resource.Instance = &nativeComponent{}
+var _ Native = &nativeComponent{}
+
+// Native is the interface for an native pilot server.
+type Native interface {
+	Instance
+	GetDiscoveryAddress() *net.TCPAddr
+}
 
 // NewNativeComponent factory function for the component
 func newNative(s resource.Context, e *native.Environment, config *Config) (Instance, error) {

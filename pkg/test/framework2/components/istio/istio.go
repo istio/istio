@@ -16,23 +16,14 @@ package istio
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
 	"path"
 	"regexp"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
-
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/helm"
-	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -52,91 +43,95 @@ const (
 	yamlSeparator = "\n---\n"
 )
 
-// Deploy a new Istio instance
-func Deploy(context resource.Context) error {
-	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
-	defer func() {
-		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
-		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
-		}
-	}()
+//
+//type kubeComponent struct {
+//
+//}
+//
+//var _ Instance = &kubeComponent{}
+//var _ io.Closer = &kubeComponent{}
+//var _ resource.Instance = &kubeComponent{}
+//
+//// Deploy a new Istio instance
+//func Deploy(context resource.Context) (Instance, error) {
+//	var err error
+//	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
+//	defer func() {
+//		if err != nil {
+//			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
+//		} else {
+//			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
+//		}
+//	}()
+//
+//	switch context.Environment().EnvironmentName() {
+//	case environment.Kube:
+//		s, err := newConfig(context.Config())
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		return deploy(s, context, context.Environment().(*kube.Environment))
+//			return nil, err
+//		}
+//	default:
+//		return nil, environment.UnsupportedEnvironment(context.Environment().EnvironmentName())
+//	}
+//
+//
+//	return i, nil
+//}
+//
+//func deploy(s *Config, context resource.Context, env *kube.Environment) error {
+//	scopes.CI.Infof("=== Istio Component Config ===")
+//	scopes.CI.Infof("\n%s", s.String())
+//	scopes.CI.Infof("HUB: %s", HUB.Value())
+//	scopes.CI.Infof("TAG: %s", TAG.Value())
+//	scopes.CI.Infof("================================")
+//
+//	if !s.DeployIstio {
+//		scopes.Framework.Info("skipping deployment due to Config")
+//		return nil
+//	}
+//
+//	helmDir, err := context.CreateTmpDirectory("istio")
+//	if err != nil {
+//		return err
+//	}
+//
+//	generatedYaml, err := generateIstioYaml(helmDir, s, context)
+//	if err != nil {
+//		return err
+//	}
+//
+//	// split installation & configuration into two distinct steps int
+//	installYaml, configureYaml := splitIstioYaml(generatedYaml)
+//
+//	installYamlFilePath := path.Join(helmDir, "istio-install.yaml")
+//	if err = ioutil.WriteFile(installYamlFilePath, []byte(installYaml), os.ModePerm); err != nil {
+//		return fmt.Errorf("unable to write helm generated yaml: %v", err)
+//	}
+//
+//	configureYamlFilePath := path.Join(helmDir, "istio-configure.yaml")
+//	if err = ioutil.WriteFile(configureYamlFilePath, []byte(configureYaml), os.ModePerm); err != nil {
+//		return fmt.Errorf("unable to write helm generated yaml: %v", err)
+//	}
+//
+//	scopes.CI.Infof("Created Helm-generated Yaml file(s): %s, %s", installYamlFilePath, configureYamlFilePath)
+//	instance := deployment.NewYamlDeployment(s.SystemNamespace, installYamlFilePath)
+//
+//	if err = instance.Deploy(env.Accessor, true, retry.Timeout(s.DeployTimeout)); err != nil {
+//		return err
+//	}
+//
+//	if err = env.Accessor.Apply(s.SystemNamespace, configureYamlFilePath); err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
-	switch context.Environment().EnvironmentName() {
-	case environment.Kube:
-		s, err := newSettings(context.Settings())
-		if err != nil {
-			return err
-		}
-
-		if err = deploy(s, context, context.Environment().(*kube.Environment)); err != nil {
-			return err
-		}
-	default:
-		return environment.UnsupportedEnvironment(context.Environment().EnvironmentName())
-	}
-
-	return nil
-}
-
-func deploy(s *settings, context resource.Context, env *kube.Environment) error {
-	scopes.CI.Infof("=== Istio Component Settings ===")
-	scopes.CI.Infof("\n%s", s.String())
-	scopes.CI.Infof("HUB: %s", HUB.Value())
-	scopes.CI.Infof("TAG: %s", TAG.Value())
-	scopes.CI.Infof("================================")
-
-	if !s.DeployIstio {
-		scopes.Framework.Info("skipping deployment due to settings")
-		return nil
-	}
-
-	helmDir, err := context.CreateTmpDirectory("istio")
-	if err != nil {
-		return err
-	}
-
-	generatedYaml, err := generateIstioYaml(helmDir, s, context)
-	if err != nil {
-		return err
-	}
-
-	// split installation & configuration into two distinct steps int
-	installYaml, configureYaml := splitIstioYaml(generatedYaml)
-
-	installYamlFilePath := path.Join(helmDir, "istio-install.yaml")
-	if err = ioutil.WriteFile(installYamlFilePath, []byte(installYaml), os.ModePerm); err != nil {
-		return fmt.Errorf("unable to write helm generated yaml: %v", err)
-	}
-
-	configureYamlFilePath := path.Join(helmDir, "istio-configure.yaml")
-	if err = ioutil.WriteFile(configureYamlFilePath, []byte(configureYaml), os.ModePerm); err != nil {
-		return fmt.Errorf("unable to write helm generated yaml: %v", err)
-	}
-
-	scopes.CI.Infof("Created Helm-generated Yaml file(s): %s, %s", installYamlFilePath, configureYamlFilePath)
-	instance := deployment.NewYamlDeployment(s.SystemNamespace, installYamlFilePath)
-
-	// TODO: There is a problem with cleanup. Re-enable this once it is fixed.
-	//r := closerFromFn(func() error {
-	//	return instance.Delete(env.Accessor, true, retry.Timeout(s.DeployTimeout))
-	//})
-	//context.TrackResource(r)
-
-	if err = instance.Deploy(env.Accessor, true, retry.Timeout(s.DeployTimeout)); err != nil {
-		return err
-	}
-
-	if err = env.Accessor.Apply(s.SystemNamespace, configureYamlFilePath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func generateIstioYaml(helmDir string, s *settings, context resource.Context) (string, error) {
+func generateIstioYaml(helmDir string, s *Config, context resource.Context) (string, error) {
 	generatedYaml, err := renderIstioTemplate(helmDir, s, context)
 
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
@@ -152,7 +147,7 @@ func generateIstioYaml(helmDir string, s *settings, context resource.Context) (s
 	return generatedYaml, nil
 }
 
-func renderIstioTemplate(helmDir string, s *settings, context resource.Context) (string, error) {
+func renderIstioTemplate(helmDir string, s *Config, context resource.Context) (string, error) {
 	if err := helm.Init(helmDir, true); err != nil {
 		return "", err
 	}
@@ -218,16 +213,4 @@ func getCrdsYamlFiles(crdFilesDir string) (string, error) {
 		prevContent = test.JoinConfigs(content, prevContent)
 	}
 	return prevContent, nil
-}
-
-func closerFromFn(fn func() error) io.Closer {
-	return &closer{fn: fn}
-}
-
-type closer struct {
-	fn func() error
-}
-
-func (c *closer) Close() error {
-	return c.fn()
 }

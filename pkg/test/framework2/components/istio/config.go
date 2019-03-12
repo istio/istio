@@ -21,12 +21,13 @@ import (
 	"strings"
 	"time"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"istio.io/istio/pkg/test/framework2/resource"
 
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework2/common"
+	"github.com/mitchellh/go-homedir"
 
 	kubeCore "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -67,7 +68,7 @@ const (
 var (
 	helmValues string
 
-	settingsFromCommandline = &settings{
+	settingsFromCommandline = &Config{
 		ChartRepo:       DefaultIstioChartRepo,
 		SystemNamespace: DefaultSystemNamespace,
 		DeployIstio:     true,
@@ -88,8 +89,8 @@ var (
 	}
 )
 
-// settings provide kube-specific settings from flags.
-type settings struct {
+// Config provide kube-specific Config from flags.
+type Config struct {
 	// The namespace where the Istio components reside in a typical deployment (default: "istio-system").
 	SystemNamespace string
 
@@ -121,30 +122,30 @@ type settings struct {
 	Values map[string]string
 }
 
-// Deploy returns settings built from flags and environment variables.
-func newSettings(c *common.Settings) (*settings, error) {
+// DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
+func DefaultConfig(ctx resource.Context) (Config, error) {
 	// Make a local copy.
-	s := &(*settingsFromCommandline)
+	s := *settingsFromCommandline
 
 	if err := normalizeFile(&s.ChartDir); err != nil {
-		return nil, err
+		return Config{}, err
 	}
 
 	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
-		return nil, err
+		return Config{}, err
 	}
 
 	if err := normalizeFile(&s.CrdsFilesDir); err != nil {
-		return nil, err
+		return Config{}, err
 	}
 
 	var err error
 	s.Values, err = newHelmValues()
 	if err != nil {
-		return nil, err
+		return Config{}, err
 	}
 
-	if c.CIMode {
+	if ctx.Settings().CIMode {
 		s.DeployTimeout = DefaultDeployTimeout
 		s.UndeployTimeout = DefaultUndeployTimeout
 	} else {
@@ -158,7 +159,7 @@ func newSettings(c *common.Settings) (*settings, error) {
 func normalizeFile(path *string) error {
 	// If the path uses the homedir ~, expand the path.
 	var err error
-	(*path), err = homedir.Expand(*path)
+	*path, err = homedir.Expand(*path)
 	if err != nil {
 		return err
 	}
@@ -213,7 +214,7 @@ func parseHelmValues() (map[string]string, error) {
 }
 
 // String implements fmt.Stringer
-func (s *settings) String() string {
+func (s *Config) String() string {
 	result := ""
 
 	result += fmt.Sprintf("SystemNamespace: %s\n", s.SystemNamespace)

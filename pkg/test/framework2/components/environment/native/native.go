@@ -16,10 +16,10 @@ package native
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 

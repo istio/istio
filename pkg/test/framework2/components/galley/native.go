@@ -242,6 +242,6 @@ func (c *nativeComponent) Close() (err error) {
 		c.server = nil
 	}
 
-	scopes.Framework.Debugf("%s close complete (err:%v)", err)
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.FriendlyName(), err)
 	return
 }

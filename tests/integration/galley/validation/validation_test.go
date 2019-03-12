@@ -120,7 +120,8 @@ func TestMain(m *testing.M) {
 func setup(s *runtime.SuiteContext) error {
 	switch s.Environment().EnvironmentName() {
 	case environment.Kube:
-		return istio.Deploy(s)
+		_, err := istio.New(s, nil)
+		return err
 	case environment.Native:
 		s.Skip("Native environment is not supported for validation")
 		return nil
