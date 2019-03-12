@@ -76,16 +76,12 @@ mkdir -p "${BIN_DIR}"
 CP=${CP:-"cp"}
 TAR=${TAR:-"tar"}
 
-aspenctl_s3_path=s3://aspenmesh-ci-artifacts/aspenctl/jenkins-apiserver/215
 
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-linux" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
-
-  aws s3 cp "${aspenctl_s3_path}/aspenctl-linux-amd64" "${BIN_DIR}/aspenctl"
-  chmod 755 "${BIN_DIR}/aspenctl"
 
   ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-linux.tar.gz" "${PKG_NAME}-${VER_STRING}" \
@@ -98,9 +94,6 @@ function create_osx_archive() {
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-osx" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
-
-  aws s3 cp "${aspenctl_s3_path}/aspenctl-darwin-amd64" "${BIN_DIR}/aspenctl"
-  chmod 755 "${BIN_DIR}/aspenctl"
 
   ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-osx.tar.gz" "${PKG_NAME}-${VER_STRING}" \
