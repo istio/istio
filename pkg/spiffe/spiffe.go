@@ -52,7 +52,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 func MustGenSpiffeURI(ns, serviceAccount string) string {
 	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
-		log.Warn(err.Error())
+		log.Debug(err.Error())
 	}
 	return uri
 }
