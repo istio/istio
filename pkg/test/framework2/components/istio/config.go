@@ -21,6 +21,10 @@ import (
 	"strings"
 	"time"
 
+	yaml2 "gopkg.in/yaml.v2"
+
+	"istio.io/istio/pkg/test"
+
 	"istio.io/istio/pkg/test/framework2/resource"
 
 	"github.com/mitchellh/go-homedir"
@@ -120,6 +124,34 @@ type Config struct {
 
 	// Overrides for the Helm values file.
 	Values map[string]string
+}
+
+// Is mtls enabled. Check in Values flag and Values file.
+func (c *Config) IsMtlsEnabled() bool {
+	if c.Values["global.mtls.enabled"] == "true" {
+		return true
+	}
+
+	data, err := test.ReadConfigFile(filepath.Join(c.ChartDir, c.ValuesFile))
+	if err != nil {
+		return false
+	}
+	m := make(map[interface{}]interface{})
+	err = yaml2.Unmarshal([]byte(data), &m)
+	if err != nil {
+		return false
+	}
+	if m["global"] != nil {
+		switch globalVal := m["global"].(type) {
+		case map[interface{}]interface{}:
+			switch mtlsVal := globalVal["mtls"].(type) {
+			case map[interface{}]interface{}:
+				return mtlsVal["enabled"].(bool)
+			}
+		}
+	}
+
+	return false
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/deployment"
+
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/test/framework2/components/environment"
@@ -104,4 +106,14 @@ func (e *Environment) NewNamespace(s resource.Context, prefix string, inject boo
 func (e *Environment) ApplyContents(ns *Namespace, yml string) error {
 	_, err := e.Accessor.ApplyContents(ns.Name, yml)
 	return err
+}
+
+func (e *Environment) DeployYaml(namespace, yamlFile string) (*deployment.Instance, error) {
+	i := deployment.NewYamlDeployment(namespace, yamlFile)
+
+	err := i.Deploy(e.Accessor, true)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }
