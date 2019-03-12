@@ -2615,7 +2615,13 @@ fn eval() duration
 end`,
 	},
 	{
-		E:    `adur | "19ms"`,
+		E:    `duration("19ms")`,
+		Type: descriptor.DURATION,
+		I:    map[string]interface{}{},
+		R:    duration19,
+	},
+	{
+		E:    `adur | duration("19ms")`,
 		Type: descriptor.DURATION,
 		I:    map[string]interface{}{},
 		R:    duration19,
@@ -2625,13 +2631,14 @@ end`,
 fn eval() duration
   tresolve_i "adur"
   jnz L0
-  apush_i 19000000
+  apush_s "19ms"
+  call duration
 L0:
   ret
 end`,
 	},
 	{
-		E:    `adur | "19ms"`,
+		E:    `adur | duration("19ms")`,
 		Type: descriptor.DURATION,
 		I: map[string]interface{}{
 			"adur": duration20,

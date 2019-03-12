@@ -21,7 +21,6 @@ import (
 	"go/token"
 	"strconv"
 	"strings"
-	"time"
 
 	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
@@ -142,10 +141,13 @@ func newConstant(v string, vType dpb.ValueType) (*Constant, error) {
 		if unquoted, err = strconv.Unquote(v); err != nil {
 			return nil, err
 		}
-		if typedVal, err = time.ParseDuration(unquoted); err == nil {
-			vType = dpb.DURATION
-			break
-		}
+		// TODO: this is a breaking change as it changes how parsing is done but is necessary
+		/*
+			if typedVal, err = time.ParseDuration(unquoted); err == nil {
+				vType = dpb.DURATION
+				break
+			}
+		*/
 		// TODO: add support for other dpb ValueTypes serialized
 		// as string
 		typedVal = unquoted

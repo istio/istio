@@ -64,6 +64,21 @@ func TestExternTimestamp(t *testing.T) {
 	}
 }
 
+func TestExternDuration(t *testing.T) {
+	d, err := externDuration("1m")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d != time.Minute {
+		t.Fatalf("unexpected duration: %v", d)
+	}
+
+	d, err = externDuration("asdf")
+	if err == nil {
+		t.Fatalf("expected error for duration")
+	}
+}
+
 func TestExternTimestamp_Error(t *testing.T) {
 	_, err := externTimestamp("AAA")
 	if err == nil {

@@ -263,7 +263,7 @@ spec:
     requestSize: request.size | 0
     requestId: request.headers["x-request-id"] | ""
     clientTraceId: request.headers["x-client-trace-id"] | ""
-    latency: response.duration | "0ms"
+    latency: response.duration | duration("0ms")
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     requestedServerName: connection.requested_server_name | ""
     userAgent: request.useragent | ""
@@ -309,7 +309,7 @@ spec:
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
     protocol: context.protocol | "tcp"
-    connectionDuration: connection.duration | "0ms"
+    connectionDuration: connection.duration | duration("0ms")
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     requestedServerName: connection.requested_server_name | ""
     receivedBytes: connection.received.bytes | 0
@@ -402,7 +402,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: response.duration | "0ms"
+  value: response.duration | duration("0ms")
   dimensions:
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
     source_workload: source.workload.name | "unknown"

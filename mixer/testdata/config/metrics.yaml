@@ -33,7 +33,7 @@ metadata:
   name: requestduration
   namespace: istio-system
 spec:
-  value: response.duration | "0ms"
+  value: response.duration | duration("0ms")
   dimensions:
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"

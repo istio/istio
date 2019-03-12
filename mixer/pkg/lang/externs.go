@@ -42,6 +42,7 @@ var Externs = map[string]interpreter.Extern{
 	"timestamp_le":      interpreter.ExternFromFn("timestamp_le", externTimestampLe),
 	"timestamp_gt":      interpreter.ExternFromFn("timestamp_gt", externTimestampGt),
 	"timestamp_ge":      interpreter.ExternFromFn("timestamp_ge", externTimestampGe),
+	"duration":          interpreter.ExternFromFn("duration", externDuration),
 	"dnsName":           interpreter.ExternFromFn("dnsName", ExternDNSName),
 	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", ExternDNSNameEqual),
 	"email":             interpreter.ExternFromFn("email", ExternEmail),
@@ -67,6 +68,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 	{
 		Name:          "timestamp",
 		ReturnType:    config.TIMESTAMP,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "duration",
+		ReturnType:    config.DURATION,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
@@ -170,6 +176,14 @@ func externTimestampGt(t1 time.Time, t2 time.Time) bool {
 
 func externTimestampGe(t1 time.Time, t2 time.Time) bool {
 	return t1 == t2 || t2.Before(t1)
+}
+
+func externDuration(in string) (time.Duration, error) {
+	d, err := time.ParseDuration(in)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert %q to DURATION", in)
+	}
+	return d, nil
 }
 
 // This IDNA profile is for performing validations, but does not otherwise modify the string.
