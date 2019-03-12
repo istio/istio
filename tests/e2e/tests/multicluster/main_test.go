@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
-	"strconv"
+	// "strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -161,7 +161,7 @@ func setTestConfig() error {
 	tc.CommonConfig = cc
 
 	if tc.Kube.RemoteKubeConfig == "" {
-		return fmt.Errorf("No RemoteKubeConfig")
+		return fmt.Errorf("no RemoteKubeConfig")
 	}
 
 	appDir, err := ioutil.TempDir(os.TempDir(), "split_horizon_test")
@@ -381,71 +381,71 @@ func (t *testConfig) Teardown() (err error) {
 	return
 }
 
-func getApps() []framework.App {
-	// appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
-	return []framework.App{
-		// deploy a healthy mix of apps, with and without proxy
-		// getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
-		// getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
-		// getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
-		// getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
-		// getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
-		// getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
-		// getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
-		// getStatefulSet("statefulset", 19090, true),
-	}
-}
+// func getApps() []framework.App {
+// 	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
+// 	return []framework.App{
+// 		// deploy a healthy mix of apps, with and without proxy
+// 		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+// 		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+// 		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+// 		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+// 		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+// 		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+// 		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
+// 		getStatefulSet("statefulset", 19090, true),
+// 	}
+// }
 
-func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
-	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
-	healthPort := "true"
+// func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
+// 	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
+// 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
+// 	healthPort := "true"
 
-	// Return the config.
-	return framework.App{
-		AppYamlTemplate: "testdata/app.yaml.tmpl",
-		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
-			"service":         serviceName,
-			"deployment":      deploymentName,
-			"replicas":        strconv.Itoa(replicas),
-			"port1":           strconv.Itoa(port1),
-			"port2":           strconv.Itoa(port2),
-			"port3":           strconv.Itoa(port3),
-			"port4":           strconv.Itoa(port4),
-			"port5":           strconv.Itoa(port5),
-			"port6":           strconv.Itoa(port6),
-			"version":         version,
-			"istioNamespace":  tc.Kube.Namespace,
-			"injectProxy":     strconv.FormatBool(injectProxy),
-			"headless":        strconv.FormatBool(headless),
-			"serviceAccount":  strconv.FormatBool(serviceAccount),
-			"healthPort":      healthPort,
-			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
-			"createService":   strconv.FormatBool(createService),
-		},
-		KubeInject: injectProxy,
-	}
-}
+// 	// Return the config.
+// 	return framework.App{
+// 		AppYamlTemplate: "testdata/app.yaml.tmpl",
+// 		Template: map[string]string{
+// 			"Hub":             tc.Kube.PilotHub(),
+// 			"Tag":             tc.Kube.PilotTag(),
+// 			"service":         serviceName,
+// 			"deployment":      deploymentName,
+// 			"replicas":        strconv.Itoa(replicas),
+// 			"port1":           strconv.Itoa(port1),
+// 			"port2":           strconv.Itoa(port2),
+// 			"port3":           strconv.Itoa(port3),
+// 			"port4":           strconv.Itoa(port4),
+// 			"port5":           strconv.Itoa(port5),
+// 			"port6":           strconv.Itoa(port6),
+// 			"version":         version,
+// 			"istioNamespace":  tc.Kube.Namespace,
+// 			"injectProxy":     strconv.FormatBool(injectProxy),
+// 			"headless":        strconv.FormatBool(headless),
+// 			"serviceAccount":  strconv.FormatBool(serviceAccount),
+// 			"healthPort":      healthPort,
+// 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+// 			"createService":   strconv.FormatBool(createService),
+// 		},
+// 		KubeInject: injectProxy,
+// 	}
+// }
 
-func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+// func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 
-	// Return the config.
-	return framework.App{
-		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
-		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
-			"service":         service,
-			"port":            strconv.Itoa(port),
-			"istioNamespace":  tc.Kube.Namespace,
-			"injectProxy":     strconv.FormatBool(injectProxy),
-			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
-		},
-		KubeInject: injectProxy,
-	}
-}
+// 	// Return the config.
+// 	return framework.App{
+// 		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+// 		Template: map[string]string{
+// 			"Hub":             tc.Kube.PilotHub(),
+// 			"Tag":             tc.Kube.PilotTag(),
+// 			"service":         service,
+// 			"port":            strconv.Itoa(port),
+// 			"istioNamespace":  tc.Kube.Namespace,
+// 			"injectProxy":     strconv.FormatBool(injectProxy),
+// 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+// 		},
+// 		KubeInject: injectProxy,
+// 	}
+// }
 
 // ClientRequestForError makes a request from inside the specified k8s container. The request is expected
 // to fail and the error is returned.
@@ -545,15 +545,15 @@ type request struct {
 }
 
 // NewAccessLogs creates an initialized accessLogs instance.
-func newAccessLogs() *accessLogs {
-	al := make(map[string]map[string][]request)
-	for cluster := range tc.Kube.Clusters {
-		al[cluster] = make(map[string][]request)
-	}
-	return &accessLogs{
-		logs: al,
-	}
-}
+// func newAccessLogs() *accessLogs {
+// 	al := make(map[string]map[string][]request)
+// 	for cluster := range tc.Kube.Clusters {
+// 		al[cluster] = make(map[string][]request)
+// 	}
+// 	return &accessLogs{
+// 		logs: al,
+// 	}
+// }
 
 // add an access log entry for an app
 func (a *accessLogs) add(cluster, app, id, desc string) {

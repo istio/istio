@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-const maxDeploymentTimeout = 480 * time.Second
+// const maxDeploymentTimeout = 480 * time.Second
 const propagationTime = 5 * time.Second
 
 func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[string][]string) error {
