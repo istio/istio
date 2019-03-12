@@ -34,8 +34,7 @@ data:
     {{- end }}
 
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerCheckServer: istio-pol
-    icy.{{ .Values.global.policyNamespace }}.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:15004
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
@@ -58,10 +57,13 @@ data:
 
 
     # This is the k8s ingress service name, update if you used a different name
+    {{- if .Values.ingress }}
+    {{- if .Values.ingress.ingressService }}
     ingressService: "{{ .Values.ingress.ingressService }}"
     ingressControllerMode: "{{ .Values.ingress.ingressControllerMode }}"
     ingressClass: "{{ .Values.ingress.ingressClass }}"
-
+    {{- end }}
+    {{- end }}
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: {{ .Values.global.sds.udsPath }}

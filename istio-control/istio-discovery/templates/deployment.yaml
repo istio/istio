@@ -11,9 +11,6 @@ metadata:
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
-  annotations:
-    checksum/config-volume-envoy: {{ print $.Template.BasePath "/configmap-envoy.yaml" | sha256sum }}
-    checksum/config-volume: {{ print $.Template.BasePath "/configmap.yaml" | sha256sum }}
 spec:
 {{- if not .Values.autoscaleMin }}
   replicas: {{ .Values.replicaCount }}
@@ -30,6 +27,8 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        checksum/config-volume-envoy: {{ print $.Template.BasePath "/configmap-envoy.yaml" | sha256sum }}
+        checksum/config-volume: {{ print $.Template.BasePath "/configmap.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
