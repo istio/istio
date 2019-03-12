@@ -1,16 +1,16 @@
-//  Copyright 2019 Istio Authors
+// Copyright 2019 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package echo
 
@@ -25,6 +25,10 @@ import (
 	"strconv"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/resource"
+
+	"istio.io/istio/pkg/test/framework/api/components"
+
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
 
@@ -32,19 +36,12 @@ import (
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/api"
 )
 
 var (
-	_ components.Echo  = &nativeComponent{}
-	_ api.Component    = &nativeComponent{}
-	_ io.Closer        = &nativeComponent{}
-	_ api.Configurable = &nativeComponent{}
+	_ Instance          = &nativeComponent{}
+	_ resource.Instance = &nativeComponent{}
+	_ io.Closer         = &nativeComponent{}
 
 	ports = model.PortList{
 		{
@@ -74,38 +71,43 @@ var (
 	}
 )
 
-// NewNativeComponent factory function for the component
-func NewNativeComponent() (api.Component, error) {
-	return &nativeComponent{}, nil
-}
-
 type nativeComponent struct {
-	scope     lifecycle.Scope
-	endpoints []components.EchoEndpoint
+	endpoints []EchoEndpoint
 	client    *echo.Client
-	config    components.EchoConfig
+	config    Config
 }
 
-func (c *nativeComponent) Descriptor() component.Descriptor {
-	return descriptors.Echo
-}
-
-func (c *nativeComponent) Scope() lifecycle.Scope {
-	return c.scope
-}
-
-func (c *nativeComponent) Configure(config component.Configuration) error {
-	echoConfig, ok := config.(components.EchoConfig)
-	if !ok {
-		return fmt.Errorf("supplied configuration was not an Config, got %T (%v)", config, config)
+// New returns a new instance of echo.
+func New(ctx resource.Context, cfg Config) (Instance, error) {
+	n := &nativeComponent{
+		config: cfg,
 	}
-	c.config = echoConfig
-	return nil
+
+	if err := n.Start(ctx); err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
+// NewOrFail returns a new instance of echo, or fails t if there is an error.
+func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
+	t.Helper()
+	i, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("echo.NewOrFail: %v", err)
+	}
+
+	ctx.TrackResource(i)
+	return i
+}
+
+func (c *nativeComponent) FriendlyName() string {
+	return fmt.Sprintf("[Echo(native) %s]", c.config.Service)
 }
 
 // Start implements the api.Component interface
-func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
-	c.scope = scope
+func (c *nativeComponent) Start(ctx resource.Context) (err error) {
 
 	// Setup a close function to close the echo instance on an error.
 	defer func() {
@@ -137,7 +139,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	// Create the endpoints for the app.
 	var grpcEndpoint *nativeEndpoint
 	ports := app.GetPorts()
-	endpoints := make([]components.EchoEndpoint, len(ports))
+	endpoints := make([]EchoEndpoint, len(ports))
 	for i, port := range ports {
 		ep := &nativeEndpoint{
 			owner: c,
@@ -185,16 +187,16 @@ func (c *nativeComponent) Close() (err error) {
 	return
 }
 
-func (c *nativeComponent) Config() components.EchoConfig {
+func (c *nativeComponent) Config() Config {
 	return c.config
 }
 
-func (c *nativeComponent) Endpoints() []components.EchoEndpoint {
+func (c *nativeComponent) Endpoints() []EchoEndpoint {
 	return c.endpoints
 }
 
-func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []components.EchoEndpoint {
-	eps := make([]components.EchoEndpoint, 0, len(c.endpoints))
+func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint {
+	eps := make([]EchoEndpoint, 0, len(c.endpoints))
 	for _, ep := range c.endpoints {
 		if ep.Protocol() == protocol {
 			eps = append(eps, ep)
@@ -203,7 +205,7 @@ func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []compon
 	return eps
 }
 
-func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoCallOptions) ([]*echo.ParsedResponse, error) {
+func (c *nativeComponent) Call(ee EchoEndpoint, opts CallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := ee.(*nativeEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -252,7 +254,7 @@ func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoC
 	return resp, nil
 }
 
-func (c *nativeComponent) CallOrFail(ee components.EchoEndpoint, opts components.EchoCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (c *nativeComponent) CallOrFail(ee EchoEndpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := c.Call(ee, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -269,7 +271,7 @@ func (e *nativeEndpoint) Name() string {
 	return e.port.Name
 }
 
-func (e *nativeEndpoint) Owner() components.Echo {
+func (e *nativeEndpoint) Owner() Instance {
 	return e.owner
 }
 
@@ -277,7 +279,7 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *nativeEndpoint) makeURL(opts components.EchoCallOptions) *url.URL {
+func (e *nativeEndpoint) makeURL(opts CallOptions) *url.URL {
 	protocol := string(opts.Protocol)
 	switch protocol {
 	case components.AppProtocolHTTP:

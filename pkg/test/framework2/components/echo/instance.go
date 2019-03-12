@@ -1,49 +1,47 @@
-//  Copyright 2019 Istio Authors
+// Copyright 2019 Istio Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-package components
+package echo
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/resource"
 	"net/http"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/framework/api/component"
 )
 
-var _ component.Configuration = &EchoConfig{}
-
 // Protocol enumerates the protocol options for calling an EchoEndpoint endpoint.
-type EchoProtocol string
+type Protocol string
 
 const (
 	// EchoProtocolHTTP calls echo with HTTP
-	EchoProtocolHTTP = "http"
+	EchoProtocolHTTP Protocol = "http"
 	// EchoProtocolGRPC calls echo with GRPC
-	EchoProtocolGRPC = "grpc"
+	EchoProtocolGRPC Protocol = "grpc"
 	// EchoProtocolWebSocket calls echo with WebSocket
-	EchoProtocolWebSocket = "ws"
+	EchoProtocolWebSocket Protocol = "ws"
 )
 
-// Echo is a component that provides access to the deployed echo service.
-type Echo interface {
-	component.Instance
+// Instance is a component that provides access to the deployed echo service.
+type Instance interface {
+	resource.Instance
 
 	// Config returns the configuration of the Echo instance.
-	Config() EchoConfig
+	Config() Config
 
 	// Endpoints returns the endpoints that are available for calling the Echo instance.
 	Endpoints() []EchoEndpoint
@@ -52,12 +50,12 @@ type Echo interface {
 	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
 
 	// Call makes a call from this Echo instance to an EchoEndpoint from another instance.
-	Call(e EchoEndpoint, opts EchoCallOptions) ([]*echo.ParsedResponse, error)
-	CallOrFail(e EchoEndpoint, opts EchoCallOptions, t testing.TB) []*echo.ParsedResponse
+	Call(e EchoEndpoint, opts CallOptions) ([]*echo.ParsedResponse, error)
+	CallOrFail(e EchoEndpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
 // Config defines the options for creating an Echo component.
-type EchoConfig struct {
+type Config struct {
 	// Service indicates the service name of the Echo application.
 	Service string
 
@@ -66,17 +64,17 @@ type EchoConfig struct {
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)
-func (ec EchoConfig) String() string {
+func (ec Config) String() string {
 	return fmt.Sprint("{service: ", ec.Service, ", version: ", ec.Version, "}")
 }
 
 // CallOptions defines options for calling a EchoEndpoint.
-type EchoCallOptions struct {
+type CallOptions struct {
 	// Secure indicates whether a secure connection should be established to the endpoint.
 	Secure bool
 
 	// Protocol indicates the protocol to be used.
-	Protocol EchoProtocol
+	Protocol Protocol
 
 	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
 	UseShortHostname bool
@@ -91,11 +89,6 @@ type EchoCallOptions struct {
 // EchoEndpoint represents a single endpoint in an Echo instance.
 type EchoEndpoint interface {
 	Name() string
-	Owner() Echo
+	Owner() Instance
 	Protocol() model.Protocol
-}
-
-// Get an echo instance from the repository.
-func GetEcho(req component.Requirement, e component.Repository, t testing.TB) Echo {
-	return e.GetComponentOrFail(req, t).(Echo)
 }
