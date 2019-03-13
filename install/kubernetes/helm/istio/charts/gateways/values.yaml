@@ -111,6 +111,8 @@ istio-ingressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  podAntiAffinityLabelSelector: {}
+  podAffinityTermLabelSelector: {}
 
 istio-egressgateway:
   enabled: false
@@ -158,6 +160,8 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  podAntiAffinityLabelSelector: {}
+  podAffinityTermLabelSelector: {}
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -207,3 +211,5 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
   nodeSelector: {}
+  podAntiAffinityLabelSelector: {}
+  podAffinityTermLabelSelector: {}

@@ -41,3 +41,50 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{- define "podAntiAffinity" }}
+{{- if or .Values.podAntiAffinityLabelSelector .Values.podAffinityTermLabelSelector}}
+  podAntiAffinity:
+    {{- if .Values.podAntiAffinityLabelSelector }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
+    {{- end }}
+    {{- if or .Values.podAffinityTermLabelSelector}}
+    preferredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityRequiredDuringScheduling" }}
+      {{- range $key, $val := .Values.podAntiAffinityLabelSelector }}
+      - labelSelector:
+        matchExpressions:
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        topologyKey: "kubernetes.io/hostname"
+      - labelSelector:
+        matchExpressions:
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        topologyKey: "failure-domain.beta.kubernetes.io/zone"
+        {{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityPreferredDuringScheduling" }}
+      - weight: 100
+      podAffinityTerm:
+      {{- range $key, $val := .Values.podAffinityTermLabelSelector }}
+      - labelSelector:
+        matchExpressions:
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val }}
+        topologyKey: failure-domain.beta.kubernetes.io/region
+        {{- end }}
+{{- end }}

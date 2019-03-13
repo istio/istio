@@ -28,6 +28,8 @@ security:
   usernameKey: username
   passphraseKey: passphrase
 nodeSelector: {}
+podAntiAffinityLabelSelector: {}
+podAffinityTermLabelSelector: {}
 contextPath: /grafana
 service:
   annotations: {}

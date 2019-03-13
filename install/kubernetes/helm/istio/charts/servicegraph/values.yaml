@@ -5,6 +5,8 @@ enabled: false
 replicaCount: 1
 image: servicegraph
 nodeSelector: {}
+podAntiAffinityLabelSelector: {}
+podAffinityTermLabelSelector: {}
 service:
   annotations: {}
   name: http

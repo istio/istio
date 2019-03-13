@@ -5,6 +5,8 @@ enabled: false
 
 provider: jaeger
 nodeSelector: {}
+podAntiAffinityLabelSelector: {}
+podAffinityTermLabelSelector: {}
 
 jaeger:
   hub: docker.io/jaegertracing

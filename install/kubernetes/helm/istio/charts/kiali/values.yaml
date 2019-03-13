@@ -7,6 +7,8 @@ hub: docker.io/kiali
 tag: v0.14
 contextPath: /kiali
 nodeSelector: {}
+podAntiAffinityLabelSelector: {}
+podAffinityTermLabelSelector: {}
 ingress:
   enabled: false
   ## Used to create an Ingress record.
