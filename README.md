@@ -144,7 +144,7 @@ it is possible to use other tools that create the expected certificates for Isti
 iop istio-system istio-system-security $IBASE/istio-system-security
 ```
 
-Important options: the 'dnsCerts' list allows associating DNS certs with specific service accounts.
+**Important options**: the 'dnsCerts' list allows associating DNS certs with specific service accounts.
 This should be used if you plan to use Galley or Sidecar injector in different namespaces.
 By default it supports "istio-control", "istio-master" namespaces used in the examples.
 
@@ -195,7 +195,7 @@ and it is recommended to have Pilot running in each region and in multiple avail
                --set global.istioNamespace=istio-master \
                --set global.configNamespace=istio-master \
                --set global.telemetryNamespace=istio-telemetry-master \
-               --set global.policyNamespace=istio-policy-maste
+               --set global.policyNamespace=istio-policy-master
 
 ```
 
@@ -241,9 +241,19 @@ Pilot instance in the ingress namespace. This will be fixed in future releases.
 Note that running a dedicated Pilot for ingress/gateways is supported and recommended for very large sites, 
 but in the case of K8S ingress it is currently required.
 
+```bash
+    iop istio-ingress istio-ingress $IBASE/istio-installer/gateways/istio-ingress  --set global.istioNamespace=istio-master
+```
+
 ## Telemetry 
 
-TODO - see example
+```bash
+    iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-master
+
+    iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-master
+
+    iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-master
+```
 
 ## Policy 
 
