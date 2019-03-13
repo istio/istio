@@ -78,7 +78,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 					// Insert into http connection manager
-					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsProxyVersionGE11(in.Node))
+					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
 				} else {
 					// http listener, tcp filter
 					insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
@@ -220,7 +220,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 }
 
 func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
-	envoyFilter *networking.EnvoyFilter_Filter, is11 bool) {
+	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
@@ -264,7 +264,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 	filterStruct := listener.Filter{
 		Name: xdsutil.HTTPConnectionManager,
 	}
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		filterStruct.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
 	} else {
 		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
