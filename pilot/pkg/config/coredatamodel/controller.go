@@ -141,6 +141,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 		if obj.Metadata.CreateTime != nil {
 			var err error
 			if createTime, err = types.TimestampFromProto(obj.Metadata.CreateTime); err != nil {
+				// Do not return an error, instead discard the resources so that Pilot can process the rest.
 				log.Warnf("Discarding incoming MCP resource: invalid resource timestamp (%s/%s): %v", namespace, name, err)
 				continue
 			}
@@ -163,6 +164,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 		}
 
 		if err := schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
+			// Do not return an error, instead discard the resources so that Pilot can process the rest.
 			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 			continue
 		}
