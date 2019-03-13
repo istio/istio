@@ -1,3 +1,13 @@
+# THIS IS USED ONLY TO PREVENT TILLER FROM DELETING THE CRDS ON UPGRADE.
+# ON NEW INSTALLS YOU SHOULD EITHER USE
+#  'kubectl apply -f  install/kubernetes/helm/istio-init/files' or
+#  install istio-init with helm template or helm tiller.
+
+# The plan is to switch to a modular installer and/or operator, however due to
+# tiller behavior we will need to either modify the tiller database using a tool,
+# or keep this file forever. The content is identical with the new CRDs.
+
+# The 'if' has no effect, helm template is ignoring the comments in yaml. It was a bug in 1.0.
 # {{ if or .Values.global.crds (semverCompare ">=2.10.0-0" .Capabilities.TillerVersion.SemVer) }}
 # these CRDs only make sense when pilot is enabled
 # {{- if .Values.pilot.enabled }}
