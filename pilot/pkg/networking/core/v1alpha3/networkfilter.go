@@ -54,7 +54,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		acc := &accesslog.AccessLog{
 			Name: xdsutil.FileAccessLog,
 		}
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			buildAccessLog(fl, env)
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
@@ -68,7 +68,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
 	}
-	if util.IsProxyVersionGE11(node) {
+	if util.IsXDSMarshalingToAnyEnabled(node) {
 		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
 		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
@@ -154,7 +154,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.
-func buildMongoFilter(statPrefix string, is11 bool) listener.Filter {
+func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -166,7 +166,7 @@ func buildMongoFilter(statPrefix string, is11 bool) listener.Filter {
 	out := listener.Filter{
 		Name: xdsutil.MongoProxy,
 	}
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
 		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
@@ -191,7 +191,7 @@ func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model
 }
 
 // buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
-func buildMySQLFilter(statPrefix string, is11 bool) listener.Filter {
+func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
 	config := &mysql_proxy.MySQLProxy{
 		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
 	}
@@ -200,7 +200,7 @@ func buildMySQLFilter(statPrefix string, is11 bool) listener.Filter {
 		Name: xdsutil.MySQLProxy,
 	}
 
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
 		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}

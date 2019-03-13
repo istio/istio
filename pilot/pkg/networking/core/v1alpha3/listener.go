@@ -212,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
@@ -1426,7 +1426,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: xdsutil.FileAccessLog,
 		}
 
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			buildAccessLog(fl, env)
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
@@ -1592,7 +1592,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 				filter := listener.Filter{
 					Name: xdsutil.HTTPConnectionManager,
 				}
-				if util.IsProxyVersionGE11(pluginParams.Node) {
+				if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
 					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
 				} else {
 					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
