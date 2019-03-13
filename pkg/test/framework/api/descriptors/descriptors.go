@@ -116,15 +116,6 @@ var (
 		},
 	}
 
-	HealthCheckApps = component.Descriptor{
-		Key:               component.ID("apps-healthcheck").GetKey(),
-		IsSystemComponent: false,
-		Requires: []component.Requirement{
-			&ids.Pilot,
-			&ids.Environment,
-		},
-	}
-
 	// BookInfo component
 	BookInfo = component.Descriptor{
 		Key:               ids.BookInfo.GetKey(),

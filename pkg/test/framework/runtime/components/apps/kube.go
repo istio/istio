@@ -157,104 +157,104 @@ spec:
 )
 
 var (
-	deploymentFactories = []*deploymentFactory{
+	deploymentFactories = []*KubeApp{
 		{
-			deployment:     "t",
-			service:        "t",
-			version:        "unversioned",
-			port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
-			injectProxy:    false,
-			headless:       false,
-			serviceAccount: false,
+			Deployment:     "t",
+			Service:        "t",
+			Version:        "unversioned",
+			Port1:          8080,
+			Port2:          80,
+			Port3:          9090,
+			Port4:          90,
+			Port5:          7070,
+			Port6:          70,
+			InjectProxy:    false,
+			Headless:       false,
+			ServiceAccount: false,
 		},
 		{
-			deployment:     "a",
-			service:        "a",
-			version:        "v1",
-			port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: false,
+			Deployment:     "a",
+			Service:        "a",
+			Version:        "v1",
+			Port1:          8080,
+			Port2:          80,
+			Port3:          9090,
+			Port4:          90,
+			Port5:          7070,
+			Port6:          70,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: false,
 		},
 		{
-			deployment:     "b",
-			service:        "b",
-			version:        "unversioned",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
+			Deployment:     "b",
+			Service:        "b",
+			Version:        "unversioned",
+			Port1:          80,
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
 		},
 		{
-			deployment:     "c-v1",
-			service:        "c",
-			version:        "v1",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
+			Deployment:     "c-v1",
+			Service:        "c",
+			Version:        "v1",
+			Port1:          80,
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
 		},
 		{
-			deployment:     "c-v2",
-			service:        "c",
-			version:        "v2",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
+			Deployment:     "c-v2",
+			Service:        "c",
+			Version:        "v2",
+			Port1:          80,
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
 		},
 		{
-			deployment:     "d",
-			service:        "d",
-			version:        "per-svc-auth",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
+			Deployment:     "d",
+			Service:        "d",
+			Version:        "per-svc-auth",
+			Port1:          80,
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
 		},
 		{
-			deployment:     "headless",
-			service:        "headless",
-			version:        "unversioned",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       true,
-			serviceAccount: true,
+			Deployment:     "headless",
+			Service:        "headless",
+			Version:        "unversioned",
+			Port1:          80,
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       true,
+			ServiceAccount: true,
 		},
 	}
 
@@ -268,8 +268,7 @@ func appSelector(serviceName string) string {
 }
 
 type kubeComponent struct {
-	scope lifecycle.Scope
-	// requiredApps is specified by the test.
+	scope        lifecycle.Scope
 	requiredApps KubeAppsConfig
 	deployments  []*deployment.Instance
 	apps         []components.App
@@ -278,11 +277,6 @@ type kubeComponent struct {
 
 // KubeAppsConfig specifies Kubernetes app configuration.
 type KubeAppsConfig []KubeApp
-
-// KubeApp specifies the configuration for a Kubernetes app.
-type KubeApp struct {
-	Name string
-}
 
 // String implements String interface required for api.Configuration.
 func (ka KubeAppsConfig) String() string {
@@ -326,7 +320,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 	c.env = env
 	namespace := env.NamespaceForScope(scope)
 
-	// If test not require their apps explicitly, we deploy a suite of default apps.
+	// If the test does not explicitly describe the apps it needs, deploy a suite of default apps.
 	if len(c.requiredApps) == 0 {
 		// Apply all the configs for the deployments.
 		for i, factory := range deploymentFactories {
@@ -341,45 +335,31 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		for _, d := range deploymentFactories {
 			pod, err := d.waitUntilPodIsReady(env, scope)
 			if err != nil {
-				return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
+				return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.Deployment))
 			}
-			client, err := newKubeApp(d.service, namespace, pod, env)
+			client, err := newKubeApp(d.Service, namespace, pod, env)
 			if err != nil {
-				return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
+				return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.Deployment))
 			}
 			c.apps = append(c.apps, client)
 		}
 		return nil
 	}
 
-	// Only deploy apps required by the test.
+	// Deploy the apps required by the test.
 	for _, app := range c.requiredApps {
-		factory := deploymentFactory{
-			deployment:     app.Name,
-			service:        app.Name,
-			version:        "v1",
-			port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-		}
-		d, err := factory.newDeployment(env, scope)
+		d, err := app.newDeployment(env, scope)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", factory.deployment))
+			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
 		}
 		c.deployments = append(c.deployments, d)
-		pod, err := factory.waitUntilPodIsReady(env, scope)
+		pod, err := app.waitUntilPodIsReady(env, scope)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Name))
+			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Deployment))
 		}
-		client, err := newKubeApp(app.Name, namespace, pod, env)
+		client, err := newKubeApp(app.Service, namespace, pod, env)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Name))
+			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
 		}
 		c.apps = append(c.apps, client)
 	}
@@ -639,22 +619,24 @@ func (a *kubeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOp
 	return r
 }
 
-type deploymentFactory struct {
-	deployment     string
-	service        string
-	version        string
-	port1          int
-	port2          int
-	port3          int
-	port4          int
-	port5          int
-	port6          int
-	injectProxy    bool
-	headless       bool
-	serviceAccount bool
+// KubeApp describes the configuration, including port and deployment, service name.
+// TODO(incfly): document each option and rename it to be more meaningful.
+type KubeApp struct {
+	Deployment     string
+	Service        string
+	Version        string
+	Port1          int
+	Port2          int
+	Port3          int
+	Port4          int
+	Port5          int
+	Port6          int
+	InjectProxy    bool
+	Headless       bool
+	ServiceAccount bool
 }
 
-func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
+func (d *KubeApp) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
 	helmValues := e.HelmValueMap()
 	result, err := e.EvaluateWithParams(template, map[string]string{
 		"Hub":             helmValues[kube.HubValuesKey],
@@ -685,7 +667,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 	return out, nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope) (kubeApiCore.Pod, error) {
+func (d *KubeApp) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope) (kubeApiCore.Pod, error) {
 	ns := e.NamespaceForScope(scope)
 
 	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
@@ -700,7 +682,7 @@ func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, scope lifec
 	return pods[0], nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, scope lifecycle.Scope) error {
+func (d *KubeApp) waitUntilPodIsDeleted(e *kube.Environment, scope lifecycle.Scope) error {
 	ns := e.NamespaceForScope(scope)
 
 	podFetchFunc := e.NewPodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))

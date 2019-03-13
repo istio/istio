@@ -59,10 +59,23 @@ func TestMtlsHealthCheck(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
+	healthcheckApp := KubeApp{
+		deployment:     "healthcheck",
+		service:        "healthcheck",
+		version:        "v1",
+		port1:          80,
+		port2:          8080,
+		port3:          90,
+		port4:          9090,
+		port5:          70,
+		port6:          7070,
+		InjectProxy:    true,
+		Headless:       false,
+		serviceAccount: true,
+	}
 	// Deploy app now.
 	kubeApps := &descriptors.Apps
-	kubeApps.Configuration = apps.KubeAppsConfig{apps.KubeApp{Name: "healthcheck"}}
+	kubeApps.Configuration = apps.KubeAppsConfig{healthcheckApp}
 	ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
 	apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
 
