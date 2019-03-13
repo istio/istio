@@ -141,7 +141,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 		if obj.Metadata.CreateTime != nil {
 			var err error
 			if createTime, err = types.TimestampFromProto(obj.Metadata.CreateTime); err != nil {
-				log.Warnf("Discarding Incoming MCP Resource: invalid resource timestamp (%s/%s): %v", namespace, name, err)
+				log.Warnf("Discarding incoming MCP resource: invalid resource timestamp (%s/%s): %v", namespace, name, err)
 				continue
 			}
 		}
