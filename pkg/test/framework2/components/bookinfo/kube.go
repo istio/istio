@@ -80,12 +80,12 @@ func deployBookInfoService(ctx core.Context, bookinfoYamlFile string) (err error
 		}
 	}()
 
-	ns, err := e.NewNamespace(ctx, "bookinfo", true)
+	ns, err := e.AllocateNamespace("bookinfo", true)
 	if err != nil {
 		return err
 	}
 
 	yamlFile := path.Join(env.BookInfoKube, bookinfoYamlFile)
-	_, err = e.DeployYaml(ns.Name, yamlFile)
+	_, err = e.DeployYaml(ns.Name(), yamlFile)
 	return
 }

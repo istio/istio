@@ -16,6 +16,7 @@ package tmpl
 
 import (
 	"bytes"
+	"testing"
 	"text/template"
 )
 
@@ -34,4 +35,14 @@ func Evaluate(tpl string, data interface{}) (string, error) {
 	}
 
 	return b.String(), nil
+}
+
+// EvaluateOrFail calls Evaluate and fails tests if it returns error.
+func EvaluateOrFail(t *testing.T, tpl string, data interface{}) (string) {
+	t.Helper()
+	s, err := Evaluate(tpl, data)
+	if err != nil{
+		t.Fatalf("tmpl.EvaluateOrFail: %v", err)
+	}
+	return s
 }

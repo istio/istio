@@ -60,7 +60,7 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 func testMetric(t *testing.T, ctx core.Context, label string, labelValue string) {
 	t.Helper()
 
-	g := galley.NewOrFail(t, ctx)
+	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 	g.ApplyConfigOrFail(t,
 		test.JoinConfigs(
@@ -126,7 +126,7 @@ func TestTcpMetric(t *testing.T) {
 		t.Fatalf("Could not deploy mongodb: %v", err)
 	}
 
-	g := galley.NewOrFail(t, ctx)
+	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
 	g.ApplyConfigOrFail(t,

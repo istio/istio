@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -89,7 +88,7 @@ type kubeComponent struct {
 	*client
 
 	kubeEnv   *kube.Environment
-	namespace *kube.Namespace
+	namespace core.Namespace
 
 	forwarder  testKube.PortForwarder
 	deployment *deployment.Instance
@@ -115,7 +114,7 @@ func newKube(ctx core.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = env.NewNamespace(ctx, "policybackend", false)
+	c.namespace, err = env.AllocateNamespace("policybackend", false)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +132,13 @@ func newKube(ctx core.Context) (Instance, error) {
 		return nil, err
 	}
 
-	c.deployment = deployment.NewYamlContentDeployment(c.namespace.Name, yamlContent)
+	c.deployment = deployment.NewYamlContentDeployment(c.namespace.Name(), yamlContent)
 	if err = c.deployment.Deploy(env.Accessor, false); err != nil {
 		scopes.CI.Info("Error applying PolicyBackend deployment config")
 		return nil, err
 	}
 
-	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name, "app=policy-backend", "version=test")
+	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
 	if err = env.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return nil, err
@@ -152,7 +151,7 @@ func newKube(ctx core.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	svc, err = env.GetService(c.namespace.Name, "policy-backend")
+	svc, err = env.GetService(c.namespace.Name(), "policy-backend")
 	if err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
@@ -185,7 +184,7 @@ func newKube(ctx core.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) CreateConfigSnippet(name string) string {
+func (c *kubeComponent) CreateConfigSnippet(name string, namespace string) string {
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
 kind: bypass
@@ -209,9 +208,9 @@ func (c *kubeComponent) Reset() error {
 
 func (c *kubeComponent) Close() (err error) {
 	if c.forwarder != nil {
-		err = multierror.Append(err, c.forwarder.Close()).ErrorOrNil()
+		err = c.forwarder.Close()
+		c.forwarder = nil
 	}
 
-	err = multierror.Append(err, c.namespace.Close()).ErrorOrNil()
 	return err
 }

@@ -15,8 +15,13 @@
 package mixer
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/util/retry"
+
+	"istio.io/istio/pkg/test/util/tmpl"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
@@ -29,47 +34,57 @@ func TestMixer_Report_Direct(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	g := galley.NewOrFail(t, ctx)
+	g := galley.NewOrFail(t, ctx, galley.Config{})
 	mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 	be := policybackend.NewOrFail(t, ctx)
 
+	env := ctx.Environment()
+	ns := env.AllocateNamespaceOrFail(t, "mixreport", false)
+
 	g.ApplyConfigOrFail(t,
 		test.JoinConfigs(
-			testReportConfig,
-			be.CreateConfigSnippet("handler1"),
+			tmpl.EvaluateOrFail(t, testReportConfig, map[string]string{"TestNamespace": ns.Name()}),
+			be.CreateConfigSnippet("handler1", ns.Name()),
 		))
 
-	mxr.Report(t, map[string]interface{}{
-		"context.protocol":      "http",
-		"destination.name":      "somesrvcname",
-		"destination.namespace": "{{.TestNamespace}}",
-		"response.time":         time.Now(),
-		"request.time":          time.Now(),
-		"destination.service":   "svc.{{.TestNamespace}}",
-		"destination.port":      int64(7678),
-		"origin.ip":             []byte{1, 2, 3, 4},
-	})
-
-	expected := `
+	expected := tmpl.EvaluateOrFail(t, `
 {
   "name": "metric1.metric.{{.TestNamespace}}",
   "value": {
     "int64Value": "2"
   },
   "dimensions": {
+    "destination_name": {
+      "stringValue": "somesrvcname"
+    },
     "origin_ip": {
       "ipAddressValue": {
         "value": "AQIDBA=="
       }
-    },
-    "target_port": {
-      "int64Value": "7678"
     }
   }
 }
-`
+`, map[string]string{"TestNamespace": ns.Name()})
 
-	be.ExpectReportJSON(t, expected)
+	retry.TillSuccessOrFail(t, func() error {
+		mxr.Report(t, map[string]interface{}{
+			"context.protocol":      "http",
+			"destination.uid":       "somesrvcname",
+			"destination.namespace": ns.Name(),
+			"response.time":         time.Now(),
+			"request.time":          time.Now(),
+			"destination.service":   "svc." + ns.Name(),
+			"origin.ip":             []byte{1, 2, 3, 4},
+		})
+
+		reports := be.GetReports(t)
+
+		if !policybackend.ContainsReportJSON(t, reports, expected) {
+			return fmt.Errorf("expected report not found in current reports: %v", reports)
+		}
+
+		return nil
+	})
 }
 
 var testReportConfig = `
@@ -81,7 +96,7 @@ metadata:
 spec:
   value: "2"
   dimensions:
-    target_port: destination.port | 9696
+    destination_name: destination.uid | "unknown"
     origin_ip: origin.ip | ip("4.5.6.7")
 ---
 apiVersion: "config.istio.io/v1alpha2"

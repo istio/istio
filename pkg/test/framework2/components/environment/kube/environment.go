@@ -34,6 +34,7 @@ import (
 type Environment struct {
 	id core.ResourceID
 
+	ctx core.Context
 	*kube.Accessor
 	s *Settings
 }
@@ -41,7 +42,7 @@ type Environment struct {
 var _ core.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(c core.Context) (core.Environment, error) {
+func New(ctx core.Context) (core.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
@@ -49,29 +50,21 @@ func New(c core.Context) (core.Environment, error) {
 
 	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
-	workDir, err := c.CreateTmpDirectory("kube")
+	workDir, err := ctx.CreateTmpDirectory("kube")
 	if err != nil {
 		return nil, err
 	}
 
-	e := &Environment{}
-	e.id = c.TrackResource(e)
+	e := &Environment{
+		ctx: ctx,
+	}
+	e.id = ctx.TrackResource(e)
 
 	if e.Accessor, err = kube.NewAccessor(s.KubeConfig, workDir); err != nil {
 		return nil, err
 	}
 
 	return e, nil
-}
-
-// NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) *Namespace {
-	t.Helper()
-	n, err := e.NewNamespace(ctx, prefix, inject)
-	if err != nil {
-		t.Fatalf("error creating namespace with prefix %q: %v", prefix, err)
-	}
-	return n
 }
 
 // EnvironmentName implements environment.Instance
@@ -88,23 +81,33 @@ func (e *Environment) Settings() *Settings {
 	return e.s.clone()
 }
 
-// NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(s core.Context, prefix string, inject bool) (*Namespace, error) {
+// AllocateNamespace allocates a new testing namespace.
+func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}
 
-	n := &Namespace{Name: ns, a: e.Accessor}
-	id := s.TrackResource(n)
+	n := &kubeNamespace{name: ns, a: e.Accessor}
+	id := e.ctx.TrackResource(n)
 	n.id = id
 
 	return n, nil
 }
 
+// NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
+func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+	t.Helper()
+	n, err := e.AllocateNamespace(prefix, inject)
+	if err != nil {
+		t.Fatalf("Environment.AllocateNamespaceOrFail: %v", err)
+	}
+	return n
+}
+
 // ApplyContents applies the given yaml contents to the namespace.
-func (e *Environment) ApplyContents(ns *Namespace, yml string) error {
-	_, err := e.Accessor.ApplyContents(ns.Name, yml)
+func (e *Environment) ApplyContents(ns *kubeNamespace, yml string) error {
+	_, err := e.Accessor.ApplyContents(ns.Name(), yml)
 	return err
 }
 

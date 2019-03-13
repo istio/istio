@@ -884,6 +884,6 @@ func init() {
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
 	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
-		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+		"If present, list the requested object(s) across all namespaces. kubeNamespace in current "+
 			"context is ignored even if specified with --namespace.")
 }

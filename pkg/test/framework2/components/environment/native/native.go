@@ -15,6 +15,10 @@
 package native
 
 import (
+	"fmt"
+	"testing"
+
+	"github.com/google/uuid"
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/core"
 
@@ -25,7 +29,8 @@ import (
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
-	id core.ResourceID
+	id  core.ResourceID
+	ctx core.Context
 
 	// Mesh for configuring pilot.
 	Mesh *meshConfig.MeshConfig
@@ -40,6 +45,7 @@ var _ core.Environment = &Environment{}
 func New(ctx core.Context) (core.Environment, error) {
 	mesh := model.DefaultMeshConfig()
 	e := &Environment{
+		ctx:            ctx,
 		Mesh:           &mesh,
 		ServiceManager: service.NewManager(),
 	}
@@ -56,4 +62,27 @@ func (e *Environment) EnvironmentName() core.EnvironmentName {
 // ID implements resource.Instance
 func (e *Environment) ID() core.ResourceID {
 	return e.id
+}
+
+// AllocateNamespace allocates a new testing namespace.
+func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namespace, error) {
+	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
+
+	n := &nativeNamespace{name: ns}
+	id := e.ctx.TrackResource(n)
+	n.id = id
+
+	return n, nil
+}
+
+// AllocateNamespace allocates a new testing namespace.
+func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+	t.Helper()
+
+	ns, err := e.AllocateNamespace(prefix, inject)
+	if err != nil {
+		t.Fatalf("Environment.AllocateNamespaceOrFail: %v", err)
+	}
+
+	return ns
 }

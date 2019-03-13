@@ -90,7 +90,7 @@ func newNative(ctx core.Context, env *native.Environment) (Instance, error) {
 	return c, nil
 }
 
-func (c *nativeComponent) CreateConfigSnippet(name string) string {
+func (c *nativeComponent) CreateConfigSnippet(name string, namespace string) string {
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
 kind: bypass
@@ -99,7 +99,7 @@ metadata:
   namespace: %s
 spec:
   backend_address: 127.0.0.1:%d
-`, name, c.namespace, c.backend.Port())
+`, name, namespace, c.backend.Port())
 }
 
 func (c *nativeComponent) Reset() error {

@@ -40,9 +40,12 @@ type Instance interface {
 	// consumed after the call completes.
 	ExpectReportJSON(t testing.TB, expected ...string)
 
+	// GetReports reeturns the currently accumulated set of reports.
+	GetReports(t testing.TB) []proto.Message
+
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
 	// The supplied name will be the name of the handler.
-	CreateConfigSnippet(name string) string
+	CreateConfigSnippet(name string, namespace string) string
 }
 
 func New(ctx core.Context) (Instance, error) {

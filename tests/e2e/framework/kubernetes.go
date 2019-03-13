@@ -84,7 +84,7 @@ const (
 )
 
 var (
-	namespace          = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	namespace          = flag.String("namespace", "", "kubeNamespace to use for testing (empty to create/delete temporary one)")
 	istioNamespace     = flag.String("istio_namespace", "istio-system", "Istio system namespace (default `istio-system`)")
 	mixerHub           = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
 	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
@@ -570,7 +570,7 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
-	log.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
+	log.Infof("kubeNamespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
 	return nil
 }

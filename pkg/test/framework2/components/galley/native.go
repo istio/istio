@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/deployment"
 	"os"
 	"path"
 	"path/filepath"
@@ -107,6 +108,7 @@ func (c *nativeComponent) ClearConfig() (err error) {
 		}
 	}
 
+	err = c.applyAttributeManifest()
 	return
 }
 
@@ -115,6 +117,7 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
 	fn = path.Join(c.configDir, fn)
 
+	scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, yamlText)
 	if err = ioutil.WriteFile(fn, []byte(yamlText), os.ModePerm); err != nil {
 		return err
 	}
@@ -183,6 +186,10 @@ func (c *nativeComponent) Reset() error {
 		return err
 	}
 
+	if err = c.applyAttributeManifest(); err != nil {
+		return err
+	}
+
 	return c.restart()
 }
 
@@ -239,4 +246,18 @@ func (c *nativeComponent) Close() (err error) {
 
 	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
+}
+
+func (c *nativeComponent) applyAttributeManifest() error {
+	helmExtractDir, err := c.context.CreateTmpDirectory("helm-mixer-attribute-extract")
+	if err != nil {
+		return err
+	}
+
+	m, err := deployment.ExtractAttributeManifest(helmExtractDir)
+	if err != nil {
+		return err
+	}
+
+	return c.ApplyConfig(m)
 }

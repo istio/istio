@@ -416,7 +416,7 @@ func (n *namespace) allocate() error {
 // Close implements io.Closer interface.
 func (n *namespace) Close() (func() error, error) {
 	if n.created && n.accessor.NamespaceExists(n.allocatedName) {
-		scopes.CI.Infof("Deleting Namespace %s", n.allocatedName)
+		scopes.CI.Infof("Deleting kubeNamespace %s", n.allocatedName)
 		defer func() {
 			n.allocatedName = ""
 			n.created = false

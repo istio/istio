@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"testing"
 )
 
 const (
@@ -30,6 +31,14 @@ type Environment interface {
 	Resource
 
 	EnvironmentName() EnvironmentName
+
+	AllocateNamespace(prefix string, inject bool) (Namespace, error)
+	AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) Namespace
+}
+
+// Namespace represents an allocated namespace that can be used to create config, or deploy components in.
+type Namespace interface {
+	Name() string
 }
 
 // EnvironmentName of environment

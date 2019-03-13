@@ -146,7 +146,7 @@ func init() {
 	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
 		"Select a namespace for the CA to listen to. If unspecified, Citadel tries to use the ${"+
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
-	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
+	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "kubeNamespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",

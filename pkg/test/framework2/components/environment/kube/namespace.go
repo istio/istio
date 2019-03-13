@@ -22,26 +22,31 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
-// Namespace represents a Kubernetes namespace. It is tracked as a resource.
-type Namespace struct {
+// kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
+type kubeNamespace struct {
 	id   core.ResourceID
-	Name string
+	name string
 	a    *kube.Accessor
 }
 
-var _ io.Closer = &Namespace{}
-var _ core.Resource = &Namespace{}
-var _ core.Dumper = &Namespace{}
+var _ core.Namespace = &kubeNamespace{}
+var _ io.Closer = &kubeNamespace{}
+var _ core.Resource = &kubeNamespace{}
+var _ core.Dumper = &kubeNamespace{}
 
-func (n *Namespace) ID() core.ResourceID {
+func (n *kubeNamespace) Name() string {
+	return n.name
+}
+
+func (n *kubeNamespace) ID() core.ResourceID {
 	return n.id
 }
 
 // Close implements io.Closer
-func (n *Namespace) Close() error {
-	if n.Name != "" {
-		ns := n.Name
-		n.Name = ""
+func (n *kubeNamespace) Close() error {
+	if n.name != "" {
+		ns := n.name
+		n.name = ""
 		return n.a.DeleteNamespace(ns)
 	}
 
@@ -49,6 +54,6 @@ func (n *Namespace) Close() error {
 }
 
 // Dump implements resource.Dumper
-func (n *Namespace) Dump() {
+func (n *kubeNamespace) Dump() {
 	// TODO: Make this dumpable.
 }

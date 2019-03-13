@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"testing"
 	"time"
 
@@ -31,17 +32,19 @@ import (
 
 func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(t, s)
+		gal := galley.NewOrFail(t, s, galley.Config{})
 		mxr := mixer.NewOrFail(t, s, mixer.Config{
 			Galley: gal,
 		})
 		be := policybackend.NewOrFail(t, s)
 
+		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+
 		gal.ApplyConfigOrFail(
 			t,
 			test.JoinConfigs(
-				testCheckConfig,
-				be.CreateConfigSnippet("handler1"),
+				tmpl.EvaluateOrFail(t, testCheckConfig, map[string]string{"TestNamespace": ns.Name()}),
+				be.CreateConfigSnippet("handler1", ns.Name()),
 			))
 
 		// Prime the policy backend's behavior. It should deny all check requests.
@@ -52,13 +55,14 @@ func TestCheck_Allow(t *testing.T) {
 			result := mxr.Check(t, map[string]interface{}{
 				"context.protocol":      "http",
 				"destination.name":      "somesrvcname",
-				"destination.namespace": "{{.TestNamespace}}",
+				"destination.namespace": ns.Name(),
 				"response.time":         time.Now(),
 				"request.time":          time.Now(),
-				"destination.service":   `svc.{{.TestNamespace}}`,
+				"destination.service":   `svc.` + ns.Name(),
 				"origin.ip":             []byte{1, 2, 3, 4},
 			})
 
+			// TODO: ensure that the policy backend receives the request.
 			if !result.Succeeded() {
 				return fmt.Errorf("check failed: %v", result.Raw)
 			}
@@ -70,17 +74,19 @@ func TestCheck_Allow(t *testing.T) {
 
 func TestCheck_Deny(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(t, s)
+		gal := galley.NewOrFail(t, s, galley.Config{})
 		mxr := mixer.NewOrFail(t, s, mixer.Config{
 			Galley: gal,
 		})
 		be := policybackend.NewOrFail(t, s)
 
+		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+
 		gal.ApplyConfigOrFail(
 			t,
 			test.JoinConfigs(
-				testCheckConfig,
-				be.CreateConfigSnippet("handler1"),
+				tmpl.EvaluateOrFail(t, testCheckConfig, map[string]string{"TestNamespace": ns.Name()}),
+				be.CreateConfigSnippet("handler1", ns.Name()),
 			))
 
 		// Prime the policy backend's behavior. It should deny all check requests.
@@ -91,15 +97,18 @@ func TestCheck_Deny(t *testing.T) {
 			result := mxr.Check(t, map[string]interface{}{
 				"context.protocol":      "http",
 				"destination.name":      "somesrvcname",
-				"destination.namespace": "{{.TestNamespace}}",
+				"destination.namespace": ns.Name(),
 				"response.time":         time.Now(),
 				"request.time":          time.Now(),
-				"destination.service":   `svc.{{.TestNamespace}}`,
+				"destination.service":   `svc.` + ns.Name(),
 				"origin.ip":             []byte{1, 2, 3, 4},
 			})
-			if !result.Succeeded() {
+			if result.Succeeded() {
 				return fmt.Errorf("check failed: %v", result.Raw)
 			}
+
+
+			// TODO: ensure that the policy backend receives the request.
 
 			return nil
 		})
