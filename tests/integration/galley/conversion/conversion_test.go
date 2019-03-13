@@ -98,7 +98,7 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	// We should do Ctrlz trigger based approach.
 	time.Sleep(time.Second)
 
-	if err = gal.ApplyConfig(string(input)); err != nil {
+	if err = gal.ApplyConfig(nil, string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)
 	}
 

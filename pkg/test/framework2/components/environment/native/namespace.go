@@ -15,7 +15,10 @@
 package native
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // nativeNamespace represents an imaginary namespace. It is tracked as a resource.
@@ -33,4 +36,20 @@ func (n *nativeNamespace) Name() string {
 
 func (n *nativeNamespace) ID() core.ResourceID {
 	return n.id
+}
+
+// Apply the namespace to the resources in the given yaml text.
+func (n *nativeNamespace) Apply(yamlText string) (string, error) {
+	return yml.ApplyNamespace(yamlText, n.name)
+}
+
+// Apply the namespace to the resources in the given yaml text, or fail test
+func (n *nativeNamespace) ApplyOrFail(t *testing.T, yamlText string) string {
+	t.Helper()
+	y, err := n.Apply(yamlText)
+	if err != nil {
+		t.Fatalf("core.Namespace: %v", err)
+	}
+
+	return y
 }

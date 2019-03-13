@@ -44,7 +44,7 @@ type nativeComponent struct {
 	env *native.Environment
 
 	*client
-	backend   *policy.Backend
+	backend *policy.Backend
 }
 
 // NewNativeComponent factory function for the component

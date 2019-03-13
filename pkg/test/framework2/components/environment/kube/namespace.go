@@ -16,6 +16,9 @@ package kube
 
 import (
 	"io"
+	"testing"
+
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework2/core"
 
@@ -40,6 +43,22 @@ func (n *kubeNamespace) Name() string {
 
 func (n *kubeNamespace) ID() core.ResourceID {
 	return n.id
+}
+
+// Apply the namespace to the resources in the given yaml text.
+func (n *kubeNamespace) Apply(yamlText string) (string, error) {
+	return yml.ApplyNamespace(yamlText, n.name)
+}
+
+// Apply the namespace to the resources in the given yaml text, or fail test
+func (n *kubeNamespace) ApplyOrFail(t *testing.T, yamlText string) string {
+	t.Helper()
+	y, err := n.Apply(yamlText)
+	if err != nil {
+		t.Fatalf("core.Namespace: %v", err)
+	}
+
+	return y
 }
 
 // Close implements io.Closer

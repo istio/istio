@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/ingress"
 	"istio.io/istio/pkg/test/framework2/components/prometheus"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/bookinfo"
 	"istio.io/istio/pkg/test/framework2/components/galley"
@@ -62,12 +61,14 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
-	g.ApplyConfigOrFail(t,
-		test.JoinConfigs(
-			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
-		))
+
+	ns := ctx.Environment().AllocateNamespaceOrFail(t, "bookinfo", true)
+
+	g.ApplyConfigOrFail(t, ns,
+		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
+	)
 
 	prom := prometheus.NewOrFail(t, ctx)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
@@ -129,13 +130,15 @@ func TestTcpMetric(t *testing.T) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	g.ApplyConfigOrFail(t,
-		test.JoinConfigs(
-			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
-			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
-			bookinfo.NetworkingTCPDbRule.LoadOrFail(t),
-		))
+	ns := ctx.Environment().AllocateNamespaceOrFail(t, "bookinfo", true)
+
+	g.ApplyConfigOrFail(
+		t,
+		ns,
+		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
+		bookinfo.NetworkingTCPDbRule.LoadOrFail(t))
 
 	prom := prometheus.NewOrFail(t, ctx)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})

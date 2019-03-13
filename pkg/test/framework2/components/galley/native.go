@@ -114,22 +114,32 @@ func (c *nativeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
-	fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-	fn = path.Join(c.configDir, fn)
+func (c *nativeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) (err error) {
 
-	scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, yamlText)
-	if err = ioutil.WriteFile(fn, []byte(yamlText), os.ModePerm); err != nil {
-		return err
+	for _, y := range yamlText {
+		if ns != nil {
+			y, err = ns.Apply(y)
+			if err != nil {
+				return
+			}
+		}
+
+		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
+		fn = path.Join(c.configDir, fn)
+
+		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, y)
+		if err = ioutil.WriteFile(fn, []byte(y), os.ModePerm); err != nil {
+			return err
+		}
 	}
 
 	return
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, yamlText string) {
+func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string) {
 	t.Helper()
-	err := c.ApplyConfig(yamlText)
+	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
 		t.Fatalf("Galley.ApplyConfigOrFail: %v", err)
 	}
@@ -260,5 +270,5 @@ func (c *nativeComponent) applyAttributeManifest() error {
 		return err
 	}
 
-	return c.ApplyConfig(m)
+	return c.ApplyConfig(nil, m)
 }

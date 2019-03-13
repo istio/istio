@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pkg/test/util/tmpl"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
@@ -42,10 +41,9 @@ func TestMixer_Report_Direct(t *testing.T) {
 	ns := env.AllocateNamespaceOrFail(t, "mixreport", false)
 
 	g.ApplyConfigOrFail(t,
-		test.JoinConfigs(
-			tmpl.EvaluateOrFail(t, testReportConfig, map[string]string{"TestNamespace": ns.Name()}),
-			be.CreateConfigSnippet("handler1", ns.Name()),
-		))
+		ns,
+		testReportConfig,
+		be.CreateConfigSnippet("handler1", ns.Name()))
 
 	expected := tmpl.EvaluateOrFail(t, `
 {
@@ -92,7 +90,6 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: metric1
-  namespace: {{.TestNamespace}}
 spec:
   value: "2"
   dimensions:
@@ -103,7 +100,6 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

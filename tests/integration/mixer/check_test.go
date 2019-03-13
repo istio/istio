@@ -19,11 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/tmpl"
-
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
@@ -43,10 +40,9 @@ func TestCheck_Allow(t *testing.T) {
 
 		gal.ApplyConfigOrFail(
 			t,
-			test.JoinConfigs(
-				tmpl.EvaluateOrFail(t, testCheckConfig, map[string]string{"TestNamespace": ns.Name()}),
-				be.CreateConfigSnippet("handler1", ns.Name()),
-			))
+			ns,
+			testCheckConfig,
+			be.CreateConfigSnippet("handler1", ns.Name()))
 
 		// Prime the policy backend's behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
@@ -85,10 +81,9 @@ func TestCheck_Deny(t *testing.T) {
 
 		gal.ApplyConfigOrFail(
 			t,
-			test.JoinConfigs(
-				tmpl.EvaluateOrFail(t, testCheckConfig, map[string]string{"TestNamespace": ns.Name()}),
-				be.CreateConfigSnippet("handler1", ns.Name()),
-			))
+			ns,
+			testCheckConfig,
+			be.CreateConfigSnippet("handler1", ns.Name()))
 
 		// Prime the policy backend's behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
@@ -120,14 +115,12 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: checknothing1
-  namespace: {{.TestNamespace}}
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

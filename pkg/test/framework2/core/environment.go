@@ -36,11 +36,6 @@ type Environment interface {
 	AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) Namespace
 }
 
-// Namespace represents an allocated namespace that can be used to create config, or deploy components in.
-type Namespace interface {
-	Name() string
-}
-
 // EnvironmentName of environment
 type EnvironmentName string
 

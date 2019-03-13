@@ -30,10 +30,10 @@ type Instance interface {
 	Address() string
 
 	// ApplyConfig applies the given config yaml file via Galley.
-	ApplyConfig(yamlText string) error
+	ApplyConfig(ns core.Namespace, yamlText ...string) error
 
 	// ApplyConfigOrFail applies the given config yaml file via Galley.
-	ApplyConfigOrFail(t *testing.T, yamlText string)
+	ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string)
 
 	// ApplyConfigDir recursively applies all the config files in the specified directory
 	ApplyConfigDir(configDir string) error
