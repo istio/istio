@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test/application/echo"
 )
 
-// Protocol enumerates the protocol options for calling an EchoEndpoint endpoint.
+// Protocol enumerates the protocol options for calling an Endpoint endpoint.
 type Protocol string
 
 const (
@@ -45,14 +45,14 @@ type Instance interface {
 	Config() Config
 
 	// Endpoints returns the endpoints that are available for calling the Echo instance.
-	Endpoints() []EchoEndpoint
+	Endpoints() []Endpoint
 
 	// EndpointsForProtocol return the endpoints filtered for a specific protocol (e.g. GRPC)
-	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
+	EndpointsForProtocol(protocol model.Protocol) []Endpoint
 
-	// Call makes a call from this Echo instance to an EchoEndpoint from another instance.
-	Call(e EchoEndpoint, opts CallOptions) ([]*echo.ParsedResponse, error)
-	CallOrFail(e EchoEndpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse
+	// Call makes a call from this Echo instance to an Endpoint from another instance.
+	Call(e Endpoint, opts CallOptions) ([]*echo.ParsedResponse, error)
+	CallOrFail(e Endpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
 // Config defines the options for creating an Echo component.
@@ -69,7 +69,7 @@ func (ec Config) String() string {
 	return fmt.Sprint("{service: ", ec.Service, ", version: ", ec.Version, "}")
 }
 
-// CallOptions defines options for calling a EchoEndpoint.
+// CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
 	// Secure indicates whether a secure connection should be established to the endpoint.
 	Secure bool
@@ -87,8 +87,8 @@ type CallOptions struct {
 	Headers http.Header
 }
 
-// EchoEndpoint represents a single endpoint in an Echo instance.
-type EchoEndpoint interface {
+// Endpoint represents a single endpoint in an Echo instance.
+type Endpoint interface {
 	Name() string
 	Owner() Instance
 	Protocol() model.Protocol
@@ -97,7 +97,7 @@ type EchoEndpoint interface {
 // New returns a new instance of echo.
 func New(ctx core.Context, cfg Config) (Instance, error) {
 	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
+	case core.Native:
 		return newNative(ctx, cfg)
 	default:
 		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())

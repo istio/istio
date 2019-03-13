@@ -26,7 +26,7 @@ import (
 
 var _ component.Configuration = &EchoConfig{}
 
-// Protocol enumerates the protocol options for calling an EchoEndpoint endpoint.
+// Protocol enumerates the protocol options for calling an Endpoint endpoint.
 type EchoProtocol string
 
 const (
@@ -51,7 +51,7 @@ type Echo interface {
 	// EndpointsForProtocol return the endpoints filtered for a specific protocol (e.g. GRPC)
 	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
 
-	// Call makes a call from this Echo instance to an EchoEndpoint from another instance.
+	// Call makes a call from this Echo instance to an Endpoint from another instance.
 	Call(e EchoEndpoint, opts EchoCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e EchoEndpoint, opts EchoCallOptions, t testing.TB) []*echo.ParsedResponse
 }
@@ -70,7 +70,7 @@ func (ec EchoConfig) String() string {
 	return fmt.Sprint("{service: ", ec.Service, ", version: ", ec.Version, "}")
 }
 
-// CallOptions defines options for calling a EchoEndpoint.
+// CallOptions defines options for calling a Endpoint.
 type EchoCallOptions struct {
 	// Secure indicates whether a secure connection should be established to the endpoint.
 	Secure bool
@@ -88,7 +88,7 @@ type EchoCallOptions struct {
 	Headers http.Header
 }
 
-// EchoEndpoint represents a single endpoint in an Echo instance.
+// Endpoint represents a single endpoint in an Echo instance.
 type EchoEndpoint interface {
 	Name() string
 	Owner() Echo

@@ -72,7 +72,7 @@ var (
 
 type nativeComponent struct {
 	id        core.ResourceID
-	endpoints []EchoEndpoint
+	endpoints []Endpoint
 	client    *echo.Client
 	config    Config
 }
@@ -102,11 +102,13 @@ func newNative(ctx core.Context, cfg Config) (Instance, error) {
 		HTTP:      c.doHTTP,
 	}
 	app, err := echoFactory(dialer)
-
+	if err != nil {
+		return nil, err
+	}
 	// Create the endpoints for the app.
 	var grpcEndpoint *nativeEndpoint
 	ports := app.GetPorts()
-	endpoints := make([]EchoEndpoint, len(ports))
+	endpoints := make([]Endpoint, len(ports))
 	for i, port := range ports {
 		ep := &nativeEndpoint{
 			owner: c,
@@ -163,12 +165,12 @@ func (c *nativeComponent) Config() Config {
 	return c.config
 }
 
-func (c *nativeComponent) Endpoints() []EchoEndpoint {
+func (c *nativeComponent) Endpoints() []Endpoint {
 	return c.endpoints
 }
 
-func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint {
-	eps := make([]EchoEndpoint, 0, len(c.endpoints))
+func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []Endpoint {
+	eps := make([]Endpoint, 0, len(c.endpoints))
 	for _, ep := range c.endpoints {
 		if ep.Protocol() == protocol {
 			eps = append(eps, ep)
@@ -177,7 +179,7 @@ func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []EchoEn
 	return eps
 }
 
-func (c *nativeComponent) Call(ee EchoEndpoint, opts CallOptions) ([]*echo.ParsedResponse, error) {
+func (c *nativeComponent) Call(ee Endpoint, opts CallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := ee.(*nativeEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -226,7 +228,7 @@ func (c *nativeComponent) Call(ee EchoEndpoint, opts CallOptions) ([]*echo.Parse
 	return resp, nil
 }
 
-func (c *nativeComponent) CallOrFail(ee EchoEndpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse {
+func (c *nativeComponent) CallOrFail(ee Endpoint, opts CallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := c.Call(ee, opts)
 	if err != nil {
 		t.Fatal(err)

@@ -55,5 +55,5 @@ func DefaultEnvironmentName() EnvironmentName {
 
 // UnsupportedEnvironment generates an error indicating that the given environment is not supported.
 func UnsupportedEnvironment(name EnvironmentName) error {
-	return fmt.Errorf("unsupported environment: %q", name.String())
+	return fmt.Errorf("unsupported environment: %q", string(name))
 }

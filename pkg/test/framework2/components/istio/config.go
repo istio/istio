@@ -232,14 +232,14 @@ func parseHelmValues() (map[string]string, error) {
 }
 
 // String implements fmt.Stringer
-func (s *Config) String() string {
+func (c *Config) String() string {
 	result := ""
 
-	result += fmt.Sprintf("SystemNamespace: %s\n", s.SystemNamespace)
-	result += fmt.Sprintf("DeployIstio:     %v\n", s.DeployIstio)
-	result += fmt.Sprintf("DeployTimeout:   %s\n", s.DeployTimeout.String())
-	result += fmt.Sprintf("UndeployTimeout: %s\n", s.UndeployTimeout.String())
-	result += fmt.Sprintf("Values:          %v\n", s.Values)
+	result += fmt.Sprintf("SystemNamespace: %s\n", c.SystemNamespace)
+	result += fmt.Sprintf("DeployIstio:     %v\n", c.DeployIstio)
+	result += fmt.Sprintf("DeployTimeout:   %s\n", c.DeployTimeout.String())
+	result += fmt.Sprintf("UndeployTimeout: %s\n", c.UndeployTimeout.String())
+	result += fmt.Sprintf("Values:          %v\n", c.Values)
 
 	return result
 }

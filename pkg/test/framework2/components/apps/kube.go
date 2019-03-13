@@ -294,7 +294,7 @@ func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 
 	// Apply all the configs for the deployments.
 	for i, factory := range deploymentFactories {
-		if c.deployments[i], err = factory.newDeployment(ctx, env, c.namespace); err != nil {
+		if c.deployments[i], err = factory.newDeployment(env, c.namespace); err != nil {
 			return nil, err
 		}
 	}
@@ -586,8 +586,7 @@ type deploymentFactory struct {
 	serviceAccount bool
 }
 
-func (d *deploymentFactory) newDeployment(
-	context core.Context, e *kube.Environment, namespace *kube.Namespace) (*deployment.Instance, error) {
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace *kube.Namespace) (*deployment.Instance, error) {
 
 	result, err := tmpl.Evaluate(template, map[string]string{
 		"Hub":             e.Settings().Hub,

@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework2/core"
 	"istio.io/istio/pkg/test/helm"
 )
 
@@ -43,13 +42,16 @@ const (
 	yamlSeparator = "\n---\n"
 )
 
-func generateIstioYaml(helmDir string, s *Config, context core.Context) (string, error) {
-	generatedYaml, err := renderIstioTemplate(helmDir, s)
+func generateIstioYaml(helmDir string, cfg *Config) (string, error) {
+	generatedYaml, err := renderIstioTemplate(helmDir, cfg)
+	if err != nil {
+		return "", err
+	}
 
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
 	// when we support Helm deployment of non-Istio artifacts.
-	namespaceData := fmt.Sprintf(namespaceTemplate, s.SystemNamespace)
-	crdsData, err := getCrdsYamlFiles(s.CrdsFilesDir)
+	namespaceData := fmt.Sprintf(namespaceTemplate, cfg.SystemNamespace)
+	crdsData, err := getCrdsYamlFiles(cfg.CrdsFilesDir)
 	if err != nil {
 		return "", err
 	}

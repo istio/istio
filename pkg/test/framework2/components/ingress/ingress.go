@@ -31,15 +31,15 @@ type Instance interface {
 	Address() string
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path string) (IngressCallResponse, error)
+	Call(path string) (CallResponse, error)
 }
 
 type Config struct {
 	Istio istio.Instance
 }
 
-// IngressCallResponse is the result of a call made through Istio Ingress.
-type IngressCallResponse struct {
+// CallResponse is the result of a call made through Istio Ingress.
+type CallResponse struct {
 	// Response status code
 	Code int
 

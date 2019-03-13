@@ -24,13 +24,11 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/ingress"
 	"istio.io/istio/pkg/test/framework2/components/prometheus"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework2"
+	"istio.io/istio/pkg/test/framework2/components/bookinfo"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
-	"istio.io/istio/pkg/test/framework2/runtime"
-
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework2/components/bookinfo"
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
@@ -59,7 +57,7 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	testMetric(t, ctx, label, labelValue)
 }
 
-func testMetric(t *testing.T, ctx *runtime.TestContext, label string, labelValue string) {
+func testMetric(t *testing.T, ctx core.Context, label string, labelValue string) {
 	t.Helper()
 
 	g := galley.NewOrFail(t, ctx)

@@ -60,7 +60,7 @@ func TestCheck_Allow(t *testing.T) {
 			})
 
 			if !result.Succeeded() {
-				return fmt.Errorf("Check failed: %v", result.Raw)
+				return fmt.Errorf("check failed: %v", result.Raw)
 			}
 
 			return nil
@@ -98,7 +98,7 @@ func TestCheck_Deny(t *testing.T) {
 				"origin.ip":             []byte{1, 2, 3, 4},
 			})
 			if !result.Succeeded() {
-				return fmt.Errorf("Check failed: %v", result.Raw)
+				return fmt.Errorf("check failed: %v", result.Raw)
 			}
 
 			return nil

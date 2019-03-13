@@ -42,7 +42,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	flag.StringVar((*string)(&settingsFromCommandLine.Environment), "istio.test.env", string(settingsFromCommandLine.Environment),
+	flag.StringVar(&settingsFromCommandLine.Environment, "istio.test.env", settingsFromCommandLine.Environment,
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", EnvironmentNames()))
 
 	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.noCleanup", settingsFromCommandLine.NoCleanup,

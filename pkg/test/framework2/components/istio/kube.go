@@ -62,7 +62,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg *Config) (Instance, err
 		return nil, err
 	}
 
-	generatedYaml, err := generateIstioYaml(helmDir, cfg, ctx)
+	generatedYaml, err := generateIstioYaml(helmDir, cfg)
 	if err != nil {
 		return nil, err
 	}

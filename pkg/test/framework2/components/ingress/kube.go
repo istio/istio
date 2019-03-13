@@ -116,7 +116,7 @@ func (c *kubeComponent) Address() string {
 	return c.address
 }
 
-func (c *kubeComponent) Call(path string) (IngressCallResponse, error) {
+func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
@@ -130,12 +130,12 @@ func (c *kubeComponent) Call(path string) (IngressCallResponse, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return IngressCallResponse{}, err
+		return CallResponse{}, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return IngressCallResponse{}, err
+		return CallResponse{}, err
 	}
 
 	defer func() { _ = resp.Body.Close() }()
@@ -144,12 +144,12 @@ func (c *kubeComponent) Call(path string) (IngressCallResponse, error) {
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.address, err)
-		return IngressCallResponse{}, err
+		return CallResponse{}, err
 	}
 	contents := string(ba)
 	status := resp.StatusCode
 
-	response := IngressCallResponse{
+	response := CallResponse{
 		Code: status,
 		Body: contents,
 	}
