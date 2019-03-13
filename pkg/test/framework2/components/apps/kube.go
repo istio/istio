@@ -274,7 +274,7 @@ type kubeComponent struct {
 	apps        []App
 	env         *kube.Environment
 
-	namespace *kube.kubeNamespace
+	namespace core.Namespace
 }
 
 func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
@@ -288,7 +288,7 @@ func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 	var err error
 
 	// Wait for the pods to transition to running.
-	if c.namespace, err = env.NewNamespace(ctx, "apps", true); err != nil {
+	if c.namespace, err = env.AllocateNamespace("apps", true); err != nil {
 		return nil, err
 	}
 
@@ -304,7 +304,7 @@ func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 		}
-		client, err := newKubeApp(d.service, c.namespace.Name, pod, env)
+		client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 		}
@@ -586,7 +586,7 @@ type deploymentFactory struct {
 	serviceAccount bool
 }
 
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace *kube.kubeNamespace) (*deployment.Instance, error) {
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace core.Namespace) (*deployment.Instance, error) {
 
 	result, err := tmpl.Evaluate(template, map[string]string{
 		"Hub":             e.Settings().Hub,
@@ -611,15 +611,15 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace *kube.k
 		return nil, err
 	}
 
-	out := deployment.NewYamlContentDeployment(namespace.Name, result)
+	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
 	if err = out.Deploy(e.Accessor, false); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns *kube.kubeNamespace) (kubeApiCore.Pod, error) {
-	podFetchFunc := e.NewSinglePodFetch(ns.Name, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns core.Namespace) (kubeApiCore.Pod, error) {
+	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
 	}
@@ -631,8 +631,8 @@ func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns *kube.ku
 	return pods[0], nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, ns *kube.kubeNamespace) error {
+func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, ns core.Namespace) error {
 
-	podFetchFunc := e.NewPodFetch(ns.Name, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewPodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	return e.WaitUntilPodsAreDeleted(podFetchFunc)
 }

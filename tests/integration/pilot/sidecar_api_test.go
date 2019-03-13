@@ -38,7 +38,7 @@ func TestSidecarListeners(t *testing.T) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
 
-	galley := galley.NewOrFail(t, ctx)
+	galley := galley.NewOrFail(t, ctx, galley.Config{})
 	pilotInst := pilot2.NewOrFail(t, ctx, &pilot2.Config{Galley: galley})
 
 	// Simulate proxy identity of a sidecar ...
