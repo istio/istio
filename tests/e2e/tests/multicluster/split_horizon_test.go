@@ -62,7 +62,7 @@ spec:
 )
 
 var (
-	tc              = &testConfig{}
+	tc = &testConfig{}
 )
 
 func TestMain(m *testing.M) {
@@ -371,6 +371,11 @@ func (t *testConfig) Setup() (err error) {
 
 // Teardown shuts down the test environment.
 func (t *testConfig) Teardown() (err error) {
+	// Delete the remote cluster secret
+	if err = deleteRemoteCluster(); err != nil {
+		return err
+	}
+
 	// Remove additional configuration.
 	for _, ec := range t.extraConfig {
 		e := ec.Teardown()
@@ -379,4 +384,21 @@ func (t *testConfig) Teardown() (err error) {
 		}
 	}
 	return
+}
+
+func addRemoteCluster() error {
+	if err := util.CreateMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
+		log.Errorf("Unable to create remote cluster secret on primary cluster %s", err.Error())
+		return err
+	}
+	time.Sleep(defaultPropagationDelay)
+	return nil
+}
+
+func deleteRemoteCluster() error {
+	if err := util.DeleteMultiClusterSecret(tc.Kube.Namespace, tc.Kube.RemoteKubeConfig, tc.Kube.KubeConfig); err != nil {
+		return err
+	}
+	time.Sleep(defaultPropagationDelay)
+	return nil
 }
