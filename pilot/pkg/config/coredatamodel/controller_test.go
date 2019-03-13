@@ -704,8 +704,8 @@ func TestInvalidResource_BadTimestamp(t *testing.T) {
 		[]string{"bar-namespace/foo"},
 		model.Gateway.Collection, model.Gateway.MessageName)
 	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
-		Seconds: - 1,
-		Nanos: -1,
+		Seconds: -1,
+		Nanos:   -1,
 	}
 
 	err := controller.Apply(change)
