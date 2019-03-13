@@ -64,11 +64,11 @@ function check_rpm() {
   fi
 }
 
-# Check if go is installed
-function check_go() {
+# Install Go
+function install_go() {
   if ! go --help > /dev/null; then
-    echo "Go is not installed. Please install it and run this script again."
-    exit 1
+    echo "Go not installed. Installing Go latest stable version..."
+    apt-get install -y golang
   fi
 }
 
