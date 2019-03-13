@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"net"
 	"net/http"
 	netUrl "net/url"
@@ -33,6 +32,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"

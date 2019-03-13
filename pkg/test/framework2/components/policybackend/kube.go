@@ -19,8 +19,9 @@ import (
 	"io"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/util/tmpl"
 	kubeApiCore "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/test/util/tmpl"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"

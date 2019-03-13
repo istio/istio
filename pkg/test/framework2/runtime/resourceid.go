@@ -21,5 +21,3 @@ type resourceID struct {
 func (r *resourceID) String() string {
 	return r.id
 }
-
-

@@ -16,9 +16,10 @@
 package security
 
 import (
-	"istio.io/istio/pkg/test/framework2/core"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework2/core"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"

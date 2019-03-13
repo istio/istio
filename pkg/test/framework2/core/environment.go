@@ -25,7 +25,6 @@ const (
 	Kube EnvironmentName = "kube"
 )
 
-
 // Environment where resources reside.
 type Environment interface {
 	Resource

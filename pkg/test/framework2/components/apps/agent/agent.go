@@ -17,6 +17,7 @@ package agent
 import (
 	"fmt"
 	"io"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 
 	"istio.io/istio/pilot/pkg/model"

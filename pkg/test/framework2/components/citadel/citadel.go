@@ -17,9 +17,10 @@ package citadel
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/core"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // Citadel represents a deployed Citadel instance.

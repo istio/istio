@@ -15,10 +15,11 @@
 package mixer
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/core"
 	"istio.io/istio/pkg/test/framework2/runtime"
-	"testing"
 
 	"istio.io/istio/pkg/test/framework2"
 )

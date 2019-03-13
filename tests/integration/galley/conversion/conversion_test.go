@@ -16,8 +16,9 @@ package conversion
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework2/core"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/framework2/runtime"
 

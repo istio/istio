@@ -17,12 +17,13 @@ package agent
 import (
 	"bufio"
 	"fmt"
-	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"net"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
