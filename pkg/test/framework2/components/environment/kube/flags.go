@@ -22,14 +22,14 @@ import (
 )
 
 var (
-	// settings we will collect from the command-line.
-	settingsFromCommandLine = &settings{
+	// Settings we will collect from the command-line.
+	settingsFromCommandLine = &Settings{
 		KubeConfig: ISTIO_TEST_KUBE_CONFIG.Value(),
 	}
 )
 
-// newSettingsFromCommandline returns settings obtained from command-line flags. flag.Parse must be called before calling this function.
-func newSettingsFromCommandline() (*settings, error) {
+// newSettingsFromCommandline returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
+func newSettingsFromCommandline() (*Settings, error) {
 	if !flag.Parsed() {
 		panic("flag.Parse must be called before this function")
 	}
@@ -41,6 +41,9 @@ func newSettingsFromCommandline() (*settings, error) {
 			return nil, err
 		}
 	}
+
+	s.Hub = HUB.Value()
+	s.Tag = TAG.Value()
 
 	return s, nil
 }
@@ -67,4 +70,6 @@ func checkFileExists(path string) error {
 func init() {
 	flag.StringVar(&settingsFromCommandLine.KubeConfig, "istio.test.kube.config", settingsFromCommandLine.KubeConfig,
 		"The path to the kube config file for cluster environments")
+	flag.BoolVar(&settingsFromCommandLine.MinikubeIngress, "istio.test.kube.minikubeingress", settingsFromCommandLine.MinikubeIngress,
+		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
 }

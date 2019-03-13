@@ -19,7 +19,6 @@ import (
 	"io"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/util/tmpl"
 	kubeApiCore "k8s.io/api/core/v1"
 
@@ -120,14 +119,10 @@ func newKube(ctx core.Context) (Instance, error) {
 		return nil, err
 	}
 
-	cfg, err := istio.DefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
 	yamlContent, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             cfg.Values[istio.HubValuesKey],
-		"Tag":             cfg.Values[istio.TagValuesKey],
-		"ImagePullPolicy": cfg.Values[istio.ImagePullPolicyValuesKey],
+		"Hub":             env.Settings().Hub,
+		"Tag":             env.Settings().Tag,
+		"ImagePullPolicy": "Always",
 		"deployment":      "policy-backend",
 		"app":             "policy-backend",
 		"version":         "test",

@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"istio.io/istio/pkg/test/framework2/components/istio"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/core"
@@ -32,6 +33,10 @@ type Instance interface {
 	Call(path string) (IngressCallResponse, error)
 }
 
+type Config struct {
+	Istio istio.Instance
+}
+
 // IngressCallResponse is the result of a call made through Istio Ingress.
 type IngressCallResponse struct {
 	// Response status code
@@ -42,19 +47,19 @@ type IngressCallResponse struct {
 }
 
 // New returns a new Ingress instance.
-func New(ctx core.Context) (Instance, error) {
+func New(ctx core.Context, cfg Config) (Instance, error) {
 	switch ctx.Environment().EnvironmentName() {
 	case core.Kube:
-		return newKube(ctx)
+		return newKube(ctx, cfg)
 	default:
 		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
 	}
 }
 
 // New returns a new Ingress instance or fails test
-func NewOrFail(t *testing.T, ctx core.Context) Instance {
+func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
 	t.Helper()
-	i, err := New(ctx)
+	i, err := New(ctx, cfg)
 	if err != nil {
 		t.Fatalf("prometheus.NewOrFail: %v", err)
 	}

@@ -45,12 +45,14 @@ type Instance interface {
 	CreateConfigSnippet(name string) string
 }
 
-func New(s core.Context) (Instance, error) {
-	switch s.Environment().EnvironmentName() {
+func New(ctx core.Context) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
 	case core.Native:
-		return newNative(s, s.Environment().(*native.Environment))
+		return newNative(ctx, ctx.Environment().(*native.Environment))
+	case core.Kube:
+		return newKube(ctx)
 	default:
-		return nil, core.UnsupportedEnvironment(s.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
 	}
 }
 

@@ -50,7 +50,7 @@ func New(ctx core.Context) (core.Environment, error) {
 
 // Type implements environment.Instance
 func (e *Environment) EnvironmentName() core.EnvironmentName {
-	return core.Kube
+	return core.Native
 }
 
 // ID implements resource.Instance

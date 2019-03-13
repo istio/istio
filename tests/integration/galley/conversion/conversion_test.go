@@ -16,13 +16,13 @@ package conversion
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/core"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/runtime"
 
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 )
 
@@ -103,11 +103,11 @@ func TestMain(m *testing.M) {
 
 func setup(s *runtime.SuiteContext) error {
 	switch s.Environment().EnvironmentName() {
-	case environment.Kube:
+	case core.Kube:
 		// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 		// component
 		s.Skip("Kubernetes environment is not supported for conversion")
-	case environment.Native:
+	case core.Native:
 		return nil
 	}
 

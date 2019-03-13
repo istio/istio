@@ -28,8 +28,6 @@ func init() {
 		"Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.")
 	flag.DurationVar(&settingsFromCommandline.UndeployTimeout, "istio.test.kube.undeployTimeout", 0,
 		"Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.")
-	flag.BoolVar(&settingsFromCommandline.MinikubeIngress, "istio.test.kube.minikubeingress", settingsFromCommandline.MinikubeIngress,
-		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
 	flag.StringVar(&settingsFromCommandline.ChartDir, "istio.test.kube.helm.chartDir", settingsFromCommandline.ChartDir,
 		"Helm chart dir for Istio. Only valid when deploying Istio.")
 	flag.StringVar(&settingsFromCommandline.ValuesFile, "istio.test.kube.helm.valuesFile", settingsFromCommandline.ValuesFile,

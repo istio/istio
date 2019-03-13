@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/util/tmpl"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/istio"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
@@ -590,15 +589,10 @@ type deploymentFactory struct {
 func (d *deploymentFactory) newDeployment(
 	context core.Context, e *kube.Environment, namespace *kube.Namespace) (*deployment.Instance, error) {
 
-	cfg, err := istio.DefaultConfig(context)
-	if err != nil {
-		return nil, err
-	}
-
 	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             cfg.Values[istio.HubValuesKey],
-		"Tag":             cfg.Values[istio.TagValuesKey],
-		"ImagePullPolicy": cfg.Values[istio.ImagePullPolicyValuesKey],
+		"Hub":             e.Settings().Hub,
+		"Tag":             e.Settings().Tag,
+		"ImagePullPolicy": "Always",
 		"deployment":      d.deployment,
 		"service":         d.service,
 		"app":             d.service,

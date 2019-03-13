@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/components/environment/kube"
+
 	"istio.io/istio/pkg/test/framework2/core"
 
 	yaml2 "gopkg.in/yaml.v2"
@@ -35,23 +37,11 @@ import (
 )
 
 const (
-	// HubValuesKey values key for the Docker image hub.
-	HubValuesKey = "global.hub"
-
-	// TagValuesKey values key for the Docker image tag.
-	TagValuesKey = "global.tag"
-
-	// ImagePullPolicyValuesKey values key for the Docker image pull policy.
-	ImagePullPolicyValuesKey = "global.imagePullPolicy"
-
 	// DefaultSystemNamespace default value for SystemNamespace
 	DefaultSystemNamespace = "istio-system"
 
 	// DefaultValuesFile for Istio Helm deployment.
 	DefaultValuesFile = "values-istio-mcp.yaml"
-
-	// LatestTag value
-	LatestTag = "latest"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
@@ -85,8 +75,8 @@ var (
 
 	// Defaults for helm overrides.
 	defaultHelmValues = map[string]string{
-		HubValuesKey:                  HUB.Value(),
-		TagValuesKey:                  TAG.Value(),
+		kube.HubValuesKey:             kube.HUB.Value(),
+		kube.TagValuesKey:             kube.TAG.Value(),
 		"global.proxy.enableCoreDump": "true",
 		"global.mtls.enabled":         "true",
 		"galley.enabled":              "true",
@@ -106,10 +96,6 @@ type Config struct {
 
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
-
-	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
-	// component will fall back to node-port in this case.
-	MinikubeIngress bool
 
 	ChartRepo string
 
@@ -222,8 +208,8 @@ func newHelmValues() (map[string]string, error) {
 		values[k] = v
 	}
 	// Always pull Docker images if using the "latest".
-	if values[TagValuesKey] == LatestTag {
-		values[ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	if values[kube.TagValuesKey] == kube.LatestTag {
+		values[kube.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 	return values, nil
 }
@@ -253,7 +239,6 @@ func (s *Config) String() string {
 	result += fmt.Sprintf("DeployIstio:     %v\n", s.DeployIstio)
 	result += fmt.Sprintf("DeployTimeout:   %s\n", s.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout: %s\n", s.UndeployTimeout.String())
-	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
 	result += fmt.Sprintf("Values:          %v\n", s.Values)
 
 	return result

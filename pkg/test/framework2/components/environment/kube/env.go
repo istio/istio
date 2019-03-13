@@ -17,6 +17,14 @@ package kube
 import "istio.io/istio/pkg/test/env"
 
 var (
+	// HUB is the Docker hub to be used for images.
+	// nolint: golint
+	HUB env.Variable = "HUB"
+
+	// TAG is the Docker tag to be used for images.
+	// nolint: golint
+	TAG env.Variable = "TAG"
+
 	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
 	// is specified on the command-line, that takes precedence.
 	// nolint: golint

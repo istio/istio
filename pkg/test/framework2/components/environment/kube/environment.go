@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/test/framework2/runtime"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/kube"
@@ -36,7 +35,7 @@ type Environment struct {
 	id core.ResourceID
 
 	*kube.Accessor
-	s *settings
+	s *Settings
 }
 
 var _ core.Environment = &Environment{}
@@ -48,7 +47,7 @@ func New(c core.Context) (core.Environment, error) {
 		return nil, err
 	}
 
-	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", s)
+	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
 	workDir, err := c.CreateTmpDirectory("kube")
 	if err != nil {
@@ -57,7 +56,7 @@ func New(c core.Context) (core.Environment, error) {
 
 	e := &Environment{}
 	e.id = c.TrackResource(e)
-	
+
 	if e.Accessor, err = kube.NewAccessor(s.KubeConfig, workDir); err != nil {
 		return nil, err
 	}
@@ -66,9 +65,9 @@ func New(c core.Context) (core.Environment, error) {
 }
 
 // NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, s *runtime.TestContext, prefix string, inject bool) *Namespace {
+func (e *Environment) NewNamespaceOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) *Namespace {
 	t.Helper()
-	n, err := e.NewNamespace(s, prefix, inject)
+	n, err := e.NewNamespace(ctx, prefix, inject)
 	if err != nil {
 		t.Fatalf("error creating namespace with prefix %q: %v", prefix, err)
 	}
@@ -83,6 +82,10 @@ func (e *Environment) EnvironmentName() core.EnvironmentName {
 // FriendlyIname implements resource.Instance
 func (e *Environment) ID() core.ResourceID {
 	return e.id
+}
+
+func (e *Environment) Settings() *Settings {
+	return e.s.clone()
 }
 
 // NewNamespace allocates a new testing namespace.

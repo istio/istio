@@ -16,6 +16,7 @@
 package security
 
 import (
+	"istio.io/istio/pkg/test/framework2/core"
 	"reflect"
 	"testing"
 
@@ -29,7 +30,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/apps"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	pilot2 "istio.io/istio/pkg/test/framework2/components/pilot"
 )

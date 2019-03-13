@@ -72,7 +72,7 @@ func testMetric(t *testing.T, ctx *runtime.TestContext, label string, labelValue
 		))
 
 	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx)
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	// Warm up
 	visitProductPage(ing, 30*time.Second, 200, t)
@@ -140,7 +140,7 @@ func TestTcpMetric(t *testing.T) {
 		))
 
 	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx)
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	visitProductPage(ing, 30*time.Second, 200, t)
 
