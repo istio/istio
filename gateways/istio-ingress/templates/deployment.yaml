@@ -89,15 +89,9 @@ spec:
               name: http-envoy-prom
           args:
           - proxy
-{{- if .Values.k8sIngress }}
-          - ingress
-{{- else }}
           - router
-{{- end }}
-{{- if .Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ .Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --log_output_level
           - '{{ .Values.debug | default "info" }}'
           - --proxyLogLevel
@@ -118,8 +112,14 @@ spec:
         {{- else }}
           - zipkin:9411
         {{- end }}
+        {{- if .Values.envoyMetricsService }}
+          - --envoyMetricsServiceAddress
+          - {{ .Values.envoyMetricsService.host }}:{{ .Values.envoyMetricsService.port }}
+        {{- end }}
           - --proxyAdminPort
           - "15000"
+          - --statusPort
+          - "15020"
         {{- if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
@@ -139,6 +139,19 @@ spec:
           - istio-pilot:15010
           {{- end }}
         {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -164,7 +177,12 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name             
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           {{- if .Values.sds.enabled }}
           - name: ISTIO_META_USER_SDS
             value: "true"
