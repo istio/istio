@@ -21,6 +21,10 @@ global:
 
 pilot:
   traceSampling: 100.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
 
 mixer:
   policy:
