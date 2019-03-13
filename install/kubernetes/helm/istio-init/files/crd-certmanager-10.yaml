@@ -9,6 +9,8 @@ metadata:
     chart: certmanager
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -28,6 +30,8 @@ metadata:
     chart: certmanager
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -47,6 +51,8 @@ metadata:
     chart: certmanager
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   additionalPrinterColumns:
     - JSONPath: .status.conditions[?(@.type=="Ready")].status
