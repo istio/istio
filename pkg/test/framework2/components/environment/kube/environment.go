@@ -106,7 +106,7 @@ func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, injec
 }
 
 // ApplyContents applies the given yaml contents to the namespace.
-func (e *Environment) ApplyContents(ns *kubeNamespace, yml string) error {
+func (e *Environment) ApplyContents(ns core.Namespace, yml string) error {
 	_, err := e.Accessor.ApplyContents(ns.Name(), yml)
 	return err
 }

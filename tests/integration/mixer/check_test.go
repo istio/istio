@@ -16,9 +16,10 @@ package mixer
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/util/tmpl"
 
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -106,7 +107,6 @@ func TestCheck_Deny(t *testing.T) {
 			if result.Succeeded() {
 				return fmt.Errorf("check failed: %v", result.Raw)
 			}
-
 
 			// TODO: ensure that the policy backend receives the request.
 

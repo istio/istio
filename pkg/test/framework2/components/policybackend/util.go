@@ -27,7 +27,6 @@ import (
 func ContainsReportJSON(t testing.TB, reports []proto.Message, expected string) bool {
 	t.Helper()
 
-
 	e, err := jsonStringToMap(expected)
 	if err != nil {
 		t.Fatalf("ContainsReportJSON: error converting expected string to JSON: %v", err)

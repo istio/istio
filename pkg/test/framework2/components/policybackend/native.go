@@ -44,7 +44,6 @@ type nativeComponent struct {
 	env *native.Environment
 
 	*client
-	namespace string
 	backend   *policy.Backend
 }
 

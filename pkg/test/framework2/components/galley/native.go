@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/deployment"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/deployment"
 
 	"istio.io/istio/pkg/test/framework2/core"
 

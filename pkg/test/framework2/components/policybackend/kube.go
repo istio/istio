@@ -192,7 +192,7 @@ metadata:
   name: %s
 spec:
   backend_address: policy-backend.%s.svc.cluster.local:1071
-`, name, c.namespace.Name)
+`, name, c.namespace.Name())
 }
 
 func (c *kubeComponent) ID() core.ResourceID {

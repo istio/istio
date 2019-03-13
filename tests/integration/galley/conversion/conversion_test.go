@@ -66,11 +66,10 @@ func TestConversion(t *testing.T) {
 				}
 
 				t.Logf("==== Running iter: %d\n", i)
-				testName := d.TestName()
 				if len(d.FileSets()) == 1 {
 					runTest(t, fset, gal)
 				} else {
-					testName = fmt.Sprintf("%d", i)
+					testName := fmt.Sprintf("%d", i)
 					t.Run(testName, func(t *testing.T) {
 						runTest(t, fset, gal)
 					})

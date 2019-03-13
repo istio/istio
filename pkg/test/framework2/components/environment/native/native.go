@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/core"
 
