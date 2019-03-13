@@ -16,9 +16,11 @@ package ca
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -179,6 +181,26 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
+
+	// Validate that the passed in signing cert can be used as CA.
+	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
+	// validate workload certificates (i.e., where the leaf certificate is not a CA).
+	b, err := ioutil.ReadFile(signingCertFile)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM encoded certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse X.509 certificate")
+	}
+	if !cert.IsCA {
+		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
+	}
+
 	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
 		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
