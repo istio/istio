@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework2/resource"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/hashicorp/go-multierror"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/components/pilot"
+	fcore "istio.io/istio/pkg/test/framework2/core"
 )
 
 const (
@@ -46,9 +45,8 @@ const (
 )
 
 var (
-	_ Instance          = &nativeComponent{}
-	_ resource.Instance = &nativeComponent{}
-	_ io.Closer         = &nativeComponent{}
+	_ Instance  = &nativeComponent{}
+	_ io.Closer = &nativeComponent{}
 
 	ports = model.PortList{
 		{
@@ -78,19 +76,9 @@ var (
 	}
 )
 
-// NewNativeComponent factory function for the component
-func newNative(ctx resource.Context, env *native.Environment, p pilot.Instance) (Instance, error) {
-	n := &nativeComponent{
-		apps: make([]App, 0),
-	}
-
-	if err := n.Start(ctx, env, p); err != nil {
-		return nil, err
-	}
-	return n, nil
-}
-
 type nativeComponent struct {
+	id fcore.ResourceID
+
 	//tlsCKey          string
 	//tlsCert          string
 	discoveryAddress *net.TCPAddr
@@ -98,15 +86,16 @@ type nativeComponent struct {
 	apps             []App
 }
 
-func (c *nativeComponent) FriendlyName() string {
-	return "[Apps(Native)]"
-}
+// NewNativeComponent factory function for the component
+func newNative(ctx fcore.Context, env *native.Environment, p pilot.Instance) (Instance, error) {
+	c := &nativeComponent{
+		apps: make([]App, 0),
+	}
+	c.id = ctx.TrackResource(c)
 
-// Start implements the api.Component interface
-func (c *nativeComponent) Start(ctx resource.Context, env *native.Environment, p pilot.Instance) (err error) {
 	nativePilot, ok := p.(pilot.Native)
 	if !ok {
-		return errors.New("pilot does not support in-process interface")
+		return nil, errors.New("pilot does not support in-process interface")
 	}
 
 	//return NewApps(p.GetDiscoveryAddress(), e.ServiceManager)
@@ -133,12 +122,6 @@ func (c *nativeComponent) Start(ctx resource.Context, env *native.Environment, p
 	c.discoveryAddress = nativePilot.GetDiscoveryAddress()
 	c.serviceManager = env.ServiceManager
 
-	defer func() {
-		if err != nil {
-			c.Close()
-		}
-	}()
-
 	for _, cfg := range cfgs {
 		//cfg.tlsCKey = c.tlsCert
 		//cfg.tlsCert = c.tlsCert
@@ -147,17 +130,21 @@ func (c *nativeComponent) Start(ctx resource.Context, env *native.Environment, p
 
 		app, err := newNativeApp(cfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		c.apps = append(c.apps, app)
 	}
 
-	if err = c.waitForAppConfigDistribution(); err != nil {
-		return err
+	if err := c.waitForAppConfigDistribution(); err != nil {
+		return nil, err
 	}
 
-	return
+	return c, nil
+}
+
+func (c *nativeComponent) ID() fcore.ResourceID {
+	return c.id
 }
 
 // Close implements io.Closer

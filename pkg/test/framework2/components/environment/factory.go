@@ -12,16 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bookinfo
+package environment
 
 import (
-	"istio.io/istio/pkg/test/framework2/resource"
+	"fmt"
+
+	"istio.io/istio/pkg/test/framework2/components/environment/kube"
+	"istio.io/istio/pkg/test/framework2/components/environment/native"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
-// Bookinfo represents a deployed Bookinfo app instance in a Kubernetes cluster.
-type Instance interface {
-	DeployRatingsV2(ctx resource.Context) error
+type FactoryFn func(name string, ctx core.Context) (core.Environment, error)
 
-	DeployMongoDb(ctx resource.Context) error
+// New returns a new environment instance.
+func New(name string, ctx core.Context) (core.Environment, error) {
+	switch name {
+	case core.Native.String():
+		return native.New(ctx)
+	case core.Kube.String():
+		return kube.New(ctx)
+	default:
+		return nil, fmt.Errorf("unknown environment: %q", name)
+	}
 }
-

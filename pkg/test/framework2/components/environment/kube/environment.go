@@ -18,52 +18,36 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/deployment"
 
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/framework2/runtime"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/kube"
 )
 
-//const (
-//	validatingWebhookName = "istio-galley"
-//)
-
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
+	id core.ResourceID
+
 	*kube.Accessor
 	s *settings
 }
 
-var _ environment.Instance = &Environment{}
-
-// EnvironmentName implements environment.Instance
-func (e *Environment) EnvironmentName() environment.Name {
-	return environment.Kube
-}
-
-// FriendlyIname implements resource.Instance
-func (e *Environment) FriendlyName() string {
-	return fmt.Sprintf("[Environment %s]", environment.Kube.String())
-}
+var _ core.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(c environment.Context) (environment.Instance, error) {
+func New(c core.Context) (core.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
 	}
 
-	return newKube(s, c)
-}
-
-func newKube(s *settings, c environment.Context) (*Environment, error) {
 	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", s)
 
 	workDir, err := c.CreateTmpDirectory("kube")
@@ -72,6 +56,8 @@ func newKube(s *settings, c environment.Context) (*Environment, error) {
 	}
 
 	e := &Environment{}
+	e.id = c.TrackResource(e)
+	
 	if e.Accessor, err = kube.NewAccessor(s.KubeConfig, workDir); err != nil {
 		return nil, err
 	}
@@ -89,15 +75,26 @@ func (e *Environment) NewNamespaceOrFail(t *testing.T, s *runtime.TestContext, p
 	return n
 }
 
+// EnvironmentName implements environment.Instance
+func (e *Environment) EnvironmentName() core.EnvironmentName {
+	return core.Kube
+}
+
+// FriendlyIname implements resource.Instance
+func (e *Environment) ID() core.ResourceID {
+	return e.id
+}
+
 // NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(s resource.Context, prefix string, inject bool) (*Namespace, error) {
+func (e *Environment) NewNamespace(s core.Context, prefix string, inject bool) (*Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}
 
-	n := &Namespace{ns, e.Accessor}
-	s.TrackResource(n)
+	n := &Namespace{Name: ns, a: e.Accessor}
+	id := s.TrackResource(n)
+	n.id = id
 
 	return n, nil
 }

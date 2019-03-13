@@ -17,8 +17,8 @@ package runtime
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 // Instance for the test environment.
@@ -27,7 +27,7 @@ type Instance struct {
 }
 
 // New returns a new runtime instance.
-func New(s *common.Settings, fn environment.FactoryFn) (*Instance, error) {
+func New(s *core.Settings, fn environment.FactoryFn) (*Instance, error) {
 	ctx, err := newSuiteContext(s, fn)
 	if err != nil {
 		return nil, err

@@ -87,7 +87,7 @@ func TestAuthnPermissive(t *testing.T) {
 	defer ctx.Done(t)
 
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
-	ctx.RequireOrSkip(t, environment.Native)
+	ctx.RequireOrSkip(t, core.Native)
 
 	env := ctx.Environment().(*native.Environment)
 	_, err := env.ServiceManager.ConfigStore.Create(

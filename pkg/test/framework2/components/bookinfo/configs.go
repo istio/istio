@@ -15,14 +15,13 @@
 package bookinfo
 
 import (
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"path"
 	"testing"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.
@@ -67,7 +66,7 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	return content
 }
 
-func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
+func GetDestinationRuleConfigFile(t testing.TB, ctx core.Context) ConfigFile {
 	t.Helper()
 
 	cfg, err := istio.DefaultConfig(ctx)
@@ -78,24 +77,4 @@ func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile
 		return NetworkingDestinationRuleAllMtls
 	}
 	return NetworkingDestinationRuleAll
-}
-
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
-	t.Helper()
-
-	i, err := New(ctx)
-	if err != nil {
-		t.Fatalf("bookinfo.NewOrFail: %v", err)
-	}
-
-	return i
-}
-
-func New(ctx resource.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		return newKube(ctx)
-	default:
-		return nil, environment.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
 }

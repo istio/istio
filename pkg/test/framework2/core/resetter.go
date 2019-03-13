@@ -12,24 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package factory
+package core
 
-import (
-	"fmt"
-
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
-)
-
-// New returns a new environment instance.
-func New(name string, ctx environment.Context) (environment.Instance, error) {
-	switch name {
-	case environment.Native.String():
-		return native.New(ctx)
-	case environment.Kube.String():
-		return kube.New(ctx)
-	default:
-		return nil, fmt.Errorf("unknown environment: %q", name)
-	}
+// Resetter is an interface that is implemented by resources that can be reset between executions within contexts.
+type Resetter interface {
+	Reset() error
 }

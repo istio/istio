@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
-
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"github.com/mitchellh/go-homedir"
 
@@ -155,7 +155,7 @@ func (c *Config) IsMtlsEnabled() bool {
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
-func DefaultConfig(ctx resource.Context) (Config, error) {
+func DefaultConfig(ctx core.Context) (Config, error) {
 	// Make a local copy.
 	s := *settingsFromCommandline
 

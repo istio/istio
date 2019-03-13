@@ -30,7 +30,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 	defer ctx.Done(t)
 
 	g := galley.NewOrFail(t, ctx)
-	mxr := mixer.NewOrFail(t, ctx, &mixer.Config{Galley: g})
+	mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 	be := policybackend.NewOrFail(t, ctx)
 
 	g.ApplyConfigOrFail(t,

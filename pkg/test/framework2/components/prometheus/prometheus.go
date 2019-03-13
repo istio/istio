@@ -15,14 +15,16 @@
 package prometheus
 
 import (
+	"testing"
+
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
-	"testing"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 type Instance interface {
+	core.Resource
+
 	// API Returns the core Prometheus APIs.
 	API() v1.API
 
@@ -36,7 +38,18 @@ type Instance interface {
 	Sum(val prom.Value, labels map[string]string) (float64, error)
 }
 
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
+// New returns a new Prometheus instance.
+func New(ctx core.Context) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
+	case core.Kube:
+		return newKube(ctx)
+	default:
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
+	}
+}
+
+// NewOrFail returns a new Prometheus instance or fails test.
+func NewOrFail(t *testing.T, ctx core.Context) Instance {
 	t.Helper()
 	i, err := New(ctx)
 	if err != nil {
@@ -44,13 +57,4 @@ func NewOrFail(t *testing.T, ctx resource.Context) Instance {
 	}
 
 	return i
-}
-
-func New(ctx resource.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		return newKube(ctx)
-	default:
-		return nil, environment.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
 }

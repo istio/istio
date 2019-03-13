@@ -18,14 +18,12 @@ import (
 	"net/http"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/components/pilot"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/components/pilot"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 // AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
@@ -40,8 +38,10 @@ const (
 	AppProtocolWebSocket = "ws"
 )
 
-// Apps is a component that provides access to all deployed test services.
+// Instance is a component that provides access to all deployed test services.
 type Instance interface {
+	core.Resource
+
 	GetApp(name string) (App, error)
 	GetAppOrFail(name string, t testing.TB) App
 }
@@ -85,18 +85,20 @@ type AppEndpoint interface {
 	Protocol() model.Protocol
 }
 
-func New(ctx resource.Context, cfg Config) (Instance, error) {
+// New returns a new instance of Apps
+func New(ctx core.Context, cfg Config) (Instance, error) {
 	switch ctx.Environment().EnvironmentName() {
-	case environment.Native:
+	case core.Native:
 		return newNative(ctx, ctx.Environment().(*native.Environment), cfg.Pilot)
-	case environment.Kube:
+	case core.Kube:
 		return newKube(ctx, ctx.Environment().(*kube.Environment))
 	default:
-		return nil, environment.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
 	}
 }
 
-func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
+// New returns a new instance of Apps or fails test.
+func NewOrFail(ctx core.Context, t *testing.T, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(ctx, cfg)

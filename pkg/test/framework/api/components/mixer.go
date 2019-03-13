@@ -29,6 +29,7 @@ import (
 // Mixer represents a deployed Mixer instance.
 type Mixer interface {
 	component.Instance
+
 	// Report is called directly with the given attributes.
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse

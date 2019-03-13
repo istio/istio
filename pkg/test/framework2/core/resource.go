@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package citadel
+package core
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
+import "fmt"
 
-// Citadel represents a deployed Citadel instance.
-type Instance interface {
-	WaitForSecretToExist() (*corev1.Secret, error)
-	DeleteSecret() error
+// Resource of a resource.
+type Resource interface {
+
+	// Debugging ResourceID for the resource instance.
+	ID() ResourceID
+}
+
+// ResourceID for the resource instance. This is allocated by the framework and passed here.
+type ResourceID interface {
+	fmt.Stringer
 }

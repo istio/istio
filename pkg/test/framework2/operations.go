@@ -22,8 +22,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/test/framework2/common"
-	"istio.io/istio/pkg/test/framework2/components/environment/factory"
+	"istio.io/istio/pkg/test/framework2/components/environment"
+	"istio.io/istio/pkg/test/framework2/core"
 	"istio.io/istio/pkg/test/framework2/runtime"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -117,7 +117,7 @@ func doInit(testID string) error {
 		flag.Parse()
 	}
 
-	s := common.SettingsFromCommandLine(testID)
+	s := core.SettingsFromCommandLine(testID)
 
 	if err := configureLogging(s.CIMode); err != nil {
 		return err
@@ -134,7 +134,7 @@ func doInit(testID string) error {
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
 	var err error
-	rt, err = runtime.New(s, factory.New)
+	rt, err = runtime.New(s, environment.New)
 	return err
 }
 

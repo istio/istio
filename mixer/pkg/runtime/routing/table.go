@@ -80,7 +80,7 @@ type Destination struct {
 	// Maximum number of instances that can be created from this entry.
 	maxInstances int
 
-	// FriendlyName is the friendly name of this configured handler entry. Used for monitoring/logging purposes.
+	// ID is the friendly name of this configured handler entry. Used for monitoring/logging purposes.
 	FriendlyName string
 }
 

@@ -17,15 +17,17 @@ package policybackend
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.
 type Instance interface {
+	core.Resource
+
 	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
 	// set to true.
 	DenyCheck(t testing.TB, deny bool)
@@ -43,16 +45,16 @@ type Instance interface {
 	CreateConfigSnippet(name string) string
 }
 
-func New(s resource.Context) (Instance, error) {
+func New(s core.Context) (Instance, error) {
 	switch s.Environment().EnvironmentName() {
-	case environment.Native:
+	case core.Native:
 		return newNative(s, s.Environment().(*native.Environment))
 	default:
-		return nil, environment.UnsupportedEnvironment(s.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(s.Environment().EnvironmentName())
 	}
 }
 
-func NewOrFail(t *testing.T, s resource.Context) Instance {
+func NewOrFail(t *testing.T, s core.Context) Instance {
 	i, err := New(s)
 	if err != nil {
 		t.Fatalf("Error creating PolicyBackend: %v", err)

@@ -77,7 +77,7 @@ type sdsConnection struct {
 	// Time of connection, for debugging.
 	Connect time.Time
 
-	// The ID of proxy from which the connection comes from.
+	// The ResourceID of proxy from which the connection comes from.
 	proxyID string
 
 	// The ResourceName of the SDS request.

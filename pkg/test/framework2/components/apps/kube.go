@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/util/tmpl"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -34,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
@@ -259,9 +260,8 @@ var (
 		},
 	}
 
-	_ Instance          = &kubeComponent{}
-	_ resource.Instance = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
+	_ Instance  = &kubeComponent{}
+	_ io.Closer = &kubeComponent{}
 )
 
 func appSelector(serviceName string) string {
@@ -269,6 +269,8 @@ func appSelector(serviceName string) string {
 }
 
 type kubeComponent struct {
+	id core.ResourceID
+
 	deployments []*deployment.Instance
 	apps        []App
 	env         *kube.Environment
@@ -276,53 +278,45 @@ type kubeComponent struct {
 	namespace *kube.Namespace
 }
 
-func newKube(ctx resource.Context, env *kube.Environment) (Instance, error) {
+func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 	c := &kubeComponent{
 		apps:        make([]App, 0),
 		deployments: make([]*deployment.Instance, len(deploymentFactories)),
+		env:         env,
 	}
+	c.id = ctx.TrackResource(c)
 
-	if err := c.Start(ctx, env); err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-func (c *kubeComponent) FriendlyName() string {
-	return "[Apps(K8s)]"
-}
-
-func (c *kubeComponent) Start(ctx resource.Context, env *kube.Environment) (err error) {
-	c.env = env
+	var err error
 
 	// Wait for the pods to transition to running.
-	c.namespace, err = env.NewNamespace(ctx, "apps", true)
-	if err != nil {
-		return err
+	if c.namespace, err = env.NewNamespace(ctx, "apps", true); err != nil {
+		return nil, err
 	}
 
 	// Apply all the configs for the deployments.
 	for i, factory := range deploymentFactories {
-		var e error
-		c.deployments[i], e = factory.newDeployment(ctx, env, c.namespace)
-		if e != nil {
-			return multierror.Append(err, e)
+		if c.deployments[i], err = factory.newDeployment(ctx, env, c.namespace); err != nil {
+			return nil, err
 		}
 	}
 
 	for _, d := range deploymentFactories {
 		pod, err := d.waitUntilPodIsReady(env, c.namespace)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
+			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 		}
 		client, err := newKubeApp(d.service, c.namespace.Name, pod, env)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
+			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 		}
 		c.apps = append(c.apps, client)
 	}
-	return nil
+
+	return c, nil
+}
+
+func (c *kubeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 func (c *kubeComponent) GetApp(name string) (App, error) {
@@ -594,7 +588,7 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(
-	context resource.Context, e *kube.Environment, namespace *kube.Namespace) (*deployment.Instance, error) {
+	context core.Context, e *kube.Environment, namespace *kube.Namespace) (*deployment.Instance, error) {
 
 	cfg, err := istio.DefaultConfig(context)
 	if err != nil {

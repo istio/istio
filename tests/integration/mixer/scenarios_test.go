@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2/components/ingress"
 	"istio.io/istio/pkg/test/framework2/components/prometheus"
 
 	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
 	"istio.io/istio/pkg/test/framework2/runtime"
@@ -39,7 +40,7 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(t, core.Kube)
 
 	label := "source_workload"
 	labelValue := "istio-ingressgateway"
@@ -51,7 +52,7 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(t, core.Kube)
 
 	label := "destination_service"
 	labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
@@ -62,7 +63,7 @@ func testMetric(t *testing.T, ctx *runtime.TestContext, label string, labelValue
 	t.Helper()
 
 	g := galley.NewOrFail(t, ctx)
-	_ = mixer.NewOrFail(t, ctx, &mixer.Config{Galley: g})
+	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 	g.ApplyConfigOrFail(t,
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
@@ -115,7 +116,7 @@ func TestTcpMetric(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(t, core.Kube)
 
 	bi := bookinfo.NewOrFail(t, ctx)
 	err := bi.DeployRatingsV2(ctx)
@@ -128,7 +129,7 @@ func TestTcpMetric(t *testing.T) {
 	}
 
 	g := galley.NewOrFail(t, ctx)
-	_ = mixer.NewOrFail(t, ctx, &mixer.Config{Galley: g})
+	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
 	g.ApplyConfigOrFail(t,
 		test.JoinConfigs(

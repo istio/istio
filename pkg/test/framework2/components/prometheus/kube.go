@@ -18,16 +18,18 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"time"
+
+	"istio.io/istio/pkg/test/framework2/components/istio"
+
+	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/util/tmpl"
 
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -42,59 +44,44 @@ var (
 	retryTimeout = retry.Timeout(time.Second * 120)
 	retryDelay   = retry.Delay(time.Second * 20)
 
-	_ Instance          = &kubeComponent{}
-	_ resource.Instance = &kubeComponent{}
-	_ io.Closer         = &kubeComponent{}
+	_ Instance  = &kubeComponent{}
+	_ io.Closer = &kubeComponent{}
 )
 
 type kubeComponent struct {
+	id core.ResourceID
+
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
 	env       *kube.Environment
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
-	c := &kubeComponent{}
-	if err := c.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-func (c *kubeComponent) FriendlyName() string {
-	return "[Prometheus(K8s)]"
-}
-
-func (c *kubeComponent) Start(ctx resource.Context) (err error) {
+func newKube(ctx core.Context) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
-	c.env = env
-
-	defer func() {
-		if err != nil {
-			_ = c.Close()
-		}
-	}()
+	c := &kubeComponent{
+		env: env,
+	}
+	c.id = ctx.TrackResource(c)
 
 	// Find the Prometheus pod and service, and start forwarding a local port.
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fetchFn := env.Accessor.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
 	if err := env.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return err
+		return nil, err
 	}
 	pods, err := fetchFn()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pod := pods[0]
 
 	svc, err := env.Accessor.GetService(cfg.SystemNamespace, serviceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	port := uint16(svc.Spec.Ports[0].Port)
 
@@ -104,11 +91,11 @@ func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 	}
 	forwarder, err := env.Accessor.NewPortForwarder(options, 0, port)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := forwarder.Start(); err != nil {
-		return err
+		return nil, err
 	}
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized Prometheus port forwarder: %v", forwarder.Address())
@@ -117,11 +104,16 @@ func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 	var client prometheusApi.Client
 	client, err = prometheusApi.NewClient(prometheusApi.Config{Address: address})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c.api = prometheusApiV1.NewAPI(client)
-	return nil
+
+	return c, nil
+}
+
+func (c *kubeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 // API implements environment.DeployedPrometheus.
@@ -175,7 +167,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 	time.Sleep(time.Second * 5)
 
 	_, err := retry.Do(func() (interface{}, bool, error) {
-		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})  // TODO: Pass in map
+		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{}) // TODO: Pass in map
 		if err != nil {
 			return nil, true, err
 		}

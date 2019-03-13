@@ -63,15 +63,15 @@ type Environment struct {
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
 //
-// In current Istio implementation nodes use a 4-parts '~' delimited ID.
-// Type~IPAddress~ID~Domain
+// In current Istio implementation nodes use a 4-parts '~' delimited ResourceID.
+// Type~IPAddress~ResourceID~Domain
 type Proxy struct {
 	// ClusterID specifies the cluster where the proxy resides.
 	// TODO: clarify if this is needed in the new 'network' model, likely needs to
 	// be renamed to 'network'
 	ClusterID string
 
-	// Type specifies the node type. First part of the ID.
+	// Type specifies the node type. First part of the ResourceID.
 	Type NodeType
 
 	// IPAddresses is the IP addresses of the proxy used to identify it and its
@@ -79,7 +79,7 @@ type Proxy struct {
 	// where the poxy and service instances reside may have more than one IP address
 	IPAddresses []string
 
-	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
+	// ResourceID is the unique platform-specific sidecar proxy ResourceID. For k8s it is the pod ResourceID and
 	// namespace.
 	ID string
 
@@ -298,7 +298,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 }
 
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
-// from the proxy metadata or the proxy ID
+// from the proxy metadata or the proxy ResourceID
 func GetProxyConfigNamespace(proxy *Proxy) string {
 	if proxy == nil {
 		return ""
@@ -536,7 +536,7 @@ const (
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
 
-	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// NodeMetadataSidecarUID is the user ResourceID running envoy. Pilot can check if envoy runs as root, and may generate
 	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
 	NodeMetadataSidecarUID = "SIDECAR_UID"
 

@@ -17,14 +17,15 @@ package galley
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
+	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 )
 
 // Instance of Galley
 type Instance interface {
+	core.Resource
+
 	// Address of the Galley MCP Server.
 	Address() string
 
@@ -48,20 +49,20 @@ type Instance interface {
 }
 
 // New returns a new Galley instance.
-func New(c resource.Context) (Instance, error) {
+func New(c core.Context) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
-	case environment.Native:
+	case core.Native:
 		return newNative(c, c.Environment().(*native.Environment))
 	default:
-		return nil, environment.UnsupportedEnvironment(c.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 
-// NewOrFail returns a new Galley instance, or fails.
-func NewOrFail(t *testing.T, c resource.Context) Instance {
+// NewOrFail returns a new Galley instance, or fails test.
+func NewOrFail(t *testing.T, c core.Context) Instance {
 	i, err := New(c)
 	if err != nil {
-		t.Fatalf("Error creating Galley: %v", err)
+		t.Fatalf("galley.NewOrFail: %v", err)
 	}
 	return i
 }

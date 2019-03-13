@@ -32,7 +32,7 @@ import (
 func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 		gal := galley.NewOrFail(t, s)
-		mxr := mixer.NewOrFail(t, s, &mixer.Config{
+		mxr := mixer.NewOrFail(t, s, mixer.Config{
 			Galley: gal,
 		})
 		be := policybackend.NewOrFail(t, s)
@@ -71,7 +71,7 @@ func TestCheck_Allow(t *testing.T) {
 func TestCheck_Deny(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
 		gal := galley.NewOrFail(t, s)
-		mxr := mixer.NewOrFail(t, s, &mixer.Config{
+		mxr := mixer.NewOrFail(t, s, mixer.Config{
 			Galley: gal,
 		})
 		be := policybackend.NewOrFail(t, s)

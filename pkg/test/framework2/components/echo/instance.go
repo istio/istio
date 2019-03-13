@@ -16,10 +16,9 @@ package echo
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/core"
 	"net/http"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
@@ -39,7 +38,7 @@ const (
 
 // Instance is a component that provides access to the deployed echo service.
 type Instance interface {
-	resource.Instance
+	core.Resource
 
 	// Config returns the configuration of the Echo instance.
 	Config() Config
@@ -92,4 +91,26 @@ type EchoEndpoint interface {
 	Name() string
 	Owner() Instance
 	Protocol() model.Protocol
+}
+
+// New returns a new instance of echo.
+func New(ctx core.Context, cfg Config) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
+	case core.Kube:
+		return newNative(ctx, cfg)
+	default:
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
+	}
+}
+
+// NewOrFail returns a new instance of echo, or fails t if there is an error.
+func NewOrFail(ctx core.Context, t *testing.T, cfg Config) Instance {
+	t.Helper()
+	i, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("echo.NewOrFail: %v", err)
+	}
+
+	ctx.TrackResource(i)
+	return i
 }

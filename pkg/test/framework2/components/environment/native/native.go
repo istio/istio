@@ -15,17 +15,18 @@
 package native
 
 import (
-	"fmt"
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
+	"istio.io/istio/pkg/test/framework2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 )
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
+	id core.ResourceID
+
 	// Mesh for configuring pilot.
 	Mesh *meshConfig.MeshConfig
 
@@ -33,23 +34,26 @@ type Environment struct {
 	ServiceManager *service.Manager
 }
 
-var _ environment.Instance = &Environment{}
+var _ core.Environment = &Environment{}
 
 // New returns a new native environment.
-func New(_ environment.Context) (environment.Instance, error) {
+func New(ctx core.Context) (core.Environment, error) {
 	mesh := model.DefaultMeshConfig()
-	return &Environment{
+	e := &Environment{
 		Mesh:           &mesh,
 		ServiceManager: service.NewManager(),
-	}, nil
+	}
+	ctx.TrackResource(e)
+
+	return e, nil
 }
 
 // Type implements environment.Instance
-func (e *Environment) EnvironmentName() environment.Name {
-	return environment.Native
+func (e *Environment) EnvironmentName() core.EnvironmentName {
+	return core.Kube
 }
 
-// FriendlyName implements resource.Instance
-func (e *Environment) FriendlyName() string {
-	return fmt.Sprintf("[Environment %s]", environment.Native.String())
+// ID implements resource.Instance
+func (e *Environment) ID() core.ResourceID {
+	return e.id
 }

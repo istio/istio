@@ -44,7 +44,7 @@ func (d Descriptor) GetKey() Key {
 	return d.Key
 }
 
-// FriendlyName provides a brief one-liner containing ID and Variant. Useful for error messages.
+// ID provides a brief one-liner containing ID and Variant. Useful for error messages.
 func (d Descriptor) FriendlyName() string {
 	return d.Key.String()
 }

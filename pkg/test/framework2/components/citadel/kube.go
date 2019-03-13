@@ -16,17 +16,15 @@ package citadel
 
 import (
 	"fmt"
-	"testing"
 	"time"
+
+	"k8s.io/api/core/v1"
+	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/istio"
-
-	"istio.io/istio/pkg/test/framework2/resource"
-
-	v1 "k8s.io/api/core/v1"
-	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 const (
@@ -37,51 +35,27 @@ const (
 )
 
 var _ Instance = &kubeComponent{}
-var _ resource.Instance = &kubeComponent{}
 
 type kubeComponent struct {
+	id     core.ResourceID
 	istio  istio.Instance
 	secret cv1.SecretInterface
 }
 
-// New factory function for the component
-func New(ctx resource.Context, istio istio.Instance) (Instance, error) {
+func newKube(ctx core.Context, istio istio.Instance) Instance {
 	c := &kubeComponent{
 		istio: istio,
 	}
+	c.id = ctx.TrackResource(c)
 
-	err := c.Start(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ctx.TrackResource(c)
-
-	return c, nil
-}
-
-func NewOrFail(t *testing.T, ctx resource.Context, istio istio.Instance) Instance {
-	t.Helper()
-
-	i, err := New(ctx, istio)
-	if err != nil {
-		t.Fatalf("citadel.NewOrFail: %v", err)
-	}
-	return i
-}
-
-func (c *kubeComponent) FriendlyName() string {
-	return "[Citadel(K8s)]"
-}
-
-func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 	env := ctx.Environment().(*kube.Environment)
-
-	if err != nil {
-		return err
-	}
-
 	c.secret = env.GetSecret(c.istio.Settings().SystemNamespace)
-	return nil
+
+	return c
+}
+
+func (c *kubeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {

@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/framework/api/components"
 
@@ -39,9 +39,8 @@ import (
 )
 
 var (
-	_ Instance          = &nativeComponent{}
-	_ resource.Instance = &nativeComponent{}
-	_ io.Closer         = &nativeComponent{}
+	_ Instance  = &nativeComponent{}
+	_ io.Closer = &nativeComponent{}
 
 	ports = model.PortList{
 		{
@@ -72,49 +71,17 @@ var (
 )
 
 type nativeComponent struct {
+	id        core.ResourceID
 	endpoints []EchoEndpoint
 	client    *echo.Client
 	config    Config
 }
 
-// New returns a new instance of echo.
-func New(ctx resource.Context, cfg Config) (Instance, error) {
-	n := &nativeComponent{
+func newNative(ctx core.Context, cfg Config) (Instance, error) {
+	c := &nativeComponent{
 		config: cfg,
 	}
-
-	if err := n.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	return n, nil
-}
-
-// NewOrFail returns a new instance of echo, or fails t if there is an error.
-func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
-	t.Helper()
-	i, err := New(ctx, cfg)
-	if err != nil {
-		t.Fatalf("echo.NewOrFail: %v", err)
-	}
-
-	ctx.TrackResource(i)
-	return i
-}
-
-func (c *nativeComponent) FriendlyName() string {
-	return fmt.Sprintf("[Echo(native) %s]", c.config.Service)
-}
-
-// Start implements the api.Component interface
-func (c *nativeComponent) Start(ctx resource.Context) (err error) {
-
-	// Setup a close function to close the echo instance on an error.
-	defer func() {
-		if err != nil {
-			_ = c.Close()
-		}
-	}()
+	c.id = ctx.TrackResource(c)
 
 	// Setup defaults for config values if not provided.
 	if c.config.Service == "" {
@@ -155,13 +122,18 @@ func (c *nativeComponent) Start(ctx resource.Context) (err error) {
 
 	// Create the client for sending forward requests.
 	if grpcEndpoint == nil {
-		return errors.New("unable to find grpc port for application")
+		return nil, errors.New("unable to find grpc port for application")
 	}
 	c.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.Port))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return
+
+	return c, nil
+}
+
+func (c *nativeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 // function for establishing GRPC connections from the application.

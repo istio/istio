@@ -17,18 +17,18 @@ package runtime
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"sync"
 
-	"istio.io/istio/pkg/test/framework2/common"
 	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // SuiteContext contains suite-level items used during runtime.
 type SuiteContext struct {
-	settings    *common.Settings
-	environment environment.Instance
+	settings    *core.Settings
+	environment core.Environment
 
 	// context-level resources
 	globalScope *scope
@@ -40,9 +40,9 @@ type SuiteContext struct {
 	skipReason string
 }
 
-var _ resource.Context = &SuiteContext{}
+var _ core.Context = &SuiteContext{}
 
-func newSuiteContext(s *common.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
+func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
 	c := &SuiteContext{
@@ -81,18 +81,38 @@ func (s *SuiteContext) allocateContextID(prefix string) string {
 	}
 }
 
+func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) string {
+	s.contextMu.Lock()
+	defer s.contextMu.Unlock()
+
+	t := reflect.TypeOf(r)
+	candidate := fmt.Sprintf("%s/[%s]", contextID, t.Name())
+	discriminator := 0
+	for {
+		if _, found := s.contextNames[candidate]; !found {
+			s.contextNames[candidate] = struct{}{}
+			return candidate
+		}
+
+		candidate = fmt.Sprintf("%s/[%s-%d]", contextID, t.Name(), discriminator)
+		discriminator++
+	}
+}
+
 // TrackResource adds a new resource to track to the context at this level.
-func (s *SuiteContext) TrackResource(r resource.Instance) {
+func (s *SuiteContext) TrackResource(r core.Resource) core.ResourceID {
+	id := s.allocateResourceID(s.globalScope.id, r)
 	s.globalScope.add(r)
+	return &resourceID{id: id}
 }
 
 // Environment implements ResourceContext
-func (s *SuiteContext) Environment() environment.Instance {
+func (s *SuiteContext) Environment() core.Environment {
 	return s.environment
 }
 
 // Settings returns the current runtime.Settings.
-func (s *SuiteContext) Settings() *common.Settings {
+func (s *SuiteContext) Settings() *core.Settings {
 	return s.settings
 }
 

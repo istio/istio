@@ -12,5 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package resource contains APIs and utilities for developing resources/components for the test framework.
-package resource
+package runtime
+
+type resourceID struct {
+	id string
+}
+
+func (r *resourceID) String() string {
+	return r.id
+}
+
+

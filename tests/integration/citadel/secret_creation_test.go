@@ -17,10 +17,11 @@ package citadel
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2/components/citadel"
 
 	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/runtime"
 )
@@ -34,9 +35,9 @@ var (
 func TestSecretCreationKubernetes(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/10989")
 	ctx := framework2.NewContext(t)
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(t, core.Kube)
 
-	c := citadel.NewOrFail(t, ctx, ist)
+	c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
 
 	// Test the existence of istio.default secret.
 	s, err := c.WaitForSecretToExist()
@@ -71,7 +72,7 @@ func TestMain(m *testing.M) {
 }
 
 func setup(c *runtime.SuiteContext) error {
-	if c.Environment().EnvironmentName() != environment.Kube {
+	if c.Environment().EnvironmentName() != core.Kube {
 		c.Skip("Only Kubernetes environment is supported")
 		return nil
 	}

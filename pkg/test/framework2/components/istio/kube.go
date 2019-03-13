@@ -21,48 +21,25 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/deployment"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type kubeComponent struct {
+	id          core.ResourceID
 	settings    *Config
 	environment *kube.Environment
 	deployment  *deployment.Instance
 }
 
-var _ resource.Instance = &kubeComponent{}
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
 
-// New deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
-func New(ctx resource.Context, cfg *Config) (Instance, error) {
-	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
-	defer func() {
-		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
-		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
-		}
-	}()
-
-	var i Instance
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), cfg)
-	default:
-		err = environment.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
-
-	return i, err
-}
-
-func deploy(ctx resource.Context, env *kube.Environment, cfg *Config) (Instance, error) {
+func deploy(ctx core.Context, env *kube.Environment, cfg *Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
 	scopes.CI.Infof("HUB: %s", HUB.Value())
@@ -73,7 +50,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg *Config) (Instance,
 		environment: env,
 		settings:    cfg,
 	}
-	ctx.TrackResource(i)
+	i.id = ctx.TrackResource(i)
 
 	if !cfg.DeployIstio {
 		scopes.Framework.Info("skipping deployment due to Config")
@@ -117,9 +94,9 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg *Config) (Instance,
 	return i, nil
 }
 
-// FriendlyName implements resource.Instance
-func (i *kubeComponent) FriendlyName() string {
-	return fmt.Sprintf("[Istio(%s)]", i.settings.SystemNamespace)
+// ID implements resource.Instance
+func (i *kubeComponent) ID() core.ResourceID {
+	return i.id
 }
 
 func (i *kubeComponent) Settings() *Config {

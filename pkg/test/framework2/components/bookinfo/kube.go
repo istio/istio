@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"path"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -36,14 +36,13 @@ const (
 )
 
 var _ Instance = &kubeComponent{}
-var _ resource.Instance = &kubeComponent{}
 
 // NewKubeComponent factory function for the component
-func newKube(ctx resource.Context) (Instance, error) {
+func newKube(ctx core.Context) (Instance, error) {
 	c := &kubeComponent{}
+	c.id = ctx.TrackResource(c)
 
-	err := c.Start(ctx)
-	if err != nil {
+	if err := deployBookInfoService(ctx, string(BookInfoConfig)); err != nil {
 		return nil, err
 	}
 
@@ -51,28 +50,24 @@ func newKube(ctx resource.Context) (Instance, error) {
 }
 
 type kubeComponent struct {
+	id core.ResourceID
 }
 
-func (c *kubeComponent) FriendlyName() string {
-	return "[BookInfo(K8s)]"
-}
-
-// Init implements implements component.Component.
-func (c *kubeComponent) Start(ctx resource.Context) (err error) {
-	return deployBookInfoService(ctx, string(BookInfoConfig))
+func (c *kubeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 // DeployRatingsV2 deploys ratings v2 service
-func (c *kubeComponent) DeployRatingsV2(ctx resource.Context) (err error) {
+func (c *kubeComponent) DeployRatingsV2(ctx core.Context) (err error) {
 	return deployBookInfoService(ctx, string(BookinfoRatingsv2))
 }
 
 // DeployMongoDb deploys mongodb service
-func (c *kubeComponent) DeployMongoDb(ctx resource.Context) (err error) {
+func (c *kubeComponent) DeployMongoDb(ctx core.Context) (err error) {
 	return deployBookInfoService(ctx, string(BookinfoDb))
 }
 
-func deployBookInfoService(ctx resource.Context, bookinfoYamlFile string) (err error) {
+func deployBookInfoService(ctx core.Context, bookinfoYamlFile string) (err error) {
 	e := ctx.Environment().(*kube.Environment)
 
 	scopes.CI.Infof("=== BEGIN: Deploy BookInfoConfig (via Yaml File - %s) ===", bookinfoYamlFile)

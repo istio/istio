@@ -15,25 +15,26 @@
 package kube
 
 import (
-	"fmt"
 	"io"
 
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/kube"
 )
 
 // Namespace represents a Kubernetes namespace. It is tracked as a resource.
 type Namespace struct {
+	id   core.ResourceID
 	Name string
 	a    *kube.Accessor
 }
 
 var _ io.Closer = &Namespace{}
-var _ resource.Instance = &Namespace{}
-var _ resource.Dumper = &Namespace{}
+var _ core.Resource = &Namespace{}
+var _ core.Dumper = &Namespace{}
 
-func (n *Namespace) FriendlyName() string {
-	return fmt.Sprintf("[Namespace %s]", n.Name)
+func (n *Namespace) ID() core.ResourceID {
+	return n.id
 }
 
 // Close implements io.Closer

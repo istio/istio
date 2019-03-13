@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/core"
 	"testing"
 	"time"
 
@@ -29,6 +30,8 @@ import (
 
 // Instance of Pilot
 type Instance interface {
+	core.Resource
+
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
 	StartDiscovery(req *xdsapi.DiscoveryRequest) error
 	WatchDiscovery(duration time.Duration, accept func(*xdsapi.DiscoveryResponse) (bool, error)) error
@@ -41,21 +44,21 @@ type Config struct {
 	Galley galley.Instance
 }
 
-// New returns a new Galley instance.
-func New(c resource.Context, config *Config) (Instance, error) {
+// New returns a new Pilot instance.
+func New(c core.Context, config *Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
-	case environment.Native:
+	case core.Native:
 		return newNative(c, c.Environment().(*native.Environment), config)
 	default:
-		return nil, environment.UnsupportedEnvironment(c.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 
-// NewOrFail returns a new Galley instance, or fails.
-func NewOrFail(t *testing.T, c resource.Context, config *Config) Instance {
+// NewOrFail returns a new Pilot instance, or fails test.
+func NewOrFail(t *testing.T, c core.Context, config *Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
-		t.Fatalf("Error creating Galley: %v", err)
+		t.Fatalf("pilot.NewOrFail: %v", err)
 	}
 	return i
 }

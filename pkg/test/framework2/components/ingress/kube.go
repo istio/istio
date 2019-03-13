@@ -22,10 +22,11 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2/components/istio"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -40,29 +41,18 @@ var (
 	retryTimeout = retry.Timeout(1 * time.Minute)
 	retryDelay   = retry.Delay(5 * time.Second)
 
-	_ Instance          = &kubeComponent{}
-	_ resource.Instance = &kubeComponent{}
+	_ Instance = &kubeComponent{}
 )
 
 type kubeComponent struct {
+	id      core.ResourceID
 	address string
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
+func newKube(ctx core.Context) (Instance, error) {
 	c := &kubeComponent{}
-	err := c.Start(ctx)
-	if err != nil {
-		return nil, err
-	}
+	c.id = ctx.TrackResource(c)
 
-	return c, nil
-}
-
-func (c *kubeComponent) FriendlyName() string {
-	return "[Ingress(K8s)]"
-}
-
-func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 	env := ctx.Environment().(*kube.Environment)
 
 	address, err := retry.Do(func() (interface{}, bool, error) {
@@ -117,11 +107,15 @@ func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 	}, retryTimeout, retryDelay)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	c.address = address.(string)
-	return nil
+
+	return c, nil
+}
+
+func (c *kubeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 // Address implements environment.DeployedIngress

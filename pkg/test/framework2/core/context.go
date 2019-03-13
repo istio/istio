@@ -12,9 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
+package core
 
-// Resetter is an interface that is implemented by resources that can be reset between executions within contexts.
-type Resetter interface {
-	Reset() error
+// Context is an interface that is used by resources.
+type Context interface {
+	// TrackResource tracks a resource in this context. If the context is closed, then the resource will be
+	// cleaned up.
+	TrackResource(r Resource) ResourceID
+
+	// The Environment in which the tests run
+	Environment() Environment
+
+	// Settings returns common settings
+	Settings() *Settings
+
+	// CreateTmpDirectory creates a new temporary direcoty within this context.
+	CreateTmpDirectory(prefix string) (string, error)
 }

@@ -15,13 +15,15 @@
 package ingress
 
 import (
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
+	core.Resource
+
 	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
 	Address() string
@@ -39,9 +41,18 @@ type IngressCallResponse struct {
 	Body string
 }
 
+// New returns a new Ingress instance.
+func New(ctx core.Context) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
+	case core.Kube:
+		return newKube(ctx)
+	default:
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
+	}
+}
 
-
-func NewOrFail(t *testing.T, ctx resource.Context) Instance {
+// New returns a new Ingress instance or fails test
+func NewOrFail(t *testing.T, ctx core.Context) Instance {
 	t.Helper()
 	i, err := New(ctx)
 	if err != nil {
@@ -49,13 +60,4 @@ func NewOrFail(t *testing.T, ctx resource.Context) Instance {
 	}
 
 	return i
-}
-
-func New(ctx resource.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		return newKube(ctx)
-	default:
-		return nil, environment.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
 }
