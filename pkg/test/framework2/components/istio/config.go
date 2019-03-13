@@ -56,7 +56,7 @@ const (
 	DefaultCIUndeployTimeout = time.Second * 600
 
 	// DefaultIstioChartRepo for Istio.
-	DefaultIstioChartRepo = "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts"
+	DefaultIstioChartRepo = "https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/"
 )
 
 var (

@@ -29,6 +29,15 @@ type Instance interface {
 
 // New deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
 func New(ctx core.Context, cfg *Config) (Instance, error) {
+	if cfg == nil {
+		c, err := DefaultConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg = &c
+	}
+
 	var err error
 	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
 	defer func() {

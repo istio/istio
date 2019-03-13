@@ -43,7 +43,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg *Config) (Instance, err
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
 	scopes.CI.Infof("HUB: %s", env.Settings().Hub)
-	scopes.CI.Infof("TAG: %s", env.Settings().Hub)
+	scopes.CI.Infof("TAG: %s", env.Settings().Tag)
 	scopes.CI.Infof("================================")
 
 	i := &kubeComponent{
@@ -67,6 +67,19 @@ func deploy(ctx core.Context, env *kube.Environment, cfg *Config) (Instance, err
 		return nil, err
 	}
 
+	// Write out istio.yaml for debugging purposes.
+	dir, err := ctx.CreateTmpDirectory("istio-yaml")
+	if err != nil {
+		scopes.Framework.Errorf("Unable to create tmp directory to write out istio.yaml: %v", err)
+	} else {
+		p := path.Join(dir, "istio.yaml")
+		if err = ioutil.WriteFile(p, []byte(generatedYaml), os.ModePerm); err != nil {
+			scopes.Framework.Errorf("error writing istio.yaml: %v", err)
+		} else {
+			scopes.Framework.Debugf("Wrote out istio.yaml at: %s", p)
+			scopes.CI.Infof("Wrote out istio.yaml at: %s", p)
+		}
+	}
 	// split installation & configuration into two distinct steps int
 	installYaml, configureYaml := splitIstioYaml(generatedYaml)
 

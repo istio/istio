@@ -33,8 +33,9 @@ var (
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/10989")
+//	t.Skip("https://github.com/istio/istio/issues/10989")
 	ctx := framework2.NewContext(t)
+	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, core.Kube)
 
 	c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
@@ -78,8 +79,7 @@ func setup(c *runtime.SuiteContext) error {
 	}
 
 	var err error
-	ist, err = istio.New(c, nil)
-	if err != nil {
+	if ist, err = istio.New(c, nil); err != nil {
 		return err
 	}
 

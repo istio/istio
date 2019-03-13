@@ -66,14 +66,6 @@ func renderIstioTemplate(helmDir string, s *Config) (string, error) {
 		return "", err
 	}
 
-	if err := helm.RepoAdd(helmDir, "istio.io", s.ChartRepo); err != nil { // TODO: make this a parameter
-		return "", err
-	}
-
-	if err := helm.DepUpdate(helmDir, env.IstioChartDir, true); err != nil {
-		return "", err
-	}
-
 	renderedYaml, err := helm.Template(helmDir, s.ChartDir, "istio", s.SystemNamespace, path.Join(env.IstioChartDir, s.ValuesFile), s.Values)
 	if err != nil {
 		return "", err

@@ -57,6 +57,7 @@ func New(ctx core.Context) (core.Environment, error) {
 
 	e := &Environment{
 		ctx: ctx,
+		s: s,
 	}
 	e.id = ctx.TrackResource(e)
 

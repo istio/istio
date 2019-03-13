@@ -63,7 +63,7 @@ func (s *scope) done(nocleanup bool) error {
 			if closer, ok := r.(io.Closer); ok {
 				scopes.Framework.Debugf("Begin cleaning up resource: %v", r.ID())
 				if e := closer.Close(); e != nil {
-					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.ID(), err)
+					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.ID(), e)
 					err = multierror.Append(e, err)
 				}
 				scopes.Framework.Debugf("Resource cleanup complete: %v", r.ID())
