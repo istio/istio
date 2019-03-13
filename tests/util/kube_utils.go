@@ -131,6 +131,17 @@ func DeleteDeployment(d string, n string, kubeconfig string) error {
 	return err
 }
 
+// LabelNamespace will add a label to the kubernetes namespace
+func LabelNamespace(n, label, kubeconfig string) error {
+	if _, err := Shell("kubectl label namespace %s %s --kubeconfig=%s", n, label, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
+	}
+	log.Infof("label %s added to namespace %s", label, n)
+	return nil
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)
@@ -166,6 +177,12 @@ func kubeCommand(subCommand, namespace, yamlFileName string, kubeconfig string) 
 // KubeApply kubectl apply from file
 func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
+	return err
+}
+
+// KubeCommand will execut a kubectl command withe the specified yaml file
+func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
+	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 	return err
 }
 

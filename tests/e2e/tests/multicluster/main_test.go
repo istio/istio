@@ -15,14 +15,11 @@
 package multicluster
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -36,11 +33,11 @@ import (
 const (
 	defaultRetryBudget             = 10
 	retryDelay                     = time.Second
-	httpOK                         = "200"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
 	istioIngressGatewayLabel       = "ingressgateway"
 	istioMeshConfigMapName         = "istio"
 	defaultPropagationDelay        = 5 * time.Second
+	maxDeploymentTimeout           = 480 * time.Second
 	primaryCluster                 = framework.PrimaryCluster
 	remoteCluster                  = framework.RemoteCluster
 	clusterAwareGateway            = `
@@ -66,13 +63,6 @@ spec:
 
 var (
 	tc              = &testConfig{}
-	errAgain        = errors.New("try again")
-	idRegex         = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex    = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex       = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex       = regexp.MustCompile("Host=(.*)")
-	appsWithSidecar []string
 )
 
 func TestMain(m *testing.M) {
@@ -83,72 +73,29 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-// func TestCoreDumpGenerated(t *testing.T) {
-// 	if strings.Contains(os.Getenv("TEST_ENV"), "minikube") {
-// 		t.Skipf("Skipping %s in minikube environment", t.Name())
-// 	}
-// 	// Simplest way to create out of process core file.
-// 	crashContainer := "istio-proxy"
-// 	crashProgPath := "/tmp/crashing_program"
-// 	coreDir := "var/lib/istio"
-// 	script := `#!/bin/bash
-// kill -SIGSEGV $$
-// `
-// 	err := ioutil.WriteFile(crashProgPath, []byte(script), 0755)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+func TestRemoteInstanceAcessible(t *testing.T) {
+	// Get the sleep pod name
+	podName, err := util.GetPodName("sample", "app=sleep", tc.Kube.KubeConfig)
+	if err != nil {
+		t.Fatalf("couldn't get the sleep pod name. Error: %s", err.Error())
+	}
 
-// 	ingressGatewayPod, err := getIngressGatewayPodName()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Out of the 10 tries no response from remote cluster therefore fail the test
+	runRetriableTest(t, "GetResponseFromRemote", defaultRetryBudget, func() error {
+		output, err := util.PodExec("sample", podName, "sleep", "curl helloworld.sample:5000/hello", false, tc.Kube.KubeConfig)
+		if err != nil {
+			t.Fatalf("couldn't execute a curl call from the sleep pod. Error: %s", err.Error())
+		}
 
-// 	if err := util2.CopyFilesToPod(crashContainer, ingressGatewayPod, tc.Kube.Namespace, crashProgPath, crashProgPath); err != nil {
-// 		t.Fatalf("could not copy file to pod %s: %v", ingressGatewayPod, err)
-// 	}
-
-// 	out, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, crashProgPath, false, "")
-// 	if !strings.HasPrefix(out, "command terminated with exit code 139") {
-// 		t.Fatalf("did not get expected crash error for %s in pod %s, got: %v", crashProgPath, ingressGatewayPod, err)
-// 	}
-
-// 	// No easy way to look for a specific core file.
-// 	response, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "find "+coreDir, false, "")
-// 	if !strings.Contains(response, "core.") {
-// 		t.Fatalf("%s did not contain core file, contents: %s, err:%v", coreDir, response, err)
-// 	}
-
-// 	response, err = util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "rm "+getCorefilename(response), false, "")
-// 	if err != nil {
-// 		t.Fatalf("could not remove core file, response:%s, err:%v", response, err)
-// 	}
-// }
-
-// func getIngressGatewayPodName() (string, error) {
-// 	label := "istio=ingressgateway"
-// 	res, err := util.Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{"+
-// 		".metadata.labels.%s}{\"\\n\"}{end}'", tc.Kube.Namespace, label, label)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	rv := strings.Split(res, "\n")
-// 	if len(rv) < 2 {
-// 		return "", fmt.Errorf("bad response for get ingressgateway: %s", res)
-// 	}
-
-// 	return strings.TrimSpace(rv[0]), nil
-// }
-
-// func getCorefilename(resp string) string {
-// 	for _, line := range strings.Split(resp, "\n") {
-// 		if strings.Contains(line, "core.") {
-// 			return strings.TrimSpace(line)
-// 		}
-// 	}
-// 	return ""
-// }
+		// Check whether the response is from remote cluster (v2). If it is then the
+		// test is successful
+		if strings.Index(output, "Hello version: v2") >= 0 {
+			log.Info("got response from the helloworld v2 instance (remote cluster)")
+			return nil
+		}
+		return fmt.Errorf("received only responses from primary (v1) while expecting at least one response from remote (v2)")
+	})
+}
 
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("split_horizon_test")
@@ -167,24 +114,50 @@ func setTestConfig() error {
 	}
 	tc.AppDir = appDir
 
-	// Add additional apps for this test suite.
-	// apps := getApps()
-	// for i := range apps {
-	// 	tc.Kube.AppManager.AddApp(&apps[i])
-	// 	if tc.Kube.RemoteKubeConfig != "" {
-	// 		tc.Kube.RemoteAppManager.AddApp(&apps[i])
-	// 	}
-	// }
-
 	// Extra system configuration required for the pilot tests.
 	tc.extraConfig = make(map[string]*deployableConfig)
-	for cluster, kc := range tc.Kube.Clusters {
-		tc.extraConfig[cluster] = &deployableConfig{
-			Namespace: tc.Kube.Namespace,
-			// YamlFiles: []string{
-			// 	"testdata/external-wikipedia.yaml",
-			// 	"testdata/externalbin.yaml",
-			// },
+
+	// Deplyment configration for the primary cluster
+	if kc, ok := tc.Kube.Clusters[primaryCluster]; ok {
+		tc.extraConfig[primaryCluster] = &deployableConfig{
+			Namespace:      "sample",
+			IstioInjection: true,
+			YamlFiles: []yamlFile{
+				{
+					// Select the service from the yaml file
+					Name:         "testdata/helloworld.yaml",
+					LabelSeletor: "app=helloworld",
+				},
+				{
+					// Select the v1 deployment from the yaml file
+					Name:         "testdata/helloworld.yaml",
+					LabelSeletor: "version=v1",
+				},
+				{
+					// sleep service yaml file
+					Name: "testdata/sleep.yaml",
+				},
+			},
+			kubeconfig: kc,
+		}
+	}
+
+	if kc, ok := tc.Kube.Clusters[remoteCluster]; ok {
+		tc.extraConfig[remoteCluster] = &deployableConfig{
+			Namespace:      "sample",
+			IstioInjection: true,
+			YamlFiles: []yamlFile{
+				{
+					// Select the service from the yaml file
+					Name:         "testdata/helloworld.yaml",
+					LabelSeletor: "app=helloworld",
+				},
+				{
+					// Select the v2 deployment from the yaml file
+					Name:         "testdata/helloworld.yaml",
+					LabelSeletor: "version=v2",
+				},
+			},
 			kubeconfig: kc,
 		}
 	}
@@ -202,9 +175,6 @@ func check(err error, msg string) {
 // runRetriableTest runs the given test function the provided number of times.
 func runRetriableTest(t *testing.T, testName string, retries int, f func() error, errorFunc ...func()) {
 	t.Run(testName, func(t *testing.T) {
-		// Run all request tests in parallel.
-		// TODO(nmittler): Consider t.Parallel()?
-
 		remaining := retries
 		for {
 			// Call the test function.
@@ -232,6 +202,10 @@ func runRetriableTest(t *testing.T, testName string, retries int, f func() error
 	})
 }
 
+type yamlFile struct {
+	Name         string
+	LabelSeletor string
+}
 type resource struct {
 	// Kind of the resource
 	Kind string
@@ -241,8 +215,10 @@ type resource struct {
 
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace string
-	YamlFiles []string
+	Namespace      string
+	IstioInjection bool
+	YamlFiles      []yamlFile
+
 	// List of resources must be removed during deployableConfig setup, and restored
 	// during teardown. These resources must exist before deployableConfig setup runs, and should be
 	// in the same namespace defined above. Typically, they are added by the default Istio installation
@@ -270,19 +246,42 @@ func (c *deployableConfig) Setup() error {
 		}
 		c.removed = append(c.removed, content)
 	}
+
+	if c.Namespace != tc.Kube.Namespace {
+		if err := util.CreateNamespace(c.Namespace, c.kubeconfig); err != nil {
+			_ = c.Teardown()
+			return err
+		}
+	}
+
+	if c.IstioInjection {
+		if err := util.LabelNamespace(c.Namespace, "istio-injection=enabled", c.kubeconfig); err != nil {
+			_ = c.Teardown()
+			return err
+		}
+	}
+
 	c.applied = []string{}
-	// Apply the configs.
+	// Apply the yaml file(s)
 	for _, yamlFile := range c.YamlFiles {
-		if err := util.KubeApply(c.Namespace, yamlFile, c.kubeconfig); err != nil {
+		kubeCmd := "apply"
+		if len(yamlFile.LabelSeletor) > 0 {
+			kubeCmd += " -l " + yamlFile.LabelSeletor
+		}
+		if err := util.KubeCommand(kubeCmd, c.Namespace, yamlFile.Name, c.kubeconfig); err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()
 			return err
 		}
-		c.applied = append(c.applied, yamlFile)
+		c.applied = append(c.applied, yamlFile.Name)
 	}
 
-	// Sleep for a while to allow the change to propagate.
-	time.Sleep(c.propagationDelay())
+	// Wait until the deployments are ready
+	if err := util.CheckDeployments(c.Namespace, maxDeploymentTimeout, c.kubeconfig); err != nil {
+		_ = c.Teardown()
+		return err
+	}
+
 	return nil
 }
 
@@ -322,14 +321,6 @@ type testConfig struct {
 
 // Setup initializes the test environment and waits for all pods to be in the running state.
 func (t *testConfig) Setup() (err error) {
-	// Deploy additional configuration.
-	for _, ec := range t.extraConfig {
-		err = ec.Setup()
-		if err != nil {
-			return
-		}
-	}
-
 	// Wait for all the pods to be in the running state before starting tests.
 	for cluster, kc := range t.Kube.Clusters {
 		log.Infof("Making sure all pods are running on cluster: %s", cluster)
@@ -338,13 +329,6 @@ func (t *testConfig) Setup() (err error) {
 			break
 		}
 		log.Info("All pods are running")
-	}
-
-	// For multicluster tests, add the remote cluster into the mesh
-	// and verify the multicluster service mesh before starting tests.
-	err = createAndVerifyMCMeshConfig()
-	if err != nil {
-		return
 	}
 
 	// Update the meshNetworks within the mesh config with the gateway address of the remote
@@ -357,11 +341,30 @@ func (t *testConfig) Setup() (err error) {
 	util.ReplaceInConfigMap(tc.Kube.Namespace, istioMeshConfigMapName,
 		fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), tc.Kube.KubeConfig)
 
+	// Add the remote cluster into the mesh by adding the secret
+	if err = addRemoteCluster(); err != nil {
+		return err
+	}
+
+	// Wait until the deployments on remote cluster are all ready
+	err = util.CheckDeployments(tc.Kube.Namespace, maxDeploymentTimeout, tc.Kube.RemoteKubeConfig)
+	if err != nil {
+		return
+	}
+
 	// Apply the cluster-aware gateway for the auto SNI-based passthrough. Applied to primary but
 	// effective for all clusters.
 	err = util.KubeApplyContents(tc.Kube.Namespace, clusterAwareGateway, tc.Kube.KubeConfig)
 
 	// Clusters are now ready for testing
+
+	// Deploy additional configuration/apps
+	for _, ec := range t.extraConfig {
+		err = ec.Setup()
+		if err != nil {
+			return
+		}
+	}
 
 	return
 }
@@ -376,269 +379,4 @@ func (t *testConfig) Teardown() (err error) {
 		}
 	}
 	return
-}
-
-// func getApps() []framework.App {
-// 	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
-// 	return []framework.App{
-// 		// deploy a healthy mix of apps, with and without proxy
-// 		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
-// 		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
-// 		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
-// 		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
-// 		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
-// 		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
-// 		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
-// 		getStatefulSet("statefulset", 19090, true),
-// 	}
-// }
-
-// func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
-// 	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
-// 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
-// 	healthPort := "true"
-
-// 	// Return the config.
-// 	return framework.App{
-// 		AppYamlTemplate: "testdata/app.yaml.tmpl",
-// 		Template: map[string]string{
-// 			"Hub":             tc.Kube.PilotHub(),
-// 			"Tag":             tc.Kube.PilotTag(),
-// 			"service":         serviceName,
-// 			"deployment":      deploymentName,
-// 			"replicas":        strconv.Itoa(replicas),
-// 			"port1":           strconv.Itoa(port1),
-// 			"port2":           strconv.Itoa(port2),
-// 			"port3":           strconv.Itoa(port3),
-// 			"port4":           strconv.Itoa(port4),
-// 			"port5":           strconv.Itoa(port5),
-// 			"port6":           strconv.Itoa(port6),
-// 			"version":         version,
-// 			"istioNamespace":  tc.Kube.Namespace,
-// 			"injectProxy":     strconv.FormatBool(injectProxy),
-// 			"headless":        strconv.FormatBool(headless),
-// 			"serviceAccount":  strconv.FormatBool(serviceAccount),
-// 			"healthPort":      healthPort,
-// 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
-// 			"createService":   strconv.FormatBool(createService),
-// 		},
-// 		KubeInject: injectProxy,
-// 	}
-// }
-
-// func getStatefulSet(service string, port int, injectProxy bool) framework.App {
-
-// 	// Return the config.
-// 	return framework.App{
-// 		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
-// 		Template: map[string]string{
-// 			"Hub":             tc.Kube.PilotHub(),
-// 			"Tag":             tc.Kube.PilotTag(),
-// 			"service":         service,
-// 			"port":            strconv.Itoa(port),
-// 			"istioNamespace":  tc.Kube.Namespace,
-// 			"injectProxy":     strconv.FormatBool(injectProxy),
-// 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
-// 		},
-// 		KubeInject: injectProxy,
-// 	}
-// }
-
-// ClientRequestForError makes a request from inside the specified k8s container. The request is expected
-// to fail and the error is returned.
-func ClientRequestForError(cluster, app, url string, count int) error {
-	pods := tc.Kube.GetAppPods(cluster)[app]
-	if len(pods) == 0 {
-		log.Errorf("Missing pod names for app %q from %s cluster", app, cluster)
-		return nil
-	}
-
-	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d", url, count)
-	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
-	return err
-}
-
-// ClientRequest makes a request from inside the specified k8s container.
-func ClientRequest(cluster, app, url string, count int, extra string) ClientResponse {
-	out := ClientResponse{}
-
-	pods := tc.Kube.GetAppPods(cluster)[app]
-	if len(pods) == 0 {
-		log.Errorf("Missing pod names for app %q from %s cluster", app, cluster)
-		return out
-	}
-
-	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
-	if err != nil {
-		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)
-		return out
-	}
-
-	out.Body = request
-
-	ids := idRegex.FindAllStringSubmatch(request, -1)
-	for _, id := range ids {
-		out.ID = append(out.ID, id[1])
-	}
-
-	versions := versionRegex.FindAllStringSubmatch(request, -1)
-	for _, version := range versions {
-		out.Version = append(out.Version, version[1])
-	}
-
-	ports := portRegex.FindAllStringSubmatch(request, -1)
-	for _, port := range ports {
-		out.Port = append(out.Port, port[1])
-	}
-
-	codes := codeRegex.FindAllStringSubmatch(request, -1)
-	for _, code := range codes {
-		out.Code = append(out.Code, code[1])
-	}
-
-	hosts := hostRegex.FindAllStringSubmatch(request, -1)
-	for _, host := range hosts {
-		out.Host = append(out.Host, host[1])
-	}
-
-	return out
-}
-
-// ClientResponse represents a response to a client request.
-type ClientResponse struct {
-	// Body is the body of the response
-	Body string
-	// ID is a unique identifier of the resource in the response
-	ID []string
-	// Version is the version of the resource in the response
-	Version []string
-	// Port is the port of the resource in the response
-	Port []string
-	// Code is the response code
-	Code []string
-	// Host is the host returned by the response
-	Host []string
-}
-
-// IsHTTPOk returns true if the response code was 200
-func (r *ClientResponse) IsHTTPOk() bool {
-	return len(r.Code) > 0 && r.Code[0] == httpOK
-}
-
-// accessLogs collects test expectations for access logs
-type accessLogs struct {
-	mu sync.Mutex
-
-	// logs is a mapping from app name to requests for both primary and remote clusters
-	logs map[string]map[string][]request
-}
-
-type request struct {
-	id   string
-	desc string
-}
-
-// NewAccessLogs creates an initialized accessLogs instance.
-// func newAccessLogs() *accessLogs {
-// 	al := make(map[string]map[string][]request)
-// 	for cluster := range tc.Kube.Clusters {
-// 		al[cluster] = make(map[string][]request)
-// 	}
-// 	return &accessLogs{
-// 		logs: al,
-// 	}
-// }
-
-// add an access log entry for an app
-func (a *accessLogs) add(cluster, app, id, desc string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.logs[cluster][app] = append(a.logs[cluster][app], request{id: id, desc: desc})
-}
-
-// CheckLogs verifies the logs against a deployment
-func (a *accessLogs) checkLogs(t *testing.T) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	log.Infof("Checking pod logs for request IDs...")
-	log.Debuga(a.logs)
-
-	for cluster, apps := range a.logs {
-		for app := range apps {
-			pods := a.getAppPods(t, app)
-
-			// Check the logs for this app.
-			a.checkLog(t, cluster, app, pods)
-		}
-	}
-}
-
-func (a *accessLogs) getAppPods(t *testing.T, app string) map[string][]string {
-	pods := make(map[string][]string)
-	// if app == ingressAppName {
-	// 	// Ingress uses the "istio" label, not an "app" label.
-	// 	ingressPods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	if len(ingressPods) == 0 {
-	// 		t.Fatal("Missing ingress pod")
-	// 	}
-	// 	pods[primaryCluster] = ingressPods
-	// 	return pods
-	// }
-
-	log.Infof("Checking log for app: %q", app)
-	// Pods for the app needs to be obtained from all the clusters.
-	for cluster := range a.logs {
-		tmpPods := tc.Kube.GetAppPods(cluster)[app]
-		if len(tmpPods) == 0 {
-			t.Fatalf("Missing pods for app: %q from %s cluster", app, cluster)
-		}
-		pods[cluster] = tmpPods
-	}
-
-	return pods
-}
-
-func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string][]string) {
-	var container string
-	// if app == ingressAppName {
-	// 	container = ingressContainerName
-	// } else {
-	// 	container = inject.ProxyContainerName
-	// }
-
-	runRetriableTest(t, app, defaultRetryBudget, func() error {
-		// find all ids and counts
-		// TODO: this can be optimized for many string submatching
-		counts := make(map[string]int)
-		for _, request := range a.logs[cluster][app] {
-			counts[request.id] = counts[request.id] + 1
-		}
-
-		// Concat the logs from all pods.
-		var logs string
-		for c, cPods := range pods {
-			for _, pod := range cPods {
-				// Retrieve the logs from the service container
-				logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.Clusters[c])
-			}
-		}
-
-		for id, want := range counts {
-			got := strings.Count(logs, id)
-			if got < want {
-				log.Errorf("Got %d for %s in logs of %s from %s cluster, want %d", got, id, app, cluster, want)
-				// Do not dump the logs. Its virtually useless even if just one iteration fails.
-				//log.Errorf("Log: %s", logs)
-				return errAgain
-			}
-		}
-
-		return nil
-	})
 }
