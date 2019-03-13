@@ -59,19 +59,19 @@ func TestMtlsHealthCheck(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	healthcheckApp := KubeApp{
-		deployment:     "healthcheck",
-		service:        "healthcheck",
-		version:        "v1",
-		port1:          80,
-		port2:          8080,
-		port3:          90,
-		port4:          9090,
-		port5:          70,
-		port6:          7070,
+	healthcheckApp := apps.KubeApp{
+		Deployment:     "healthcheck",
+		Service:        "healthcheck",
+		Version:        "v1",
+		Port1:          80,
+		Port2:          8080,
+		Port3:          90,
+		Port4:          9090,
+		Port5:          70,
+		Port6:          7070,
 		InjectProxy:    true,
 		Headless:       false,
-		serviceAccount: true,
+		ServiceAccount: true,
 	}
 	// Deploy app now.
 	kubeApps := &descriptors.Apps

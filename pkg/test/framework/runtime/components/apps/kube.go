@@ -157,7 +157,7 @@ spec:
 )
 
 var (
-	deploymentFactories = []*KubeApp{
+	defaultKubeApps = []KubeApp{
 		{
 			Deployment:     "t",
 			Service:        "t",
@@ -287,7 +287,7 @@ func (ka KubeAppsConfig) String() string {
 func NewKubeComponent() (api.Component, error) {
 	return &kubeComponent{
 		apps:        make([]components.App, 0),
-		deployments: make([]*deployment.Instance, len(deploymentFactories)),
+		deployments: make([]*deployment.Instance, 0),
 	}, nil
 }
 
@@ -322,28 +322,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 
 	// If the test does not explicitly describe the apps it needs, deploy a suite of default apps.
 	if len(c.requiredApps) == 0 {
-		// Apply all the configs for the deployments.
-		for i, factory := range deploymentFactories {
-			var e error
-			c.deployments[i], e = factory.newDeployment(env, scope)
-			if e != nil {
-				return multierror.Append(err, e)
-			}
-		}
-
-		// Wait for the pods to transition to running.
-		for _, d := range deploymentFactories {
-			pod, err := d.waitUntilPodIsReady(env, scope)
-			if err != nil {
-				return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.Deployment))
-			}
-			client, err := newKubeApp(d.Service, namespace, pod, env)
-			if err != nil {
-				return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.Deployment))
-			}
-			c.apps = append(c.apps, client)
-		}
-		return nil
+		c.requiredApps = defaultKubeApps
 	}
 
 	// Deploy the apps required by the test.
@@ -353,6 +332,8 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
 		}
 		c.deployments = append(c.deployments, d)
+	}
+	for _, app := range c.requiredApps {
 		pod, err := app.waitUntilPodIsReady(env, scope)
 		if err != nil {
 			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Deployment))
@@ -400,7 +381,7 @@ func (c *kubeComponent) Close() (err error) {
 		}
 
 		// Wait for all deployments to be deleted.
-		for _, factory := range deploymentFactories {
+		for _, factory := range defaultKubeApps {
 			err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.scope)).ErrorOrNil()
 		}
 	}
@@ -642,19 +623,19 @@ func (d *KubeApp) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*de
 		"Hub":             helmValues[kube.HubValuesKey],
 		"Tag":             helmValues[kube.TagValuesKey],
 		"ImagePullPolicy": helmValues[kube.ImagePullPolicyValuesKey],
-		"deployment":      d.deployment,
-		"service":         d.service,
-		"app":             d.service,
-		"version":         d.version,
-		"port1":           strconv.Itoa(d.port1),
-		"port2":           strconv.Itoa(d.port2),
-		"port3":           strconv.Itoa(d.port3),
-		"port4":           strconv.Itoa(d.port4),
-		"port5":           strconv.Itoa(d.port5),
-		"port6":           strconv.Itoa(d.port6),
-		"injectProxy":     strconv.FormatBool(d.injectProxy),
-		"headless":        strconv.FormatBool(d.headless),
-		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+		"deployment":      d.Deployment,
+		"service":         d.Service,
+		"app":             d.Service,
+		"version":         d.Version,
+		"port1":           strconv.Itoa(d.Port1),
+		"port2":           strconv.Itoa(d.Port2),
+		"port3":           strconv.Itoa(d.Port3),
+		"port4":           strconv.Itoa(d.Port4),
+		"port5":           strconv.Itoa(d.Port5),
+		"port6":           strconv.Itoa(d.Port6),
+		"injectProxy":     strconv.FormatBool(d.InjectProxy),
+		"headless":        strconv.FormatBool(d.Headless),
+		"serviceAccount":  strconv.FormatBool(d.ServiceAccount),
 	})
 	if err != nil {
 		return nil, err
@@ -670,7 +651,7 @@ func (d *KubeApp) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*de
 func (d *KubeApp) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope) (kubeApiCore.Pod, error) {
 	ns := e.NamespaceForScope(scope)
 
-	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.Service), fmt.Sprintf("version=%s", d.Version))
 	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
 	}
@@ -685,6 +666,6 @@ func (d *KubeApp) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope
 func (d *KubeApp) waitUntilPodIsDeleted(e *kube.Environment, scope lifecycle.Scope) error {
 	ns := e.NamespaceForScope(scope)
 
-	podFetchFunc := e.NewPodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewPodFetch(ns, appSelector(d.Service), fmt.Sprintf("version=%s", d.Version))
 	return e.WaitUntilPodsAreDeleted(podFetchFunc)
 }
