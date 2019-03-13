@@ -107,6 +107,16 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
+// ValidatePort checks if all ports are in range [0, 65535]
+func ValidatePorts(ports []int32) bool {
+	for _, port := range ports {
+		if ValidatePort(int(port)) != nil {
+			return false
+		}
+	}
+	return true
+}
+
 // Validate checks that each name conforms to the spec and has a ProtoMessage
 func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
@@ -1447,6 +1457,17 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 	for i, rule := range in.Rules {
 		if len(rule.Services) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
+		}
+		// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
+		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
+		if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
+		}
+		if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
+			errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
+		}
+		if !ValidatePorts(rule.Ports) || !ValidatePorts(rule.NotPorts) {
+			errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
 		}
 		for j, constraint := range rule.Constraints {
 			if len(constraint.Key) == 0 {
