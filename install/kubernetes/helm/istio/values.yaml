@@ -113,6 +113,13 @@ global:
   # Default tag for Istio images.
   tag: release-1.1-latest-daily
 
+  # Set this only if you are upgrading from 1.0.x, and you used Helm with Tiller to install.
+  # Tiller will remove the CRDs created by istio-init if it believes they are deleted from chart.
+  # In future we are planning to minimize the use of Tiller features, and CRDs will no longer be
+  # under control of tiller. As an alternative, a tool is available to remove the CRDs from the
+  # tiller database.
+  crds: false
+
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
