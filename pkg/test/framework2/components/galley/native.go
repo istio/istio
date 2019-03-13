@@ -21,13 +21,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/deployment"
+
+	"istio.io/istio/pkg/test/framework2/core"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -44,19 +48,23 @@ const (
 )
 
 // NewNativeComponent factory function for the component
-func newNative(s resource.Context, e *native.Environment) (Instance, error) {
+func newNative(s core.Context, e *native.Environment, cfg Config) (Instance, error) {
 
 	n := &nativeComponent{
 		context:     s,
 		environment: e,
+		cfg:         cfg,
 	}
+	n.id = s.TrackResource(n)
 
-	s.TrackResource(n)
 	return n, n.Reset()
 }
 
 type nativeComponent struct {
-	context     resource.Context
+	id  core.ResourceID
+	cfg Config
+
+	context     core.Context
 	environment *native.Environment
 
 	client *client
@@ -76,28 +84,16 @@ type nativeComponent struct {
 	server *server.Server
 }
 
-var _ resource.Instance = &nativeComponent{}
+var _ Instance = &nativeComponent{}
 
-// FriendlyName implements resource.Instance
-func (c *nativeComponent) FriendlyName() string {
-	return "[Galley(native)]"
+// ID implements resource.Instance
+func (c *nativeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 // Address of the Galley MCP Server.
 func (c *nativeComponent) Address() string {
 	return c.client.address
-}
-
-// SetMeshConfig applies the given mesh config yaml file via Galley.
-func (c *nativeComponent) SetMeshConfig(yamlText string) error {
-	if err := ioutil.WriteFile(c.meshConfigFile, []byte(yamlText), os.ModePerm); err != nil {
-		return err
-	}
-	if err := c.Close(); err != nil {
-		return err
-	}
-
-	return c.restart()
 }
 
 // ClearConfig implements Galley.ClearConfig.
@@ -113,19 +109,40 @@ func (c *nativeComponent) ClearConfig() (err error) {
 		}
 	}
 
+	err = c.applyAttributeManifest()
 	return
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
-	fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-	fn = path.Join(c.configDir, fn)
+func (c *nativeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) (err error) {
 
-	if err = ioutil.WriteFile(fn, []byte(yamlText), os.ModePerm); err != nil {
-		return err
+	for _, y := range yamlText {
+		if ns != nil {
+			y, err = ns.Apply(y)
+			if err != nil {
+				return
+			}
+		}
+
+		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
+		fn = path.Join(c.configDir, fn)
+
+		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, y)
+		if err = ioutil.WriteFile(fn, []byte(y), os.ModePerm); err != nil {
+			return err
+		}
 	}
 
 	return
+}
+
+// ApplyConfigOrFail applies the given config yaml file via Galley.
+func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string) {
+	t.Helper()
+	err := c.ApplyConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("Galley.ApplyConfigOrFail: %v", err)
+	}
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
@@ -173,8 +190,14 @@ func (c *nativeComponent) Reset() error {
 	}
 	scopes.Framework.Debugf("Galley mesh config dir: %v", c.meshConfigDir)
 
+	scopes.Framework.Debugf("Galley writing mesh config:\n---\n%s\n---\n", c.cfg.MeshConfig)
+
 	c.meshConfigFile = path.Join(c.meshConfigDir, meshConfigFile)
-	if err = ioutil.WriteFile(c.meshConfigFile, []byte{}, os.ModePerm); err != nil {
+	if err = ioutil.WriteFile(c.meshConfigFile, []byte(c.cfg.MeshConfig), os.ModePerm); err != nil {
+		return err
+	}
+
+	if err = c.applyAttributeManifest(); err != nil {
 		return err
 	}
 
@@ -219,12 +242,12 @@ func (c *nativeComponent) restart() error {
 // Close implements io.Closer.
 func (c *nativeComponent) Close() (err error) {
 	if c.client != nil {
-		scopes.Framework.Debugf("%s closing client", c.FriendlyName())
+		scopes.Framework.Debugf("%s closing client", c.id)
 		err = c.client.Close()
 		c.client = nil
 	}
 	if c.server != nil {
-		scopes.Framework.Debugf("%s closing server", c.FriendlyName())
+		scopes.Framework.Debugf("%s closing server", c.id)
 		err = multierror.Append(c.server.Close()).ErrorOrNil()
 		if err != nil {
 			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
@@ -232,6 +255,20 @@ func (c *nativeComponent) Close() (err error) {
 		c.server = nil
 	}
 
-	scopes.Framework.Debugf("%s close complete (err:%v)", err)
+	scopes.Framework.Debugf("%s close complete (err:%v)", c.id, err)
 	return
+}
+
+func (c *nativeComponent) applyAttributeManifest() error {
+	helmExtractDir, err := c.context.CreateTmpDirectory("helm-mixer-attribute-extract")
+	if err != nil {
+		return err
+	}
+
+	m, err := deployment.ExtractAttributeManifest(helmExtractDir)
+	if err != nil {
+		return err
+	}
+
+	return c.ApplyConfig(nil, m)
 }

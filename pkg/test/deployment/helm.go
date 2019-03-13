@@ -33,7 +33,7 @@ import (
 
 const (
 	namespaceTemplate = `apiVersion: v1
-kind: Namespace
+kind: kubeNamespace
 metadata:
   name: %s
   labels:

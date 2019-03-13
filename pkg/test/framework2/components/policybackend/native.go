@@ -19,10 +19,11 @@ import (
 	"io"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/scopes"
@@ -32,31 +33,30 @@ import (
 var (
 	retryDelay = retry.Delay(time.Second)
 
-	_ Instance          = &nativeComponent{}
-	_ io.Closer         = &nativeComponent{}
-	_ resource.Resetter = &nativeComponent{}
+	_ Instance      = &nativeComponent{}
+	_ io.Closer     = &nativeComponent{}
+	_ core.Resetter = &nativeComponent{}
 )
 
 type nativeComponent struct {
-	ctx resource.Context
+	id  core.ResourceID
+	ctx core.Context
 	env *native.Environment
 
 	*client
-	namespace string
-	backend   *policy.Backend
+	backend *policy.Backend
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx resource.Context, env *native.Environment) (Instance, error) {
-	return &nativeComponent{
-		ctx: ctx,
-		env: env,
-	}, nil
-}
+func newNative(ctx core.Context, env *native.Environment) (Instance, error) {
+	c := &nativeComponent{
+		ctx:    ctx,
+		env:    env,
+		client: &client{},
+	}
+	c.id = ctx.TrackResource(c)
 
-func (c *nativeComponent) Start(ctx resource.Context, environment *native.Environment) (err error) {
-	c.client = &client{}
-
+	var err error
 	scopes.CI.Infof("=== BEGIN: Start local PolicyBackend ===")
 	defer func() {
 		if err != nil {
@@ -69,7 +69,7 @@ func (c *nativeComponent) Start(ctx resource.Context, environment *native.Enviro
 
 	c.backend = policy.NewPolicyBackend(0) // auto-allocate port
 	if err = c.backend.Start(); err != nil {
-		return
+		return nil, err
 	}
 
 	var ctl interface{}
@@ -82,13 +82,14 @@ func (c *nativeComponent) Start(ctx resource.Context, environment *native.Enviro
 		return c, true, nil
 	}, retryDelay)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.client.controller = ctl.(*policy.Controller)
-	return nil
+
+	return c, nil
 }
 
-func (c *nativeComponent) CreateConfigSnippet(name string) string {
+func (c *nativeComponent) CreateConfigSnippet(name string, namespace string) string {
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
 kind: bypass
@@ -97,7 +98,7 @@ metadata:
   namespace: %s
 spec:
   backend_address: 127.0.0.1:%d
-`, name, c.namespace, c.backend.Port())
+`, name, namespace, c.backend.Port())
 }
 
 func (c *nativeComponent) Reset() error {
@@ -105,6 +106,10 @@ func (c *nativeComponent) Reset() error {
 		return c.client.Reset()
 	}
 	return nil
+}
+
+func (c *nativeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 func (c *nativeComponent) Close() (err error) {

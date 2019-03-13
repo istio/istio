@@ -15,7 +15,6 @@
 package policybackend
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -109,6 +108,16 @@ func (c *client) ExpectReportJSON(t testing.TB, expected ...string) {
 	}
 }
 
+func (c *client) GetReports(t testing.TB) []proto.Message {
+	t.Helper()
+	reports, err := c.controller.GetReports()
+	if err != nil {
+		t.Fatalf("PolicyBackend.GetReports: %v", err)
+	}
+
+	return reports
+}
+
 // contains checks whether items contains all entries in expected.
 func contains(items, expected []interface{}) bool {
 
@@ -138,20 +147,6 @@ func mapArrayToInterfaceArray(arr []map[string]interface{}) []interface{} {
 	for i, p := range arr {
 		result[i] = p
 	}
-	return result
-}
-
-func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
-	var result []map[string]interface{}
-
-	for _, a := range arr {
-		i := make(map[string]interface{})
-		if err := json.Unmarshal([]byte(a), &i); err != nil {
-			t.Fatalf("Error unmarshaling JSON: %v", err)
-		}
-		result = append(result, i)
-	}
-
 	return result
 }
 

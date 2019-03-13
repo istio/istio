@@ -19,8 +19,9 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/runtime"
@@ -65,7 +66,7 @@ func TestValidation(t *testing.T) {
 	defer ctx.Done(t)
 
 	// Validation tests only works in Kubernetes environment
-	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.RequireOrSkip(t, core.Kube)
 
 	dataset := loadTestData(t)
 
@@ -92,7 +93,7 @@ func TestValidation(t *testing.T) {
 			}
 
 			env := ctx.Environment().(*kube.Environment)
-			ns := env.NewNamespaceOrFail(t, ctx, "validation", false)
+			ns := env.AllocateNamespaceOrFail(t, "validation", false)
 			err = env.ApplyContents(ns, yml)
 
 			switch {
@@ -118,6 +119,14 @@ func TestMain(m *testing.M) {
 }
 
 func setup(s *runtime.SuiteContext) error {
-	// TODO: WE should do a require check at the framework level.
-	return istio.Deploy(s)
+	switch s.Environment().EnvironmentName() {
+	case core.Kube:
+		_, err := istio.New(s, nil)
+		return err
+	case core.Native:
+		s.Skip("Native environment is not supported for validation")
+		return nil
+	}
+
+	return nil
 }

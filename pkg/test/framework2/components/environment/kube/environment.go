@@ -18,58 +18,48 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
+	"istio.io/istio/pkg/test/deployment"
+
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
-	"istio.io/istio/pkg/test/framework2/runtime"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/kube"
 )
 
-//const (
-//	validatingWebhookName = "istio-galley"
-//)
-
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
+	id core.ResourceID
+
+	ctx core.Context
 	*kube.Accessor
-	s *settings
+	s *Settings
 }
 
-var _ environment.Instance = &Environment{}
-
-// EnvironmentName implements environment.Instance
-func (e *Environment) EnvironmentName() environment.Name {
-	return environment.Kube
-}
-
-// FriendlyIname implements resource.Instance
-func (e *Environment) FriendlyName() string {
-	return fmt.Sprintf("[Environment %s]", environment.Kube.String())
-}
+var _ core.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(c environment.Context) (environment.Instance, error) {
+func New(ctx core.Context) (core.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
 	}
 
-	return newKube(s, c)
-}
+	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
-func newKube(s *settings, c environment.Context) (*Environment, error) {
-	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", s)
-
-	workDir, err := c.CreateTmpDirectory("kube")
+	workDir, err := ctx.CreateTmpDirectory("kube")
 	if err != nil {
 		return nil, err
 	}
 
-	e := &Environment{}
+	e := &Environment{
+		ctx: ctx,
+	}
+	e.id = ctx.TrackResource(e)
+
 	if e.Accessor, err = kube.NewAccessor(s.KubeConfig, workDir); err != nil {
 		return nil, err
 	}
@@ -77,31 +67,56 @@ func newKube(s *settings, c environment.Context) (*Environment, error) {
 	return e, nil
 }
 
-// NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, s *runtime.TestContext, prefix string, inject bool) *Namespace {
-	t.Helper()
-	n, err := e.NewNamespace(s, prefix, inject)
-	if err != nil {
-		t.Fatalf("error creating namespace with prefix %q: %v", prefix, err)
-	}
-	return n
+// EnvironmentName implements environment.Instance
+func (e *Environment) EnvironmentName() core.EnvironmentName {
+	return core.Kube
 }
 
-// NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(s resource.Context, prefix string, inject bool) (*Namespace, error) {
+// FriendlyIname implements resource.Instance
+func (e *Environment) ID() core.ResourceID {
+	return e.id
+}
+
+func (e *Environment) Settings() *Settings {
+	return e.s.clone()
+}
+
+// AllocateNamespace allocates a new testing namespace.
+func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}
 
-	n := &Namespace{ns, e.Accessor}
-	s.TrackResource(n)
+	n := &kubeNamespace{name: ns, a: e.Accessor}
+	id := e.ctx.TrackResource(n)
+	n.id = id
 
 	return n, nil
 }
 
+// NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
+func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+	t.Helper()
+	n, err := e.AllocateNamespace(prefix, inject)
+	if err != nil {
+		t.Fatalf("Environment.AllocateNamespaceOrFail: %v", err)
+	}
+	return n
+}
+
 // ApplyContents applies the given yaml contents to the namespace.
-func (e *Environment) ApplyContents(ns *Namespace, yml string) error {
-	_, err := e.Accessor.ApplyContents(ns.Name, yml)
+func (e *Environment) ApplyContents(ns core.Namespace, yml string) error {
+	_, err := e.Accessor.ApplyContents(ns.Name(), yml)
 	return err
+}
+
+func (e *Environment) DeployYaml(namespace, yamlFile string) (*deployment.Instance, error) {
+	i := deployment.NewYamlDeployment(namespace, yamlFile)
+
+	err := i.Deploy(e.Accessor, true)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }

@@ -17,11 +17,10 @@ package runtime
 import (
 	"io"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // scope hold resources in a particular scope.
@@ -31,7 +30,7 @@ type scope struct {
 
 	parent *scope
 
-	resources []resource.Instance
+	resources []core.Resource
 
 	children []*scope
 }
@@ -49,8 +48,8 @@ func newScope(id string, p *scope) *scope {
 	return s
 }
 
-func (s *scope) add(r resource.Instance) {
-	scopes.Framework.Debugf("Adding resource for tracking: %v", r.FriendlyName())
+func (s *scope) add(r core.Resource) {
+	scopes.Framework.Debugf("Adding resource for tracking: %v", r.ID())
 	s.resources = append(s.resources, r)
 }
 
@@ -62,12 +61,12 @@ func (s *scope) done(nocleanup bool) error {
 		for i := len(s.resources) - 1; i >= 0; i-- {
 			r := s.resources[i]
 			if closer, ok := r.(io.Closer); ok {
-				scopes.Framework.Debugf("Begin cleaning up resource: %v", r.FriendlyName())
+				scopes.Framework.Debugf("Begin cleaning up resource: %v", r.ID())
 				if e := closer.Close(); e != nil {
-					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.FriendlyName(), err)
+					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.ID(), err)
 					err = multierror.Append(e, err)
 				}
-				scopes.Framework.Debugf("Resource cleanup complete: %v", r.FriendlyName())
+				scopes.Framework.Debugf("Resource cleanup complete: %v", r.ID())
 			}
 		}
 	}
@@ -83,10 +82,10 @@ func (s *scope) done(nocleanup bool) error {
 func (s *scope) reset() error {
 	var err error
 	for _, r := range s.resources {
-		if res, ok := r.(resource.Resetter); ok {
-			scopes.Framework.Debugf("Resetting resource: %s", r.FriendlyName())
+		if res, ok := r.(core.Resetter); ok {
+			scopes.Framework.Debugf("Resetting resource: %s", r.ID())
 			if e := res.Reset(); e != nil {
-				scopes.Framework.Debugf("Error resetting resource %s: %v", r.FriendlyName(), e)
+				scopes.Framework.Debugf("Error resetting resource %s: %v", r.ID(), e)
 				err = multierror.Append(e, err)
 			}
 		}
@@ -107,7 +106,7 @@ func (s *scope) dump() {
 	}
 
 	for _, c := range s.resources {
-		if d, ok := c.(resource.Dumper); ok {
+		if d, ok := c.(core.Dumper); ok {
 			d.Dump()
 		}
 	}

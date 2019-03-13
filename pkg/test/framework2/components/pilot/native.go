@@ -18,8 +18,9 @@ import (
 	"io"
 	"net"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -30,21 +31,17 @@ import (
 
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
-var _ resource.Instance = &nativeComponent{}
+var _ Native = &nativeComponent{}
 
-// NewNativeComponent factory function for the component
-func newNative(s resource.Context, e *native.Environment, config *Config) (Instance, error) {
-	instance := &nativeComponent{
-		environment: e,
-		stopChan:    make(chan struct{}),
-		config:      config,
-	}
-
-	s.TrackResource(instance)
-	return instance, instance.Start()
+// Native is the interface for an native pilot server.
+type Native interface {
+	Instance
+	GetDiscoveryAddress() *net.TCPAddr
 }
 
 type nativeComponent struct {
+	id core.ResourceID
+
 	environment *native.Environment
 	*client
 	model.ConfigStoreCache
@@ -53,21 +50,14 @@ type nativeComponent struct {
 	config   *Config
 }
 
-// FriendlyName implements resource.Instance
-func (c *nativeComponent) FriendlyName() string {
-	return "[Pilot(native)]"
-}
-
-func (c *nativeComponent) Start() (err error) {
-	if err != nil {
-		return err
+// NewNativeComponent factory function for the component
+func newNative(ctx core.Context, e *native.Environment, config *Config) (Instance, error) {
+	instance := &nativeComponent{
+		environment: e,
+		stopChan:    make(chan struct{}),
+		config:      config,
 	}
-
-	defer func() {
-		if err != nil {
-			_ = c.Close()
-		}
-	}()
+	instance.id = ctx.TrackResource(instance)
 
 	// Dynamically assign all ports.
 	options := envoy.DiscoveryServiceOptions{
@@ -80,7 +70,7 @@ func (c *nativeComponent) Start() (err error) {
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        "istio-system",
 		DiscoveryOptions: options,
-		MeshConfig:       c.environment.Mesh,
+		MeshConfig:       e.Mesh,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -91,33 +81,40 @@ func (c *nativeComponent) Start() (err error) {
 		ForceStop: true,
 	}
 
-	if c.config.Galley != nil {
+	if config.Galley != nil {
 		// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-		bootstrapArgs.MCPServerAddrs = []string{"mcp://" + c.config.Galley.Address()[6:]}
+		bootstrapArgs.MCPServerAddrs = []string{"mcp://" + config.Galley.Address()[6:]}
 		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 	} else {
 		bootstrapArgs.Config = bootstrap.ConfigArgs{
-			Controller: c.environment.ServiceManager.ConfigStore,
+			Controller: e.ServiceManager.ConfigStore,
 		}
 	}
 
 	// Save the config store.
-	c.ConfigStoreCache = c.environment.ServiceManager.ConfigStore
+	instance.ConfigStoreCache = e.ServiceManager.ConfigStore
 
+	var err error
 	// Create the server for the discovery service.
-	c.server, err = bootstrap.NewServer(bootstrapArgs)
-	if err != nil {
-		return err
+	if instance.server, err = bootstrap.NewServer(bootstrapArgs); err != nil {
+		return nil, err
 	}
 
-	c.client, err = newClient(c.server.GRPCListeningAddr.(*net.TCPAddr))
-	if err != nil {
-		return err
+	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
+		return nil, err
 	}
 
 	// Start the server
-	err = c.server.Start(c.stopChan)
-	return
+	if err = instance.server.Start(instance.stopChan); err != nil {
+		return nil, err
+	}
+
+	return instance, nil
+}
+
+// ID implements resource.Instance
+func (c *nativeComponent) ID() core.ResourceID {
+	return c.id
 }
 
 func (c *nativeComponent) Close() (err error) {

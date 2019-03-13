@@ -16,6 +16,7 @@ package retry
 
 import (
 	"fmt"
+	"testing"
 	"time"
 )
 
@@ -58,6 +59,29 @@ func Delay(delay time.Duration) Option {
 
 // RetriableFunc a function that can be retried.
 type RetriableFunc func() (result interface{}, completed bool, err error)
+
+// TillSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
+func TillSuccess(fn func() error, options ...Option) error {
+	_, e := Do(func() (interface{}, bool, error) {
+		err := fn()
+		if err != nil {
+			return nil, false, err
+		}
+
+		return nil, true, nil
+	})
+
+	return e
+}
+
+// TillSuccessOrFail calls TillSuccess, and fails t with Fatalf if it ends up returning an error
+func TillSuccessOrFail(t *testing.T, fn func() error, options ...Option) {
+	t.Helper()
+	err := TillSuccess(fn, options...)
+	if err != nil {
+		t.Fatalf("retry.TillSuccessOrFail: %v", err)
+	}
+}
 
 // Do retries the given function, until there is a timeout, or until the function indicates that it has completed.
 func Do(fn RetriableFunc, options ...Option) (interface{}, error) {

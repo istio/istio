@@ -15,10 +15,12 @@
 package mixer
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
@@ -28,83 +30,84 @@ import (
 
 func TestCheck_Allow(t *testing.T) {
 	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(t, s)
-		mxr := mixer.NewOrFail(t, s, &mixer.Config{
+		gal := galley.NewOrFail(t, s, galley.Config{})
+		mxr := mixer.NewOrFail(t, s, mixer.Config{
 			Galley: gal,
 		})
 		be := policybackend.NewOrFail(t, s)
 
-		gal.ApplyConfig(
-			test.JoinConfigs(
-				testCheckConfig,
-				be.CreateConfigSnippet("handler1"),
-			))
+		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+
+		gal.ApplyConfigOrFail(
+			t,
+			ns,
+			testCheckConfig,
+			be.CreateConfigSnippet("handler1", ns.Name()))
 
 		// Prime the policy backend's behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
 		be.DenyCheck(t, false)
 
-		result := mxr.Check(t, map[string]interface{}{
-			"context.protocol":      "http",
-			"destination.name":      "somesrvcname",
-			"destination.namespace": "{{.TestNamespace}}",
-			"response.time":         time.Now(),
-			"request.time":          time.Now(),
-			"destination.service":   `svc.{{.TestNamespace}}`,
-			"origin.ip":             []byte{1, 2, 3, 4},
+		retry.TillSuccessOrFail(t, func() error {
+			result := mxr.Check(t, map[string]interface{}{
+				"context.protocol":      "http",
+				"destination.name":      "somesrvcname",
+				"destination.namespace": ns.Name(),
+				"response.time":         time.Now(),
+				"request.time":          time.Now(),
+				"destination.service":   `svc.` + ns.Name(),
+				"origin.ip":             []byte{1, 2, 3, 4},
+			})
+
+			// TODO: ensure that the policy backend receives the request.
+			if !result.Succeeded() {
+				return fmt.Errorf("check failed: %v", result.Raw)
+			}
+
+			return nil
 		})
-
-		if !result.Succeeded() {
-			t.Fatalf("Check failed: %v", result.Raw)
-		}
 	})
-	//
-	//ctx := framework.GetContext(t)
-	//ctx.RequireOrSkip(t, lifecycle.Test, &ids.PolicyBackend, &ids.Mixer)
-	//
-	//mxr := components.GetMixer(ctx, t)
-	//be := components.GetPolicyBackend(ctx, t)
-	//
-	//mxr.Configure(t,
-	//	lifecycle.Test,
-	//	test.JoinConfigs(
-	//		testCheckConfig,
-	//		be.CreateConfigSnippet("handler1"),
-	//	))
-	//
-
 }
 
 func TestCheck_Deny(t *testing.T) {
-	//ctx := framework.GetContext(t)
-	//ctx.RequireOrSkip(t, lifecycle.Test, &ids.PolicyBackend, &ids.Mixer)
-	//
-	//mxr := components.GetMixer(ctx, t)
-	//be := components.GetPolicyBackend(ctx, t)
-	//
-	//mxr.Configure(t,
-	//	lifecycle.Test,
-	//	test.JoinConfigs(
-	//		testCheckConfig,
-	//		be.CreateConfigSnippet("handler1"),
-	//	))
-	//
-	//// Prime the policy backend's behavior. It should deny all check requests.
-	//be.DenyCheck(t, true)
-	//
-	//result := mxr.Check(t, map[string]interface{}{
-	//	"context.protocol":      "http",
-	//	"destination.name":      "somesrvcname",
-	//	"destination.namespace": "{{.TestNamespace}}",
-	//	"response.time":         time.Now(),
-	//	"request.time":          time.Now(),
-	//	"destination.service":   `svc.{{.TestNamespace}}`,
-	//	"origin.ip":             []byte{1, 2, 3, 4},
-	//})
-	//
-	//if result.Succeeded() {
-	//	t.Fatalf("Check succeeded: %v", result.Raw)
-	//}
+	framework2.Run(t, func(s *runtime.TestContext) {
+		gal := galley.NewOrFail(t, s, galley.Config{})
+		mxr := mixer.NewOrFail(t, s, mixer.Config{
+			Galley: gal,
+		})
+		be := policybackend.NewOrFail(t, s)
+
+		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+
+		gal.ApplyConfigOrFail(
+			t,
+			ns,
+			testCheckConfig,
+			be.CreateConfigSnippet("handler1", ns.Name()))
+
+		// Prime the policy backend's behavior. It should deny all check requests.
+		// This is not strictly necessary, but it is done so for posterity.
+		be.DenyCheck(t, true)
+
+		retry.TillSuccessOrFail(t, func() error {
+			result := mxr.Check(t, map[string]interface{}{
+				"context.protocol":      "http",
+				"destination.name":      "somesrvcname",
+				"destination.namespace": ns.Name(),
+				"response.time":         time.Now(),
+				"request.time":          time.Now(),
+				"destination.service":   `svc.` + ns.Name(),
+				"origin.ip":             []byte{1, 2, 3, 4},
+			})
+			if result.Succeeded() {
+				return fmt.Errorf("check failed: %v", result.Raw)
+			}
+
+			// TODO: ensure that the policy backend receives the request.
+
+			return nil
+		})
+	})
 }
 
 var testCheckConfig = `
@@ -112,14 +115,12 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: checknothing1
-  namespace: {{.TestNamespace}}
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

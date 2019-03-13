@@ -17,15 +17,17 @@ package policybackend
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	"istio.io/istio/pkg/test/framework2/resource"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.
 type Instance interface {
+	core.Resource
+
 	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
 	// set to true.
 	DenyCheck(t testing.TB, deny bool)
@@ -38,21 +40,26 @@ type Instance interface {
 	// consumed after the call completes.
 	ExpectReportJSON(t testing.TB, expected ...string)
 
+	// GetReports reeturns the currently accumulated set of reports.
+	GetReports(t testing.TB) []proto.Message
+
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
 	// The supplied name will be the name of the handler.
-	CreateConfigSnippet(name string) string
+	CreateConfigSnippet(name string, namespace string) string
 }
 
-func New(s resource.Context) (Instance, error) {
-	switch s.Environment().EnvironmentName() {
-	case environment.Native:
-		return newNative(s, s.Environment().(*native.Environment))
+func New(ctx core.Context) (Instance, error) {
+	switch ctx.Environment().EnvironmentName() {
+	case core.Native:
+		return newNative(ctx, ctx.Environment().(*native.Environment))
+	case core.Kube:
+		return newKube(ctx)
 	default:
-		return nil, environment.UnsupportedEnvironment(s.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
 	}
 }
 
-func NewOrFail(t *testing.T, s resource.Context) Instance {
+func NewOrFail(t *testing.T, s core.Context) Instance {
 	i, err := New(s)
 	if err != nil {
 		t.Fatalf("Error creating PolicyBackend: %v", err)

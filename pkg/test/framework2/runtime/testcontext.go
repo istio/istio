@@ -21,9 +21,8 @@ import (
 	"path"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/common"
-	"istio.io/istio/pkg/test/framework2/components/environment"
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -42,10 +41,15 @@ type TestContext struct {
 	workDir string
 }
 
-var _ resource.Context = &TestContext{}
+var _ core.Context = &TestContext{}
 
 func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestContext {
 	id := s.allocateContextID(t.Name())
+
+	if s.skipAll {
+		t.Skipf("Skipping: %s", s.skipReason)
+	}
+
 	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), t.Name())
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
@@ -64,13 +68,16 @@ func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestCont
 }
 
 // Settings returns the current runtime.Settings.
-func (c *TestContext) Settings() *common.Settings {
+func (c *TestContext) Settings() *core.Settings {
 	return c.suite.settings
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (c *TestContext) TrackResource(r resource.Instance) {
+func (c *TestContext) TrackResource(r core.Resource) core.ResourceID {
+	id := c.suite.allocateResourceID(c.id, r)
 	c.scope.add(r)
+
+	return &resourceID{id: id}
 }
 
 // RunDir allocated for this test.
@@ -79,7 +86,7 @@ func (c *TestContext) WorkDir() string {
 }
 
 // Environment returns the environment
-func (c *TestContext) Environment() environment.Instance {
+func (c *TestContext) Environment() core.Environment {
 	return c.suite.environment
 }
 
@@ -108,7 +115,7 @@ func (c *TestContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) stri
 }
 
 // RequireOrSkip skips the test if the environment is not as expected.
-func (c *TestContext) RequireOrSkip(t *testing.T, envName environment.Name) {
+func (c *TestContext) RequireOrSkip(t *testing.T, envName core.EnvironmentName) {
 	t.Helper()
 	if c.Environment().EnvironmentName() != envName {
 		t.Skipf("Skipping %q: expected environment not found: %s", t.Name(), envName)

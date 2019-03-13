@@ -21,13 +21,13 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
-	"istio.io/istio/pkg/test/framework2/components/environment"
 	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/resource"
+	"istio.io/istio/pkg/test/framework2/core"
 )
 
 type Instance interface {
+	core.Resource
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
 	GetCheckAddress() net.Addr
@@ -48,17 +48,18 @@ func (c *CheckResponse) Succeeded() bool {
 	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
 }
 
-// TODO: pass Galley in
-func New(c resource.Context, config *Config) (Instance, error) {
+func New(c core.Context, config Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
-	case environment.Native:
+	case core.Native:
 		return newNative(c, c.Environment().(*native.Environment), config)
+	case core.Kube:
+		return newKube(c)
 	default:
-		return nil, environment.UnsupportedEnvironment(c.Environment().EnvironmentName())
+		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 
-func NewOrFail(t *testing.T, c resource.Context, config *Config) Instance {
+func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("Error creating Mixer: %v", err)
