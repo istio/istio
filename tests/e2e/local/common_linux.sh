@@ -64,6 +64,14 @@ function check_rpm() {
   fi
 }
 
+# Check if go is installed
+function check_go() {
+  if ! go --help > /dev/null; then
+    echo "Go is not installed. Please install it and run this script again."
+    exit 1
+  fi
+}
+
 # Install Docker
 function install_docker() {
   echo "Checking and Installing Docker as required"

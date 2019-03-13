@@ -72,10 +72,10 @@ function install_docker_machine() {
 function install_kubectl() {
   echo "Checking kubectl..."
   if ! kubectl --help > /dev/null; then
-    echo "kubectl is not installed. Installing the lastest stable release..."
+    echo "kubectl is not installed. Installing the latest stable release..."
     if ! brew install kubectl; then
     	echo "Installation of kubectl from brew fails. Please install it manually."
-        exit 1
+      exit 1
     else
     	echo "Done."
     fi
@@ -89,5 +89,21 @@ function check_homebrew() {
   if ! brew --help > /dev/null; then
     echo "Homebrew is not installed. Please go to https://docs.brew.sh/Installation to install Homebrew."
     exit 1
+  fi
+}
+
+# Install Go on MacOs platform
+function install_go() {
+  echo "Checking go..."
+  if ! go --help > /dev/null; then
+    echo "go is not installed. Installing the latest stable release..."
+    if ! brew install go; then
+      echo "Instalation of go from bew fails. Please install it manually."
+      exit 1
+    else
+      echo "Done."
+    fi
+  else
+    echo "go exists. Please make sure to update it to latest version."
   fi
 }
