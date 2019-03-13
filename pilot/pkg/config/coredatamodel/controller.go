@@ -141,7 +141,8 @@ func (c *Controller) Apply(change *sink.Change) error {
 		if obj.Metadata.CreateTime != nil {
 			var err error
 			if createTime, err = types.TimestampFromProto(obj.Metadata.CreateTime); err != nil {
-				return fmt.Errorf("failed to parse %v create_time: %v", obj.Metadata.Name, err)
+				log.Warnf("Discarding Incoming MCP Resource: invalid resource timestamp (%s/%s): %v", namespace, name, err)
+				continue
 			}
 		}
 
@@ -162,7 +163,8 @@ func (c *Controller) Apply(change *sink.Change) error {
 		}
 
 		if err := schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
-			return err
+			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
+			continue
 		}
 
 		namedConfig, ok := innerStore[conf.Namespace]
