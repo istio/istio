@@ -83,8 +83,8 @@ func TestProxyConfig(t *testing.T) {
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config clusters details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
-istio-policy.istio-system.svc.cluster.local     15004     -          outbound      &{EDS}
-xds-grpc                                        -         -          -             &{STRICT_DNS}
+istio-policy.istio-system.svc.cluster.local     15004     -          outbound      EDS
+xds-grpc                                        -         -          -             STRICT_DNS
 `,
 		},
 		{ // case 7 listeners valid
