@@ -46,11 +46,12 @@ const (
 )
 
 // NewNativeComponent factory function for the component
-func newNative(s core.Context, e *native.Environment) (Instance, error) {
+func newNative(s core.Context, e *native.Environment, cfg Config) (Instance, error) {
 
 	n := &nativeComponent{
 		context:     s,
 		environment: e,
+		cfg:         cfg,
 	}
 	n.id = s.TrackResource(n)
 
@@ -58,7 +59,8 @@ func newNative(s core.Context, e *native.Environment) (Instance, error) {
 }
 
 type nativeComponent struct {
-	id core.ResourceID
+	id  core.ResourceID
+	cfg Config
 
 	context     core.Context
 	environment *native.Environment
@@ -90,18 +92,6 @@ func (c *nativeComponent) ID() core.ResourceID {
 // Address of the Galley MCP Server.
 func (c *nativeComponent) Address() string {
 	return c.client.address
-}
-
-// SetMeshConfig applies the given mesh config yaml file via Galley.
-func (c *nativeComponent) SetMeshConfig(yamlText string) error {
-	if err := ioutil.WriteFile(c.meshConfigFile, []byte(yamlText), os.ModePerm); err != nil {
-		return err
-	}
-	if err := c.Close(); err != nil {
-		return err
-	}
-
-	return c.restart()
 }
 
 // ClearConfig implements Galley.ClearConfig.
@@ -186,8 +176,10 @@ func (c *nativeComponent) Reset() error {
 	}
 	scopes.Framework.Debugf("Galley mesh config dir: %v", c.meshConfigDir)
 
+	scopes.Framework.Debugf("Galley writing mesh config:\n---\n%s\n---\n", c.cfg.MeshConfig)
+
 	c.meshConfigFile = path.Join(c.meshConfigDir, meshConfigFile)
-	if err = ioutil.WriteFile(c.meshConfigFile, []byte{}, os.ModePerm); err != nil {
+	if err = ioutil.WriteFile(c.meshConfigFile, []byte(c.cfg.MeshConfig), os.ModePerm); err != nil {
 		return err
 	}
 

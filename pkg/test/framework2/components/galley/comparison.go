@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pmezard/go-difflib/difflib"
 )
 
@@ -78,3 +78,22 @@ func (r *comparisonResult) generateError() (err error) {
 
 	return multierror.Append(err).ErrorOrNil()
 }
+
+//
+//func serialize(objects []*sink.Object) string {
+//	var result string
+//
+//	for _, o := range objects {
+//		if result != "" {
+//			result += "----\n"
+//		}
+//		j, err := json.MarshalIndent(o, "", "  ")
+//		if err != nil {
+//			result += fmt.Sprintf("!!Unable to marshal: %v (err:%v)\n", o, err)
+//		}
+//		result += string(j)
+//		result += "\n"
+//	}
+//
+//	return result
+//}

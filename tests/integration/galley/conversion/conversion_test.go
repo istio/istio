@@ -17,6 +17,7 @@ package conversion
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework2/core"
 
@@ -46,17 +47,34 @@ func TestConversion(t *testing.T) {
 			ctx := framework2.NewContext(t)
 			defer ctx.Done(t)
 
-			gal := galley.NewOrFail(t, ctx)
+			var gal galley.Instance
+			var cfg galley.Config
 
 			for i, fset := range d.FileSets() {
-				testName := d.TestName()
-				if len(d.FileSets()) != 1 {
-					runTest(t, fset, gal)
-					testName = fmt.Sprintf("%d", i)
+				// Do init for the first set. Use Meshconfig file in this set.
+				if i == 0 {
+					if fset.HasMeshConfigFile() {
+						mc, err := fset.LoadMeshConfigFile()
+						if err != nil {
+							t.Fatalf("Error loading Mesh config file: %v", err)
+						}
+
+						cfg.MeshConfig = string(mc)
+					}
+
+					gal = galley.NewOrFail(t, ctx, cfg)
 				}
-				t.Run(testName, func(t *testing.T) {
+
+				t.Logf("==== Running iter: %d\n", i)
+				testName := d.TestName()
+				if len(d.FileSets()) == 1 {
 					runTest(t, fset, gal)
-				})
+				} else {
+					testName = fmt.Sprintf("%d", i)
+					t.Run(testName, func(t *testing.T) {
+						runTest(t, fset, gal)
+					})
+				}
 			}
 		})
 	}
@@ -68,16 +86,6 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	if fset.HasMeshConfigFile() {
-		mc, err := fset.LoadMeshConfigFile()
-		if err != nil {
-			t.Fatalf("Error loading Mesh config file: %v", err)
-		}
-		if err = gal.SetMeshConfig(string(mc)); err != nil {
-			t.Fatalf("Error setting Mesh config file: %v", err)
-		}
-	}
-
 	expected, err := fset.LoadExpectedResources()
 	if err != nil {
 		t.Fatalf("unable to load expected resources: %v", err)
@@ -86,6 +94,10 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	if err = gal.ClearConfig(); err != nil {
 		t.Fatalf("unable to clear config from Galley: %v", err)
 	}
+
+	// TODO: This is because of subsequent events confusing the filesystem code.
+	// We should do Ctrlz trigger based approach.
+	time.Sleep(time.Second)
 
 	if err = gal.ApplyConfig(string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)

@@ -61,6 +61,7 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
 		items := u.Get(collection)
+		// scopes.Framework.Debugf("Received items (%s):\n---\n%v\n---\n", collection, serialize(items))
 		result, err = c.checkSnapshot(items, snapshot)
 		if err != nil {
 			return nil, false, err

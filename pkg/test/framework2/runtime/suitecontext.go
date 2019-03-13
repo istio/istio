@@ -86,7 +86,7 @@ func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) str
 	defer s.contextMu.Unlock()
 
 	t := reflect.TypeOf(r)
-	candidate := fmt.Sprintf("%s/[%s]", contextID, t.Name())
+	candidate := fmt.Sprintf("%s/[%s]", contextID, t.String())
 	discriminator := 0
 	for {
 		if _, found := s.contextNames[candidate]; !found {

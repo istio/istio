@@ -41,26 +41,31 @@ type Instance interface {
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error
 
-	// SetMeshConfig applies the given mesh config yaml file via Galley.
-	SetMeshConfig(yamlText string) error
-
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
 	WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error
 }
 
+// Configuration for Galley
+type Config struct {
+	// MeshConfig to use for this instance.
+	MeshConfig string
+}
+
 // New returns a new Galley instance.
-func New(c core.Context) (Instance, error) {
+func New(c core.Context, cfg Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
 	case core.Native:
-		return newNative(c, c.Environment().(*native.Environment))
+		return newNative(c, c.Environment().(*native.Environment), cfg)
 	default:
 		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 
 // NewOrFail returns a new Galley instance, or fails test.
-func NewOrFail(t *testing.T, c core.Context) Instance {
-	i, err := New(c)
+func NewOrFail(t *testing.T, c core.Context, cfg Config) Instance {
+	t.Helper()
+
+	i, err := New(c, cfg)
 	if err != nil {
 		t.Fatalf("galley.NewOrFail: %v", err)
 	}
