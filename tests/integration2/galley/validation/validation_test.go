@@ -60,6 +60,7 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
+	t.Skip("Skip until https://github.com/istio/istio/issues/12480 is resolved.")
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.GetContext(t)
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
