@@ -2990,7 +2990,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "empty hosts", in: networking.ServiceEntry{
+		{name: "only addresses", in: networking.ServiceEntry{
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 9080, Protocol: "http", Name: "http-valid1"},
 			},
@@ -3000,6 +3001,17 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
+
+		{name: "empty hosts and addresses", in: networking.ServiceEntry{
+			Ports: []*networking.Port{
+				{Number: 9080, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
 
 		{name: "bad hosts", in: networking.ServiceEntry{
 			Hosts: []string{"-"},
