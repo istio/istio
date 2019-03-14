@@ -59,7 +59,7 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 
 // fileCheck checks a file using the given rules, and write to the given Report.
 func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) {
-	// skip over tests
+	// TODO: skip over linter tests in a principled manner for all linters
 	if IgnoreTestLinterData && strings.Contains(path, "testlinter/testdata") {
 		return
 	}
