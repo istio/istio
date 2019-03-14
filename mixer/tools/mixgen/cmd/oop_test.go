@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 	"testing"
 )
 
@@ -42,7 +41,6 @@ func TestOOPGenerator_Generate(t *testing.T) {
 		args = append(args, "-t", t)
 	}
 
-	fmt.Println(strings.Join(args, " "))
 	root := GetRootCmd(args,
 		func(format string, a ...interface{}) {
 		},
