@@ -20,6 +20,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// ConstructCustomDNSNames creates DNS entries for given service accounts and allows
+// customization of the DNS names of specific service accounts
 func ConstructCustomDNSNames(serviceAccounts []string, serviceNames []string,
 	namespace string, customDNSNames string) map[string]*DNSNameEntry {
 	result := make(map[string]*DNSNameEntry)
