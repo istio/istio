@@ -37,6 +37,7 @@ func (Keyval) HandleKeyval(ctx context.Context, req *HandleKeyvalRequest) (*Hand
 		return nil, err
 	}
 	key := req.Instance.Key
+	fmt.Printf("look up %q\n", key)
 	value, ok := params.Table[key]
 	if ok {
 		return &HandleKeyvalResponse{
