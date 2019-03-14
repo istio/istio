@@ -167,8 +167,8 @@
 //    - "*"
 // ```
 //
-// And the associated VirtualService to route from the sidecar to the
-// gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+// And the associated `VirtualService` to route from the sidecar to the
+// gateway service (`istio-egressgateway.istio-system.svc.cluster.local`), as
 // well as route from the gateway to the external service. Note that the
 // virtual service is exported to all namespaces enabling them to route traffic
 // through the gateway to the external service. Forcing traffic to go through
@@ -228,7 +228,7 @@
 //
 // The following example demonstrates a service that is available via a
 // Unix Domain Socket on the host of the client. The resolution must be
-// set to STATIC to use unix address endpoints.
+// set to STATIC to use Unix address endpoints.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -248,10 +248,10 @@
 //   - address: unix:///var/run/example/socket
 // ```
 //
-// For HTTP-based services, it is possible to create a VirtualService
+// For HTTP-based services, it is possible to create a `VirtualService`
 // backed by multiple DNS addressable endpoints. In such a scenario, the
-// application can use the HTTP_PROXY environment variable to transparently
-// reroute API calls for the VirtualService to a chosen backend. For
+// application can use the `HTTP_PROXY` environment variable to transparently
+// reroute API calls for the `VirtualService` to a chosen backend. For
 // example, the following configuration creates a non-existent external
 // service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
 // uk.foo.bar.com:9080, and in.foo.bar.com:7080
@@ -287,10 +287,9 @@
 // specified above. In other words, a call to `http://foo.bar.com/baz` would
 // be translated to `http://uk.foo.bar.com/baz`.
 //
-// The following example illustrates the usage of a ServiceEntry
+// The following example illustrates the usage of a `ServiceEntry`
 // containing a subject alternate name
-// whose format conforms to the SPIFEE standard
-// <https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md>:
+// whose format conforms to the [SPIFEE standard](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md):
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -399,7 +398,7 @@ const (
 	// will resolve the DNS address specified in the hosts field, if
 	// wildcards are not used. If endpoints are specified, the DNS
 	// addresses specified in the endpoints will be resolved to determine
-	// the destination IP address.  DNS resolution cannot be used with unix
+	// the destination IP address.  DNS resolution cannot be used with Unix
 	// domain socket endpoints.
 	ServiceEntry_DNS ServiceEntry_Resolution = 2
 )
@@ -593,7 +592,7 @@ type ServiceEntry_Endpoint struct {
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Set of ports associated with the endpoint. The ports must be
 	// associated with a port name that was declared as part of the
-	// service. Do not use for unix:// addresses.
+	// service. Do not use for `unix://` addresses.
 	Ports map[string]uint32 `protobuf:"bytes,2,rep,name=ports,proto3" json:"ports,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	// One or more labels associated with the endpoint.
 	Labels map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`

@@ -296,11 +296,11 @@ message RoleRef {
 
 // RbacConfig defines the global config to control Istio RBAC behavior.
 // This Custom Resource is a singleton where only one Custom Resource should be created globally in
-// the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
-// Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
+// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
 // existing one, the user should either delete the existing one or change the existing one directly.
 //
-// Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
+// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
 // services in the default namespace.
 //
 // ```yaml
@@ -355,7 +355,7 @@ message RbacConfig {
 
   // $hide_from_docs
   // Indicates enforcement mode of the RbacConfig, in ENFORCED mode by default.
-  // It's used to verify new RbacConfig work as expected before rolling to production. 
+  // It's used to verify new RbacConfig work as expected before rolling to production.
   // When setting as PERMISSIVE, RBAC isn't enforced and has no impact on users.
   // RBAC engine run RbacConfig in PERMISSIVE mode and logs stats.
   // Invalid to set RbacConfig in PERMISSIVE and ServiceRoleBinding in ENFORCED mode.

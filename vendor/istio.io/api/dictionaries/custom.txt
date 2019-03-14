@@ -13,6 +13,7 @@ jitter
 JSON
 JWT
 Kubernetes
+LightStep
 MCP
 multicluster
 NACK
@@ -27,6 +28,7 @@ scalability
 SDS
 SNI
 SPIFFE
+subnet
 TCP
 TLS
 UDP
@@ -35,3 +37,5 @@ unmanaged
 unterminated
 URI
 URL
+VM
+Zipkin

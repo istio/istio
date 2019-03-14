@@ -414,7 +414,7 @@ type ProxyConfig struct {
 	// IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
 	StatsdUdpAddress string `protobuf:"bytes,10,opt,name=statsd_udp_address,json=statsdUdpAddress,proto3" json:"statsd_udp_address,omitempty"`
 	// Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+	// See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto)
 	// for details about Envoy's Metrics Service API.
 	EnvoyMetricsServiceAddress string `protobuf:"bytes,20,opt,name=envoy_metrics_service_address,json=envoyMetricsServiceAddress,proto3" json:"envoy_metrics_service_address,omitempty"`
 	// Port on which Envoy should listen for administrative commands.

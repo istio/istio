@@ -348,15 +348,14 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// This message specifies how a JSON Web Token (JWT) can be verified. JWT format is defined
-// `here <https://tools.ietf.org/html/rfc7519>`_. Please see `OAuth2.0
-//  <https://tools.ietf.org/html/rfc6749>`_ and `OIDC1.0  <http://openid.net/connect>`_ for
+// This message specifies how a JSON Web Token (JWT) can be verified. See the [JWT format definition](https://tools.ietf.org/html/rfc7519)
+// for details. Please see [OAuth2.0](https://tools.ietf.org/html/rfc6749) and
+// [OIDC1.0](http://openid.net/connect) for
 // the authentication flow.
 //
 // Example:
 //
-// .. code-block:: yaml
-//
+// ```yaml
 //     issuer: https://example.com
 //     audiences:
 //     - bookstore_android.apps.googleusercontent.com
@@ -367,8 +366,7 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 //         cluster: example_jwks_cluster
 //       cache_duration:
 //       - seconds: 300
-//
-// [#not-implemented-hide:]
+// ```
 type JwtRule struct {
 	// Identifies the principal that issued the JWT. See `here
 	//  <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_. Usually a URL or an email address.
