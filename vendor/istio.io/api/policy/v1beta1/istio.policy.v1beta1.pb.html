@@ -87,7 +87,7 @@ of an Istio deployment.</p>
 <td><code>string</code></td>
 <td>
 <p>Required. Name of the component producing these attributes. This can be
-the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
+the proxy (with the canonical name <code>istio-proxy</code>) or the name of an
 <code>attributes</code> kind adapter in Mixer.</p>
 
 </td>
@@ -107,9 +107,9 @@ which is how attributes are referred to in aspect configuration, must conform to
 match the regular expression <code>[\.-]</code>.</p>
 
 <p>Attribute names must be unique within a single Istio deployment. The set of canonical
-attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+attributes are described at <a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.
 Attributes not in that list should be named with a component-specific suffix such as
-request.count-my.component.</p>
+<code>request.count-my.component</code>.</p>
 
 </td>
 </tr>
@@ -1082,7 +1082,7 @@ TLS for connection to the backend.</p>
 <p>A Rule is a selector and a set of intentions to be executed when the
 selector is <code>true</code></p>
 
-<p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
+<p>The following example instructs Mixer to invoke <code>prometheus-handler</code> handler for all services and pass it the
 instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 
 <pre><code class="language-yaml">- match: match(destination.service.host, &quot;*&quot;)
