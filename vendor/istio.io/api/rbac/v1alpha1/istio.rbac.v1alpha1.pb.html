@@ -173,11 +173,11 @@ or &ldquo;v1<em>&rdquo; (prefix match), or &ldquo;</em>alpha2&rdquo; (suffix mat
 <section>
 <p>RbacConfig defines the global config to control Istio RBAC behavior.
 This Custom Resource is a singleton where only one Custom Resource should be created globally in
-the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
-Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+the mesh and the namespace should be the same to other Istio components, which usually is <code>istio-system</code>.
+Note: This is enforced in both <code>istioctl</code> and server side, new Custom Resource will be rejected if found any
 existing one, the user should either delete the existing one or change the existing one directly.</p>
 
-<p>Below is an example of RbacConfig object &ldquo;istio-rbac-config&rdquo; which enables Istio RBAC for all
+<p>Below is an example of an <code>RbacConfig</code> resource called <code>istio-rbac-config</code> which enables Istio RBAC for all
 services in the default namespace.</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;rbac.istio.io/v1alpha1&quot;

@@ -56,7 +56,7 @@ spec:
     - &quot;bookinfo-namespace/*.bookinfo.com&quot;
     tls:
       mode: SIMPLE # enables HTTPS on this port
-      credentialName: bookinfo-secret # fetches certs from kubernetes secret
+      credentialName: bookinfo-secret # fetches certs from Kubernetes secret
   - port:
       number: 9080
       name: http-wildcard
@@ -76,15 +76,15 @@ balancer. A <code>VirtualService</code> can then be bound to a gateway to contro
 the forwarding of traffic arriving at a particular host or gateway port.</p>
 
 <p>For example, the following VirtualService splits traffic for
-&ldquo;https://uk.bookinfo.com/reviews&rdquo;, &ldquo;https://eu.bookinfo.com/reviews&rdquo;,
-&ldquo;http://uk.bookinfo.com:9080/reviews&rdquo;,
-&ldquo;http://eu.bookinfo.com:9080/reviews&rdquo; into two versions (prod and qa) of
+<code>https://uk.bookinfo.com/reviews</code>, <code>https://eu.bookinfo.com/reviews</code>,
+<code>http://uk.bookinfo.com:9080/reviews</code>,
+<code>http://eu.bookinfo.com:9080/reviews</code> into two versions (prod and qa) of
 an internal reviews service on port 9080. In addition, requests
 containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
 in the qa version. The same rule is also applicable inside the mesh for
 requests to the &ldquo;reviews.prod.svc.cluster.local&rdquo; service. This rule is
-applicable across ports 443, 9080. Note that &ldquo;http://uk.bookinfo.com&rdquo;
-gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 443).</p>
+applicable across ports 443, 9080. Note that <code>http://uk.bookinfo.com</code>
+gets redirected to <code>https://uk.bookinfo.com</code> (i.e. 80 redirects to 443).</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -337,7 +337,7 @@ connections.</p>
 While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with SNI.
 A host is specified as a <code>dnsName</code> with an optional <code>namespace/</code> prefix.
-The <code>dnsName</code> should be specified using FQDN format, opionally including
+The <code>dnsName</code> should be specified using FQDN format, optionally including
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all <code>VirtualService</code> hosts from the
 specified namespace (e.g.,<code>prod/*</code>). If no <code>namespace/</code> is specified,
@@ -450,7 +450,7 @@ to identify the serverCertificate and the privateKey. The
 credentialName appended with suffix &ldquo;-cacert&rdquo; is used to identify
 the CaCertificates associated with this server. Gateway workloads
 capable of fetching credentials from a remote credential store such
-as kubernetes secrets, will be configured to retrieve the
+as Kubernetes secrets, will be configured to retrieve the
 serverCertificate and the privateKey using credentialName, instead
 of using the file system paths specified above. If using mutual TLS,
 gateway workloads will retrieve the CaCertificates using

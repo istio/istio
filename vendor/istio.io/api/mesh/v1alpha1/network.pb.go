@@ -92,7 +92,7 @@ func (m *Network) GetGateways() []*Network_IstioNetworkGateway {
 // 1. Implicitly: If the registry explicitly provides information about
 // the network to which the endpoint belongs to. In some cases, its
 // possible to indicate the network associated with the endpoint by
-// adding ISTIO_META_NETWORK environment variable to the sidecar.
+// adding the `ISTIO_META_NETWORK` environment variable to the sidecar.
 //
 // 2. Explicitly:
 //

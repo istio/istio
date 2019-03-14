@@ -165,8 +165,8 @@ spec:
    - &quot;*&quot;
 </code></pre>
 
-<p>And the associated VirtualService to route from the sidecar to the
-gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+<p>And the associated <code>VirtualService</code> to route from the sidecar to the
+gateway service (<code>istio-egressgateway.istio-system.svc.cluster.local</code>), as
 well as route from the gateway to the external service. Note that the
 virtual service is exported to all namespaces enabling them to route traffic
 through the gateway to the external service. Forcing traffic to go through
@@ -224,7 +224,7 @@ spec:
 
 <p>The following example demonstrates a service that is available via a
 Unix Domain Socket on the host of the client. The resolution must be
-set to STATIC to use unix address endpoints.</p>
+set to STATIC to use Unix address endpoints.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -243,10 +243,10 @@ spec:
   - address: unix:///var/run/example/socket
 </code></pre>
 
-<p>For HTTP-based services, it is possible to create a VirtualService
+<p>For HTTP-based services, it is possible to create a <code>VirtualService</code>
 backed by multiple DNS addressable endpoints. In such a scenario, the
-application can use the HTTP_PROXY environment variable to transparently
-reroute API calls for the VirtualService to a chosen backend. For
+application can use the <code>HTTP_PROXY</code> environment variable to transparently
+reroute API calls for the <code>VirtualService</code> to a chosen backend. For
 example, the following configuration creates a non-existent external
 service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
 uk.foo.bar.com:9080, and in.foo.bar.com:7080</p>
@@ -281,10 +281,9 @@ spec:
 specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
 be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
 
-<p>The following example illustrates the usage of a ServiceEntry
+<p>The following example illustrates the usage of a <code>ServiceEntry</code>
 containing a subject alternate name
-whose format conforms to the SPIFEE standard
-<a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md">https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md</a>:</p>
+whose format conforms to the <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md">SPIFEE standard</a>:</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -464,7 +463,7 @@ unix:///absolute/path/to/socket for Unix domain socket endpoints.</p>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
-service. Do not use for unix:// addresses.</p>
+service. Do not use for <code>unix://</code> addresses.</p>
 
 </td>
 </tr>
@@ -613,7 +612,7 @@ during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
-the destination IP address.  DNS resolution cannot be used with unix
+the destination IP address.  DNS resolution cannot be used with Unix
 domain socket endpoints.</p>
 
 </td>

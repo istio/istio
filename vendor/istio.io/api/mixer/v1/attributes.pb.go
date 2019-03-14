@@ -53,7 +53,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // specialized Mixer adapters and services can also generate attributes.
 //
 // The common baseline set of attributes available in most Istio deployments is defined
-// [here](https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html).
+// [here](https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/).
 //
 // Attributes are strongly typed. The supported attribute types are defined by
 // [ValueType](https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto).

@@ -431,7 +431,7 @@ type Jwt struct {
 	// the issuer or (b) inferred from the email domain of the issuer (e.g. a
 	// Google service account).
 	//
-	// Example: https://www.googleapis.com/oauth2/v1/certs
+	// Example: `https://www.googleapis.com/oauth2/v1/certs`
 	JwksUri string `protobuf:"bytes,3,opt,name=jwks_uri,json=jwksUri,proto3" json:"jwks_uri,omitempty"`
 	// JWT is sent in a request header. `header` represents the
 	// header name.
