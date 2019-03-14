@@ -102,6 +102,9 @@ type SecretController struct {
 	// to all control plane operations
 	explicitOptIn bool
 
+	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
+	namespaces map[string]struct{}
+
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*DNSNameEntry
 
@@ -140,8 +143,13 @@ func NewSecretController(ca ca.CertificateAuthority, requireOptIn bool, certTTL 
 		forCA:            forCA,
 		pkcs8Key:         pkcs8Key,
 		explicitOptIn:    requireOptIn,
+		namespaces:       make(map[string]struct{}),
 		dnsNames:         dnsNames,
 		monitoring:       newMonitoringMetrics(),
+	}
+
+	for _, ns := range namespaces {
+		c.namespaces[ns] = struct{}{}
 	}
 
 	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
@@ -231,7 +239,8 @@ func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	if !sc.explicitOptIn || sc.istioEnabledObject(acct.GetObjectMeta()) {
+	if _, listed := sc.namespaces[acct.GetNamespace()]; listed ||
+		!sc.explicitOptIn || sc.istioEnabledObject(acct.GetObjectMeta()) {
 		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 	}
 	sc.monitoring.ServiceAccountCreation.Inc()
