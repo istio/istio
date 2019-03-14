@@ -20,7 +20,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -36,54 +38,79 @@ var invalidImportPaths = map[string]string{
 		"wants to see it.",
 }
 
+const (
+	dots = "/..."
+)
+
 func main() {
 	flag.Parse()
 	for _, r := range getReport(flag.Args()) {
-		reportErr(r)
+		// check if the line in the file has nolint annotation
+		if dat, err := ioutil.ReadFile(r.file); err == nil {
+			lines := strings.Split(string(dat), "\n")
+			line := strings.Replace(lines[r.line-1], " ", "", -1)
+			if strings.Contains(line, "nolint:adapterlinter") {
+				continue
+			}
+		}
+
+		reportErr(r.msg)
 	}
 	os.Exit(exitCode)
 }
 
-func getReport(args []string) []string {
-	var reports []string
+func getReport(args []string) reports {
+	var reports reports
 	if len(args) == 0 {
-		reports = doAllDirs([]string{"."})
+		reports = doDir(".")
 	} else {
 		reports = doAllDirs(args)
 	}
 	return reports
 }
 
-func doAllDirs(args []string) []string {
-	reports := make([]string, 0)
+func doAllDirs(args []string) reports {
+	reports := make(reports, 0)
 	for _, name := range args {
-		// Is it a directory?
-		if fi, err := os.Stat(name); err == nil && fi.IsDir() {
-			for _, r := range doDir(name) {
-				reports = append(reports, r.msg)
-			}
-		} else {
-			reportErr(fmt.Sprintf("not a directory: %s", name))
+		for _, r := range doDir(name) {
+			reports = append(reports, r)
 		}
 	}
 	return reports
 }
 
-func doDir(name string) reports {
-	notests := func(info os.FileInfo) bool {
-		if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") &&
-			!strings.HasSuffix(info.Name(), "_test.go") {
-			return true
-		}
-		return false
+func notests(info os.FileInfo) bool {
+	if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") &&
+		!strings.HasSuffix(info.Name(), "_test.go") {
+		return true
 	}
+	return false
+}
+
+func doDir(name string) reports {
+	rpts := make(reports, 0)
+	if strings.HasSuffix(name, dots) {
+		name = name[:len(name)-len(dots)]
+
+		// depth first recurse into subdirectories
+		files, err := ioutil.ReadDir(name)
+		if err != nil {
+			reportErr(err.Error())
+			return nil
+		}
+		for _, file := range files {
+			if file.IsDir() {
+				rpts = append(rpts, doDir(path.Join(name, file.Name())+dots)...)
+			}
+		}
+	}
+
 	fs := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fs, name, notests, parser.Mode(0))
 	if err != nil {
 		reportErr(fmt.Sprintf("%v", err))
 		return nil
 	}
-	rpts := make(reports, 0)
 	for _, pkg := range pkgs {
 		rpts = append(rpts, doPackage(fs, pkg)...)
 	}
@@ -140,6 +167,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 func (v *visitor) invalidImportReport(pos token.Pos, msg string) report {
 	return report{
 		pos,
+		v.fs.Position(pos).Filename,
+		v.fs.Position(pos).Line,
 		fmt.Sprintf("%v:%v:%v:%s",
 			v.fs.Position(pos).Filename,
 			v.fs.Position(pos).Line,
@@ -151,6 +180,8 @@ func (v *visitor) invalidImportReport(pos token.Pos, msg string) report {
 func (v *visitor) goroutineReport(pos token.Pos) report {
 	return report{
 		pos,
+		v.fs.Position(pos).Filename,
+		v.fs.Position(pos).Line,
 		fmt.Sprintf("%v:%v:%v:Adapters must use env.ScheduleWork or env.ScheduleDaemon in order to "+
 			"dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer as a "+
 			"whole by catching any panics they produce.",
@@ -159,8 +190,10 @@ func (v *visitor) goroutineReport(pos token.Pos) report {
 }
 
 type report struct {
-	pos token.Pos
-	msg string
+	pos  token.Pos
+	file string
+	line int
+	msg  string
 }
 
 type reports []report
