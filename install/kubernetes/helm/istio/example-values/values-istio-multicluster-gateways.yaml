@@ -21,6 +21,7 @@ istiocoredns:
 
 gateways:
   istio-egressgateway:
+    enabled: true
     env:
       # Needed to route traffic via egress gateway if desired.
       ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
