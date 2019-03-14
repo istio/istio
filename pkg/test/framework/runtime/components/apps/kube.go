@@ -275,7 +275,7 @@ type kubeComponent struct {
 	env          *kube.Environment
 }
 
-// KubeAppsConfig specifies Kubernetes app configuration.
+// KubeAppsConfig specifies a list of Kubernetes app we need to deploy in apps component.
 type KubeAppsConfig []KubeApp
 
 // String implements String interface required for api.Configuration.
