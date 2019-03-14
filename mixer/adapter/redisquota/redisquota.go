@@ -320,7 +320,9 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 			key, maxAmount, err := h.getKeyAndQuotaAmount(instance, limit)
 			if err != nil {
 				_ = h.logger.Errorf("%v", err.Error())
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithInternal(err.Error()),
+				}, nil
 			}
 
 			h.logger.Debugf("key: %v maxAmount: %v", key, maxAmount)
@@ -343,13 +345,17 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 
 			if err != nil {
 				_ = h.logger.Errorf("failed to run quota script: %v", err)
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithUnavailable(err.Error()),
+				}, nil
 			}
 
 			allocated, expiration, err := getAllocatedTokenFromResult(&result)
 			if err != nil {
 				_ = h.logger.Errorf("%v", err)
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithInternal(err.Error()),
+				}, nil
 			}
 
 			if allocated <= 0 {
@@ -364,7 +370,9 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 		}
 	}
 
-	return adapter.QuotaResult{}, nil
+	return adapter.QuotaResult{
+		Status: status.OK,
+	}, nil
 }
 
 func (h handler) Close() error {
