@@ -71,6 +71,8 @@ alias kii='kubectl -n istio-ingress'
 
 
 # Typical installation, similar with istio normal install but using different namespaces/components.
+# Will not install a gateway by default - you should use istio_k8s_ingress which creates both ingress
+# and gateway, or  "iop istio-gateway gateway ${BASE}/gateways/istio-ingress" for gateway-only
 function iop_istio() {
 
     #### Security
@@ -80,25 +82,59 @@ function iop_istio() {
     #### Control plane
     # Galley, Pilot and auto-inject in istio-control. Similar security risks.
     # Can be updated independently, each is optiona.
-    iop istio-control galley ${BASE}/istio-control/istio-config --set configValidation=true
+    iop istio-control galley ${BASE}/istio-control/istio-config --set configValidation=false
     iop istio-control pilot ${BASE}/istio-control/istio-discovery
+
+    # Required if auto-inject for full cluster is enabled.
+    kubectl label  namespace istio-control istio-injection=disabled --overwrite
 
     # Enable core dumps - for debugging
     iop istio-control autoinject ${BASE}/istio-control/istio-autoinject \
         --set enableNamespacesByDefault=true  \
         --set global.proxy.enableCoreDump=true
 
-    #### Gateways
-    iop istio-gateway gateway ${BASE}/gateways/istio-ingress
-
     #### Telemetry
     iop istio-telemetry mixer ${BASE}/istio-telemetry/mixer-telemetry
+
+    # TODO: use operator and native installation, add istio-specific configs.
     iop istio-telemetry prometheus ${BASE}/istio-telemetry/prometheus
     iop istio-telemetry grafana ${BASE}/istio-telemetry/grafana
 
-    #### Policy
+    #### Policy - installed by default, but only used if explicitly enabled via annotations.
     iop istio-policy policy ${BASE}/istio-policy
 }
+
+
+# Example for a minimal install, with an Ingress that supports legacy K8S Ingress and a dedicated pilot.
+# The dedicated pilot is an example - you can also use the main pilot in istio-control.
+# Having a dedicated pilot for the gateway and using the main pilot for sidecars provides some isolation
+# and allows different settings to be used. It is also an example of a minimal istio install - you can use it
+# without installing the other components.
+function iop_k8s_ingress() {
+
+    # No MCP or injector - dedicated for the gateway ( perf and scale characteristics are different from main pilot,
+    # and we may want custom settings anyways )
+    iop istio-ingress istio-ingress-pilot ${BASE}/istio-control/istio-discovery \
+         --set ingress.ingressControllerMode=DEFAULT \
+         --set env.K8S_INGRESS_NS=istio-ingress \
+         --set global.controlPlaneSecurityEnabled=false \
+         --set global.mtls.enabled=false \
+         --set policy.enabled=false --set global.configNamespace=istio-control \
+          $*
+
+         # --set useMCP=false
+    # If installing a second ingress, please set "--set ingress.ingressControllerMode=STRICT" or bad things will happen.
+     # Also --set ingress.ingressClass=istio-...
+
+     # As an example and to test, ingress is installed using Tiller.
+    iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress \
+        --set k8sIngress=true \
+        --set global.controlPlaneSecurityEnabled=false \
+        --set global.istioNamespace=istio-ingress \
+        $*
+
+}
+
 
 
 # Install a testing environment, based on istio_master
@@ -131,33 +167,6 @@ function iop_master() {
 
     TAG=master-latest-daily HUB=gcr.io/istio-release iop istio-gateway-master gateway ${BASE}/gateways/istio-ingress \
         --set global.istioNamespace=istio-master \
-        $*
-
-}
-
-
-# Example for a minimal install, with an Ingress that supports legacy K8S Ingress and a dedicated pilot.
-function iop_k8s_ingress() {
-
-    # No MCP or injector - dedicated for the gateway ( perf and scale characteristics are different from main pilot,
-    # and we may want custom settings anyways )
-    iop istio-ingress istio-ingress-pilot ${BASE}/istio-control/istio-discovery \
-         --set ingress.ingressControllerMode=DEFAULT \
-         --set env.K8S_INGRESS_NS=istio-ingress \
-         --set global.controlPlaneSecurityEnabled=false \
-         --set global.mtls.enabled=false \
-         --set policy.enabled=false --set global.configNamespace=istio-control \
-          $*
-
-         # --set useMCP=false
-    # If installing a second ingress, please set "--set ingress.ingressControllerMode=STRICT" or bad things will happen.
-     # Also --set ingress.ingressClass=istio-...
-
-     # As an example and to test, ingress is installed using Tiller.
-    IOP_MODE=helm iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress \
-        --set k8sIngress=true \
-        --set global.controlPlaneSecurityEnabled=false \
-        --set global.istioNamespace=istio-ingress \
         $*
 
 }
