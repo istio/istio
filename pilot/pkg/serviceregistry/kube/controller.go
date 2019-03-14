@@ -141,23 +141,13 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Services(options.WatchedNamespace).Watch(opts)
 		})
 
-	if out.EDSUpdater != nil {
-		out.endpoints = out.createEDSInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
-			func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
-			},
-			func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
-			})
-	} else {
-		out.endpoints = out.createInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
-			func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
-			},
-			func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
-			})
-	}
+	out.endpoints = out.createEDSInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
+		func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
+		},
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
+		})
 
 	out.nodes = out.createInformer(&v1.Node{}, "Node", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
@@ -747,11 +737,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
 		svc := *obj.(*v1.Service)
 
-		// Do not handle "kube-system" services unless using incremental EDS
-		if svc.Namespace == meta_v1.NamespaceSystem && c.EDSUpdater == nil {
-			return nil
-		}
-
 		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		if c.EDSUpdater != nil {
@@ -787,11 +772,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	}
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep := obj.(*v1.Endpoints)
-
-		// Do not handle "kube-system" endpoints unless using incremental EDS
-		if ep.Namespace == meta_v1.NamespaceSystem && c.EDSUpdater == nil {
-			return nil
-		}
 
 		if c.EDSUpdater != nil {
 			c.updateEDS(ep)
