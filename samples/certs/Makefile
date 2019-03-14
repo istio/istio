@@ -121,3 +121,4 @@ root-key.pem:
 	@echo "O = $(CITADEL_ORG)" >> $@
 	@echo "CN = $(CITADEL_CN)" >> $@
 	@echo "L = $(L:/=)" >> $@
+	
