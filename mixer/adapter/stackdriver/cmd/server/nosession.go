@@ -120,10 +120,6 @@ func (s *NoSession) updateHandlers(rawcfg []byte) (adapter.Handler, error) {
 	s.env.Logger().Infof("Loaded handler with: %v", cfg)
 	s.builder.SetAdapterConfig(cfg)
 
-	if ce := s.builder.Validate(); ce != nil {
-		return nil, ce
-	}
-
 	h, err := s.builder.Build(context.Background(), s.env)
 	if err != nil {
 		s.env.Logger().Errorf("could not build: %v", err)
