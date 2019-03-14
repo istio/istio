@@ -47,8 +47,10 @@ const (
 	// LatestTag value
 	LatestTag = "latest"
 
-	// DefaultDeployTimeout for Istio
-	DefaultDeployTimeout = time.Second * 480
+	// DefaultDeployTimeout for Istio.
+	// TODO(incfly): double check Istio deployment time once we increase the cluster size,
+	// https://github.com/istio/istio/pull/12274 is merged.
+	DefaultDeployTimeout = time.Second * 900
 
 	// DefaultUndeployTimeout for Istio.
 	DefaultUndeployTimeout = time.Second * 600
