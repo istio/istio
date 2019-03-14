@@ -2127,9 +2127,6 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		return fmt.Errorf("cannot cast to service entry")
 	}
 
-	if len(serviceEntry.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
-	}
 	for _, host := range serviceEntry.Hosts {
 		// Full wildcard is not allowed in the service entry.
 		if host == "*" {
