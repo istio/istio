@@ -95,10 +95,7 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
 	}
 
 	for collection, e := range expected {
-		validator, err := components.CompositeGoldenValidator(e)
-		if err != nil {
-			t.Fatalf("unable to create validator for expected resource: %v", err)
-		}
+		validator := components.GoldenValidatorFunc(e)
 
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)

@@ -16,12 +16,8 @@ package galley
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
-
-	multierror "github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
 
@@ -40,7 +36,7 @@ type client struct {
 	ctx     tcontext.Instance
 }
 
-func (c *client) waitForSnapshot(collection string, validator components.SnapshotValidator) error {
+func (c *client) waitForSnapshot(collection string, validator components.SnapshotValidatorFunc) error {
 	conn, err := c.dialGrpc()
 	if err != nil {
 		return err
@@ -62,17 +58,33 @@ func (c *client) waitForSnapshot(collection string, validator components.Snapsho
 	mcpc := mcpclient.New(cl, options)
 	go mcpc.Run(ctx)
 
-	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
 		items := u.Get(collection)
-		result, err = c.checkSnapshot(items, validator)
+
+		err = validator(toSnapshotObjects(items))
 		if err != nil {
 			return nil, false, err
 		}
-		return nil, result.err == nil, result.err
+		return nil, true, nil
 	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
 
 	return err
+}
+
+func toSnapshotObjects(items []*sink.Object) []*components.SnapshotObject {
+	snapshotObjects := make([]*components.SnapshotObject, 0, len(items))
+	for _, item := range items {
+		snapshotObjects = append(snapshotObjects, toSnapshotObject(item))
+	}
+	return snapshotObjects
+}
+
+func toSnapshotObject(item *sink.Object) *components.SnapshotObject {
+	return &components.SnapshotObject{
+		TypeURL:  item.TypeURL,
+		Metadata: item.Metadata,
+		Body:     item.Body,
+	}
 }
 
 func (c *client) waitForStartup() (err error) {
@@ -86,75 +98,6 @@ func (c *client) waitForStartup() (err error) {
 	})
 
 	return
-}
-
-func (c *client) checkSnapshot(actual []*sink.Object, validator components.SnapshotValidator) (*comparisonResult, error) {
-	// Convert the actuals to a map indexed by name.
-	actualMap := make(map[string]*sink.Object)
-	for _, a := range actual {
-		actualMap[a.Metadata.Name] = a
-	}
-
-	var extraActual []string
-	var missingExpected []string
-	var conflicting []string
-	var err error
-
-	// If the given validator is a composite, compare the actual and expected maps.
-	if compositeValidator, ok := validator.(components.CompositeSnapshotValidator); ok {
-		// Check for missing expected objects.
-		for name, a := range actualMap {
-			if _, found := compositeValidator[name]; !found {
-				extraActual = append(extraActual, name)
-
-				// Create the error message.
-				js, er := json.MarshalIndent(a, "", "  ")
-				if er != nil {
-					return nil, er
-				}
-				err = multierror.Append(err, fmt.Errorf("unexpected resource found: %s\n%v", name, string(js)))
-
-				// Delete this key so we don't check for conflicts below.
-				delete(actualMap, name)
-				continue
-			}
-		}
-
-		// Now check for missing actual objects.
-		for name := range compositeValidator {
-			if _, found := actualMap[name]; !found {
-				missingExpected = append(missingExpected, name)
-				err = multierror.Append(err, fmt.Errorf("expected resource not found: %s", name))
-
-				// Note: We do not remove the key here, since we don't want to
-				// modify the map that was passed in. In the conflict check below,
-				// we iterate across the actualMap anyway, so we don't really care
-				// about removing these elements.
-				continue
-			}
-		}
-	}
-
-	// Now check for conflicts between actual and expected.
-	for name, a := range actualMap {
-		// Convert to SnapshotObject, which is a protobuf message.
-		snapshotObj := &components.SnapshotObject{
-			TypeURL:  a.TypeURL,
-			Metadata: a.Metadata,
-			Body:     a.Body,
-		}
-		if er := validator.ValidateObject(snapshotObj); er != nil {
-			conflicting = append(conflicting, name)
-			err = multierror.Append(err, er)
-		}
-	}
-
-	return &comparisonResult{
-		extraActual:     extraActual,
-		missingExpected: missingExpected,
-		conflicting:     conflicting,
-		err:             err,
-	}, nil
 }
 
 func (c *client) dialGrpc() (*grpc.ClientConn, error) {
@@ -176,11 +119,4 @@ func (c *client) dialGrpc() (*grpc.ClientConn, error) {
 // Close implements io.Closer.
 func (c *client) Close() (err error) {
 	return err
-}
-
-type comparisonResult struct {
-	extraActual     []string
-	missingExpected []string
-	conflicting     []string
-	err             error
 }

@@ -16,12 +16,12 @@ package components
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pmezard/go-difflib/difflib"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -43,7 +43,7 @@ type Galley interface {
 	SetMeshConfig(yamlText string) error
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
-	WaitForSnapshot(collection string, validator SnapshotValidator) error
+	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
 }
 
 // Ensure that Object can behave as a proto message.
@@ -60,112 +60,97 @@ func (m *SnapshotObject) Reset()         { *m = SnapshotObject{} }
 func (m *SnapshotObject) String() string { return proto.CompactTextString(m) }
 func (*SnapshotObject) ProtoMessage()    {}
 
-// SnapshotValidator interface for validating individual snapshot objects
-type SnapshotValidator interface {
-	ValidateObject(obj *SnapshotObject) error
-}
+// SnapshotValidatorFunc validates the given snapshot objects returned from Galley.
+type SnapshotValidatorFunc func(actuals []*SnapshotObject) error
 
-// SnapshotValidatorFromFunc converts the given function into a SnapshotValidator.
-func SnapshotValidatorFromFunc(fn func(obj *SnapshotObject) error) SnapshotValidator {
-	return &fnValidator{
-		fn: fn,
-	}
-}
-
-var _ SnapshotValidator = &fnValidator{}
-
-type fnValidator struct {
-	fn func(obj *SnapshotObject) error
-}
-
-func (v *fnValidator) ValidateObject(obj *SnapshotObject) error {
-	return v.fn(obj)
-}
-
-var _ SnapshotValidator = CompositeSnapshotValidator{}
-
-// GoldenValidator creates a SnapshotValidator that tests for equivalence against
-// the given golden object.
-func GoldenValidator(golden map[string]interface{}) SnapshotValidator {
-	return SnapshotValidatorFromFunc(func(actual *SnapshotObject) error {
-		// Exclude ephemeral fields from comparison
-		actual.Metadata.CreateTime = nil
-		actual.Metadata.Version = ""
-
-		// Convert the actual object to a map for comparison.
-		b, err := json.Marshal(actual)
-		if err != nil {
-			return err
-		}
-		o := make(map[string]interface{})
-		if err = json.Unmarshal(b, &o); err != nil {
-			return err
+// GoldenValidatorFunc creates a SnapshotValidatorFunc that tests for equivalence against
+// a set of golden object.
+func GoldenValidatorFunc(goldens []map[string]interface{}) SnapshotValidatorFunc {
+	return func(actuals []*SnapshotObject) error {
+		// Convert goldens to a map of JSON objects indexed by name.
+		goldenMap := make(map[string]interface{})
+		for _, g := range goldens {
+			name, err := extractName(g)
+			if err != nil {
+				return err
+			}
+			goldenMap[name] = g
 		}
 
-		if !reflect.DeepEqual(o, golden) {
-			// They're not equal, generate an error.
-			ajs, er := json.MarshalIndent(actual, "", "  ")
-			if er != nil {
-				return er
+		// Convert actuals to a map of JSON objects indexed by name
+		actualMap := make(map[string]interface{})
+		for _, a := range actuals {
+			// Exclude ephemeral fields from comparison
+			a.Metadata.CreateTime = nil
+			a.Metadata.Version = ""
+
+			b, err := json.Marshal(a)
+			if err != nil {
+				return err
 			}
-			ejs, er := json.MarshalIndent(golden, "", "  ")
-			if er != nil {
-				return er
+			o := make(map[string]interface{})
+			if err = json.Unmarshal(b, &o); err != nil {
+				return err
 			}
 
-			n := actual.Metadata.Name
-
-			diff := difflib.UnifiedDiff{
-				FromFile: fmt.Sprintf("Expected %q", n),
-				A:        difflib.SplitLines(string(ejs)),
-				ToFile:   fmt.Sprintf("Actual %q", n),
-				B:        difflib.SplitLines(string(ajs)),
-				Context:  100,
-			}
-			text, er := difflib.GetUnifiedDiffString(diff)
-			if er != nil {
-				return er
-			}
-
-			return fmt.Errorf("resource mismatch: %q\n%s", n, text)
+			name := a.Metadata.Name
+			actualMap[name] = o
 		}
 
-		// actual == expected
-		return nil
-	})
-}
+		var err error
 
-// CompositeSnapshotValidator is a map of validators indexed by object name.
-type CompositeSnapshotValidator map[string]SnapshotValidator
+		for name, a := range actualMap {
+			g, found := goldenMap[name]
+			if !found {
+				js, er := json.MarshalIndent(a, "", "  ")
+				if er != nil {
+					return er
+				}
+				err = multierror.Append(err, fmt.Errorf("unexpected resource found: %s\n%v", name, string(js)))
+				continue
+			}
 
-// Validate is a SnapshotObjectValidator method that looks up the appropriate validate based on name.
-func (v CompositeSnapshotValidator) ValidateObject(obj *SnapshotObject) error {
-	if obj == nil {
-		return errors.New("snapshot object is nil")
-	}
-	if obj.Metadata == nil {
-		return errors.New("snapshot object metadata is nil")
-	}
+			if !reflect.DeepEqual(a, g) {
+				ajs, er := json.MarshalIndent(a, "", "  ")
+				if er != nil {
+					return er
+				}
+				gjs, er := json.MarshalIndent(g, "", "  ")
+				if er != nil {
+					return er
+				}
 
-	validator := v[obj.Metadata.Name]
-	if validator == nil {
-		return fmt.Errorf("no validator found for object name %s", obj.Metadata.Name)
-	}
+				diff := difflib.UnifiedDiff{
+					FromFile: fmt.Sprintf("Expected %q", name),
+					A:        difflib.SplitLines(string(gjs)),
+					ToFile:   fmt.Sprintf("Actual %q", name),
+					B:        difflib.SplitLines(string(ajs)),
+					Context:  100,
+				}
+				text, er := difflib.GetUnifiedDiffString(diff)
+				if er != nil {
+					return er
+				}
 
-	return validator.ValidateObject(obj)
-}
-
-// CompositeGoldenValidator creates an aggregate validator for the given map of golden objects indexed by name.
-func CompositeGoldenValidator(goldenObjects []map[string]interface{}) (CompositeSnapshotValidator, error) {
-	out := make(CompositeSnapshotValidator)
-	for _, golden := range goldenObjects {
-		name, err := extractName(golden)
-		if err != nil {
-			return nil, err
+				err = multierror.Append(err, fmt.Errorf("resource mismatch: %q\n%s",
+					name, text))
+			}
 		}
-		out[name] = GoldenValidator(golden)
+
+		for name, golden := range goldenMap {
+			_, found := actualMap[name]
+			if !found {
+				js, er := json.MarshalIndent(golden, "", "  ")
+				if er != nil {
+					return er
+				}
+				err = multierror.Append(err, fmt.Errorf("expected resource not found: %s\n%v", name, js))
+				continue
+			}
+		}
+
+		return err
 	}
-	return out, nil
 }
 
 func extractName(i map[string]interface{}) (string, error) {
