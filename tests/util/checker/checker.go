@@ -21,6 +21,12 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
+)
+
+var (
+	// IgnoreTestLinterData skips over unit tests
+	IgnoreTestLinterData = true
 )
 
 // Check checks the list of files, and write to the given Report.
@@ -53,6 +59,11 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 
 // fileCheck checks a file using the given rules, and write to the given Report.
 func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) {
+	// TODO: skip over linter tests in a principled manner for all linters
+	if IgnoreTestLinterData && strings.Contains(path, "testlinter/testdata") {
+		return
+	}
+
 	fs := token.NewFileSet()
 	astFile, err := parser.ParseFile(fs, path, nil, parser.Mode(0))
 	if err != nil {

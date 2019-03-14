@@ -31,6 +31,7 @@ func getAbsPath(path string) string {
 }
 
 func clearLintRulesList() {
+	checker.IgnoreTestLinterData = false
 	delete(LintRulesList, UnitTest)
 	delete(LintRulesList, IntegTest)
 	delete(LintRulesList, E2eTest)
