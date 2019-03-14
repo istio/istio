@@ -19,9 +19,10 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"io"
-	"istio.io/api/policy/v1beta1"
 	"reflect"
 	"sort"
+
+	"istio.io/api/policy/v1beta1"
 
 	"github.com/gogo/protobuf/proto"
 

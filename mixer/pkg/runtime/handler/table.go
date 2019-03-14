@@ -16,9 +16,10 @@ package handler
 
 import (
 	"context"
-	"istio.io/api/policy/v1beta1"
 	"strconv"
 	"time"
+
+	"istio.io/api/policy/v1beta1"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
