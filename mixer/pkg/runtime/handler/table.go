@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"istio.io/api/policy/v1beta1"
 	"strconv"
 	"time"
 
@@ -85,7 +86,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	}
 
 	for handler, instances := range instancesByHandler {
-		createEntry(old, t, handler, instances, snapshot.ID,
+		createEntry(old, t, handler, nil, instances, snapshot.ID,
 			func(handler hndlr, instances interface{}) (h adapter.Handler, e env, err error) {
 				e = NewEnv(snapshot.ID, handler.GetName(), gp).(env)
 				h, err = config.BuildHandler(handler.(*config.HandlerStatic), instances.([]*config.InstanceStatic),
@@ -95,7 +96,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	}
 
 	for handler, instances := range instancesByHandlerDynamic {
-		createEntry(old, t, handler, instances, snapshot.ID,
+		createEntry(old, t, handler, handler.Connection, instances, snapshot.ID,
 			func(_ hndlr, _ interface{}) (h adapter.Handler, e env, err error) {
 				e = NewEnv(snapshot.ID, handler.GetName(), gp).(env)
 				tmplCfg := make([]*dynamic.TemplateConfig, 0, len(instances))
@@ -117,9 +118,9 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 
 type buildHandlerFn func(handler hndlr, instances interface{}) (h adapter.Handler, env env, err error)
 
-func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, snapshotID int64, buildHandler buildHandlerFn) {
+func createEntry(old *Table, t *Table, handler hndlr, handlerConn *v1beta1.Connection, instances interface{}, snapshotID int64, buildHandler buildHandlerFn) {
 
-	sig := calculateSignature(handler, instances)
+	sig := calculateSignature(handler, handlerConn, instances)
 
 	currentEntry, found := old.entries[handler.GetName()]
 	if found && currentEntry.Signature.equals(sig) {
