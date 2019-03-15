@@ -155,7 +155,7 @@ message Jwt {
   // the issuer or (b) inferred from the email domain of the issuer (e.g. a
   // Google service account).
   //
-  // Example: https://www.googleapis.com/oauth2/v1/certs
+  // Example: `https://www.googleapis.com/oauth2/v1/certs`
   string jwks_uri = 3;
 
   // Two fields below define where to extract the JWT from an HTTP request.

@@ -77,9 +77,9 @@ Use fs:/// to specify a file-based backend with absolute path to the directory.<
 <td><code>tlsSettings</code></td>
 <td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
 <td>
-<p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
+<p>Use the tls_settings to specify the tls mode to use. If the MCP server
 uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
-mode as ISTIO</em>MUTUAL.</p>
+mode as <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -150,7 +150,7 @@ and similarly us-west should failover to us-east.</p>
 <td>
 <p>Optional: only one of distribute or failover can be set.
 Explicitly specify loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
 If empty, the locality weight is set according to the endpoints number within it.</p>
 
 </td>
@@ -755,7 +755,7 @@ the following rules:</p>
 <li><p>Implicitly: If the registry explicitly provides information about
 the network to which the endpoint belongs to. In some cases, its
 possible to indicate the network associated with the endpoint by
-adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
+adding the <code>ISTIO_META_NETWORK</code> environment variable to the sidecar.</p></li>
 
 <li><p>Explicitly:</p></li>
 </ol>
@@ -794,7 +794,7 @@ ranges for endpoints from different networks must not overlap.</p>
 <td>
 <p>Add all endpoints from the specified registry into this network.
 The names of the registries should correspond to the secret name
-that was used to configure the registry (kubernetes multicluster) or
+that was used to configure the registry (Kubernetes multicluster) or
 supplied by MCP server.</p>
 
 </td>
@@ -909,7 +909,7 @@ DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 <td><code>string</code></td>
 <td>
 <p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
-See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
 for details about Envoy&rsquo;s Metrics Service API.</p>
 
 </td>

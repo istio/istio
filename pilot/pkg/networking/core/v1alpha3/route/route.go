@@ -323,7 +323,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-	if util.IsProxyVersionGE11(node) {
+	if util.IsXDSMarshalingToAnyEnabled(node) {
 		out.TypedPerFilterConfig = make(map[string]*types.Any)
 	} else {
 		out.PerFilterConfig = make(map[string]*types.Struct)
@@ -459,7 +459,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(node, in.Fault))
 		} else {
 			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))

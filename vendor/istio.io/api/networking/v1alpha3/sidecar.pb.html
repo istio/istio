@@ -87,7 +87,7 @@ attached to the workload. The following example declares a Sidecar
 resource in the prod-us1 namespace for all pods with labels &ldquo;app:
 productpage&rdquo; belonging to the productpage.prod-us1 service. Assuming
 that these pods are deployed without IPtable rules (i.e. the Istio init
-container) and the proxy metadata ISTIO<em>META</em>INTERCEPTION_MODE is set to
+container) and the proxy metadata <code>ISTIO_META_INTERCEPTION_MODE</code> is set to
 NONE, the specification below allows such pods to receive HTTP traffic
 on port 9080 and forward it to the application listening on
 127.0.0.1:8080. It also allows the application to communicate with a
@@ -147,7 +147,7 @@ additional network interface on 172.16.0.0/16 subnet for inbound
 traffic. The following Sidecar configuration allows the VM to expose a
 listener on 172.16.1.32:80 (the VM&rsquo;s IP) for traffic arriving from the
 172.16.0.0/16 subnet. Note that in this scenario, the
-ISTIO<em>META</em>INTERCEPTION_MODE metadata on the proxy in the VM should
+<code>ISTIO_META_INTERCEPTION_MODE</code> metadata on the proxy in the VM should
 contain &ldquo;REDIRECT&rdquo; or &ldquo;TPROXY&rdquo; as its value, implying that IP tables
 based traffic capture is active.</p>
 
@@ -285,7 +285,7 @@ The corresponding service can be a service in the service registry
 using a <code>ServiceEntry</code> or <code>VirtualService</code> configuration. Any
 associated <code>DestinationRule</code> in the same namespace will also be used.</p>
 
-<p>The <code>dnsName</code> should be specified using FQDN format, opionally including
+<p>The <code>dnsName</code> should be specified using FQDN format, optionally including
 a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
 Set the <code>dnsName</code> to <code>*</code> to select all services from the specified namespace
 (e.g.,<code>prod/*</code>). The <code>namespace</code> can also be set to <code>*</code> to select a particular
@@ -356,7 +356,7 @@ captureMode must be DEFAULT or NONE for Unix domain socket binds.</p>
 traffic should be forwarded to. This configuration can be used to
 redirect traffic arriving at the bind point on the sidecar to a port
 or Unix domain socket where the application workload is listening for
-connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket</p>
+connections. Format should be 127.0.0.1:PORT or <code>unix:///path/to/socket</code></p>
 
 </td>
 </tr>
