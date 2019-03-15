@@ -324,6 +324,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.ServiceInstance == nil || in.ServiceInstance.Service == nil {
+		rbacLog.Errorf("nil service instance")
+		return nil
+	}
+
 	svc := in.ServiceInstance.Service.Hostname
 	attr := in.ServiceInstance.Service.Attributes
 	authzPolicies := in.Env.PushContext.AuthzPolicies
