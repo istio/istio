@@ -134,7 +134,7 @@ var (
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	DisableXDSMarshalingToAny = func() bool {
-		return len(os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY")) != 0
+		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") == "1"
 	}
 )
 
