@@ -110,7 +110,9 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
-	if sdsUdsPath == "" {
+
+	// Fallback to secret mount instead of SDS if SDS is disabled globally, or meshConfig.sdsUdsPath isn't set.
+	if sdsUdsPath == "" || !model.SDSEnabled {
 		base := meta[pilot.BaseDir] + model.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
 

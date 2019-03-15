@@ -95,6 +95,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+{{- if .Values.global.sds.enabled }}
+          - name: SDS_ENABLED
+            value: "1"
+{{- end }}
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}

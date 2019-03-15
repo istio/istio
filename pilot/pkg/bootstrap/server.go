@@ -973,6 +973,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		ServiceDiscovery: s.ServiceController,
 	}
 
+	if os.Getenv("SDS_ENABLED") == "1" {
+		model.SDSEnabled = true
+		log.Info("****SDS is on globally")
+	} else {
+		log.Info("****SDS is off globally")
+	}
+
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
 		environment,

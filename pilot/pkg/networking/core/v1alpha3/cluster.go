@@ -903,8 +903,8 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			Sni:              tls.Sni,
 		}
 
-		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		// Fallback to file mount secret instead of SDS if SDS is disabled globally, or meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
+		if !model.SDSEnabled || env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
