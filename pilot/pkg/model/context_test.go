@@ -38,7 +38,7 @@ func TestServiceNode(t *testing.T) {
 				Type:        model.Ingress,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3"},
-				DNSDomains:  []string{"local"},
+				DNSDomain:   "local",
 			},
 			out: "ingress~10.3.3.3~random~local",
 		},
@@ -47,7 +47,7 @@ func TestServiceNode(t *testing.T) {
 				Type:        model.SidecarProxy,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
-				DNSDomains:  []string{"local"},
+				DNSDomain:   "local",
 				Metadata: map[string]string{
 					"INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
 				},
@@ -68,28 +68,6 @@ func TestServiceNode(t *testing.T) {
 		}
 		if !reflect.DeepEqual(in, node.in) {
 			t.Errorf("ParseServiceNode(%q) => Got %#v, want %#v", node.out, in, node.in)
-		}
-	}
-}
-
-func TestGetUniqueSuffixes(t *testing.T) {
-	data := []struct {
-		in  []string
-		out []string
-	}{
-		{
-			in:  []string{"part1.part2.com", "part2.com", "default.svc.local", "kube.default.svc.local"},
-			out: []string{"part1.part2.com", "kube.default.svc.local"},
-		},
-		{
-			in:  []string{"global", "istio-system.global", "global"},
-			out: []string{"istio-system.global"},
-		},
-	}
-	for _, datum := range data {
-		out := model.GetUniqueSuffixes(datum.in)
-		if !reflect.DeepEqual(datum.out, out) {
-			t.Errorf("GetSuperString() =>\n Got %s\nwant %s", out, datum.out)
 		}
 	}
 }

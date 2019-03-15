@@ -239,7 +239,7 @@ type MeshConfig struct {
 	ConfigSources []*ConfigSource `protobuf:"bytes,22,rep,name=config_sources,json=configSources,proto3" json:"config_sources,omitempty"`
 	// $hide_from_docs
 	// This flag is used by secret discovery service(SDS).
-	// If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+	// If set to true ([prerequisite](https://kubernetes.io/docs/concepts/storage/volumes/#projected)), Istio will inject volumes mount
 	// for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server
 	// mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually.
 	// This isn't supported for non-Kubernetes cases.
@@ -298,7 +298,7 @@ type MeshConfig struct {
 	DefaultDestinationRuleExportTo []string `protobuf:"bytes,33,rep,name=default_destination_rule_export_to,json=defaultDestinationRuleExportTo,proto3" json:"default_destination_rule_export_to,omitempty"`
 	// $hide_from_docs
 	// The namespace to treat as the administrative root namespace for
-	// istio configuration. When processing a leaf namespace Istio will search for
+	// Istio configuration. When processing a leaf namespace Istio will search for
 	// declarations in that namespace first and if none are found it will
 	// search in the root namespace. Any matching declaration found in the root
 	// namespace is processed as if it were declared in the leaf namespace.
@@ -307,8 +307,8 @@ type MeshConfig struct {
 	// type.
 	//
 	// There is no default value for this flag in 1.1 but in later releases it
-	// is expected to default to a new namespace, "istio-config", which is
-	// maintained separately from the "istio-system" namespace where an instance
+	// is expected to default to a new namespace, `istio-config`, which is
+	// maintained separately from the `istio-system` namespace where an instance
 	// of the control plane runtime is deployed. This separates the concerns of
 	// configuring the control-plane runtime from configuration of the mesh.
 	RootNamespace string `protobuf:"bytes,34,opt,name=root_namespace,json=rootNamespace,proto3" json:"root_namespace,omitempty"`
@@ -653,7 +653,7 @@ type ConfigSource struct {
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Use the tls_settings to specify the tls mode to use. If the MCP server
 	// uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
-	// mode as ISTIO_MUTUAL.
+	// mode as `ISTIO_MUTUAL`.
 	TlsSettings          *v1alpha3.TLSSettings `protobuf:"bytes,2,opt,name=tls_settings,json=tlsSettings,proto3" json:"tls_settings,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
@@ -757,7 +757,7 @@ func (m *ConfigSource) GetTlsSettings() *v1alpha3.TLSSettings {
 type LocalityLoadBalancerSetting struct {
 	// Optional: only one of distribute or failover can be set.
 	// Explicitly specify loadbalancing weight across different zones and geographical locations.
-	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing)
+	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
 	// If empty, the locality weight is set according to the endpoints number within it.
 	Distribute []*LocalityLoadBalancerSetting_Distribute `protobuf:"bytes,1,rep,name=distribute,proto3" json:"distribute,omitempty"`
 	// Optional: only failover or distribute can be set.

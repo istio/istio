@@ -382,7 +382,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		adsClientsMutex.RLock()
 		defer adsClientsMutex.RUnlock()
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
-		if !ok {
+		if !ok || len(connections) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return

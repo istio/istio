@@ -29,7 +29,7 @@ message AttributeManifest {
   // Optional. The revision of this document. Assigned by server.
   string revision = 1;
   // Required. Name of the component producing these attributes. This can be
-  // the proxy (with the canonical name "istio-proxy") or the name of an
+  // the proxy (with the canonical name `istio-proxy`) or the name of an
   // `attributes` kind adapter in Mixer.
   string name = 2;
 
@@ -91,16 +91,16 @@ message AttributeManifest {
   // match the regular expression `[\.-]`.
   //
   // Attribute names must be unique within a single Istio deployment. The set of canonical
-  // attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+  // attributes are described at [here](https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/).
   // Attributes not in that list should be named with a component-specific suffix such as
-  // request.count-my.component.
+  // `request.count-my.component`.
   map<string, AttributeInfo> attributes = 3;
 }
 
 // A Rule is a selector and a set of intentions to be executed when the
 // selector is `true`
 //
-// The following example instructs Mixer to invoke 'prometheus-handler' handler for all services and pass it the
+// The following example instructs Mixer to invoke `prometheus-handler` handler for all services and pass it the
 // instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml

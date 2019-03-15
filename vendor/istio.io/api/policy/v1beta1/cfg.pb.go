@@ -118,7 +118,7 @@ type AttributeManifest struct {
 	// Optional. The revision of this document. Assigned by server.
 	Revision string `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
 	// Required. Name of the component producing these attributes. This can be
-	// the proxy (with the canonical name "istio-proxy") or the name of an
+	// the proxy (with the canonical name `istio-proxy`) or the name of an
 	// `attributes` kind adapter in Mixer.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The set of attributes this Istio component will be responsible for producing at runtime.
@@ -131,9 +131,9 @@ type AttributeManifest struct {
 	// match the regular expression `[\.-]`.
 	//
 	// Attribute names must be unique within a single Istio deployment. The set of canonical
-	// attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+	// attributes are described at [here](https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/).
 	// Attributes not in that list should be named with a component-specific suffix such as
-	// request.count-my.component.
+	// `request.count-my.component`.
 	Attributes map[string]*AttributeManifest_AttributeInfo `protobuf:"bytes,3,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
@@ -287,7 +287,7 @@ func (m *AttributeManifest_AttributeInfo) GetValueType() ValueType {
 // A Rule is a selector and a set of intentions to be executed when the
 // selector is `true`
 //
-// The following example instructs Mixer to invoke 'prometheus-handler' handler for all services and pass it the
+// The following example instructs Mixer to invoke `prometheus-handler` handler for all services and pass it the
 // instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml

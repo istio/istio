@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,8 +58,8 @@ var (
 	}
 )
 
-// GetDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func GetDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
+// getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
+func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
 	if direction == model.TrafficDirectionInbound {
 		thresholds := defaultInboundCircuitBreakerThresholds
 		return &thresholds
@@ -80,12 +81,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-
+	cdsCachingEnabled := pilot.EnableCDSPrecomputation()
 	switch proxy.Type {
 	case model.SidecarProxy:
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
 				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
 				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
@@ -113,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	default: // Gateways
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if configgen.PrecomputedOutboundClustersForGateways != nil {
 				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)
@@ -287,8 +288,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 }
 
 func updateEds(cluster *apiv2.Cluster) {
-	if cluster.Type != apiv2.Cluster_EDS {
-		return
+	switch v := cluster.ClusterDiscoveryType.(type) {
+	case *apiv2.Cluster_Type:
+		if v.Type != apiv2.Cluster_EDS {
+			return
+		}
 	}
 	cluster.EdsClusterConfig = &apiv2.Cluster_EdsClusterConfig{
 		ServiceName: cluster.Name,
@@ -662,7 +666,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		return
 	}
 
-	threshold := GetDefaultCircuitBreakerThresholds(direction)
+	threshold := getDefaultCircuitBreakerThresholds(direction)
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
@@ -796,7 +800,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		cluster.LbPolicy = apiv2.Cluster_ROUND_ROBIN
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
-		cluster.Type = apiv2.Cluster_ORIGINAL_DST
+		cluster.ClusterDiscoveryType = &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}
 	}
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
@@ -963,10 +967,10 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
 func buildBlackHoleCluster(env *model.Environment) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
-		Name:           util.BlackHoleCluster,
-		Type:           apiv2.Cluster_STATIC,
-		ConnectTimeout: util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
-		LbPolicy:       apiv2.Cluster_ROUND_ROBIN,
+		Name:                 util.BlackHoleCluster,
+		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
+		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
+		LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
 	}
 	return cluster
 }
@@ -975,10 +979,10 @@ func buildBlackHoleCluster(env *model.Environment) *apiv2.Cluster {
 // This cluster is used to catch all traffic to unknown listener ports
 func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
-		Name:           util.PassthroughCluster,
-		Type:           apiv2.Cluster_ORIGINAL_DST,
-		ConnectTimeout: util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
-		LbPolicy:       apiv2.Cluster_ORIGINAL_DST_LB,
+		Name:                 util.PassthroughCluster,
+		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST},
+		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
+		LbPolicy:             apiv2.Cluster_ORIGINAL_DST_LB,
 	}
 	return cluster
 }
@@ -988,8 +992,8 @@ func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
 	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, metadata map[string]string) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
-		Name: name,
-		Type: discoveryType,
+		Name:                 name,
+		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
 	}
 
 	// TODO does Istio use type LOGICAL_DNS anywhere - remove logical DNS logic if not

@@ -1,0 +1,622 @@
+---
+title: Service Entry
+description: Configuration affecting service registry.
+location: https://istio.io/docs/reference/config/networking/v1alpha3/service-entry.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 4
+---
+<p><code>ServiceEntry</code> enables adding additional entries into Istio&rsquo;s internal
+service registry, so that auto-discovered services in the mesh can
+access/route to these manually specified services. A service entry
+describes the properties of a service (DNS name, VIPs, ports, protocols,
+endpoints). These services could be external to the mesh (e.g., web
+APIs) or mesh-internal services that are not part of the platform&rsquo;s
+service registry (e.g., a set of VMs talking to services in Kubernetes).</p>
+
+<p>The following example declares a few external APIs accessed by internal
+applications over HTTPS. The sidecar inspects the SNI value in the
+ClientHello message to route to the appropriate external service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-https
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: TLS
+  resolution: DNS
+</code></pre>
+
+<p>The following configuration adds a set of MongoDB instances running on
+unmanaged VMs to Istio&rsquo;s registry, so that these services can be treated
+as any other service in the mesh. The associated DestinationRule is used
+to initiate mTLS connections to the database instances.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-mongocluster
+spec:
+  hosts:
+  - mymongodb.somedomain # not used
+  addresses:
+  - 192.192.192.192/24 # VIPs
+  ports:
+  - number: 27018
+    name: mongodb
+    protocol: MONGO
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+</code></pre>
+
+<p>and the associated DestinationRule</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: mtls-mongocluster
+spec:
+  host: mymongodb.somedomain
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/rootcacerts.pem
+</code></pre>
+
+<p>The following example uses a combination of service entry and TLS
+routing in a virtual service to steer traffic based on the SNI value to
+an internal egress firewall.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-redirect
+spec:
+  hosts:
+  - wikipedia.org
+  - &quot;*.wikipedia.org&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: TLS
+  resolution: NONE
+</code></pre>
+
+<p>And the associated VirtualService to route based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+spec:
+  hosts:
+  - wikipedia.org
+  - &quot;*.wikipedia.org&quot;
+  tls:
+  - match:
+    - sniHosts:
+      - wikipedia.org
+      - &quot;*.wikipedia.org&quot;
+    route:
+    - destination:
+        host: internal-egress-firewall.ns1.svc.cluster.local
+</code></pre>
+
+<p>The virtual service with TLS match serves to override the default SNI
+match. In the absence of a virtual service, traffic will be forwarded to
+the wikipedia domains.</p>
+
+<p>The following example demonstrates the use of a dedicated egress gateway
+through which all external service traffic is forwarded.
+The &lsquo;exportTo&rsquo; field allows for control over the visibility of a service
+declaration to other namespaces in the mesh. By default, a service is exported
+to all namespaces. The following example restricts the visibility to the
+current namespace, represented by &ldquo;.&rdquo;, so that it cannot be used by other
+namespaces.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-httpbin
+  namespace : egress
+spec:
+  hosts:
+  - httpbin.com
+  exportTo:
+  - &quot;.&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+</code></pre>
+
+<p>Define a gateway to handle all egress traffic.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+ name: istio-egressgateway
+ namespace: egress
+spec:
+ selector:
+   istio: egressgateway
+ servers:
+ - port:
+     number: 80
+     name: http
+     protocol: HTTP
+   hosts:
+   - &quot;*&quot;
+</code></pre>
+
+<p>And the associated <code>VirtualService</code> to route from the sidecar to the
+gateway service (<code>istio-egressgateway.istio-system.svc.cluster.local</code>), as
+well as route from the gateway to the external service. Note that the
+virtual service is exported to all namespaces enabling them to route traffic
+through the gateway to the external service. Forcing traffic to go through
+a managed middle proxy like this is a common practice.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-routing
+  namespace: egress
+spec:
+  hosts:
+  - httpbin.com
+  exportTo:
+  - &quot;*&quot;
+  gateways:
+  - mesh
+  - istio-egressgateway
+  http:
+  - match:
+    - port: 80
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+  - match:
+    - port: 80
+      gateway:
+      - istio-egressgateway
+    route:
+    - destination:
+        host: httpbin.com
+</code></pre>
+
+<p>The following example demonstrates the use of wildcards in the hosts for
+external services. If the connection has to be routed to the IP address
+requested by the application (i.e. application resolves DNS and attempts
+to connect to a specific IP), the discovery mode must be set to <code>NONE</code>.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-wildcard-example
+spec:
+  hosts:
+  - &quot;*.bar.com&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: NONE
+</code></pre>
+
+<p>The following example demonstrates a service that is available via a
+Unix Domain Socket on the host of the client. The resolution must be
+set to STATIC to use Unix address endpoints.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+spec:
+  hosts:
+  - &quot;example.unix.local&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
+</code></pre>
+
+<p>For HTTP-based services, it is possible to create a <code>VirtualService</code>
+backed by multiple DNS addressable endpoints. In such a scenario, the
+application can use the <code>HTTP_PROXY</code> environment variable to transparently
+reroute API calls for the <code>VirtualService</code> to a chosen backend. For
+example, the following configuration creates a non-existent external
+service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
+uk.foo.bar.com:9080, and in.foo.bar.com:7080</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-dns
+spec:
+  hosts:
+  - foo.bar.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: us.foo.bar.com
+    ports:
+      https: 8080
+  - address: uk.foo.bar.com
+    ports:
+      https: 9080
+  - address: in.foo.bar.com
+    ports:
+      https: 7080
+</code></pre>
+
+<p>With <code>HTTP_PROXY=http://localhost/</code>, calls from the application to
+<code>http://foo.bar.com</code> will be load balanced across the three domains
+specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
+be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
+
+<p>The following example illustrates the usage of a <code>ServiceEntry</code>
+containing a subject alternate name
+whose format conforms to the <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md">SPIFEE standard</a>:</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin
+  namespace : httpbin-ns
+spec:
+  hosts:
+  - httpbin.com
+  location: MESH_INTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+  subjectAltNames:
+  - &quot;spiffe://cluster.local/ns/httpbin-ns/sa/httpbin-service-account&quot;
+</code></pre>
+
+<h2 id="ServiceEntry">ServiceEntry</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceEntry-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
+name with wildcard prefix (external services only). For HTTP traffic
+the HTTP Host/Authority header will be matched against the hosts field.
+For HTTPs or TLS traffic containing Server Name Indication (SNI), the SNI value
+will be matched against the hosts field. For all other protocols
+the hosts will be ignored, and the port and addresses fields
+will be used if present. Note that when resolution is set to type DNS
+and no endpoints are specified, the host field will be used as the DNS name
+of the endpoint to route traffic to.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-addresses">
+<td><code>addresses</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The virtual IP addresses associated with the service. Could be CIDR
+prefix. For HTTP traffic the addresses field will be ignored and
+the destination will be identified based on the HTTP Host/Authority
+header. If one or more IP addresses are specified,
+the incoming traffic will be identified as belonging to this service
+if the destination IP matches the IP/CIDRs specified in the addresses
+field. If the Addresses field is empty, traffic will be identified
+solely based on the destination port. In such scenarios, the port on
+which the service is being accessed must not be shared by any other
+service in the mesh. In other words, the sidecar will behave as a
+simple TCP proxy, forwarding incoming traffic on a specified port to
+the specified destination endpoint IP/host. Unix domain socket
+addresses are not supported in this field.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-ports">
+<td><code>ports</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html#Port">Port[]</a></code></td>
+<td>
+<p>REQUIRED. The ports associated with the external service. If the
+Endpoints are Unix domain socket addresses, there must be exactly one
+port.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-location">
+<td><code>location</code></td>
+<td><code><a href="#ServiceEntry-Location">ServiceEntry.Location</a></code></td>
+<td>
+<p>Specify whether the service should be considered external to the mesh
+or part of the mesh.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-resolution">
+<td><code>resolution</code></td>
+<td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
+<td>
+<p>REQUIRED: Service discovery mode for the hosts. Care must be taken
+when setting the resolution mode to NONE for a TCP port without
+accompanying IP addresses. In such cases, traffic to any IP on
+said port will be allowed (i.e. 0.0.0.0:<port>).</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-endpoints">
+<td><code>endpoints</code></td>
+<td><code><a href="#ServiceEntry-Endpoint">ServiceEntry.Endpoint[]</a></code></td>
+<td>
+<p>One or more endpoints associated with the service.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-export_to">
+<td><code>exportTo</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of namespaces to which this service is exported. Exporting a service
+allows it to be used by sidecars, gateways and virtual services defined in
+other namespaces. This feature provides a mechanism for service owners
+and mesh administrators to control the visibility of services across
+namespace boundaries.</p>
+
+<p>If no namespaces are specified then the service is exported to all
+namespaces by default.</p>
+
+<p>The value &ldquo;.&rdquo; is reserved and defines an export to the same namespace that
+the service is declared in. Similarly the value &ldquo;*&rdquo; is reserved and
+defines an export to all namespaces.</p>
+
+<p>For a Kubernetes Service, the equivalent effect can be achieved by setting
+the annotation &ldquo;networking.istio.io/exportTo&rdquo; to a comma-separated list
+of namespace names.</p>
+
+<p>NOTE: in the current release, the <code>exportTo</code> value is restricted to
+&ldquo;.&rdquo; or &ldquo;*&rdquo; (i.e., the current namespace or all namespaces).</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-subject_alt_names">
+<td><code>subjectAltNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The list of subject alternate names allowed for workloads that
+implement this service. This information is used to enforce
+<a href="/docs/concepts/security/#secure-naming">secure-naming</a>.
+If specified, the proxy will verify that the server
+certificate&rsquo;s subject alternate name matches one of the specified values.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceEntry-Endpoint">ServiceEntry.Endpoint</h2>
+<section>
+<p>Endpoint defines a network address (IP or hostname) associated with
+the mesh service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceEntry-Endpoint-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED: Address associated with the network endpoint without the
+port.  Domain names can be used if and only if the resolution is set
+to DNS, and must be fully-qualified without wildcards. Use the form
+unix:///absolute/path/to/socket for Unix domain socket endpoints.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-ports">
+<td><code>ports</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Set of ports associated with the endpoint. The ports must be
+associated with a port name that was declared as part of the
+service. Do not use for <code>unix://</code> addresses.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels associated with the endpoint.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-network">
+<td><code>network</code></td>
+<td><code>string</code></td>
+<td>
+<p>Network enables Istio to group endpoints resident in the same L3
+domain/network. All endpoints in the same network are assumed to be
+directly reachable from one another. When endpoints in different
+networks cannot reach each other directly, an Istio Gateway can be
+used to establish connectivity (usually using the
+AUTO_PASSTHROUGH mode in a Gateway Server). This is
+an advanced configuration used typically for spanning an Istio mesh
+over multiple clusters.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-locality">
+<td><code>locality</code></td>
+<td><code>string</code></td>
+<td>
+<p>The locality associated with the endpoint. A locality corresponds
+to a failure domain (e.g., country/region/zone). Arbitrary failure
+domain hierarchies can be represented by separating each
+encapsulating failure domain by /. For example, the locality of an
+an endpoint in US, in US-East-1 region, within availability zone
+az-1, in data center rack r11 can be represented as
+us/us-east-1/az-1/r11. Istio will configure the sidecar to route to
+endpoints within the same locality as the sidecar. If none of the
+endpoints in the locality are available, endpoints parent locality
+(but within the same network ID) will be chosen. For example, if
+there are two endpoints in same network (networkID &ldquo;n1&rdquo;), say e1
+with locality us/us-east-1/az-1/r11 and e2 with locality
+us/us-east-1/az-2/r12, a sidecar from us/us-east-1/az-1/r11 locality
+will prefer e1 from the same locality over e2 from a different
+locality. Endpoint e2 could be the IP associated with a gateway
+(that bridges networks n1 and n2), or the IP associated with a
+standard service endpoint.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-weight">
+<td><code>weight</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The load balancing weight associated with the endpoint. Endpoints
+with higher weights will receive proportionally higher traffic.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceEntry-Location">ServiceEntry.Location</h2>
+<section>
+<p>Location specifies whether the service is part of Istio mesh or
+outside the mesh.  Location determines the behavior of several
+features, such as service-to-service mTLS authentication, policy
+enforcement, etc. When communicating with services outside the mesh,
+Istio&rsquo;s mTLS authentication is disabled, and policy enforcement is
+performed on the client-side as opposed to server-side.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceEntry-Location-MESH_EXTERNAL">
+<td><code>MESH_EXTERNAL</code></td>
+<td>
+<p>Signifies that the service is external to the mesh. Typically used
+to indicate external services consumed through APIs.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Location-MESH_INTERNAL">
+<td><code>MESH_INTERNAL</code></td>
+<td>
+<p>Signifies that the service is part of the mesh. Typically used to
+indicate services added explicitly as part of expanding the service
+mesh to include unmanaged infrastructure (e.g., VMs added to a
+Kubernetes based service mesh).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceEntry-Resolution">ServiceEntry.Resolution</h2>
+<section>
+<p>Resolution determines how the proxy will resolve the IP addresses of
+the network endpoints associated with the service, so that it can
+route to one of them. The resolution mode specified here has no impact
+on how the application resolves the IP address associated with the
+service. The application may still have to use DNS to resolve the
+service to an IP so that the outbound traffic can be captured by the
+Proxy. Alternatively, for HTTP services, the application could
+directly communicate with the proxy (e.g., by setting HTTP_PROXY) to
+talk to these services.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceEntry-Resolution-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>Assume that incoming connections have already been resolved (to a
+specific destination IP address). Such connections are typically
+routed via the proxy using mechanisms such as IP table REDIRECT/
+eBPF. After performing any routing related transformations, the
+proxy will forward the connection to the IP address to which the
+connection was bound.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Resolution-STATIC">
+<td><code>STATIC</code></td>
+<td>
+<p>Use the static IP addresses specified in endpoints (see below) as the
+backing instances associated with the service.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Resolution-DNS">
+<td><code>DNS</code></td>
+<td>
+<p>Attempt to resolve the IP address by querying the ambient DNS,
+during request processing. If no endpoints are specified, the proxy
+will resolve the DNS address specified in the hosts field, if
+wildcards are not used. If endpoints are specified, the DNS
+addresses specified in the endpoints will be resolved to determine
+the destination IP address.  DNS resolution cannot be used with Unix
+domain socket endpoints.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

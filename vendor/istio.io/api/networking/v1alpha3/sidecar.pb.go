@@ -84,7 +84,7 @@
 // resource in the prod-us1 namespace for all pods with labels "app:
 // productpage" belonging to the productpage.prod-us1 service. Assuming
 // that these pods are deployed without IPtable rules (i.e. the Istio init
-// container) and the proxy metadata ISTIO_META_INTERCEPTION_MODE is set to
+// container) and the proxy metadata `ISTIO_META_INTERCEPTION_MODE` is set to
 // NONE, the specification below allows such pods to receive HTTP traffic
 // on port 9080 and forward it to the application listening on
 // 127.0.0.1:8080. It also allows the application to communicate with a
@@ -146,7 +146,7 @@
 // traffic. The following Sidecar configuration allows the VM to expose a
 // listener on 172.16.1.32:80 (the VM's IP) for traffic arriving from the
 // 172.16.0.0/16 subnet. Note that in this scenario, the
-// ISTIO_META_INTERCEPTION_MODE metadata on the proxy in the VM should
+// `ISTIO_META_INTERCEPTION_MODE` metadata on the proxy in the VM should
 // contain "REDIRECT" or "TPROXY" as its value, implying that IP tables
 // based traffic capture is active.
 //
@@ -334,7 +334,7 @@ type IstioIngressListener struct {
 	// traffic should be forwarded to. This configuration can be used to
 	// redirect traffic arriving at the bind point on the sidecar to a port
 	// or Unix domain socket where the application workload is listening for
-	// connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket
+	// connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`
 	DefaultEndpoint      string   `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -435,7 +435,7 @@ type IstioEgressListener struct {
 	// using a `ServiceEntry` or `VirtualService` configuration. Any
 	// associated `DestinationRule` in the same namespace will also be used.
 	//
-	// The `dnsName` should be specified using FQDN format, opionally including
+	// The `dnsName` should be specified using FQDN format, optionally including
 	// a wildcard character in the left-most component (e.g., `prod/*.example.com`).
 	// Set the `dnsName` to `*` to select all services from the specified namespace
 	// (e.g.,`prod/*`). The `namespace` can also be set to `*` to select a particular

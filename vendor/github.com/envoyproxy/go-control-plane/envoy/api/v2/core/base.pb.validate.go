@@ -367,6 +367,62 @@ func (e HeaderValueOptionValidationError) Error() string {
 
 var _ error = HeaderValueOptionValidationError{}
 
+// Validate checks the field values on HeaderMap with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *HeaderMap) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	for idx, item := range m.GetHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HeaderMapValidationError{
+					Field:  fmt.Sprintf("Headers[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// HeaderMapValidationError is the validation error returned by
+// HeaderMap.Validate if the designated constraints aren't met.
+type HeaderMapValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HeaderMapValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHeaderMap.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HeaderMapValidationError{}
+
 // Validate checks the field values on DataSource with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *DataSource) Validate() error {
@@ -653,3 +709,47 @@ func (e RuntimeFractionalPercentValidationError) Error() string {
 }
 
 var _ error = RuntimeFractionalPercentValidationError{}
+
+// Validate checks the field values on ControlPlane with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *ControlPlane) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Identifier
+
+	return nil
+}
+
+// ControlPlaneValidationError is the validation error returned by
+// ControlPlane.Validate if the designated constraints aren't met.
+type ControlPlaneValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ControlPlaneValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sControlPlane.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ControlPlaneValidationError{}

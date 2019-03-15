@@ -148,7 +148,7 @@ var (
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
+		Buckets: []float64{1, 3, 5, 10, 20, 30, 50, 100},
 	})
 
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
@@ -656,8 +656,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	return nil
 }
 
-// IncrementalAggregatedResources is not implemented.
-func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+// DeltaAggregatedResources is not implemented.
+func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -929,6 +929,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
+			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
+		}
 	}
 }
 
