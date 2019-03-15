@@ -68,7 +68,7 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
-	istioHelmChartlName            = "istio"
+	istioHelmChartName            = "istio"
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
@@ -489,7 +489,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == helmInstallerName {
 		// clean up using helm
-		err := util.HelmDelete(istioHelmChartlName)
+		err := util.HelmDelete(istioHelmChartName)
 		if err != nil {
 			return nil
 		}
@@ -926,7 +926,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	err = util.HelmInstallDryRun(workDir, istioHelmChartlName, valFile, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
@@ -935,7 +935,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, istioHelmChartlName, valFile, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
 			istioHelmInstallDir, valFile, setValue, k.Namespace)
