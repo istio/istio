@@ -280,6 +280,9 @@ type IstioConfigStore interface {
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
 
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
+
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
 
@@ -489,6 +492,18 @@ var (
 		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
 	}
 
+	// AuthorizationPolicy describes an authorization policy.
+	AuthorizationPolicy = ProtoSchema{
+		ClusterScoped: false,
+		Type:          "authorization-policy",
+		Plural:        "authorization-policies",
+		Group:         "rbac",
+		Version:       "v1alpha1",
+		MessageName:   "istio.rbac.v1alpha1.AuthorizationPolicy",
+		Validate:      ValidateAuthorizationPolicy,
+		Collection:    metadata.IstioRbacV1alpha1Authorizationpolicies.Collection.String(),
+	}
+
 	// RbacConfig describes the mesh level RBAC config.
 	// Deprecated, use ClusterRbacConfig instead.
 	// See https://github.com/istio/istio/issues/8825 for more details.
@@ -530,6 +545,7 @@ var (
 		AuthenticationMeshPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		AuthorizationPolicy,
 		RbacConfig,
 		ClusterRbacConfig,
 	}
@@ -968,6 +984,16 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	}
 
 	return bindings
+}
+
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 func (store *istioConfigStore) ClusterRbacConfig() *Config {
