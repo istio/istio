@@ -477,9 +477,12 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	cds := map[string]*xdsapi.Cluster{}
 	for _, c := range ll {
 		cdsSize += c.Size()
-		if c.Type != xdsapi.Cluster_EDS {
-			cds[c.Name] = c
-			continue
+		switch v := c.ClusterDiscoveryType.(type) {
+		case *xdsapi.Cluster_Type:
+			if v.Type != xdsapi.Cluster_EDS {
+				cds[c.Name] = c
+				continue
+			}
 		}
 		cn = append(cn, c.Name)
 		edscds[c.Name] = c
