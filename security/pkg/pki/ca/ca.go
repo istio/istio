@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -101,9 +102,33 @@ type IstioCA struct {
 	livenessProbe *probe.Probe
 }
 
+// Append root certificates in rootCertFile to the input certificate.
+func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
+	var rootCerts []byte
+	if len(pemCert) > 0 {
+		// Copy the input certificate
+		rootCerts = make([]byte, len(pemCert))
+		copy(rootCerts, pemCert)
+	}
+	if len(rootCertFile) > 0 {
+		log.Debugf("append root certificates from %v", rootCertFile)
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
+		}
+		log.Debugf("The root certificates to be appended is: %v", rootCertFile[:])
+		if len(rootCerts) > 0 {
+			// Append a newline after the last cert
+			rootCerts = []byte(strings.TrimSuffix(string(rootCerts[:]), "\n") + "\n")
+		}
+		rootCerts = append(rootCerts, certBytes...)
+	}
+	return rootCerts, nil
+}
+
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -146,7 +171,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 		}
 
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, pemCert); err != nil {
+		rootCerts, err := appendRootCerts(pemCert, rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
@@ -157,8 +187,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 		}
 	} else {
 		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
+		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[caCertID],
-			caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
+			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 	}
