@@ -327,6 +327,8 @@ func (m *AccessLogCommon) Validate() error {
 		}
 	}
 
+	// no validation rules for UpstreamTransportFailureReason
+
 	return nil
 }
 
@@ -408,6 +410,8 @@ func (m *ResponseFlags) Validate() error {
 	// no validation rules for DownstreamConnectionTermination
 
 	// no validation rules for UpstreamRetryLimitExceeded
+
+	// no validation rules for StreamIdleTimeout
 
 	return nil
 }

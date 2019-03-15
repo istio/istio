@@ -3,22 +3,23 @@
 
 package route
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import _type "github.com/envoyproxy/go-control-plane/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import types "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	bytes "bytes"
+	fmt "fmt"
+	io "io"
+	math "math"
+	time "time"
 
-import time "time"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+	types "github.com/gogo/protobuf/types"
+	_ "github.com/lyft/protoc-gen-validate/validate"
 
-import bytes "bytes"
-
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
-
-import io "io"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	_type "github.com/envoyproxy/go-control-plane/envoy/type"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -50,6 +51,7 @@ var VirtualHost_TlsRequirementType_name = map[int32]string{
 	1: "EXTERNAL_ONLY",
 	2: "ALL",
 }
+
 var VirtualHost_TlsRequirementType_value = map[string]int32{
 	"NONE":          0,
 	"EXTERNAL_ONLY": 1,
@@ -59,8 +61,9 @@ var VirtualHost_TlsRequirementType_value = map[string]int32{
 func (x VirtualHost_TlsRequirementType) String() string {
 	return proto.EnumName(VirtualHost_TlsRequirementType_name, int32(x))
 }
+
 func (VirtualHost_TlsRequirementType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{0, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{0, 0}
 }
 
 type RouteAction_ClusterNotFoundResponseCode int32
@@ -76,6 +79,7 @@ var RouteAction_ClusterNotFoundResponseCode_name = map[int32]string{
 	0: "SERVICE_UNAVAILABLE",
 	1: "NOT_FOUND",
 }
+
 var RouteAction_ClusterNotFoundResponseCode_value = map[string]int32{
 	"SERVICE_UNAVAILABLE": 0,
 	"NOT_FOUND":           1,
@@ -84,8 +88,9 @@ var RouteAction_ClusterNotFoundResponseCode_value = map[string]int32{
 func (x RouteAction_ClusterNotFoundResponseCode) String() string {
 	return proto.EnumName(RouteAction_ClusterNotFoundResponseCode_name, int32(x))
 }
+
 func (RouteAction_ClusterNotFoundResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 0}
 }
 
 // Configures :ref:`internal redirect <arch_overview_internal_redirects>` behavior.
@@ -100,6 +105,7 @@ var RouteAction_InternalRedirectAction_name = map[int32]string{
 	0: "PASS_THROUGH_INTERNAL_REDIRECT",
 	1: "HANDLE_INTERNAL_REDIRECT",
 }
+
 var RouteAction_InternalRedirectAction_value = map[string]int32{
 	"PASS_THROUGH_INTERNAL_REDIRECT": 0,
 	"HANDLE_INTERNAL_REDIRECT":       1,
@@ -108,8 +114,9 @@ var RouteAction_InternalRedirectAction_value = map[string]int32{
 func (x RouteAction_InternalRedirectAction) String() string {
 	return proto.EnumName(RouteAction_InternalRedirectAction_name, int32(x))
 }
+
 func (RouteAction_InternalRedirectAction) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 1}
 }
 
 type RedirectAction_RedirectResponseCode int32
@@ -134,6 +141,7 @@ var RedirectAction_RedirectResponseCode_name = map[int32]string{
 	3: "TEMPORARY_REDIRECT",
 	4: "PERMANENT_REDIRECT",
 }
+
 var RedirectAction_RedirectResponseCode_value = map[string]int32{
 	"MOVED_PERMANENTLY":  0,
 	"FOUND":              1,
@@ -145,8 +153,9 @@ var RedirectAction_RedirectResponseCode_value = map[string]int32{
 func (x RedirectAction_RedirectResponseCode) String() string {
 	return proto.EnumName(RedirectAction_RedirectResponseCode_name, int32(x))
 }
+
 func (RedirectAction_RedirectResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{7, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{8, 0}
 }
 
 // The top level element in the routing configuration is a virtual host. Each virtual host has
@@ -230,7 +239,12 @@ type VirtualHost struct {
 	// Indicates the retry policy for all routes in this virtual host. Note that setting a
 	// route level entry will take precedence over this config and it'll be treated
 	// independently (e.g.: values are not inherited).
-	RetryPolicy          *RetryPolicy `protobuf:"bytes,16,opt,name=retry_policy,json=retryPolicy,proto3" json:"retry_policy,omitempty"`
+	RetryPolicy *RetryPolicy `protobuf:"bytes,16,opt,name=retry_policy,json=retryPolicy,proto3" json:"retry_policy,omitempty"`
+	// Indicates the hedge policy for all routes in this virtual host. Note that setting a
+	// route level entry will take precedence over this config and it'll be treated
+	// independently (e.g.: values are not inherited).
+	// [#not-implemented-hide:]
+	HedgePolicy          *HedgePolicy `protobuf:"bytes,17,opt,name=hedge_policy,json=hedgePolicy,proto3" json:"hedge_policy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -240,25 +254,21 @@ func (m *VirtualHost) Reset()         { *m = VirtualHost{} }
 func (m *VirtualHost) String() string { return proto.CompactTextString(m) }
 func (*VirtualHost) ProtoMessage()    {}
 func (*VirtualHost) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{0}
 }
 func (m *VirtualHost) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *VirtualHost) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_VirtualHost.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *VirtualHost) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VirtualHost.Merge(dst, src)
+func (m *VirtualHost) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VirtualHost.Merge(m, src)
 }
 func (m *VirtualHost) XXX_Size() int {
 	return m.Size()
@@ -375,6 +385,13 @@ func (m *VirtualHost) GetRetryPolicy() *RetryPolicy {
 	return nil
 }
 
+func (m *VirtualHost) GetHedgePolicy() *HedgePolicy {
+	if m != nil {
+		return m.HedgePolicy
+	}
+	return nil
+}
+
 // A route is both a specification of how to match a request as well as an indication of what to do
 // next (e.g., redirect, forward, rewrite, etc.).
 //
@@ -440,25 +457,21 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{1}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *Route) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Route.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *Route) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Route.Merge(dst, src)
+func (m *Route) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Route.Merge(m, src)
 }
 func (m *Route) XXX_Size() int {
 	return m.Size()
@@ -706,25 +719,21 @@ func (m *WeightedCluster) Reset()         { *m = WeightedCluster{} }
 func (m *WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster) ProtoMessage()    {}
 func (*WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{2}
+	return fileDescriptor_7dc2895fb75d9d41, []int{2}
 }
 func (m *WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *WeightedCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WeightedCluster.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *WeightedCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WeightedCluster.Merge(dst, src)
+func (m *WeightedCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WeightedCluster.Merge(m, src)
 }
 func (m *WeightedCluster) XXX_Size() int {
 	return m.Size()
@@ -814,25 +823,21 @@ func (m *WeightedCluster_ClusterWeight) Reset()         { *m = WeightedCluster_C
 func (m *WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{2, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{2, 0}
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_WeightedCluster_ClusterWeight.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *WeightedCluster_ClusterWeight) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WeightedCluster_ClusterWeight.Merge(dst, src)
+func (m *WeightedCluster_ClusterWeight) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WeightedCluster_ClusterWeight.Merge(m, src)
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Size() int {
 	return m.Size()
@@ -919,7 +924,7 @@ type RouteMatch struct {
 	// Indicates that the route should additionally match on a runtime key. Every time the route
 	// is considered for a match, it must also fall under the percentage of matches indicated by
 	// this field. For some fraction N/D, a random number in the range [0,D) is selected. If the
-	// number is <= the value of the numberator N, or if the key is not present, the default
+	// number is <= the value of the numerator N, or if the key is not present, the default
 	// value, the router continues to evaluate the remaining match criteria. A runtime_fraction
 	// route configuration can be used to roll out route changes in a gradual manner without full
 	// code/config deploys. Refer to the :ref:`traffic shifting
@@ -958,25 +963,21 @@ func (m *RouteMatch) Reset()         { *m = RouteMatch{} }
 func (m *RouteMatch) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{3}
+	return fileDescriptor_7dc2895fb75d9d41, []int{3}
 }
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteMatch.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteMatch) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteMatch.Merge(dst, src)
+func (m *RouteMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteMatch.Merge(m, src)
 }
 func (m *RouteMatch) XXX_Size() int {
 	return m.Size()
@@ -1162,25 +1163,21 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Reset()         { *m = RouteMatch_Grp
 func (m *RouteMatch_GrpcRouteMatchOptions) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch_GrpcRouteMatchOptions) ProtoMessage()    {}
 func (*RouteMatch_GrpcRouteMatchOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{3, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{3, 0}
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteMatch_GrpcRouteMatchOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteMatch_GrpcRouteMatchOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteMatch_GrpcRouteMatchOptions.Merge(dst, src)
+func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteMatch_GrpcRouteMatchOptions.Merge(m, src)
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Size() int {
 	return m.Size()
@@ -1235,25 +1232,21 @@ func (m *CorsPolicy) Reset()         { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()    {}
 func (*CorsPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{4}
+	return fileDescriptor_7dc2895fb75d9d41, []int{4}
 }
 func (m *CorsPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *CorsPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CorsPolicy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *CorsPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CorsPolicy.Merge(dst, src)
+func (m *CorsPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CorsPolicy.Merge(m, src)
 }
 func (m *CorsPolicy) XXX_Size() int {
 	return m.Size()
@@ -1337,6 +1330,7 @@ func (m *CorsPolicy) GetAllowCredentials() *types.BoolValue {
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *CorsPolicy) GetEnabled() *types.BoolValue {
 	if x, ok := m.GetEnabledSpecifier().(*CorsPolicy_Enabled); ok {
 		return x.Enabled
@@ -1562,34 +1556,35 @@ type RouteAction struct {
 	MaxGrpcTimeout         *time.Duration                     `protobuf:"bytes,23,opt,name=max_grpc_timeout,json=maxGrpcTimeout,proto3,stdduration" json:"max_grpc_timeout,omitempty"`
 	UpgradeConfigs         []*RouteAction_UpgradeConfig       `protobuf:"bytes,25,rep,name=upgrade_configs,json=upgradeConfigs,proto3" json:"upgrade_configs,omitempty"`
 	InternalRedirectAction RouteAction_InternalRedirectAction `protobuf:"varint,26,opt,name=internal_redirect_action,json=internalRedirectAction,proto3,enum=envoy.api.v2.route.RouteAction_InternalRedirectAction" json:"internal_redirect_action,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}                           `json:"-"`
-	XXX_unrecognized       []byte                             `json:"-"`
-	XXX_sizecache          int32                              `json:"-"`
+	// Indicates that the route has a hedge policy. Note that if this is set,
+	// it'll take precedence over the virtual host level hedge policy entirely
+	// (e.g.: policies are not merged, most internal one becomes the enforced policy).
+	// [#not-implemented-hide:]
+	HedgePolicy          *HedgePolicy `protobuf:"bytes,27,opt,name=hedge_policy,json=hedgePolicy,proto3" json:"hedge_policy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
 func (m *RouteAction) Reset()         { *m = RouteAction{} }
 func (m *RouteAction) String() string { return proto.CompactTextString(m) }
 func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5}
 }
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction.Merge(dst, src)
+func (m *RouteAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction.Merge(m, src)
 }
 func (m *RouteAction) XXX_Size() int {
 	return m.Size()
@@ -1812,6 +1807,13 @@ func (m *RouteAction) GetInternalRedirectAction() RouteAction_InternalRedirectAc
 	return RouteAction_PASS_THROUGH_INTERNAL_REDIRECT
 }
 
+func (m *RouteAction) GetHedgePolicy() *HedgePolicy {
+	if m != nil {
+		return m.HedgePolicy
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*RouteAction) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _RouteAction_OneofMarshaler, _RouteAction_OneofUnmarshaler, _RouteAction_OneofSizer, []interface{}{
@@ -1975,7 +1977,7 @@ type RouteAction_RequestMirrorPolicy struct {
 	// fall under the percentage of matches indicated by this field.
 	//
 	// For some fraction N/D, a random number in the range [0,D) is selected. If the
-	// number is <= the value of the numberator N, or if the key is not present, the default
+	// number is <= the value of the numerator N, or if the key is not present, the default
 	// value, the request will be mirrored.
 	//
 	// .. note::
@@ -1997,25 +1999,21 @@ func (m *RouteAction_RequestMirrorPolicy) Reset()         { *m = RouteAction_Req
 func (m *RouteAction_RequestMirrorPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_RequestMirrorPolicy) ProtoMessage()    {}
 func (*RouteAction_RequestMirrorPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 0}
 }
 func (m *RouteAction_RequestMirrorPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_RequestMirrorPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_RequestMirrorPolicy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_RequestMirrorPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_RequestMirrorPolicy.Merge(dst, src)
+func (m *RouteAction_RequestMirrorPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_RequestMirrorPolicy.Merge(m, src)
 }
 func (m *RouteAction_RequestMirrorPolicy) XXX_Size() int {
 	return m.Size()
@@ -2085,25 +2083,21 @@ func (m *RouteAction_HashPolicy) Reset()         { *m = RouteAction_HashPolicy{}
 func (m *RouteAction_HashPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy) ProtoMessage()    {}
 func (*RouteAction_HashPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 1}
 }
 func (m *RouteAction_HashPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_HashPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_HashPolicy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_HashPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_HashPolicy.Merge(dst, src)
+func (m *RouteAction_HashPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_HashPolicy.Merge(m, src)
 }
 func (m *RouteAction_HashPolicy) XXX_Size() int {
 	return m.Size()
@@ -2276,25 +2270,21 @@ func (m *RouteAction_HashPolicy_Header) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Header) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Header) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 1, 0}
 }
 func (m *RouteAction_HashPolicy_Header) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_HashPolicy_Header) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_HashPolicy_Header.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_HashPolicy_Header) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_HashPolicy_Header.Merge(dst, src)
+func (m *RouteAction_HashPolicy_Header) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_HashPolicy_Header.Merge(m, src)
 }
 func (m *RouteAction_HashPolicy_Header) XXX_Size() int {
 	return m.Size()
@@ -2347,25 +2337,21 @@ func (m *RouteAction_HashPolicy_Cookie) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Cookie) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Cookie) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Cookie) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 1, 1}
 }
 func (m *RouteAction_HashPolicy_Cookie) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_HashPolicy_Cookie) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_HashPolicy_Cookie.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_HashPolicy_Cookie) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_HashPolicy_Cookie.Merge(dst, src)
+func (m *RouteAction_HashPolicy_Cookie) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_HashPolicy_Cookie.Merge(m, src)
 }
 func (m *RouteAction_HashPolicy_Cookie) XXX_Size() int {
 	return m.Size()
@@ -2413,25 +2399,21 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) String() string {
 }
 func (*RouteAction_HashPolicy_ConnectionProperties) ProtoMessage() {}
 func (*RouteAction_HashPolicy_ConnectionProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 2}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 1, 2}
 }
 func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_HashPolicy_ConnectionProperties.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_HashPolicy_ConnectionProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_HashPolicy_ConnectionProperties.Merge(dst, src)
+func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_HashPolicy_ConnectionProperties.Merge(m, src)
 }
 func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Size() int {
 	return m.Size()
@@ -2471,25 +2453,21 @@ func (m *RouteAction_UpgradeConfig) Reset()         { *m = RouteAction_UpgradeCo
 func (m *RouteAction_UpgradeConfig) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_UpgradeConfig) ProtoMessage()    {}
 func (*RouteAction_UpgradeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 2}
+	return fileDescriptor_7dc2895fb75d9d41, []int{5, 2}
 }
 func (m *RouteAction_UpgradeConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RouteAction_UpgradeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_UpgradeConfig.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RouteAction_UpgradeConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_UpgradeConfig.Merge(dst, src)
+func (m *RouteAction_UpgradeConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_UpgradeConfig.Merge(m, src)
 }
 func (m *RouteAction_UpgradeConfig) XXX_Size() int {
 	return m.Size()
@@ -2560,25 +2538,21 @@ func (m *RetryPolicy) Reset()         { *m = RetryPolicy{} }
 func (m *RetryPolicy) String() string { return proto.CompactTextString(m) }
 func (*RetryPolicy) ProtoMessage()    {}
 func (*RetryPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{6}
+	return fileDescriptor_7dc2895fb75d9d41, []int{6}
 }
 func (m *RetryPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RetryPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RetryPolicy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RetryPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RetryPolicy.Merge(dst, src)
+func (m *RetryPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy.Merge(m, src)
 }
 func (m *RetryPolicy) XXX_Size() int {
 	return m.Size()
@@ -2653,25 +2627,21 @@ func (m *RetryPolicy_RetryPriority) Reset()         { *m = RetryPolicy_RetryPrio
 func (m *RetryPolicy_RetryPriority) String() string { return proto.CompactTextString(m) }
 func (*RetryPolicy_RetryPriority) ProtoMessage()    {}
 func (*RetryPolicy_RetryPriority) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{6, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{6, 0}
 }
 func (m *RetryPolicy_RetryPriority) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RetryPolicy_RetryPriority) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RetryPolicy_RetryPriority.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RetryPolicy_RetryPriority) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RetryPolicy_RetryPriority.Merge(dst, src)
+func (m *RetryPolicy_RetryPriority) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy_RetryPriority.Merge(m, src)
 }
 func (m *RetryPolicy_RetryPriority) XXX_Size() int {
 	return m.Size()
@@ -2713,6 +2683,7 @@ func (m *RetryPolicy_RetryPriority) GetName() string {
 	return ""
 }
 
+// Deprecated: Do not use.
 func (m *RetryPolicy_RetryPriority) GetConfig() *types.Struct {
 	if x, ok := m.GetConfigType().(*RetryPolicy_RetryPriority_Config); ok {
 		return x.Config
@@ -2816,25 +2787,21 @@ func (m *RetryPolicy_RetryHostPredicate) Reset()         { *m = RetryPolicy_Retr
 func (m *RetryPolicy_RetryHostPredicate) String() string { return proto.CompactTextString(m) }
 func (*RetryPolicy_RetryHostPredicate) ProtoMessage()    {}
 func (*RetryPolicy_RetryHostPredicate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{6, 1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{6, 1}
 }
 func (m *RetryPolicy_RetryHostPredicate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RetryPolicy_RetryHostPredicate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RetryPolicy_RetryHostPredicate.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RetryPolicy_RetryHostPredicate) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RetryPolicy_RetryHostPredicate.Merge(dst, src)
+func (m *RetryPolicy_RetryHostPredicate) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy_RetryHostPredicate.Merge(m, src)
 }
 func (m *RetryPolicy_RetryHostPredicate) XXX_Size() int {
 	return m.Size()
@@ -2876,6 +2843,7 @@ func (m *RetryPolicy_RetryHostPredicate) GetName() string {
 	return ""
 }
 
+// Deprecated: Do not use.
 func (m *RetryPolicy_RetryHostPredicate) GetConfig() *types.Struct {
 	if x, ok := m.GetConfigType().(*RetryPolicy_RetryHostPredicate_Config); ok {
 		return x.Config
@@ -2964,6 +2932,76 @@ func _RetryPolicy_RetryHostPredicate_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// HTTP request hedging TODO(mpuncel) docs
+// [#not-implemented-hide:]
+type HedgePolicy struct {
+	// Specifies the number of initial requests that should be sent upstream.
+	// Must be at least 1.
+	// Defaults to 1.
+	InitialRequests *types.UInt32Value `protobuf:"bytes,1,opt,name=initial_requests,json=initialRequests,proto3" json:"initial_requests,omitempty"`
+	// Specifies a probability that an additional upstream request should be sent
+	// on top of what is specified by initial_requests.
+	// Defaults to 0.
+	AdditionalRequestChance *_type.FractionalPercent `protobuf:"bytes,2,opt,name=additional_request_chance,json=additionalRequestChance,proto3" json:"additional_request_chance,omitempty"`
+	// Indicates that a hedged request should be sent when the per-try timeout
+	// is hit. This will only occur if the retry policy also indicates that a
+	// timed out request should be retried. Defaults to false.
+	HedgeOnPerTryTimeout bool     `protobuf:"varint,3,opt,name=hedge_on_per_try_timeout,json=hedgeOnPerTryTimeout,proto3" json:"hedge_on_per_try_timeout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HedgePolicy) Reset()         { *m = HedgePolicy{} }
+func (m *HedgePolicy) String() string { return proto.CompactTextString(m) }
+func (*HedgePolicy) ProtoMessage()    {}
+func (*HedgePolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7dc2895fb75d9d41, []int{7}
+}
+func (m *HedgePolicy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HedgePolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *HedgePolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HedgePolicy.Merge(m, src)
+}
+func (m *HedgePolicy) XXX_Size() int {
+	return m.Size()
+}
+func (m *HedgePolicy) XXX_DiscardUnknown() {
+	xxx_messageInfo_HedgePolicy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HedgePolicy proto.InternalMessageInfo
+
+func (m *HedgePolicy) GetInitialRequests() *types.UInt32Value {
+	if m != nil {
+		return m.InitialRequests
+	}
+	return nil
+}
+
+func (m *HedgePolicy) GetAdditionalRequestChance() *_type.FractionalPercent {
+	if m != nil {
+		return m.AdditionalRequestChance
+	}
+	return nil
+}
+
+func (m *HedgePolicy) GetHedgeOnPerTryTimeout() bool {
+	if m != nil {
+		return m.HedgeOnPerTryTimeout
+	}
+	return false
+}
+
 type RedirectAction struct {
 	// When the scheme redirection take place, the following rules apply:
 	//  1. If the source URI scheme is `http` and the port is explicitly
@@ -2998,25 +3036,21 @@ func (m *RedirectAction) Reset()         { *m = RedirectAction{} }
 func (m *RedirectAction) String() string { return proto.CompactTextString(m) }
 func (*RedirectAction) ProtoMessage()    {}
 func (*RedirectAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{7}
+	return fileDescriptor_7dc2895fb75d9d41, []int{8}
 }
 func (m *RedirectAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RedirectAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RedirectAction.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RedirectAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedirectAction.Merge(dst, src)
+func (m *RedirectAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedirectAction.Merge(m, src)
 }
 func (m *RedirectAction) XXX_Size() int {
 	return m.Size()
@@ -3259,25 +3293,21 @@ func (m *DirectResponseAction) Reset()         { *m = DirectResponseAction{} }
 func (m *DirectResponseAction) String() string { return proto.CompactTextString(m) }
 func (*DirectResponseAction) ProtoMessage()    {}
 func (*DirectResponseAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{8}
+	return fileDescriptor_7dc2895fb75d9d41, []int{9}
 }
 func (m *DirectResponseAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *DirectResponseAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_DirectResponseAction.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *DirectResponseAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DirectResponseAction.Merge(dst, src)
+func (m *DirectResponseAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DirectResponseAction.Merge(m, src)
 }
 func (m *DirectResponseAction) XXX_Size() int {
 	return m.Size()
@@ -3321,25 +3351,21 @@ func (m *Decorator) Reset()         { *m = Decorator{} }
 func (m *Decorator) String() string { return proto.CompactTextString(m) }
 func (*Decorator) ProtoMessage()    {}
 func (*Decorator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{9}
+	return fileDescriptor_7dc2895fb75d9d41, []int{10}
 }
 func (m *Decorator) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *Decorator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Decorator.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *Decorator) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Decorator.Merge(dst, src)
+func (m *Decorator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Decorator.Merge(m, src)
 }
 func (m *Decorator) XXX_Size() int {
 	return m.Size()
@@ -3377,7 +3403,7 @@ func (m *Decorator) GetOperation() string {
 type VirtualCluster struct {
 	// Specifies a regex pattern to use for matching requests. The entire path of the request
 	// must match the regex. The regex grammar used is defined `here
-	// <http://en.cppreference.com/w/cpp/regex/ecmascript>`_.
+	// <https://en.cppreference.com/w/cpp/regex/ecmascript>`_.
 	//
 	// Examples:
 	//
@@ -3403,25 +3429,21 @@ func (m *VirtualCluster) Reset()         { *m = VirtualCluster{} }
 func (m *VirtualCluster) String() string { return proto.CompactTextString(m) }
 func (*VirtualCluster) ProtoMessage()    {}
 func (*VirtualCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{10}
+	return fileDescriptor_7dc2895fb75d9d41, []int{11}
 }
 func (m *VirtualCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *VirtualCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_VirtualCluster.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *VirtualCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VirtualCluster.Merge(dst, src)
+func (m *VirtualCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VirtualCluster.Merge(m, src)
 }
 func (m *VirtualCluster) XXX_Size() int {
 	return m.Size()
@@ -3481,25 +3503,21 @@ func (m *RateLimit) Reset()         { *m = RateLimit{} }
 func (m *RateLimit) String() string { return proto.CompactTextString(m) }
 func (*RateLimit) ProtoMessage()    {}
 func (*RateLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12}
 }
 func (m *RateLimit) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit.Merge(dst, src)
+func (m *RateLimit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit.Merge(m, src)
 }
 func (m *RateLimit) XXX_Size() int {
 	return m.Size()
@@ -3549,25 +3567,21 @@ func (m *RateLimit_Action) Reset()         { *m = RateLimit_Action{} }
 func (m *RateLimit_Action) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action) ProtoMessage()    {}
 func (*RateLimit_Action) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0}
 }
 func (m *RateLimit_Action) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action.Merge(dst, src)
+func (m *RateLimit_Action) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action.Merge(m, src)
 }
 func (m *RateLimit_Action) XXX_Size() int {
 	return m.Size()
@@ -3827,25 +3841,21 @@ func (m *RateLimit_Action_SourceCluster) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_SourceCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_SourceCluster) ProtoMessage()    {}
 func (*RateLimit_Action_SourceCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 0}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 0}
 }
 func (m *RateLimit_Action_SourceCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_SourceCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_SourceCluster.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_SourceCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_SourceCluster.Merge(dst, src)
+func (m *RateLimit_Action_SourceCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_SourceCluster.Merge(m, src)
 }
 func (m *RateLimit_Action_SourceCluster) XXX_Size() int {
 	return m.Size()
@@ -3882,25 +3892,21 @@ func (m *RateLimit_Action_DestinationCluster) Reset()         { *m = RateLimit_A
 func (m *RateLimit_Action_DestinationCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_DestinationCluster) ProtoMessage()    {}
 func (*RateLimit_Action_DestinationCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 1}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 1}
 }
 func (m *RateLimit_Action_DestinationCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_DestinationCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_DestinationCluster.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_DestinationCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_DestinationCluster.Merge(dst, src)
+func (m *RateLimit_Action_DestinationCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_DestinationCluster.Merge(m, src)
 }
 func (m *RateLimit_Action_DestinationCluster) XXX_Size() int {
 	return m.Size()
@@ -3933,25 +3939,21 @@ func (m *RateLimit_Action_RequestHeaders) Reset()         { *m = RateLimit_Actio
 func (m *RateLimit_Action_RequestHeaders) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RequestHeaders) ProtoMessage()    {}
 func (*RateLimit_Action_RequestHeaders) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 2}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 2}
 }
 func (m *RateLimit_Action_RequestHeaders) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_RequestHeaders) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_RequestHeaders.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_RequestHeaders) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_RequestHeaders.Merge(dst, src)
+func (m *RateLimit_Action_RequestHeaders) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_RequestHeaders.Merge(m, src)
 }
 func (m *RateLimit_Action_RequestHeaders) XXX_Size() int {
 	return m.Size()
@@ -3992,25 +3994,21 @@ func (m *RateLimit_Action_RemoteAddress) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_RemoteAddress) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RemoteAddress) ProtoMessage()    {}
 func (*RateLimit_Action_RemoteAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 3}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 3}
 }
 func (m *RateLimit_Action_RemoteAddress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_RemoteAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_RemoteAddress.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_RemoteAddress) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_RemoteAddress.Merge(dst, src)
+func (m *RateLimit_Action_RemoteAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_RemoteAddress.Merge(m, src)
 }
 func (m *RateLimit_Action_RemoteAddress) XXX_Size() int {
 	return m.Size()
@@ -4038,25 +4036,21 @@ func (m *RateLimit_Action_GenericKey) Reset()         { *m = RateLimit_Action_Ge
 func (m *RateLimit_Action_GenericKey) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_GenericKey) ProtoMessage()    {}
 func (*RateLimit_Action_GenericKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 4}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 4}
 }
 func (m *RateLimit_Action_GenericKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_GenericKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_GenericKey.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_GenericKey) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_GenericKey.Merge(dst, src)
+func (m *RateLimit_Action_GenericKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_GenericKey.Merge(m, src)
 }
 func (m *RateLimit_Action_GenericKey) XXX_Size() int {
 	return m.Size()
@@ -4102,25 +4096,21 @@ func (m *RateLimit_Action_HeaderValueMatch) Reset()         { *m = RateLimit_Act
 func (m *RateLimit_Action_HeaderValueMatch) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_HeaderValueMatch) ProtoMessage()    {}
 func (*RateLimit_Action_HeaderValueMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 5}
+	return fileDescriptor_7dc2895fb75d9d41, []int{12, 0, 5}
 }
 func (m *RateLimit_Action_HeaderValueMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *RateLimit_Action_HeaderValueMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RateLimit_Action_HeaderValueMatch.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *RateLimit_Action_HeaderValueMatch) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit_Action_HeaderValueMatch.Merge(dst, src)
+func (m *RateLimit_Action_HeaderValueMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit_Action_HeaderValueMatch.Merge(m, src)
 }
 func (m *RateLimit_Action_HeaderValueMatch) XXX_Size() int {
 	return m.Size()
@@ -4204,25 +4194,21 @@ func (m *HeaderMatcher) Reset()         { *m = HeaderMatcher{} }
 func (m *HeaderMatcher) String() string { return proto.CompactTextString(m) }
 func (*HeaderMatcher) ProtoMessage()    {}
 func (*HeaderMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{12}
+	return fileDescriptor_7dc2895fb75d9d41, []int{13}
 }
 func (m *HeaderMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *HeaderMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HeaderMatcher.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *HeaderMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeaderMatcher.Merge(dst, src)
+func (m *HeaderMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderMatcher.Merge(m, src)
 }
 func (m *HeaderMatcher) XXX_Size() int {
 	return m.Size()
@@ -4486,25 +4472,21 @@ func (m *QueryParameterMatcher) Reset()         { *m = QueryParameterMatcher{} }
 func (m *QueryParameterMatcher) String() string { return proto.CompactTextString(m) }
 func (*QueryParameterMatcher) ProtoMessage()    {}
 func (*QueryParameterMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_ee11921c49fa9e35, []int{13}
+	return fileDescriptor_7dc2895fb75d9d41, []int{14}
 }
 func (m *QueryParameterMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
 func (m *QueryParameterMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_QueryParameterMatcher.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
 	}
+	return b[:n], nil
 }
-func (dst *QueryParameterMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryParameterMatcher.Merge(dst, src)
+func (m *QueryParameterMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryParameterMatcher.Merge(m, src)
 }
 func (m *QueryParameterMatcher) XXX_Size() int {
 	return m.Size()
@@ -4537,6 +4519,10 @@ func (m *QueryParameterMatcher) GetRegex() *types.BoolValue {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.api.v2.route.VirtualHost_TlsRequirementType", VirtualHost_TlsRequirementType_name, VirtualHost_TlsRequirementType_value)
+	proto.RegisterEnum("envoy.api.v2.route.RouteAction_ClusterNotFoundResponseCode", RouteAction_ClusterNotFoundResponseCode_name, RouteAction_ClusterNotFoundResponseCode_value)
+	proto.RegisterEnum("envoy.api.v2.route.RouteAction_InternalRedirectAction", RouteAction_InternalRedirectAction_name, RouteAction_InternalRedirectAction_value)
+	proto.RegisterEnum("envoy.api.v2.route.RedirectAction_RedirectResponseCode", RedirectAction_RedirectResponseCode_name, RedirectAction_RedirectResponseCode_value)
 	proto.RegisterType((*VirtualHost)(nil), "envoy.api.v2.route.VirtualHost")
 	proto.RegisterMapType((map[string]*types.Struct)(nil), "envoy.api.v2.route.VirtualHost.PerFilterConfigEntry")
 	proto.RegisterMapType((map[string]*types.Any)(nil), "envoy.api.v2.route.VirtualHost.TypedPerFilterConfigEntry")
@@ -4560,6 +4546,7 @@ func init() {
 	proto.RegisterType((*RetryPolicy)(nil), "envoy.api.v2.route.RetryPolicy")
 	proto.RegisterType((*RetryPolicy_RetryPriority)(nil), "envoy.api.v2.route.RetryPolicy.RetryPriority")
 	proto.RegisterType((*RetryPolicy_RetryHostPredicate)(nil), "envoy.api.v2.route.RetryPolicy.RetryHostPredicate")
+	proto.RegisterType((*HedgePolicy)(nil), "envoy.api.v2.route.HedgePolicy")
 	proto.RegisterType((*RedirectAction)(nil), "envoy.api.v2.route.RedirectAction")
 	proto.RegisterType((*DirectResponseAction)(nil), "envoy.api.v2.route.DirectResponseAction")
 	proto.RegisterType((*Decorator)(nil), "envoy.api.v2.route.Decorator")
@@ -4574,11 +4561,242 @@ func init() {
 	proto.RegisterType((*RateLimit_Action_HeaderValueMatch)(nil), "envoy.api.v2.route.RateLimit.Action.HeaderValueMatch")
 	proto.RegisterType((*HeaderMatcher)(nil), "envoy.api.v2.route.HeaderMatcher")
 	proto.RegisterType((*QueryParameterMatcher)(nil), "envoy.api.v2.route.QueryParameterMatcher")
-	proto.RegisterEnum("envoy.api.v2.route.VirtualHost_TlsRequirementType", VirtualHost_TlsRequirementType_name, VirtualHost_TlsRequirementType_value)
-	proto.RegisterEnum("envoy.api.v2.route.RouteAction_ClusterNotFoundResponseCode", RouteAction_ClusterNotFoundResponseCode_name, RouteAction_ClusterNotFoundResponseCode_value)
-	proto.RegisterEnum("envoy.api.v2.route.RouteAction_InternalRedirectAction", RouteAction_InternalRedirectAction_name, RouteAction_InternalRedirectAction_value)
-	proto.RegisterEnum("envoy.api.v2.route.RedirectAction_RedirectResponseCode", RedirectAction_RedirectResponseCode_name, RedirectAction_RedirectResponseCode_value)
 }
+
+func init() { proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_7dc2895fb75d9d41) }
+
+var fileDescriptor_7dc2895fb75d9d41 = []byte{
+	// 3641 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x5a, 0x4d, 0x6c, 0x1b, 0x49,
+	0x76, 0x56, 0x8b, 0x14, 0x7f, 0x1e, 0xff, 0x5a, 0x65, 0x59, 0xa2, 0xe8, 0x19, 0x59, 0xa6, 0x67,
+	0x32, 0x5a, 0x27, 0x43, 0xed, 0xc8, 0xda, 0xf1, 0x7a, 0x8c, 0xd9, 0x0d, 0x29, 0xd1, 0xa6, 0x64,
+	0xfd, 0xa5, 0x24, 0x3b, 0xf1, 0x2e, 0x76, 0x1b, 0x6d, 0x76, 0x89, 0xec, 0x1d, 0xb2, 0xbb, 0xa7,
+	0xba, 0x28, 0x4b, 0xb7, 0xcd, 0x9e, 0x82, 0x04, 0x09, 0x92, 0x39, 0x05, 0xb9, 0xe6, 0x12, 0xe4,
+	0x92, 0x04, 0x08, 0x90, 0x45, 0x90, 0xc3, 0x1e, 0x17, 0x39, 0xed, 0x25, 0xc0, 0x5e, 0xf2, 0x03,
+	0x9f, 0xb2, 0xf7, 0x1c, 0x73, 0x08, 0xea, 0xa7, 0x9b, 0x7f, 0x4d, 0x51, 0x74, 0x80, 0x41, 0x36,
+	0x17, 0xa9, 0xbb, 0xea, 0x7b, 0xaf, 0xaa, 0xab, 0x5e, 0xbd, 0xf7, 0xbd, 0x57, 0x84, 0x35, 0xe2,
+	0x5c, 0xb8, 0x57, 0x9b, 0xa6, 0x67, 0x6f, 0x5e, 0x6c, 0x6d, 0x52, 0xb7, 0xc7, 0x88, 0xfc, 0x5b,
+	0xf1, 0xa8, 0xcb, 0x5c, 0x84, 0x44, 0x7f, 0xc5, 0xf4, 0xec, 0xca, 0xc5, 0x56, 0x45, 0xf4, 0x94,
+	0xde, 0x1b, 0x92, 0x69, 0xba, 0x94, 0x6c, 0xbe, 0x36, 0x7d, 0x25, 0x51, 0x2a, 0xca, 0x5e, 0x76,
+	0xe5, 0x91, 0x4d, 0x8f, 0xd0, 0x26, 0x71, 0x98, 0xea, 0x59, 0x1e, 0xe8, 0xa1, 0xa6, 0xd3, 0x0a,
+	0x24, 0x56, 0x5b, 0xae, 0xdb, 0xea, 0x90, 0x4d, 0xf1, 0xf6, 0xba, 0x77, 0xbe, 0x69, 0x3a, 0x57,
+	0xaa, 0x6b, 0x6d, 0xb4, 0xcb, 0xea, 0x51, 0x93, 0xd9, 0xae, 0xa3, 0xfa, 0xdf, 0x1b, 0xed, 0xf7,
+	0x19, 0xed, 0x35, 0xd9, 0x24, 0xe9, 0x37, 0xd4, 0xf4, 0x3c, 0x42, 0x7d, 0xd5, 0xbf, 0x72, 0x61,
+	0x76, 0x6c, 0xcb, 0x64, 0x64, 0x33, 0x78, 0x50, 0x1d, 0x4b, 0x2d, 0xb7, 0xe5, 0x8a, 0xc7, 0x4d,
+	0xfe, 0x24, 0x5b, 0xcb, 0x7f, 0x92, 0x81, 0xcc, 0x4b, 0x9b, 0xb2, 0x9e, 0xd9, 0x69, 0xb8, 0x3e,
+	0x43, 0xef, 0x43, 0xdc, 0x31, 0xbb, 0xa4, 0xa8, 0xad, 0x6b, 0x1b, 0xe9, 0x5a, 0xfa, 0x1f, 0x7f,
+	0xf5, 0xb3, 0x58, 0x9c, 0xce, 0xaf, 0x6b, 0x58, 0x34, 0xa3, 0x0f, 0x20, 0x69, 0xb9, 0x5d, 0xd3,
+	0x76, 0xfc, 0xe2, 0xfc, 0x7a, 0x6c, 0x23, 0x5d, 0x03, 0x8e, 0x58, 0xf8, 0x4a, 0x9b, 0x4f, 0x69,
+	0x38, 0xe8, 0x42, 0x8f, 0x20, 0x21, 0x56, 0xd5, 0x2f, 0xc6, 0xd6, 0x63, 0x1b, 0x99, 0xad, 0xd5,
+	0xca, 0xf8, 0x8a, 0x57, 0x30, 0xff, 0x5b, 0x8b, 0xff, 0xfc, 0xdf, 0xee, 0xce, 0x61, 0x05, 0x47,
+	0xa7, 0x90, 0xa1, 0xe4, 0xcb, 0x9e, 0x4d, 0x89, 0xc1, 0x3a, 0x7e, 0x31, 0xbe, 0xae, 0x6d, 0xe4,
+	0xb7, 0xb6, 0xa2, 0xa4, 0x07, 0xe6, 0x5c, 0x39, 0xeb, 0xf8, 0x58, 0x4a, 0x75, 0x89, 0xc3, 0xce,
+	0xae, 0x3c, 0x82, 0x41, 0xa9, 0x39, 0xeb, 0xf8, 0xe8, 0x10, 0xf4, 0x0b, 0x89, 0x36, 0x9a, 0x9d,
+	0x9e, 0xcf, 0x08, 0xf5, 0x8b, 0x0b, 0x62, 0x5e, 0xe5, 0x6b, 0x34, 0xef, 0x48, 0x28, 0x2e, 0x5c,
+	0x0c, 0xbd, 0xfb, 0xe8, 0x3b, 0x90, 0xa1, 0x26, 0x23, 0x46, 0xc7, 0xee, 0xda, 0xcc, 0x2f, 0x26,
+	0x84, 0xa6, 0xf7, 0x23, 0xbf, 0xd0, 0x64, 0xe4, 0x80, 0xa3, 0x30, 0xd0, 0xe0, 0xd1, 0x47, 0xe7,
+	0xb0, 0xcc, 0x27, 0x47, 0x7c, 0x66, 0xb4, 0x89, 0x69, 0x11, 0xea, 0x1b, 0xcc, 0x35, 0x4c, 0xcb,
+	0x2a, 0x26, 0x85, 0xaa, 0x0f, 0x86, 0x55, 0x71, 0x53, 0xac, 0x34, 0x04, 0xf0, 0xa5, 0xd9, 0xe9,
+	0x91, 0x63, 0x8f, 0x9b, 0x4a, 0x2d, 0xc3, 0xd7, 0x3d, 0xf1, 0x95, 0x16, 0xd3, 0xff, 0x33, 0x89,
+	0x6f, 0x29, 0x85, 0x12, 0xe6, 0x9f, 0xb9, 0x55, 0xcb, 0x42, 0x8f, 0x61, 0x35, 0x62, 0x1c, 0x4a,
+	0xba, 0xee, 0x05, 0x29, 0xe6, 0xf8, 0xe6, 0xe1, 0xe5, 0x51, 0x39, 0x2c, 0x7a, 0x51, 0x1b, 0x56,
+	0x28, 0xf1, 0x3d, 0xd7, 0xf1, 0xc9, 0xe8, 0x1c, 0xe1, 0x5d, 0xe7, 0xb8, 0x14, 0x68, 0x1c, 0x9a,
+	0xe4, 0x13, 0x28, 0x45, 0x8d, 0xa4, 0x66, 0x99, 0x11, 0xb3, 0x5c, 0x19, 0x93, 0x54, 0xd3, 0xdc,
+	0x82, 0x78, 0xd3, 0xa5, 0x7e, 0x31, 0xb5, 0xae, 0x6d, 0x64, 0xb6, 0xd6, 0xa2, 0xb6, 0x60, 0xc7,
+	0xa5, 0xfe, 0x89, 0xdb, 0xb1, 0x9b, 0x57, 0x58, 0x60, 0x91, 0x05, 0x8b, 0x1e, 0xa1, 0xc6, 0xb9,
+	0xdd, 0x61, 0x84, 0x1a, 0x4d, 0xd7, 0x39, 0xb7, 0x5b, 0xc5, 0xac, 0xf8, 0xa8, 0xed, 0x69, 0x76,
+	0x76, 0x42, 0xe8, 0x53, 0x21, 0xb7, 0x23, 0xc4, 0xea, 0x0e, 0xa3, 0x57, 0xb5, 0xf9, 0xa2, 0x86,
+	0x0b, 0xde, 0x70, 0x0f, 0xf2, 0x60, 0x85, 0x7b, 0x04, 0xcb, 0x18, 0x1f, 0xab, 0x20, 0xc6, 0x7a,
+	0x3c, 0xd5, 0xa6, 0xb9, 0x78, 0xd4, 0x80, 0x78, 0x89, 0x45, 0x74, 0xa1, 0x2a, 0xbc, 0x6f, 0x3b,
+	0xcd, 0x4e, 0xcf, 0x22, 0x46, 0xb0, 0xeb, 0x26, 0x63, 0xa4, 0xeb, 0x31, 0xa3, 0xe9, 0xf6, 0x1c,
+	0x56, 0xcc, 0xaf, 0x6b, 0x1b, 0x29, 0x5c, 0x52, 0x20, 0x2c, 0x31, 0x55, 0x09, 0xd9, 0xe1, 0x08,
+	0x54, 0x83, 0x2c, 0x25, 0x8c, 0x5e, 0x19, 0x9e, 0x58, 0xb0, 0xa2, 0x2e, 0x96, 0xf5, 0x6e, 0xa4,
+	0x65, 0x73, 0x9c, 0x5a, 0xd7, 0x0c, 0xed, 0xbf, 0x70, 0x1d, 0x6d, 0x62, 0xb5, 0x48, 0xa0, 0x63,
+	0x71, 0xb2, 0x8e, 0x06, 0xc7, 0x05, 0x3a, 0xda, 0xfd, 0x97, 0xd2, 0xf7, 0x61, 0x29, 0xea, 0xc3,
+	0x91, 0x0e, 0xb1, 0x2f, 0xc8, 0x95, 0xf4, 0x4c, 0x98, 0x3f, 0xa2, 0x8f, 0x61, 0xe1, 0x82, 0xdb,
+	0x5b, 0x71, 0x5e, 0x0c, 0xb3, 0x52, 0x91, 0xbe, 0xb1, 0x12, 0xf8, 0xc6, 0xca, 0xa9, 0xf0, 0x9c,
+	0x58, 0xa2, 0x3e, 0x9b, 0xff, 0xb6, 0x56, 0xfa, 0x01, 0xac, 0x4e, 0x5c, 0xda, 0x88, 0x11, 0x1e,
+	0x0c, 0x8f, 0xb0, 0x34, 0x36, 0x42, 0xd5, 0xb9, 0x1a, 0x50, 0x5f, 0xfe, 0x0c, 0xd0, 0xb8, 0x37,
+	0x42, 0x29, 0x88, 0x1f, 0x1d, 0x1f, 0xd5, 0xf5, 0x39, 0xb4, 0x08, 0xb9, 0xfa, 0xef, 0x9d, 0xd5,
+	0xf1, 0x51, 0xf5, 0xc0, 0x38, 0x3e, 0x3a, 0x78, 0xa5, 0x6b, 0x28, 0x09, 0xb1, 0xea, 0xc1, 0x81,
+	0x3e, 0xbf, 0x1f, 0x4f, 0xa5, 0x75, 0x28, 0xff, 0x77, 0x0a, 0x16, 0x84, 0x6b, 0x44, 0xbb, 0xb0,
+	0xd0, 0x35, 0x59, 0xb3, 0x2d, 0xe6, 0x33, 0xc1, 0xbe, 0x05, 0xf2, 0x90, 0xa3, 0x6a, 0x79, 0xee,
+	0x49, 0x85, 0x37, 0xfe, 0x43, 0x6d, 0x5e, 0xd7, 0xb0, 0x14, 0x46, 0x8f, 0x60, 0x41, 0x40, 0xd5,
+	0x17, 0xdc, 0x9d, 0xa8, 0xa5, 0xda, 0xe4, 0x87, 0xb6, 0x31, 0x87, 0x25, 0x1e, 0xfd, 0x36, 0xa4,
+	0x28, 0xb1, 0x6c, 0x4a, 0x9a, 0xac, 0x18, 0x13, 0xb2, 0xe5, 0x68, 0x53, 0x90, 0x98, 0x50, 0x3c,
+	0x94, 0x42, 0xa7, 0x50, 0x90, 0x4f, 0x46, 0x70, 0x82, 0x8b, 0x49, 0xa1, 0x68, 0x23, 0x4a, 0xd1,
+	0xae, 0x80, 0x62, 0x85, 0x0c, 0xd5, 0xe5, 0xad, 0xa1, 0x76, 0xf4, 0x08, 0x52, 0x5d, 0xc2, 0x4c,
+	0xcb, 0x64, 0xa6, 0x88, 0x0f, 0x99, 0xad, 0x3b, 0x11, 0xce, 0xe8, 0x50, 0x41, 0x70, 0x08, 0x46,
+	0x4f, 0x20, 0x6d, 0x91, 0xa6, 0x4b, 0x4d, 0xe6, 0xd2, 0xe2, 0x82, 0x90, 0x8c, 0xf4, 0xda, 0xbb,
+	0x01, 0x08, 0xf7, 0xf1, 0xe8, 0x87, 0x51, 0x6e, 0x23, 0x25, 0x8e, 0x72, 0x65, 0xe2, 0x8a, 0xce,
+	0xe0, 0x30, 0x7e, 0x34, 0xd9, 0x61, 0xe4, 0xc4, 0x28, 0x0f, 0x27, 0x8f, 0x32, 0xab, 0xab, 0x98,
+	0x1c, 0x80, 0xd2, 0x5f, 0x5f, 0x00, 0xca, 0xfe, 0x3f, 0x08, 0x40, 0xbf, 0xce, 0x9e, 0xaa, 0x56,
+	0x80, 0x84, 0x29, 0xce, 0x18, 0x5a, 0xf8, 0xe9, 0xaf, 0x7e, 0x16, 0xd3, 0xf6, 0xe3, 0xa9, 0x84,
+	0x9e, 0x2c, 0xff, 0x45, 0x1a, 0x0a, 0xbf, 0x4b, 0xec, 0x56, 0x9b, 0x11, 0x4b, 0x51, 0x1e, 0xf4,
+	0x0a, 0x52, 0x21, 0x71, 0xd2, 0xc4, 0xf2, 0x7f, 0x12, 0x65, 0x8d, 0x23, 0x62, 0x15, 0xf5, 0x5f,
+	0x36, 0x0f, 0x11, 0xc5, 0x50, 0x1d, 0xda, 0x87, 0x2c, 0x73, 0x99, 0xd9, 0x31, 0xde, 0x08, 0x94,
+	0x72, 0x34, 0xef, 0x8d, 0x4d, 0xfe, 0xc5, 0x9e, 0xc3, 0x1e, 0x6e, 0x89, 0xbd, 0x55, 0xa4, 0xf4,
+	0xc1, 0xfc, 0x86, 0x86, 0x33, 0x42, 0x58, 0x8e, 0x80, 0x7e, 0x0b, 0x10, 0xed, 0x39, 0xcc, 0xee,
+	0x12, 0xe3, 0x0b, 0x72, 0x65, 0x78, 0x94, 0x9c, 0xdb, 0x97, 0x62, 0x39, 0xd2, 0x58, 0x57, 0x3d,
+	0xcf, 0xc9, 0xd5, 0x89, 0x68, 0x2f, 0xfd, 0x5d, 0x12, 0x72, 0x43, 0x33, 0x9c, 0x46, 0x7d, 0xb7,
+	0x21, 0xa1, 0x26, 0x39, 0x3f, 0x7d, 0x92, 0x58, 0x61, 0x51, 0x0d, 0xf2, 0x81, 0x07, 0x32, 0xa4,
+	0x37, 0x8f, 0x4d, 0x77, 0x5a, 0xb9, 0x40, 0x44, 0x78, 0xf6, 0x6b, 0x0e, 0x6c, 0xfc, 0xeb, 0x3b,
+	0xb0, 0xe9, 0x77, 0x3d, 0xb0, 0x0b, 0x5f, 0xe7, 0x81, 0x4d, 0x5c, 0xcf, 0x18, 0x2f, 0x26, 0xbb,
+	0xf1, 0xa7, 0x33, 0x9b, 0xf4, 0x0c, 0xee, 0xfd, 0x27, 0xda, 0x64, 0xff, 0x2e, 0x1d, 0xda, 0xf3,
+	0xd9, 0x87, 0x9f, 0xd1, 0xef, 0xff, 0x3a, 0x7b, 0xab, 0xfd, 0x78, 0x2a, 0xa9, 0xa7, 0xca, 0x7f,
+	0x1a, 0x07, 0xe8, 0x33, 0x1e, 0x54, 0x84, 0x84, 0x3a, 0xe4, 0x42, 0x73, 0x63, 0x0e, 0xab, 0x77,
+	0xb4, 0x04, 0x71, 0xcf, 0x64, 0x6d, 0x79, 0xf8, 0x1b, 0x73, 0x58, 0xbc, 0xa1, 0x32, 0x2c, 0x50,
+	0xd2, 0x22, 0x97, 0xe2, 0x08, 0x06, 0xa9, 0x2b, 0x8d, 0x6d, 0xfc, 0x38, 0x25, 0x58, 0x0f, 0xef,
+	0x42, 0x55, 0xc8, 0x37, 0x4d, 0x9f, 0x18, 0x3e, 0x71, 0x7c, 0x9b, 0xd9, 0x17, 0x44, 0x91, 0x8c,
+	0xd2, 0xd8, 0x0c, 0x6b, 0xae, 0xdb, 0x91, 0x67, 0x3d, 0xc7, 0x25, 0x4e, 0x03, 0x01, 0xf4, 0x12,
+	0x02, 0x6f, 0x63, 0x9c, 0x53, 0xe9, 0x63, 0x8b, 0x69, 0xa1, 0xe4, 0x37, 0x23, 0x0e, 0x01, 0x96,
+	0xd0, 0xa7, 0x0a, 0x69, 0x76, 0x4e, 0x64, 0x7d, 0x01, 0x17, 0xe8, 0x70, 0x0f, 0x7a, 0x02, 0x49,
+	0x65, 0xf0, 0x2a, 0xe9, 0xbc, 0x17, 0x4d, 0xab, 0x39, 0x44, 0x2c, 0x10, 0xa1, 0x38, 0x90, 0x40,
+	0x67, 0xa0, 0x7f, 0xd9, 0x23, 0x9c, 0xdc, 0x9b, 0xd4, 0xec, 0x12, 0xe1, 0xcb, 0x65, 0xbe, 0xf9,
+	0x8d, 0x28, 0x2d, 0xbf, 0xc3, 0xb1, 0x27, 0x01, 0x34, 0xd0, 0x56, 0xf8, 0x72, 0xa8, 0xd9, 0x47,
+	0x0d, 0x88, 0xb7, 0xa8, 0xd7, 0x54, 0x19, 0xd8, 0xf6, 0xf5, 0x0c, 0xb5, 0xf2, 0x8c, 0x7a, 0xcd,
+	0xfe, 0xab, 0x3c, 0xf2, 0x3e, 0x16, 0x1a, 0x4a, 0x2b, 0x70, 0x3b, 0xb2, 0xbb, 0xb6, 0x02, 0x79,
+	0xbe, 0x79, 0x86, 0xef, 0x91, 0xa6, 0x7d, 0x6e, 0x13, 0xda, 0x8f, 0x57, 0x0b, 0x7a, 0xa2, 0xfc,
+	0x4f, 0x71, 0x80, 0x7e, 0x92, 0x87, 0xee, 0x41, 0xd6, 0xec, 0x74, 0xdc, 0x37, 0x86, 0x4b, 0xed,
+	0x96, 0xed, 0x88, 0x70, 0x95, 0xc6, 0x19, 0xd1, 0x76, 0x2c, 0x9a, 0xd0, 0xe7, 0x80, 0x06, 0x21,
+	0x86, 0x34, 0x89, 0x94, 0xa8, 0x66, 0x14, 0xb8, 0x49, 0xc0, 0x57, 0x5a, 0xb2, 0x2c, 0xed, 0x02,
+	0xeb, 0x03, 0x92, 0x58, 0x18, 0xc8, 0x7d, 0xc8, 0x49, 0xf1, 0x2e, 0x61, 0x6d, 0xd7, 0xf2, 0x55,
+	0x80, 0x91, 0xc3, 0x1e, 0xca, 0xb6, 0x3e, 0x28, 0xd8, 0xb0, 0xd8, 0x00, 0x48, 0x39, 0x25, 0xf4,
+	0x21, 0xe4, 0xc9, 0xa5, 0xe7, 0xf6, 0xfd, 0x98, 0x30, 0xb5, 0x34, 0xce, 0xc9, 0xd6, 0x00, 0xb6,
+	0x02, 0xc9, 0xae, 0x79, 0x69, 0x98, 0x2d, 0x22, 0x58, 0x6b, 0x1a, 0x27, 0xba, 0xe6, 0x65, 0xb5,
+	0x45, 0xd0, 0x33, 0x58, 0x94, 0x83, 0x34, 0x29, 0xb1, 0x88, 0xc3, 0x6c, 0xb3, 0xc3, 0x2d, 0x63,
+	0x9a, 0xb5, 0xca, 0x4f, 0xda, 0xe9, 0xcb, 0xa0, 0xcf, 0x20, 0x49, 0x1c, 0xf3, 0x75, 0x87, 0x58,
+	0x8a, 0x9f, 0x5f, 0x23, 0xce, 0xfd, 0x5b, 0x63, 0x0e, 0x07, 0x02, 0xe8, 0x0c, 0xf2, 0xca, 0x9d,
+	0x05, 0x2a, 0x66, 0x37, 0xf5, 0xc6, 0x1c, 0xce, 0x49, 0x25, 0x75, 0xa5, 0x15, 0x43, 0xde, 0x6f,
+	0x9b, 0x96, 0xfb, 0x26, 0xd4, 0x0a, 0xb3, 0x1f, 0xa0, 0x9c, 0x54, 0xa1, 0x74, 0xd6, 0x6e, 0xc1,
+	0xa2, 0x52, 0xd6, 0xb7, 0xa5, 0xf2, 0x3f, 0x2f, 0x43, 0x66, 0x20, 0xfb, 0x41, 0x1f, 0x42, 0x52,
+	0x71, 0x93, 0x31, 0x1a, 0xc0, 0xbf, 0x5a, 0xf5, 0xa1, 0x2d, 0xc8, 0xab, 0x47, 0xb5, 0x77, 0xd2,
+	0x0a, 0x86, 0xd1, 0x39, 0x05, 0x91, 0x1b, 0x89, 0x30, 0x2c, 0xbe, 0x51, 0xfe, 0xbc, 0x5f, 0x87,
+	0x92, 0x64, 0xe0, 0xfe, 0x0d, 0x9c, 0x7f, 0x63, 0x0e, 0xeb, 0x6f, 0x86, 0x9b, 0x7c, 0xf4, 0xc7,
+	0x1a, 0xdc, 0x0d, 0x26, 0xe2, 0xb8, 0xcc, 0x38, 0x77, 0x7b, 0x8e, 0x15, 0x66, 0x5b, 0x46, 0xd3,
+	0xb5, 0x48, 0x71, 0x49, 0x14, 0xd1, 0x9e, 0x4c, 0xc9, 0xfb, 0x82, 0xd8, 0x72, 0xe4, 0xb2, 0xa7,
+	0x5c, 0x49, 0x90, 0x6f, 0xed, 0xb8, 0x16, 0x51, 0x9e, 0xf2, 0x27, 0x22, 0xad, 0xbc, 0xd3, 0x9c,
+	0x0c, 0x8c, 0x60, 0x3b, 0xf1, 0x99, 0xd9, 0xce, 0x87, 0x90, 0x97, 0x5e, 0xdc, 0xa0, 0xe4, 0x0d,
+	0xb5, 0x59, 0x60, 0xf6, 0x39, 0xd9, 0x8a, 0x65, 0x23, 0xba, 0x0f, 0xd9, 0xb6, 0xeb, 0xb3, 0x10,
+	0x94, 0x10, 0xae, 0x5e, 0xc3, 0x19, 0xde, 0x1a, 0x80, 0x1a, 0xb0, 0x68, 0xf6, 0x98, 0x6b, 0x0c,
+	0x21, 0xa7, 0xda, 0x78, 0x43, 0xc3, 0x05, 0x2e, 0xd6, 0x18, 0xd0, 0xf4, 0x18, 0x92, 0xdc, 0xca,
+	0xdc, 0x1e, 0x53, 0xce, 0x6e, 0x75, 0x4c, 0x7e, 0x57, 0x95, 0x71, 0x6b, 0xf1, 0x3f, 0xff, 0xf7,
+	0xbb, 0x1a, 0x0e, 0xf0, 0xe8, 0x00, 0xb2, 0xb6, 0xd5, 0x21, 0x46, 0x20, 0x5f, 0x9c, 0x26, 0x9f,
+	0xe7, 0xf2, 0x62, 0xc9, 0xff, 0x5a, 0x9b, 0x7f, 0x30, 0x87, 0x33, 0x5c, 0xfc, 0x4c, 0x69, 0x1b,
+	0xad, 0xd2, 0xa4, 0xdf, 0xa1, 0x4a, 0xd3, 0x82, 0xdb, 0x01, 0xd1, 0xeb, 0xda, 0x94, 0xba, 0x34,
+	0x50, 0x26, 0x4f, 0xd9, 0xc3, 0x69, 0xb6, 0xa2, 0xaa, 0x47, 0x87, 0x42, 0x56, 0x0d, 0x10, 0x30,
+	0xca, 0xc1, 0x46, 0xf4, 0x1d, 0x48, 0x79, 0xd4, 0x76, 0xa9, 0xcd, 0xae, 0x8a, 0x19, 0x61, 0x87,
+	0xe5, 0xa8, 0x13, 0xec, 0xf6, 0x98, 0xed, 0xb4, 0x4e, 0x14, 0x12, 0x87, 0x32, 0xe8, 0x07, 0x13,
+	0x99, 0x6f, 0x76, 0x06, 0x56, 0xc9, 0x29, 0x59, 0x24, 0xe1, 0x35, 0x26, 0xb3, 0x56, 0x34, 0xa3,
+	0xfe, 0x68, 0xb2, 0xfa, 0xdd, 0x6b, 0xc9, 0xea, 0x2d, 0x11, 0x73, 0xb8, 0xf4, 0x44, 0xc2, 0x3a,
+	0x52, 0x6c, 0xce, 0xcd, 0x5a, 0x6c, 0x3e, 0x86, 0xe5, 0xa0, 0x2c, 0x78, 0xd1, 0x36, 0x06, 0x55,
+	0xe5, 0xa7, 0x06, 0x8a, 0x5b, 0x4a, 0xf2, 0x65, 0x1b, 0xf7, 0x15, 0x3e, 0x87, 0x4c, 0xdb, 0xf4,
+	0xdb, 0x81, 0xc1, 0xc8, 0x6a, 0xe6, 0x83, 0x69, 0x06, 0xd3, 0x30, 0xfd, 0xb6, 0xb2, 0x13, 0x68,
+	0x87, 0xcf, 0x61, 0x01, 0x77, 0x71, 0x86, 0x02, 0xee, 0x1e, 0xe8, 0x3c, 0x1c, 0x72, 0xd2, 0x10,
+	0x9e, 0xa8, 0x95, 0x9b, 0x9d, 0xc8, 0x7c, 0xd7, 0xbc, 0xe4, 0x24, 0x23, 0x38, 0x4a, 0x2f, 0xa1,
+	0xd0, 0xf3, 0x5a, 0xd4, 0xb4, 0x88, 0xe2, 0xe2, 0x7e, 0x71, 0x55, 0x7c, 0xcf, 0xc7, 0xd3, 0xbe,
+	0xe7, 0x85, 0x14, 0x93, 0x1c, 0x17, 0xe7, 0x7b, 0x83, 0xaf, 0x3e, 0xf2, 0xa0, 0x68, 0x3b, 0x8c,
+	0x50, 0xc7, 0xec, 0x18, 0x41, 0x31, 0xcc, 0x50, 0x44, 0xb0, 0x24, 0x4e, 0xc1, 0xa7, 0xd3, 0x06,
+	0xd8, 0x53, 0xf2, 0xc3, 0xd5, 0x35, 0xbc, 0x6c, 0x47, 0xb6, 0x8f, 0x95, 0x5d, 0xef, 0xbc, 0x43,
+	0xd9, 0xf5, 0x1f, 0x34, 0xb8, 0x15, 0x71, 0xb0, 0xd1, 0xfd, 0xc9, 0x21, 0xb1, 0x1f, 0x10, 0xef,
+	0x43, 0x66, 0x20, 0xf7, 0x56, 0xd1, 0x90, 0x5b, 0x36, 0xf4, 0x13, 0xef, 0x48, 0x62, 0x1c, 0xfb,
+	0xdf, 0x13, 0xe3, 0xd2, 0xdf, 0xc6, 0x01, 0xfa, 0x16, 0x86, 0x9e, 0x43, 0x42, 0x05, 0x65, 0x59,
+	0x38, 0xfd, 0xe4, 0xe6, 0xd6, 0xa9, 0x0e, 0x37, 0xcf, 0x24, 0xa4, 0x0a, 0xae, 0xac, 0xe9, 0xba,
+	0x5f, 0xd8, 0x41, 0xa6, 0x32, 0x8b, 0xb2, 0x1d, 0x21, 0xc8, 0x95, 0x49, 0x15, 0xe8, 0x02, 0x6e,
+	0x37, 0x5d, 0xc7, 0x21, 0x02, 0x69, 0x78, 0xd4, 0xf5, 0x08, 0x65, 0x36, 0x09, 0x68, 0xc0, 0x77,
+	0x67, 0xd2, 0x1d, 0xe8, 0x39, 0x09, 0xd5, 0x34, 0xe6, 0xf0, 0x52, 0x33, 0xa2, 0x1d, 0x95, 0x20,
+	0xc5, 0x08, 0xed, 0xda, 0x8e, 0xd9, 0x11, 0x01, 0x39, 0x85, 0xc3, 0xf7, 0xd2, 0x36, 0x24, 0x14,
+	0x41, 0x79, 0x00, 0x19, 0xf9, 0xd1, 0x46, 0x74, 0x19, 0x04, 0x64, 0xef, 0x91, 0xd9, 0x25, 0x25,
+	0x07, 0x12, 0xf2, 0xeb, 0xa6, 0x55, 0x4d, 0x3e, 0x81, 0x18, 0x63, 0x1d, 0xb5, 0x78, 0x53, 0x4f,
+	0x28, 0xc7, 0x22, 0xa4, 0x92, 0x37, 0xc9, 0x99, 0xc5, 0x73, 0xe9, 0x21, 0x2c, 0x45, 0x7d, 0x31,
+	0xba, 0x03, 0x69, 0xdf, 0xed, 0xd1, 0x26, 0x31, 0x6c, 0x4f, 0x4c, 0x21, 0x85, 0x53, 0xb2, 0x61,
+	0xcf, 0xab, 0xad, 0x82, 0x2e, 0xcf, 0xc3, 0x58, 0xf2, 0x50, 0x6a, 0x43, 0x6e, 0xe8, 0x0c, 0xf3,
+	0xc4, 0x21, 0xf0, 0x05, 0x3c, 0x79, 0x56, 0xb9, 0x6a, 0x46, 0xb5, 0x89, 0x2a, 0xfe, 0x76, 0x9f,
+	0x26, 0xcf, 0x4f, 0x75, 0x9e, 0x01, 0xb4, 0x5c, 0x87, 0x3b, 0xd7, 0x50, 0x2b, 0xb4, 0x02, 0xb7,
+	0x4e, 0xeb, 0xf8, 0xe5, 0xde, 0x4e, 0xdd, 0x78, 0x71, 0x54, 0x7d, 0x59, 0xdd, 0x3b, 0xa8, 0xd6,
+	0x0e, 0xea, 0xfa, 0x1c, 0xca, 0x41, 0xfa, 0xe8, 0xf8, 0xcc, 0x78, 0x7a, 0xfc, 0xe2, 0x68, 0x57,
+	0xd7, 0xca, 0xdf, 0x83, 0xe5, 0x68, 0x9f, 0x80, 0xca, 0xb0, 0x76, 0x52, 0x3d, 0x3d, 0x35, 0xce,
+	0x1a, 0xf8, 0xf8, 0xc5, 0xb3, 0x86, 0xb1, 0x77, 0xa4, 0xee, 0x17, 0x70, 0x7d, 0x77, 0x0f, 0xd7,
+	0x77, 0xce, 0xf4, 0x39, 0xf4, 0x1e, 0x14, 0x1b, 0xd5, 0xa3, 0xdd, 0x83, 0x7a, 0x44, 0xaf, 0x56,
+	0x2b, 0xc1, 0x62, 0x40, 0x22, 0x47, 0x17, 0xaa, 0x56, 0x84, 0xe5, 0x41, 0xf2, 0xd4, 0x07, 0xec,
+	0xc7, 0x53, 0xba, 0xbe, 0xb8, 0x1f, 0x4f, 0x2d, 0xeb, 0x2b, 0xfb, 0xf1, 0xd4, 0x6d, 0x7d, 0xb9,
+	0xfc, 0x2f, 0x09, 0xc8, 0x0c, 0x70, 0x0e, 0xb4, 0x0a, 0x29, 0x49, 0x55, 0x5c, 0x47, 0xad, 0x67,
+	0x52, 0xbc, 0x1f, 0xf3, 0x24, 0x2c, 0xe3, 0xf4, 0xba, 0x06, 0x7f, 0xe5, 0xf6, 0x7f, 0x93, 0x8a,
+	0x1a, 0x38, 0xbd, 0x2e, 0x96, 0x78, 0xf4, 0x0c, 0x0a, 0x1e, 0xa1, 0x06, 0xd7, 0x1d, 0xc4, 0x80,
+	0xd8, 0xcd, 0x2c, 0x2c, 0xe7, 0x11, 0x7a, 0x46, 0xaf, 0x82, 0x10, 0x70, 0x06, 0x79, 0xc5, 0xa6,
+	0x02, 0x9a, 0x22, 0x09, 0xeb, 0xc7, 0x53, 0xf8, 0x94, 0x7a, 0x0e, 0x18, 0x4b, 0x8e, 0x0e, 0xbe,
+	0x22, 0x0b, 0x96, 0xa4, 0x56, 0xb1, 0x74, 0x1e, 0x8f, 0x01, 0x4d, 0x53, 0x10, 0x59, 0x1e, 0x5d,
+	0xb6, 0x6e, 0xa4, 0x9b, 0x93, 0xcf, 0x93, 0x40, 0x12, 0x23, 0x3a, 0xd6, 0x86, 0x1a, 0x70, 0x4f,
+	0xe8, 0xf7, 0x49, 0x47, 0x79, 0x14, 0x39, 0xa8, 0xc8, 0x16, 0xe5, 0xc5, 0x9e, 0xcc, 0x07, 0x63,
+	0xf8, 0x7d, 0x0e, 0x3c, 0x0d, 0x70, 0x42, 0xff, 0xa1, 0x79, 0xa9, 0x6e, 0xff, 0x7c, 0xb4, 0xcd,
+	0x69, 0x16, 0xa3, 0x36, 0xb7, 0x58, 0xc3, 0x67, 0x26, 0xeb, 0xf9, 0x22, 0x77, 0x90, 0x25, 0x82,
+	0x1c, 0x5e, 0x0a, 0x7b, 0x4f, 0x45, 0x27, 0xb7, 0x5c, 0xbf, 0xf4, 0x37, 0x1a, 0xe4, 0x86, 0x96,
+	0x61, 0x9a, 0x2f, 0xf8, 0x16, 0xf7, 0xa5, 0xa2, 0xe6, 0x75, 0x7d, 0x5d, 0x49, 0xe5, 0x98, 0x0a,
+	0x8c, 0x1e, 0x43, 0x56, 0xd6, 0xce, 0x94, 0x70, 0x6c, 0x72, 0xc9, 0xa8, 0x31, 0x87, 0x33, 0x02,
+	0x2b, 0x4f, 0x75, 0x2d, 0x07, 0x19, 0x29, 0x24, 0x0e, 0x75, 0xe9, 0xef, 0x35, 0x40, 0xe3, 0x8b,
+	0xfb, 0x7f, 0x7d, 0xda, 0xe5, 0xff, 0xd2, 0x20, 0x33, 0x10, 0xb6, 0x11, 0x06, 0xdd, 0x76, 0x6c,
+	0x9e, 0xbb, 0x07, 0x77, 0xbd, 0xbe, 0x0a, 0x75, 0x37, 0x2e, 0x9c, 0x17, 0x94, 0x02, 0x15, 0xf0,
+	0x7d, 0xf4, 0x0a, 0x56, 0x4d, 0xcb, 0xb2, 0x65, 0xa4, 0x0d, 0xaf, 0x90, 0x9b, 0x6d, 0xd3, 0x69,
+	0x06, 0xa1, 0x2f, 0xa0, 0x9d, 0x7c, 0x4e, 0x95, 0xf1, 0xb0, 0xbc, 0xd2, 0x97, 0x57, 0x5a, 0x77,
+	0x84, 0x34, 0xfa, 0x14, 0x8a, 0x92, 0x9c, 0xf0, 0x98, 0x17, 0x71, 0x6a, 0x53, 0x78, 0x49, 0xf4,
+	0x1f, 0x3b, 0x27, 0x83, 0x67, 0xb3, 0xfc, 0xd3, 0x38, 0xe4, 0x47, 0x7c, 0xdd, 0x47, 0x90, 0x6f,
+	0x33, 0xe6, 0xf9, 0x21, 0xad, 0x92, 0xe1, 0x8c, 0x27, 0xdb, 0xa2, 0x3d, 0x80, 0xa3, 0x6f, 0x40,
+	0xc1, 0x6f, 0xb6, 0x49, 0x97, 0xf4, 0x91, 0x49, 0x55, 0x0b, 0xcc, 0xcb, 0x8e, 0x10, 0x7a, 0x1f,
+	0x72, 0xca, 0xc3, 0x29, 0xa0, 0x74, 0x55, 0x59, 0x99, 0x47, 0xf6, 0x41, 0x9e, 0x4b, 0x07, 0x40,
+	0x3c, 0x09, 0xcc, 0xe1, 0x2c, 0x6f, 0x0c, 0x41, 0x1f, 0x42, 0x4e, 0x94, 0xaa, 0x42, 0xd0, 0xbc,
+	0xca, 0x49, 0xb3, 0xbc, 0x39, 0x84, 0x7d, 0x14, 0x9d, 0xe0, 0x36, 0xb4, 0xd1, 0x14, 0xb7, 0x0d,
+	0xb9, 0xe1, 0x54, 0x3e, 0x26, 0xc8, 0xe3, 0xa3, 0xe9, 0xd7, 0xb0, 0xe1, 0xeb, 0xc4, 0x34, 0x3e,
+	0x4b, 0x07, 0xa3, 0xd0, 0x5d, 0xc8, 0xf8, 0x8c, 0xda, 0x9e, 0x21, 0x0a, 0x7c, 0xc2, 0x69, 0xa4,
+	0x30, 0x88, 0x26, 0x51, 0x09, 0x2c, 0xbf, 0x81, 0xa5, 0x28, 0x95, 0xe8, 0x36, 0x2c, 0x1e, 0x1e,
+	0xbf, 0xac, 0xef, 0x1a, 0x27, 0x75, 0x7c, 0x58, 0x3d, 0xaa, 0x1f, 0x9d, 0x1d, 0xbc, 0xd2, 0xe7,
+	0x50, 0x1a, 0x16, 0x54, 0xe0, 0xe2, 0x71, 0xec, 0xb4, 0x5e, 0x37, 0x8e, 0xcf, 0x1a, 0x75, 0xac,
+	0xcf, 0xa3, 0x65, 0x40, 0x67, 0xf5, 0xc3, 0x93, 0x63, 0x5c, 0xc5, 0xaf, 0xfa, 0x31, 0x28, 0xc6,
+	0xdb, 0x43, 0x15, 0xfd, 0xf6, 0x78, 0xad, 0x04, 0xc5, 0x70, 0x23, 0x47, 0x22, 0x10, 0x8f, 0x4d,
+	0x6a, 0xbd, 0x47, 0x7a, 0xca, 0x2e, 0x2c, 0x45, 0x5d, 0x27, 0xa3, 0x0f, 0x20, 0x21, 0xdd, 0x9b,
+	0xd8, 0xe4, 0x5c, 0x2d, 0xcb, 0x57, 0x24, 0xf9, 0x60, 0x41, 0xff, 0x65, 0x7c, 0xc3, 0xc2, 0xaa,
+	0x0f, 0x7d, 0x02, 0xf1, 0xd7, 0xae, 0x75, 0x35, 0x62, 0xf6, 0x83, 0xdc, 0x74, 0xd7, 0x64, 0xe6,
+	0xa9, 0xa0, 0x19, 0x58, 0x40, 0xcb, 0xdb, 0x90, 0x0e, 0xef, 0x8d, 0xd1, 0x47, 0x90, 0xe6, 0x04,
+	0x45, 0x84, 0x9d, 0x71, 0xa7, 0xd2, 0xef, 0x2b, 0xff, 0x99, 0x06, 0xf9, 0xe1, 0x9f, 0x1b, 0xa1,
+	0xdf, 0x80, 0xa4, 0xc7, 0x9d, 0x37, 0x0d, 0x24, 0xe5, 0x14, 0x29, 0x37, 0x91, 0x1f, 0xa7, 0x70,
+	0xd0, 0x19, 0xfa, 0xac, 0xf9, 0x68, 0x9f, 0xf5, 0x6d, 0x48, 0xc8, 0xfa, 0xa4, 0xb2, 0x99, 0xf5,
+	0x28, 0x82, 0xad, 0xc8, 0xbe, 0xc0, 0x61, 0x85, 0x2f, 0xff, 0x6b, 0x1a, 0xd2, 0x61, 0xbe, 0x87,
+	0x3e, 0x87, 0x05, 0x9f, 0x99, 0x2d, 0x32, 0x93, 0x7f, 0x29, 0x02, 0x96, 0x52, 0xdc, 0xae, 0x2c,
+	0xdb, 0x17, 0x61, 0x25, 0x4c, 0x0b, 0x30, 0xa8, 0x26, 0x9e, 0x12, 0xec, 0x43, 0x52, 0xfa, 0x91,
+	0xe0, 0xa7, 0x62, 0x1f, 0x5c, 0x9b, 0xdb, 0x56, 0xe4, 0x3e, 0x0e, 0xff, 0xea, 0x4c, 0x29, 0x28,
+	0xfd, 0x65, 0x0a, 0x12, 0x6a, 0x9f, 0xbf, 0x0f, 0x79, 0x45, 0x0b, 0x07, 0x53, 0x97, 0x49, 0xa1,
+	0x77, 0x44, 0x7b, 0x45, 0xee, 0x6c, 0xbf, 0xee, 0x96, 0xf3, 0x07, 0x1b, 0xd0, 0x8f, 0xe0, 0x96,
+	0x45, 0x7c, 0x66, 0x3b, 0x62, 0x13, 0xc3, 0x11, 0xa4, 0xb5, 0x3c, 0xba, 0xd1, 0x08, 0xbb, 0x7d,
+	0xf9, 0xfe, 0x30, 0xc8, 0x1a, 0x6b, 0x45, 0x3f, 0x84, 0xc2, 0x48, 0x01, 0x44, 0xc5, 0x91, 0x87,
+	0x37, 0x1a, 0x07, 0x0f, 0x15, 0x3d, 0xb8, 0xf3, 0x1b, 0x2e, 0x83, 0xf0, 0x85, 0xa2, 0xa4, 0xeb,
+	0x32, 0x62, 0x98, 0x96, 0x45, 0x89, 0xef, 0x2b, 0xfe, 0xb3, 0x75, 0x43, 0xf5, 0x5c, 0xb4, 0x2a,
+	0x25, 0xf9, 0x42, 0xd1, 0xc1, 0x06, 0x84, 0x21, 0xd3, 0x22, 0x0e, 0xa1, 0x76, 0x53, 0xec, 0xbe,
+	0xfc, 0xcd, 0xc5, 0xe6, 0x8d, 0x34, 0x3f, 0x93, 0x72, 0xcf, 0x09, 0x8f, 0x8d, 0xd0, 0x0a, 0xdf,
+	0x10, 0x01, 0xa4, 0x92, 0x14, 0x71, 0x39, 0xa4, 0xaa, 0x8c, 0xb2, 0xea, 0xfd, 0xad, 0x1b, 0xa9,
+	0x1e, 0xa8, 0xdf, 0x88, 0x82, 0x63, 0x63, 0x0e, 0xeb, 0xed, 0x91, 0xb6, 0x52, 0x01, 0x72, 0x43,
+	0x56, 0x50, 0x5a, 0x02, 0x34, 0xbe, 0x69, 0x25, 0x87, 0x47, 0xa8, 0xa1, 0x05, 0x9d, 0x21, 0x89,
+	0x42, 0xdf, 0x84, 0xbc, 0x45, 0xfc, 0x26, 0xb5, 0x3d, 0xe6, 0xd2, 0x81, 0xbc, 0x79, 0x00, 0x9e,
+	0xeb, 0x03, 0x9e, 0x93, 0x2b, 0x3e, 0xad, 0xa1, 0x35, 0x2f, 0xd5, 0x00, 0xfa, 0x4b, 0x85, 0xb6,
+	0x41, 0x1f, 0x50, 0x28, 0x2f, 0xd8, 0xc6, 0x66, 0x50, 0xe8, 0x43, 0xc4, 0x07, 0x97, 0x7e, 0xa1,
+	0x81, 0x3e, 0xba, 0x28, 0xef, 0xa6, 0x0a, 0x7d, 0x0e, 0x59, 0x72, 0xe9, 0x91, 0x26, 0x53, 0xfb,
+	0x32, 0x3d, 0x4f, 0xca, 0x48, 0xbc, 0x1c, 0xf4, 0x59, 0xff, 0x86, 0x2b, 0x76, 0xc3, 0x1b, 0xae,
+	0x61, 0x57, 0xa0, 0xa4, 0x79, 0xe6, 0x27, 0xbd, 0xc2, 0x58, 0x42, 0x53, 0xfe, 0xa3, 0x18, 0xe4,
+	0x86, 0x34, 0x4c, 0xa3, 0x7f, 0xf7, 0x20, 0x43, 0x2e, 0xcd, 0xf0, 0x93, 0xe2, 0x8a, 0x46, 0x80,
+	0x68, 0x94, 0xf3, 0xfe, 0x18, 0x32, 0xe2, 0x16, 0x49, 0x41, 0x16, 0x22, 0xae, 0x17, 0x41, 0x00,
+	0x24, 0xfc, 0x31, 0x64, 0xc4, 0x4f, 0x85, 0x87, 0x8c, 0x77, 0x79, 0x90, 0x5d, 0xed, 0x39, 0xec,
+	0xd3, 0x6d, 0xcc, 0x31, 0x42, 0x94, 0x3f, 0x04, 0xc5, 0x71, 0xce, 0x11, 0x7c, 0xe2, 0x04, 0xd3,
+	0x49, 0x2a, 0xfe, 0x93, 0x55, 0xcd, 0x12, 0x56, 0x81, 0xac, 0xa2, 0x18, 0x12, 0x95, 0x1e, 0xbf,
+	0x9d, 0xc8, 0x48, 0x40, 0x88, 0xf7, 0x7b, 0xe7, 0x7d, 0x3c, 0x44, 0xe0, 0x25, 0x40, 0xe2, 0xef,
+	0x41, 0xd6, 0x76, 0x2e, 0x08, 0x0d, 0x66, 0x91, 0x12, 0x84, 0x21, 0x23, 0xdb, 0xe4, 0xcf, 0xd1,
+	0x78, 0xe2, 0x28, 0x0f, 0x82, 0x80, 0x0c, 0x25, 0x8e, 0xf3, 0x7a, 0x6c, 0x3f, 0x9e, 0x8a, 0xe9,
+	0xf1, 0xf2, 0xef, 0x6b, 0x70, 0x3b, 0xf2, 0xae, 0x11, 0xad, 0x0f, 0xed, 0xca, 0x70, 0x14, 0x94,
+	0x1b, 0xb3, 0x14, 0xdc, 0x21, 0xcb, 0x42, 0x81, 0x7c, 0x41, 0xdf, 0x0c, 0x2e, 0x79, 0xa7, 0xdf,
+	0xdb, 0x4a, 0x60, 0xed, 0xe8, 0xaf, 0xde, 0xae, 0x69, 0x3f, 0x7f, 0xbb, 0xa6, 0xfd, 0xe2, 0xed,
+	0x9a, 0xf6, 0xcb, 0xb7, 0x6b, 0xda, 0x7f, 0xbc, 0x5d, 0xd3, 0x60, 0xdd, 0x76, 0xe5, 0x8e, 0x78,
+	0xd4, 0xbd, 0xbc, 0x8a, 0xb0, 0xc3, 0x9a, 0xbc, 0x8a, 0x3e, 0xe1, 0x7a, 0x4f, 0xb4, 0xef, 0xc9,
+	0x5f, 0xcd, 0xfd, 0x81, 0xa6, 0xbd, 0x4e, 0x88, 0xa1, 0x1e, 0xfe, 0x4f, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0x01, 0xdb, 0x4b, 0x92, 0x87, 0x2e, 0x00, 0x00,
+}
+
 func (this *VirtualHost) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -4691,6 +4909,9 @@ func (this *VirtualHost) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.RetryPolicy.Equal(that1.RetryPolicy) {
+		return false
+	}
+	if !this.HedgePolicy.Equal(that1.HedgePolicy) {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -5387,6 +5608,9 @@ func (this *RouteAction) Equal(that interface{}) bool {
 	if this.InternalRedirectAction != that1.InternalRedirectAction {
 		return false
 	}
+	if !this.HedgePolicy.Equal(that1.HedgePolicy) {
+		return false
+	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
@@ -6001,6 +6225,39 @@ func (this *RetryPolicy_RetryHostPredicate_TypedConfig) Equal(that interface{}) 
 		return false
 	}
 	if !this.TypedConfig.Equal(that1.TypedConfig) {
+		return false
+	}
+	return true
+}
+func (this *HedgePolicy) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HedgePolicy)
+	if !ok {
+		that2, ok := that.(HedgePolicy)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.InitialRequests.Equal(that1.InitialRequests) {
+		return false
+	}
+	if !this.AdditionalRequestChance.Equal(that1.AdditionalRequestChance) {
+		return false
+	}
+	if this.HedgeOnPerTryTimeout != that1.HedgeOnPerTryTimeout {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -6970,10 +7227,15 @@ func (m *VirtualHost) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	if len(m.PerFilterConfig) > 0 {
+		keysForPerFilterConfig := make([]string, 0, len(m.PerFilterConfig))
 		for k, _ := range m.PerFilterConfig {
+			keysForPerFilterConfig = append(keysForPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForPerFilterConfig)
+		for _, k := range keysForPerFilterConfig {
 			dAtA[i] = 0x62
 			i++
-			v := m.PerFilterConfig[k]
+			v := m.PerFilterConfig[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -7023,10 +7285,15 @@ func (m *VirtualHost) MarshalTo(dAtA []byte) (int, error) {
 		i++
 	}
 	if len(m.TypedPerFilterConfig) > 0 {
+		keysForTypedPerFilterConfig := make([]string, 0, len(m.TypedPerFilterConfig))
 		for k, _ := range m.TypedPerFilterConfig {
+			keysForTypedPerFilterConfig = append(keysForTypedPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForTypedPerFilterConfig)
+		for _, k := range keysForTypedPerFilterConfig {
 			dAtA[i] = 0x7a
 			i++
-			v := m.TypedPerFilterConfig[k]
+			v := m.TypedPerFilterConfig[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -7062,6 +7329,18 @@ func (m *VirtualHost) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n4
 	}
+	if m.HedgePolicy != nil {
+		dAtA[i] = 0x8a
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.HedgePolicy.Size()))
+		n5, err := m.HedgePolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -7086,43 +7365,48 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintRoute(dAtA, i, uint64(m.Match.Size()))
-	n5, err := m.Match.MarshalTo(dAtA[i:])
+	n6, err := m.Match.MarshalTo(dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
-	i += n5
+	i += n6
 	if m.Action != nil {
-		nn6, err := m.Action.MarshalTo(dAtA[i:])
+		nn7, err := m.Action.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn6
+		i += nn7
 	}
 	if m.Metadata != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Metadata.Size()))
-		n7, err := m.Metadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	if m.Decorator != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.Decorator.Size()))
-		n8, err := m.Decorator.MarshalTo(dAtA[i:])
+		n8, err := m.Metadata.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n8
 	}
+	if m.Decorator != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.Decorator.Size()))
+		n9, err := m.Decorator.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
 	if len(m.PerFilterConfig) > 0 {
+		keysForPerFilterConfig := make([]string, 0, len(m.PerFilterConfig))
 		for k, _ := range m.PerFilterConfig {
+			keysForPerFilterConfig = append(keysForPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForPerFilterConfig)
+		for _, k := range keysForPerFilterConfig {
 			dAtA[i] = 0x42
 			i++
-			v := m.PerFilterConfig[k]
+			v := m.PerFilterConfig[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -7138,11 +7422,11 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n9, err := v.MarshalTo(dAtA[i:])
+				n10, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n9
+				i += n10
 			}
 		}
 	}
@@ -7201,10 +7485,15 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	if len(m.TypedPerFilterConfig) > 0 {
+		keysForTypedPerFilterConfig := make([]string, 0, len(m.TypedPerFilterConfig))
 		for k, _ := range m.TypedPerFilterConfig {
+			keysForTypedPerFilterConfig = append(keysForTypedPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForTypedPerFilterConfig)
+		for _, k := range keysForTypedPerFilterConfig {
 			dAtA[i] = 0x6a
 			i++
-			v := m.TypedPerFilterConfig[k]
+			v := m.TypedPerFilterConfig[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -7220,11 +7509,11 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n10, err := v.MarshalTo(dAtA[i:])
+				n11, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n10
+				i += n11
 			}
 		}
 	}
@@ -7240,11 +7529,11 @@ func (m *Route_Route) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Route.Size()))
-		n11, err := m.Route.MarshalTo(dAtA[i:])
+		n12, err := m.Route.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n12
 	}
 	return i, nil
 }
@@ -7254,11 +7543,11 @@ func (m *Route_Redirect) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Redirect.Size()))
-		n12, err := m.Redirect.MarshalTo(dAtA[i:])
+		n13, err := m.Redirect.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n13
 	}
 	return i, nil
 }
@@ -7268,11 +7557,11 @@ func (m *Route_DirectResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.DirectResponse.Size()))
-		n13, err := m.DirectResponse.MarshalTo(dAtA[i:])
+		n14, err := m.DirectResponse.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n13
+		i += n14
 	}
 	return i, nil
 }
@@ -7313,11 +7602,11 @@ func (m *WeightedCluster) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.TotalWeight.Size()))
-		n14, err := m.TotalWeight.MarshalTo(dAtA[i:])
+		n15, err := m.TotalWeight.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n15
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7350,21 +7639,21 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Weight.Size()))
-		n15, err := m.Weight.MarshalTo(dAtA[i:])
+		n16, err := m.Weight.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n16
 	}
 	if m.MetadataMatch != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.MetadataMatch.Size()))
-		n16, err := m.MetadataMatch.MarshalTo(dAtA[i:])
+		n17, err := m.MetadataMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n16
+		i += n17
 	}
 	if len(m.RequestHeadersToAdd) > 0 {
 		for _, msg := range m.RequestHeadersToAdd {
@@ -7406,53 +7695,15 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	if len(m.PerFilterConfig) > 0 {
+		keysForPerFilterConfig := make([]string, 0, len(m.PerFilterConfig))
 		for k, _ := range m.PerFilterConfig {
+			keysForPerFilterConfig = append(keysForPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForPerFilterConfig)
+		for _, k := range keysForPerFilterConfig {
 			dAtA[i] = 0x42
 			i++
-			v := m.PerFilterConfig[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovRoute(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovRoute(uint64(len(k))) + msgSize
-			i = encodeVarintRoute(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintRoute(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n17, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
-				}
-				i += n17
-			}
-		}
-	}
-	if len(m.RequestHeadersToRemove) > 0 {
-		for _, s := range m.RequestHeadersToRemove {
-			dAtA[i] = 0x4a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.TypedPerFilterConfig) > 0 {
-		for k, _ := range m.TypedPerFilterConfig {
-			dAtA[i] = 0x52
-			i++
-			v := m.TypedPerFilterConfig[k]
+			v := m.PerFilterConfig[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -7473,6 +7724,54 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 					return 0, err
 				}
 				i += n18
+			}
+		}
+	}
+	if len(m.RequestHeadersToRemove) > 0 {
+		for _, s := range m.RequestHeadersToRemove {
+			dAtA[i] = 0x4a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.TypedPerFilterConfig) > 0 {
+		keysForTypedPerFilterConfig := make([]string, 0, len(m.TypedPerFilterConfig))
+		for k, _ := range m.TypedPerFilterConfig {
+			keysForTypedPerFilterConfig = append(keysForTypedPerFilterConfig, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForTypedPerFilterConfig)
+		for _, k := range keysForTypedPerFilterConfig {
+			dAtA[i] = 0x52
+			i++
+			v := m.TypedPerFilterConfig[string(k)]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovRoute(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovRoute(uint64(len(k))) + msgSize
+			i = encodeVarintRoute(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintRoute(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
+				n19, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n19
 			}
 		}
 	}
@@ -7498,21 +7797,21 @@ func (m *RouteMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.PathSpecifier != nil {
-		nn19, err := m.PathSpecifier.MarshalTo(dAtA[i:])
+		nn20, err := m.PathSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn19
+		i += nn20
 	}
 	if m.CaseSensitive != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.CaseSensitive.Size()))
-		n20, err := m.CaseSensitive.MarshalTo(dAtA[i:])
+		n21, err := m.CaseSensitive.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n20
+		i += n21
 	}
 	if len(m.Headers) > 0 {
 		for _, msg := range m.Headers {
@@ -7542,21 +7841,21 @@ func (m *RouteMatch) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Grpc.Size()))
-		n21, err := m.Grpc.MarshalTo(dAtA[i:])
+		n22, err := m.Grpc.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n22
 	}
 	if m.RuntimeFraction != nil {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RuntimeFraction.Size()))
-		n22, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
+		n23, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n22
+		i += n23
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7667,18 +7966,18 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.AllowCredentials.Size()))
-		n23, err := m.AllowCredentials.MarshalTo(dAtA[i:])
+		n24, err := m.AllowCredentials.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n23
+		i += n24
 	}
 	if m.EnabledSpecifier != nil {
-		nn24, err := m.EnabledSpecifier.MarshalTo(dAtA[i:])
+		nn25, err := m.EnabledSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn24
+		i += nn25
 	}
 	if len(m.AllowOriginRegex) > 0 {
 		for _, s := range m.AllowOriginRegex {
@@ -7699,11 +7998,11 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.ShadowEnabled.Size()))
-		n25, err := m.ShadowEnabled.MarshalTo(dAtA[i:])
+		n26, err := m.ShadowEnabled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n26
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7717,11 +8016,11 @@ func (m *CorsPolicy_Enabled) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Enabled.Size()))
-		n26, err := m.Enabled.MarshalTo(dAtA[i:])
+		n27, err := m.Enabled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n26
+		i += n27
 	}
 	return i, nil
 }
@@ -7731,11 +8030,11 @@ func (m *CorsPolicy_FilterEnabled) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.FilterEnabled.Size()))
-		n27, err := m.FilterEnabled.MarshalTo(dAtA[i:])
+		n28, err := m.FilterEnabled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n28
 	}
 	return i, nil
 }
@@ -7755,21 +8054,21 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.ClusterSpecifier != nil {
-		nn28, err := m.ClusterSpecifier.MarshalTo(dAtA[i:])
+		nn29, err := m.ClusterSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn28
+		i += nn29
 	}
 	if m.MetadataMatch != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.MetadataMatch.Size()))
-		n29, err := m.MetadataMatch.MarshalTo(dAtA[i:])
+		n30, err := m.MetadataMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n29
+		i += n30
 	}
 	if len(m.PrefixRewrite) > 0 {
 		dAtA[i] = 0x2a
@@ -7778,41 +8077,41 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.PrefixRewrite)
 	}
 	if m.HostRewriteSpecifier != nil {
-		nn30, err := m.HostRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn31, err := m.HostRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn30
+		i += nn31
 	}
 	if m.Timeout != nil {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
-		n31, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n31
-	}
-	if m.RetryPolicy != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPolicy.Size()))
-		n32, err := m.RetryPolicy.MarshalTo(dAtA[i:])
+		n32, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n32
 	}
-	if m.RequestMirrorPolicy != nil {
-		dAtA[i] = 0x52
+	if m.RetryPolicy != nil {
+		dAtA[i] = 0x4a
 		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.RequestMirrorPolicy.Size()))
-		n33, err := m.RequestMirrorPolicy.MarshalTo(dAtA[i:])
+		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPolicy.Size()))
+		n33, err := m.RetryPolicy.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n33
+	}
+	if m.RequestMirrorPolicy != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.RequestMirrorPolicy.Size()))
+		n34, err := m.RequestMirrorPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n34
 	}
 	if m.Priority != 0 {
 		dAtA[i] = 0x58
@@ -7847,11 +8146,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.IncludeVhRateLimits.Size()))
-		n34, err := m.IncludeVhRateLimits.MarshalTo(dAtA[i:])
+		n35, err := m.IncludeVhRateLimits.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n34
+		i += n35
 	}
 	if len(m.HashPolicy) > 0 {
 		for _, msg := range m.HashPolicy {
@@ -7871,11 +8170,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Cors.Size()))
-		n35, err := m.Cors.MarshalTo(dAtA[i:])
+		n36, err := m.Cors.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n35
+		i += n36
 	}
 	if len(m.ResponseHeadersToAdd) > 0 {
 		for _, msg := range m.ResponseHeadersToAdd {
@@ -7921,11 +8220,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.MaxGrpcTimeout)))
-		n36, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.MaxGrpcTimeout, dAtA[i:])
+		n37, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.MaxGrpcTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n36
+		i += n37
 	}
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0xc2
@@ -7933,11 +8232,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n37, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		n38, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n37
+		i += n38
 	}
 	if len(m.UpgradeConfigs) > 0 {
 		for _, msg := range m.UpgradeConfigs {
@@ -7959,6 +8258,18 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.InternalRedirectAction))
+	}
+	if m.HedgePolicy != nil {
+		dAtA[i] = 0xda
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.HedgePolicy.Size()))
+		n39, err := m.HedgePolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n39
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7988,11 +8299,11 @@ func (m *RouteAction_WeightedClusters) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.WeightedClusters.Size()))
-		n38, err := m.WeightedClusters.MarshalTo(dAtA[i:])
+		n40, err := m.WeightedClusters.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n38
+		i += n40
 	}
 	return i, nil
 }
@@ -8010,11 +8321,11 @@ func (m *RouteAction_AutoHostRewrite) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.AutoHostRewrite.Size()))
-		n39, err := m.AutoHostRewrite.MarshalTo(dAtA[i:])
+		n41, err := m.AutoHostRewrite.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n39
+		i += n41
 	}
 	return i, nil
 }
@@ -8049,11 +8360,11 @@ func (m *RouteAction_RequestMirrorPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RuntimeFraction.Size()))
-		n40, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
+		n42, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n40
+		i += n42
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8077,11 +8388,11 @@ func (m *RouteAction_HashPolicy) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.PolicySpecifier != nil {
-		nn41, err := m.PolicySpecifier.MarshalTo(dAtA[i:])
+		nn43, err := m.PolicySpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn41
+		i += nn43
 	}
 	if m.Terminal {
 		dAtA[i] = 0x20
@@ -8105,11 +8416,11 @@ func (m *RouteAction_HashPolicy_Header_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Header.Size()))
-		n42, err := m.Header.MarshalTo(dAtA[i:])
+		n44, err := m.Header.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n42
+		i += n44
 	}
 	return i, nil
 }
@@ -8119,11 +8430,11 @@ func (m *RouteAction_HashPolicy_Cookie_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Cookie.Size()))
-		n43, err := m.Cookie.MarshalTo(dAtA[i:])
+		n45, err := m.Cookie.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n43
+		i += n45
 	}
 	return i, nil
 }
@@ -8133,11 +8444,11 @@ func (m *RouteAction_HashPolicy_ConnectionProperties_) MarshalTo(dAtA []byte) (i
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.ConnectionProperties.Size()))
-		n44, err := m.ConnectionProperties.MarshalTo(dAtA[i:])
+		n46, err := m.ConnectionProperties.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n44
+		i += n46
 	}
 	return i, nil
 }
@@ -8193,11 +8504,11 @@ func (m *RouteAction_HashPolicy_Cookie) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Ttl)))
-		n45, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
+		n47, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n45
+		i += n47
 	}
 	if len(m.Path) > 0 {
 		dAtA[i] = 0x1a
@@ -8267,11 +8578,11 @@ func (m *RouteAction_UpgradeConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Enabled.Size()))
-		n46, err := m.Enabled.MarshalTo(dAtA[i:])
+		n48, err := m.Enabled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n46
+		i += n48
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8304,31 +8615,31 @@ func (m *RetryPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.NumRetries.Size()))
-		n47, err := m.NumRetries.MarshalTo(dAtA[i:])
+		n49, err := m.NumRetries.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n47
+		i += n49
 	}
 	if m.PerTryTimeout != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PerTryTimeout)))
-		n48, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PerTryTimeout, dAtA[i:])
+		n50, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PerTryTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n48
+		i += n50
 	}
 	if m.RetryPriority != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPriority.Size()))
-		n49, err := m.RetryPriority.MarshalTo(dAtA[i:])
+		n51, err := m.RetryPriority.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n49
+		i += n51
 	}
 	if len(m.RetryHostPredicate) > 0 {
 		for _, msg := range m.RetryHostPredicate {
@@ -8348,21 +8659,21 @@ func (m *RetryPolicy) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintRoute(dAtA, i, uint64(m.HostSelectionRetryMaxAttempts))
 	}
 	if len(m.RetriableStatusCodes) > 0 {
-		dAtA51 := make([]byte, len(m.RetriableStatusCodes)*10)
-		var j50 int
+		dAtA53 := make([]byte, len(m.RetriableStatusCodes)*10)
+		var j52 int
 		for _, num := range m.RetriableStatusCodes {
 			for num >= 1<<7 {
-				dAtA51[j50] = uint8(uint64(num)&0x7f | 0x80)
+				dAtA53[j52] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
-				j50++
+				j52++
 			}
-			dAtA51[j50] = uint8(num)
-			j50++
+			dAtA53[j52] = uint8(num)
+			j52++
 		}
 		dAtA[i] = 0x3a
 		i++
-		i = encodeVarintRoute(dAtA, i, uint64(j50))
-		i += copy(dAtA[i:], dAtA51[:j50])
+		i = encodeVarintRoute(dAtA, i, uint64(j52))
+		i += copy(dAtA[i:], dAtA53[:j52])
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8392,11 +8703,11 @@ func (m *RetryPolicy_RetryPriority) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.ConfigType != nil {
-		nn52, err := m.ConfigType.MarshalTo(dAtA[i:])
+		nn54, err := m.ConfigType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn52
+		i += nn54
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8410,11 +8721,11 @@ func (m *RetryPolicy_RetryPriority_Config) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
-		n53, err := m.Config.MarshalTo(dAtA[i:])
+		n55, err := m.Config.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n53
+		i += n55
 	}
 	return i, nil
 }
@@ -8424,11 +8735,11 @@ func (m *RetryPolicy_RetryPriority_TypedConfig) MarshalTo(dAtA []byte) (int, err
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
-		n54, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		n56, err := m.TypedConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n54
+		i += n56
 	}
 	return i, nil
 }
@@ -8454,11 +8765,11 @@ func (m *RetryPolicy_RetryHostPredicate) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.ConfigType != nil {
-		nn55, err := m.ConfigType.MarshalTo(dAtA[i:])
+		nn57, err := m.ConfigType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn55
+		i += nn57
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8472,11 +8783,11 @@ func (m *RetryPolicy_RetryHostPredicate_Config) MarshalTo(dAtA []byte) (int, err
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
-		n56, err := m.Config.MarshalTo(dAtA[i:])
+		n58, err := m.Config.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n56
+		i += n58
 	}
 	return i, nil
 }
@@ -8486,14 +8797,65 @@ func (m *RetryPolicy_RetryHostPredicate_TypedConfig) MarshalTo(dAtA []byte) (int
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
-		n57, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		n59, err := m.TypedConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n57
+		i += n59
 	}
 	return i, nil
 }
+func (m *HedgePolicy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HedgePolicy) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.InitialRequests != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.InitialRequests.Size()))
+		n60, err := m.InitialRequests.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n60
+	}
+	if m.AdditionalRequestChance != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.AdditionalRequestChance.Size()))
+		n61, err := m.AdditionalRequestChance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n61
+	}
+	if m.HedgeOnPerTryTimeout {
+		dAtA[i] = 0x18
+		i++
+		if m.HedgeOnPerTryTimeout {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *RedirectAction) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -8516,11 +8878,11 @@ func (m *RedirectAction) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.HostRedirect)
 	}
 	if m.PathRewriteSpecifier != nil {
-		nn58, err := m.PathRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn62, err := m.PathRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn58
+		i += nn62
 	}
 	if m.ResponseCode != 0 {
 		dAtA[i] = 0x18
@@ -8528,11 +8890,11 @@ func (m *RedirectAction) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintRoute(dAtA, i, uint64(m.ResponseCode))
 	}
 	if m.SchemeRewriteSpecifier != nil {
-		nn59, err := m.SchemeRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn63, err := m.SchemeRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn59
+		i += nn63
 	}
 	if m.StripQuery {
 		dAtA[i] = 0x30
@@ -8615,11 +8977,11 @@ func (m *DirectResponseAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Body.Size()))
-		n60, err := m.Body.MarshalTo(dAtA[i:])
+		n64, err := m.Body.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n60
+		i += n64
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8711,11 +9073,11 @@ func (m *RateLimit) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Stage.Size()))
-		n61, err := m.Stage.MarshalTo(dAtA[i:])
+		n65, err := m.Stage.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n61
+		i += n65
 	}
 	if len(m.DisableKey) > 0 {
 		dAtA[i] = 0x12
@@ -8757,11 +9119,11 @@ func (m *RateLimit_Action) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.ActionSpecifier != nil {
-		nn62, err := m.ActionSpecifier.MarshalTo(dAtA[i:])
+		nn66, err := m.ActionSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn62
+		i += nn66
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8775,11 +9137,11 @@ func (m *RateLimit_Action_SourceCluster_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.SourceCluster.Size()))
-		n63, err := m.SourceCluster.MarshalTo(dAtA[i:])
+		n67, err := m.SourceCluster.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n63
+		i += n67
 	}
 	return i, nil
 }
@@ -8789,11 +9151,11 @@ func (m *RateLimit_Action_DestinationCluster_) MarshalTo(dAtA []byte) (int, erro
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.DestinationCluster.Size()))
-		n64, err := m.DestinationCluster.MarshalTo(dAtA[i:])
+		n68, err := m.DestinationCluster.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n64
+		i += n68
 	}
 	return i, nil
 }
@@ -8803,11 +9165,11 @@ func (m *RateLimit_Action_RequestHeaders_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RequestHeaders.Size()))
-		n65, err := m.RequestHeaders.MarshalTo(dAtA[i:])
+		n69, err := m.RequestHeaders.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n65
+		i += n69
 	}
 	return i, nil
 }
@@ -8817,11 +9179,11 @@ func (m *RateLimit_Action_RemoteAddress_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RemoteAddress.Size()))
-		n66, err := m.RemoteAddress.MarshalTo(dAtA[i:])
+		n70, err := m.RemoteAddress.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n66
+		i += n70
 	}
 	return i, nil
 }
@@ -8831,11 +9193,11 @@ func (m *RateLimit_Action_GenericKey_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.GenericKey.Size()))
-		n67, err := m.GenericKey.MarshalTo(dAtA[i:])
+		n71, err := m.GenericKey.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n67
+		i += n71
 	}
 	return i, nil
 }
@@ -8845,11 +9207,11 @@ func (m *RateLimit_Action_HeaderValueMatch_) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.HeaderValueMatch.Size()))
-		n68, err := m.HeaderValueMatch.MarshalTo(dAtA[i:])
+		n72, err := m.HeaderValueMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n68
+		i += n72
 	}
 	return i, nil
 }
@@ -9001,11 +9363,11 @@ func (m *RateLimit_Action_HeaderValueMatch) MarshalTo(dAtA []byte) (int, error) 
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.ExpectMatch.Size()))
-		n69, err := m.ExpectMatch.MarshalTo(dAtA[i:])
+		n73, err := m.ExpectMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n69
+		i += n73
 	}
 	if len(m.Headers) > 0 {
 		for _, msg := range m.Headers {
@@ -9047,11 +9409,11 @@ func (m *HeaderMatcher) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.HeaderMatchSpecifier != nil {
-		nn70, err := m.HeaderMatchSpecifier.MarshalTo(dAtA[i:])
+		nn74, err := m.HeaderMatchSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn70
+		i += nn74
 	}
 	if m.InvertMatch {
 		dAtA[i] = 0x40
@@ -9091,11 +9453,11 @@ func (m *HeaderMatcher_RangeMatch) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RangeMatch.Size()))
-		n71, err := m.RangeMatch.MarshalTo(dAtA[i:])
+		n75, err := m.RangeMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n71
+		i += n75
 	}
 	return i, nil
 }
@@ -9158,11 +9520,11 @@ func (m *QueryParameterMatcher) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Regex.Size()))
-		n72, err := m.Regex.MarshalTo(dAtA[i:])
+		n76, err := m.Regex.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n72
+		i += n76
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -9275,6 +9637,10 @@ func (m *VirtualHost) Size() (n int) {
 	}
 	if m.RetryPolicy != nil {
 		l = m.RetryPolicy.Size()
+		n += 2 + l + sovRoute(uint64(l))
+	}
+	if m.HedgePolicy != nil {
+		l = m.HedgePolicy.Size()
 		n += 2 + l + sovRoute(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -9743,6 +10109,10 @@ func (m *RouteAction) Size() (n int) {
 	if m.InternalRedirectAction != 0 {
 		n += 2 + sovRoute(uint64(m.InternalRedirectAction))
 	}
+	if m.HedgePolicy != nil {
+		l = m.HedgePolicy.Size()
+		n += 2 + l + sovRoute(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -10086,6 +10456,29 @@ func (m *RetryPolicy_RetryHostPredicate_TypedConfig) Size() (n int) {
 	}
 	return n
 }
+func (m *HedgePolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.InitialRequests != nil {
+		l = m.InitialRequests.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.AdditionalRequestChance != nil {
+		l = m.AdditionalRequestChance.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.HedgeOnPerTryTimeout {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *RedirectAction) Size() (n int) {
 	if m == nil {
 		return 0
@@ -10560,7 +10953,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -10588,7 +10981,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10598,6 +10991,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10617,7 +11013,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10627,6 +11023,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10646,7 +11045,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10655,6 +11054,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10677,7 +11079,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.RequireTls |= (VirtualHost_TlsRequirementType(b) & 0x7F) << shift
+				m.RequireTls |= VirtualHost_TlsRequirementType(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10696,7 +11098,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10705,6 +11107,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10727,7 +11132,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10736,6 +11141,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10758,7 +11166,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10767,6 +11175,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10789,7 +11200,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10798,6 +11209,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10822,7 +11236,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10831,6 +11245,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10853,7 +11270,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10863,6 +11280,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10882,7 +11302,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -10891,6 +11311,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -10911,7 +11334,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -10928,7 +11351,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -10938,6 +11361,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -10954,7 +11380,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -10963,7 +11389,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -11005,7 +11431,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11015,6 +11441,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11034,7 +11463,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11054,7 +11483,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11063,6 +11492,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11083,7 +11515,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -11100,7 +11532,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11110,6 +11542,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -11126,7 +11561,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11135,7 +11570,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -11177,7 +11612,7 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11186,6 +11621,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11196,6 +11634,42 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 17:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HedgePolicy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.HedgePolicy == nil {
+				m.HedgePolicy = &HedgePolicy{}
+			}
+			if err := m.HedgePolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRoute(dAtA[iNdEx:])
@@ -11203,6 +11677,9 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -11233,7 +11710,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -11261,7 +11738,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11270,6 +11747,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11291,7 +11771,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11300,6 +11780,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11323,7 +11806,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11332,6 +11815,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11355,7 +11841,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11364,6 +11850,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11388,7 +11877,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11397,6 +11886,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11421,7 +11913,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11430,6 +11922,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11453,7 +11948,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11462,6 +11957,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11482,7 +11980,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -11499,7 +11997,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11509,6 +12007,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -11525,7 +12026,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11534,7 +12035,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -11576,7 +12077,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11585,6 +12086,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11607,7 +12111,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11616,6 +12120,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11638,7 +12145,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11648,6 +12155,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11667,7 +12177,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11677,6 +12187,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11696,7 +12209,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11705,6 +12218,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11725,7 +12241,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -11742,7 +12258,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11752,6 +12268,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -11768,7 +12287,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -11777,7 +12296,7 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -11812,6 +12331,9 @@ func (m *Route) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -11842,7 +12364,7 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -11870,7 +12392,7 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11879,6 +12401,9 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11901,7 +12426,7 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11911,6 +12436,9 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11930,7 +12458,7 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -11939,6 +12467,9 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -11956,6 +12487,9 @@ func (m *WeightedCluster) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -11986,7 +12520,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -12014,7 +12548,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12024,6 +12558,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12043,7 +12580,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12052,6 +12589,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12076,7 +12616,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12085,6 +12625,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12109,7 +12652,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12118,6 +12661,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12140,7 +12686,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12149,6 +12695,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12171,7 +12720,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12181,6 +12730,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12200,7 +12752,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12209,6 +12761,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12229,7 +12784,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -12246,7 +12801,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -12256,6 +12811,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -12272,7 +12830,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -12281,7 +12839,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -12323,7 +12881,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12333,6 +12891,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12352,7 +12913,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12361,6 +12922,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12381,7 +12945,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -12398,7 +12962,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -12408,6 +12972,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthRoute
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -12424,7 +12991,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -12433,7 +13000,7 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthRoute
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthRoute
 					}
 					if postmsgIndex > l {
@@ -12470,6 +13037,9 @@ func (m *WeightedCluster_ClusterWeight) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthRoute
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12498,7 +13068,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -12526,7 +13096,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12536,6 +13106,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12555,7 +13128,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12565,6 +13138,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12584,7 +13160,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12594,6 +13170,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12613,7 +13192,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12622,6 +13201,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12646,7 +13228,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12655,6 +13237,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12677,7 +13262,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12686,6 +13271,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12708,7 +13296,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12717,6 +13305,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12741,7 +13332,7 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12750,6 +13341,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12767,6 +13361,9 @@ func (m *RouteMatch) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -12797,7 +13394,7 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -12818,6 +13415,9 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -12848,7 +13448,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -12876,7 +13476,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12886,6 +13486,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12905,7 +13508,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12915,6 +13518,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12934,7 +13540,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12944,6 +13550,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12963,7 +13572,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -12973,6 +13582,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -12992,7 +13604,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13002,6 +13614,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13021,7 +13636,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13030,6 +13645,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13054,7 +13672,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13063,6 +13681,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13086,7 +13707,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13096,6 +13717,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13115,7 +13739,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13124,6 +13748,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13147,7 +13774,7 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13156,6 +13783,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13173,6 +13803,9 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -13203,7 +13836,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -13231,7 +13864,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13241,6 +13874,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13260,7 +13896,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13270,6 +13906,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13289,7 +13928,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13298,6 +13937,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13321,7 +13963,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13330,6 +13972,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13354,7 +13999,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13364,6 +14009,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13383,7 +14031,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13393,6 +14041,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13412,7 +14063,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13421,6 +14072,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13444,7 +14098,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13453,6 +14107,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13477,7 +14134,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13486,6 +14143,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13510,7 +14170,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13519,6 +14179,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13543,7 +14206,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Priority |= (core.RoutingPriority(b) & 0x7F) << shift
+				m.Priority |= core.RoutingPriority(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13562,7 +14225,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13571,6 +14234,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13593,7 +14259,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13602,6 +14268,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13624,7 +14293,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13633,6 +14302,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13657,7 +14329,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13666,6 +14338,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13688,7 +14363,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13697,6 +14372,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13721,7 +14399,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13730,6 +14408,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13752,7 +14433,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13762,6 +14443,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13781,7 +14465,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ClusterNotFoundResponseCode |= (RouteAction_ClusterNotFoundResponseCode(b) & 0x7F) << shift
+				m.ClusterNotFoundResponseCode |= RouteAction_ClusterNotFoundResponseCode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13800,7 +14484,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13809,6 +14493,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13833,7 +14520,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13842,6 +14529,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13866,7 +14556,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13875,6 +14565,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13897,11 +14590,47 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.InternalRedirectAction |= (RouteAction_InternalRedirectAction(b) & 0x7F) << shift
+				m.InternalRedirectAction |= RouteAction_InternalRedirectAction(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+		case 27:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HedgePolicy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.HedgePolicy == nil {
+				m.HedgePolicy = &HedgePolicy{}
+			}
+			if err := m.HedgePolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRoute(dAtA[iNdEx:])
@@ -13909,6 +14638,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -13939,7 +14671,7 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -13967,7 +14699,7 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -13977,6 +14709,9 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -13996,7 +14731,7 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14006,6 +14741,9 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14025,7 +14763,7 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14034,6 +14772,9 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14051,6 +14792,9 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14081,7 +14825,7 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14109,7 +14853,7 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14118,6 +14862,9 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14141,7 +14888,7 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14150,6 +14897,9 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14173,7 +14923,7 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14182,6 +14932,9 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14205,7 +14958,7 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14218,6 +14971,9 @@ func (m *RouteAction_HashPolicy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14248,7 +15004,7 @@ func (m *RouteAction_HashPolicy_Header) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14276,7 +15032,7 @@ func (m *RouteAction_HashPolicy_Header) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14286,6 +15042,9 @@ func (m *RouteAction_HashPolicy_Header) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14298,6 +15057,9 @@ func (m *RouteAction_HashPolicy_Header) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14328,7 +15090,7 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14356,7 +15118,7 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14366,6 +15128,9 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14385,7 +15150,7 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14394,6 +15159,9 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14418,7 +15186,7 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14428,6 +15196,9 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14440,6 +15211,9 @@ func (m *RouteAction_HashPolicy_Cookie) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14470,7 +15244,7 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) Unmarshal(dAtA []byte) err
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14498,7 +15272,7 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) Unmarshal(dAtA []byte) err
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14511,6 +15285,9 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) Unmarshal(dAtA []byte) err
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14541,7 +15318,7 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14569,7 +15346,7 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14579,6 +15356,9 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14598,7 +15378,7 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14607,6 +15387,9 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14624,6 +15407,9 @@ func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14654,7 +15440,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14682,7 +15468,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14692,6 +15478,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14711,7 +15500,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14720,6 +15509,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14744,7 +15536,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14753,6 +15545,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14777,7 +15572,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14786,6 +15581,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14810,7 +15608,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14819,6 +15617,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -14841,7 +15642,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.HostSelectionRetryMaxAttempts |= (int64(b) & 0x7F) << shift
+				m.HostSelectionRetryMaxAttempts |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14858,7 +15659,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					v |= (uint32(b) & 0x7F) << shift
+					v |= uint32(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -14875,7 +15676,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					packedLen |= (int(b) & 0x7F) << shift
+					packedLen |= int(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -14884,12 +15685,15 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 					return ErrInvalidLengthRoute
 				}
 				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthRoute
+				}
 				if postIndex > l {
 					return io.ErrUnexpectedEOF
 				}
 				var elementCount int
 				var count int
-				for _, integer := range dAtA {
+				for _, integer := range dAtA[iNdEx:postIndex] {
 					if integer < 128 {
 						count++
 					}
@@ -14909,7 +15713,7 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						v |= (uint32(b) & 0x7F) << shift
+						v |= uint32(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -14926,6 +15730,9 @@ func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -14956,7 +15763,7 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -14984,7 +15791,7 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -14994,6 +15801,9 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15013,7 +15823,7 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15022,6 +15832,9 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15045,7 +15858,7 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15054,6 +15867,9 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15070,6 +15886,9 @@ func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15100,7 +15919,7 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15128,7 +15947,7 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15138,6 +15957,9 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15157,7 +15979,7 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15166,6 +15988,9 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15189,7 +16014,7 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15198,6 +16023,9 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15214,6 +16042,155 @@ func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HedgePolicy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRoute
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HedgePolicy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HedgePolicy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InitialRequests", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InitialRequests == nil {
+				m.InitialRequests = &types.UInt32Value{}
+			}
+			if err := m.InitialRequests.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdditionalRequestChance", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AdditionalRequestChance == nil {
+				m.AdditionalRequestChance = &_type.FractionalPercent{}
+			}
+			if err := m.AdditionalRequestChance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HedgeOnPerTryTimeout", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.HedgeOnPerTryTimeout = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRoute(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15244,7 +16221,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15272,7 +16249,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15282,6 +16259,9 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15301,7 +16281,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15311,6 +16291,9 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15330,7 +16313,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ResponseCode |= (RedirectAction_RedirectResponseCode(b) & 0x7F) << shift
+				m.ResponseCode |= RedirectAction_RedirectResponseCode(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15349,7 +16332,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15370,7 +16353,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15380,6 +16363,9 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15399,7 +16385,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15419,7 +16405,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15429,6 +16415,9 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15448,7 +16437,7 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.PortRedirect |= (uint32(b) & 0x7F) << shift
+				m.PortRedirect |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15460,6 +16449,9 @@ func (m *RedirectAction) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15490,7 +16482,7 @@ func (m *DirectResponseAction) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15518,7 +16510,7 @@ func (m *DirectResponseAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Status |= (uint32(b) & 0x7F) << shift
+				m.Status |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15537,7 +16529,7 @@ func (m *DirectResponseAction) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15546,6 +16538,9 @@ func (m *DirectResponseAction) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15563,6 +16558,9 @@ func (m *DirectResponseAction) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15593,7 +16591,7 @@ func (m *Decorator) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15621,7 +16619,7 @@ func (m *Decorator) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15631,6 +16629,9 @@ func (m *Decorator) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15643,6 +16644,9 @@ func (m *Decorator) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15673,7 +16677,7 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15701,7 +16705,7 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15711,6 +16715,9 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15730,7 +16737,7 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15740,6 +16747,9 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15759,7 +16769,7 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Method |= (core.RequestMethod(b) & 0x7F) << shift
+				m.Method |= core.RequestMethod(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15771,6 +16781,9 @@ func (m *VirtualCluster) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15801,7 +16814,7 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15829,7 +16842,7 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15838,6 +16851,9 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15862,7 +16878,7 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15872,6 +16888,9 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15891,7 +16910,7 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15900,6 +16919,9 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -15915,6 +16937,9 @@ func (m *RateLimit) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -15945,7 +16970,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -15973,7 +16998,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -15982,6 +17007,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16005,7 +17033,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16014,6 +17042,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16037,7 +17068,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16046,6 +17077,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16069,7 +17103,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16078,6 +17112,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16101,7 +17138,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16110,6 +17147,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16133,7 +17173,7 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16142,6 +17182,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16158,6 +17201,9 @@ func (m *RateLimit_Action) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16188,7 +17234,7 @@ func (m *RateLimit_Action_SourceCluster) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16209,6 +17255,9 @@ func (m *RateLimit_Action_SourceCluster) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16239,7 +17288,7 @@ func (m *RateLimit_Action_DestinationCluster) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16260,6 +17309,9 @@ func (m *RateLimit_Action_DestinationCluster) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16290,7 +17342,7 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16318,7 +17370,7 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16328,6 +17380,9 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16347,7 +17402,7 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16357,6 +17412,9 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16369,6 +17427,9 @@ func (m *RateLimit_Action_RequestHeaders) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16399,7 +17460,7 @@ func (m *RateLimit_Action_RemoteAddress) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16420,6 +17481,9 @@ func (m *RateLimit_Action_RemoteAddress) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16450,7 +17514,7 @@ func (m *RateLimit_Action_GenericKey) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16478,7 +17542,7 @@ func (m *RateLimit_Action_GenericKey) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16488,6 +17552,9 @@ func (m *RateLimit_Action_GenericKey) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16500,6 +17567,9 @@ func (m *RateLimit_Action_GenericKey) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16530,7 +17600,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16558,7 +17628,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16568,6 +17638,9 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16587,7 +17660,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16596,6 +17669,9 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16620,7 +17696,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16629,6 +17705,9 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16644,6 +17723,9 @@ func (m *RateLimit_Action_HeaderValueMatch) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16674,7 +17756,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16702,7 +17784,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16712,6 +17794,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16731,7 +17816,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16741,6 +17826,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16760,7 +17848,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16770,6 +17858,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16789,7 +17880,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16798,6 +17889,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16821,7 +17915,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16842,7 +17936,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16862,7 +17956,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16872,6 +17966,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16891,7 +17988,7 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16901,6 +17998,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -16913,6 +18013,9 @@ func (m *HeaderMatcher) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -16943,7 +18046,7 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -16971,7 +18074,7 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -16981,6 +18084,9 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -17000,7 +18106,7 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -17010,6 +18116,9 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -17029,7 +18138,7 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -17038,6 +18147,9 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRoute
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRoute
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -17055,6 +18167,9 @@ func (m *QueryParameterMatcher) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRoute
 			}
 			if (iNdEx + skippy) > l {
@@ -17124,8 +18239,11 @@ func skipRoute(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthRoute
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthRoute
 			}
 			return iNdEx, nil
@@ -17156,6 +18274,9 @@ func skipRoute(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthRoute
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -17174,232 +18295,3 @@ var (
 	ErrInvalidLengthRoute = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowRoute   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() {
-	proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_route_ee11921c49fa9e35)
-}
-
-var fileDescriptor_route_ee11921c49fa9e35 = []byte{
-	// 3532 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe4, 0x5a, 0xcb, 0x6f, 0x23, 0xc9,
-	0x79, 0x57, 0x93, 0x14, 0x1f, 0x1f, 0x5f, 0xad, 0x1a, 0x8d, 0x44, 0x71, 0x77, 0x34, 0x1a, 0xce,
-	0x6e, 0x56, 0x9e, 0x64, 0x29, 0xaf, 0x46, 0xf6, 0x78, 0x76, 0x30, 0xeb, 0x90, 0x12, 0x67, 0x28,
-	0x8d, 0x5e, 0x29, 0x71, 0x94, 0x8c, 0x0d, 0xbb, 0xd1, 0xc3, 0x2e, 0x91, 0xed, 0x25, 0xbb, 0x7b,
-	0xab, 0x8b, 0x92, 0x78, 0x73, 0x7c, 0x08, 0x82, 0x04, 0x01, 0x92, 0x3d, 0x05, 0xb9, 0xe6, 0x12,
-	0xe4, 0x92, 0x04, 0x08, 0x10, 0x23, 0xc8, 0xc1, 0x47, 0x23, 0x27, 0x5f, 0x02, 0xe4, 0x92, 0x07,
-	0xe6, 0x14, 0xff, 0x0f, 0x39, 0x04, 0xf5, 0x68, 0x3e, 0xc4, 0xa6, 0x28, 0x19, 0x0b, 0x23, 0x0b,
-	0x5f, 0xa4, 0xee, 0xaa, 0xdf, 0xf7, 0xd5, 0xeb, 0xab, 0x5f, 0xfd, 0xea, 0x6b, 0xc2, 0x2a, 0x71,
-	0xce, 0xdd, 0xfe, 0x86, 0xe9, 0xd9, 0x1b, 0xe7, 0x9b, 0x1b, 0xd4, 0xed, 0x31, 0x22, 0xff, 0x96,
-	0x3d, 0xea, 0x32, 0x17, 0x21, 0x51, 0x5f, 0x36, 0x3d, 0xbb, 0x7c, 0xbe, 0x59, 0x16, 0x35, 0xc5,
-	0xf7, 0xc7, 0x6c, 0x9a, 0x2e, 0x25, 0x1b, 0x6f, 0x4d, 0x5f, 0x59, 0x14, 0x97, 0x64, 0x2d, 0xeb,
-	0x7b, 0x64, 0x83, 0x9a, 0x4e, 0x2b, 0x28, 0x5f, 0x69, 0xb9, 0x6e, 0xab, 0x43, 0x36, 0xc4, 0xdb,
-	0xdb, 0xde, 0xd9, 0x86, 0xe9, 0xf4, 0x55, 0xd5, 0xea, 0xd5, 0x2a, 0xab, 0x47, 0x4d, 0x66, 0xbb,
-	0x8e, 0xaa, 0x7f, 0xff, 0x6a, 0xbd, 0xcf, 0x68, 0xaf, 0xc9, 0xa6, 0x59, 0x5f, 0x50, 0xd3, 0xf3,
-	0x08, 0xf5, 0x55, 0xfd, 0xf2, 0xb9, 0xd9, 0xb1, 0x2d, 0x93, 0x91, 0x8d, 0xe0, 0x41, 0x55, 0x2c,
-	0xb6, 0xdc, 0x96, 0x2b, 0x1e, 0x37, 0xf8, 0x93, 0x2c, 0x2d, 0xfd, 0x2b, 0x40, 0xfa, 0xd4, 0xa6,
-	0xac, 0x67, 0x76, 0xea, 0xae, 0xcf, 0xd0, 0x3d, 0x88, 0x39, 0x66, 0x97, 0x14, 0xb4, 0x35, 0x6d,
-	0x3d, 0x55, 0x4d, 0xfd, 0xf3, 0x2f, 0x7f, 0x16, 0x8d, 0xd1, 0xc8, 0x9a, 0x86, 0x45, 0x31, 0xfa,
-	0x00, 0x12, 0x96, 0xdb, 0x35, 0x6d, 0xc7, 0x2f, 0x44, 0xd6, 0xa2, 0xeb, 0xa9, 0x2a, 0x70, 0xc4,
-	0xfc, 0x97, 0x5a, 0x24, 0xa9, 0xe1, 0xa0, 0x0a, 0x3d, 0x81, 0xb8, 0x98, 0x3b, 0xbf, 0x10, 0x5d,
-	0x8b, 0xae, 0xa7, 0x37, 0x57, 0xca, 0x93, 0xf3, 0x5a, 0xc6, 0xfc, 0x6f, 0x35, 0xf6, 0xf3, 0xff,
-	0xbc, 0x3f, 0x87, 0x15, 0x1c, 0x9d, 0x40, 0x9a, 0x92, 0x2f, 0x7a, 0x36, 0x25, 0x06, 0xeb, 0xf8,
-	0x85, 0xd8, 0x9a, 0xb6, 0x9e, 0xdb, 0xdc, 0x0c, 0xb3, 0x1e, 0xe9, 0x73, 0xb9, 0xd1, 0xf1, 0xb1,
-	0xb4, 0xea, 0x12, 0x87, 0x35, 0xfa, 0x1e, 0xc1, 0xa0, 0xdc, 0x34, 0x3a, 0x3e, 0x3a, 0x00, 0xfd,
-	0x5c, 0xa2, 0x8d, 0x66, 0xa7, 0xe7, 0x33, 0x42, 0xfd, 0xc2, 0xbc, 0xe8, 0x57, 0xe9, 0x1a, 0xcf,
-	0xdb, 0x12, 0x8a, 0xf3, 0xe7, 0x63, 0xef, 0x3e, 0xfa, 0x0c, 0xd2, 0xd4, 0x64, 0xc4, 0xe8, 0xd8,
-	0x5d, 0x9b, 0xf9, 0x85, 0xb8, 0xf0, 0x74, 0x2f, 0x74, 0x84, 0x26, 0x23, 0xfb, 0x1c, 0x85, 0x81,
-	0x06, 0x8f, 0x3e, 0x3a, 0x83, 0x25, 0xde, 0x39, 0xe2, 0x33, 0xa3, 0x4d, 0x4c, 0x8b, 0x50, 0xdf,
-	0x60, 0xae, 0x61, 0x5a, 0x56, 0x21, 0x21, 0x5c, 0x7d, 0x30, 0xee, 0x8a, 0x07, 0x5c, 0xb9, 0x2e,
-	0x80, 0xa7, 0x66, 0xa7, 0x47, 0x8e, 0x3c, 0x1e, 0x2a, 0xd5, 0x34, 0x9f, 0xf7, 0xf8, 0x97, 0x5a,
-	0x54, 0xff, 0x9f, 0x04, 0xbe, 0xa3, 0x1c, 0x4a, 0x98, 0xdf, 0x70, 0x2b, 0x96, 0x85, 0x36, 0x21,
-	0xd6, 0x74, 0xa9, 0x5f, 0x48, 0xae, 0x69, 0xeb, 0xe9, 0xcd, 0xd5, 0xb0, 0x0e, 0x6e, 0xbb, 0xd4,
-	0x3f, 0x76, 0x3b, 0x76, 0xb3, 0x8f, 0x05, 0x16, 0xb5, 0x61, 0x99, 0x12, 0xdf, 0x73, 0x1d, 0x9f,
-	0x5c, 0xed, 0x1c, 0xfc, 0xaa, 0x9d, 0x5b, 0x0c, 0x3c, 0x8e, 0xf5, 0xee, 0x19, 0x14, 0xc3, 0x5a,
-	0xa2, 0xa4, 0xeb, 0x9e, 0x93, 0x42, 0x9a, 0xc7, 0x16, 0x5e, 0x9e, 0xb0, 0xc4, 0xa2, 0x1a, 0x59,
-	0xb0, 0xe0, 0x11, 0x6a, 0x9c, 0xd9, 0x1d, 0x46, 0xa8, 0xd1, 0x74, 0x9d, 0x33, 0xbb, 0x55, 0xc8,
-	0x88, 0x0e, 0x6e, 0xcd, 0x0a, 0x96, 0x63, 0x42, 0x5f, 0x08, 0xbb, 0x6d, 0x61, 0x56, 0x73, 0x18,
-	0xed, 0x57, 0x23, 0x05, 0x0d, 0xe7, 0xbd, 0xf1, 0x1a, 0xf4, 0x14, 0x56, 0x42, 0x16, 0x4a, 0xf5,
-	0x30, 0x2b, 0x7a, 0xb8, 0x74, 0x75, 0xe2, 0x55, 0x07, 0x2b, 0x70, 0xcf, 0x76, 0x9a, 0x9d, 0x9e,
-	0x45, 0x8c, 0xc0, 0x85, 0xc9, 0x18, 0xe9, 0x7a, 0xcc, 0x68, 0xba, 0x3d, 0x87, 0x15, 0x72, 0x6b,
-	0xda, 0x7a, 0x12, 0x17, 0x15, 0x08, 0x4b, 0x4c, 0x45, 0x42, 0xb6, 0x39, 0x02, 0x79, 0xb0, 0xcc,
-	0x49, 0xc5, 0x32, 0x26, 0x47, 0x9a, 0x17, 0x23, 0x7d, 0x3a, 0x73, 0x5b, 0x70, 0xf3, 0xb0, 0xe1,
-	0xe2, 0x45, 0x16, 0x52, 0x85, 0xaa, 0x90, 0xa1, 0x84, 0xd1, 0xbe, 0xe1, 0x89, 0x90, 0x28, 0xe8,
-	0x22, 0x70, 0xee, 0x87, 0x46, 0x36, 0xc7, 0xa9, 0xc8, 0x49, 0xd3, 0xe1, 0x4b, 0xf1, 0xfb, 0xb0,
-	0x18, 0xd6, 0x22, 0xd2, 0x21, 0xfa, 0x39, 0xe9, 0x4b, 0x56, 0xc1, 0xfc, 0x11, 0x7d, 0x0c, 0xf3,
-	0xe7, 0x3c, 0x64, 0x0a, 0x11, 0xd1, 0xcc, 0x72, 0x59, 0xf2, 0x5a, 0x39, 0xe0, 0xb5, 0xf2, 0x89,
-	0x60, 0x3d, 0x2c, 0x51, 0x9f, 0x46, 0xbe, 0xa3, 0x15, 0x7f, 0x00, 0x2b, 0x53, 0xc7, 0x14, 0xd2,
-	0xc2, 0xa3, 0xf1, 0x16, 0x16, 0x27, 0x5a, 0xa8, 0x38, 0xfd, 0x11, 0xf7, 0xa5, 0x4f, 0x01, 0x4d,
-	0x32, 0x09, 0x4a, 0x42, 0xec, 0xf0, 0xe8, 0xb0, 0xa6, 0xcf, 0xa1, 0x05, 0xc8, 0xd6, 0xfe, 0xa0,
-	0x51, 0xc3, 0x87, 0x95, 0x7d, 0xe3, 0xe8, 0x70, 0xff, 0x8d, 0xae, 0xa1, 0x04, 0x44, 0x2b, 0xfb,
-	0xfb, 0x7a, 0x64, 0x2f, 0x96, 0x4c, 0xe9, 0x50, 0xfa, 0xdf, 0x24, 0xcc, 0x0b, 0x5a, 0x43, 0x3b,
-	0x30, 0xdf, 0x35, 0x59, 0xb3, 0x2d, 0xfa, 0x33, 0x65, 0xf7, 0x09, 0xe4, 0x01, 0x47, 0x55, 0x73,
-	0x9c, 0x05, 0x05, 0x93, 0xfe, 0x89, 0x16, 0xd1, 0x35, 0x2c, 0x8d, 0xd1, 0x13, 0x98, 0x17, 0x50,
-	0x35, 0x82, 0xfb, 0x53, 0xbd, 0x54, 0x9a, 0x7c, 0xdf, 0xd5, 0xe7, 0xb0, 0xc4, 0xa3, 0xdf, 0x85,
-	0x24, 0x25, 0x96, 0x4d, 0x49, 0x93, 0x15, 0xa2, 0xc2, 0xb6, 0x14, 0xbe, 0x8c, 0x12, 0x33, 0x30,
-	0x1f, 0x58, 0xa1, 0x27, 0x90, 0xec, 0x12, 0x66, 0x5a, 0x26, 0x33, 0x05, 0x0d, 0xa7, 0x37, 0xdf,
-	0x0b, 0xd9, 0xfa, 0x07, 0x0a, 0x82, 0x07, 0x60, 0xf4, 0x0c, 0x52, 0x16, 0x69, 0xba, 0xd4, 0x64,
-	0x2e, 0x2d, 0xcc, 0x0b, 0xcb, 0x50, 0x72, 0xdc, 0x09, 0x40, 0x78, 0x88, 0x47, 0x27, 0x90, 0x97,
-	0xed, 0x1b, 0xc1, 0xd6, 0x2f, 0x24, 0x84, 0x8b, 0xf5, 0x50, 0x17, 0x02, 0x8a, 0x15, 0x72, 0x30,
-	0x88, 0x9c, 0x35, 0x56, 0x8e, 0x7e, 0x18, 0xc6, 0x16, 0x49, 0xb1, 0x87, 0xca, 0x53, 0x67, 0xf4,
-	0x16, 0x3c, 0x31, 0x9d, 0xd0, 0x53, 0x5f, 0x29, 0xa1, 0x7f, 0x4d, 0xc8, 0xf9, 0x5a, 0xda, 0xcc,
-	0x5c, 0x4b, 0x9b, 0x3f, 0x9a, 0xce, 0x79, 0x59, 0x31, 0xc2, 0xc7, 0xd3, 0xd7, 0xeb, 0x96, 0x6c,
-	0xf7, 0x75, 0x66, 0xaa, 0x6a, 0x1e, 0xe2, 0xa6, 0x88, 0x76, 0x34, 0xff, 0xd3, 0x5f, 0xfe, 0x2c,
-	0xaa, 0xed, 0xc5, 0x92, 0x71, 0x3d, 0x51, 0xfa, 0xab, 0x14, 0xe4, 0x7f, 0x9f, 0xd8, 0xad, 0x36,
-	0x23, 0x96, 0x92, 0x2b, 0xe8, 0x0d, 0x24, 0x07, 0xa2, 0x47, 0x13, 0x73, 0xf8, 0x49, 0xd8, 0x1c,
-	0x5e, 0x31, 0x2b, 0xab, 0xff, 0xb2, 0x78, 0x4c, 0xe4, 0x0d, 0xdc, 0xa1, 0xdf, 0x01, 0x44, 0x7b,
-	0x0e, 0xb3, 0xbb, 0xc4, 0xf8, 0x9c, 0xf4, 0x0d, 0x8f, 0x92, 0x33, 0xfb, 0x52, 0x0c, 0x21, 0x85,
-	0x75, 0x55, 0xf3, 0x8a, 0xf4, 0x8f, 0x45, 0x39, 0xda, 0x83, 0x0c, 0x73, 0x99, 0xd9, 0x31, 0x2e,
-	0x84, 0x4f, 0x45, 0x4b, 0xef, 0x4f, 0x0c, 0xf5, 0xf5, 0xae, 0xc3, 0x1e, 0x6f, 0x8a, 0x80, 0x55,
-	0xf2, 0xf3, 0x51, 0x64, 0x5d, 0xc3, 0x69, 0x61, 0x2c, 0xfb, 0x53, 0xfc, 0x87, 0x04, 0x64, 0xc7,
-	0x7a, 0x38, 0x4b, 0xb6, 0x6e, 0x41, 0x5c, 0x35, 0x1b, 0x99, 0xdd, 0x2c, 0x56, 0x58, 0x54, 0x85,
-	0x5c, 0x40, 0x6b, 0x86, 0x64, 0xf3, 0xe8, 0x6c, 0x26, 0xcc, 0x06, 0x26, 0x82, 0xd9, 0xaf, 0x21,
-	0x87, 0xd8, 0xaf, 0x8b, 0x1c, 0xe6, 0x7f, 0x9d, 0xe4, 0x10, 0xbf, 0x9e, 0x1c, 0xce, 0xa7, 0x73,
-	0xf1, 0x8b, 0x5b, 0xc7, 0xe5, 0x57, 0xa5, 0xe5, 0x52, 0xd7, 0x92, 0xd2, 0x4f, 0xb4, 0xe9, 0xac,
-	0x24, 0x79, 0xf7, 0xd5, 0xed, 0x7b, 0xfe, 0x1b, 0xc4, 0x56, 0x7b, 0xb1, 0x64, 0x42, 0x4f, 0x96,
-	0xfe, 0x3c, 0x06, 0x30, 0x54, 0x3c, 0xa8, 0x00, 0x71, 0x45, 0x18, 0xc2, 0x73, 0x7d, 0x0e, 0xab,
-	0x77, 0xb4, 0x08, 0x31, 0xcf, 0x64, 0x6d, 0x49, 0x24, 0xf5, 0x39, 0x2c, 0xde, 0x50, 0x09, 0xe6,
-	0x29, 0x69, 0x91, 0x4b, 0xb1, 0x05, 0x83, 0x6b, 0x27, 0x8d, 0xae, 0xff, 0x38, 0x29, 0x54, 0x0f,
-	0xaf, 0x42, 0x15, 0xc8, 0x35, 0x4d, 0x9f, 0x18, 0x3e, 0x71, 0x7c, 0x9b, 0xd9, 0xe7, 0x44, 0x29,
-	0x97, 0xe2, 0x44, 0x0f, 0xab, 0xae, 0xdb, 0x91, 0x7b, 0x3d, 0xcb, 0x2d, 0x4e, 0x02, 0x03, 0xf4,
-	0x0c, 0x12, 0x2a, 0x3e, 0xd4, 0xc5, 0xee, 0x41, 0xd8, 0xda, 0xca, 0x10, 0x11, 0x03, 0x21, 0x14,
-	0x07, 0x16, 0xa8, 0x01, 0xfa, 0x17, 0x3d, 0xc2, 0x05, 0xb4, 0x49, 0xcd, 0x2e, 0x11, 0x9c, 0x2b,
-	0xef, 0x74, 0xdf, 0x08, 0xf3, 0xf2, 0x7b, 0x1c, 0x7b, 0x1c, 0x40, 0x03, 0x6f, 0xf9, 0x2f, 0xc6,
-	0x8a, 0x7d, 0x54, 0x87, 0x58, 0x8b, 0x7a, 0x4d, 0x75, 0x8f, 0xdb, 0xba, 0x5e, 0x49, 0x96, 0x5f,
-	0x52, 0xaf, 0x39, 0x7c, 0x95, 0xbb, 0xda, 0xc7, 0xc2, 0x03, 0x3a, 0x85, 0x80, 0x96, 0x8d, 0x33,
-	0x2a, 0x0f, 0x90, 0x42, 0x4a, 0x78, 0xfd, 0xed, 0x10, 0x72, 0xc0, 0x12, 0xfa, 0x42, 0x21, 0xcd,
-	0xce, 0x31, 0xa1, 0x4d, 0xe2, 0x30, 0x9c, 0xa7, 0xe3, 0x35, 0xc5, 0x65, 0xb8, 0x1b, 0xda, 0x6c,
-	0x75, 0x19, 0x72, 0x7c, 0xf1, 0x0c, 0xdf, 0x23, 0x4d, 0xfb, 0xcc, 0x26, 0x74, 0x78, 0x5e, 0xcd,
-	0xeb, 0xf1, 0xd2, 0xbf, 0xc4, 0x00, 0x86, 0x57, 0x50, 0xf4, 0x00, 0x32, 0x66, 0xa7, 0xe3, 0x5e,
-	0x18, 0x2e, 0xb5, 0x5b, 0xb6, 0x23, 0x8e, 0xab, 0x14, 0x4e, 0x8b, 0xb2, 0x23, 0x51, 0x84, 0x1e,
-	0x42, 0x56, 0x42, 0xba, 0x84, 0xb5, 0x5d, 0xcb, 0x57, 0xa7, 0x8d, 0xb4, 0x3b, 0x90, 0x65, 0x43,
-	0x50, 0xb0, 0x92, 0xd1, 0x11, 0x90, 0xda, 0xdd, 0xe8, 0x43, 0xc8, 0x91, 0x4b, 0xcf, 0x1d, 0x72,
-	0x98, 0x88, 0x95, 0x14, 0xce, 0xca, 0xd2, 0x00, 0xb6, 0x0c, 0x89, 0xae, 0x79, 0x69, 0x98, 0x2d,
-	0x22, 0xb4, 0x6c, 0x0a, 0xc7, 0xbb, 0xe6, 0x65, 0xa5, 0x45, 0xd0, 0x4b, 0x58, 0x90, 0x8d, 0x34,
-	0x29, 0xb1, 0x88, 0xc3, 0x6c, 0xb3, 0xc3, 0x43, 0x66, 0x56, 0xb8, 0xe9, 0xc2, 0x68, 0x7b, 0x68,
-	0x83, 0x3e, 0x85, 0x04, 0x71, 0xcc, 0xb7, 0x1d, 0x62, 0x29, 0xa9, 0x7b, 0x8d, 0x39, 0xe7, 0xb6,
-	0xfa, 0x1c, 0x0e, 0x0c, 0xd0, 0x73, 0x40, 0xa3, 0x33, 0x66, 0xc8, 0x1d, 0x92, 0x14, 0x89, 0x99,
-	0x3c, 0xdf, 0x21, 0xf0, 0xa5, 0x96, 0x28, 0xc9, 0x6d, 0xa2, 0x9a, 0x96, 0x13, 0x89, 0xc5, 0x7e,
-	0x69, 0x40, 0x4e, 0xd1, 0x59, 0xd0, 0x83, 0xdb, 0x47, 0x43, 0x7d, 0x0e, 0x67, 0xa5, 0x93, 0x9a,
-	0xea, 0x14, 0x86, 0x9c, 0xdf, 0x36, 0x2d, 0xf7, 0x62, 0xe0, 0x15, 0x6e, 0x1f, 0x63, 0x59, 0xe9,
-	0x42, 0xf9, 0xac, 0xde, 0x81, 0x05, 0xe5, 0x6c, 0x18, 0x4b, 0xa5, 0x3f, 0x5a, 0x82, 0xf4, 0xc8,
-	0xed, 0x07, 0x7d, 0x08, 0x09, 0xa5, 0x4d, 0x26, 0x64, 0x00, 0x9f, 0x34, 0x55, 0x87, 0x36, 0x21,
-	0xa7, 0x1e, 0xd5, 0xd2, 0xcb, 0x20, 0x1a, 0x47, 0x67, 0x15, 0x44, 0xc6, 0x01, 0xc2, 0xb0, 0x70,
-	0xa1, 0xf8, 0x7c, 0x98, 0x43, 0x92, 0x62, 0xe0, 0xe1, 0x0d, 0xc8, 0xbf, 0x3e, 0x87, 0xf5, 0x8b,
-	0xf1, 0x22, 0x3f, 0x44, 0x5d, 0xc4, 0x6e, 0xad, 0x2e, 0x3e, 0x84, 0x9c, 0x64, 0x4d, 0x83, 0x92,
-	0x0b, 0x6a, 0xb3, 0x20, 0x4a, 0xb3, 0xb2, 0x14, 0xcb, 0x42, 0xf4, 0x10, 0x32, 0x6d, 0xd7, 0x67,
-	0x03, 0x50, 0x5c, 0x50, 0xab, 0x86, 0xd3, 0xbc, 0x34, 0x00, 0xd5, 0x61, 0xc1, 0xec, 0x31, 0xd7,
-	0x18, 0x43, 0xce, 0x0c, 0xc9, 0xba, 0x86, 0xf3, 0xdc, 0xac, 0x3e, 0xe2, 0xe9, 0x29, 0x24, 0xf8,
-	0xaa, 0xba, 0x3d, 0xa6, 0x48, 0x6b, 0x65, 0xc2, 0x7e, 0x47, 0xa5, 0x3c, 0xab, 0xb1, 0xbf, 0xfc,
-	0xaf, 0xfb, 0x1a, 0x0e, 0xf0, 0x13, 0x39, 0x88, 0xd4, 0xed, 0x73, 0x10, 0xa8, 0x05, 0x77, 0x83,
-	0xb3, 0xbe, 0x6b, 0x53, 0xea, 0xd2, 0xc0, 0x99, 0x8c, 0xc3, 0xc7, 0x33, 0x6e, 0xd1, 0x65, 0x95,
-	0x8d, 0x39, 0x10, 0xb6, 0xaa, 0x81, 0x40, 0x73, 0x8d, 0x16, 0xa2, 0xcf, 0x20, 0xe9, 0x51, 0xdb,
-	0xa5, 0x36, 0xeb, 0x17, 0xd2, 0x22, 0x55, 0x59, 0x0a, 0x8b, 0x71, 0xb7, 0xc7, 0x6c, 0xa7, 0x75,
-	0xac, 0x90, 0x78, 0x60, 0x83, 0x7e, 0x30, 0x55, 0x1b, 0x66, 0x6e, 0x21, 0xd9, 0xb8, 0xde, 0x09,
-	0x95, 0x84, 0x57, 0x12, 0x95, 0xd9, 0xdb, 0x26, 0x2a, 0x8f, 0x60, 0x29, 0x48, 0x62, 0x9d, 0xb7,
-	0x8d, 0x51, 0x57, 0xb9, 0x99, 0x3c, 0x77, 0x47, 0x59, 0x9e, 0xb6, 0xf1, 0xd0, 0xe1, 0x2b, 0x48,
-	0xb7, 0x4d, 0xbf, 0x1d, 0x2c, 0x87, 0x4c, 0x63, 0x3d, 0x9a, 0xb5, 0x1c, 0x75, 0xd3, 0x6f, 0xab,
-	0x55, 0x80, 0xf6, 0xe0, 0x79, 0x90, 0xde, 0x5c, 0xb8, 0x45, 0x7a, 0xd3, 0x98, 0x2e, 0x92, 0xd1,
-	0x2d, 0x67, 0x3c, 0x5c, 0x1b, 0x7f, 0xf7, 0x5a, 0x6d, 0x7c, 0x47, 0x10, 0x33, 0xb7, 0x9e, 0xaa,
-	0x8f, 0xff, 0x4c, 0x83, 0xfb, 0x01, 0x3b, 0x39, 0x2e, 0x33, 0xce, 0xdc, 0x9e, 0x63, 0x0d, 0x92,
-	0x21, 0x46, 0xd3, 0xb5, 0x48, 0x61, 0x51, 0x84, 0xda, 0xb3, 0x59, 0xf3, 0xa6, 0x88, 0xe6, 0xd0,
-	0x65, 0x2f, 0xb8, 0x93, 0x20, 0x1d, 0xb2, 0xed, 0x5a, 0x44, 0xc9, 0xa7, 0x9f, 0x88, 0x5c, 0xd3,
-	0x7b, 0xcd, 0xe9, 0x40, 0xb4, 0x0b, 0x3a, 0x3f, 0xff, 0xb8, 0x7c, 0x30, 0x82, 0x3d, 0xbd, 0x7c,
-	0xb3, 0x3d, 0x9d, 0xeb, 0x9a, 0x97, 0x5c, 0x16, 0x34, 0xd4, 0xd6, 0xde, 0x87, 0x8c, 0x6d, 0x75,
-	0xc8, 0xc0, 0x4d, 0x61, 0x96, 0x9b, 0x1c, 0x77, 0x23, 0x3a, 0xfa, 0xb7, 0x5a, 0xe4, 0xd1, 0x1c,
-	0x4e, 0x73, 0xf3, 0xc0, 0xdb, 0x29, 0xe4, 0x7b, 0x5e, 0x8b, 0x9a, 0x16, 0x51, 0x5a, 0xdc, 0x2f,
-	0xac, 0x88, 0x25, 0xfc, 0x78, 0xd6, 0xbc, 0xbc, 0x96, 0x66, 0x52, 0xe3, 0xe2, 0x5c, 0x6f, 0xf4,
-	0xd5, 0x47, 0x1e, 0x14, 0x6c, 0x87, 0x11, 0xea, 0x98, 0x1d, 0x23, 0x48, 0x86, 0x19, 0x4a, 0x2b,
-	0x15, 0xc5, 0xc4, 0x7f, 0x7b, 0x56, 0x03, 0xbb, 0xca, 0x7e, 0x3c, 0xbb, 0x86, 0x97, 0xec, 0xd0,
-	0xf2, 0xe2, 0x3f, 0x69, 0x70, 0x27, 0x84, 0x72, 0xd0, 0xc3, 0xe9, 0xc7, 0xd9, 0xf0, 0x30, 0x7b,
-	0x08, 0xe9, 0x91, 0x3b, 0xb8, 0x3a, 0xc9, 0x78, 0x84, 0xc1, 0xf0, 0x02, 0x1e, 0xaa, 0xfb, 0xa2,
-	0x5f, 0x81, 0xee, 0xfb, 0xfb, 0x18, 0xc0, 0x70, 0x77, 0xa2, 0x57, 0x10, 0x57, 0x07, 0xaa, 0x4c,
-	0x7a, 0x7e, 0x72, 0xf3, 0x9d, 0xad, 0x36, 0x19, 0xbf, 0x05, 0x48, 0x17, 0xdc, 0x59, 0xd3, 0x75,
-	0x3f, 0xb7, 0x83, 0x5b, 0xc6, 0x6d, 0x9c, 0x6d, 0x0b, 0x43, 0xee, 0x4c, 0xba, 0x40, 0xe7, 0x70,
-	0xb7, 0xe9, 0x3a, 0x0e, 0x11, 0x48, 0xc3, 0xa3, 0xae, 0x47, 0x28, 0xb3, 0x49, 0x70, 0x84, 0x7f,
-	0xf7, 0x56, 0xbe, 0x03, 0x3f, 0xc7, 0x03, 0x37, 0xf5, 0x39, 0xbc, 0xd8, 0x0c, 0x29, 0x47, 0x45,
-	0x48, 0x32, 0x42, 0xbb, 0xb6, 0x63, 0x76, 0xc4, 0xe1, 0x9e, 0xc4, 0x83, 0xf7, 0xe2, 0x16, 0xc4,
-	0x95, 0xb8, 0x78, 0x04, 0x69, 0x39, 0x68, 0x23, 0x3c, 0x85, 0x01, 0xb2, 0xf6, 0xd0, 0xec, 0x92,
-	0xa2, 0x03, 0x71, 0x39, 0xba, 0x59, 0x19, 0x8f, 0x4f, 0x20, 0xca, 0x58, 0x47, 0x4d, 0xde, 0xcc,
-	0xbd, 0xca, 0xb1, 0x08, 0xa9, 0x8b, 0x97, 0x94, 0xcb, 0xe2, 0xb9, 0xf8, 0x18, 0x16, 0xc3, 0x46,
-	0x8c, 0xde, 0x83, 0x94, 0xef, 0xf6, 0x68, 0x93, 0x18, 0xb6, 0x27, 0xba, 0x90, 0xc4, 0x49, 0x59,
-	0xb0, 0xeb, 0x55, 0x57, 0x40, 0x97, 0x14, 0x3f, 0x21, 0xfc, 0x8b, 0x6d, 0xc8, 0x8e, 0xed, 0x3f,
-	0x2e, 0xfa, 0x83, 0x7d, 0xcc, 0x2f, 0xbe, 0xea, 0x9e, 0x99, 0x56, 0x65, 0x22, 0x03, 0xbf, 0x35,
-	0x54, 0xc8, 0x91, 0x99, 0x07, 0x4f, 0x00, 0x2d, 0xd5, 0xe0, 0xbd, 0x6b, 0x18, 0x10, 0x2d, 0xc3,
-	0x9d, 0x93, 0x1a, 0x3e, 0xdd, 0xdd, 0xae, 0x19, 0xaf, 0x0f, 0x2b, 0xa7, 0x95, 0xdd, 0xfd, 0x4a,
-	0x75, 0xbf, 0xa6, 0xcf, 0xa1, 0x2c, 0xa4, 0x0e, 0x8f, 0x1a, 0xc6, 0x8b, 0xa3, 0xd7, 0x87, 0x3b,
-	0xba, 0x56, 0xfa, 0x1e, 0x2c, 0x85, 0xef, 0x67, 0x54, 0x82, 0xd5, 0xe3, 0xca, 0xc9, 0x89, 0xd1,
-	0xa8, 0xe3, 0xa3, 0xd7, 0x2f, 0xeb, 0xc6, 0xee, 0xa1, 0xfa, 0x36, 0x80, 0x6b, 0x3b, 0xbb, 0xb8,
-	0xb6, 0xdd, 0xd0, 0xe7, 0xd0, 0xfb, 0x50, 0xa8, 0x57, 0x0e, 0x77, 0xf6, 0x6b, 0x21, 0xb5, 0x5a,
-	0xb5, 0x08, 0x0b, 0x01, 0xd7, 0x5f, 0x9d, 0xa8, 0x6a, 0x01, 0x96, 0x46, 0x85, 0xd8, 0x10, 0xb0,
-	0x17, 0x4b, 0xea, 0xfa, 0xc2, 0x5e, 0x2c, 0xb9, 0xa4, 0x2f, 0xef, 0xc5, 0x92, 0x77, 0xf5, 0xa5,
-	0xd2, 0xbf, 0xc5, 0x21, 0x3d, 0xa2, 0x86, 0xd0, 0x0a, 0x24, 0xa5, 0x88, 0x72, 0x1d, 0x35, 0x9f,
-	0x09, 0xf1, 0x7e, 0xe4, 0xa0, 0xe7, 0x90, 0x76, 0x7a, 0x5d, 0x83, 0xbf, 0xf2, 0xf8, 0xbf, 0x49,
-	0x36, 0x0c, 0x9c, 0x5e, 0x17, 0x4b, 0x3c, 0x7a, 0x09, 0x79, 0x8f, 0x50, 0x83, 0xfb, 0x0e, 0x68,
-	0x3c, 0x7a, 0xb3, 0x08, 0xcb, 0x7a, 0x84, 0x36, 0x68, 0x3f, 0xa0, 0xef, 0x06, 0xe4, 0x94, 0xce,
-	0x0b, 0x04, 0x94, 0x14, 0xbf, 0x1f, 0xcf, 0x50, 0x7a, 0xea, 0x39, 0xd0, 0x52, 0x59, 0x3a, 0xfa,
-	0x8a, 0x2c, 0x58, 0x94, 0x5e, 0xc5, 0xd4, 0x79, 0x9c, 0xbf, 0x9b, 0xa6, 0x10, 0xc5, 0xfc, 0x64,
-	0xd8, 0xbc, 0x91, 0x6f, 0x2e, 0x64, 0x8f, 0x03, 0x4b, 0x8c, 0xe8, 0x44, 0x19, 0xaa, 0xc3, 0x03,
-	0xe1, 0xdf, 0x27, 0x1d, 0xc5, 0x28, 0xb2, 0x51, 0x71, 0x51, 0x94, 0x9f, 0xf0, 0xe4, 0x55, 0x30,
-	0x8a, 0xef, 0x71, 0xe0, 0x49, 0x80, 0x13, 0xfe, 0x0f, 0xcc, 0x4b, 0xf5, 0x9d, 0xcf, 0x47, 0x5b,
-	0x5c, 0x00, 0x32, 0x6a, 0xf3, 0x88, 0x35, 0x7c, 0x66, 0xb2, 0x9e, 0x2f, 0x8e, 0x78, 0x99, 0x36,
-	0xc8, 0xe2, 0xc5, 0x41, 0xed, 0x89, 0xa8, 0xe4, 0x91, 0xeb, 0x17, 0xff, 0x4e, 0x83, 0xec, 0xd8,
-	0x34, 0xcc, 0xe2, 0x82, 0x6f, 0x71, 0x2e, 0x15, 0xf9, 0xaa, 0xeb, 0x73, 0x42, 0xea, 0x7a, 0xa9,
-	0xc0, 0xe8, 0x29, 0x64, 0x64, 0xde, 0x4b, 0x19, 0x47, 0xa7, 0xa7, 0x7b, 0xea, 0x73, 0x38, 0x2d,
-	0xb0, 0x72, 0x57, 0x57, 0xb3, 0x90, 0x96, 0x46, 0x62, 0x53, 0x17, 0xff, 0x51, 0x03, 0x34, 0x39,
-	0xb9, 0xff, 0xdf, 0xbb, 0x5d, 0xfa, 0x69, 0x0c, 0x72, 0x57, 0x36, 0xfd, 0x43, 0xc8, 0xaa, 0x6d,
-	0xa9, 0xbe, 0xae, 0xc9, 0xfd, 0x95, 0x91, 0x17, 0x29, 0xf5, 0xed, 0xec, 0x43, 0xc8, 0x8a, 0xb4,
-	0xc7, 0x00, 0x14, 0x51, 0xf7, 0xad, 0x0c, 0x2f, 0x1e, 0xc0, 0xda, 0x90, 0x1d, 0x17, 0x76, 0x51,
-	0xa1, 0x2f, 0x9e, 0xcc, 0xfe, 0x52, 0x37, 0x78, 0x9d, 0x2a, 0xea, 0x32, 0x74, 0x94, 0xec, 0x3e,
-	0x82, 0x5c, 0x9b, 0x31, 0xcf, 0x1f, 0xf6, 0x48, 0x9c, 0x46, 0xfc, 0x9e, 0x2b, 0xca, 0x07, 0x5d,
-	0xfa, 0x28, 0xfc, 0x3e, 0x59, 0xd7, 0xae, 0xde, 0x28, 0xef, 0x43, 0xda, 0x67, 0xd4, 0xf6, 0x0c,
-	0x91, 0xad, 0x12, 0xd1, 0x9e, 0xc4, 0x20, 0x8a, 0x44, 0x5a, 0x0b, 0x7d, 0x03, 0xf2, 0x7e, 0xb3,
-	0x4d, 0xba, 0x64, 0xd8, 0x66, 0x42, 0x25, 0xf4, 0x72, 0xb2, 0x62, 0xd0, 0xe8, 0x43, 0xc8, 0x7a,
-	0x2e, 0x1d, 0x99, 0x53, 0x7e, 0x69, 0xcc, 0xe2, 0x0c, 0x2f, 0x0c, 0x40, 0xa5, 0x0b, 0x58, 0x0c,
-	0x1b, 0x34, 0xba, 0x0b, 0x0b, 0x07, 0x47, 0xa7, 0xb5, 0x1d, 0xe3, 0xb8, 0x86, 0x0f, 0x2a, 0x87,
-	0xb5, 0xc3, 0xc6, 0xfe, 0x1b, 0x7d, 0x0e, 0xa5, 0x60, 0x5e, 0x31, 0x38, 0x27, 0xf4, 0x93, 0x5a,
-	0xcd, 0x38, 0x6a, 0xd4, 0x6b, 0x58, 0x8f, 0xa0, 0x25, 0x40, 0x8d, 0xda, 0xc1, 0xf1, 0x11, 0xae,
-	0xe0, 0x37, 0x43, 0x32, 0x8e, 0xf2, 0xf2, 0x81, 0x8b, 0x61, 0x79, 0xac, 0x5a, 0x84, 0xc2, 0x60,
-	0x20, 0x57, 0xa8, 0x98, 0x93, 0xb4, 0x5a, 0xe8, 0x2b, 0x35, 0x25, 0x17, 0x16, 0xc3, 0xbe, 0x4e,
-	0xa2, 0x0f, 0x20, 0x2e, 0xf7, 0xb9, 0x08, 0x9c, 0x6c, 0x35, 0xc3, 0xd7, 0x2c, 0xf1, 0x68, 0x5e,
-	0xff, 0xf7, 0xd8, 0xba, 0x85, 0x55, 0x1d, 0xfa, 0x04, 0x62, 0x6f, 0x5d, 0xab, 0xaf, 0xe2, 0xfe,
-	0x5e, 0x88, 0x48, 0xdb, 0x31, 0x99, 0x79, 0x22, 0xce, 0x5b, 0x2c, 0xa0, 0xa5, 0x2d, 0x48, 0x0d,
-	0xbe, 0xa8, 0xa2, 0x8f, 0x20, 0xc5, 0x4f, 0x6a, 0xc1, 0xbf, 0x93, 0xbb, 0x6b, 0x58, 0x57, 0xfa,
-	0x0b, 0x0d, 0x72, 0xe3, 0xbf, 0x77, 0x41, 0xbf, 0x05, 0x09, 0x8f, 0xb3, 0x18, 0x0d, 0x2c, 0x65,
-	0x17, 0x29, 0x0f, 0x84, 0x1f, 0x27, 0x71, 0x50, 0x39, 0xd8, 0xbc, 0x91, 0xf0, 0xcd, 0xfb, 0x1d,
-	0x88, 0xcb, 0x1c, 0x9d, 0x8a, 0xea, 0xb5, 0x30, 0xa5, 0xa9, 0x54, 0xaf, 0xc0, 0x61, 0x85, 0x2f,
-	0xfd, 0x47, 0x0a, 0x52, 0x83, 0x4b, 0x23, 0x7a, 0x0e, 0xf3, 0x3e, 0x33, 0x5b, 0x44, 0x69, 0xca,
-	0x9b, 0x7d, 0x2f, 0x2a, 0x00, 0x96, 0x56, 0x3c, 0x4e, 0x2d, 0xdb, 0x17, 0xfc, 0x3a, 0xd0, 0xc7,
-	0x18, 0x54, 0x11, 0xd7, 0xc6, 0x7b, 0x90, 0x90, 0x6a, 0x36, 0xf8, 0xad, 0xd2, 0x07, 0xd7, 0x5e,
-	0x90, 0xcb, 0x72, 0x1d, 0xc7, 0x7f, 0xf6, 0xa4, 0x1c, 0x14, 0xff, 0x3a, 0x09, 0x71, 0xb5, 0xce,
-	0xdf, 0x87, 0x9c, 0xd2, 0x47, 0xa3, 0x1a, 0x7e, 0xda, 0x19, 0x74, 0xc5, 0x7b, 0x59, 0xae, 0xec,
-	0x30, 0x79, 0x94, 0xf5, 0x47, 0x0b, 0xd0, 0x8f, 0xe0, 0x8e, 0x45, 0x7c, 0x66, 0x3b, 0x62, 0x11,
-	0x07, 0x2d, 0xc8, 0x68, 0x79, 0x72, 0xa3, 0x16, 0x76, 0x86, 0xf6, 0xc3, 0x66, 0x90, 0x35, 0x51,
-	0x8a, 0x7e, 0x08, 0xf9, 0x2b, 0x39, 0x0a, 0x45, 0xa8, 0x8f, 0x6f, 0xd4, 0x0e, 0x1e, 0xcb, 0x4b,
-	0xf0, 0xcd, 0x3f, 0x9e, 0xa9, 0xe0, 0x13, 0xc5, 0x6f, 0xc7, 0x8c, 0xf0, 0x5b, 0x38, 0x25, 0xbe,
-	0xaf, 0x84, 0xc0, 0xe6, 0x0d, 0xdd, 0x73, 0xd3, 0x8a, 0xb4, 0xe4, 0x13, 0x45, 0x47, 0x0b, 0x10,
-	0x86, 0x74, 0x8b, 0x38, 0x84, 0xda, 0x4d, 0xb1, 0xfa, 0xf2, 0xd7, 0x08, 0x1b, 0x37, 0xf2, 0xfc,
-	0x52, 0xda, 0xbd, 0x22, 0xfc, 0x90, 0x80, 0xd6, 0xe0, 0x0d, 0x11, 0x40, 0x4a, 0xad, 0x8b, 0x2f,
-	0x1c, 0x2a, 0x75, 0x27, 0x33, 0xbf, 0xdf, 0xba, 0x91, 0xeb, 0x91, 0x84, 0x82, 0xc8, 0xe2, 0xd5,
-	0xe7, 0xb0, 0xde, 0xbe, 0x52, 0x56, 0xcc, 0x43, 0x76, 0x2c, 0x0a, 0x8a, 0x8b, 0x80, 0x26, 0x17,
-	0xad, 0xe8, 0xf0, 0x13, 0x6a, 0x6c, 0x42, 0x6f, 0x71, 0x9b, 0x40, 0xdf, 0x84, 0x9c, 0x45, 0xfc,
-	0x26, 0xb5, 0x3d, 0xe6, 0xd2, 0x91, 0x0b, 0xe4, 0x08, 0x3c, 0x3b, 0x04, 0xbc, 0x22, 0x7d, 0xde,
-	0xad, 0xb1, 0x39, 0x2f, 0x56, 0x01, 0x86, 0x53, 0x85, 0xb6, 0x40, 0x1f, 0x71, 0x28, 0xbf, 0x12,
-	0x4d, 0xf4, 0x20, 0x3f, 0x84, 0x88, 0x01, 0x17, 0x7f, 0xa1, 0x81, 0x7e, 0x75, 0x52, 0x7e, 0x35,
-	0x57, 0xe8, 0x39, 0x64, 0xc8, 0xa5, 0xc7, 0xef, 0xec, 0x72, 0x5d, 0x66, 0x5f, 0x18, 0xd2, 0x12,
-	0x2f, 0x1b, 0x7d, 0x39, 0xfc, 0xfc, 0x13, 0xbd, 0xe1, 0xe7, 0x9f, 0x71, 0x2a, 0x50, 0xd6, 0xfc,
-	0x0a, 0x24, 0x59, 0x61, 0x42, 0xd9, 0x97, 0xfe, 0x34, 0x0a, 0xd9, 0x31, 0x0f, 0xb3, 0x74, 0xd0,
-	0x03, 0x48, 0x93, 0x4b, 0x73, 0x30, 0xa4, 0x98, 0x3a, 0x46, 0x41, 0x14, 0xca, 0x7e, 0x7f, 0x0c,
-	0x69, 0x91, 0xfb, 0x57, 0x90, 0xf9, 0x90, 0x6f, 0x64, 0x20, 0x00, 0x12, 0xfe, 0x14, 0xd2, 0xe2,
-	0xb7, 0xaa, 0x63, 0xc1, 0xbb, 0xa4, 0x86, 0xca, 0xa5, 0x4f, 0x79, 0xd7, 0x61, 0xdf, 0xde, 0xc2,
-	0x1c, 0x23, 0x4c, 0xf9, 0x43, 0x90, 0x71, 0xe6, 0x4a, 0xc0, 0x27, 0x4e, 0xd0, 0x9d, 0x84, 0x52,
-	0x12, 0x19, 0x55, 0x2c, 0x61, 0x0f, 0x20, 0x63, 0x3b, 0xe7, 0x84, 0x06, 0xa8, 0xa4, 0x10, 0x08,
-	0x69, 0x59, 0x26, 0x21, 0x65, 0xc8, 0x28, 0xad, 0x21, 0x21, 0xa9, 0xc9, 0x2c, 0x7c, 0x5a, 0x02,
-	0x06, 0x78, 0xbf, 0x77, 0x36, 0xc4, 0x43, 0x08, 0x5e, 0x02, 0xe4, 0x6f, 0xaa, 0xf8, 0x0d, 0x4a,
-	0x6e, 0x04, 0x81, 0x1f, 0xbb, 0x41, 0x45, 0xf4, 0xe8, 0x5e, 0x2c, 0x19, 0xd5, 0x63, 0xa5, 0x3f,
-	0xd4, 0xe0, 0x6e, 0xe8, 0x87, 0x38, 0xb4, 0x36, 0xb6, 0x2a, 0xe3, 0xa7, 0xa0, 0x5c, 0x98, 0xc5,
-	0xe0, 0x43, 0xa8, 0xbc, 0x31, 0xcb, 0x17, 0xf4, 0xcd, 0xe0, 0x4b, 0xe5, 0xec, 0x8f, 0x8f, 0x12,
-	0x58, 0xfd, 0xec, 0x6f, 0xde, 0xad, 0x6a, 0x3f, 0x7f, 0xb7, 0xaa, 0xfd, 0xe2, 0xdd, 0xaa, 0xf6,
-	0xdf, 0xef, 0x56, 0x35, 0x58, 0xb3, 0x5d, 0xb9, 0x1a, 0x1e, 0x75, 0x2f, 0xfb, 0x21, 0x31, 0x78,
-	0xac, 0x7d, 0x4f, 0xfe, 0xd4, 0xeb, 0x8f, 0x35, 0xed, 0x6d, 0x5c, 0xb8, 0x7e, 0xfc, 0x7f, 0x01,
-	0x00, 0x00, 0xff, 0xff, 0xa0, 0xda, 0x77, 0xc3, 0xde, 0x2c, 0x00, 0x00,
-}
