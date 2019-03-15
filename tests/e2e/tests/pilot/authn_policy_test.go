@@ -22,9 +22,6 @@ import (
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
 	if tc.Kube.AuthEnabled {
-		// mTLS is now enabled via CRDs, so this test is no longer needed (and could cause trouble due
-		// to conflicts of policies)
-		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
 	// Define the default permissive global mesh resource.
