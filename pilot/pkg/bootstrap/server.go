@@ -975,9 +975,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	if os.Getenv("SDS_ENABLED") == "1" {
 		model.SDSEnabled = true
-		log.Info("****SDS is on globally")
+		log.Info("SDS is enabled")
 	} else {
-		log.Info("****SDS is off globally")
+		log.Info("SDS is disabled")
 	}
 
 	// Set up discovery service
