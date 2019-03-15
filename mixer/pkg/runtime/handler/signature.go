@@ -42,7 +42,7 @@ func (s signature) equals(other signature) bool {
 }
 
 // calculateSignature returns signature given handler and array of dynamic or static instances
-func calculateSignature(handler hndlr, handlerConn *v1beta1.Connection, insts interface{}) signature {
+func calculateSignature(handler hndlr, insts interface{}) signature {
 	if reflect.TypeOf(insts).Kind() != reflect.Slice {
 		return zeroSignature
 	}
@@ -68,8 +68,8 @@ func calculateSignature(handler hndlr, handlerConn *v1beta1.Connection, insts in
 		(reflect.ValueOf(handler.AdapterParams()).Kind() != reflect.Ptr || !reflect.ValueOf(handler.AdapterParams()).IsNil()) {
 		encoded = encoded && encode(buf, handler.AdapterParams())
 	}
-	if handlerConn != nil {
-		encoded = encoded && encode(buf, handlerConn)
+	if handler.ConnectionConfig() != nil {
+		encoded = encoded && encode(buf, handler.ConnectionConfig())
 	}
 
 	for _, name := range instanceNames {
@@ -92,6 +92,7 @@ type hndlr interface {
 	GetName() string
 	AdapterName() string
 	AdapterParams() interface{}
+	ConnectionConfig() *v1beta1.Connection
 }
 type inst interface {
 	GetName() string

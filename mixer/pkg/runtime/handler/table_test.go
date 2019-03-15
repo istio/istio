@@ -32,6 +32,9 @@ var globalCfg = data.JoinConfigs(data.HandlerACheck1, data.InstanceCheck1, data.
 //  Alternate configuration where R2 references H1, but uses instances I1 and I2.
 var globalCfgI2 = data.JoinConfigs(data.HandlerACheck1, data.InstanceCheck1, data.InstanceCheck2, data.RuleCheck1WithInstance1And2)
 
+var dynamicHandlerCfg1 = data.JoinConfigs(data.DynamicTemplate, data.DynamicAdapter, data.HandlerDynamic1, data.InstanceDynamic, data.RuleDynamic)
+var dynamicHandlerCfg2 = data.JoinConfigs(data.DynamicTemplate, data.DynamicAdapter, data.HandlerDynamic2, data.InstanceDynamic, data.RuleDynamic)
+
 func TestNew_EmptyConfig(t *testing.T) {
 	s := config.Empty()
 
@@ -104,6 +107,28 @@ func TestNew_NoReuse_DifferentConfig(t *testing.T) {
 	}
 
 	if table2.entries[data.FqnACheck1] == table.entries[data.FqnACheck1] {
+		t.Fail()
+	}
+}
+
+func TestNew_NoReuse_DifferentConnectionConfig(t *testing.T) {
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
+
+	s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, dynamicHandlerCfg1)
+
+	table := NewTable(Empty(), s, nil)
+
+	// NewTable again using the slightly different config
+	s, _ = config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, dynamicHandlerCfg2)
+
+	table2 := NewTable(table, s, nil)
+
+	if len(table2.entries) != 1 {
+		t.Fatal("size")
+	}
+
+	if table2.entries[data.FqnHandlerDynamic] == table.entries[data.FqnHandlerDynamic] {
 		t.Fail()
 	}
 }

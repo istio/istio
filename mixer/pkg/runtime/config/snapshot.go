@@ -245,6 +245,11 @@ func (h HandlerStatic) AdapterParams() interface{} {
 	return h.Params
 }
 
+// Static Handler doesn't have a connection config
+func (h HandlerStatic) ConnectionConfig() *v1beta1.Connection {
+	return nil
+}
+
 // GetName gets name
 func (i InstanceStatic) GetName() string {
 	return i.Name
@@ -273,6 +278,11 @@ func (h HandlerDynamic) AdapterName() string {
 // AdapterParams gets AdapterParams
 func (h HandlerDynamic) AdapterParams() interface{} {
 	return h.AdapterConfig
+}
+
+// ConnectionConfig gets Connection parameters of dynamic handler
+func (h HandlerDynamic) ConnectionConfig() *v1beta1.Connection {
+	return h.Connection
 }
 
 // GetName gets name
