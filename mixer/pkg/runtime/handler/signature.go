@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"sort"
 
+	"istio.io/api/policy/v1beta1"
+
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/mixer/pkg/pool"
@@ -40,7 +42,7 @@ func (s signature) equals(other signature) bool {
 }
 
 // calculateSignature returns signature given handler and array of dynamic or static instances
-func calculateSignature(handler hndlr, insts interface{}) signature {
+func calculateSignature(handler hndlr, handlerConn *v1beta1.Connection, insts interface{}) signature {
 	if reflect.TypeOf(insts).Kind() != reflect.Slice {
 		return zeroSignature
 	}
@@ -66,6 +68,10 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 		(reflect.ValueOf(handler.AdapterParams()).Kind() != reflect.Ptr || !reflect.ValueOf(handler.AdapterParams()).IsNil()) {
 		encoded = encoded && encode(buf, handler.AdapterParams())
 	}
+	if handlerConn != nil {
+		encoded = encoded && encode(buf, handlerConn)
+	}
+
 	for _, name := range instanceNames {
 		instance := instanceMap[name]
 		encoded = encoded && encode(buf, instance.TemplateName())
