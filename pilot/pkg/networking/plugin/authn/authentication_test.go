@@ -532,6 +532,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 	cases := []struct {
 		name              string
 		in                *authn.Policy
+		sdsEnabled        bool
 		sdsUdsPath        string
 		useTrustworthyJwt bool
 		useNormalJwt      bool
@@ -636,6 +637,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
+			sdsEnabled: true,
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -710,7 +712,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 		},
 	}
+	tmp := model.SDSEnabled
+	defer func() {
+		model.SDSEnabled = tmp
+	}()
 	for _, c := range cases {
+		model.SDSEnabled = c.sdsEnabled
 		got := setupFilterChains(
 			c.in,
 			c.sdsUdsPath,
