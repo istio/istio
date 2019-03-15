@@ -173,6 +173,16 @@ func (m *VirtualHost) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetHedgePolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return VirtualHostValidationError{
+				Field:  "HedgePolicy",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -864,6 +874,16 @@ func (m *RouteAction) Validate() error {
 
 	// no validation rules for InternalRedirectAction
 
+	if v, ok := interface{}(m.GetHedgePolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteActionValidationError{
+				Field:  "HedgePolicy",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.ClusterSpecifier.(type) {
 
 	case *RouteAction_Cluster:
@@ -1047,6 +1067,71 @@ func (e RetryPolicyValidationError) Error() string {
 }
 
 var _ error = RetryPolicyValidationError{}
+
+// Validate checks the field values on HedgePolicy with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *HedgePolicy) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if wrapper := m.GetInitialRequests(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return HedgePolicyValidationError{
+				Field:  "InitialRequests",
+				Reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	if v, ok := interface{}(m.GetAdditionalRequestChance()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HedgePolicyValidationError{
+				Field:  "AdditionalRequestChance",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for HedgeOnPerTryTimeout
+
+	return nil
+}
+
+// HedgePolicyValidationError is the validation error returned by
+// HedgePolicy.Validate if the designated constraints aren't met.
+type HedgePolicyValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HedgePolicyValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHedgePolicy.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HedgePolicyValidationError{}
 
 // Validate checks the field values on RedirectAction with the rules defined in
 // the proto definition for this message. If any rules are violated, an error

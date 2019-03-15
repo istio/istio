@@ -307,7 +307,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:cd72afc3a00653fbd8b3e64169e4e444641dc1e0077df43aa41a5986f46ec0f6"
+  digest = "1:837b53240a3ebcc273546e938e8fe29ebdb39c7af1ca185f933f1effcf0f48c7"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -338,6 +338,7 @@
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
+    "envoy/service/tap/v2alpha",
     "envoy/type",
     "envoy/type/matcher",
     "pkg/cache",
@@ -346,8 +347,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "eb553e72ac8724721a99ed85fcb116467c7a2bac"
-  version = "v0.6.7"
+  revision = "0ad6fa1cf0b9b6ca8f3617a7188a568e81f40b87"
+  version = "v0.6.9"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"

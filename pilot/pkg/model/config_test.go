@@ -688,6 +688,34 @@ func TestServiceRoleBindings(t *testing.T) {
 	}
 }
 
+func TestAuthorizationPolicies(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy1", "istio-system", store, t)
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy2", "default", store, t)
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy3", "istio-system", store, t)
+	tests := []struct {
+		namespace  string
+		expectName map[string]bool
+	}{
+		{namespace: "wrong", expectName: nil},
+		{namespace: "default", expectName: map[string]bool{"policy2": true}},
+		{namespace: "istio-system", expectName: map[string]bool{"policy1": true, "policy3": true}},
+	}
+
+	for _, tt := range tests {
+		config := store.AuthorizationPolicies(tt.namespace)
+		if tt.expectName != nil {
+			for _, cfg := range config {
+				if !tt.expectName[cfg.Name] {
+					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, config)
+				}
+			}
+		} else if len(config) != 0 {
+			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", config)
+		}
+	}
+}
+
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	addRbacConfigToStore(model.RbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
@@ -716,6 +744,12 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 		value = &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "User0"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
+	case model.AuthorizationPolicy.Type:
+		value = &rbacproto.AuthorizationPolicy{
+			WorkloadSelector: &rbacproto.WorkloadSelector{
+				Labels: map[string]string{"app": "test"},
+			},
+		}
 	default:
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	}
