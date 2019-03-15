@@ -80,7 +80,7 @@ func deployBookInfoService(ctx core.Context, bookinfoYamlFile string) (err error
 		}
 	}()
 
-	ns, err := e.AllocateNamespace("bookinfo", true)
+	ns, err := e.NewNamespace("bookinfo", true)
 	if err != nil {
 		return err
 	}

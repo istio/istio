@@ -15,6 +15,7 @@
 package galley
 
 import (
+	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/core"
@@ -56,6 +57,8 @@ func New(c core.Context, cfg Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
 	case core.Native:
 		return newNative(c, c.Environment().(*native.Environment), cfg)
+	case core.Kube:
+		return newKube(c, c.Environment().(*kube.Environment), cfg)
 	default:
 		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}

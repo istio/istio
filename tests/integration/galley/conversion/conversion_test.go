@@ -29,9 +29,6 @@ import (
 )
 
 func TestConversion(t *testing.T) {
-	ctx := framework2.NewContext(t)
-	defer ctx.Done(t)
-
 	dataset, err := testdata.Load()
 	if err != nil {
 		t.Fatalf("Error loading data set: %v", err)

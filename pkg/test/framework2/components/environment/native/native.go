@@ -50,7 +50,7 @@ func New(ctx core.Context) (core.Environment, error) {
 		Mesh:           &mesh,
 		ServiceManager: service.NewManager(),
 	}
-	ctx.TrackResource(e)
+	e.id = ctx.TrackResource(e)
 
 	return e, nil
 }
@@ -65,24 +65,23 @@ func (e *Environment) ID() core.ResourceID {
 	return e.id
 }
 
-// AllocateNamespace allocates a new testing namespace.
-func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namespace, error) {
+// NewNamespace allocates a new testing namespace.
+func (e *Environment) NewNamespace(prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 
 	n := &nativeNamespace{name: ns}
-	id := e.ctx.TrackResource(n)
-	n.id = id
+	n.id = e.ctx.TrackResource(n)
 
 	return n, nil
 }
 
-// AllocateNamespace allocates a new testing namespace.
-func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+// NewNamespace allocates a new testing namespace or fails test.
+func (e *Environment) NewNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
 	t.Helper()
 
-	ns, err := e.AllocateNamespace(prefix, inject)
+	ns, err := e.NewNamespace(prefix, inject)
 	if err != nil {
-		t.Fatalf("Environment.AllocateNamespaceOrFail: %v", err)
+		t.Fatalf("Environment.NewNamespaceOrFail: %v", err)
 	}
 
 	return ns

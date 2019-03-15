@@ -93,7 +93,7 @@ func TestValidation(t *testing.T) {
 			}
 
 			env := ctx.Environment().(*kube.Environment)
-			ns := env.AllocateNamespaceOrFail(t, "validation", false)
+			ns := env.NewNamespaceOrFail(t, "validation", false)
 			err = env.ApplyContents(ns, yml)
 
 			switch {

@@ -82,8 +82,8 @@ func (e *Environment) Settings() *Settings {
 	return e.s.clone()
 }
 
-// AllocateNamespace allocates a new testing namespace.
-func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namespace, error) {
+// NewNamespace allocates a new testing namespace.
+func (e *Environment) NewNamespace(prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
@@ -97,11 +97,11 @@ func (e *Environment) AllocateNamespace(prefix string, inject bool) (core.Namesp
 }
 
 // NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+func (e *Environment) NewNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
 	t.Helper()
-	n, err := e.AllocateNamespace(prefix, inject)
+	n, err := e.NewNamespace(prefix, inject)
 	if err != nil {
-		t.Fatalf("Environment.AllocateNamespaceOrFail: %v", err)
+		t.Fatalf("Environment.NewNamespaceOrFail: %v", err)
 	}
 	return n
 }

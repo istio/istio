@@ -62,7 +62,7 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	ns := ctx.Environment().AllocateNamespaceOrFail(t, "bookinfo", true)
+	ns := ctx.Environment().NewNamespaceOrFail(t, "bookinfo", true)
 
 	g.ApplyConfigOrFail(t, ns,
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
@@ -130,7 +130,7 @@ func TestTcpMetric(t *testing.T) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	ns := ctx.Environment().AllocateNamespaceOrFail(t, "bookinfo", true)
+	ns := ctx.Environment().NewNamespaceOrFail(t, "bookinfo", true)
 
 	g.ApplyConfigOrFail(
 		t,

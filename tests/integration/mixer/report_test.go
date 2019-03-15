@@ -38,7 +38,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 	be := policybackend.NewOrFail(t, ctx)
 
 	env := ctx.Environment()
-	ns := env.AllocateNamespaceOrFail(t, "mixreport", false)
+	ns := env.NewNamespaceOrFail(t, "mixreport", false)
 
 	g.ApplyConfigOrFail(t,
 		ns,
@@ -64,7 +64,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 }
 `, map[string]string{"TestNamespace": ns.Name()})
 
-	retry.TillSuccessOrFail(t, func() error {
+	retry.UntilSuccessOrFail(t, func() error {
 		mxr.Report(t, map[string]interface{}{
 			"context.protocol":      "http",
 			"destination.uid":       "somesrvcname",

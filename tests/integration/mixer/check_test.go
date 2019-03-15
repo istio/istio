@@ -36,7 +36,7 @@ func TestCheck_Allow(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, s)
 
-		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+		ns := s.Environment().NewNamespaceOrFail(t, "testcheck-allow", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -48,7 +48,7 @@ func TestCheck_Allow(t *testing.T) {
 		// This is not strictly necessary, but it is done so for posterity.
 		be.DenyCheck(t, false)
 
-		retry.TillSuccessOrFail(t, func() error {
+		retry.UntilSuccessOrFail(t, func() error {
 			result := mxr.Check(t, map[string]interface{}{
 				"context.protocol":      "http",
 				"destination.name":      "somesrvcname",
@@ -77,7 +77,7 @@ func TestCheck_Deny(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, s)
 
-		ns := s.Environment().AllocateNamespaceOrFail(t, "testcheck_allow", false)
+		ns := s.Environment().NewNamespaceOrFail(t, "testcheck-deny", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -89,7 +89,7 @@ func TestCheck_Deny(t *testing.T) {
 		// This is not strictly necessary, but it is done so for posterity.
 		be.DenyCheck(t, true)
 
-		retry.TillSuccessOrFail(t, func() error {
+		retry.UntilSuccessOrFail(t, func() error {
 			result := mxr.Check(t, map[string]interface{}{
 				"context.protocol":      "http",
 				"destination.name":      "somesrvcname",

@@ -112,6 +112,5 @@ func NewOrFail(ctx core.Context, t *testing.T, cfg Config) Instance {
 		t.Fatalf("echo.NewOrFail: %v", err)
 	}
 
-	ctx.TrackResource(i)
 	return i
 }

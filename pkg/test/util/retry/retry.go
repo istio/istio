@@ -60,8 +60,8 @@ func Delay(delay time.Duration) Option {
 // RetriableFunc a function that can be retried.
 type RetriableFunc func() (result interface{}, completed bool, err error)
 
-// TillSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
-func TillSuccess(fn func() error, options ...Option) error {
+// UntilSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
+func UntilSuccess(fn func() error, options ...Option) error {
 	_, e := Do(func() (interface{}, bool, error) {
 		err := fn()
 		if err != nil {
@@ -69,17 +69,17 @@ func TillSuccess(fn func() error, options ...Option) error {
 		}
 
 		return nil, true, nil
-	})
+	}, options...)
 
 	return e
 }
 
-// TillSuccessOrFail calls TillSuccess, and fails t with Fatalf if it ends up returning an error
-func TillSuccessOrFail(t *testing.T, fn func() error, options ...Option) {
+// UntilSuccessOrFail calls UntilSuccess, and fails t with Fatalf if it ends up returning an error
+func UntilSuccessOrFail(t *testing.T, fn func() error, options ...Option) {
 	t.Helper()
-	err := TillSuccess(fn, options...)
+	err := UntilSuccess(fn, options...)
 	if err != nil {
-		t.Fatalf("retry.TillSuccessOrFail: %v", err)
+		t.Fatalf("retry.UntilSuccessOrFail: %v", err)
 	}
 }
 

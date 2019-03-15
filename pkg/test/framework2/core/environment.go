@@ -32,8 +32,8 @@ type Environment interface {
 
 	EnvironmentName() EnvironmentName
 
-	AllocateNamespace(prefix string, inject bool) (Namespace, error)
-	AllocateNamespaceOrFail(t *testing.T, prefix string, inject bool) Namespace
+	NewNamespace(prefix string, inject bool) (Namespace, error)
+	NewNamespaceOrFail(t *testing.T, prefix string, inject bool) Namespace
 }
 
 // EnvironmentName of environment
