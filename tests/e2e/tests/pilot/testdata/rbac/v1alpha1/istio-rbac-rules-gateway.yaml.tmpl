@@ -2,7 +2,7 @@
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
-  name: access-gw-http-tcp
+  name: egressgateway-viewer
 spec:
   rules:
     - services: ["istio-egressgateway.{{ .IstioNamespace }}.svc.cluster.local"]
@@ -11,11 +11,14 @@ spec:
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-access-gw-http-tcp
+  name: bind-egressgateway-viewer
 spec:
   subjects:
-    - user: "cluster.local/ns/{{ .Namespace }}/sa/a"
+  # This is a temporary workaround in the test as authentication policy is not supported on gateway.
+  # TODO(yangminzhu): Use the user field instead once authentication policy is supported on gateway.
+    - properties:
+        request.headers[x-forwarded-client-cert]: "*URI=spiffe://cluster.local/ns/istio-system/sa/a"
   roleRef:
     kind: ServiceRole
-    name: "access-gw-http-tcp"
+    name: "egressgateway-viewer"
 ---

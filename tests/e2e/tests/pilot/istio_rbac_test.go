@@ -55,16 +55,15 @@ func setupRbacRules(t *testing.T, rules []string) *deployableConfig {
 		YamlFiles:  yamlFiles,
 		kubeconfig: tc.Kube.KubeConfig,
 	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
-		return nil
-	}
 	return cfgs
 }
 
 func TestRBACForSidecar(t *testing.T) {
 	cfgs := setupRbacRules(t, []string{rbacEnableTmpl, rbacRulesTmpl})
 	if cfgs != nil {
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
 		defer cfgs.Teardown()
 	} else {
 		return
@@ -177,35 +176,45 @@ func TestRBACForSidecar(t *testing.T) {
 }
 
 func TestRBACForEgressGateway(t *testing.T) {
+	// Only test when Authentication enabled, otherwise there is no client certificate for the source identity.
+	if !tc.Kube.AuthEnabled {
+		return
+	}
+
+	// 1. Enable RBAC on egress gateway
+	// 2. Apply RBAC rules that only allow pod a to access the egressgateway
+	// 3. Apply the following networking rules
+	//    a) Route all sidecar requests for eu.bookinfo.com to egress gateway
+	//    b) Route egress gateway traffic to service entry eu.bookinfo.com
+	//    c) Create service entry eu.bookinfo.com served by pod t
 	cfgs := setupRbacRules(t, []string{
 		"testdata/rbac/v1alpha1/istio-rbac-enable-gateway.yaml.tmpl",
 		"testdata/rbac/v1alpha1/istio-rbac-rules-gateway.yaml.tmpl",
-		"testdata/networking/v1alpha3/disable-mtls-egressgateway.yaml",
-		"testdata/networking/v1alpha3/egressgateway.yaml",
-		"testdata/networking/v1alpha3/service-entry-bookinfo.yaml",
-		"testdata/networking/v1alpha3/rule-route-via-egressgateway.yaml"})
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
+		"testdata/rbac/v1alpha1/istio-egressgateway.yaml"})
+	if cfgs != nil {
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
 	} else {
 		return
 	}
-	defer cfgs.Teardown()
 
 	testCases := []struct {
-		app    string
-		expect bool
+		app  string
+		want bool
 	}{
-		{app: "a", expect: true},
-		{app: "b", expect: false},
+		{app: "a", want: true},
+		{app: "b", want: false},
 	}
 
 	for _, test := range testCases {
 		for cluster := range tc.Kube.Clusters {
-			name := fmt.Sprintf("%s from %s cluster->istio-egressgateway[%v]", test.app, cluster, test.expect)
+			name := fmt.Sprintf("%s from %s cluster->istio-egressgateway[%v]", test.app, cluster, test.want)
 			runRetriableTest(t, name, 30, func() error {
 				// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 				reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-				resp := ClientRequest(cluster, test.app, reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
+				resp := ClientRequest(cluster, test.app, reqURL, 100, "-key Host -val eu.bookinfo.com")
 				count := make(map[string]int)
 				for _, elt := range resp.Host {
 					count[elt]++
@@ -215,12 +224,13 @@ func TestRBACForEgressGateway(t *testing.T) {
 				}
 				handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
 				log.Infof("request counts %v", count)
-				if test.expect {
-					if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
+
+				if test.want {
+					if count["eu.bookinfo.com"] >= 90 && count[httpOK] >= 90 && handledByEgress >= 90 {
 						return nil
 					}
 				} else {
-					if count["403"] >= 95 {
+					if count["403"] >= 90 {
 						return nil
 					}
 				}
