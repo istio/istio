@@ -68,7 +68,7 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
-	istioHelmChartName            = "istio"
+	istioHelmChartName             = "istio"
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
