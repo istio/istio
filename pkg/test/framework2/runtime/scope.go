@@ -48,8 +48,8 @@ func newScope(id string, p *scope) *scope {
 	return s
 }
 
-func (s *scope) add(r core.Resource) {
-	scopes.Framework.Debugf("Adding resource for tracking: %v", r.ID())
+func (s *scope) add(r core.Resource, id *resourceID) {
+	scopes.Framework.Debugf("Adding resource for tracking: %v", id)
 	s.resources = append(s.resources, r)
 }
 

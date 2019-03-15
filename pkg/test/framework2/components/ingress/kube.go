@@ -137,6 +137,7 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	if err != nil {
 		return CallResponse{}, err
 	}
+	scopes.Framework.Debugf("Received response from %q: %v", url, resp.StatusCode)
 
 	defer func() { _ = resp.Body.Close() }()
 

@@ -288,7 +288,7 @@ func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 	var err error
 
 	// Wait for the pods to transition to running.
-	if c.namespace, err = env.NewNamespace("apps", true); err != nil {
+	if c.namespace, err = env.NewNamespace(ctx, "apps", true); err != nil {
 		return nil, err
 	}
 

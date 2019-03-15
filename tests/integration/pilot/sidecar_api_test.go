@@ -15,13 +15,16 @@
 package pilot
 
 import (
+	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework2/runtime"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
-	pilot2 "istio.io/istio/pkg/test/framework2/components/pilot"
+	"istio.io/istio/pkg/test/framework2/components/pilot"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -30,16 +33,21 @@ import (
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
+var (
+	ist istio.Instance
+)
+
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-	// component
+	// TODO: applying the examples folder requires creation of many namespaces. Limit this test to the native environment
+	// until the test can be reconciled.
+	ctx.RequireOrSkip(t, core.Native)
 
-	galley := galley.NewOrFail(t, ctx, galley.Config{})
-	pilotInst := pilot2.NewOrFail(t, ctx, &pilot2.Config{Galley: galley})
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	pilotInst := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	// Simulate proxy identity of a sidecar ...
 	nodeID := &model.Proxy{
@@ -82,7 +90,7 @@ func TestSidecarListeners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("No such directory: %v", err)
 	}
-	err = galley.ApplyConfigDir(path)
+	err = g.ApplyConfigDir(nil, path)
 	if err != nil {
 		t.Fatalf("Error applying directory: %v", err)
 	}
@@ -160,5 +168,19 @@ func validateMongoListener(t *testing.T, response *structpath.Structpath) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework2.RunSuite("sidecar_api_test", m, nil)
+	framework2.RunSuite("sidecar_api_test", m, setup)
+}
+
+func setup(s *runtime.SuiteContext) error {
+	switch s.Environment().EnvironmentName() {
+	case core.Kube:
+		i, err := istio.New(s, nil)
+		if err != nil {
+			return err
+		}
+		ist = i
+	case core.Native:
+	}
+
+	return nil
 }

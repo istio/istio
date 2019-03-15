@@ -146,7 +146,7 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yam
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
-func (c *nativeComponent) ApplyConfigDir(sourceDir string) (err error) {
+func (c *nativeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (err error) {
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {
@@ -158,7 +158,16 @@ func (c *nativeComponent) ApplyConfigDir(sourceDir string) (err error) {
 		if readerr != nil {
 			return readerr
 		}
-		return ioutil.WriteFile(targetPath, contents, os.ModePerm)
+
+		yamlText := string(contents)
+		if ns != nil {
+			yamlText, err = ns.Apply(yamlText)
+			if err != nil {
+				return err
+			}
+		}
+
+		return ioutil.WriteFile(targetPath, []byte(yamlText), os.ModePerm)
 	})
 }
 

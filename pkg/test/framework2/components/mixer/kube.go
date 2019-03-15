@@ -19,13 +19,12 @@ import (
 	"io"
 	"net"
 
-	"istio.io/istio/pkg/test/framework2/components/istio"
-
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
+	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/core"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -57,6 +56,7 @@ func newKube(ctx core.Context) (*kubeComponent, error) {
 		clients: make(map[string]istioMixerV1.MixerClient),
 	}
 
+	// TODO: This should be obtained from an Istio deployment.
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
 		return nil, err

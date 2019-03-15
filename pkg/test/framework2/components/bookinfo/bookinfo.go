@@ -15,6 +15,7 @@
 package bookinfo
 
 import (
+	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/core"
@@ -24,6 +25,8 @@ import (
 type Instance interface {
 	core.Resource
 
+	Namespace() core.Namespace
+
 	DeployRatingsV2(ctx core.Context) error
 	DeployMongoDb(ctx core.Context) error
 }
@@ -32,7 +35,7 @@ type Instance interface {
 func New(ctx core.Context) (Instance, error) {
 	switch ctx.Environment().EnvironmentName() {
 	case core.Kube:
-		return newKube(ctx)
+		return newKube(ctx, ctx.Environment().(*kube.Environment))
 	default:
 		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
 	}

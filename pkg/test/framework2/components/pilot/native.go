@@ -47,11 +47,11 @@ type nativeComponent struct {
 	model.ConfigStoreCache
 	server   *bootstrap.Server
 	stopChan chan struct{}
-	config   *Config
+	config   Config
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx core.Context, e *native.Environment, config *Config) (Instance, error) {
+func newNative(ctx core.Context, e *native.Environment, config Config) (Instance, error) {
 	instance := &nativeComponent{
 		environment: e,
 		stopChan:    make(chan struct{}),

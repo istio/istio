@@ -59,13 +59,6 @@ type client struct {
 func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
 	t.Helper()
 
-	// TODO
-	//expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
-	//if err != nil {
-	//	t.Fatalf("Error expanding attribute templates: %v", err)
-	//}
-	//attributes = expanded.(map[string]interface{})
-
 	req := istioMixerV1.ReportRequest{
 		Attributes: []istioMixerV1.CompressedAttributes{
 			getAttrBag(attributes)},
@@ -79,13 +72,6 @@ func (c *client) Report(t testing.TB, attributes map[string]interface{}) {
 // Check implements DeployedMixer.Check.
 func (c *client) Check(t testing.TB, attributes map[string]interface{}) CheckResponse {
 	t.Helper()
-
-	// TODO
-	//expanded, err := expandAttributeTemplates(c.env.Evaluate, attributes)
-	//if err != nil {
-	//	t.Fatalf("Error expanding attribute templates: %v", err)
-	//}
-	//attributes = expanded.(map[string]interface{})
 
 	req := istioMixerV1.CheckRequest{
 		Attributes: getAttrBag(attributes),

@@ -15,6 +15,7 @@
 package bookinfo
 
 import (
+	"istio.io/istio/pkg/test/scopes"
 	"path"
 	"testing"
 
@@ -63,6 +64,7 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 		t.Fatalf("unable to load config %s at %v, err:%v", l, p, err)
 	}
 
+	scopes.Framework.Debugf("Loaded BookInfo file: %s\n%s\n", p, content)
 	return content
 }
 

@@ -22,7 +22,7 @@ import (
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
-	DefaultTimeout = time.Second * 20
+	DefaultTimeout = time.Second * 30
 
 	// DefaultDelay the default delay between successive retry attempts
 	DefaultDelay = time.Millisecond * 10

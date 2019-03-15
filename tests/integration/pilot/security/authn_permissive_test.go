@@ -118,7 +118,7 @@ func TestAuthnPermissive(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	pilot := pilot2.NewOrFail(t, ctx, &pilot2.Config{})
+	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
 	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
 	a := aps.GetAppOrFail("a", t)
 

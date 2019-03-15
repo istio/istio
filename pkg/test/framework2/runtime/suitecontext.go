@@ -57,7 +57,7 @@ func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*SuiteConte
 		return nil, err
 	}
 	c.environment = env
-	c.globalScope.add(env)
+	c.globalScope.add(env, &resourceID{id: scopeID})
 
 	return c, nil
 }
@@ -94,7 +94,7 @@ func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) str
 			return candidate
 		}
 
-		candidate = fmt.Sprintf("%s/[%s-%d]", contextID, t.Name(), discriminator)
+		candidate = fmt.Sprintf("%s/[%s-%d]", contextID, t.String(), discriminator)
 		discriminator++
 	}
 }
@@ -102,8 +102,9 @@ func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) str
 // TrackResource adds a new resource to track to the context at this level.
 func (s *SuiteContext) TrackResource(r core.Resource) core.ResourceID {
 	id := s.allocateResourceID(s.globalScope.id, r)
-	s.globalScope.add(r)
-	return &resourceID{id: id}
+	rid := &resourceID{id: id}
+	s.globalScope.add(r, rid)
+	return rid
 }
 
 // Environment implements ResourceContext

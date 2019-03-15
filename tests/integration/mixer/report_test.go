@@ -38,7 +38,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 	be := policybackend.NewOrFail(t, ctx)
 
 	env := ctx.Environment()
-	ns := env.NewNamespaceOrFail(t, "mixreport", false)
+	ns := env.NewNamespaceOrFail(t, ctx, "mixreport", false)
 
 	g.ApplyConfigOrFail(t,
 		ns,

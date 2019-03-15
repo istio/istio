@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
+
 	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/framework2/components/ingress"
@@ -62,9 +65,9 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	ns := ctx.Environment().NewNamespaceOrFail(t, "bookinfo", true)
+	bi := bookinfo.NewOrFail(t, ctx)
 
-	g.ApplyConfigOrFail(t, ns,
+	g.ApplyConfigOrFail(t, bi.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
@@ -74,7 +77,13 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	// Warm up
-	visitProductPage(ing, 30*time.Second, 200, t)
+	err := visitProductPage(ing, 30*time.Second, 200, t)
+	if err != nil {
+		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	}
+
+	label = tmpl.EvaluateOrFail(t, label, map[string]string{"TestNamespace": bi.Namespace().Name()})
+	labelValue = tmpl.EvaluateOrFail(t, labelValue, map[string]string{"TestNamespace": bi.Namespace().Name()})
 
 	// Wait for some data to arrive.
 	initial, err := prom.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
@@ -83,7 +92,10 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 	}
 	t.Logf("Baseline established: initial = %v", initial)
 
-	visitProductPage(ing, 30*time.Second, 200, t)
+	err = visitProductPage(ing, 30*time.Second, 200, t)
+	if err != nil {
+		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	}
 
 	final, err := prom.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
 	if err != nil {
@@ -130,11 +142,9 @@ func TestTcpMetric(t *testing.T) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	ns := ctx.Environment().NewNamespaceOrFail(t, "bookinfo", true)
-
 	g.ApplyConfigOrFail(
 		t,
-		ns,
+		bi.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
@@ -143,7 +153,10 @@ func TestTcpMetric(t *testing.T) {
 	prom := prometheus.NewOrFail(t, ctx)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
-	visitProductPage(ing, 30*time.Second, 200, t)
+	err = visitProductPage(ing, 30*time.Second, 200, t)
+	if err != nil {
+		t.Fatalf("unable to retrieve 200 from product page: %v", err)
+	}
 
 	query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
 	validateMetric(t, prom, query, "istio_tcp_sent_bytes_total")
@@ -159,48 +172,46 @@ func TestTcpMetric(t *testing.T) {
 }
 
 func validateMetric(t *testing.T, prom prometheus.Instance, query, metricName string) {
-	t.Helper()
 	want := float64(1)
 
-	t.Logf("prometheus query: %s", query)
-	value, err := prom.WaitForQuiesce(query)
-	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
-	}
+	retry.UntilSuccessOrFail(t, func() error {
+		t.Logf("prometheus query: %s", query)
+		value, err := prom.WaitForQuiesce(query)
+		if err != nil {
+			return fmt.Errorf("could not get metrics from prometheus: %v", err)
+		}
 
-	got, err := prom.Sum(value, nil)
-	if err != nil {
-		t.Logf("value: %s", value.String())
-		t.Logf("prometheus values for %s:\n%s", metricName, promDump(prom, metricName))
-		t.Fatalf("Could not find metric value: %v", err)
-	}
-	t.Logf("%s: %f", metricName, got)
-	if got < want {
-		t.Logf("prometheus values for %s:\n%s", metricName, promDump(prom, metricName))
-		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
-	}
+		got, err := prom.Sum(value, nil)
+		if err != nil {
+			t.Logf("value: %s", value.String())
+			t.Logf("prometheus values for %s:\n%s", metricName, promDump(prom, metricName))
+			return fmt.Errorf("could not find metric value: %v", err)
+		}
+
+		t.Logf("%s: %f", metricName, got)
+		if got < want {
+			t.Logf("prometheus values for %s:\n%s", metricName, promDump(prom, metricName))
+			return fmt.Errorf("bad metric value: got %f, want at least %f", got, want)
+		}
+		return nil
+	})
 }
 
 func visitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus int, t *testing.T) error {
-	start := time.Now()
-	for {
+	return retry.UntilSuccess(func() error {
+
 		response, err := ing.Call("/productpage")
 		if err != nil {
-			t.Logf("Unable to connect to product page: %v", err)
+			return fmt.Errorf("unable to connect to product page: %v", err)
 		}
 
 		status := response.Code
-		if status == wantStatus {
-			t.Logf("Got %d response from product page!", wantStatus)
-			return nil
+		if status != wantStatus {
+			return fmt.Errorf("did not get the expected response (%d) from the product page: %d", wantStatus, status)
 		}
-
-		if time.Since(start) > timeout {
-			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
-		}
-
-		time.Sleep(3 * time.Second)
-	}
+		t.Logf("Got %d response from product page!", wantStatus)
+		return nil
+	}, retry.Delay(3*time.Second), retry.Timeout(timeout))
 }
 
 // promDump gets all of the recorded values for a metric by name and generates a report of the values.

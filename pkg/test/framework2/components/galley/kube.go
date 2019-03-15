@@ -16,6 +16,9 @@ package galley
 
 import (
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
@@ -99,7 +102,7 @@ func (c *kubeComponent) ClearConfig() (err error) {
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *kubeComponent) ApplyConfig(ns core.Namespace, yamlText ...string)  error {
-	namespace := "default"
+	namespace := ""
 	if ns != nil {
 		namespace = ns.Name()
 	}
@@ -125,28 +128,25 @@ func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlT
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
-func (c *kubeComponent) ApplyConfigDir(sourceDir string) (err error) {
-	panic("NYI: ApplyConfigDir")
-	// TODO
-	return
-	//return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
-	//	targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
-	//	if info.IsDir() {
-	//		scopes.Framework.Debugf("Making dir: %v", targetPath)
-	//		return os.MkdirAll(targetPath, os.ModePerm)
-	//	}
-	//	scopes.Framework.Debugf("Copying file to: %v", targetPath)
-	//	contents, readerr := ioutil.ReadFile(path)
-	//	if readerr != nil {
-	//		return readerr
-	//	}
-	//	return ioutil.WriteFile(targetPath, contents, os.ModePerm)
-	//})
+func (c *kubeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (err error) {
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+
+		scopes.Framework.Debugf("Reading config file to: %v", path)
+		contents, readerr := ioutil.ReadFile(path)
+		if readerr != nil {
+			return readerr
+		}
+
+		return c.ApplyConfig(ns, string(contents))
+	})
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *kubeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
-	panic("NYI: ApplyConfigDir")
+	panic("NYI: WaitForSnapshot")
 	// TODO
 //	return c.client.waitForSnapshot(collection, snapshot)
 }

@@ -75,9 +75,9 @@ func (c *TestContext) Settings() *core.Settings {
 // TrackResource adds a new resource to track to the context at this level.
 func (c *TestContext) TrackResource(r core.Resource) core.ResourceID {
 	id := c.suite.allocateResourceID(c.id, r)
-	c.scope.add(r)
-
-	return &resourceID{id: id}
+	rid := &resourceID{id: id}
+	c.scope.add(r, rid)
+	return rid
 }
 
 // RunDir allocated for this test.

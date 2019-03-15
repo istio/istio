@@ -40,8 +40,8 @@ const (
 	// DefaultSystemNamespace default value for SystemNamespace
 	DefaultSystemNamespace = "istio-system"
 
-	// DefaultValuesFile for Istio Helm deployment.
-	DefaultValuesFile = "values-istio-mcp.yaml"
+	// ValuesMcpFile for Istio Helm deployment.
+	E2EValuesFile = "values-e2e.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
@@ -70,7 +70,7 @@ var (
 		UndeployTimeout: 0,
 		ChartDir:        env.IstioChartDir,
 		CrdsFilesDir:    env.CrdsFilesDir,
-		ValuesFile:      DefaultValuesFile,
+		ValuesFile:      E2EValuesFile,
 	}
 
 	// Defaults for helm overrides.

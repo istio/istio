@@ -65,21 +65,29 @@ func (e *Environment) ID() core.ResourceID {
 	return e.id
 }
 
+func (e *Environment) ClaimNamespace(name string) (core.Namespace, error) {
+	return &nativeNamespace{name: name}, nil
+}
+
+func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) (core.Namespace) {
+	return &nativeNamespace{name: name}
+}
+
 // NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(prefix string, inject bool) (core.Namespace, error) {
+func (e *Environment) NewNamespace(ctx core.Context, prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 
 	n := &nativeNamespace{name: ns}
-	n.id = e.ctx.TrackResource(n)
+	n.id = ctx.TrackResource(n)
 
 	return n, nil
 }
 
 // NewNamespace allocates a new testing namespace or fails test.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+func (e *Environment) NewNamespaceOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) core.Namespace {
 	t.Helper()
 
-	ns, err := e.NewNamespace(prefix, inject)
+	ns, err := e.NewNamespace(ctx, prefix, inject)
 	if err != nil {
 		t.Fatalf("Environment.NewNamespaceOrFail: %v", err)
 	}

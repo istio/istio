@@ -82,24 +82,43 @@ func (e *Environment) Settings() *Settings {
 	return e.s.clone()
 }
 
+func (e *Environment) ClaimNamespace(name string) (core.Namespace, error) {
+	if !e.Accessor.NamespaceExists(name) {
+		if err := e.Accessor.CreateNamespace(name, "istio-test", true); err != nil {
+			return nil, err
+		}
+
+	}
+	return &kubeNamespace{name: name}, nil
+}
+
+func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) (core.Namespace) {
+	ns, err := e.ClaimNamespace(name)
+	if err != nil {
+		t.Fatalf("ClaimNamespaceOrFail: %v", err)
+	}
+
+	return ns
+}
+
 // NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(prefix string, inject bool) (core.Namespace, error) {
+func (e *Environment) NewNamespace(ctx core.Context, prefix string, inject bool) (core.Namespace, error) {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 	if err := e.Accessor.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}
 
 	n := &kubeNamespace{name: ns, a: e.Accessor}
-	id := e.ctx.TrackResource(n)
+	id := ctx.TrackResource(n)
 	n.id = id
 
 	return n, nil
 }
 
 // NewNamespaceOrFail allocates a new testing namespace, or fails the test if it cannot be allocated.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, prefix string, inject bool) core.Namespace {
+func (e *Environment) NewNamespaceOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) core.Namespace {
 	t.Helper()
-	n, err := e.NewNamespace(prefix, inject)
+	n, err := e.NewNamespace(ctx, prefix, inject)
 	if err != nil {
 		t.Fatalf("Environment.NewNamespaceOrFail: %v", err)
 	}

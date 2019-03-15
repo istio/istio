@@ -43,17 +43,19 @@ type Config struct {
 }
 
 // New returns a new Pilot instance.
-func New(c core.Context, config *Config) (Instance, error) {
+func New(c core.Context, config Config) (Instance, error) {
 	switch c.Environment().EnvironmentName() {
 	case core.Native:
 		return newNative(c, c.Environment().(*native.Environment), config)
+	case core.Kube:
+		return newKube(c, config)
 	default:
 		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
 	}
 }
 
 // NewOrFail returns a new Pilot instance, or fails test.
-func NewOrFail(t *testing.T, c core.Context, config *Config) Instance {
+func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("pilot.NewOrFail: %v", err)

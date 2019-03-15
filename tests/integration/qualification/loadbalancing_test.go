@@ -61,7 +61,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 
-	ns := ctx.Environment().NewNamespaceOrFail(t, "test", true)
+	ns := ctx.Environment().NewNamespaceOrFail(t, ctx,"test", true)
 
 	g.ApplyConfigOrFail(t,
 		ns,
@@ -70,7 +70,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t))
 
 	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{})
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	rangeStart := time.Now()
 

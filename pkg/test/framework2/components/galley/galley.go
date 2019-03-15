@@ -37,7 +37,7 @@ type Instance interface {
 	ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string)
 
 	// ApplyConfigDir recursively applies all the config files in the specified directory
-	ApplyConfigDir(configDir string) error
+	ApplyConfigDir(ns core.Namespace, configDir string) error
 
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error

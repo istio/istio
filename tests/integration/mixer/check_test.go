@@ -36,7 +36,7 @@ func TestCheck_Allow(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, s)
 
-		ns := s.Environment().NewNamespaceOrFail(t, "testcheck-allow", false)
+		ns := s.Environment().NewNamespaceOrFail(t, s,"testcheck-allow", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -65,7 +65,7 @@ func TestCheck_Allow(t *testing.T) {
 			}
 
 			return nil
-		})
+		}, retry.Timeout(time.Second* 40))
 	})
 }
 
@@ -77,7 +77,7 @@ func TestCheck_Deny(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, s)
 
-		ns := s.Environment().NewNamespaceOrFail(t, "testcheck-deny", false)
+		ns := s.Environment().NewNamespaceOrFail(t, s,"testcheck-deny", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -106,7 +106,7 @@ func TestCheck_Deny(t *testing.T) {
 			// TODO: ensure that the policy backend receives the request.
 
 			return nil
-		})
+		}, retry.Timeout(time.Second* 40))
 	})
 }
 

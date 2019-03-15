@@ -15,11 +15,32 @@
 package qualification
 
 import (
+	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework2/runtime"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework2"
 )
 
+var (
+	ist istio.Instance
+)
+
 func TestMain(m *testing.M) {
-	framework2.RunSuite("qualification", m, nil)
+	framework2.RunSuite("qualification", m, setup)
+}
+
+func setup(s *runtime.SuiteContext) error {
+	switch s.Environment().EnvironmentName() {
+	case core.Kube:
+		i, err := istio.New(s, nil)
+		if err != nil {
+			return err
+		}
+		ist = i
+	case core.Native:
+	}
+
+	return nil
 }

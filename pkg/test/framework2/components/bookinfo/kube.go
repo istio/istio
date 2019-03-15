@@ -38,11 +38,17 @@ const (
 var _ Instance = &kubeComponent{}
 
 // NewKubeComponent factory function for the component
-func newKube(ctx core.Context) (Instance, error) {
+func newKube(ctx core.Context, e *kube.Environment) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 
-	if err := deployBookInfoService(ctx, string(BookInfoConfig)); err != nil {
+	ns, err := e.ClaimNamespace("default")
+	if err != nil {
+		return nil, err
+	}
+	c.namespace = ns
+
+	if err := deployBookInfoService(ctx, c.namespace, string(BookInfoConfig)); err != nil {
 		return nil, err
 	}
 
@@ -50,24 +56,29 @@ func newKube(ctx core.Context) (Instance, error) {
 }
 
 type kubeComponent struct {
-	id core.ResourceID
+	id        core.ResourceID
+	namespace core.Namespace
 }
 
 func (c *kubeComponent) ID() core.ResourceID {
 	return c.id
 }
 
+func (c *kubeComponent) Namespace() core.Namespace {
+	return c.namespace
+}
+
 // DeployRatingsV2 deploys ratings v2 service
 func (c *kubeComponent) DeployRatingsV2(ctx core.Context) (err error) {
-	return deployBookInfoService(ctx, string(BookinfoRatingsv2))
+	return deployBookInfoService(ctx, c.namespace, string(BookinfoRatingsv2))
 }
 
 // DeployMongoDb deploys mongodb service
 func (c *kubeComponent) DeployMongoDb(ctx core.Context) (err error) {
-	return deployBookInfoService(ctx, string(BookinfoDb))
+	return deployBookInfoService(ctx, c.namespace, string(BookinfoDb))
 }
 
-func deployBookInfoService(ctx core.Context, bookinfoYamlFile string) (err error) {
+func deployBookInfoService(ctx core.Context, namespace core.Namespace, bookinfoYamlFile string) (err error) {
 	e := ctx.Environment().(*kube.Environment)
 
 	scopes.CI.Infof("=== BEGIN: Deploy BookInfoConfig (via Yaml File - %s) ===", bookinfoYamlFile)
@@ -80,12 +91,7 @@ func deployBookInfoService(ctx core.Context, bookinfoYamlFile string) (err error
 		}
 	}()
 
-	ns, err := e.NewNamespace("bookinfo", true)
-	if err != nil {
-		return err
-	}
-
 	yamlFile := path.Join(env.BookInfoKube, bookinfoYamlFile)
-	_, err = e.DeployYaml(ns.Name(), yamlFile)
+	_, err = e.DeployYaml(namespace.Name(), yamlFile)
 	return
 }
