@@ -61,7 +61,7 @@ func TestSidecarListeners(t *testing.T) {
 	// Test the empty case where no config is loaded
 	err = pilot.WatchDiscovery(time.Second*5,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-			validator := structpath.AssertThatProto(t, response)
+			validator := structpath.AssertProtoForTest(t, response)
 			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort) {
 				return false, nil
 			}
@@ -115,7 +115,7 @@ func TestSidecarListeners(t *testing.T) {
 	}
 */
 
-func validateListenersNoConfig(t *testing.T, response *structpath.Structpath, mixerCheckPort int) {
+func validateListenersNoConfig(t *testing.T, response *structpath.InstanceForTest, mixerCheckPort int) {
 	t.Run("validate-mixer-listener", func(t *testing.T) {
 		mixerListener := response.ForTest(t).
 			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort)
@@ -194,5 +194,5 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Structpath, mi
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework.Run("sidecar_api_test", m)
+	_, _ = framework.Run("sidecar_api_test", m)
 }
