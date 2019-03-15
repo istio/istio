@@ -93,9 +93,10 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	dualUse := false
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
+	rootCertFile := ""
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, defaultCertTTL, maxCertTTL,
-		org, dualUse, caNamespace, -1, client.CoreV1())
+		org, dualUse, caNamespace, -1, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -180,9 +181,10 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.org"
 	caNamespace := "default"
 	dualUse := false
+	rootCertFile := ""
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, certTTL, maxCertTTL,
-		org, dualUse, caNamespace, -1, client.CoreV1())
+		org, dualUse, caNamespace, -1, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -242,6 +244,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	org := "test.ca.org"
 	caNamespace := "default"
 	dualUse := false
+	rootCertFile := ""
 
 	client := fake.NewSimpleClientset()
 
@@ -250,7 +253,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
-		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
+		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	}
@@ -269,7 +272,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
-		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
+		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -495,6 +498,38 @@ func TestSignCSRTTLError(t *testing.T) {
 	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
 	if signErr.(*Error).Error() != expectedErr {
 		t.Errorf("Expected error: %s but got error: %s.", signErr.(*Error).Error(), expectedErr)
+	}
+}
+
+func TestAppendRootCerts(t *testing.T) {
+	root1 := "root-cert-1"
+	expRootCerts := `root-cert-1
+root-cert-2
+root-cert-3`
+	rootCerts, err := appendRootCerts([]byte(root1), "./root-certs-for-testing.pem")
+	if err != nil {
+		t.Errorf("appendRootCerts() returns an error: %v", err)
+	} else {
+		if expRootCerts != string(rootCerts[:]) {
+			t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+				expRootCerts, string(rootCerts[:]))
+		}
+	}
+}
+
+func TestAppendRootCertsToNullCert(t *testing.T) {
+	// nil certificate
+	var root1 []byte
+	expRootCerts := `root-cert-2
+root-cert-3`
+	rootCerts, err := appendRootCerts(root1, "./root-certs-for-testing.pem")
+	if err != nil {
+		t.Errorf("appendRootCerts() returns an error: %v", err)
+	} else {
+		if expRootCerts != string(rootCerts[:]) {
+			t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+				expRootCerts, string(rootCerts[:]))
+		}
 	}
 }
 
