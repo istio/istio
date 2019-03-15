@@ -132,9 +132,11 @@ var (
 	// for cache sync before Pilot bootstrap. Set env PILOT_ENABLE_WAIT_CACHE_SYNC = 0 to disable it.
 	EnableWaitCacheSync = os.Getenv("PILOT_ENABLE_WAIT_CACHE_SYNC") != "0"
 
-	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
+	// DisableXDSMarshalingToAny provides an option to toggle the "xDS marshaling to Any" feature.
+	// This feature is currently "off" by default due to a regression. The corresponding environment variable needs
+	// to be explicitly set to "0" in order to re-enable the feature.
 	DisableXDSMarshalingToAny = func() bool {
-		return len(os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY")) != 0
+		return os.Getenv("PILOT_DISABLE_XDS_MARSHALING_TO_ANY") != "0"
 	}
 )
 
