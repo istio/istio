@@ -8,7 +8,7 @@
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
 ifneq ($(CI),)
-    _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
+    _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info,tf:debug
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
