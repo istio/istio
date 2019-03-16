@@ -18,20 +18,6 @@ import (
 	"fmt"
 )
 
-const (
-	// HubValuesKey values key for the Docker image hub.
-	HubValuesKey = "global.hub"
-
-	// TagValuesKey values key for the Docker image tag.
-	TagValuesKey = "global.tag"
-
-	// ImagePullPolicyValuesKey values key for the Docker image pull policy.
-	ImagePullPolicyValuesKey = "global.imagePullPolicy"
-
-	// LatestTag value
-	LatestTag = "latest"
-)
-
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// Path to kube config file. Required if the environment is kubernetes.
@@ -40,12 +26,6 @@ type Settings struct {
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
-
-	// Hub value to use in Helm templates
-	Hub string
-
-	// Tag value to use in Helm templates
-	Tag string
 }
 
 func (s *Settings) clone() *Settings {
@@ -58,6 +38,7 @@ func (s *Settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("KubeConfig:      %s\n", s.KubeConfig)
+	result += fmt.Sprintf("MiniKubeIngress: %s\n", s.MinikubeIngress)
 
 	return result
 }

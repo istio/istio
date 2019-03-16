@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
+	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -119,10 +120,15 @@ func newKube(ctx core.Context) (Instance, error) {
 		return nil, err
 	}
 
+	s, err := deployment2.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
+	}
+
 	yamlContent, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             env.Settings().Hub,
-		"Tag":             env.Settings().Tag,
-		"ImagePullPolicy": "Always",
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
+		"ImagePullPolicy": s.PullPolicy,
 		"deployment":      "policy-backend",
 		"app":             "policy-backend",
 		"version":         "test",

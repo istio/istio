@@ -44,8 +44,6 @@ var _ core.Dumper = &kubeComponent{}
 func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
-	scopes.CI.Infof("HUB: %s", env.Settings().Hub)
-	scopes.CI.Infof("TAG: %s", env.Settings().Tag)
 	scopes.CI.Infof("================================")
 
 	i := &kubeComponent{

@@ -6,9 +6,11 @@
 # is primarily used by the CI systems.
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
-_INTEGRATION_TEST_LOGGING_FLAG =
+_INTEGRATION_TEST_CIMODE_FLAG =
+_INTEGRATION_TEST_PULL_POLICY = Always
 ifneq ($(CI),)
-    _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info,tf:debug
+	_INTEGRATION_TEST_CIMODE_FLAG = --istio.test.ci
+	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
@@ -68,11 +70,12 @@ test.integration.local: | $(JUNIT_REPORT)
 test.integration.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
-	--istio.test.ci  \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 

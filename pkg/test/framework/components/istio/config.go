@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/deployment"
 
 	"istio.io/istio/pkg/test/framework/core"
 
@@ -71,15 +71,6 @@ var (
 		ChartDir:        env.IstioChartDir,
 		CrdsFilesDir:    env.CrdsFilesDir,
 		ValuesFile:      E2EValuesFile,
-	}
-
-	// Defaults for helm overrides.
-	defaultHelmValues = map[string]string{
-		kube.HubValuesKey:             kube.HUB.Value(),
-		kube.TagValuesKey:             kube.TAG.Value(),
-		"global.proxy.enableCoreDump": "true",
-		"global.mtls.enabled":         "true",
-		"galley.enabled":              "true",
 	}
 )
 
@@ -157,9 +148,12 @@ func DefaultConfig(ctx core.Context) (Config, error) {
 		return Config{}, err
 	}
 
-	var err error
-	s.Values, err = newHelmValues()
+	deps, err := deployment.SettingsFromCommandLine()
 	if err != nil {
+		return Config{}, err
+	}
+
+	if s.Values, err = newHelmValues(deps); err != nil {
 		return Config{}, err
 	}
 
@@ -171,7 +165,7 @@ func DefaultConfig(ctx core.Context) (Config, error) {
 		s.UndeployTimeout = DefaultCIUndeployTimeout
 
 		// Always pull the image when doing local development.
-		s.Values[kube.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+		s.Values[deployment.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 
 	return s, nil
@@ -195,7 +189,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues() (map[string]string, error) {
+func newHelmValues(s *deployment.Settings) (map[string]string, error) {
 	userValues, err := parseHelmValues()
 	if err != nil {
 		return nil, err
@@ -203,16 +197,20 @@ func newHelmValues() (map[string]string, error) {
 
 	// Copy the defaults first.
 	values := make(map[string]string)
-	for k, v := range defaultHelmValues {
-		values[k] = v
-	}
+
+	// Common values
+	values[deployment.HubValuesKey] = s.Hub
+	values[deployment.TagValuesKey] = s.Tag
+	values[deployment.ImagePullPolicyValuesKey] = s.PullPolicy
+
 	// Copy the user values.
 	for k, v := range userValues {
 		values[k] = v
 	}
+
 	// Always pull Docker images if using the "latest".
-	if values[kube.TagValuesKey] == kube.LatestTag {
-		values[kube.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	if values[deployment.TagValuesKey] == deployment.LatestTag {
+		values[deployment.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 	return values, nil
 }

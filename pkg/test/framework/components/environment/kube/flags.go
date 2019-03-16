@@ -18,13 +18,15 @@ import (
 	"flag"
 	"os"
 
+	"istio.io/istio/pkg/test/env"
+
 	"github.com/mitchellh/go-homedir"
 )
 
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig: ISTIO_TEST_KUBE_CONFIG.Value(),
+		KubeConfig: env.ISTIO_TEST_KUBE_CONFIG.Value(),
 	}
 )
 
@@ -41,9 +43,6 @@ func newSettingsFromCommandline() (*Settings, error) {
 			return nil, err
 		}
 	}
-
-	s.Hub = HUB.Value()
-	s.Tag = TAG.Value()
 
 	return s, nil
 }

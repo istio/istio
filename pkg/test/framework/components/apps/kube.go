@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/deployment"
+	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	testKube "istio.io/istio/pkg/test/kube"
 )
@@ -593,10 +594,15 @@ type deploymentFactory struct {
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace core.Namespace) (*deployment.Instance, error) {
 
+	s, err := deployment2.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
+	}
+
 	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             e.Settings().Hub,
-		"Tag":             e.Settings().Tag,
-		"ImagePullPolicy": "Always",
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
+		"ImagePullPolicy": s.PullPolicy,
 		"deployment":      d.deployment,
 		"service":         d.service,
 		"app":             d.service,
