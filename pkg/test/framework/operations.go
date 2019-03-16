@@ -79,7 +79,7 @@ func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
 	defer func() {
 		end := time.Now()
 		scopes.CI.Infof("=== Suite %q run time: %v ===", testID, end.Sub(start))
-	} ()
+	}()
 
 	if err = doTestSetup(setupFn...); err != nil {
 		errLevel = exitCodeSetupError

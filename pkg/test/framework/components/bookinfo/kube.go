@@ -46,9 +46,9 @@ func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err er
 	}
 
 	depcfg := deployment.Config{
-		Name:         string(cfg),
-		Namespace:    ns,
-		Yaml:         string(by),
+		Name:      string(cfg),
+		Namespace: ns,
+		Yaml:      string(by),
 	}
 
 	return deployment.New(ctx, depcfg)
