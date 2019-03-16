@@ -19,8 +19,6 @@ import (
 	"path"
 
 	"istio.io/istio/pkg/test/framework/components/deployment"
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/framework/core"
 
 	"istio.io/istio/pkg/test/env"
@@ -51,7 +49,7 @@ func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err er
 		Name:         string(cfg),
 		Namespace:    ns,
 		Yaml:         string(by),
-		RetryOptions: []retry.Option{retry.Delay(retry.DefaultDelay), retry.Timeout(retry.DefaultTimeout)},
+		//RetryOptions: []retry.Option{retry.Delay(retry.DefaultDelay), retry.Timeout(retry.DefaultTimeout)},
 	}
 
 	return deployment.New(ctx, depcfg)

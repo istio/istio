@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"istio.io/istio/pkg/test/framework/core"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Instance of a deployment. Wraps over pkg/test/deployment instances for test framework integration purposes.
@@ -38,8 +37,6 @@ type Config struct {
 
 	// The yaml contents to deploy.
 	Yaml string
-
-	RetryOptions []retry.Option
 }
 
 // New returns a new instance of deployment.

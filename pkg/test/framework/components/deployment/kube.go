@@ -17,6 +17,8 @@ package deployment
 import (
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/test/util/retry"
+	"time"
 
 	"istio.io/istio/pkg/test/scopes"
 
@@ -61,7 +63,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 		}
 	}()
 
-	if err = i.deployment.Deploy(e.Accessor, true, cfg.RetryOptions...); err != nil {
+	if err = i.deployment.Deploy(e.Accessor, true, retry.Timeout(time.Minute * 5), retry.Delay(time.Second * 5)); err != nil {
 		return nil, err
 	}
 
@@ -82,7 +84,7 @@ func (c *kubeComponent) Namespace() core.Namespace {
 
 func (c *kubeComponent) Close() (err error) {
 	if c.deployment != nil {
-		err = c.deployment.Delete(c.env.Accessor, true, c.cfg.RetryOptions...)
+		err = c.deployment.Delete(c.env.Accessor, true, retry.Timeout(time.Minute * 5), retry.Delay(time.Second * 5))
 		c.deployment = nil
 	}
 
