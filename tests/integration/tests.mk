@@ -38,7 +38,7 @@ test.integration.all: test.integration test.integration.kube
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.kube.deploy \
@@ -47,13 +47,13 @@ test.integration.%.kube:
 
 # Generate integration test targets for local environment.
 test.integration.%:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env native
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... --istio.test.env native
 
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
-TEST_PACKAGES = $(shell go list ./tests/integration2/... | grep -v /qualification | grep -v /examples)
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # All integration tests targeting local environment.
 .PHONY: test.integration.local
