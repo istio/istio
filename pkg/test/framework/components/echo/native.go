@@ -19,14 +19,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/framework/components/apps"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework/core"
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
@@ -35,6 +32,8 @@ import (
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 var (
