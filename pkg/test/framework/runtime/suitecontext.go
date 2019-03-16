@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"sync"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -139,6 +140,10 @@ func (s *suiteContext) done() error {
 
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
 func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
+	if len(prefix) != 0 && !strings.HasSuffix(prefix, "-") {
+		prefix += "-"
+	}
+
 	dir, err := ioutil.TempDir(s.settings.RunDir(), prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",

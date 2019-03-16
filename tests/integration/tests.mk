@@ -71,7 +71,6 @@ test.integration.kube: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.kube.deploy \
 	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))

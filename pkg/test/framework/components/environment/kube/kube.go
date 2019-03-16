@@ -50,7 +50,7 @@ func New(ctx core.Context) (core.Environment, error) {
 
 	scopes.CI.Infof("Test Framework Kubernetes environment Settings:\n%s", s)
 
-	workDir, err := ctx.CreateTmpDirectory("kube")
+	workDir, err := ctx.CreateTmpDirectory("env-kube")
 	if err != nil {
 		return nil, err
 	}

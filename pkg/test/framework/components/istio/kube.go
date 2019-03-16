@@ -32,12 +32,14 @@ import (
 type kubeComponent struct {
 	id          core.ResourceID
 	settings    Config
+	ctx         core.Context
 	environment *kube.Environment
 	deployment  *deployment.Instance
 }
 
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
+var _ core.Dumper = &kubeComponent{}
 
 func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
@@ -49,6 +51,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, erro
 	i := &kubeComponent{
 		environment: env,
 		settings:    cfg,
+		ctx:         ctx,
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -57,7 +60,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, erro
 		return i, nil
 	}
 
-	helmDir, err := ctx.CreateTmpDirectory("istio")
+	helmDir, err := ctx.CreateTmpDirectory("istio-deployment-yaml-split")
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +71,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, erro
 	}
 
 	// Write out istio.yaml for debugging purposes.
-	dir, err := ctx.CreateTmpDirectory("istio-yaml")
+	dir, err := ctx.CreateTmpDirectory("istio-deployment-yaml")
 	if err != nil {
 		scopes.Framework.Errorf("Unable to create tmp directory to write out istio.yaml: %v", err)
 	} else {
@@ -116,13 +119,49 @@ func (i *kubeComponent) Settings() Config {
 	return i.settings
 }
 
-func (i *kubeComponent) Close() error {
+func (i *kubeComponent) Close() (err error) {
 	if i.settings.DeployIstio {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
 		//return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
-		return i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		err := i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		if err == nil {
+			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
+		}
 	}
 
-	return nil
+	return
+}
+
+func (i *kubeComponent) Dump() {
+	scopes.CI.Errorf("=== Dumping Istio Deployment State...")
+
+	deployment.DumpPodState(i.settings.SystemNamespace, i.environment.Accessor)
+
+	d, err := i.ctx.CreateTmpDirectory("istio-state")
+	if err != nil {
+		scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
+		return
+	}
+
+	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
+	if err != nil {
+		scopes.CI.Errorf("Unable to get pods from the system namespace: %v", err)
+		return
+	}
+
+	for _, pod := range pods {
+		for _, container := range pod.Spec.Containers {
+			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name)
+			if err != nil {
+				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				continue
+			}
+
+			fname := path.Join(d, fmt.Sprintf("%s-%s", pod.Name, container.Name))
+			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+				scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+		}
+	}
 }
