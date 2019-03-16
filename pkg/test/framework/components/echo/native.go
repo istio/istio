@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/test/framework/components/apps"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,8 +27,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/framework/api/components"
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
@@ -256,11 +255,11 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 func (e *nativeEndpoint) makeURL(opts CallOptions) *url.URL {
 	protocol := string(opts.Protocol)
 	switch protocol {
-	case components.AppProtocolHTTP:
-	case components.AppProtocolGRPC:
-	case components.AppProtocolWebSocket:
+	case apps.AppProtocolHTTP:
+	case apps.AppProtocolGRPC:
+	case apps.AppProtocolWebSocket:
 	default:
-		protocol = string(components.AppProtocolHTTP)
+		protocol = string(apps.AppProtocolHTTP)
 	}
 
 	if opts.Secure {
