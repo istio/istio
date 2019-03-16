@@ -26,12 +26,12 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/bookinfo"
-	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/components/ingress"
-	"istio.io/istio/pkg/test/framework2/components/prometheus"
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 const (
@@ -54,7 +54,7 @@ const (
 // To use a particular kubeconfig (other than ~/.kube/config), set:
 // --istio.test.kube.config=<path>
 func TestIngressLoadBalancing(t *testing.T) {
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, core.Kube)

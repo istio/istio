@@ -12,27 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package citadel
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
-func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(core.Kube))
+// Citadel represents a deployed Citadel instance.
+type Instance interface {
+	core.Resource
+
+	WaitForSecretToExist() (*corev1.Secret, error)
+	DeleteSecret() error
 }
 
-func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+type Config struct {
+	Istio istio.Instance
+}
 
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
+// Deploy returns a new instance of Apps
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+
+	ctx.Environment().Case(core.Kube, func() {
+		i = newKube(ctx, cfg)
+	})
+
+	return
+}
+
+// Deploy returns a new instance of Citadel or fails test
+func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
+	t.Helper()
+
+	i, err := New(ctx, cfg)
 	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
+		t.Fatalf("citadel.NewOrFail: %v", err)
 	}
+	return i
 }

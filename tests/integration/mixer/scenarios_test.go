@@ -22,22 +22,22 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
-	"istio.io/istio/pkg/test/framework2/components/ingress"
-	"istio.io/istio/pkg/test/framework2/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/bookinfo"
-	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/components/mixer"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/mixer"
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
 
 // Port of TestMetric
 func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, core.Kube)
@@ -49,7 +49,7 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 
 // Port of TestMetric
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, core.Kube)
@@ -124,7 +124,7 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/11430")
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, core.Kube)

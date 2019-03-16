@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/core"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/components/pilot"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -39,7 +39,7 @@ var (
 
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	// TODO: applying the examples folder requires creation of many namespaces. Limit this test to the native environment
@@ -168,5 +168,5 @@ func validateMongoListener(t *testing.T, response *structpath.Structpath) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework2.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
 }

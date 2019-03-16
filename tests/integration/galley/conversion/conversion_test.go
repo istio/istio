@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
 	"istio.io/istio/galley/pkg/testing/testdata"
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/galley"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/galley"
 )
 
 func TestConversion(t *testing.T) {
@@ -39,7 +39,7 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			ctx := framework2.NewContext(t)
+			ctx := framework.NewContext(t)
 			defer ctx.Done(t)
 
 			var gal galley.Instance
@@ -108,5 +108,5 @@ func TestMain(m *testing.M) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
 
-	framework2.Main("galley_conversion", m, framework2.RequireEnvironment(core.Native))
+	framework.Main("galley_conversion", m, framework.RequireEnvironment(core.Native))
 }

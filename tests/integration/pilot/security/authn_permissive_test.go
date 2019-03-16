@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -29,15 +29,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/apps"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
-	pilot2 "istio.io/istio/pkg/test/framework2/components/pilot"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
+	pilot2 "istio.io/istio/pkg/test/framework/components/pilot"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	framework2.Main("authn_permissive_test", m)
+	framework.Main("authn_permissive_test", m)
 }
 
 func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
@@ -84,7 +84,7 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 // TestAuthnPermissive checks when authentication policy is permissive, Pilot generates expected
 // listener configuration.
 func TestAuthnPermissive(t *testing.T) {
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.

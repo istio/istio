@@ -19,11 +19,11 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 type testData string
@@ -61,7 +61,7 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	// Validation tests only works in Kubernetes environment
@@ -83,7 +83,7 @@ func TestValidation(t *testing.T) {
 				return
 			}
 
-			ctx := framework2.NewContext(t)
+			ctx := framework.NewContext(t)
 			defer ctx.Done(t)
 
 			yml, err := d.load()
@@ -114,5 +114,5 @@ func TestValidation(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework2.Main("galley_validation", m, framework2.RequireEnvironment(core.Kube), istio.SetupOnKube(nil, nil))
+	framework.Main("galley_validation", m, framework.RequireEnvironment(core.Kube), istio.SetupOnKube(nil, nil))
 }

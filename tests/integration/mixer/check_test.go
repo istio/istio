@@ -19,18 +19,18 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/galley"
-	"istio.io/istio/pkg/test/framework2/components/mixer"
-	"istio.io/istio/pkg/test/framework2/components/policybackend"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/mixer"
+	"istio.io/istio/pkg/test/framework/components/policybackend"
 )
 
 func TestCheck_Allow(t *testing.T) {
-	framework2.Run(t, func(ctx core.TestContext) {
+	framework.Run(t, func(ctx core.TestContext) {
 		gal := galley.NewOrFail(t, ctx, galley.Config{})
 		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,
@@ -71,7 +71,7 @@ func TestCheck_Allow(t *testing.T) {
 }
 
 func TestCheck_Deny(t *testing.T) {
-	framework2.Run(t, func(ctx core.TestContext) {
+	framework.Run(t, func(ctx core.TestContext) {
 		gal := galley.NewOrFail(t, ctx, galley.Config{})
 		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,

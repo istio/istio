@@ -17,8 +17,8 @@ package mixer
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 var (
@@ -26,5 +26,5 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework2.Main("mixer_test", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("mixer_test", m, istio.SetupOnKube(&ist, nil))
 }

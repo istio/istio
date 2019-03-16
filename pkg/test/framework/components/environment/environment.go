@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package environment
 
 import (
-	"testing"
+	"fmt"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
-func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(core.Kube))
-}
+type FactoryFn func(name string, ctx core.Context) (core.Environment, error)
 
-func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
-	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
+// New returns a new environment instance.
+func New(name string, ctx core.Context) (core.Environment, error) {
+	switch name {
+	case core.Native.String():
+		return native.New(ctx)
+	case core.Kube.String():
+		return kube.New(ctx)
+	default:
+		return nil, fmt.Errorf("unknown environment: %q", name)
 	}
 }

@@ -14,25 +14,14 @@
 
 package framework
 
-import (
-	"testing"
+import "istio.io/istio/pkg/test/framework/core"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
-)
-
-func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(core.Kube))
-}
-
-func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
-	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
+// RequireEnvironment will mark the suite as skipped if the expected environment is not found.
+func RequireEnvironment(n core.EnvironmentName) SetupFn { // nolint:interfacer
+	return func(ctx core.SuiteContext) error {
+		if ctx.Environment().EnvironmentName() != n {
+			ctx.Skipf("RequireEnvironment: Skipping test due to unsupported environment: %q", n.String())
+		}
+		return nil
 	}
 }

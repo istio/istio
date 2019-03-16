@@ -17,12 +17,12 @@ package citadel
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/framework/core"
 
-	"istio.io/istio/pkg/test/framework2/components/citadel"
+	"istio.io/istio/pkg/test/framework/components/citadel"
 
-	"istio.io/istio/pkg/test/framework2"
-	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
 	//	t.Skip("https://github.com/istio/istio/issues/10989")
-	ctx := framework2.NewContext(t)
+	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, core.Kube)
 
@@ -68,5 +68,5 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework2.Main("citadel_test", m, framework2.RequireEnvironment(core.Kube), istio.SetupOnKube(&ist, nil))
+	framework.Main("citadel_test", m, framework.RequireEnvironment(core.Kube), istio.SetupOnKube(&ist, nil))
 }
