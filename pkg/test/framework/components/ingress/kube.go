@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(1 * time.Minute)
+	retryTimeout = retry.Timeout(3 * time.Minute)
 	retryDelay   = retry.Delay(5 * time.Second)
 
 	_ Instance = &kubeComponent{}
@@ -63,12 +63,16 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 			if err != nil {
 				return nil, false, err
 			}
+
+			scopes.Framework.Debugf("Querying ingress, pods:\n%v\n", pods)
 			if len(pods) == 0 {
 				return nil, false, errors.New("no ingress pod found")
 			}
+
+			scopes.Framework.Debugf("Found pod: \n%v\n", pods[0])
 			ip := pods[0].Status.HostIP
 			if ip == "" {
-				return nil, false, errors.New("no Host IP availale on the ingress node yet")
+				return nil, false, errors.New("no Host IP available on the ingress node yet")
 			}
 
 			svc, err := env.Accessor.GetService(n, serviceName)
@@ -76,6 +80,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 				return nil, false, err
 			}
 
+			scopes.Framework.Debugf("Found service for the gateway:\n%v\n", svc)
 			if len(svc.Spec.Ports) == 0 {
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
 			}
@@ -92,7 +97,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-			return nil, false, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Name, svc.Namespace)
+			return nil, false, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
 		}
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
