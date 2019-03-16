@@ -136,13 +136,13 @@ func (i *kubeComponent) Close() (err error) {
 func (i *kubeComponent) Dump() {
 	scopes.CI.Errorf("=== Dumping Istio Deployment State...")
 
-	deployment.DumpPodState(i.settings.SystemNamespace, i.environment.Accessor)
-
 	d, err := i.ctx.CreateTmpDirectory("istio-state")
 	if err != nil {
 		scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 		return
 	}
+
+	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessor)
 
 	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
 	if err != nil {
