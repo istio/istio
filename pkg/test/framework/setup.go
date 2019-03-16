@@ -20,7 +20,8 @@ import "istio.io/istio/pkg/test/framework/core"
 func RequireEnvironment(n core.EnvironmentName) SetupFn { // nolint:interfacer
 	return func(ctx core.SuiteContext) error {
 		if ctx.Environment().EnvironmentName() != n {
-			ctx.Skipf("RequireEnvironment: Skipping test due to unsupported environment: %q", n.String())
+			ctx.Skipf("RequireEnvironment (%s): Test suite does not support environment: %q",
+				n.String(), ctx.Environment().EnvironmentName())
 		}
 		return nil
 	}
