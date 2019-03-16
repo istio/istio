@@ -47,8 +47,7 @@ type CallResponse struct {
 	Body string
 }
 
-
-// New returns a new instance of echo.
+// Deploy returns a new instance of echo.
 func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(core.Kube, func() {
@@ -57,7 +56,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	return
 }
 
-// New returns a new Ingress instance or fails test
+// Deploy returns a new Ingress instance or fails test
 func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
 	t.Helper()
 	i, err := New(ctx, cfg)

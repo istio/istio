@@ -41,7 +41,6 @@ type Config struct {
 	Galley galley.Instance
 }
 
-
 // New returns a new instance of echo.
 func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())

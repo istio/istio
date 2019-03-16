@@ -15,84 +15,44 @@
 package bookinfo
 
 import (
-	"fmt"
+	"io/ioutil"
 	"path"
+
+	"istio.io/istio/pkg/test/framework2/components/deployment"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-
-	"istio.io/istio/pkg/test/scopes"
 )
 
 type bookInfoConfig string
 
 const (
-	// BookInfoConfig uses "bookinfo.yaml"
-	BookInfoConfig    bookInfoConfig = "bookinfo.yaml"
+	// BookInfo uses "bookinfo.yaml"
+	BookInfo          bookInfoConfig = "bookinfo.yaml"
 	BookinfoRatingsv2 bookInfoConfig = "bookinfo-ratings-v2.yaml"
 	BookinfoDb        bookInfoConfig = "bookinfo-db.yaml"
 )
 
-var _ Instance = &kubeComponent{}
-
-// NewKubeComponent factory function for the component
-func newKube(ctx core.Context) (Instance, error) {
-	e := ctx.Environment().(*kube.Environment)
-	c := &kubeComponent{}
-	c.id = ctx.TrackResource(c)
-
-	ns, err := e.ClaimNamespace("default")
+func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
+	ns, err := ctx.Environment().ClaimNamespace("default")
 	if err != nil {
 		return nil, err
 	}
-	c.namespace = ns
 
-	if err := deployBookInfoService(ctx, c.namespace, string(BookInfoConfig)); err != nil {
+	yamlFile := path.Join(env.BookInfoKube, string(cfg))
+	by, err := ioutil.ReadFile(yamlFile)
+	if err != nil {
 		return nil, err
 	}
 
-	return c, nil
-}
+	depcfg := deployment.Config{
+		Name:         string(cfg),
+		Namespace:    ns,
+		Yaml:         string(by),
+		RetryOptions: []retry.Option{retry.Delay(retry.DefaultDelay), retry.Timeout(retry.DefaultTimeout)},
+	}
 
-type kubeComponent struct {
-	id        core.ResourceID
-	namespace core.Namespace
-}
-
-func (c *kubeComponent) ID() core.ResourceID {
-	return c.id
-}
-
-func (c *kubeComponent) Namespace() core.Namespace {
-	return c.namespace
-}
-
-// DeployRatingsV2 deploys ratings v2 service
-func (c *kubeComponent) DeployRatingsV2(ctx core.Context) (err error) {
-	return deployBookInfoService(ctx, c.namespace, string(BookinfoRatingsv2))
-}
-
-// DeployMongoDb deploys mongodb service
-func (c *kubeComponent) DeployMongoDb(ctx core.Context) (err error) {
-	return deployBookInfoService(ctx, c.namespace, string(BookinfoDb))
-}
-
-func deployBookInfoService(ctx core.Context, namespace core.Namespace, bookinfoYamlFile string) (err error) {
-	e := ctx.Environment().(*kube.Environment)
-
-	scopes.CI.Infof("=== BEGIN: Deploy BookInfoConfig (via Yaml File - %s) ===", bookinfoYamlFile)
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("BookInfoConfig %s deployment failed: %v", bookinfoYamlFile, err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy BookInfoConfig %s ===", bookinfoYamlFile)
-		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy BookInfoConfig %s ===", bookinfoYamlFile)
-		}
-	}()
-
-	yamlFile := path.Join(env.BookInfoKube, bookinfoYamlFile)
-	_, err = e.DeployYaml(namespace.Name(), yamlFile)
-	return
+	return deployment.New(ctx, depcfg)
 }

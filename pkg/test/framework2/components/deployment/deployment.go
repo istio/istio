@@ -12,38 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bookinfo
+package deployment
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework2/components/deployment"
 	"istio.io/istio/pkg/test/framework2/core"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
+// Instance of a deployment. Wraps over pkg/test/deployment instances for test framework integration purposes.
+type Instance interface {
+	core.Resource
+
+	// Name of the deployment, for debugging purposes.
+	Name() string
+
+	// Namespace of the deployment, if any.
+	Namespace() core.Namespace
+}
+
 type Config struct {
+	Name string
+
+	// Namespace of deployment. If left empty, default will be used.
 	Namespace core.Namespace
+
+	// The yaml contents to deploy.
+	Yaml string
+
+	RetryOptions []retry.Option
 }
 
-// DeployOrFail returns a new instance of deployed BookInfo or fails test
-func Deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
+// New returns a new instance of deployment.
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())
-
 	ctx.Environment().Case(core.Kube, func() {
-		i, err = deploy(ctx, cfg)
+		i, err = newKube(ctx, cfg)
 	})
-
 	return
-}
-
-// DeployOrFail returns a new instance of deployed BookInfo or fails test
-func DeployOrFail(t *testing.T, ctx core.Context, cfg bookInfoConfig) deployment.Instance {
-	t.Helper()
-
-	i, err := Deploy(ctx, cfg)
-	if err != nil {
-		t.Fatalf("bookinfo.DeployOrFail: %v", err)
-	}
-
-	return i
 }

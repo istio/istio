@@ -46,7 +46,6 @@ type Instance interface {
 	CreateConfigSnippet(name string, namespace string) string
 }
 
-
 // New returns a new instance of echo.
 func New(ctx core.Context) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())

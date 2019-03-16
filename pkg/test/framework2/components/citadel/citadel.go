@@ -35,8 +35,7 @@ type Config struct {
 	Istio istio.Instance
 }
 
-
-// New returns a new instance of Apps
+// Deploy returns a new instance of Apps
 func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())
 
@@ -47,7 +46,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	return
 }
 
-// New returns a new instance of Citadel or fails test
+// Deploy returns a new instance of Citadel or fails test
 func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
 	t.Helper()
 

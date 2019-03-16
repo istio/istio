@@ -31,7 +31,7 @@ func TestBasic(t *testing.T) {
 	defer ctx.Done(t)
 
 	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.New(ctx, nil)
+	_, err := istio.Deploy(ctx, nil)
 	if err != nil {
 		t.Fatalf("Istio should have deployed: %v", err)
 	}

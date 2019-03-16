@@ -17,7 +17,7 @@ package framework2
 import "istio.io/istio/pkg/test/framework2/core"
 
 // RequireEnvironment will mark the suite as skipped if the expected environment is not found.
-func RequireEnvironment(n core.EnvironmentName) SetupFn {
+func RequireEnvironment(n core.EnvironmentName) SetupFn { // nolint:interfacer
 	return func(ctx core.SuiteContext) error {
 		if ctx.Environment().EnvironmentName() != n {
 			ctx.Skipf("RequireEnvironment: Skipping test due to unsupported environment: %q", n.String())

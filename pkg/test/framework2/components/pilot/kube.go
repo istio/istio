@@ -38,7 +38,7 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx core.Context, cfg Config) (Instance, error) {
+func newKube(ctx core.Context, _ Config) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 

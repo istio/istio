@@ -31,7 +31,7 @@ import (
 
 type kubeComponent struct {
 	id          core.ResourceID
-	settings    *Config
+	settings    Config
 	environment *kube.Environment
 	deployment  *deployment.Instance
 }
@@ -39,7 +39,7 @@ type kubeComponent struct {
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
 
-func deploy(ctx core.Context, env *kube.Environment, cfg *Config) (Instance, error) {
+func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
 	scopes.CI.Infof("HUB: %s", env.Settings().Hub)
@@ -112,9 +112,8 @@ func (i *kubeComponent) ID() core.ResourceID {
 	return i.id
 }
 
-func (i *kubeComponent) Settings() *Config {
-	s := *i.settings
-	return &s
+func (i *kubeComponent) Settings() Config {
+	return i.settings
 }
 
 func (i *kubeComponent) Close() error {

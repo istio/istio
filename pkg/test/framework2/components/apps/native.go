@@ -18,12 +18,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"net"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework2/components/environment/native"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"

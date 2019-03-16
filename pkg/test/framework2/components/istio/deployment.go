@@ -42,7 +42,7 @@ const (
 	yamlSeparator = "\n---\n"
 )
 
-func generateIstioYaml(helmDir string, cfg *Config) (string, error) {
+func generateIstioYaml(helmDir string, cfg Config) (string, error) {
 	generatedYaml, err := renderIstioTemplate(helmDir, cfg)
 	if err != nil {
 		return "", err
@@ -61,12 +61,13 @@ func generateIstioYaml(helmDir string, cfg *Config) (string, error) {
 	return generatedYaml, nil
 }
 
-func renderIstioTemplate(helmDir string, s *Config) (string, error) {
+func renderIstioTemplate(helmDir string, cfg Config) (string, error) {
 	if err := helm.Init(helmDir, true); err != nil {
 		return "", err
 	}
 
-	renderedYaml, err := helm.Template(helmDir, s.ChartDir, "istio", s.SystemNamespace, path.Join(env.IstioChartDir, s.ValuesFile), s.Values)
+	renderedYaml, err := helm.Template(
+		helmDir, cfg.ChartDir, "istio", cfg.SystemNamespace, path.Join(env.IstioChartDir, cfg.ValuesFile), cfg.Values)
 	if err != nil {
 		return "", err
 	}

@@ -39,7 +39,6 @@ type Instance interface {
 	Sum(val prom.Value, labels map[string]string) (float64, error)
 }
 
-
 // New returns a new instance of echo.
 func New(ctx core.Context) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())

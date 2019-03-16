@@ -47,7 +47,6 @@ func (c *CheckResponse) Succeeded() bool {
 	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
 }
 
-
 // New returns a new instance of echo.
 func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	err = core.UnsupportedEnvironment(ctx.Environment())
@@ -59,7 +58,6 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 	})
 	return
 }
-
 
 func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
 	i, err := New(c, config)

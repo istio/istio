@@ -56,7 +56,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 		i, err = newNative(ctx, cfg)
 	})
 	ctx.Environment().Case(core.Kube, func() {
-		i, err = newKube(ctx, cfg)
+		i = newKube(ctx, cfg)
 	})
 	return
 }

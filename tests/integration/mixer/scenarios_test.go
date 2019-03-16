@@ -65,9 +65,9 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	bi := bookinfo.NewOrFail(t, ctx)
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
 
-	g.ApplyConfigOrFail(t, bi.Namespace(),
+	g.ApplyConfigOrFail(t, d.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
@@ -82,8 +82,8 @@ func testMetric(t *testing.T, ctx core.Context, label string, labelValue string)
 		t.Fatalf("unable to retrieve 200 from product page: %v", err)
 	}
 
-	label = tmpl.EvaluateOrFail(t, label, map[string]string{"TestNamespace": bi.Namespace().Name()})
-	labelValue = tmpl.EvaluateOrFail(t, labelValue, map[string]string{"TestNamespace": bi.Namespace().Name()})
+	label = tmpl.EvaluateOrFail(t, label, map[string]string{"TestNamespace": d.Namespace().Name()})
+	labelValue = tmpl.EvaluateOrFail(t, labelValue, map[string]string{"TestNamespace": d.Namespace().Name()})
 
 	// Wait for some data to arrive.
 	initial, err := prom.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
@@ -129,22 +129,16 @@ func TestTcpMetric(t *testing.T) {
 
 	ctx.RequireOrSkip(t, core.Kube)
 
-	bi := bookinfo.NewOrFail(t, ctx)
-	err := bi.DeployRatingsV2(ctx)
-	if err != nil {
-		t.Fatalf("Could not deploy ratings v2: %v", err)
-	}
-	err = bi.DeployMongoDb(ctx)
-	if err != nil {
-		t.Fatalf("Could not deploy mongodb: %v", err)
-	}
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
+	_ := bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoRatingsv2)
+	_ := bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoDb)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
 	g.ApplyConfigOrFail(
 		t,
-		bi.Namespace(),
+		d.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
@@ -153,7 +147,7 @@ func TestTcpMetric(t *testing.T) {
 	prom := prometheus.NewOrFail(t, ctx)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
-	err = visitProductPage(ing, 30*time.Second, 200, t)
+	err := visitProductPage(ing, 30*time.Second, 200, t)
 	if err != nil {
 		t.Fatalf("unable to retrieve 200 from product page: %v", err)
 	}

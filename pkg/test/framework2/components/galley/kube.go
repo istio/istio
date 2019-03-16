@@ -33,7 +33,7 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx core.Context, cfg Config) (Instance, error) {
+func newKube(ctx core.Context, cfg Config) Instance {
 
 	n := &kubeComponent{
 		context:     ctx,
@@ -42,7 +42,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 	}
 	n.id = ctx.TrackResource(n)
 
-	return n, nil
+	return n
 }
 
 type kubeComponent struct {
@@ -83,7 +83,6 @@ func (c *kubeComponent) ClearConfig() (err error) {
 	//}
 	//
 	//err = c.applyAttributeManifest()
-	return
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
