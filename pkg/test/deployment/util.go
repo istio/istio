@@ -40,7 +40,6 @@ func DumpPodState(workDir string, namespace string, accessor *kube.Accessor) {
 		Indent: "  ",
 	}
 
-	output := ""
 	for _, pod := range pods {
 		str, err := marshaler.MarshalToString(&pod)
 		if err != nil {
