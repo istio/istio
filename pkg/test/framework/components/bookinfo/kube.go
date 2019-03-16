@@ -49,7 +49,6 @@ func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err er
 		Name:         string(cfg),
 		Namespace:    ns,
 		Yaml:         string(by),
-		//RetryOptions: []retry.Option{retry.Delay(retry.DefaultDelay), retry.Timeout(retry.DefaultTimeout)},
 	}
 
 	return deployment.New(ctx, depcfg)

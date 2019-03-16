@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -56,6 +57,8 @@ func Main(testID string, m *testing.M, setupFn ...SetupFn) {
 }
 
 func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
+	start := time.Now()
+
 	err := doInit(testID)
 	if err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
@@ -72,6 +75,11 @@ func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
 			}
 		}
 	}()
+
+	defer func() {
+		end := time.Now()
+		scopes.CI.Infof("=== Suite %q run time: %v ===", testID, end.Sub(start))
+	} ()
 
 	if err = doTestSetup(setupFn...); err != nil {
 		errLevel = exitCodeSetupError
@@ -95,8 +103,13 @@ func NewContext(t *testing.T) core.TestContext {
 
 // Run is a wrapper for wrapping around *testing.T in a test function.
 func Run(t *testing.T, fn func(ctx core.TestContext)) {
+	start := time.Now()
+
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
-	defer scopes.CI.Infof("=== DONE:  Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
+	defer func() {
+		end := time.Now()
+		scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===", rt.SuiteContext().Settings().TestID, t.Name(), end.Sub(start))
+	}()
 
 	ctx := NewContext(t)
 	defer ctx.Done(t)
