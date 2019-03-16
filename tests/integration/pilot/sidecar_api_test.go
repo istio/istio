@@ -15,12 +15,12 @@
 package pilot
 
 import (
-	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/core"
-	"istio.io/istio/pkg/test/framework2/runtime"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework2/components/istio"
+	"istio.io/istio/pkg/test/framework2/core"
 
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
@@ -168,19 +168,5 @@ func validateMongoListener(t *testing.T, response *structpath.Structpath) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework2.RunSuite("sidecar_api_test", m, setup)
-}
-
-func setup(s *runtime.SuiteContext) error {
-	switch s.Environment().EnvironmentName() {
-	case core.Kube:
-		i, err := istio.New(s, nil)
-		if err != nil {
-			return err
-		}
-		ist = i
-	case core.Native:
-	}
-
-	return nil
+	framework2.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
 }

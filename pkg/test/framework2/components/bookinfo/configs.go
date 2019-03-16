@@ -15,9 +15,10 @@
 package bookinfo
 
 import (
-	"istio.io/istio/pkg/test/scopes"
 	"path"
 	"testing"
+
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"

@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework2/core"
 	"testing"
 	"time"
 
@@ -25,18 +26,17 @@ import (
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/components/mixer"
 	"istio.io/istio/pkg/test/framework2/components/policybackend"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 func TestCheck_Allow(t *testing.T) {
-	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(t, s, galley.Config{})
-		mxr := mixer.NewOrFail(t, s, mixer.Config{
+	framework2.Run(t, func(ctx core.TestContext) {
+		gal := galley.NewOrFail(t, ctx, galley.Config{})
+		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,
 		})
-		be := policybackend.NewOrFail(t, s)
+		be := policybackend.NewOrFail(t, ctx)
 
-		ns := s.Environment().NewNamespaceOrFail(t, s,"testcheck-allow", false)
+		ns := ctx.Environment().NewNamespaceOrFail(t, ctx, "testcheck-allow", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -44,7 +44,7 @@ func TestCheck_Allow(t *testing.T) {
 			testCheckConfig,
 			be.CreateConfigSnippet("handler1", ns.Name()))
 
-		// Prime the policy backend's behavior. It should deny all check requests.
+		// Prime the policy backend'ctx behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
 		be.DenyCheck(t, false)
 
@@ -65,19 +65,19 @@ func TestCheck_Allow(t *testing.T) {
 			}
 
 			return nil
-		}, retry.Timeout(time.Second* 40))
+		}, retry.Timeout(time.Second*40))
 	})
 }
 
 func TestCheck_Deny(t *testing.T) {
-	framework2.Run(t, func(s *runtime.TestContext) {
-		gal := galley.NewOrFail(t, s, galley.Config{})
-		mxr := mixer.NewOrFail(t, s, mixer.Config{
+	framework2.Run(t, func(ctx core.TestContext) {
+		gal := galley.NewOrFail(t, ctx, galley.Config{})
+		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,
 		})
-		be := policybackend.NewOrFail(t, s)
+		be := policybackend.NewOrFail(t, ctx)
 
-		ns := s.Environment().NewNamespaceOrFail(t, s,"testcheck-deny", false)
+		ns := ctx.Environment().NewNamespaceOrFail(t, ctx, "testcheck-deny", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -85,7 +85,7 @@ func TestCheck_Deny(t *testing.T) {
 			testCheckConfig,
 			be.CreateConfigSnippet("handler1", ns.Name()))
 
-		// Prime the policy backend's behavior. It should deny all check requests.
+		// Prime the policy backend'ctx behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
 		be.DenyCheck(t, true)
 
@@ -106,7 +106,7 @@ func TestCheck_Deny(t *testing.T) {
 			// TODO: ensure that the policy backend receives the request.
 
 			return nil
-		}, retry.Timeout(time.Second* 40))
+		}, retry.Timeout(time.Second*40))
 	})
 }
 

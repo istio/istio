@@ -17,11 +17,8 @@ package mixer
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/core"
-	"istio.io/istio/pkg/test/framework2/runtime"
-
 	"istio.io/istio/pkg/test/framework2"
+	"istio.io/istio/pkg/test/framework2/components/istio"
 )
 
 var (
@@ -29,19 +26,5 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework2.RunSuite("mixer_test", m, setup)
-}
-
-func setup(s *runtime.SuiteContext) error {
-	switch s.Environment().EnvironmentName() {
-	case core.Kube:
-		i, err := istio.New(s, nil)
-		if err != nil {
-			return err
-		}
-		ist = i
-	case core.Native:
-	}
-
-	return nil
+	framework2.Main("mixer_test", m, istio.SetupOnKube(&ist, nil))
 }

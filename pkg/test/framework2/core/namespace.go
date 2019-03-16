@@ -14,15 +14,7 @@
 
 package core
 
-import "testing"
-
 // Namespace represents an allocated namespace that can be used to create config, or deploy components in.
 type Namespace interface {
 	Name() string
-
-	// Apply the namespace to the resources in the given yaml text.
-	Apply(yamlText string) (string, error)
-
-	// Apply the namespace to the resources in the given yaml text, or fail test
-	ApplyOrFail(t *testing.T, yamlText string) string
 }

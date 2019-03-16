@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework2/core"
+
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	pilot2 "istio.io/istio/pkg/test/framework2/components/pilot"
@@ -24,8 +26,8 @@ func TestSidecarListeners(t *testing.T) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
 
-	galley := galley.NewOrFail(t, ctx)
-	pilotInst := pilot2.NewOrFail(t, ctx, &pilot2.Config{Galley: galley})
+	galley := galley.NewOrFail(t, ctx, galley.Config{})
+	pilotInst := pilot2.NewOrFail(t, ctx, pilot2.Config{Galley: galley})
 
 	// Simulate proxy identity of a sidecar ...
 	nodeID := &model.Proxy{
@@ -68,7 +70,7 @@ func TestSidecarListeners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("No such directory: %v", err)
 	}
-	err = galley.ApplyConfigDir(path)
+	err = galley.ApplyConfigDir(nil, path)
 	if err != nil {
 		t.Fatalf("Error applying directory: %v", err)
 	}
@@ -146,5 +148,6 @@ func validateMongoListener(t *testing.T, response *structpath.Structpath) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework2.RunSuite("sidecar_api_test", m, nil)
+	// TODO(ozben): Limit to native environment for the time being.
+	framework2.Main("sidecar_api_test", m, framework2.RequireEnvironment(core.Native))
 }

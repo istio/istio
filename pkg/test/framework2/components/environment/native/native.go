@@ -69,7 +69,7 @@ func (e *Environment) ClaimNamespace(name string) (core.Namespace, error) {
 	return &nativeNamespace{name: name}, nil
 }
 
-func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) (core.Namespace) {
+func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) core.Namespace {
 	return &nativeNamespace{name: name}
 }
 

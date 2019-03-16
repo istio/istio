@@ -15,8 +15,9 @@
 package galley
 
 import (
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 
 	"istio.io/istio/pkg/test/framework2/core"
 

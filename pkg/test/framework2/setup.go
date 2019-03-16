@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qualification
+package framework2
 
-import (
-	"testing"
+import "istio.io/istio/pkg/test/framework2/core"
 
-	"istio.io/istio/pkg/test/framework2/components/istio"
-
-	"istio.io/istio/pkg/test/framework2"
-)
-
-var (
-	ist istio.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework2.Main("qualification", m, istio.SetupOnKube(&ist, nil))
+// RequireEnvironment will mark the suite as skipped if the expected environment is not found.
+func RequireEnvironment(n core.EnvironmentName) SetupFn {
+	return func(ctx core.SuiteContext) error {
+		if ctx.Environment().EnvironmentName() != n {
+			ctx.Skipf("RequireEnvironment: Skipping test due to unsupported environment: %q", n.String())
+		}
+		return nil
+	}
 }

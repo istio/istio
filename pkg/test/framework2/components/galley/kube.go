@@ -101,7 +101,7 @@ func (c *kubeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *kubeComponent) ApplyConfig(ns core.Namespace, yamlText ...string)  error {
+func (c *kubeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) error {
 	namespace := ""
 	if ns != nil {
 		namespace = ns.Name()
@@ -148,7 +148,7 @@ func (c *kubeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (err
 func (c *kubeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
 	panic("NYI: WaitForSnapshot")
 	// TODO
-//	return c.client.waitForSnapshot(collection, snapshot)
+	//	return c.client.waitForSnapshot(collection, snapshot)
 }
 
 //

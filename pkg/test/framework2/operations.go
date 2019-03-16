@@ -43,23 +43,19 @@ var (
 )
 
 // SetupFn is a function used for performing suite-level setup actions.
-type SetupFn func(scope *runtime.SuiteContext) error
+type SetupFn func(ctx core.SuiteContext) error
 
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func() int
 
-// RunSuite runs the test suite. The RunSuite will If a setupFn is supplied, it will get called before
-// tests are executed. RunSuite will not return, and will exit the process after running tests.
-func RunSuite(testID string, m *testing.M, setupFn SetupFn) {
-	if setupFn == nil {
-		setupFn = func(scope *runtime.SuiteContext) error { return nil }
-	}
-
-	errlevel := runSuite(testID, m.Run, setupFn)
+// Main runs the test suite. The Main will run the supplied setup functions before starting test execution.
+// It will not return, and will exit the process after running tests.
+func Main(testID string, m *testing.M, setupFn ...SetupFn) {
+	errlevel := runSuite(testID, m.Run, setupFn...)
 	os.Exit(errlevel)
 }
 
-func runSuite(testID string, mRun mRunFn, setupFn SetupFn) (errLevel int) {
+func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
 	err := doInit(testID)
 	if err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
@@ -77,7 +73,7 @@ func runSuite(testID string, mRun mRunFn, setupFn SetupFn) (errLevel int) {
 		}
 	}()
 
-	if err = doTestSetup(setupFn); err != nil {
+	if err = doTestSetup(setupFn...); err != nil {
 		errLevel = exitCodeSetupError
 		return
 	}
@@ -88,7 +84,7 @@ func runSuite(testID string, mRun mRunFn, setupFn SetupFn) (errLevel int) {
 
 // NewContext creates a new test context and returns. It is upto the caller to close to context by calling
 // .Done() at the end of the test run.
-func NewContext(t *testing.T) *runtime.TestContext {
+func NewContext(t *testing.T) core.TestContext {
 	if rt == nil {
 		panic("call to scope without running the test framework")
 	}
@@ -98,7 +94,7 @@ func NewContext(t *testing.T) *runtime.TestContext {
 }
 
 // Run is a wrapper for wrapping around *testing.T in a test function.
-func Run(t *testing.T, fn func(s *runtime.TestContext)) {
+func Run(t *testing.T, fn func(ctx core.TestContext)) {
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
 	defer scopes.CI.Infof("=== DONE:  Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
 
@@ -138,17 +134,19 @@ func doInit(testID string) error {
 	return err
 }
 
-func doTestSetup(fn SetupFn) error {
+func doTestSetup(fns ...SetupFn) error {
 	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
-	err := fn(rt.SuiteContext())
-	if err != nil {
-		scopes.Framework.Errorf("Test setup error: %v", err)
-		scopes.CI.Infof("=== FAILED: test setup: '%s' ===", rt.SuiteContext().Settings().TestID)
-	} else {
-		scopes.CI.Infof("=== DONE: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+	for _, fn := range fns {
+		err := fn(rt.SuiteContext())
+		if err != nil {
+			scopes.Framework.Errorf("Test setup error: %v", err)
+			scopes.CI.Infof("=== FAILED: test setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+			return err
+		}
 	}
 
-	return err
+	scopes.CI.Infof("=== DONE: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+	return nil
 }
 
 func doRun(mRun mRunFn) int {

@@ -23,7 +23,7 @@ import (
 
 // Instance for the test environment.
 type Instance struct {
-	context *SuiteContext
+	context *suiteContext
 }
 
 // New returns a new runtime instance.
@@ -42,16 +42,20 @@ func (i *Instance) Dump() {
 	i.context.globalScope.dump()
 }
 
-// SuiteContext returns the SuiteContext.
-func (i *Instance) SuiteContext() *SuiteContext {
+// suiteContext returns the suiteContext.
+func (i *Instance) SuiteContext() core.SuiteContext {
 	return i.context
 }
 
-// NewTestContext creates and returns a new TestContext
-func (i *Instance) NewTestContext(parentContext *TestContext, t *testing.T) *TestContext {
+// NewTestContext creates and returns a new testContext
+func (i *Instance) NewTestContext(parentContext core.TestContext, t *testing.T) core.TestContext {
 	var parentScope *scope
 	if parentContext != nil {
-		parentScope = parentContext.scope
+		pc, ok := parentContext.(*testContext)
+		if !ok {
+			t.Fatal("NewTestContext: unexpected testContext implementation was passed.")
+		}
+		parentScope = pc.scope
 	}
 	return newTestContext(i.context, parentScope, t)
 }

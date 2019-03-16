@@ -33,7 +33,7 @@ type Environment interface {
 	EnvironmentName() EnvironmentName
 
 	ClaimNamespace(name string) (Namespace, error)
-	ClaimNamespaceOrFail(t *testing.T, name string) (Namespace)
+	ClaimNamespaceOrFail(t *testing.T, name string) Namespace
 
 	NewNamespace(ctx Context, prefix string, inject bool) (Namespace, error)
 	NewNamespaceOrFail(t *testing.T, ctx Context, prefix string, inject bool) Namespace
@@ -47,8 +47,8 @@ func (n EnvironmentName) String() string {
 	return string(n)
 }
 
-// EnvironmentNames of supported environments
-func EnvironmentNames() []EnvironmentName {
+// environmentNames of supported environments
+func environmentNames() []EnvironmentName {
 	return []EnvironmentName{
 		Native,
 		Kube,
@@ -56,7 +56,7 @@ func EnvironmentNames() []EnvironmentName {
 }
 
 // DefaultName is the name of the default environment
-func DefaultEnvironmentName() EnvironmentName {
+func defaultEnvironmentName() EnvironmentName {
 	return Native
 }
 

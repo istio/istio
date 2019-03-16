@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// SuiteContext contains suite-level items used during runtime.
-type SuiteContext struct {
+// suiteContext contains suite-level items used during runtime.
+type suiteContext struct {
 	settings    *core.Settings
 	environment core.Environment
 
@@ -40,12 +40,12 @@ type SuiteContext struct {
 	skipReason string
 }
 
-var _ core.Context = &SuiteContext{}
+var _ core.SuiteContext = &suiteContext{}
 
-func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*SuiteContext, error) {
+func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
-	c := &SuiteContext{
+	c := &suiteContext{
 		settings:    s,
 		globalScope: newScope(scopeID, nil),
 
@@ -64,7 +64,7 @@ func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*SuiteConte
 
 // allocateContextID allocates a unique context id for TestContexts. Useful for creating unique names to help with
 // debugging
-func (s *SuiteContext) allocateContextID(prefix string) string {
+func (s *suiteContext) allocateContextID(prefix string) string {
 	s.contextMu.Lock()
 	defer s.contextMu.Unlock()
 
@@ -81,7 +81,7 @@ func (s *SuiteContext) allocateContextID(prefix string) string {
 	}
 }
 
-func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) string {
+func (s *suiteContext) allocateResourceID(contextID string, r core.Resource) string {
 	s.contextMu.Lock()
 	defer s.contextMu.Unlock()
 
@@ -100,7 +100,7 @@ func (s *SuiteContext) allocateResourceID(contextID string, r core.Resource) str
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (s *SuiteContext) TrackResource(r core.Resource) core.ResourceID {
+func (s *suiteContext) TrackResource(r core.Resource) core.ResourceID {
 	id := s.allocateResourceID(s.globalScope.id, r)
 	rid := &resourceID{id: id}
 	s.globalScope.add(r, rid)
@@ -108,29 +108,37 @@ func (s *SuiteContext) TrackResource(r core.Resource) core.ResourceID {
 }
 
 // Environment implements ResourceContext
-func (s *SuiteContext) Environment() core.Environment {
+func (s *suiteContext) Environment() core.Environment {
 	return s.environment
 }
 
 // Settings returns the current runtime.Settings.
-func (s *SuiteContext) Settings() *core.Settings {
+func (s *suiteContext) Settings() *core.Settings {
 	return s.settings
 }
 
 // Skip indicates that all of the tests in this suite should be skipped.
-func (s *SuiteContext) Skip(reason string) {
+func (s *suiteContext) Skip(reason string) {
 	if !s.skipAll {
 		s.skipReason = reason
 	}
 	s.skipAll = true
 }
 
-func (s *SuiteContext) done() error {
+// Skip indicates that all of the tests in this suite should be skipped.
+func (s *suiteContext) Skipf(reasonfmt string, args ...interface{}) {
+	if !s.skipAll {
+		s.skipReason = fmt.Sprintf(reasonfmt, args...)
+	}
+	s.skipAll = true
+}
+
+func (s *suiteContext) done() error {
 	return s.globalScope.done(s.settings.NoCleanup)
 }
 
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
-func (s *SuiteContext) CreateTmpDirectory(prefix string) (string, error) {
+func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	dir, err := ioutil.TempDir(s.settings.RunDir(), prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",

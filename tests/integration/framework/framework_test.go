@@ -15,21 +15,21 @@
 package framework
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/core"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
-	framework2.RunSuite("framework_test", m, nil)
+	framework2.Main("framework_test", m, framework2.RequireEnvironment(core.Kube))
 }
 
 func TestBasic(t *testing.T) {
 	ctx := framework2.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, core.Kube)
 	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
 	_, err := istio.New(ctx, nil)
 	if err != nil {

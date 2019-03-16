@@ -16,12 +16,14 @@ package pilot
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
+	"net"
+
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/istio"
 	"istio.io/istio/pkg/test/framework2/core"
-	"net"
 
 	testKube "istio.io/istio/pkg/test/kube"
 )
@@ -32,14 +34,12 @@ const (
 )
 
 var (
-	_ Instance = &kubeComponent{}
-	_ io.Closer        = &kubeComponent{}
+	_ Instance  = &kubeComponent{}
+	_ io.Closer = &kubeComponent{}
 )
 
 func newKube(ctx core.Context, cfg Config) (Instance, error) {
-	c := &kubeComponent{
-
-	}
+	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)

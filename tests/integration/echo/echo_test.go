@@ -51,7 +51,6 @@ func TestEcho(t *testing.T) {
 	}
 }
 
-// To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	framework2.RunSuite("echo_test", m, nil)
+	framework2.Main("echo_test", m)
 }

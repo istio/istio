@@ -114,7 +114,7 @@ func newKube(ctx core.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = env.NewNamespace(ctx,"policybackend", false)
+	c.namespace, err = env.NewNamespace(ctx, "policybackend", false)
 	if err != nil {
 		return nil, err
 	}

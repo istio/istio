@@ -37,7 +37,7 @@ import (
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	framework2.RunSuite("authn_permissive_test", m, nil)
+	framework2.Main("authn_permissive_test", m)
 }
 
 func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {

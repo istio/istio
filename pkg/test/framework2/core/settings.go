@@ -71,7 +71,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: DefaultEnvironmentName().String(),
+		Environment: defaultEnvironmentName().String(),
 		RunID:       uuid.New(),
 	}
 }

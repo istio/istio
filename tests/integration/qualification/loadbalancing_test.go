@@ -61,7 +61,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 
-	ns := ctx.Environment().NewNamespaceOrFail(t, ctx,"test", true)
+	ns := ctx.Environment().NewNamespaceOrFail(t, ctx, "test", true)
 
 	g.ApplyConfigOrFail(t,
 		ns,

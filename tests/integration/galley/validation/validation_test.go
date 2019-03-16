@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework2"
 	"istio.io/istio/pkg/test/framework2/components/environment/kube"
 	"istio.io/istio/pkg/test/framework2/components/istio"
-	"istio.io/istio/pkg/test/framework2/runtime"
 )
 
 type testData string
@@ -93,7 +92,7 @@ func TestValidation(t *testing.T) {
 			}
 
 			env := ctx.Environment().(*kube.Environment)
-			ns := env.NewNamespaceOrFail(t, "validation", false)
+			ns := env.NewNamespaceOrFail(t, ctx, "validation", false)
 			err = env.ApplyContents(ns, yml)
 
 			switch {
@@ -115,18 +114,5 @@ func TestValidation(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework2.RunSuite("galley_validation", m, setup)
-}
-
-func setup(s *runtime.SuiteContext) error {
-	switch s.Environment().EnvironmentName() {
-	case core.Kube:
-		_, err := istio.New(s, nil)
-		return err
-	case core.Native:
-		s.Skip("Native environment is not supported for validation")
-		return nil
-	}
-
-	return nil
+	framework2.Main("galley_validation", m, framework2.RequireEnvironment(core.Kube), istio.SetupOnKube(nil, nil))
 }

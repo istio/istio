@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/yml"
+
 	"istio.io/istio/pkg/test/deployment"
 
 	"istio.io/istio/pkg/test/framework2/core"
@@ -118,7 +120,7 @@ func (c *nativeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) (er
 
 	for _, y := range yamlText {
 		if ns != nil {
-			y, err = ns.Apply(y)
+			y, err = yml.ApplyNamespace(y, ns.Name())
 			if err != nil {
 				return
 			}
@@ -161,7 +163,7 @@ func (c *nativeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (e
 
 		yamlText := string(contents)
 		if ns != nil {
-			yamlText, err = ns.Apply(yamlText)
+			yamlText, err = yml.ApplyNamespace(yamlText, ns.Name())
 			if err != nil {
 				return err
 			}

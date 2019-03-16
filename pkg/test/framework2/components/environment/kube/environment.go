@@ -57,7 +57,7 @@ func New(ctx core.Context) (core.Environment, error) {
 
 	e := &Environment{
 		ctx: ctx,
-		s: s,
+		s:   s,
 	}
 	e.id = ctx.TrackResource(e)
 
@@ -92,7 +92,7 @@ func (e *Environment) ClaimNamespace(name string) (core.Namespace, error) {
 	return &kubeNamespace{name: name}, nil
 }
 
-func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) (core.Namespace) {
+func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) core.Namespace {
 	ns, err := e.ClaimNamespace(name)
 	if err != nil {
 		t.Fatalf("ClaimNamespaceOrFail: %v", err)

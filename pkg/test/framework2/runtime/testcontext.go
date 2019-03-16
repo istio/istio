@@ -26,13 +26,13 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// TestContext for the currently executing test.
-type TestContext struct {
+// testContext for the currently executing test.
+type testContext struct {
 	// The id of the test context. useful for debugging the test framework itself.
 	id string
 
 	// suite-level context
-	suite *SuiteContext
+	suite *suiteContext
 
 	// resource scope for this context.
 	scope *scope
@@ -41,9 +41,9 @@ type TestContext struct {
 	workDir string
 }
 
-var _ core.Context = &TestContext{}
+var _ core.TestContext = &testContext{}
 
-func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestContext {
+func newTestContext(s *suiteContext, parentScope *scope, t *testing.T) *testContext {
 	id := s.allocateContextID(t.Name())
 
 	if s.skipAll {
@@ -56,10 +56,10 @@ func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestCont
 		t.Fatalf("Error creating work dir %q: %v", workDir, err)
 	}
 
-	scopes.Framework.Debugf("Creating new TestContext: %q", id)
+	scopes.Framework.Debugf("Creating new testContext: %q", id)
 
 	scopeID := fmt.Sprintf("[%s]", id)
-	return &TestContext{
+	return &testContext{
 		id:      id,
 		suite:   s,
 		scope:   newScope(scopeID, parentScope),
@@ -68,12 +68,12 @@ func newTestContext(s *SuiteContext, parentScope *scope, t *testing.T) *TestCont
 }
 
 // Settings returns the current runtime.Settings.
-func (c *TestContext) Settings() *core.Settings {
+func (c *testContext) Settings() *core.Settings {
 	return c.suite.settings
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (c *TestContext) TrackResource(r core.Resource) core.ResourceID {
+func (c *testContext) TrackResource(r core.Resource) core.ResourceID {
 	id := c.suite.allocateResourceID(c.id, r)
 	rid := &resourceID{id: id}
 	c.scope.add(r, rid)
@@ -81,17 +81,17 @@ func (c *TestContext) TrackResource(r core.Resource) core.ResourceID {
 }
 
 // RunDir allocated for this test.
-func (c *TestContext) WorkDir() string {
+func (c *testContext) WorkDir() string {
 	return c.workDir
 }
 
 // Environment returns the environment
-func (c *TestContext) Environment() core.Environment {
+func (c *testContext) Environment() core.Environment {
 	return c.suite.environment
 }
 
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
-func (c *TestContext) CreateTmpDirectory(prefix string) (string, error) {
+func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	dir, err := ioutil.TempDir(c.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
@@ -104,7 +104,7 @@ func (c *TestContext) CreateTmpDirectory(prefix string) (string, error) {
 }
 
 // CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix, or fails the test.
-func (c *TestContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) string {
+func (c *testContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) string {
 	t.Helper()
 
 	tmp, err := c.CreateTmpDirectory(prefix)
@@ -115,22 +115,28 @@ func (c *TestContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) stri
 }
 
 // RequireOrSkip skips the test if the environment is not as expected.
-func (c *TestContext) RequireOrSkip(t *testing.T, envName core.EnvironmentName) {
+func (c *testContext) RequireOrSkip(t *testing.T, envName core.EnvironmentName) {
 	t.Helper()
 	if c.Environment().EnvironmentName() != envName {
 		t.Skipf("Skipping %q: expected environment not found: %s", t.Name(), envName)
 	}
 }
 
-func (c *TestContext) newChild(t *testing.T) *TestContext {
+func (c *testContext) newChild(t *testing.T) *testContext {
 	return newTestContext(c.suite, c.scope, t)
 }
 
 // Done should be called when this scope is cleaned up.
-func (c *TestContext) Done(t *testing.T) {
-	scopes.Framework.Debugf("Begin cleaning up TestContext: %q", c.id)
+func (c *testContext) Done(t *testing.T) {
+	if t.Failed() {
+		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
+		c.scope.dump()
+		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
+	}
+
+	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
 	if err := c.scope.done(c.suite.settings.NoCleanup); err != nil {
 		t.Fatalf("error scope cleanup: %v", err)
 	}
-	scopes.Framework.Debugf("Completed cleaning up TestContext: %q", c.id)
+	scopes.Framework.Debugf("Completed cleaning up testContext: %q", c.id)
 }
