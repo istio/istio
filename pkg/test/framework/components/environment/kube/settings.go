@@ -38,7 +38,7 @@ func (s *Settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("KubeConfig:      %s\n", s.KubeConfig)
-	result += fmt.Sprintf("MiniKubeIngress: %s\n", s.MinikubeIngress)
+	result += fmt.Sprintf("MiniKubeIngress: %v\n", s.MinikubeIngress)
 
 	return result
 }
