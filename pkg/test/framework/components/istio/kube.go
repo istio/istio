@@ -124,7 +124,7 @@ func (i *kubeComponent) Close() (err error) {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
 		//return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
-		err := i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		err = i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
 		if err == nil {
 			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
 		}
