@@ -48,10 +48,10 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx core.Context, env *native.Environment) (Instance, error) {
+func newNative(ctx core.Context) (Instance, error) {
 	c := &nativeComponent{
 		ctx:    ctx,
-		env:    env,
+		env:    ctx.Environment().(*native.Environment),
 		client: &client{},
 	}
 	c.id = ctx.TrackResource(c)

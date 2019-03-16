@@ -42,7 +42,7 @@ type kubeComponent struct {
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx core.Context) (*kubeComponent, error) {
+func newKube(ctx core.Context, _ Config) (*kubeComponent, error) {
 	c := &kubeComponent{
 		env: ctx.Environment().(*kube.Environment),
 	}

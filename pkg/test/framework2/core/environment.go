@@ -32,6 +32,9 @@ type Environment interface {
 
 	EnvironmentName() EnvironmentName
 
+	// Case calls the given function if this environment has the given name.
+	Case(e EnvironmentName, fn func())
+
 	ClaimNamespace(name string) (Namespace, error)
 	ClaimNamespaceOrFail(t *testing.T, name string) Namespace
 
@@ -61,6 +64,6 @@ func defaultEnvironmentName() EnvironmentName {
 }
 
 // UnsupportedEnvironment generates an error indicating that the given environment is not supported.
-func UnsupportedEnvironment(name EnvironmentName) error {
-	return fmt.Errorf("unsupported environment: %q", string(name))
+func UnsupportedEnvironment(env Environment) error {
+	return fmt.Errorf("unsupported environment: %q", string(env.EnvironmentName()))
 }

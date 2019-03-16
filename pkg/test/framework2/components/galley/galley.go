@@ -17,11 +17,7 @@ package galley
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-
 	"istio.io/istio/pkg/test/framework2/core"
-
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 )
 
 // Instance of Galley
@@ -53,16 +49,16 @@ type Config struct {
 	MeshConfig string
 }
 
-// New returns a new Galley instance.
-func New(c core.Context, cfg Config) (Instance, error) {
-	switch c.Environment().EnvironmentName() {
-	case core.Native:
-		return newNative(c, c.Environment().(*native.Environment), cfg)
-	case core.Kube:
-		return newKube(c, c.Environment().(*kube.Environment), cfg)
-	default:
-		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
-	}
+// New returns a new instance of echo.
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Native, func() {
+		i, err = newNative(ctx, cfg)
+	})
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx, cfg)
+	})
+	return
 }
 
 // NewOrFail returns a new Galley instance, or fails test.

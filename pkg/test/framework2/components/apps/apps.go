@@ -20,8 +20,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/pilot"
 	"istio.io/istio/pkg/test/framework2/core"
 )
@@ -41,6 +39,8 @@ const (
 // Instance is a component that provides access to all deployed test services.
 type Instance interface {
 	core.Resource
+
+	Namespace() core.Namespace
 
 	GetApp(name string) (App, error)
 	GetAppOrFail(name string, t testing.TB) App
@@ -86,15 +86,17 @@ type AppEndpoint interface {
 }
 
 // New returns a new instance of Apps
-func New(ctx core.Context, cfg Config) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Native:
-		return newNative(ctx, ctx.Environment().(*native.Environment), cfg.Pilot)
-	case core.Kube:
-		return newKube(ctx, ctx.Environment().(*kube.Environment))
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+
+	ctx.Environment().Case(core.Native, func() {
+		i, err = newNative(ctx, cfg)
+	})
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx, cfg)
+	})
+
+	return
 }
 
 // New returns a new instance of Apps or fails test.

@@ -39,14 +39,14 @@ type Instance interface {
 	Sum(val prom.Value, labels map[string]string) (float64, error)
 }
 
-// New returns a new Prometheus instance.
-func New(ctx core.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
-		return newKube(ctx)
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of echo.
+func New(ctx core.Context) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx)
+	})
+	return
 }
 
 // NewOrFail returns a new Prometheus instance or fails test.

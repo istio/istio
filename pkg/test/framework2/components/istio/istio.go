@@ -75,7 +75,7 @@ func New(ctx core.Context, cfg *Config) (Instance, error) {
 	case core.Kube:
 		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), cfg)
 	default:
-		err = core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
+		err = core.UnsupportedEnvironment(ctx.Environment())
 	}
 
 	return i, err

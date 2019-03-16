@@ -51,9 +51,9 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx core.Context, e *native.Environment, config Config) (Instance, error) {
+func newNative(ctx core.Context, config Config) (Instance, error) {
 	instance := &nativeComponent{
-		environment: e,
+		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
 		config:      config,
 	}
@@ -70,7 +70,7 @@ func newNative(ctx core.Context, e *native.Environment, config Config) (Instance
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        "istio-system",
 		DiscoveryOptions: options,
-		MeshConfig:       e.Mesh,
+		MeshConfig:       instance.environment.Mesh,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -87,12 +87,12 @@ func newNative(ctx core.Context, e *native.Environment, config Config) (Instance
 		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 	} else {
 		bootstrapArgs.Config = bootstrap.ConfigArgs{
-			Controller: e.ServiceManager.ConfigStore,
+			Controller: instance.environment.ServiceManager.ConfigStore,
 		}
 	}
 
 	// Save the config store.
-	instance.ConfigStoreCache = e.ServiceManager.ConfigStore
+	instance.ConfigStoreCache = instance.environment.ServiceManager.ConfigStore
 
 	var err error
 	// Create the server for the discovery service.

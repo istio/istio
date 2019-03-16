@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"net"
 	"net/url"
 	"strconv"
@@ -33,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework2/components/apps/agent"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework2/components/pilot"
 	fcore "istio.io/istio/pkg/test/framework2/core"
@@ -87,13 +87,14 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx fcore.Context, env *native.Environment, p pilot.Instance) (Instance, error) {
+func newNative(ctx fcore.Context, cfg Config) (Instance, error) {
+	env := ctx.Environment().(*native.Environment)
 	c := &nativeComponent{
 		apps: make([]App, 0),
 	}
 	c.id = ctx.TrackResource(c)
 
-	nativePilot, ok := p.(pilot.Native)
+	nativePilot, ok := cfg.Pilot.(pilot.Native)
 	if !ok {
 		return nil, errors.New("pilot does not support in-process interface")
 	}
@@ -145,6 +146,10 @@ func newNative(ctx fcore.Context, env *native.Environment, p pilot.Instance) (In
 
 func (c *nativeComponent) ID() fcore.ResourceID {
 	return c.id
+}
+
+func (c *nativeComponent) Namespace() fcore.Namespace {
+	return nil
 }
 
 // Close implements io.Closer

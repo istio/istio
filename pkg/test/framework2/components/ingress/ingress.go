@@ -47,14 +47,14 @@ type CallResponse struct {
 	Body string
 }
 
-// New returns a new Ingress instance.
-func New(ctx core.Context, cfg Config) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
-		return newKube(ctx, cfg)
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of echo.
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx, cfg)
+	})
+	return
 }
 
 // New returns a new Ingress instance or fails test
@@ -62,7 +62,7 @@ func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
 	t.Helper()
 	i, err := New(ctx, cfg)
 	if err != nil {
-		t.Fatalf("prometheus.NewOrFail: %v", err)
+		t.Fatalf("ingress.NewOrFail: %v", err)
 	}
 
 	return i

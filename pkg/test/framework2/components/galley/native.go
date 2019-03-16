@@ -50,14 +50,14 @@ const (
 )
 
 // NewNativeComponent factory function for the component
-func newNative(s core.Context, e *native.Environment, cfg Config) (Instance, error) {
+func newNative(ctx core.Context, cfg Config) (Instance, error) {
 
 	n := &nativeComponent{
-		context:     s,
-		environment: e,
+		context:     ctx,
+		environment: ctx.Environment().(*native.Environment),
 		cfg:         cfg,
 	}
-	n.id = s.TrackResource(n)
+	n.id = ctx.TrackResource(n)
 
 	return n, n.Reset()
 }

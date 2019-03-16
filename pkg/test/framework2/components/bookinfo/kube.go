@@ -38,7 +38,8 @@ const (
 var _ Instance = &kubeComponent{}
 
 // NewKubeComponent factory function for the component
-func newKube(ctx core.Context, e *kube.Environment) (Instance, error) {
+func newKube(ctx core.Context) (Instance, error) {
+	e := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 

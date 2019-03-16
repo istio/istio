@@ -54,17 +54,17 @@ type nativeComponent struct {
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 
-func newNative(ctx core.Context, env *native.Environment, config Config) (Instance, error) {
+func newNative(ctx core.Context, config Config) (Instance, error) {
 	n := &nativeComponent{
 		ctx:    ctx,
-		env:    env,
+		env:    ctx.Environment().(*native.Environment),
 		galley: config.Galley,
 	}
 	n.id = ctx.TrackResource(n)
 
 	n.client = &client{
 		local: true,
-		env:   env,
+		env:   ctx.Environment().(*native.Environment),
 	}
 
 	var err error

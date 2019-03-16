@@ -277,7 +277,8 @@ type kubeComponent struct {
 	namespace core.Namespace
 }
 
-func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
+func newKube(ctx core.Context, _ Config) (Instance, error) {
+	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
 		deployments: make([]*deployment.Instance, len(deploymentFactories)),
@@ -316,6 +317,10 @@ func newKube(ctx core.Context, env *kube.Environment) (Instance, error) {
 
 func (c *kubeComponent) ID() core.ResourceID {
 	return c.id
+}
+
+func (c *kubeComponent) Namespace() core.Namespace {
+	return c.namespace
 }
 
 func (c *kubeComponent) GetApp(name string) (App, error) {

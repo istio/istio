@@ -33,14 +33,14 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(s core.Context, e *kube.Environment, cfg Config) (Instance, error) {
+func newKube(ctx core.Context, cfg Config) (Instance, error) {
 
 	n := &kubeComponent{
-		context:     s,
-		environment: e,
+		context:     ctx,
+		environment: ctx.Environment().(*kube.Environment),
 		cfg:         cfg,
 	}
-	n.id = s.TrackResource(n)
+	n.id = ctx.TrackResource(n)
 
 	return n, nil
 }
@@ -53,20 +53,6 @@ type kubeComponent struct {
 	environment *kube.Environment
 
 	client *client
-	//
-	//// Top level home dir for all configuration that is fed to Galley
-	//homeDir string
-	//
-	//// The folder that Galley reads to local, file-based configuration from
-	//configDir string
-	//
-	//// The folder that Galley reads the mesh config file from
-	//meshConfigDir string
-	//
-	//// The file that Galley reads the mesh config file from.
-	//meshConfigFile string
-	//
-	//server *server.Server
 }
 
 var _ Instance = &kubeComponent{}
@@ -150,79 +136,6 @@ func (c *kubeComponent) WaitForSnapshot(collection string, snapshot ...map[strin
 	// TODO
 	//	return c.client.waitForSnapshot(collection, snapshot)
 }
-
-//
-//// Reset implements Resettable.Reset.
-//func (c *kubeComponent) Reset() error {
-//	_ = c.Close()
-//
-//	var err error
-//	if c.homeDir, err = c.context.CreateTmpDirectory(galleyWorkdir); err != nil {
-//		scopes.Framework.Errorf("Error creating config directory for Galley: %v", err)
-//		return err
-//	}
-//	scopes.Framework.Debugf("Galley home dir: %v", c.homeDir)
-//
-//	c.configDir = path.Join(c.homeDir, configDir)
-//	if err = os.MkdirAll(c.configDir, os.ModePerm); err != nil {
-//		return err
-//	}
-//	scopes.Framework.Debugf("Galley config dir: %v", c.configDir)
-//
-//	c.meshConfigDir = path.Join(c.homeDir, meshConfigDir)
-//	if err = os.MkdirAll(c.meshConfigDir, os.ModePerm); err != nil {
-//		return err
-//	}
-//	scopes.Framework.Debugf("Galley mesh config dir: %v", c.meshConfigDir)
-//
-//	scopes.Framework.Debugf("Galley writing mesh config:\n---\n%s\n---\n", c.cfg.MeshConfig)
-//
-//	c.meshConfigFile = path.Join(c.meshConfigDir, meshConfigFile)
-//	if err = ioutil.WriteFile(c.meshConfigFile, []byte(c.cfg.MeshConfig), os.ModePerm); err != nil {
-//		return err
-//	}
-//
-//	if err = c.applyAttributeManifest(); err != nil {
-//		return err
-//	}
-//
-//	return c.restart()
-//}
-//
-//func (c *kubeComponent) restart() error {
-//	a := server.DefaultArgs()
-//	a.Insecure = true
-//	a.EnableServer = true
-//	a.DisableResourceReadyCheck = true
-//	a.ConfigPath = c.configDir
-//	a.MeshConfigFile = c.meshConfigFile
-//	// To prevent ctrlZ port collision between galley/pilot&mixer
-//	a.IntrospectionOptions.Port = 0
-//	a.ExcludedResourceKinds = make([]string, 0)
-//
-//	// Bind to an arbitrary port.
-//	a.APIAddress = "tcp://0.0.0.0:0"
-//
-//	s, err := server.New(a)
-//	if err != nil {
-//		scopes.Framework.Errorf("Error starting Galley: %v", err)
-//		return err
-//	}
-//
-//	c.server = s
-//
-//	go s.Run()
-//
-//	c.client = &client{
-//		address: fmt.Sprintf("tcp://%s", s.Address().String()),
-//	}
-//
-//	if err = c.client.waitForStartup(); err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() (err error) {

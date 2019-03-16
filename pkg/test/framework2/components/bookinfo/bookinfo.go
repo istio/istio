@@ -17,8 +17,6 @@ package bookinfo
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework2/components/environment/kube"
-
 	"istio.io/istio/pkg/test/framework2/core"
 )
 
@@ -32,14 +30,16 @@ type Instance interface {
 	DeployMongoDb(ctx core.Context) error
 }
 
-// New returns a new instance of BookInfo
-func New(ctx core.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
-		return newKube(ctx, ctx.Environment().(*kube.Environment))
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of Apps
+func New(ctx core.Context) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx)
+	})
+
+	return
 }
 
 // NewOrFail returns a new instance of BookInfo or fails test

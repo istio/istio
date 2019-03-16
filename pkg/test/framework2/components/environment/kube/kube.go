@@ -73,7 +73,14 @@ func (e *Environment) EnvironmentName() core.EnvironmentName {
 	return core.Kube
 }
 
-// FriendlyIname implements resource.Instance
+// EnvironmentName implements environment.Instance
+func (e *Environment) Case(name core.EnvironmentName, fn func()) {
+	if name == e.EnvironmentName() {
+		fn()
+	}
+}
+
+// ID implements resource.Instance
 func (e *Environment) ID() core.ResourceID {
 	return e.id
 }

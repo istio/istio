@@ -42,9 +42,9 @@ type kubeComponent struct {
 	secret cv1.SecretInterface
 }
 
-func newKube(ctx core.Context, istio istio.Instance) Instance {
+func newKube(ctx core.Context, cfg Config) Instance {
 	c := &kubeComponent{
-		istio: istio,
+		istio: cfg.Istio,
 	}
 	c.id = ctx.TrackResource(c)
 

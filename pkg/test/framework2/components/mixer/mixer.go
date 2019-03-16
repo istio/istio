@@ -21,7 +21,6 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 	"istio.io/istio/pkg/test/framework2/components/galley"
 	"istio.io/istio/pkg/test/framework2/core"
 )
@@ -48,21 +47,24 @@ func (c *CheckResponse) Succeeded() bool {
 	return c.Raw.Precondition.Status.Code == int32(rpc.OK)
 }
 
-func New(c core.Context, config Config) (Instance, error) {
-	switch c.Environment().EnvironmentName() {
-	case core.Native:
-		return newNative(c, c.Environment().(*native.Environment), config)
-	case core.Kube:
-		return newKube(c)
-	default:
-		return nil, core.UnsupportedEnvironment(c.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of echo.
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Native, func() {
+		i, err = newNative(ctx, cfg)
+	})
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx, cfg)
+	})
+	return
 }
+
 
 func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
-		t.Fatalf("Error creating Mixer: %v", err)
+		t.Fatalf("mixer.NewOrFail:: %v", err)
 	}
 	return i
 }

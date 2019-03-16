@@ -35,14 +35,16 @@ type Config struct {
 	Istio istio.Instance
 }
 
-// New returns a new instance of Citadel
-func New(ctx core.Context, cfg Config) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
-		return newKube(ctx, cfg.Istio), nil
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of Apps
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+
+	ctx.Environment().Case(core.Kube, func() {
+		i = newKube(ctx, cfg)
+	})
+
+	return
 }
 
 // New returns a new instance of Citadel or fails test

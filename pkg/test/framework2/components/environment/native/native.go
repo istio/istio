@@ -33,6 +33,9 @@ type Environment struct {
 	id  core.ResourceID
 	ctx core.Context
 
+	// TODO: It is not correct to have fixed meshconfig at the environment level. We should align this with Galley's
+	// mesh usage as well, which is per-component instantiation.
+
 	// Mesh for configuring pilot.
 	Mesh *meshConfig.MeshConfig
 
@@ -55,9 +58,16 @@ func New(ctx core.Context) (core.Environment, error) {
 	return e, nil
 }
 
-// Type implements environment.Instance
+// EnvironmentName implements environment.Instance
 func (e *Environment) EnvironmentName() core.EnvironmentName {
 	return core.Native
+}
+
+// Case implements environment.Instance
+func (e *Environment) Case(name core.EnvironmentName, fn func()) {
+	if name == e.EnvironmentName() {
+		fn()
+	}
 }
 
 // ID implements resource.Instance

@@ -95,13 +95,12 @@ type Endpoint interface {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context, cfg Config) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Native:
-		return newNative(ctx, cfg)
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+func New(ctx core.Context, cfg Config) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Native, func() {
+		i, err = newNative(ctx, cfg)
+	})
+	return
 }
 
 // NewOrFail returns a new instance of echo, or fails t if there is an error.

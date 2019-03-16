@@ -20,8 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework2/core"
 
 	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/pkg/test/framework2/components/environment/native"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.
@@ -48,21 +46,23 @@ type Instance interface {
 	CreateConfigSnippet(name string, namespace string) string
 }
 
-func New(ctx core.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case core.Native:
-		return newNative(ctx, ctx.Environment().(*native.Environment))
-	case core.Kube:
-		return newKube(ctx)
-	default:
-		return nil, core.UnsupportedEnvironment(ctx.Environment().EnvironmentName())
-	}
+
+// New returns a new instance of echo.
+func New(ctx core.Context) (i Instance, err error) {
+	err = core.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(core.Native, func() {
+		i, err = newNative(ctx)
+	})
+	ctx.Environment().Case(core.Kube, func() {
+		i, err = newKube(ctx)
+	})
+	return
 }
 
 func NewOrFail(t *testing.T, s core.Context) Instance {
 	i, err := New(s)
 	if err != nil {
-		t.Fatalf("Error creating PolicyBackend: %v", err)
+		t.Fatalf("policybackend.NewOrFail: %v", err)
 	}
 
 	return i
