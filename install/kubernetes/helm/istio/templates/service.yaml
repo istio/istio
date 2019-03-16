@@ -1,3 +1,4 @@
+{{- if .Values.global.istioRemote }}
 {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
@@ -57,4 +58,5 @@ spec:
   - name: prometheus
     port: 42422
   clusterIP: None
+{{- end }}
 {{- end }}
