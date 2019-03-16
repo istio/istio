@@ -73,7 +73,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 		}
 	}
 
-	if wait {
+	if wait && err != nil {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
 		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {

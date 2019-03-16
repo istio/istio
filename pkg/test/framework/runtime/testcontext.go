@@ -90,6 +90,29 @@ func (c *testContext) Environment() core.Environment {
 	return c.suite.environment
 }
 
+// CreateDirectory creates a new subdirectory within this context.
+func (c *testContext) CreateDirectory(name string) (string, error) {
+	dir, err := ioutil.TempDir(c.workDir, name)
+	if err != nil {
+		scopes.Framework.Errorf("Error creating temp dir: runID='%c', prefix='%c', workDir='%v', err='%v'",
+			c.suite.settings.RunID, name, c.workDir, err)
+	} else {
+		scopes.Framework.Debugf("Created a temp dir: runID='%c', name='%c'", c.suite.settings.RunID, dir)
+	}
+	return dir, err
+}
+
+// CreateDirectoryOrFail creates a new sub directory with the given name in the workdir, or fails the test.
+func (c *testContext) CreateDirectoryOrFail(t *testing.T, name string) string {
+	t.Helper()
+
+	tmp, err := c.CreateDirectory(name)
+	if err != nil {
+		t.Fatalf("Error creating  directory with name %q: %v", name, err)
+	}
+	return tmp
+}
+
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
 func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	dir, err := ioutil.TempDir(c.workDir, prefix)

@@ -30,6 +30,9 @@ type Context interface {
 	// Settings returns common settings
 	Settings() *Settings
 
+	// CreateDirectory creates a new subdirectory within this context.
+	CreateDirectory(name string) (string, error)
+
 	// CreateTmpDirectory creates a new temporary directory within this context.
 	CreateTmpDirectory(prefix string) (string, error)
 }
@@ -51,6 +54,9 @@ type TestContext interface {
 
 	// WorkDir allocated for this test.
 	WorkDir() string
+
+	// CreateDirectoryOrFail creates a new sub directory with the given name in the workdir, or fails the test.
+	CreateDirectoryOrFail(t *testing.T, name string) string
 
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(t *testing.T, prefix string) string

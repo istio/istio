@@ -57,7 +57,7 @@ func (c *kubectl) getWorkDir() (string, error) {
 
 // applyContents applies the given config contents using kubectl.
 func (c *kubectl) applyContents(namespace string, contents string) ([]string, error) {
-	files, err := c.contentsToFileList(contents, "accessor_apply_contents")
+	files, err := c.contentsToFileList(contents, "accessor_applyc")
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 
 // deleteContents deletes the given config contents using kubectl.
 func (c *kubectl) deleteContents(namespace, contents string) error {
-	files, err := c.contentsToFileList(contents, "accessor_delete_contents")
+	files, err := c.contentsToFileList(contents, "accessor_deletec")
 	if err != nil {
 		return err
 	}

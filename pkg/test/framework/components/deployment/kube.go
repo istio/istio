@@ -44,9 +44,10 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 		ns = cfg.Namespace.Name()
 	}
 
+
 	i := &kubeComponent{
 		cfg:        cfg,
-		deployment: deployment.NewYamlDeployment(ns, cfg.Yaml),
+		deployment: deployment.NewYamlContentDeployment(ns, cfg.Yaml),
 		env:        e,
 	}
 	i.id = ctx.TrackResource(i)

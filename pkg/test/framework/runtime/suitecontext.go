@@ -138,6 +138,18 @@ func (s *suiteContext) done() error {
 	return s.globalScope.done(s.settings.NoCleanup)
 }
 
+// CreateDirectory creates a new subdirectory within this context.
+func (s *suiteContext) CreateDirectory(name string) (string, error) {
+	dir, err := ioutil.TempDir(s.settings.RunDir(), name)
+	if err != nil {
+		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
+			s.settings.RunID, name, s.settings.RunDir(), err)
+	} else {
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
+	}
+	return dir, err
+}
+
 // CreateTmpDirectory creates a new temporary directory with the given prefix.
 func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	if len(prefix) != 0 && !strings.HasSuffix(prefix, "-") {
