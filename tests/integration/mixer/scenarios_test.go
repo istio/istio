@@ -130,8 +130,8 @@ func TestTcpMetric(t *testing.T) {
 	ctx.RequireOrSkip(t, core.Kube)
 
 	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
-	_ := bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoRatingsv2)
-	_ := bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoDb)
+	_ = bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoRatingsv2)
+	_ = bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoDb)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
