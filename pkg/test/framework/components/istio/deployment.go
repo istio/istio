@@ -72,9 +72,6 @@ func renderIstioTemplate(helmDir string, cfg Config) (string, error) {
 		return "", err
 	}
 
-	// Replace IfNotPresent with Always, so that we always pull images
-	//renderedYaml = strings.Replace(renderedYaml, "IfNotPresent", "Always", -1)
-
 	return renderedYaml, nil
 }
 

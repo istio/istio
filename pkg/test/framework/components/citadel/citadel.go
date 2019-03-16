@@ -41,6 +41,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 
 	ctx.Environment().Case(core.Kube, func() {
 		i = newKube(ctx, cfg)
+		err = nil
 	})
 
 	return

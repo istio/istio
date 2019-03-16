@@ -169,6 +169,9 @@ func DefaultConfig(ctx core.Context) (Config, error) {
 	} else {
 		s.DeployTimeout = DefaultCIDeployTimeout
 		s.UndeployTimeout = DefaultCIUndeployTimeout
+
+		// Always pull the image when doing local development.
+		s.Values[kube.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
 
 	return s, nil
