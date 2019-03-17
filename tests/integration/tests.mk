@@ -14,7 +14,9 @@ ifneq ($(CI),)
 endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
-ifeq (${TEST_ENV},minikube-none)
+ifeq (${TEST_ENV},minikube)
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
+else ifeq (${TEST_ENV},minikube-none)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
 
@@ -40,11 +42,12 @@ test.integration.all: test.integration test.integration.kube
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
-	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.kube.deploy \
-	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
 # Generate integration test targets for local environment.
@@ -76,7 +79,7 @@ test.integration.kube: | $(JUNIT_REPORT)
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	--log_output_level tf:debug \                                # TODO: Temporary flag
+	--log_output_level tf:debug \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
