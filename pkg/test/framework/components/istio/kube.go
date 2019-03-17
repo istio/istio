@@ -156,7 +156,7 @@ func (i *kubeComponent) Dump() {
 				continue
 			}
 
-			fname := path.Join(d, fmt.Sprintf("%s-%s", pod.Name, container.Name))
+			fname := path.Join(d, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
 			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
