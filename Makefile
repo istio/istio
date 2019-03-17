@@ -649,6 +649,15 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
+# create istio-multicluster-split-horizon.yaml
+istio-multicluster-split-horizon.yaml: $(HELM) $(HOME)/.helm
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	$(HELM) template --name=istio --namespace=istio-system \
+		--values install/kubernetes/helm/istio/values-istio-multicluster-split-horizon.yaml \
+		${EXTRA_HELM_SETTINGS} \
+		install/kubernetes/helm/istio >> install/kubernetes/$@
+
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM) $(HOME)/.helm
