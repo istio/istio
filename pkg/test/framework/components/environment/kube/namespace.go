@@ -32,7 +32,6 @@ type kubeNamespace struct {
 var _ core.Namespace = &kubeNamespace{}
 var _ io.Closer = &kubeNamespace{}
 var _ core.Resource = &kubeNamespace{}
-var _ core.Dumper = &kubeNamespace{}
 
 func (n *kubeNamespace) Name() string {
 	return n.name
@@ -51,9 +50,4 @@ func (n *kubeNamespace) Close() error {
 	}
 
 	return nil
-}
-
-// Dump implements resource.Dumper
-func (n *kubeNamespace) Dump() {
-	// TODO: Make this dumpable.
 }

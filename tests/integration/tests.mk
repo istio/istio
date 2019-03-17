@@ -15,9 +15,9 @@ endif
 
 _INTEGRATION_TEST_INGRESS_FLAG =
 ifeq (${TEST_ENV},minikube)
-    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 else ifeq (${TEST_ENV},minikube-none)
-    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
+    _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
 

@@ -128,7 +128,7 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
 
-		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{}) // TODO: Pass in map
+		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
 		}
@@ -167,7 +167,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 	time.Sleep(time.Second * 5)
 
 	_, err := retry.Do(func() (interface{}, bool, error) {
-		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{}) // TODO: Pass in map
+		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
 		}

@@ -58,7 +58,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 		// port.
 		n := cfg.Istio.Settings().SystemNamespace
-		if env.Settings().MinikubeIngress {
+		if env.Settings().Minikube {
 			pods, err := env.GetPods(n, fmt.Sprintf("istio=%s", istioLabel))
 			if err != nil {
 				return nil, false, err

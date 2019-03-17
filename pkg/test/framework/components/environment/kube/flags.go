@@ -69,6 +69,6 @@ func checkFileExists(path string) error {
 func init() {
 	flag.StringVar(&settingsFromCommandLine.KubeConfig, "istio.test.kube.config", settingsFromCommandLine.KubeConfig,
 		"The path to the kube config file for cluster environments")
-	flag.BoolVar(&settingsFromCommandLine.MinikubeIngress, "istio.test.kube.minikubeingress", settingsFromCommandLine.MinikubeIngress,
-		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
+	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
+		"Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..")
 }

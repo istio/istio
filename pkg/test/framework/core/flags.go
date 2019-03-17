@@ -45,7 +45,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.Environment, "istio.test.env", settingsFromCommandLine.Environment,
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", environmentNames()))
 
-	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.noCleanup", settingsFromCommandLine.NoCleanup,
+	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.nocleanup", settingsFromCommandLine.NoCleanup,
 		"Do not cleanup resources after test completion")
 
 	flag.BoolVar(&settingsFromCommandLine.CIMode, "istio.test.ci", settingsFromCommandLine.CIMode,
