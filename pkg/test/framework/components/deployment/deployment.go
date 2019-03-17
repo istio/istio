@@ -15,6 +15,7 @@
 package deployment
 
 import (
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
@@ -26,14 +27,14 @@ type Instance interface {
 	Name() string
 
 	// Namespace of the deployment, if any.
-	Namespace() core.Namespace
+	Namespace() namespace.Instance
 }
 
 type Config struct {
 	Name string
 
 	// Namespace of deployment. If left empty, default will be used.
-	Namespace core.Namespace
+	Namespace namespace.Instance
 
 	// The yaml contents to deploy.
 	Yaml string

@@ -24,18 +24,17 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment/native"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/agent"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/environment/native/service"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	fcore "istio.io/istio/pkg/test/framework/core"
 )
@@ -149,7 +148,7 @@ func (c *nativeComponent) ID() fcore.ResourceID {
 	return c.id
 }
 
-func (c *nativeComponent) Namespace() fcore.Namespace {
+func (c *nativeComponent) Namespace() namespace.Instance {
 	return nil
 }
 

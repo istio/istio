@@ -22,9 +22,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
-
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -86,7 +85,7 @@ func (c *kubeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *kubeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) error {
+func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
 	namespace := ""
 	if ns != nil {
 		namespace = ns.Name()
@@ -104,7 +103,7 @@ func (c *kubeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) error
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string) {
+func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -113,7 +112,7 @@ func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlT
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
-func (c *kubeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (err error) {
+func (c *kubeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil

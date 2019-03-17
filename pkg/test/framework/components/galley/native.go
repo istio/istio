@@ -24,17 +24,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/yml"
-
-	"istio.io/istio/pkg/test/deployment"
-
-	"istio.io/istio/pkg/test/framework/core"
-
 	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 var (
@@ -116,7 +113,7 @@ func (c *nativeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *nativeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) (err error) {
+func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) (err error) {
 
 	for _, y := range yamlText {
 		if ns != nil {
@@ -139,7 +136,7 @@ func (c *nativeComponent) ApplyConfig(ns core.Namespace, yamlText ...string) (er
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
-func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string) {
+func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
 	t.Helper()
 	err := c.ApplyConfig(ns, yamlText...)
 	if err != nil {
@@ -148,7 +145,7 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns core.Namespace, yam
 }
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
-func (c *nativeComponent) ApplyConfigDir(ns core.Namespace, sourceDir string) (err error) {
+func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {

@@ -15,11 +15,6 @@
 package native
 
 import (
-	"fmt"
-	"testing"
-
-	"github.com/google/uuid"
-
 	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/core"
 
@@ -73,34 +68,4 @@ func (e *Environment) Case(name core.EnvironmentName, fn func()) {
 // ID implements resource.Instance
 func (e *Environment) ID() core.ResourceID {
 	return e.id
-}
-
-func (e *Environment) ClaimNamespace(name string) (core.Namespace, error) {
-	return &nativeNamespace{name: name}, nil
-}
-
-func (e *Environment) ClaimNamespaceOrFail(t *testing.T, name string) core.Namespace {
-	return &nativeNamespace{name: name}
-}
-
-// NewNamespace allocates a new testing namespace.
-func (e *Environment) NewNamespace(ctx core.Context, prefix string, inject bool) (core.Namespace, error) {
-	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
-
-	n := &nativeNamespace{name: ns}
-	n.id = ctx.TrackResource(n)
-
-	return n, nil
-}
-
-// NewNamespace allocates a new testing namespace or fails test.
-func (e *Environment) NewNamespaceOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) core.Namespace {
-	t.Helper()
-
-	ns, err := e.NewNamespace(ctx, prefix, inject)
-	if err != nil {
-		t.Fatalf("Environment.NewNamespaceOrFail: %v", err)
-	}
-
-	return ns
 }

@@ -23,9 +23,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"google.golang.org/grpc"
-
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
 )
 
 type client struct {

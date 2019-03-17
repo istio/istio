@@ -17,9 +17,8 @@ package policybackend
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
-
 	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.

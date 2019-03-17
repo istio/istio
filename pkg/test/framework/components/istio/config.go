@@ -21,19 +21,14 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/deployment"
-
-	"istio.io/istio/pkg/test/framework/core"
-
+	"github.com/mitchellh/go-homedir"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
-
-	"github.com/mitchellh/go-homedir"
-
-	kubeCore "k8s.io/api/core/v1"
-
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/core"
+	kubeCore "k8s.io/api/core/v1"
 )
 
 const (

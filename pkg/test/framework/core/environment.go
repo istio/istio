@@ -16,7 +16,6 @@ package core
 
 import (
 	"fmt"
-	"testing"
 )
 
 const (
@@ -34,12 +33,6 @@ type Environment interface {
 
 	// Case calls the given function if this environment has the given name.
 	Case(e EnvironmentName, fn func())
-
-	ClaimNamespace(name string) (Namespace, error)
-	ClaimNamespaceOrFail(t *testing.T, name string) Namespace
-
-	NewNamespace(ctx Context, prefix string, inject bool) (Namespace, error)
-	NewNamespaceOrFail(t *testing.T, ctx Context, prefix string, inject bool) Namespace
 }
 
 // EnvironmentName of environment

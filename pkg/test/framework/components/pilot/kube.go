@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/core"
-
 	testKube "istio.io/istio/pkg/test/kube"
 )
 

@@ -17,6 +17,7 @@ package galley
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
@@ -28,13 +29,13 @@ type Instance interface {
 	Address() string
 
 	// ApplyConfig applies the given config yaml file via Galley.
-	ApplyConfig(ns core.Namespace, yamlText ...string) error
+	ApplyConfig(ns namespace.Instance, yamlText ...string) error
 
 	// ApplyConfigOrFail applies the given config yaml file via Galley.
-	ApplyConfigOrFail(t *testing.T, ns core.Namespace, yamlText ...string)
+	ApplyConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string)
 
 	// ApplyConfigDir recursively applies all the config files in the specified directory
-	ApplyConfigDir(ns core.Namespace, configDir string) error
+	ApplyConfigDir(ns namespace.Instance, configDir string) error
 
 	// ClearConfig clears all applied config so far.
 	ClearConfig() error

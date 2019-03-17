@@ -17,12 +17,10 @@ package echo
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/framework/components/echo"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.

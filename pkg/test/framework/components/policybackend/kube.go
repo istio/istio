@@ -18,17 +18,16 @@ import (
 	"fmt"
 	"io"
 
-	kubeApiCore "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/test/util/tmpl"
-
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/tmpl"
+	kubeApiCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -89,7 +88,7 @@ type kubeComponent struct {
 	*client
 
 	kubeEnv   *kube.Environment
-	namespace core.Namespace
+	namespace namespace.Instance
 
 	forwarder  testKube.PortForwarder
 	deployment *deployment.Instance
@@ -115,7 +114,7 @@ func newKube(ctx core.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = env.NewNamespace(ctx, "policybackend", false)
+	c.namespace, err = namespace.New(ctx, "policybackend", false)
 	if err != nil {
 		return nil, err
 	}

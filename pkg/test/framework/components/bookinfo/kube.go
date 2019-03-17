@@ -18,10 +18,10 @@ import (
 	"io/ioutil"
 	"path"
 
-	"istio.io/istio/pkg/test/framework/components/deployment"
-	"istio.io/istio/pkg/test/framework/core"
-
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 type bookInfoConfig string
@@ -34,7 +34,7 @@ const (
 )
 
 func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
-	ns, err := ctx.Environment().ClaimNamespace("default")
+	ns, err := namespace.Claim(ctx, "default")
 	if err != nil {
 		return nil, err
 	}

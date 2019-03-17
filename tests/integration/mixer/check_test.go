@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
+	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestCheck_Allow(t *testing.T) {
@@ -37,7 +37,7 @@ func TestCheck_Allow(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, ctx)
 
-		ns := ctx.Environment().NewNamespaceOrFail(t, ctx, "testcheck-allow", false)
+		ns := namespace.NewOrFail(t, ctx, "testcheck-allow", false)
 
 		gal.ApplyConfigOrFail(
 			t,
@@ -78,7 +78,7 @@ func TestCheck_Deny(t *testing.T) {
 		})
 		be := policybackend.NewOrFail(t, ctx)
 
-		ns := ctx.Environment().NewNamespaceOrFail(t, ctx, "testcheck-deny", false)
+		ns := namespace.NewOrFail(t, ctx, "testcheck-deny", false)
 
 		gal.ApplyConfigOrFail(
 			t,

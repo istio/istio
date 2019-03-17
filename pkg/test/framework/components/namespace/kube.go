@@ -12,24 +12,26 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package namespace
 
 import (
+	"fmt"
 	"io"
 
+	"github.com/google/uuid"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/kube"
+	k "istio.io/istio/pkg/test/kube"
 )
 
 // kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
 type kubeNamespace struct {
 	id   core.ResourceID
 	name string
-	a    *kube.Accessor
+	a    *k.Accessor
 }
 
-var _ core.Namespace = &kubeNamespace{}
+var _ Instance = &kubeNamespace{}
 var _ io.Closer = &kubeNamespace{}
 var _ core.Resource = &kubeNamespace{}
 
@@ -50,4 +52,30 @@ func (n *kubeNamespace) Close() error {
 	}
 
 	return nil
+}
+
+func claimKube(ctx core.Context, name string) (Instance, error) {
+	env := ctx.Environment().(*kube.Environment)
+	if !env.Accessor.NamespaceExists(name) {
+		if err := env.CreateNamespace(name, "istio-test", true); err != nil {
+			return nil, err
+		}
+
+	}
+	return &kubeNamespace{name: name}, nil
+}
+
+// NewNamespace allocates a new testing namespace.
+func newKube(ctx core.Context, prefix string, inject bool) (Instance, error) {
+	env := ctx.Environment().(*kube.Environment)
+	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
+	if err := env.CreateNamespace(ns, "istio-test", inject); err != nil {
+		return nil, err
+	}
+
+	n := &kubeNamespace{name: ns, a: env.Accessor}
+	id := ctx.TrackResource(n)
+	n.id = id
+
+	return n, nil
 }

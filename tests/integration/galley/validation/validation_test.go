@@ -19,11 +19,11 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 type testData string
@@ -92,8 +92,8 @@ func TestValidation(t *testing.T) {
 			}
 
 			env := ctx.Environment().(*kube.Environment)
-			ns := env.NewNamespaceOrFail(t, ctx, "validation", false)
-			err = env.ApplyContents(ns, yml)
+			ns := namespace.NewOrFail(t, ctx, "validation", false)
+			err = env.ApplyContents(ns.Name(), yml)
 
 			switch {
 			case err != nil && d.isValid():

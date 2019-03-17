@@ -18,11 +18,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
 type Config struct {
-	Namespace core.Namespace
+	Namespace namespace.Instance
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test

@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"testing"
 	"time"
 
@@ -37,8 +38,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 	mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 	be := policybackend.NewOrFail(t, ctx)
 
-	env := ctx.Environment()
-	ns := env.NewNamespaceOrFail(t, ctx, "mixreport", false)
+	ns := namespace.NewOrFail(t, ctx, "mixreport", false)
 
 	g.ApplyConfigOrFail(t,
 		ns,

@@ -17,12 +17,10 @@ package citadel
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/framework/components/citadel"
-
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/citadel"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 var (

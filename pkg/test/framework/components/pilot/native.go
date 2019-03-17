@@ -18,15 +18,13 @@ import (
 	"io"
 	"net"
 
-	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/framework/components/environment/native"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 var _ Instance = &nativeComponent{}

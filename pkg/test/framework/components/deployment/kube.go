@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -78,7 +79,7 @@ func (c *kubeComponent) Name() string {
 	return c.cfg.Name
 }
 
-func (c *kubeComponent) Namespace() core.Namespace {
+func (c *kubeComponent) Namespace() namespace.Instance {
 	return c.cfg.Namespace
 }
 

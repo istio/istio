@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/core"
 )
@@ -40,7 +41,7 @@ const (
 type Instance interface {
 	core.Resource
 
-	Namespace() core.Namespace
+	Namespace() namespace.Instance
 
 	GetApp(name string) (App, error)
 	GetAppOrFail(name string, t testing.TB) App

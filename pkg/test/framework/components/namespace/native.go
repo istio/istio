@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package native
+package namespace
 
 import (
+	"fmt"
+
+	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/framework/core"
 )
 
@@ -24,7 +28,7 @@ type nativeNamespace struct {
 	name string
 }
 
-var _ core.Namespace = &nativeNamespace{}
+var _ Instance = &nativeNamespace{}
 var _ core.Resource = &nativeNamespace{}
 
 func (n *nativeNamespace) Name() string {
@@ -33,4 +37,17 @@ func (n *nativeNamespace) Name() string {
 
 func (n *nativeNamespace) ID() core.ResourceID {
 	return n.id
+}
+
+func claimNative(_ core.Context, name string) (*nativeNamespace, error) {
+	return &nativeNamespace{name: name}, nil
+}
+
+func newNative(ctx core.Context, prefix string, _ bool) (*nativeNamespace, error) {
+	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
+
+	n := &nativeNamespace{name: ns}
+	n.id = ctx.TrackResource(n)
+
+	return n, nil
 }

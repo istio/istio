@@ -19,11 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/core"
-
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 func TestConversion(t *testing.T) {

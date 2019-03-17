@@ -18,12 +18,11 @@ import (
 	"path"
 	"testing"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.

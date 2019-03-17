@@ -22,13 +22,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
-
-	"istio.io/istio/pkg/test/util/tmpl"
-
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
-
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
@@ -36,7 +30,11 @@ import (
 	"istio.io/istio/pkg/test/deployment"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/tmpl"
+	kubeApiCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -275,7 +273,7 @@ type kubeComponent struct {
 	apps        []App
 	env         *kube.Environment
 
-	namespace core.Namespace
+	namespace namespace.Instance
 }
 
 func newKube(ctx core.Context, _ Config) (Instance, error) {
@@ -290,7 +288,7 @@ func newKube(ctx core.Context, _ Config) (Instance, error) {
 	var err error
 
 	// Wait for the pods to transition to running.
-	if c.namespace, err = env.NewNamespace(ctx, "apps", true); err != nil {
+	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
 		return nil, err
 	}
 
@@ -320,7 +318,7 @@ func (c *kubeComponent) ID() core.ResourceID {
 	return c.id
 }
 
-func (c *kubeComponent) Namespace() core.Namespace {
+func (c *kubeComponent) Namespace() namespace.Instance {
 	return c.namespace
 }
 
@@ -592,7 +590,7 @@ type deploymentFactory struct {
 	serviceAccount bool
 }
 
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace core.Namespace) (*deployment.Instance, error) {
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
 
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
@@ -629,7 +627,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace core.Na
 	return out, nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns core.Namespace) (kubeApiCore.Pod, error) {
+func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
@@ -642,7 +640,7 @@ func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns core.Nam
 	return pods[0], nil
 }
 
-func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, ns core.Namespace) error {
+func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, ns namespace.Instance) error {
 
 	podFetchFunc := e.NewPodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	return e.WaitUntilPodsAreDeleted(podFetchFunc)

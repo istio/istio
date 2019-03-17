@@ -20,13 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/core"
-
 	multierror "github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/components/galley"
-
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
@@ -34,6 +28,9 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
