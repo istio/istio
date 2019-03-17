@@ -19,11 +19,12 @@ import (
 	"io"
 	"net"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
@@ -37,7 +38,7 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx core.Context, _ Config) (Instance, error) {
+func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 
@@ -100,18 +101,18 @@ func newKube(ctx core.Context, _ Config) (Instance, error) {
 }
 
 type kubeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	*client
 
 	forwarder testKube.PortForwarder
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-//func (c *kubeComponent) Start(ctx core.Context) (err error) {
+//func (c *kubeComponent) Start(ctx resource.Context) (err error) {
 //
 //
 //}

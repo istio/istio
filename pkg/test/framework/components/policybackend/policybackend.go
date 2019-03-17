@@ -18,12 +18,14 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	"istio.io/istio/pkg/test/framework/core"
+
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance represents a deployed fake policy backend for Mixer.
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
 	// set to true.
@@ -46,18 +48,18 @@ type Instance interface {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
+func New(ctx resource.Context) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx)
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx)
 	})
 	return
 }
 
-func NewOrFail(t *testing.T, s core.Context) Instance {
+func NewOrFail(t *testing.T, s resource.Context) Instance {
 	i, err := New(s)
 	if err != nil {
 		t.Fatalf("policybackend.NewOrFail: %v", err)

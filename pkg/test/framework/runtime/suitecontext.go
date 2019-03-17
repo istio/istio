@@ -21,7 +21,9 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/api"
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -29,7 +31,7 @@ import (
 // suiteContext contains suite-level items used during runtime.
 type suiteContext struct {
 	settings    *core.Settings
-	environment core.Environment
+	environment resource.Environment
 
 	// context-level resources
 	globalScope *scope
@@ -41,9 +43,7 @@ type suiteContext struct {
 	skipReason string
 }
 
-var _ core.SuiteContext = &suiteContext{}
-
-func newSuiteContext(s *core.Settings, envFn environment.FactoryFn) (*suiteContext, error) {
+func newSuiteContext(s *core.Settings, envFn api.FactoryFn) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
 	c := &suiteContext{
@@ -82,7 +82,7 @@ func (s *suiteContext) allocateContextID(prefix string) string {
 	}
 }
 
-func (s *suiteContext) allocateResourceID(contextID string, r core.Resource) string {
+func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource) string {
 	s.contextMu.Lock()
 	defer s.contextMu.Unlock()
 
@@ -101,7 +101,7 @@ func (s *suiteContext) allocateResourceID(contextID string, r core.Resource) str
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (s *suiteContext) TrackResource(r core.Resource) core.ResourceID {
+func (s *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	id := s.allocateResourceID(s.globalScope.id, r)
 	rid := &resourceID{id: id}
 	s.globalScope.add(r, rid)
@@ -109,7 +109,7 @@ func (s *suiteContext) TrackResource(r core.Resource) core.ResourceID {
 }
 
 // Environment implements ResourceContext
-func (s *suiteContext) Environment() core.Environment {
+func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
 }
 

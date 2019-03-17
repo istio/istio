@@ -12,48 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core
+package resource
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/test/framework/components/environment"
 )
 
-const (
-	// Native environment name
-	Native EnvironmentName = "native"
-	// Kube environment name
-	Kube EnvironmentName = "kube"
-)
-
-// Environment where resources reside.
+// Environment is the ambient environment that the test runs in.
 type Environment interface {
 	Resource
 
-	EnvironmentName() EnvironmentName
+	EnvironmentName() environment.Name
 
 	// Case calls the given function if this environment has the given name.
-	Case(e EnvironmentName, fn func())
-}
-
-// EnvironmentName of environment
-type EnvironmentName string
-
-// String implements fmt.Stringer
-func (n EnvironmentName) String() string {
-	return string(n)
-}
-
-// environmentNames of supported environments
-func environmentNames() []EnvironmentName {
-	return []EnvironmentName{
-		Native,
-		Kube,
-	}
-}
-
-// DefaultName is the name of the default environment
-func defaultEnvironmentName() EnvironmentName {
-	return Native
+	Case(e environment.Name, fn func())
 }
 
 // UnsupportedEnvironment generates an error indicating that the given environment is not supported.

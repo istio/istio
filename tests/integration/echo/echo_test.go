@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/components/environment"
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.
@@ -28,7 +28,7 @@ func TestEcho(t *testing.T) {
 	ctx := framework.NewContext(t)
 
 	// Echo is only supported on native environment right now, skip if we can't load that.
-	ctx.RequireOrSkip(t, core.Native)
+	ctx.RequireOrSkip(t, environment.Native)
 
 	echoA := echo.NewOrFail(ctx, t, echo.Config{Service: "a.echo", Version: "v1"})
 	echoB := echo.NewOrFail(ctx, t, echo.Config{Service: "b.echo", Version: "v2"})

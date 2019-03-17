@@ -17,7 +17,7 @@ package runtime
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/core"
 )
 
@@ -27,7 +27,7 @@ type Instance struct {
 }
 
 // New returns a new runtime instance.
-func New(s *core.Settings, fn environment.FactoryFn) (*Instance, error) {
+func New(s *core.Settings, fn api.FactoryFn) (*Instance, error) {
 	ctx, err := newSuiteContext(s, fn)
 	if err != nil {
 		return nil, err
@@ -43,19 +43,15 @@ func (i *Instance) Dump() {
 }
 
 // suiteContext returns the suiteContext.
-func (i *Instance) SuiteContext() core.SuiteContext {
+func (i *Instance) SuiteContext() *suiteContext { // nolint:golint
 	return i.context
 }
 
 // NewTestContext creates and returns a new testContext
-func (i *Instance) NewTestContext(parentContext core.TestContext, t *testing.T) core.TestContext {
+func (i *Instance) NewTestContext(parentContext *testContext, t *testing.T) *testContext { // nolint:golint
 	var parentScope *scope
 	if parentContext != nil {
-		pc, ok := parentContext.(*testContext)
-		if !ok {
-			t.Fatal("NewTestContext: unexpected testContext implementation was passed.")
-		}
-		parentScope = pc.scope
+		parentScope = parentContext.scope
 	}
 	return newTestContext(i.context, parentScope, t)
 }

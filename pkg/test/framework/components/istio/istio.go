@@ -16,26 +16,27 @@ package istio
 
 import (
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // Instance represents a deployed Istio instance
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	Settings() Config
 }
 
 // SetupOnKube is a setup function that will deploy Istio on Kubernetes environment
 func SetupOnKube(i *Instance, cfg *Config) framework.SetupFn {
-	return func(ctx core.SuiteContext) error {
+	return func(ctx framework.SuiteContext) error {
 		switch ctx.Environment().EnvironmentName() {
-		case core.Native:
+		case environment.Native:
 			scopes.Framework.Debugf("istio.SetupOnKube: Skipping deployment of Istio on native")
 
-		case core.Kube:
+		case environment.Kube:
 			ins, err := Deploy(ctx, cfg)
 			if err != nil {
 				return err
@@ -50,7 +51,7 @@ func SetupOnKube(i *Instance, cfg *Config) framework.SetupFn {
 }
 
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
-func Deploy(ctx core.Context, cfg *Config) (Instance, error) {
+func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	if cfg == nil {
 		c, err := DefaultConfig(ctx)
 		if err != nil {
@@ -72,10 +73,10 @@ func Deploy(ctx core.Context, cfg *Config) (Instance, error) {
 
 	var i Instance
 	switch ctx.Environment().EnvironmentName() {
-	case core.Kube:
+	case environment.Kube:
 		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
 	default:
-		err = core.UnsupportedEnvironment(ctx.Environment())
+		err = resource.UnsupportedEnvironment(ctx.Environment())
 	}
 
 	return i, err

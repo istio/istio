@@ -17,14 +17,16 @@ package prometheus
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
 
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	// API Returns the core Prometheus APIs.
 	API() v1.API
@@ -40,16 +42,16 @@ type Instance interface {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Kube, func() {
+func New(ctx resource.Context) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx)
 	})
 	return
 }
 
 // NewOrFail returns a new Prometheus instance or fails test.
-func NewOrFail(t *testing.T, ctx core.Context) Instance {
+func NewOrFail(t *testing.T, ctx resource.Context) Instance {
 	t.Helper()
 	i, err := New(ctx)
 	if err != nil {

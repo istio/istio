@@ -19,13 +19,14 @@ import (
 	"io"
 	"net"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -34,7 +35,7 @@ var _ Instance = &kubeComponent{}
 var _ io.Closer = &kubeComponent{}
 
 type kubeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	*client
 
@@ -42,7 +43,7 @@ type kubeComponent struct {
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx core.Context, _ Config) (*kubeComponent, error) {
+func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 	c := &kubeComponent{
 		env: ctx.Environment().(*kube.Environment),
 	}
@@ -110,7 +111,7 @@ func newKube(ctx core.Context, _ Config) (*kubeComponent, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

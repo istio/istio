@@ -21,12 +21,13 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type Instance interface {
-	core.Resource
+	resource.Resource
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
 	GetCheckAddress() net.Addr
@@ -48,18 +49,18 @@ func (c *CheckResponse) Succeeded() bool {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx, cfg)
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
 	return
 }
 
-func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
+func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("mixer.NewOrFail:: %v", err)

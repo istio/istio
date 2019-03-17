@@ -19,15 +19,17 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance of Pilot
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
 	StartDiscovery(req *xdsapi.DiscoveryRequest) error
@@ -42,19 +44,19 @@ type Config struct {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx, cfg)
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
 	return
 }
 
 // NewOrFail returns a new Pilot instance, or fails test.
-func NewOrFail(t *testing.T, c core.Context, config Config) Instance {
+func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
 		t.Fatalf("pilot.NewOrFail: %v", err)

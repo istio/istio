@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -37,12 +37,12 @@ const (
 var _ Instance = &kubeComponent{}
 
 type kubeComponent struct {
-	id     core.ResourceID
+	id     resource.ID
 	istio  istio.Instance
 	secret cv1.SecretInterface
 }
 
-func newKube(ctx core.Context, cfg Config) Instance {
+func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{
 		istio: cfg.Istio,
 	}
@@ -54,7 +54,7 @@ func newKube(ctx core.Context, cfg Config) Instance {
 	return c
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

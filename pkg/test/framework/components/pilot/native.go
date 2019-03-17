@@ -18,13 +18,14 @@ import (
 	"io"
 	"net"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 var _ Instance = &nativeComponent{}
@@ -38,7 +39,7 @@ type Native interface {
 }
 
 type nativeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	environment *native.Environment
 	*client
@@ -49,7 +50,7 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx core.Context, config Config) (Instance, error) {
+func newNative(ctx resource.Context, config Config) (Instance, error) {
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
@@ -111,7 +112,7 @@ func newNative(ctx core.Context, config Config) (Instance, error) {
 }
 
 // ID implements resource.Instance
-func (c *nativeComponent) ID() core.ResourceID {
+func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 

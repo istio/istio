@@ -12,27 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package resource
 
-import (
-	"testing"
+import "fmt"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
-)
+// Resource of a resource.
+type Resource interface {
 
-func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(environment.Kube))
+	// Debugging ID for the resource instance.
+	ID() ID
 }
 
-func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
-	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
-	}
+// ID for the resource instance. This is allocated by the framework and passed here.
+type ID interface {
+	fmt.Stringer
 }

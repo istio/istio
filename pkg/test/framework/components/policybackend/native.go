@@ -19,10 +19,12 @@ import (
 	"io"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -30,14 +32,14 @@ import (
 var (
 	retryDelay = retry.Delay(time.Second)
 
-	_ Instance      = &nativeComponent{}
-	_ io.Closer     = &nativeComponent{}
-	_ core.Resetter = &nativeComponent{}
+	_ Instance          = &nativeComponent{}
+	_ io.Closer         = &nativeComponent{}
+	_ resource.Resetter = &nativeComponent{}
 )
 
 type nativeComponent struct {
-	id  core.ResourceID
-	ctx core.Context
+	id  resource.ID
+	ctx resource.Context
 	env *native.Environment
 
 	*client
@@ -45,7 +47,7 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx core.Context) (Instance, error) {
+func newNative(ctx resource.Context) (Instance, error) {
 	c := &nativeComponent{
 		ctx:    ctx,
 		env:    ctx.Environment().(*native.Environment),
@@ -105,7 +107,7 @@ func (c *nativeComponent) Reset() error {
 	return nil
 }
 
-func (c *nativeComponent) ID() core.ResourceID {
+func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 

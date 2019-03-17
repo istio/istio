@@ -21,8 +21,8 @@ import (
 
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 func TestConversion(t *testing.T) {
@@ -107,5 +107,5 @@ func TestMain(m *testing.M) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
 
-	framework.Main("galley_conversion", m, framework.RequireEnvironment(core.Native))
+	framework.Main("galley_conversion", m, framework.RequireEnvironment(environment.Native))
 }

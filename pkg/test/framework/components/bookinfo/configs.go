@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -68,7 +68,7 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	return content
 }
 
-func GetDestinationRuleConfigFile(t testing.TB, ctx core.Context) ConfigFile {
+func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
 	t.Helper()
 
 	cfg, err := istio.DefaultConfig(ctx)

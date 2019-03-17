@@ -21,11 +21,11 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -37,7 +37,7 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	label := "source_workload"
 	labelValue := "istio-ingressgateway"
@@ -49,14 +49,14 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	label := "destination_service"
 	labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
 	testMetric(t, ctx, label, labelValue)
 }
 
-func testMetric(t *testing.T, ctx core.Context, label string, labelValue string) {
+func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValue string) { // nolint:interfacer
 	t.Helper()
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
@@ -124,7 +124,7 @@ func TestTcpMetric(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
 	_ = bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoRatingsv2)

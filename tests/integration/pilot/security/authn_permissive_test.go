@@ -28,9 +28,9 @@ import (
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	pilot2 "istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
@@ -86,7 +86,7 @@ func TestAuthnPermissive(t *testing.T) {
 	defer ctx.Done(t)
 
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
-	ctx.RequireOrSkip(t, core.Native)
+	ctx.RequireOrSkip(t, environment.Native)
 
 	env := ctx.Environment().(*native.Environment)
 	_, err := env.ServiceManager.ConfigStore.Create(

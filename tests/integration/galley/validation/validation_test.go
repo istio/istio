@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 type testData string
@@ -65,7 +65,7 @@ func TestValidation(t *testing.T) {
 	defer ctx.Done(t)
 
 	// Validation tests only works in Kubernetes environment
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	dataset := loadTestData(t)
 
@@ -114,5 +114,5 @@ func TestValidation(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("galley_validation", m, framework.RequireEnvironment(core.Kube), istio.SetupOnKube(nil, nil))
+	framework.Main("galley_validation", m, framework.RequireEnvironment(environment.Kube), istio.SetupOnKube(nil, nil))
 }

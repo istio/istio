@@ -15,13 +15,14 @@
 package deployment
 
 import (
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance of a deployment. Wraps over pkg/test/deployment instances for test framework integration purposes.
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	// Name of the deployment, for debugging purposes.
 	Name() string
@@ -41,9 +42,9 @@ type Config struct {
 }
 
 // New returns a new instance of deployment.
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Kube, func() {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
 	return

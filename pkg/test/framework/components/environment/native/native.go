@@ -15,8 +15,10 @@
 package native
 
 import (
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/components/environment/native/service"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -25,8 +27,8 @@ import (
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
-	id  core.ResourceID
-	ctx core.Context
+	id  resource.ID
+	ctx api.Context
 
 	// TODO: It is not correct to have fixed meshconfig at the environment level. We should align this with Galley's
 	// mesh usage as well, which is per-component instantiation.
@@ -38,10 +40,10 @@ type Environment struct {
 	ServiceManager *service.Manager
 }
 
-var _ core.Environment = &Environment{}
+var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
-func New(ctx core.Context) (core.Environment, error) {
+func New(ctx api.Context) (resource.Environment, error) {
 	mesh := model.DefaultMeshConfig()
 	e := &Environment{
 		ctx:            ctx,
@@ -54,18 +56,18 @@ func New(ctx core.Context) (core.Environment, error) {
 }
 
 // EnvironmentName implements environment.Instance
-func (e *Environment) EnvironmentName() core.EnvironmentName {
-	return core.Native
+func (e *Environment) EnvironmentName() environment.Name {
+	return environment.Native
 }
 
 // Case implements environment.Instance
-func (e *Environment) Case(name core.EnvironmentName, fn func()) {
+func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()
 	}
 }
 
 // ID implements resource.Instance
-func (e *Environment) ID() core.ResourceID {
+func (e *Environment) ID() resource.ID {
 	return e.id
 }

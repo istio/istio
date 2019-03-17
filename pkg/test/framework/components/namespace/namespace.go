@@ -17,7 +17,8 @@ package namespace
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance represents an allocated namespace that can be used to create config, or deploy components in.
@@ -26,19 +27,20 @@ type Instance interface {
 }
 
 // Claim an existing namespace, or create a new one if doesn't exist.
-func Claim(ctx core.Context, name string) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
-		i, err = claimNative(ctx, name)
+func Claim(ctx resource.Context, name string) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
+		i = claimNative(ctx, name)
+		err = nil
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = claimKube(ctx, name)
 	})
 	return
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
-func ClaimOrFail(t *testing.T, ctx core.Context, name string) Instance {
+func ClaimOrFail(t *testing.T, ctx resource.Context, name string) Instance {
 	i, err := Claim(ctx, name)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
@@ -47,19 +49,20 @@ func ClaimOrFail(t *testing.T, ctx core.Context, name string) Instance {
 }
 
 // New creates a new Namespace.
-func New(ctx core.Context, prefix string, inject bool) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
-		i, err = newNative(ctx, prefix, inject)
+func New(ctx resource.Context, prefix string, inject bool) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
+		i = newNative(ctx, prefix, inject)
+		err = nil
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, prefix, inject)
 	})
 	return
 }
 
 // NewOrFail calls New and fails test if it returns error
-func NewOrFail(t *testing.T, ctx core.Context, prefix string, inject bool) Instance {
+func NewOrFail(t *testing.T, ctx resource.Context, prefix string, inject bool) Instance {
 	i, err := New(ctx, prefix, inject)
 	if err != nil {
 		t.Fatalf("namespace.NewOrFail:: %v", err)

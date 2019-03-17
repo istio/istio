@@ -71,7 +71,7 @@ If you need to do suite-level checks, then you can pass additional parameters to
 ```golang
 func TestMain(m *testing.M) { 
     framework.Main("my_test", m,
-    framework.RequireEnvironment(core.Kube), // Require Kubernetes environment.
+    framework.RequireEnvironment(environment.Kube), // Require Kubernetes environment.
     istio.SetupOnKube(&ist, nil),            // Deploy Istio, to be used by the whole suite.
     setup)                                   // Call your setup function.
 }

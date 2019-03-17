@@ -18,8 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type Config struct {
@@ -27,10 +28,10 @@ type Config struct {
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func Deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
+func Deploy(ctx resource.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
 
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = deploy(ctx, cfg)
 	})
 
@@ -38,7 +39,7 @@ func Deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err er
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func DeployOrFail(t *testing.T, ctx core.Context, cfg bookInfoConfig) deployment.Instance {
+func DeployOrFail(t *testing.T, ctx resource.Context, cfg bookInfoConfig) deployment.Instance {
 	t.Helper()
 
 	i, err := Deploy(ctx, cfg)

@@ -21,9 +21,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -32,7 +33,7 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx core.Context, cfg Config) Instance {
+func newKube(ctx resource.Context, cfg Config) Instance {
 
 	n := &kubeComponent{
 		context:     ctx,
@@ -45,10 +46,10 @@ func newKube(ctx core.Context, cfg Config) Instance {
 }
 
 type kubeComponent struct {
-	id  core.ResourceID
+	id  resource.ID
 	cfg Config
 
-	context     core.Context
+	context     resource.Context
 	environment *kube.Environment
 
 	client *client
@@ -57,7 +58,7 @@ type kubeComponent struct {
 var _ Instance = &kubeComponent{}
 
 // ID implements resource.Instance
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

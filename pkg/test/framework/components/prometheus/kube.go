@@ -20,13 +20,14 @@ import (
 	"io"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -47,14 +48,14 @@ var (
 )
 
 type kubeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
 	env       *kube.Environment
 }
 
-func newKube(ctx core.Context) (Instance, error) {
+func newKube(ctx resource.Context) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		env: env,
@@ -110,7 +111,7 @@ func newKube(ctx core.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

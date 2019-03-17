@@ -23,6 +23,8 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	kubeApiCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
@@ -31,10 +33,9 @@ import (
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/tmpl"
-	kubeApiCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -267,7 +268,7 @@ func appSelector(serviceName string) string {
 }
 
 type kubeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	deployments []*deployment.Instance
 	apps        []App
@@ -276,7 +277,7 @@ type kubeComponent struct {
 	namespace namespace.Instance
 }
 
-func newKube(ctx core.Context, _ Config) (Instance, error) {
+func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
@@ -314,7 +315,7 @@ func newKube(ctx core.Context, _ Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

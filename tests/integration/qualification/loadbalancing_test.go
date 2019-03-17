@@ -28,10 +28,10 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 const (
@@ -57,7 +57,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 

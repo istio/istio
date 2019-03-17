@@ -19,8 +19,8 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/citadel"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 var (
@@ -33,7 +33,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	//	t.Skip("https://github.com/istio/istio/issues/10989")
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
-	ctx.RequireOrSkip(t, core.Kube)
+	ctx.RequireOrSkip(t, environment.Kube)
 
 	c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
 
@@ -66,5 +66,5 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("citadel_test", m, framework.RequireEnvironment(core.Kube), istio.SetupOnKube(&ist, nil))
+	framework.Main("citadel_test", m, framework.RequireEnvironment(environment.Kube), istio.SetupOnKube(&ist, nil))
 }

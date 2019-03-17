@@ -21,6 +21,9 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/core"
 
 	"istio.io/istio/pkg/test/scopes"
@@ -40,8 +43,6 @@ type testContext struct {
 	// The workDir for this particular context
 	workDir string
 }
-
-var _ core.TestContext = &testContext{}
 
 func newTestContext(s *suiteContext, parentScope *scope, t *testing.T) *testContext {
 	id := s.allocateContextID(t.Name())
@@ -73,7 +74,7 @@ func (c *testContext) Settings() *core.Settings {
 }
 
 // TrackResource adds a new resource to track to the context at this level.
-func (c *testContext) TrackResource(r core.Resource) core.ResourceID {
+func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	id := c.suite.allocateResourceID(c.id, r)
 	rid := &resourceID{id: id}
 	c.scope.add(r, rid)
@@ -86,7 +87,7 @@ func (c *testContext) WorkDir() string {
 }
 
 // Environment returns the environment
-func (c *testContext) Environment() core.Environment {
+func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
 }
 
@@ -138,7 +139,7 @@ func (c *testContext) CreateTmpDirectoryOrFail(t *testing.T, prefix string) stri
 }
 
 // RequireOrSkip skips the test if the environment is not as expected.
-func (c *testContext) RequireOrSkip(t *testing.T, envName core.EnvironmentName) {
+func (c *testContext) RequireOrSkip(t *testing.T, envName environment.Name) {
 	t.Helper()
 	if c.Environment().EnvironmentName() != envName {
 		t.Skipf("Skipping %q: expected environment not found: %s", t.Name(), envName)

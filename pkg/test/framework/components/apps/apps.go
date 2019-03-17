@@ -18,11 +18,13 @@ import (
 	"net/http"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
@@ -39,7 +41,7 @@ const (
 
 // Instance is a component that provides access to all deployed test services.
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	Namespace() namespace.Instance
 
@@ -87,13 +89,13 @@ type AppEndpoint interface {
 }
 
 // New returns a new instance of Apps
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
 
-	ctx.Environment().Case(core.Native, func() {
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx, cfg)
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, cfg)
 	})
 
@@ -101,7 +103,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 }
 
 // New returns a new instance of Apps or fails test.
-func NewOrFail(ctx core.Context, t *testing.T, cfg Config) Instance {
+func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(ctx, cfg)

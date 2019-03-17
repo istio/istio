@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -69,13 +69,13 @@ var (
 )
 
 type nativeComponent struct {
-	id        core.ResourceID
+	id        resource.ID
 	endpoints []Endpoint
 	client    *echo.Client
 	config    Config
 }
 
-func newNative(ctx core.Context, cfg Config) (Instance, error) {
+func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &nativeComponent{
 		config: cfg,
 	}
@@ -132,7 +132,7 @@ func newNative(ctx core.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *nativeComponent) ID() core.ResourceID {
+func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 

@@ -17,13 +17,16 @@ package galley
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 // Instance of Galley
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	// Address of the Galley MCP Server.
 	Address() string
@@ -51,12 +54,12 @@ type Config struct {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx, cfg)
 	})
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i = newKube(ctx, cfg)
 		err = nil
 	})
@@ -64,7 +67,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new Galley instance, or fails test.
-func NewOrFail(t *testing.T, c core.Context, cfg Config) Instance {
+func NewOrFail(t *testing.T, c resource.Context, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(c, cfg)

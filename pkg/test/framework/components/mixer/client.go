@@ -18,13 +18,15 @@ import (
 	"context"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
+
 	istioMixerV1 "istio.io/api/mixer/v1"
-	
+
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/kube"
 )
 
@@ -38,7 +40,7 @@ type client struct {
 	// Indicates that the component is running in local mode.
 	local bool
 
-	env core.Environment
+	env resource.Environment
 
 	conns      []*grpc.ClientConn
 	clients    map[string]istioMixerV1.MixerClient

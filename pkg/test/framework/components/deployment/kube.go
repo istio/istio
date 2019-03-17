@@ -19,16 +19,17 @@ import (
 	"io"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type kubeComponent struct {
-	id         core.ResourceID
+	id         resource.ID
 	cfg        Config
 	env        *kube.Environment
 	deployment *deployment.Instance
@@ -37,7 +38,7 @@ type kubeComponent struct {
 var _ Instance = &kubeComponent{}
 var _ io.Closer = &kubeComponent{}
 
-func newKube(ctx core.Context, cfg Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	e := ctx.Environment().(*kube.Environment)
 
 	ns := ""
@@ -71,7 +72,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 	return i, nil
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

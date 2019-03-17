@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -41,11 +42,11 @@ var (
 )
 
 type kubeComponent struct {
-	id      core.ResourceID
+	id      resource.ID
 	address string
 }
 
-func newKube(ctx core.Context, cfg Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
 
@@ -110,7 +111,7 @@ func newKube(ctx core.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

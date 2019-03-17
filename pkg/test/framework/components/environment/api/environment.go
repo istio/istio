@@ -12,27 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package api
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
-func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(environment.Kube))
-}
+type FactoryFn func(name string, ctx Context) (resource.Environment, error)
 
-func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
-	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
-	}
+type Context interface {
+	TrackResource(r resource.Resource) resource.ID
+	CreateDirectory(name string) (string, error)
+	CreateTmpDirectory(prefix string) (string, error)
 }

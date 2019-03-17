@@ -18,16 +18,17 @@ import (
 	"fmt"
 	"io"
 
+	kubeApiCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
-	kubeApiCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -77,13 +78,13 @@ spec:
 )
 
 var (
-	_ Instance      = &kubeComponent{}
-	_ core.Resetter = &kubeComponent{}
-	_ io.Closer     = &kubeComponent{}
+	_ Instance          = &kubeComponent{}
+	_ resource.Resetter = &kubeComponent{}
+	_ io.Closer         = &kubeComponent{}
 )
 
 type kubeComponent struct {
-	id core.ResourceID
+	id resource.ID
 
 	*client
 
@@ -95,7 +96,7 @@ type kubeComponent struct {
 }
 
 // NewKubeComponent factory function for the component
-func newKube(ctx core.Context) (Instance, error) {
+func newKube(ctx resource.Context) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		kubeEnv: env,
@@ -200,7 +201,7 @@ spec:
 `, name, c.namespace.Name())
 }
 
-func (c *kubeComponent) ID() core.ResourceID {
+func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 

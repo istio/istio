@@ -21,7 +21,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Protocol enumerates the protocol options for calling an Endpoint endpoint.
@@ -38,7 +39,7 @@ const (
 
 // Instance is a component that provides access to the deployed echo service.
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	// Config returns the configuration of the Echo instance.
 	Config() Config
@@ -94,16 +95,16 @@ type Endpoint interface {
 }
 
 // New returns a new instance of echo.
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(core.Native, func() {
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
+	ctx.Environment().Case(environment.Native, func() {
 		i, err = newNative(ctx, cfg)
 	})
 	return
 }
 
 // NewOrFail returns a new instance of echo, or fails t if there is an error.
-func NewOrFail(ctx core.Context, t *testing.T, cfg Config) Instance {
+func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
 	t.Helper()
 	i, err := New(ctx, cfg)
 	if err != nil {

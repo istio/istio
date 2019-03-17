@@ -24,7 +24,11 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/api"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/runtime"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -44,7 +48,7 @@ var (
 )
 
 // SetupFn is a function used for performing suite-level setup actions.
-type SetupFn func(ctx core.SuiteContext) error
+type SetupFn func(ctx SuiteContext) error
 
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func() int
@@ -92,7 +96,7 @@ func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
 
 // NewContext creates a new test context and returns. It is upto the caller to close to context by calling
 // .Done() at the end of the test run.
-func NewContext(t *testing.T) core.TestContext {
+func NewContext(t *testing.T) TestContext {
 	if rt == nil {
 		panic("call to scope without running the test framework")
 	}
@@ -102,7 +106,7 @@ func NewContext(t *testing.T) core.TestContext {
 }
 
 // Run is a wrapper for wrapping around *testing.T in a test function.
-func Run(t *testing.T, fn func(ctx core.TestContext)) {
+func Run(t *testing.T, fn func(ctx TestContext)) {
 	start := time.Now()
 
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
@@ -143,7 +147,7 @@ func doInit(testID string) error {
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
 	var err error
-	rt, err = runtime.New(s, environment.New)
+	rt, err = runtime.New(s, newEnvironment)
 	return err
 }
 
@@ -184,4 +188,15 @@ func doCleanup() {
 		scopes.Framework.Errorf("Error during close: %v", err)
 	}
 	rt = nil
+}
+
+func newEnvironment(name string, ctx api.Context) (resource.Environment, error) {
+	switch name {
+	case environment.Native.String():
+		return native.New(ctx)
+	case environment.Kube.String():
+		return kube.New(ctx)
+	default:
+		return nil, fmt.Errorf("unknown environment: %q", name)
+	}
 }

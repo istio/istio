@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"

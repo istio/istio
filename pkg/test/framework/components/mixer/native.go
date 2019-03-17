@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
@@ -30,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -40,8 +41,8 @@ var (
 )
 
 type nativeComponent struct {
-	id     core.ResourceID
-	ctx    core.Context
+	id     resource.ID
+	ctx    resource.Context
 	env    *native.Environment
 	galley galley.Instance
 
@@ -51,7 +52,7 @@ type nativeComponent struct {
 var _ Instance = &nativeComponent{}
 var _ io.Closer = &nativeComponent{}
 
-func newNative(ctx core.Context, config Config) (Instance, error) {
+func newNative(ctx resource.Context, config Config) (Instance, error) {
 	n := &nativeComponent{
 		ctx:    ctx,
 		env:    ctx.Environment().(*native.Environment),
@@ -145,7 +146,7 @@ func newNative(ctx core.Context, config Config) (Instance, error) {
 	return n, nil
 }
 
-func (c *nativeComponent) ID() core.ResourceID {
+func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 

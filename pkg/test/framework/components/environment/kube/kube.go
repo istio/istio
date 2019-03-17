@@ -16,7 +16,9 @@ package kube
 
 import (
 	"istio.io/istio/pkg/test/deployment"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/api"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -24,17 +26,17 @@ import (
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
-	id core.ResourceID
+	id resource.ID
 
-	ctx core.Context
+	ctx api.Context
 	*kube.Accessor
 	s *Settings
 }
 
-var _ core.Environment = &Environment{}
+var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx core.Context) (core.Environment, error) {
+func New(ctx api.Context) (resource.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
@@ -61,19 +63,19 @@ func New(ctx core.Context) (core.Environment, error) {
 }
 
 // EnvironmentName implements environment.Instance
-func (e *Environment) EnvironmentName() core.EnvironmentName {
-	return core.Kube
+func (e *Environment) EnvironmentName() environment.Name {
+	return environment.Kube
 }
 
 // EnvironmentName implements environment.Instance
-func (e *Environment) Case(name core.EnvironmentName, fn func()) {
+func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()
 	}
 }
 
 // ID implements resource.Instance
-func (e *Environment) ID() core.ResourceID {
+func (e *Environment) ID() resource.ID {
 	return e.id
 }
 

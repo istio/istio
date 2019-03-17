@@ -24,9 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
@@ -36,7 +39,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	fcore "istio.io/istio/pkg/test/framework/core"
 )
 
 const (
@@ -77,7 +79,7 @@ var (
 )
 
 type nativeComponent struct {
-	id fcore.ResourceID
+	id resource.ID
 
 	//tlsCKey          string
 	//tlsCert          string
@@ -87,7 +89,7 @@ type nativeComponent struct {
 }
 
 // NewNativeComponent factory function for the component
-func newNative(ctx fcore.Context, cfg Config) (Instance, error) {
+func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*native.Environment)
 	c := &nativeComponent{
 		apps: make([]App, 0),
@@ -144,7 +146,7 @@ func newNative(ctx fcore.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-func (c *nativeComponent) ID() fcore.ResourceID {
+func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 

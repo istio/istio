@@ -12,32 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package environment
+package resource
 
-const (
-	// Native environment name
-	Native Name = "native"
-	// Kube environment name
-	Kube Name = "kube"
-)
-
-// Name of environment
-type Name string
-
-// String implements fmt.Stringer
-func (n Name) String() string {
-	return string(n)
-}
-
-// environmentNames of supported environments
-func Names() []Name {
-	return []Name{
-		Native,
-		Kube,
-	}
-}
-
-// DefaultName is the name of the default environment
-func DefaultName() Name {
-	return Native
+// Dumper is an interface that is implemented by all components that can dump their state. In CI, it is
+// useful to get as much context as possible when a test fails. Dumper allows dumping of state from a test.
+type Dumper interface {
+	Dump()
 }

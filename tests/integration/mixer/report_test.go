@@ -16,18 +16,16 @@ package mixer
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/util/tmpl"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 func TestMixer_Report_Direct(t *testing.T) {

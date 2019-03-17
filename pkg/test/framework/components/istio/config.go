@@ -24,11 +24,12 @@ import (
 	"github.com/mitchellh/go-homedir"
 	yaml2 "gopkg.in/yaml.v2"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/deployment"
-	"istio.io/istio/pkg/test/framework/core"
-	kubeCore "k8s.io/api/core/v1"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -127,7 +128,7 @@ func (c *Config) IsMtlsEnabled() bool {
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
-func DefaultConfig(ctx core.Context) (Config, error) {
+func DefaultConfig(ctx resource.Context) (Config, error) {
 	// Make a local copy.
 	s := *settingsFromCommandline
 

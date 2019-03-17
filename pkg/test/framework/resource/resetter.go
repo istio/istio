@@ -12,18 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core
+package resource
 
-import "fmt"
-
-// Resource of a resource.
-type Resource interface {
-
-	// Debugging ResourceID for the resource instance.
-	ID() ResourceID
-}
-
-// ResourceID for the resource instance. This is allocated by the framework and passed here.
-type ResourceID interface {
-	fmt.Stringer
+// Resetter is an interface that is implemented by resources that can be reset between executions within contexts.
+type Resetter interface {
+	Reset() error
 }

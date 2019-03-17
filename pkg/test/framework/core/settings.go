@@ -19,6 +19,8 @@ import (
 	"path"
 	"strings"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	"github.com/google/uuid"
 )
 
@@ -71,7 +73,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: defaultEnvironmentName().String(),
+		Environment: environment.DefaultName().String(),
 		RunID:       uuid.New(),
 	}
 }

@@ -17,37 +17,37 @@ package namespace
 import (
 	"fmt"
 
-	"github.com/google/uuid"
+	"istio.io/istio/pkg/test/framework/resource"
 
-	"istio.io/istio/pkg/test/framework/core"
+	"github.com/google/uuid"
 )
 
 // nativeNamespace represents an imaginary namespace. It is tracked as a resource.
 type nativeNamespace struct {
-	id   core.ResourceID
+	id   resource.ID
 	name string
 }
 
 var _ Instance = &nativeNamespace{}
-var _ core.Resource = &nativeNamespace{}
+var _ resource.Resource = &nativeNamespace{}
 
 func (n *nativeNamespace) Name() string {
 	return n.name
 }
 
-func (n *nativeNamespace) ID() core.ResourceID {
+func (n *nativeNamespace) ID() resource.ID {
 	return n.id
 }
 
-func claimNative(_ core.Context, name string) (*nativeNamespace, error) {
-	return &nativeNamespace{name: name}, nil
+func claimNative(_ resource.Context, name string) *nativeNamespace {
+	return &nativeNamespace{name: name}
 }
 
-func newNative(ctx core.Context, prefix string, _ bool) (*nativeNamespace, error) {
+func newNative(ctx resource.Context, prefix string, _ bool) *nativeNamespace {
 	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
 
 	n := &nativeNamespace{name: ns}
 	n.id = ctx.TrackResource(n)
 
-	return n, nil
+	return n
 }

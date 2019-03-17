@@ -18,10 +18,11 @@ import (
 	"io/ioutil"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/core"
 )
 
 type bookInfoConfig string
@@ -33,7 +34,7 @@ const (
 	BookinfoDb        bookInfoConfig = "bookinfo-db.yaml"
 )
 
-func deploy(ctx core.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
+func deploy(ctx resource.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
 	ns, err := namespace.Claim(ctx, "default")
 	if err != nil {
 		return nil, err

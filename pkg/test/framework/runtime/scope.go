@@ -19,7 +19,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -30,7 +30,7 @@ type scope struct {
 
 	parent *scope
 
-	resources []core.Resource
+	resources []resource.Resource
 
 	children []*scope
 }
@@ -48,7 +48,7 @@ func newScope(id string, p *scope) *scope {
 	return s
 }
 
-func (s *scope) add(r core.Resource, id *resourceID) {
+func (s *scope) add(r resource.Resource, id *resourceID) {
 	scopes.Framework.Debugf("Adding resource for tracking: %v", id)
 	s.resources = append(s.resources, r)
 }
@@ -82,7 +82,7 @@ func (s *scope) done(nocleanup bool) error {
 func (s *scope) reset() error {
 	var err error
 	for _, r := range s.resources {
-		if res, ok := r.(core.Resetter); ok {
+		if res, ok := r.(resource.Resetter); ok {
 			scopes.Framework.Debugf("Resetting resource: %s", r.ID())
 			if e := res.Reset(); e != nil {
 				scopes.Framework.Debugf("Error resetting resource %s: %v", r.ID(), e)
@@ -106,7 +106,7 @@ func (s *scope) dump() {
 	}
 
 	for _, c := range s.resources {
-		if d, ok := c.(core.Dumper); ok {
+		if d, ok := c.(resource.Dumper); ok {
 			d.Dump()
 		}
 	}

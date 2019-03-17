@@ -17,15 +17,17 @@ package citadel
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Citadel represents a deployed Citadel instance.
 type Instance interface {
-	core.Resource
+	resource.Resource
 
 	WaitForSecretToExist() (*corev1.Secret, error)
 	DeleteSecret() error
@@ -36,10 +38,10 @@ type Config struct {
 }
 
 // Deploy returns a new instance of Apps
-func New(ctx core.Context, cfg Config) (i Instance, err error) {
-	err = core.UnsupportedEnvironment(ctx.Environment())
+func New(ctx resource.Context, cfg Config) (i Instance, err error) {
+	err = resource.UnsupportedEnvironment(ctx.Environment())
 
-	ctx.Environment().Case(core.Kube, func() {
+	ctx.Environment().Case(environment.Kube, func() {
 		i = newKube(ctx, cfg)
 		err = nil
 	})
@@ -48,7 +50,7 @@ func New(ctx core.Context, cfg Config) (i Instance, err error) {
 }
 
 // Deploy returns a new instance of Citadel or fails test
-func NewOrFail(t *testing.T, ctx core.Context, cfg Config) Instance {
+func NewOrFail(t *testing.T, ctx resource.Context, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(ctx, cfg)

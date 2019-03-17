@@ -21,26 +21,27 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type kubeComponent struct {
-	id          core.ResourceID
+	id          resource.ID
 	settings    Config
-	ctx         core.Context
+	ctx         resource.Context
 	environment *kube.Environment
 	deployment  *deployment.Instance
 }
 
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
-var _ core.Dumper = &kubeComponent{}
+var _ resource.Dumper = &kubeComponent{}
 
-func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, error) {
+func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
 	scopes.CI.Infof("=== Istio Component Config ===")
 	scopes.CI.Infof("\n%s", cfg.String())
 	scopes.CI.Infof("================================")
@@ -108,7 +109,7 @@ func deploy(ctx core.Context, env *kube.Environment, cfg Config) (Instance, erro
 }
 
 // ID implements resource.Instance
-func (i *kubeComponent) ID() core.ResourceID {
+func (i *kubeComponent) ID() resource.ID {
 	return i.id
 }
 
