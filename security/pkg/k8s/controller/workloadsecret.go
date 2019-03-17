@@ -211,7 +211,7 @@ func GetSecretName(saName string) string {
 // Currently this looks at the object's namespace annotation, but could be
 // extended to allow hierarchy of global < namespace < object annotations/labels.
 func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
-	const label = "istio-injection"
+	const label = "istio-managed"
 	enabled := !sc.explicitOptIn // for backward compatibility, Citadel always creates secrets
 	// @todo this should be changed to false once we communicate behavior change and ensure customers
 	// correctly mark their namespaces. Currently controlled via command line
