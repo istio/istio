@@ -221,7 +221,7 @@ test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_yaml
 		--auth_enable=true --trust_domain_enable --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/auth/e2e_split_horizon: out_dir generate_e2e_yaml
+test/local/auth/e2e_split_horizon: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/multicluster \
 		--split_horizon \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
