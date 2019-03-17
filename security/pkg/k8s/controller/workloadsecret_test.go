@@ -393,7 +393,7 @@ func TestSecretOptIn(t *testing.T) {
 		},
 		"opt-in required, disabled label => disabled": {
 			requireOptIn: true,
-			ns:           createNS("disabled-ns", map[string]string{"istio-injection": "disabled"}),
+			ns:           createNS("disabled-ns", map[string]string{"istio-managed": "disabled"}),
 			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-injection": "disabled"})),
@@ -402,7 +402,7 @@ func TestSecretOptIn(t *testing.T) {
 		},
 		"opt-in required, enabled label => enabled": {
 			requireOptIn: true,
-			ns:           createNS("enabled-ns", map[string]string{"istio-injection": "enabled"}),
+			ns:           createNS("enabled-ns", map[string]string{"istio-managed": "enabled"}),
 			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-injection": "enabled"})),
