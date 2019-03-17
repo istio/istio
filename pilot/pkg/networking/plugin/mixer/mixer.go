@@ -98,7 +98,10 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
-		"context.reporter.network": attrNetwork(in.Node),
+	}
+
+	if network, found := in.Node.Metadata[model.NodeMetadataNetwork]; found {
+		attrs["context.reporter.network"] = attrStringValue(network)
 	}
 
 	switch in.ListenerProtocol {
@@ -130,7 +133,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("inbound"),
-		"context.reporter.network": attrNetwork(in.Node),
+	}
+
+	if network, found := in.Node.Metadata[model.NodeMetadataNetwork]; found {
+		attrs["context.reporter.network"] = attrStringValue(network)
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -584,13 +590,6 @@ func attrNamespace(node *model.Proxy) attribute {
 	parts := strings.Split(node.ID, ".")
 	if len(parts) >= 2 {
 		return attrStringValue(parts[1])
-	}
-	return attrStringValue("")
-}
-
-func attrNetwork(node *model.Proxy) attribute {
-	if network, found := node.Metadata[model.NodeMetadataNetwork]; found {
-		return attrStringValue(network)
 	}
 	return attrStringValue("")
 }
