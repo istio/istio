@@ -39,7 +39,7 @@ spec:
       httpsRedirect: true # sends 301 redirect for http requests
   - port:
       number: 443
-      name: https
+      name: https-443
       protocol: HTTPS
     hosts:
     - uk.bookinfo.com
@@ -50,7 +50,7 @@ spec:
       privateKey: /etc/certs/privatekey.pem
   - port:
       number: 9443
-      name: https
+      name: https-9443
       protocol: HTTPS
     hosts:
     - &quot;bookinfo-namespace/*.bookinfo.com&quot;
@@ -103,19 +103,19 @@ spec:
   - match:
     - headers:
         cookie:
-          user: dev-123
+          exact: &quot;user=dev-123&quot;
     route:
     - destination:
         port:
           number: 7777
         host: reviews.qa.svc.cluster.local
   - match:
-      uri:
+    - uri:
         prefix: /reviews/
     route:
     - destination:
         port:
-          number: 9080 # can be omitted if its the only port for reviews
+          number: 9080 # can be omitted if it's the only port for reviews
         host: reviews.prod.svc.cluster.local
       weight: 80
     - destination:

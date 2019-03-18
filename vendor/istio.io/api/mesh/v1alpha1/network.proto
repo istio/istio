@@ -35,7 +35,7 @@ message Network {
   //
   // 2. Explicitly:
   //
-  //    a. By matching the registry name with one of the "from_registries"
+  //    a. By matching the registry name with one of the "fromRegistry"
   //    in the mesh config. A "from_registry" can only be assigned to a
   //    single network.
   //
@@ -97,12 +97,15 @@ message Network {
 //
 // MeshNetworks(file/config map):
 // networks:
-// - network1:
+//   network1:
 //   - endpoints:
-//     - fromRegistry: registry1 #must match secret name inKubernetes
+//     - fromRegistry: registry1 #must match secret name in Kubernetes
 //     - fromCidr: 192.168.100.0/22 #a VM network for example
 //     gateways:
 //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+//       port: 15443
+//       locality: us-east-1a
+//     - address: 192.168.100.1
 //       port: 15443
 //       locality: us-east-1a
 message MeshNetworks {

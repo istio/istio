@@ -2090,7 +2090,7 @@ func (m *HTTPRetry) GetRetryOn() string {
 //       allowCredentials: false
 //       allowHeaders:
 //       - X-Foo-Bar
-//       maxAge: "1d"
+//       maxAge: "24h"
 // ```
 //
 type CorsPolicy struct {
