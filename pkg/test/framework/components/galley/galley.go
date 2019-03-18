@@ -44,7 +44,7 @@ type Instance interface {
 	ClearConfig() error
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
-	WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error
+	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
 }
 
 // Configuration for Galley

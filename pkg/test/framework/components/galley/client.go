@@ -25,18 +25,15 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/test/framework/api/components"
-	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type client struct {
 	address string
-	ctx     tcontext.Instance
 }
 
-func (c *client) waitForSnapshot(collection string, validator components.SnapshotValidatorFunc) error {
+func (c *client) waitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	conn, err := c.dialGrpc()
 	if err != nil {
 		return err
@@ -71,16 +68,16 @@ func (c *client) waitForSnapshot(collection string, validator components.Snapsho
 	return err
 }
 
-func toSnapshotObjects(items []*sink.Object) []*components.SnapshotObject {
-	snapshotObjects := make([]*components.SnapshotObject, 0, len(items))
+func toSnapshotObjects(items []*sink.Object) []*SnapshotObject {
+	snapshotObjects := make([]*SnapshotObject, 0, len(items))
 	for _, item := range items {
 		snapshotObjects = append(snapshotObjects, toSnapshotObject(item))
 	}
 	return snapshotObjects
 }
 
-func toSnapshotObject(item *sink.Object) *components.SnapshotObject {
-	return &components.SnapshotObject{
+func toSnapshotObject(item *sink.Object) *SnapshotObject {
+	return &SnapshotObject{
 		TypeURL:  item.TypeURL,
 		Metadata: item.Metadata,
 		Body:     item.Body,

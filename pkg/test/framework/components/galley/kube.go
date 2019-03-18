@@ -130,10 +130,10 @@ func (c *kubeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) 
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
-func (c *kubeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
+func (c *kubeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	panic("NYI: WaitForSnapshot")
 	// TODO
-	//	return c.client.waitForSnapshot(collection, snapshot)
+	//	return c.client.waitForSnapshot(collection, validator)
 }
 
 // Close implements io.Closer.

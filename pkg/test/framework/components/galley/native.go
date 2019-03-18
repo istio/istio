@@ -172,7 +172,6 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 	})
 }
 
-
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error {
 	return c.client.waitForSnapshot(collection, validator)

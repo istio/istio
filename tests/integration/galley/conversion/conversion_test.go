@@ -97,7 +97,7 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	}
 
 	for collection, e := range expected {
-		validator := components.GoldenValidatorFunc(e)
+		validator := galley.GoldenValidatorFunc(e)
 
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
