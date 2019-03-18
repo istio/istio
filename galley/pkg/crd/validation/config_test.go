@@ -19,16 +19,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
@@ -38,92 +43,85 @@ var (
 	failurePolicyFail    = &failurePolicyFailVal
 )
 
-func TestValidatingWebhookConfig(t *testing.T) {
-	want := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "config1",
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(
-					dummyDeployment,
-					appsv1.SchemeGroupVersion.WithKind("Deployment"),
-				),
-			},
-		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
-			{
-				Name: "hook-foo",
-				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-					Service: &admissionregistrationv1beta1.ServiceReference{
-						Name:      "hook1",
-						Namespace: "default",
-					},
-					CABundle: testcerts.CACert,
-				},
-				Rules: []admissionregistrationv1beta1.RuleWithOperations{
-					{
-						Operations: []admissionregistrationv1beta1.OperationType{
-							admissionregistrationv1beta1.Create,
-							admissionregistrationv1beta1.Update,
-						},
-						Rule: admissionregistrationv1beta1.Rule{
-							APIGroups:   []string{"g1"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"r1"},
-						},
-					},
-					{
-						Operations: []admissionregistrationv1beta1.OperationType{
-							admissionregistrationv1beta1.Create,
-							admissionregistrationv1beta1.Update,
-						},
-						Rule: admissionregistrationv1beta1.Rule{
-							APIGroups:   []string{"g2"},
-							APIVersions: []string{"v2"},
-							Resources:   []string{"r2"},
-						},
-					},
-				},
-				FailurePolicy:     failurePolicyFail,
-				NamespaceSelector: &metav1.LabelSelector{},
-			},
-			{
-				Name: "hook-bar",
-				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-					Service: &admissionregistrationv1beta1.ServiceReference{
-						Name:      "hook2",
-						Namespace: "default",
-					},
-					CABundle: testcerts.CACert,
-				},
-				Rules: []admissionregistrationv1beta1.RuleWithOperations{
-					{
-						Operations: []admissionregistrationv1beta1.OperationType{
-							admissionregistrationv1beta1.Create,
-							admissionregistrationv1beta1.Update,
-						},
-						Rule: admissionregistrationv1beta1.Rule{
-							APIGroups:   []string{"g3"},
-							APIVersions: []string{"v3"},
-							Resources:   []string{"r3"},
-						},
-					},
-					{
-						Operations: []admissionregistrationv1beta1.OperationType{
-							admissionregistrationv1beta1.Create,
-							admissionregistrationv1beta1.Update,
-						},
-						Rule: admissionregistrationv1beta1.Rule{
-							APIGroups:   []string{"g4"},
-							APIVersions: []string{"v4"},
-							Resources:   []string{"r4"},
-						},
-					},
-				},
-				FailurePolicy:     failurePolicyFail,
-				NamespaceSelector: &metav1.LabelSelector{},
-			},
-		},
+func createTestWebhookConfig(
+	t testing.TB,
+	cl clientset.Interface,
+	fakeWebhookSource cache.ListerWatcher,
+	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*WebhookConfig, func()) {
+
+	t.Helper()
+	dir, err := ioutil.TempDir("", "galley_validation_webhook")
+	if err != nil {
+		t.Fatalf("TempDir() failed: %v", err)
 	}
+	cleanup := func() {
+		os.RemoveAll(dir) // nolint: errcheck
+	}
+
+	var (
+		certFile   = filepath.Join(dir, "cert-file.yaml")
+		keyFile    = filepath.Join(dir, "key-file.yaml")
+		caFile     = filepath.Join(dir, "ca-file.yaml")
+		configFile = filepath.Join(dir, "config-file.yaml")
+		port       = uint(0)
+	)
+
+	// cert
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
+	}
+	// key
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
+	}
+	// ca
+	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
+	}
+
+	configBytes, err := yaml.Marshal(&config)
+	if err != nil {
+		cleanup()
+		t.Fatalf("could not create fake webhook configuration data: %v", err)
+	}
+	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
+	}
+
+	options := WebhookParameters{
+		CertFile:                      certFile,
+		KeyFile:                       keyFile,
+		Port:                          port,
+		DomainSuffix:                  testDomainSuffix,
+		WebhookConfigFile:             configFile,
+		CACertFile:                    caFile,
+		Clientset:                     cl,
+		WebhookName:                   config.Name,
+		DeploymentName:                dummyDeployment.Name,
+		ServiceName:                   dummyDeployment.Name,
+		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+	}
+	whc, err := NewWebhookConfig(options)
+	if err != nil {
+		cleanup()
+		t.Fatalf("NewWebhookConfig() failed: %v", err)
+	}
+
+	whc.createInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
+		return fakeWebhookSource
+	}
+
+	return whc, func() {
+		cleanup()
+	}
+}
+
+func TestValidatingWebhookConfig(t *testing.T) {
+	want := initValidatingWebhookConfiguration()
 
 	missingDefaults := want.DeepCopyObject().(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
 	missingDefaults.Webhooks[0].NamespaceSelector = nil
@@ -238,15 +236,13 @@ func TestValidatingWebhookConfig(t *testing.T) {
 
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
-			wh, cancel := createTestWebhook(t,
+			whc, cancel := createTestWebhookConfig(t,
 				fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()),
-				createFakeWebhookSource(),
-				createFakeEndpointsSource(),
-				want)
+				createFakeWebhookSource(), want)
 			defer cancel()
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			config, err := rebuildWebhookConfigHelper(wh.caFile, wh.webhookConfigFile, wh.webhookName, wh.ownerRefs)
+			config, err := rebuildWebhookConfigHelper(whc.caFile, whc.webhookConfigFile, whc.webhookName, whc.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -290,12 +286,97 @@ func TestValidatingWebhookConfig(t *testing.T) {
 	}
 }
 
-func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
-	t.Helper()
-	actual, err := wh.getCert(nil)
-	if err != nil {
-		t.Fatalf("fail to get certificate from webhook: %s", err)
+func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.ValidatingWebhookConfiguration {
+	return &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "config1",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(
+					dummyDeployment,
+					appsv1.SchemeGroupVersion.WithKind("Deployment"),
+				),
+			},
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name: "hook-foo",
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+					Service: &admissionregistrationv1beta1.ServiceReference{
+						Name:      "hook1",
+						Namespace: "default",
+					},
+					CABundle: testcerts.CACert,
+				},
+				Rules: []admissionregistrationv1beta1.RuleWithOperations{
+					{
+						Operations: []admissionregistrationv1beta1.OperationType{
+							admissionregistrationv1beta1.Create,
+							admissionregistrationv1beta1.Update,
+						},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"g1"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"r1"},
+						},
+					},
+					{
+						Operations: []admissionregistrationv1beta1.OperationType{
+							admissionregistrationv1beta1.Create,
+							admissionregistrationv1beta1.Update,
+						},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"g2"},
+							APIVersions: []string{"v2"},
+							Resources:   []string{"r2"},
+						},
+					},
+				},
+				FailurePolicy:     failurePolicyFail,
+				NamespaceSelector: &metav1.LabelSelector{},
+			},
+			{
+				Name: "hook-bar",
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+					Service: &admissionregistrationv1beta1.ServiceReference{
+						Name:      "hook2",
+						Namespace: "default",
+					},
+					CABundle: testcerts.CACert,
+				},
+				Rules: []admissionregistrationv1beta1.RuleWithOperations{
+					{
+						Operations: []admissionregistrationv1beta1.OperationType{
+							admissionregistrationv1beta1.Create,
+							admissionregistrationv1beta1.Update,
+						},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"g3"},
+							APIVersions: []string{"v3"},
+							Resources:   []string{"r3"},
+						},
+					},
+					{
+						Operations: []admissionregistrationv1beta1.OperationType{
+							admissionregistrationv1beta1.Create,
+							admissionregistrationv1beta1.Update,
+						},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"g4"},
+							APIVersions: []string{"v4"},
+							Resources:   []string{"r4"},
+						},
+					},
+				},
+				FailurePolicy:     failurePolicyFail,
+				NamespaceSelector: &metav1.LabelSelector{},
+			},
+		},
 	}
+}
+
+func checkCert(t *testing.T, whc *WebhookConfig, cert, key []byte) bool {
+	t.Helper()
+	actual := whc.cert
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		t.Fatalf("fail to load test certs.")
@@ -304,28 +385,27 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func TestReloadCert(t *testing.T) {
-	wh, cleanup := createTestWebhook(t,
+	whc, cleanup := createTestWebhookConfig(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
-		createFakeEndpointsSource(),
 		dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go wh.Run(stop)
-	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
+	go whc.reconcile(stop, true)
+	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
 	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
 		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
+		t.Fatalf("WriteFile(%v) failed: %v", whc.certFile, err)
 	}
-	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
 		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
+		t.Fatalf("WriteFile(%v) failed: %v", whc.keyFile, err)
 	}
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
-		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
+		return checkCert(t, whc, testcerts.RotatedCert, testcerts.RotatedKey)
 	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 
@@ -383,16 +463,15 @@ func TestInitialConfigLoadError(t *testing.T) {
 		}
 	}()
 
-	wh, cleanup := createTestWebhook(t,
+	whc, cleanup := createTestWebhookConfig(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
-		createFakeEndpointsSource(),
 		dummyConfig)
 	defer cleanup()
 
-	wh.webhookConfigFile = ""
-	wh.webhookConfiguration = nil
-	if err := wh.rebuildWebhookConfig(); err == nil {
+	whc.webhookConfigFile = ""
+	whc.webhookConfiguration = nil
+	if err := whc.rebuildWebhookConfig(); err == nil {
 		t.Fatal("unexpected success: rebuildWebhookConfig() should have failed given invalid config files")
 	}
 }
