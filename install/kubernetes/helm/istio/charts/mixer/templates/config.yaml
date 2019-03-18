@@ -106,6 +106,8 @@ spec:
       valueType: STRING
     context.reporter.uid:
       valueType: STRING
+    context.reporter.network:
+      valueType: STRING
     api.service:
       valueType: STRING
     api.version:
