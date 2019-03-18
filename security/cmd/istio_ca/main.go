@@ -160,6 +160,8 @@ func init() {
 	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
 	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file")
 	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file")
+
+	// Both self-signed or non-self-signed Citadel may take a root certificate file with a list of root certificates.
 	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file")
 
 	// Configuration if Citadel acts as a self signed CA.
@@ -267,32 +269,10 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
-	var webhooks map[string]controller.DNSNameEntry
+	var webhooks map[string]*controller.DNSNameEntry
 	if opts.appendDNSNames {
-		webhooks = make(map[string]controller.DNSNameEntry)
-		for i, svcAccount := range webhookServiceAccounts {
-			webhooks[svcAccount] = controller.DNSNameEntry{
-				ServiceName: webhookServiceNames[i],
-				Namespace:   opts.istioCaStorageNamespace,
-			}
-		}
-		if len(opts.customDNSNames) > 0 {
-			customNames := strings.Split(opts.customDNSNames, ",")
-			for _, customName := range customNames {
-				nameDomain := strings.Split(customName, ":")
-				if len(nameDomain) == 2 {
-					override, ok := webhooks[nameDomain[0]]
-					if ok {
-						override.CustomDomains = append(override.CustomDomains, nameDomain[1])
-					} else {
-						webhooks[nameDomain[0]] = controller.DNSNameEntry{
-							ServiceName:   nameDomain[0],
-							CustomDomains: []string{nameDomain[1]},
-						}
-					}
-				}
-			}
-		}
+		webhooks = controller.ConstructCustomDNSNames(webhookServiceAccounts,
+			webhookServiceNames, opts.istioCaStorageNamespace, opts.customDNSNames)
 	}
 
 	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")
@@ -308,7 +288,7 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
+			cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks, opts.rootCertFile)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -421,7 +401,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		}
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client)
+			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}

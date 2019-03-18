@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/howeyc/fsnotify"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 type TestAgent struct {
@@ -46,7 +44,7 @@ func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
-	watcher := NewWatcher([]CertSource{{Directory: "random"}}, agent.ConfigCh())
+	watcher := NewWatcher([]string{"/random"}, agent.ConfigCh())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update
@@ -161,10 +159,14 @@ func TestGenerateCertHash(t *testing.T) {
 	}()
 
 	h := sha256.New()
-	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
+	authFiles := []string{
+		path.Join(name, "cert.pem"),
+		path.Join(name, "key.pem"),
+		path.Join(name, "root-cert.pem"),
+	}
 	for _, file := range authFiles {
 		content := []byte(file)
-		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
+		if err := ioutil.WriteFile(file, content, 0644); err != nil {
 			t.Errorf("failed to write file %s (error %v)", file, err)
 		}
 		if _, err := h.Write(content); err != nil {
@@ -174,13 +176,13 @@ func TestGenerateCertHash(t *testing.T) {
 	expectedHash := h.Sum(nil)
 
 	h2 := sha256.New()
-	generateCertHash(h2, name, append(authFiles, "missing-file"))
+	generateCertHash(h2, append(authFiles, path.Join(name, "missing-file")))
 	actualHash := h2.Sum(nil)
 	if !bytes.Equal(actualHash, expectedHash) {
 		t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)", actualHash, expectedHash)
 	}
 
-	generateCertHash(h2, "", nil)
+	generateCertHash(h2, nil)
 	emptyHash := h2.Sum(nil)
 	if !bytes.Equal(emptyHash, expectedHash) {
 		t.Error("hash should not be affected by empty directory")

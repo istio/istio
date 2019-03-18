@@ -266,19 +266,22 @@ type IstioConfigStore interface {
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
 
-	// AuthenticationPolicyByDestination selects authentication policy associated
-	// with a service + port.
+	// AuthenticationPolicyForWorkload selects authentication policy associated
+	// with a workload (or labels if specified) + port.
 	// If there are more than one policies at different scopes (global, namespace, service)
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(service *Service, port *Port) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
 
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
+
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
 
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
@@ -489,6 +492,18 @@ var (
 		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
 	}
 
+	// AuthorizationPolicy describes an authorization policy.
+	AuthorizationPolicy = ProtoSchema{
+		ClusterScoped: false,
+		Type:          "authorization-policy",
+		Plural:        "authorization-policies",
+		Group:         "rbac",
+		Version:       "v1alpha1",
+		MessageName:   "istio.rbac.v1alpha1.AuthorizationPolicy",
+		Validate:      ValidateAuthorizationPolicy,
+		Collection:    metadata.IstioRbacV1alpha1Authorizationpolicies.Collection.String(),
+	}
+
 	// RbacConfig describes the mesh level RBAC config.
 	// Deprecated, use ClusterRbacConfig instead.
 	// See https://github.com/istio/istio/issues/8825 for more details.
@@ -530,6 +545,7 @@ var (
 		AuthenticationMeshPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		AuthorizationPolicy,
 		RbacConfig,
 		ClusterRbacConfig,
 	}
@@ -868,7 +884,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -889,8 +905,18 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Servic
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
-					continue
+				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
+				if len(dest.Labels) != 0 {
+					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
+					destLabels := Labels(dest.Labels)
+					if !destLabels.SubsetOf(labels) {
+						continue
+					}
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+				} else {
+					if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
+						continue
+					}
 				}
 				// If destination port is defined, it must match.
 				if len(dest.Ports) > 0 {
@@ -958,6 +984,16 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	}
 
 	return bindings
+}
+
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 func (store *istioConfigStore) ClusterRbacConfig() *Config {

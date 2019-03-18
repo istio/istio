@@ -270,6 +270,8 @@ func (m *ClusterStats) Validate() error {
 		}
 	}
 
+	// no validation rules for ClusterServiceName
+
 	if len(m.GetUpstreamLocalityStats()) < 1 {
 		return ClusterStatsValidationError{
 			Field:  "UpstreamLocalityStats",

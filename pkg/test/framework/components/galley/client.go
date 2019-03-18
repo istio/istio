@@ -16,9 +16,6 @@ package galley
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -28,15 +25,18 @@ import (
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/test/framework/api/components"
+	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type client struct {
 	address string
+	ctx     tcontext.Instance
 }
 
-func (c *client) waitForSnapshot(collection string, snapshot []map[string]interface{}) error {
+func (c *client) waitForSnapshot(collection string, validator components.SnapshotValidatorFunc) error {
 	conn, err := c.dialGrpc()
 	if err != nil {
 		return err
@@ -58,19 +58,33 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 	mcpc := mcpclient.New(cl, options)
 	go mcpc.Run(ctx)
 
-	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
 		items := u.Get(collection)
-		// scopes.Framework.Debugf("Received items (%s):\n---\n%v\n---\n", collection, serialize(items))
-		result, err = c.checkSnapshot(items, snapshot)
+
+		err = validator(toSnapshotObjects(items))
 		if err != nil {
 			return nil, false, err
 		}
-		err = result.generateError()
-		return nil, err == nil, err
+		return nil, true, nil
 	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
 
 	return err
+}
+
+func toSnapshotObjects(items []*sink.Object) []*components.SnapshotObject {
+	snapshotObjects := make([]*components.SnapshotObject, 0, len(items))
+	for _, item := range items {
+		snapshotObjects = append(snapshotObjects, toSnapshotObject(item))
+	}
+	return snapshotObjects
+}
+
+func toSnapshotObject(item *sink.Object) *components.SnapshotObject {
+	return &components.SnapshotObject{
+		TypeURL:  item.TypeURL,
+		Metadata: item.Metadata,
+		Body:     item.Body,
+	}
 }
 
 func (c *client) waitForStartup() (err error) {
@@ -84,92 +98,6 @@ func (c *client) waitForStartup() (err error) {
 	})
 
 	return
-}
-
-func (c *client) checkSnapshot(actual []*sink.Object, expected []map[string]interface{}) (*comparisonResult, error) {
-	expectedMap := make(map[string]interface{})
-	for _, e := range expected {
-		name, err := extractName(e)
-		if err != nil {
-			return nil, err
-		}
-		expectedMap[name] = e
-	}
-
-	actualMap := make(map[string]interface{})
-	for _, a := range actual {
-		// Exclude ephemeral fields from comparison
-		a.Metadata.CreateTime = nil
-		a.Metadata.Version = ""
-
-		b, err := json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-		o := make(map[string]interface{})
-		if err = json.Unmarshal(b, &o); err != nil {
-			return nil, err
-		}
-
-		name := a.Metadata.Name
-		actualMap[name] = o
-	}
-
-	var extraActual []string
-	var missingExpected []string
-	var conflicting []string
-
-	for name, a := range actualMap {
-		e, found := expectedMap[name]
-		if !found {
-			extraActual = append(extraActual, name)
-			continue
-		}
-
-		if !reflect.DeepEqual(a, e) {
-			conflicting = append(conflicting, name)
-		}
-	}
-
-	for name := range expectedMap {
-		_, found := actualMap[name]
-		if !found {
-			missingExpected = append(missingExpected, name)
-			continue
-		}
-	}
-
-	return &comparisonResult{
-		expected:        expectedMap,
-		actual:          actualMap,
-		extraActual:     extraActual,
-		missingExpected: missingExpected,
-		conflicting:     conflicting,
-	}, nil
-}
-
-func extractName(i map[string]interface{}) (string, error) {
-	m, found := i["Metadata"]
-	if !found {
-		return "", fmt.Errorf("metadata section not found in resource")
-	}
-
-	meta, ok := m.(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("metadata section is not a map")
-	}
-
-	n, found := meta["name"]
-	if !found {
-		return "", fmt.Errorf("metadata section does not contain name")
-	}
-
-	name, ok := n.(string)
-	if !ok {
-		return "", fmt.Errorf("name field is not a string")
-	}
-
-	return name, nil
 }
 
 func (c *client) dialGrpc() (*grpc.ClientConn, error) {
@@ -190,6 +118,5 @@ func (c *client) dialGrpc() (*grpc.ClientConn, error) {
 
 // Close implements io.Closer.
 func (c *client) Close() (err error) {
-
 	return err
 }

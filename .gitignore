@@ -27,9 +27,11 @@ lintconfig.gen.json
 .istiorc
 .istiorc.mk
 # codegen stuff
+bin/adapterlinter
 bin/protoc-gen-gogoslick*
 bin/protoc-min-version*
 bin/protoc-gen-docs*
+bin/testlinter
 # Install generated files
 install/consul/istio.yaml
 install/kubernetes/addons/grafana.yaml

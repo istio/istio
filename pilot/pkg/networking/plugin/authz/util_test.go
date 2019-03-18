@@ -170,6 +170,35 @@ func TestConvertToPort(t *testing.T) {
 	}
 }
 
+func TestConvertPortsToString(t *testing.T) {
+	testCases := []struct {
+		Name   string
+		V      []int32
+		Expect []string
+		Err    string
+	}{
+		{
+			Name:   "valid ports",
+			V:      []int32{80, 3000, 443},
+			Expect: []string{"80", "3000", "443"},
+		},
+		{
+			Name:   "valid port",
+			V:      []int32{9080},
+			Expect: []string{"9080"},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := convertPortsToString(tc.V)
+		for i := range tc.Expect {
+			if tc.Expect[i] != actual[i] {
+				t.Errorf("%s: expecting %s, but got %s", tc.Name, tc.Expect, actual)
+			}
+		}
+	}
+}
+
 func TestConvertToHeaderMatcher(t *testing.T) {
 	testCases := []struct {
 		Name   string

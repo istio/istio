@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -60,10 +61,15 @@ const (
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-// GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(service, port)
+// GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
+// hostname (or label selector if specified) and port, if defined.
+// It also tries to resolve JWKS URI if necessary.
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance *ServiceInstance) *authn.Policy {
+	service := serviceInstance.Service
+	port := serviceInstance.Endpoint.ServicePort
+	labels := serviceInstance.Labels
+
+	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -253,7 +259,7 @@ type fbMetadataAnyKey struct {
 	headerKey     string
 }
 
-var fileBasedMetadataConfigAnyMap = map[fbMetadataAnyKey]*types.Any{}
+var fileBasedMetadataConfigAnyMap sync.Map
 
 // findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
 // by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
@@ -269,10 +275,11 @@ func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMet
 		tokenFileName: tokenFileName,
 		headerKey:     headerKey,
 	}
-	if marshalAny, found := fileBasedMetadataConfigAnyMap[key]; found {
-		return marshalAny
+	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
+		marshalAny := v.(types.Any)
+		return &marshalAny
 	}
 	any, _ := types.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap[key] = any
+	fileBasedMetadataConfigAnyMap.Store(key, *any)
 	return any
 }

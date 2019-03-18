@@ -16,17 +16,19 @@ package proxy
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/log"
 )
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
-var ErrResolveNoAddress = errors.New("no address specified")
+var ErrResolveNoAddress = stderrors.New("no address specified")
 
 // ResolveAddr resolves an authority address to an IP address. Incoming
 // addr can be an IP address or hostname. If addr is an IPv6 address, the IP
@@ -54,7 +56,7 @@ func ResolveAddr(addr string) (string, error) {
 	defer cancel()
 	addrs, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if lookupErr != nil || len(addrs) == 0 {
-		return "", fmt.Errorf("lookup failed for IP address: %v", lookupErr)
+		return "", errors.WithMessage(lookupErr, "lookup failed for IP address")
 	}
 	var resolvedAddr string
 	ip := addrs[0].IP

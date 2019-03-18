@@ -14,7 +14,7 @@ about: Report a bug to help us improve Istio
 {{ Minimal steps to reproduce the behavior }}
 
 **Version**
-{{ What version of Istio and Kubernetes are you using? Use `istioctl version` and `kubectl version` }}
+{{ What version of Istio and Kubernetes are you using? Use `istioctl version --remote` and `kubectl version` }}
 
 **Installation**
 {{ Please describe how Istio was installed }}

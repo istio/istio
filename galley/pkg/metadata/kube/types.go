@@ -557,6 +557,17 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "AuthorizationPolicy",
+		ListKind:  "AuthorizationPolicyList",
+		Singular:  "authorizationpolicy",
+		Plural:    "authorizationpolicies",
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
+		Target:    metadata.Types.Get("istio/rbac/v1alpha1/authorizationpolicies"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "ClusterRbacConfig",
 		ListKind:  "ClusterRbacConfigList",
 		Singular:  "clusterrbacconfig",
