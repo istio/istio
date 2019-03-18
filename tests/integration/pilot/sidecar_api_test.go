@@ -72,8 +72,8 @@ func TestSidecarListeners(t *testing.T) {
 	// Test the empty case where no config is loaded
 	err = pilotInst.WatchDiscovery(time.Second*30,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-			validator := structpath.AssertThatProto(t, response)
-			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001) {
+			validator := structpath.ForProto(response)
+			if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
 				return false, nil
 			}
 			validateListenersNoConfig(t, validator)
@@ -96,8 +96,8 @@ func TestSidecarListeners(t *testing.T) {
 	// Now continue to watch on the same stream
 	err = pilotInst.WatchDiscovery(time.Second*30,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-			validator := structpath.AssertThatProto(t, response)
-			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==27018)]}") {
+			validator := structpath.ForProto(response)
+			if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
 				return false, nil
 			}
 			validateMongoListener(t, validator)
@@ -108,42 +108,45 @@ func TestSidecarListeners(t *testing.T) {
 	}
 }
 
-func validateListenersNoConfig(t *testing.T, response *structpath.Structpath) {
+func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 	t.Run("validate-legacy-port-3333", func(t *testing.T) {
 		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==3333)]}").
 			Equals("10.2.0.1", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("inbound|3333|http|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
 			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
+			NotExists("{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 	t.Run("validate-legacy-port-9999", func(t *testing.T) {
 		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==9999)]}").
 			Equals("10.2.0.1", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("inbound|9999|custom|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
 			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
+			NotExists("{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
 			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
-			Equals(true, "{.useOriginalDst}")
+			Equals(true, "{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 }
 
-func validateMongoListener(t *testing.T, response *structpath.Structpath) {
+func validateMongoListener(t *testing.T, response *structpath.Instance) {
 	t.Run("validate-mongo-listener", func(t *testing.T) {
-		mixerListener := response.ForTest(t).
+		mixerListener := response.
 			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 27018)
 
 		mixerListener.
