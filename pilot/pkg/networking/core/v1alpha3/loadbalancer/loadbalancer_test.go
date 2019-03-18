@@ -123,8 +123,8 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 				{
 					From: "region1/zone1/subzone1",
 					To: map[string]uint32{
-						"region1/zone1/subzone1": 90,
-						"region1/zone1/subzone2": 5,
+						"region1/zone1/subzone1": 80,
+						"region1/zone1/subzone2": 15,
 						"region1/zone1/subzone3": 5,
 					},
 				},
@@ -237,11 +237,13 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
 					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -249,11 +251,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -261,11 +258,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone3",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -273,11 +265,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone2",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -285,11 +272,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -297,11 +279,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 			},
 		},

@@ -59,38 +59,31 @@ func applyLocalityWeight(
 	// By setting weights across different localities, it can allow
 	// Envoy to weight assignments across different zones and geographical locations.
 	for _, localityWeightSetting := range distribute {
-		if localityWeightSetting != nil &&
-			util.LocalityMatch(locality, localityWeightSetting.From) {
-			misMatched := map[int]struct{}{}
-			for i := range loadAssignment.Endpoints {
-				misMatched[i] = struct{}{}
-			}
+		if localityWeightSetting != nil && util.LocalityMatch(locality, localityWeightSetting.From) {
+			everMatched := map[int]struct{}{}
 			for locality, weight := range localityWeightSetting.To {
-				// index -> original weight
-				destLocMap := map[int]uint32{}
-				totalWeight := uint32(0)
+				inLocality := map[int]struct{}{}
 				for i, ep := range loadAssignment.Endpoints {
-					if _, exist := misMatched[i]; exist {
-						if util.LocalityMatch(ep.Locality, locality) {
-							delete(misMatched, i)
-							destLocMap[i] = ep.LoadBalancingWeight.Value
-							totalWeight += destLocMap[i]
-						}
+					if util.LocalityMatch(ep.Locality, locality) {
+						inLocality[i] = struct{}{}
+						everMatched[i] = struct{}{}
 					}
 				}
 				// in case wildcard dest matching multi groups of endpoints
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
-				for index, originalWeight := range destLocMap {
-					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
-						Value: uint32(math.Ceil(weight)),
+				for i := range inLocality {
+					epWeight := float64(weight) / float64(len(inLocality))
+					loadAssignment.Endpoints[i].LoadBalancingWeight = &types.UInt32Value{
+						Value: uint32(math.Ceil(epWeight)),
 					}
 				}
 			}
 
-			// remove groups of endpoints in a locality that miss matched
-			for i := range misMatched {
-				loadAssignment.Endpoints[i].LbEndpoints = nil
+			// remove groups of endpoints in a locality that never matched
+			for i := range loadAssignment.Endpoints {
+				if _, exists := everMatched[i]; !exists {
+					loadAssignment.Endpoints[i].LbEndpoints = nil
+				}
 			}
 			break
 		}

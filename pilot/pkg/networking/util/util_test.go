@@ -278,6 +278,38 @@ func TestConvertLocality(t *testing.T) {
 	}
 }
 
+func TestLbPriority(t *testing.T) {
+	tests := []struct {
+		proxy    string
+		endpoint string
+		expected int
+	}{
+		{
+			proxy:    "us-west/zone2",
+			endpoint: "us-west/zone2",
+			expected: 0,
+		},
+		{
+			proxy:    "us-west/zone2",
+			endpoint: "us-west/zone1",
+			expected: 2,
+		},
+		{
+			proxy:    "us-west/zone2",
+			endpoint: "us-east/zone1",
+			expected: 3,
+		},
+	}
+
+	for _, tt := range tests {
+
+		priority := LbPriority(ConvertLocality(tt.proxy), ConvertLocality(tt.endpoint))
+		if priority != tt.expected {
+			t.Errorf("Expected matching result %v, but got %v", tt.expected, priority)
+		}
+	}
+}
+
 func TestLocalityMatch(t *testing.T) {
 	tests := []struct {
 		name     string
