@@ -141,7 +141,7 @@ func applyLocalityFailover(
 	for i, priority := range priorities {
 		if i != priority {
 			// the LocalityLbEndpoints index in ClusterLoadAssignment.Endpoints
-			for _, index := range priorityMap[priority] {
+			for index := range priorityMap[priority] {
 				loadAssignment.Endpoints[index].Priority = uint32(i)
 			}
 		}
