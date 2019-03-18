@@ -113,6 +113,9 @@ var (
 		}
 		return time.Second * time.Duration(duration)
 	}
+
+	// SDSEnabled indicates whether SDS is enabled globally.
+	SDSEnabled = os.Getenv("SDS_ENABLED") == "1"
 )
 
 var (

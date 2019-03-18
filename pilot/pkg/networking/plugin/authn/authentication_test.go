@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -712,12 +713,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 		},
 	}
-	tmp := model.SDSEnabled
+	tmp := pilot.SDSEnabled
 	defer func() {
-		model.SDSEnabled = tmp
+		pilot.SDSEnabled = tmp
 	}()
 	for _, c := range cases {
-		model.SDSEnabled = c.sdsEnabled
+		pilot.SDSEnabled = c.sdsEnabled
 		got := setupFilterChains(
 			c.in,
 			c.sdsUdsPath,

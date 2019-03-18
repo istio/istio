@@ -58,13 +58,8 @@ const (
 	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
-var (
-	// JwtKeyResolver resolves JWT public key and JwksURI.
-	JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
-
-	// SDSEnabled is global flag to decide is SDS is turned on.
-	SDSEnabled bool
-)
+// JwtKeyResolver resolves JWT public key and JwksURI.
+var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
 // hostname (or label selector if specified) and port, if defined.

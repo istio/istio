@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -904,7 +905,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 
 		// Fallback to file mount secret instead of SDS if SDS is disabled globally, or meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if !model.SDSEnabled || env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if !pilot.SDSEnabled || env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
