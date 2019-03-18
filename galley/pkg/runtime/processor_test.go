@@ -104,7 +104,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	defer restoreLogLevel(prevLevel)
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 
@@ -136,7 +136,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 
@@ -168,7 +168,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	stateStrategy := publish.NewStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
 
 	processCallCount := sync.WaitGroup{}
@@ -197,7 +197,7 @@ func TestProcessor_Publishing(t *testing.T) {
 }
 
 func newTestProcessor(src Source, stateStrategy *publish.Strategy,
-	distributor publish.Distributor, hookFn postProcessHookFn) *Processor {
+	distributor Distributor, hookFn postProcessHookFn) *Processor {
 	return newProcessor(src, cfg, resources.TestSchema, stateStrategy, distributor, hookFn)
 }
 
