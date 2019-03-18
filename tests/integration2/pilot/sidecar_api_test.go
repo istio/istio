@@ -62,8 +62,10 @@ func TestSidecarListeners(t *testing.T) {
 	// Test the empty case where no config is loaded
 	err = pilot.WatchDiscovery(time.Second*5,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-			validator := structpath.AssertProto(t, response)
-			if !validator.Accept("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort) {
+			validator := structpath.ForProto(response)
+			err := validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort).Check()
+			if err != nil {
+				t.Log(err)
 				return false, nil
 			}
 			validateListenersNoConfig(t, validator, mixerCheckPort)
@@ -116,10 +118,11 @@ func TestSidecarListeners(t *testing.T) {
 	}
 */
 
-func validateListenersNoConfig(t *testing.T, response *structpath.Assertable, mixerCheckPort int) {
+func validateListenersNoConfig(t *testing.T, response *structpath.Instance, mixerCheckPort int) {
 	t.Run("validate-mixer-listener", func(t *testing.T) {
-		mixerListener := response.ForTest(t).
-			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort)
+		mixerListener := response.
+			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", mixerCheckPort).
+			CheckOrFail(t)
 
 		mixerListener.
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
@@ -142,11 +145,13 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Assertable, mi
 			Equals(100, "{.tracing.random_sampling.value}").
 			Equals("EGRESS", "{.tracing.operation_name}").
 			Equals("websocket", "{.upgrade_configs[*].upgrade_type}").
-			Equals(false, "{.use_remote_address}")
+			Equals(false, "{.use_remote_address}").
+			CheckOrFail(t)
 
 		mixerListener.
 			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
+			NotExists("{.useOriginalDst}").
+			CheckOrFail(t)
 
 		mixerListener.
 			Select("{.filterChains[0].filters[0].config.http_filters[?(@.name==\"mixer\")].config}").
@@ -156,38 +161,42 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Assertable, mi
 			Equals(true, "{.service_configs.default.disable_check_calls}").
 			Equals(fmt.Sprintf("outbound|%v||mixer.istio-system.svc.local", mixerCheckPort), "{.transport.check_cluster}").
 			Equals(fmt.Sprintf("outbound|%v||mixer.istio-system.svc.local", mixerCheckPort), "{.transport.report_cluster}").
-			Equals("FAIL_CLOSE", "{.transport.network_fail_policy.policy}")
+			Equals("FAIL_CLOSE", "{.transport.network_fail_policy.policy}").
+			CheckOrFail(t)
 
 	})
 	t.Run("validate-legacy-port-3333", func(t *testing.T) {
 		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==3333)]}").
 			Equals("10.2.0.1", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("inbound|3333|http|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
 			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
+			NotExists("{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 	t.Run("validate-legacy-port-9999", func(t *testing.T) {
 		// Deprecated: Should be removed as no longer needed
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==9999)]}").
 			Equals("10.2.0.1", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("inbound|9999|custom|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
 			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}")
+			NotExists("{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
-		response.ForTest(t).
+		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
 			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
 			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
-			Equals(true, "{.useOriginalDst}")
+			Equals(true, "{.useOriginalDst}").
+			CheckOrFail(t)
 	})
 }
 
