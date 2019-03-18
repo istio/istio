@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -42,12 +41,12 @@ type Instance struct {
 	isJSON    bool
 }
 
-type InstanceForTest struct {
-	i *Instance
-	t *testing.T
-}
-
-func AssertProto(proto proto.Message) (*Instance, error) {
+// New creates a structpath Instance by marshaling the proto to JSON and then evaluating over that
+// structure. This is the most generally useful form as serialization to JSON also automatically
+// converts proto.Any and proto.Struct to the serialized JSON forms which can then be evaluated
+// over. The downside is the loss of type fidelity for numeric types as JSON can only represent
+// floats.
+func New(proto proto.Message) (*Instance, error) {
 	if proto == nil {
 		return nil, errors.New("expected non-nil proto")
 	}
@@ -61,19 +60,6 @@ func AssertProto(proto proto.Message) (*Instance, error) {
 		structure: parsed,
 		isJSON:    true,
 	}, nil
-}
-
-// Creates a new Structpath by marshaling the proto to JSON and then evaluating over that
-// structure. This is the most generally useful form as serialization to JSON also automatically
-// converts proto.Any and proto.Struct to the serialized JSON forms which can then be evaluated
-// over. The downside is the loss of type fidelity for numeric types as JSON can only represent
-// floats.
-func AssertProtoForTest(t *testing.T, proto proto.Message) *InstanceForTest {
-	i, err := AssertProto(proto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &InstanceForTest{i: i, t: t}
 }
 
 func protoToParsedJSON(message proto.Message) (interface{}, error) {
@@ -90,17 +76,17 @@ func protoToParsedJSON(message proto.Message) (interface{}, error) {
 	return parsed, nil
 }
 
-func (p *Instance) Accept(path string, args ...interface{}) (accepted bool, declineMsg string, err error) {
+func (p *Instance) Accept(path string, args ...interface{}) error {
 	path = fmt.Sprintf(path, args...)
 	v, err := p.findValue(path)
 	if err != nil {
-		return false, "", err
+		return err
 	}
 	if v == nil {
 		jsonText, _ := json.Marshal(p.structure)
-		return false, fmt.Sprintf("Did not accept %v \n %v", path, jsonText), nil
+		return fmt.Errorf("did not accept %v \n %v", path, jsonText)
 	}
-	return true, "", nil
+	return nil
 }
 
 func (p *Instance) Select(path string, args ...interface{}) (*Instance, error) {
@@ -115,7 +101,7 @@ func (p *Instance) Select(path string, args ...interface{}) (*Instance, error) {
 	return &Instance{value, p.isJSON}, nil
 }
 
-func (p *Instance) Equals(expected interface{}, path string, args ...interface{}) error {
+func (p *Instance) CheckEquals(expected interface{}, path string, args ...interface{}) error {
 	typeOf := reflect.TypeOf(expected)
 	protoMessageType := reflect.TypeOf((*proto.Message)(nil)).Elem()
 	if typeOf.Implements(protoMessageType) {
@@ -193,7 +179,7 @@ func (p *Instance) equalsStruct(proto proto.Message, path string, args ...interf
 	return nil
 }
 
-func (p *Instance) Exists(path string, args ...interface{}) error {
+func (p *Instance) CheckExists(path string, args ...interface{}) error {
 	path = fmt.Sprintf(path, args...)
 	v, err := p.findValue(path)
 	if err != nil {
@@ -205,7 +191,7 @@ func (p *Instance) Exists(path string, args ...interface{}) error {
 	return nil
 }
 
-func (p *Instance) NotExists(path string, args ...interface{}) error {
+func (p *Instance) CheckNotExists(path string, args ...interface{}) error {
 	path = fmt.Sprintf(path, args...)
 	parser := jsonpath.New("path")
 	err := parser.Parse(p.fixPath(path))
@@ -281,53 +267,4 @@ func (p *Instance) fixPath(path string) string {
 	}))
 
 	return result
-}
-
-func (p *InstanceForTest) ForTest(t *testing.T) *InstanceForTest {
-	return &InstanceForTest{i: p.i, t: p.t}
-}
-
-func (p *InstanceForTest) Accept(path string, args ...interface{}) bool {
-	p.t.Helper()
-	accept, msg, err := p.i.Accept(path, args...)
-	if err != nil {
-		p.t.Fatal(err)
-	}
-	if msg != "" {
-		p.t.Log(msg)
-	}
-	return accept
-}
-
-func (p *InstanceForTest) Select(path string, args ...interface{}) *InstanceForTest {
-	p.t.Helper()
-	i, err := p.i.Select(path, args)
-	if err != nil {
-		p.t.Fatal(err)
-	}
-	return &InstanceForTest{i: i, t: p.t}
-}
-
-func (p *InstanceForTest) Equals(expected interface{}, path string, args ...interface{}) *InstanceForTest {
-	p.t.Helper()
-	if err := p.i.Equals(expected, path, args...); err != nil {
-		p.t.Fatal(err)
-	}
-	return p
-}
-
-func (p *InstanceForTest) Exists(path string, args ...interface{}) *InstanceForTest {
-	p.t.Helper()
-	if err := p.i.Exists(path, args...); err != nil {
-		p.t.Fatal(err)
-	}
-	return p
-}
-
-func (p *InstanceForTest) NotExists(path string, args ...interface{}) *InstanceForTest {
-	p.t.Helper()
-	if err := p.i.NotExists(path, args...); err != nil {
-		p.t.Fatal(err)
-	}
-	return p
 }
