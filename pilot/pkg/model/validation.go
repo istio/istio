@@ -1075,13 +1075,8 @@ func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
 
 // ValidateDatadogCollector validates the configuration for sending envoy spans to Datadog
 func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
-	var errs error
-	if d.GetAddress() != "" {
-		if err := ValidateProxyAddress(d.GetAddress()); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog address:"))
-		}
-	}
-	return errs
+	// If the address contains $(HOST_IP), replace it with a valid IP before validation.
+	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
 // ValidateConnectTimeout validates the envoy conncection timeout

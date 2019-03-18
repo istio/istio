@@ -219,14 +219,7 @@
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
-            {{ if .datadogAgentAddress }}
-            "socket_address": {{ .datadogAgentAddress }}
-            {{ else }}
-            "socket_address": {
-              "address": "{{ .hostIP }}",
-              "port_value": 8126
-            }
-            {{ end }}
+            "socket_address": {{ .datadog }}
           }
         ]
       }

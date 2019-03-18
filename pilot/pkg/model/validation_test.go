@@ -824,7 +824,7 @@ func TestValidateProxyConfig(t *testing.T) {
 					}
 				},
 			),
-			isValid: true,
+			isValid: false,
 		},
 		{
 			name: "datadog with correct address",
