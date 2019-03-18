@@ -302,7 +302,11 @@ func NewPlugin() plugin.Plugin {
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return nil
+	if in.Node.Type != model.Router {
+		return nil
+	}
+
+	return buildFilter(in, mutable)
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
@@ -316,6 +320,15 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// Only supports sidecar proxy for now.
 	if in.Node.Type != model.SidecarProxy {
+		return nil
+	}
+
+	return buildFilter(in, mutable)
+}
+
+func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.ServiceInstance == nil || in.ServiceInstance.Service == nil {
+		rbacLog.Errorf("nil service instance")
 		return nil
 	}
 
