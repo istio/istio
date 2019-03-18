@@ -278,9 +278,8 @@ global:
       # zipkin service (port 9411) in the same namespace as the other istio components.
       address: ""
     datadog:
-      # Host:Port for submitting traces to the Datadog agent. If not specified, the host IP and
-      # default tracing port (8126) will be used.
-      address: ""
+      # Host:Port for submitting traces to the Datadog agent.
+      address: "$(HOST_IP):8126"
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:

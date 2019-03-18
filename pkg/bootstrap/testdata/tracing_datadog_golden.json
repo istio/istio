@@ -157,12 +157,7 @@
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
-            
-            "socket_address": {
-              "address": "",
-              "port_value": 8126
-            }
-            
+            "socket_address": {"address": "localhost", "port_value": 8126}
           }
         ]
       }
