@@ -75,7 +75,12 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network1",
 			sidecarID: sidecarID("10.1.0.1", "app3"),
 			want: expectedResults{
-				weights: map[string]uint32{"10.1.0.1": 2, "159.122.219.2": 4, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.1.0.1":      2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -84,7 +89,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network2",
 			sidecarID: sidecarID("10.2.0.1", "app3"),
 			want: expectedResults{
-				weights: map[string]uint32{"10.2.0.1": 2, "10.2.0.2": 2, "159.122.219.1": 2, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.2.0.1":      2,
+					"10.2.0.2":      2,
+					"159.122.219.1": 2,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -93,7 +104,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network3",
 			sidecarID: sidecarID("10.3.0.1", "app3"),
 			want: expectedResults{
-				weights: map[string]uint32{"159.122.219.1": 2, "159.122.219.2": 4, "10.3.0.1": 2, "10.3.0.2": 2, "10.3.0.3": 2},
+				weights: map[string]uint32{
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"10.3.0.1":      2,
+					"10.3.0.2":      2,
+					"10.3.0.3":      2,
+				},
 			},
 		},
 		{
