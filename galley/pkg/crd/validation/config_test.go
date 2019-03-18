@@ -392,7 +392,7 @@ func TestReloadCert(t *testing.T) {
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
-	go whc.reconcile(stop, true)
+	go whc.reconcile(stop)
 	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
 	// Update cert/key files.
 	if err := ioutil.WriteFile(whc.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow

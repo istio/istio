@@ -340,7 +340,7 @@ func NewWebhookConfig(p WebhookParameters) (*WebhookConfig, error) {
 }
 
 //reconcile monitors the keycert and webhook configuration changes, rebuild and reconcile the configuration
-func (whc *WebhookConfig) reconcile(stopCh <-chan struct{}, enableValidation bool) {
+func (whc *WebhookConfig) reconcile(stopCh <-chan struct{}) {
 	defer whc.keyCertWatcher.Close() // nolint: errcheck
 	defer whc.configWatcher.Close()  // nolint: errcheck
 
@@ -408,9 +408,9 @@ func ReconcileWebhookConfiguration(webhookServerReady chan struct{}, stopCh <-ch
 	if vc.EnableValidation {
 		//wait for galley endpoint to be available before register ValidatingWebhookConfiguration
 		<-webhookServerReady
-		whc.reconcile(stopCh, vc.EnableValidation)
+		whc.reconcile(stopCh)
 	} else {
-		whc.reconcile(stopCh, vc.EnableValidation)
+		whc.reconcile(stopCh)
 	}
 
 }
