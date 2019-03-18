@@ -41,12 +41,12 @@ type Instance struct {
 	isJSON    bool
 }
 
-// New creates a structpath Instance by marshaling the proto to JSON and then evaluating over that
+// ForProto creates a structpath Instance by marshaling the proto to JSON and then evaluating over that
 // structure. This is the most generally useful form as serialization to JSON also automatically
 // converts proto.Any and proto.Struct to the serialized JSON forms which can then be evaluated
 // over. The downside is the loss of type fidelity for numeric types as JSON can only represent
 // floats.
-func New(proto proto.Message) (*Instance, error) {
+func ForProto(proto proto.Message) (*Instance, error) {
 	if proto == nil {
 		return nil, errors.New("expected non-nil proto")
 	}

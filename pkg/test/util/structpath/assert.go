@@ -25,11 +25,11 @@ type Assertable struct {
 	t *testing.T
 }
 
-// AssertProto similar to New, but returns a fluent interface which immediately fails
+// AssertProto similar to ForProto, but returns a fluent interface which immediately fails
 // the given test when an error occurs.
 func AssertProto(t *testing.T, proto proto.Message) *Assertable {
 	t.Helper()
-	i, err := New(proto)
+	i, err := ForProto(proto)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func AssertProto(t *testing.T, proto proto.Message) *Assertable {
 }
 
 func (p *Assertable) ForTest(t *testing.T) *Assertable {
-	return &Assertable{i: p.i, t: p.t}
+	return &Assertable{i: p.i, t: t}
 }
 
 func (p *Assertable) Accept(path string, args ...interface{}) bool {
