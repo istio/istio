@@ -3,6 +3,7 @@ package pilot
 import (
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -194,5 +195,6 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Assertable, mi
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	_, _ = framework.Run("sidecar_api_test", m)
+	rt, _ := framework.Run("sidecar_api_test", m)
+	os.Exit(rt)
 }
