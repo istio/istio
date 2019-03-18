@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
-	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/grpc"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
@@ -40,7 +40,7 @@ var (
 	serverArgs = bootstrap.PilotArgs{
 		CtrlZOptions:         ctrlz.DefaultOptions(),
 		MCPCredentialOptions: creds.DefaultOptions(),
-		KeepaliveOptions:     keepalive.DefaultOption(),
+		GrpcOptions:          grpc.DefaultOption(),
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -162,7 +162,7 @@ func init() {
 	serverArgs.CtrlZOptions.AttachCobraFlags(rootCmd)
 
 	// Attach the Istio Keepalive options to the command.
-	serverArgs.KeepaliveOptions.AttachCobraFlags(rootCmd)
+	serverArgs.GrpcOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 

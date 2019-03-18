@@ -72,7 +72,7 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/filewatcher"
-	istiokeepalive "istio.io/istio/pkg/keepalive"
+	istiogrpc "istio.io/istio/pkg/grpc"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/client"
@@ -178,7 +178,7 @@ type PilotArgs struct {
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
-	KeepaliveOptions     *istiokeepalive.Options
+	GrpcOptions          *istiogrpc.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -217,8 +217,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
-	if args.KeepaliveOptions == nil {
-		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	if args.GrpcOptions == nil {
+		args.GrpcOptions = istiogrpc.DefaultOption()
 	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {
@@ -607,8 +607,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 
 		keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:    args.KeepaliveOptions.Time,
-			Timeout: args.KeepaliveOptions.Timeout,
+			Time:    args.GrpcOptions.Time,
+			Timeout: args.GrpcOptions.Timeout,
 		})
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
 		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption, keepaliveOption)
@@ -997,7 +997,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 
 	// create grpc/http server
-	s.initGrpcServer(args.KeepaliveOptions)
+	s.initGrpcServer(args.GrpcOptions)
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.mux,
@@ -1059,7 +1059,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// run secure grpc server
 	if args.DiscoveryOptions.SecureGrpcAddr != "" {
 		// create secure grpc server
-		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+		if err := s.initSecureGrpcServer(args.GrpcOptions); err != nil {
 			return fmt.Errorf("secure grpc server: %s", err)
 		}
 		// create secure grpc listener
@@ -1125,14 +1125,14 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 	return nil
 }
 
-func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
+func (s *Server) initGrpcServer(options *istiogrpc.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
 // initialize secureGRPCServer
-func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
+func (s *Server) initSecureGrpcServer(options *istiogrpc.Options) error {
 	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir
@@ -1190,7 +1190,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	return nil
 }
 
-func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
+func (s *Server) grpcServerOptions(options *istiogrpc.Options) []grpc.ServerOption {
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
@@ -1216,6 +1216,8 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 			MaxConnectionAge:      options.MaxServerConnectionAge,
 			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
 		}),
+		grpc.WriteBufferSize(options.WriteBufferSize),
+		grpc.ReadBufferSize(options.ReadBufferSize),
 	}
 
 	return grpcOptions

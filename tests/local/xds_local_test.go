@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/grpc"
 )
 
 func buildLocalClient(apiServerURL string) (*kubernetes.Clientset, error) {
@@ -179,8 +179,8 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 			Registries: []string{
 				string(serviceregistry.KubernetesRegistry)},
 		},
-		KeepaliveOptions: keepalive.DefaultOption(),
-		ForceStop:        true,
+		GrpcOptions: grpc.DefaultOption(),
+		ForceStop:   true,
 	}
 	// Create the server for the discovery service.
 	discoveryServer, err := bootstrap.NewServer(serverAgrs)
