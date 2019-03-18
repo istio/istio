@@ -17,13 +17,13 @@
 set -x
 
 # gsutil ls returns 0 if folder exists.
-gsutil ls "gs://${CB_GCS_FULL_STAGING_PATH}"
+gsutil ls "gs://$CB_GCS_FULL_STAGING_PATH"
 
 return_value=$?
 
 if [ $return_value = 0 ]; then
     # Remove the existing folder.
-    gsutil -q rm -rf "gs://${CB_GCS_FULL_STAGING_PATH}"
+    gsutil -q rm -rf "gs://$CB_GCS_FULL_STAGING_PATH"
 fi
 
 #copy files over to final destination
