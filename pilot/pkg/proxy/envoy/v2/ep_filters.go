@@ -39,9 +39,9 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		network = ""
 	}
 
-	// calculate the multiple of weight.
+	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
-	multiple := 1
+	multiples := 1
 	for _, network := range env.MeshNetworks.Networks {
 		num := 0
 		for _, gw := range network.Gateways {
@@ -50,7 +50,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			}
 		}
 		if num > 1 {
-			multiple *= num
+			multiples *= num
 		}
 	}
 
@@ -71,7 +71,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			if epNetwork == network {
 				// This is a local endpoint
 				lbEp.LoadBalancingWeight = &types.UInt32Value{
-					Value: uint32(multiple),
+					Value: uint32(multiples),
 				}
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
@@ -98,7 +98,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			}
 
 			gwEps := []endpoint.LbEndpoint{}
-			// There may be multiple gateways for the network. Add an LbEndpoint for
+			// There may be multiples gateways for the network. Add an LbEndpoint for
 			// each one of them
 			for _, gw := range gws {
 				var gwEp *endpoint.LbEndpoint
@@ -124,7 +124,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 					gwEps = append(gwEps, *gwEp)
 				}
 			}
-			weight := w * uint32(multiple/len(gwEps))
+			weight := w * uint32(multiples/len(gwEps))
 			for _, gwEp := range gwEps {
 				gwEp.LoadBalancingWeight.Value = weight
 				lbEndpoints = append(lbEndpoints, gwEp)
