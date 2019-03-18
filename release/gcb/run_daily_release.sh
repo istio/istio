@@ -16,15 +16,7 @@
 
 set -x
 
-# gsutil ls returns 0 if folder exists.
-gsutil ls "gs://$CB_GCS_FULL_STAGING_PATH"
-
-return_value=$?
-
-if [ $return_value = 0 ]; then
-    # Remove the existing folder.
-    gsutil -q rm -rf "gs://$CB_GCS_FULL_STAGING_PATH"
-fi
+gsutil -q rm -rf "gs://$CB_GCS_FULL_STAGING_PATH" || echo "Staging path does not exist."
 
 #copy files over to final destination
 gsutil -m cp -r "gs://$CB_GCS_BUILD_PATH" "gs://$CB_GCS_FULL_STAGING_PATH"
