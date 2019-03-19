@@ -79,7 +79,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
 						continue
 					}
-					routeName := gatewayRDSRouteName(s, config.Namespace)
+					routeName := gatewayRDSRouteName(s, config)
 					if routeName == "" {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
@@ -91,7 +91,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
 					if IsHTTPServer(s) {
-						routeName := gatewayRDSRouteName(s, config.Namespace)
+						routeName := gatewayRDSRouteName(s, config)
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
@@ -127,7 +127,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				}
 
 				if IsHTTPServer(s) {
-					routeName := gatewayRDSRouteName(s, config.Namespace)
+					routeName := gatewayRDSRouteName(s, config)
 					serversByRouteName[routeName] = []*networking.Server{s}
 					routeNamesByServer[s] = routeName
 				}
@@ -195,7 +195,7 @@ func IsPassThroughServer(server *networking.Server) bool {
 //   Multiple HTTP servers can exist on the same port and the code will combine all of them into
 //   one single RDS payload for http.<portNumber>
 // HTTPS servers with TLS termination (i.e. envoy decoding the content, and making outbound http calls to backends)
-// will use route name https.<portnumber>.<portName>.<namespace>. HTTPS servers using SNI passthrough or
+// will use route name https.<portNumber>.<portName>.<gatewayName>.<namespace>. HTTPS servers using SNI passthrough or
 // non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without terminating
 // the SSL connection. They would inspect the SNI header and forward to the appropriate upstream as opaque TCP.
 //
@@ -206,25 +206,23 @@ func IsPassThroughServer(server *networking.Server) bool {
 // all virtual hosts on that port to every filter chain uniformly or expose only the set of virtual hosts
 // configured under the server for those certificates. We adopt the latter approach. In other words, each
 // filter chain in the multi-filter-chain listener will have a distinct RDS route name
-// (https.<portnumber>.portname.namespace) so that when a RDS request comes in, we serve the virtual hosts and
-// associated routes for that server.
+// (https.<portNumber>.<portName>.<gatewayName>.<namespace>) so that when a RDS request comes in, we serve the virtual
+// hosts and associated routes for that server.
 //
 // Note that the common case is one where multiple servers are exposed under a single multi-SAN cert on a single port.
-// In this case, we have a single https.<portnumber>.portname.namespace RDS for the HTTPS server.
+// In this case, we have a single https.<portNumber>.<portName>.<gatewayName>.<namespace> RDS for the HTTPS server.
 // While we can use the same RDS route name for two servers (say HTTP and HTTPS) exposing the same set of hosts on
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
-//
-// Such contract means that port names must be unambiguous within the same namespace even if the ports belong to
-// different gateways. Using the same port name is allowed as long as they are in different namespaces.
-func gatewayRDSRouteName(server *networking.Server, namespace string) string {
+func gatewayRDSRouteName(server *networking.Server, config Config) string {
 	protocol := ParseProtocol(server.Port.Protocol)
 	if protocol.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
 	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
-		return fmt.Sprintf("https.%d.%s.%s", server.Port.Number, server.Port.Name, namespace)
+		return fmt.Sprintf("https.%d.%s.%s.%s",
+			server.Port.Number, server.Port.Name, config.Name, config.Namespace)
 	}
 
 	return ""
