@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -35,6 +36,8 @@ var (
 )
 
 func TestSidecarListeners(t *testing.T) {
+	t.Skipf("https://github.com/istio/istio/issues/12601")
+
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
@@ -83,31 +86,29 @@ func TestSidecarListeners(t *testing.T) {
 	}
 
 	// TODO: The code below is flaky. We should re-enable this once we have explicit config loading trigger support in Galley.
-	/*
-		// Apply some config
-		path, err := filepath.Abs("../../testdata/config")
-		if err != nil {
-			t.Fatalf("No such directory: %v", err)
-		}
-		err = g.ApplyConfigDir(nil, path)
-		if err != nil {
-			t.Fatalf("Error applying directory: %v", err)
-		}
+	// Apply some config
+	path, err := filepath.Abs("../../testdata/config")
+	if err != nil {
+		t.Fatalf("No such directory: %v", err)
+	}
+	err = g.ApplyConfigDir(nil, path)
+	if err != nil {
+		t.Fatalf("Error applying directory: %v", err)
+	}
 
-		// Now continue to watch on the same stream
-		err = pilotInst.WatchDiscovery(time.Second*30,
-			func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-				validator := structpath.ForProto(response)
-				if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
-					return false, nil
-				}
-				validateMongoListener(t, validator)
-				return true, nil
-			})
-		if err != nil {
-			t.Fatalf("Failed to test as no resource accepted: %v", err)
-		}
-	*/
+	// Now continue to watch on the same stream
+	err = pilotInst.WatchDiscovery(time.Second*30,
+		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+			validator := structpath.ForProto(response)
+			if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
+				return false, nil
+			}
+			validateMongoListener(t, validator)
+			return true, nil
+		})
+	if err != nil {
+		t.Fatalf("Failed to test as no resource accepted: %v", err)
+	}
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
@@ -146,26 +147,26 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 	})
 }
 
-//func validateMongoListener(t *testing.T, response *structpath.Instance) {
-//	t.Run("validate-mongo-listener", func(t *testing.T) {
-//		mixerListener := response.
-//			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 27018)
-//
-//		mixerListener.
-//			Equals("0.0.0.0", "{.address.socketAddress.address}").
-//			// Example doing a struct comparison, note the pain with oneofs....
-//			Equals(&xdscore.SocketAddress{
-//				Address: "0.0.0.0",
-//				PortSpecifier: &xdscore.SocketAddress_PortValue{
-//					PortValue: uint32(27018),
-//				},
-//			}, "{.address.socketAddress}").
-//			Select("{.filterChains[0].filters[0]}").
-//			Equals("envoy.mongo_proxy", "{.name}").
-//			Select("{.config}").
-//			Exists("{.stat_prefix}")
-//	})
-//}
+func validateMongoListener(t *testing.T, response *structpath.Instance) {
+	t.Run("validate-mongo-listener", func(t *testing.T) {
+		mixerListener := response.
+			Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 27018)
+
+		mixerListener.
+			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			// Example doing a struct comparison, note the pain with oneofs....
+			Equals(&xdscore.SocketAddress{
+				Address: "0.0.0.0",
+				PortSpecifier: &xdscore.SocketAddress_PortValue{
+					PortValue: uint32(27018),
+				},
+			}, "{.address.socketAddress}").
+			Select("{.filterChains[0].filters[0]}").
+			Equals("envoy.mongo_proxy", "{.name}").
+			Select("{.config}").
+			Exists("{.stat_prefix}")
+	})
+}
 
 // Capturing TestMain allows us to:
 // - Do cleanup before exit
