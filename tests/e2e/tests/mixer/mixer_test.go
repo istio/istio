@@ -44,14 +44,17 @@ import (
 )
 
 const (
-	bookinfoSampleDir     = "samples/bookinfo"
-	yamlExtension         = "yaml"
-	deploymentDir         = "platform/kube"
-	bookinfoYaml          = "bookinfo"
-	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
-	bookinfoDbYaml        = "bookinfo-db"
-	sleepYaml             = "samples/sleep/sleep"
-	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
+	bookinfoSampleDir      = "samples/bookinfo"
+	yamlExtension          = "yaml"
+	deploymentDir          = "platform/kube"
+	bookinfoYaml           = "bookinfo"
+	bookinfoRatingsv2Yaml  = "bookinfo-ratings-v2"
+	bookinfoDbYaml         = "bookinfo-db"
+	sleepYaml              = "samples/sleep/sleep"
+	mixerTestDataDir       = "tests/e2e/tests/mixer/testdata"
+	mixerPromAdapterConfig = "mixer/test/prometheus/prometheus-nosession"
+	mixerMetricTemplate    = "mixer/template/metric/template"
+	oopPromDeployment      = "tests/e2e/tests/mixer/testdata/mixer-deployment-service"
 
 	prometheusPort   = uint16(9090)
 	mixerMetricsPort = uint16(42422)
@@ -103,6 +106,7 @@ var (
 	bookinfoGateway             = "bookinfo-gateway"
 	redisQuotaRollingWindowRule = "mixer-rule-ratings-redis-quota-rolling-window"
 	redisQuotaFixedWindowRule   = "mixer-rule-ratings-redis-quota-fixed-window"
+	oopPromConfigs              = "mixer-oop-rule-handler-instance-deployment"
 
 	defaultRules []string
 	rules        []string
@@ -125,6 +129,9 @@ func (t *testConfig) Setup() (err error) {
 		*dr = filepath.Join(bookinfoSampleDir, networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
+	// Append default metric template and prometheus adapter config for out of process adapter dynamic encoding
+	defaultRules = append(defaultRules, mixerPromAdapterConfig)
+	defaultRules = append(defaultRules, mixerMetricTemplate)
 
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule}
@@ -139,7 +146,7 @@ func (t *testConfig) Setup() (err error) {
 		rules = append(rules, *r)
 	}
 
-	rs = []*string{&redisQuotaRollingWindowRule, &redisQuotaFixedWindowRule}
+	rs = []*string{&redisQuotaRollingWindowRule, &redisQuotaFixedWindowRule, &oopPromConfigs}
 	for _, r := range rs {
 		*r = filepath.Join(mixerTestDataDir, *r)
 		rules = append(rules, *r)
@@ -251,7 +258,7 @@ func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := getDestinationRulePath(tc, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
+			log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}
@@ -439,6 +446,10 @@ func setTestConfig() error {
 			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
 			KubeInject: true,
 		},
+		{
+			AppYaml:    util.GetResourcePath(oopPromDeployment + "." + yamlExtension),
+			KubeInject: false,
+		},
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
@@ -463,16 +474,31 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestMetric(t *testing.T) {
-	checkMetricReport(t, destLabel, fqdn("productpage"))
+	checkMetricReport(t, "istio_requests_total", destLabel, fqdn("productpage"))
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, srcWorkloadLabel, "istio-"+ingressName)
+	checkMetricReport(t, "istio_requests_total", srcWorkloadLabel, "istio-"+ingressName)
+}
+
+func TestOOPMetric(t *testing.T) {
+	if err := applyMixerRule(oopPromConfigs); err != nil {
+		fatalf(t, "could not apply required out of process configs: %v", err)
+	}
+
+	defer func() {
+		if err := deleteMixerRule(oopPromConfigs); err != nil {
+			t.Logf("could not clear out of process config: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	checkMetricReport(t, "istio_request_count_oop", destLabel, fqdn("productpage"))
 }
 
 // checkMetricReport checks whether report works for the given service
 // by visiting productpage and comparing request_count metric.
-func checkMetricReport(t *testing.T, label, labelValue string) {
+func checkMetricReport(t *testing.T, name, label, labelValue string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
@@ -483,7 +509,7 @@ func checkMetricReport(t *testing.T, label, labelValue string) {
 
 	// establish baseline by querying request count metric.
 	t.Log("establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_requests_total{%s=\"%s\"}", label, labelValue)
+	query := fmt.Sprintf("%s{%s=\"%s\"}", name, label, labelValue)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -507,7 +533,7 @@ func checkMetricReport(t *testing.T, label, labelValue string) {
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_requests_total{%s=\"%s\",%s=\"200\"}", label, labelValue, responseCodeLabel)
+	query = fmt.Sprintf("%s{%s=\"%s\",%s=\"200\"}", name, label, labelValue, responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
