@@ -111,7 +111,11 @@ const (
 
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
 	// registry doesn't provide one.
+	//
+	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
 	LocalityLabel = "istio-locality"
+	// k8s istio-locality label separator
+	k8sSeparator = "."
 )
 
 // Port represents a network port where a service is listening for
@@ -387,6 +391,10 @@ type ServiceInstance struct {
 func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
+	}
+	if strings.Contains(si.Labels[LocalityLabel], k8sSeparator) {
+		// replace "." with "/"
+		si.Labels[LocalityLabel] = strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
 	return si.Labels[LocalityLabel]
 }
