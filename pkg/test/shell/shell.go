@@ -32,13 +32,13 @@ func Execute(format string, args ...interface{}) (string, error) {
 	// TODO: escape handling
 	parts := strings.Split(s, " ")
 
+	var p []string
 	for i := 0; i < len(parts); i++ {
-		if parts[i] == "" {
-			parts = append(parts[:i], parts[i+1:]...)
+		if parts[i] != "" {
+			p = append(p, parts[i])
 		}
 	}
-
-	return executeArgs(nil, parts[0], parts[1:]...)
+	return executeArgs(nil, parts[0], p[1:]...)
 }
 
 // ExecuteEnv executes the given command, with the specified environment value overrides.

@@ -29,7 +29,7 @@ import (
 )
 
 // DumpPodState logs the current pod state.
-func DumpPodState(namespace string, accessor *kube.Accessor) {
+func DumpPodState(workDir string, namespace string, accessor *kube.Accessor) {
 	pods, err := accessor.GetPods(namespace)
 	if err != nil {
 		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
@@ -40,16 +40,19 @@ func DumpPodState(namespace string, accessor *kube.Accessor) {
 		Indent: "  ",
 	}
 
-	output := ""
 	for _, pod := range pods {
-		output += fmt.Sprintf("Pod: %s/%s\n", pod.Namespace, pod.Name)
-		if str, err := marshaler.MarshalToString(&pod); err != nil {
-			output += fmt.Sprintf("Error converting to pod to JSON: %v\n", err.Error())
-		} else {
-			output += str + "\n"
+		str, err := marshaler.MarshalToString(&pod)
+		if err != nil {
+			scopes.CI.Errorf("Error marshaling pod state for output: %v", err)
+			continue
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("pod_%s_%s.yaml", namespace, pod.Name))
+
+		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
-	scopes.CI.Infof("Pods (from Kubectl):\n%s", output)
 }
 
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.

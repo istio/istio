@@ -38,11 +38,11 @@ type Instance struct {
 func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 	if i.yamlFilePath != "" {
 		if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
-			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+			return multierror.Prefix(err, "kube apply of generated yaml file:")
 		}
 	} else {
 		if i.appliedFiles, err = a.ApplyContents(i.namespace, i.yamlContents); err != nil {
-			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+			return multierror.Prefix(err, "kube apply of generated yaml file:")
 		}
 	}
 
@@ -73,7 +73,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 		}
 	}
 
-	if wait {
+	if wait && err != nil {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
 		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {

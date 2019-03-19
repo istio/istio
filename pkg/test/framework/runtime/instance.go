@@ -15,123 +15,48 @@
 package runtime
 
 import (
-	"flag"
-	"fmt"
-	"sync"
 	"testing"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/scopes"
-)
-
-// internal state for the runtime.
-type state int
-
-const (
-	// States for the runtime.
-
-	// The runtime is freshly created. It hasn't run yet.
-	created state = iota
-
-	// The runtime is currently running tests.
-	running
-
-	// the runtime has completed running tests.
-	completed
+	"istio.io/istio/pkg/test/framework/components/environment/api"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 // Instance for the test environment.
 type Instance struct {
-	lock sync.Mutex
-
-	ctx *contextImpl
-
-	// The names of the tests that we've encountered so far.
-	testNames map[string]struct{}
-
-	state state
+	context *suiteContext
 }
 
 // New returns a new runtime instance.
-func New() *Instance {
+func New(s *core.Settings, fn api.FactoryFn) (*Instance, error) {
+	ctx, err := newSuiteContext(s, fn)
+	if err != nil {
+		return nil, err
+	}
 	return &Instance{
-		testNames: make(map[string]struct{}),
-		state:     created,
-	}
+		context: ctx,
+	}, nil
 }
 
-// Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
-// It allows us to do post-run doCleanup, and flag parsing.
-func (d *Instance) Run(testID string, m *testing.M) (int, error) {
-	rt, err := d.initialize(testID)
-	if err != nil {
-		return rt, err
-	}
-
-	// Call m.Run() while not holding the lock.
-	scopes.CI.Infof("=== BEGIN: test run: '%s' ===", testID)
-	rt = m.Run()
-	scopes.CI.Infof("=== DONE: test run: '%s' ===", testID)
-
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.state = completed
-
-	if err := d.ctx.Close(); err != nil {
-		scopes.Framework.Warnf("Error during environment close: %v", err)
-	}
-
-	return rt, nil
+// Dump state for all allocated resources.
+func (i *Instance) Dump() {
+	i.context.globalScope.dump()
 }
 
-// GetContext resets and returns the environment. Should be called exactly once per test.
-func (d *Instance) GetContext(t testing.TB) context.Instance {
-	t.Helper()
-	scopes.Framework.Debugf("Enter: runtime.GetContext (%s)", d.ctx.TestID())
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.state != running {
-		t.Fatalf("Test runtime is not running.")
-	}
-
-	// Double check the test name to see if this is a singleton call for this test?
-	if _, ok := d.testNames[t.Name()]; ok {
-		t.Fatalf("GetContext should be called only once during a test session. (test='%s')", t.Name())
-	}
-	d.testNames[t.Name()] = struct{}{}
-
-	if err := d.ctx.Reset(); err != nil {
-		d.ctx.DumpState(t.Name())
-		t.Fatalf("GetContext failed to reset the environment state: %v", err)
-	}
-
-	return d.ctx
+// suiteContext returns the suiteContext.
+func (i *Instance) SuiteContext() *suiteContext { // nolint:golint
+	return i.context
 }
 
-func (d *Instance) initialize(testID string) (int, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	if d.state != created {
-		return -1, fmt.Errorf("runtime.Run must be called only once")
+// NewTestContext creates and returns a new testContext
+func (i *Instance) NewTestContext(parentContext *testContext, t *testing.T) *testContext { // nolint:golint
+	var parentScope *scope
+	if parentContext != nil {
+		parentScope = parentContext.scope
 	}
-	d.state = running
+	return newTestContext(i.context, parentScope, t)
+}
 
-	// Parse flags and init logging.
-	flag.Parse()
-
-	// Initialize settings
-	var err error
-	d.ctx, err = newContext(testID)
-	if err != nil {
-		return -1, err
-	}
-	scopes.CI.Infof("Test Framework runtime settings:\n%s", d.ctx)
-
-	if err := log.Configure(d.ctx.logOptions); err != nil {
-		return -1, err
-	}
-
-	return 0, nil
+// Close implements io.Closer
+func (i *Instance) Close() error {
+	return i.context.globalScope.done(i.context.settings.NoCleanup)
 }
