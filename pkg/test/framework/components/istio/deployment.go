@@ -33,10 +33,10 @@ metadata:
   labels:
     istio-injection: disabled
 `
-	zeroCRDInstallFile = "crd-10.yaml"
-	oneCRDInstallFile  = "crd-11.yaml"
-	twoCRDInstallFile  = "crd-12.yaml"
-	threeCRDInstallFile  = "crd-certmanager-10.yaml"
+	zeroCRDInstallFile  = "crd-10.yaml"
+	oneCRDInstallFile   = "crd-11.yaml"
+	twoCRDInstallFile   = "crd-12.yaml"
+	threeCRDInstallFile = "crd-certmanager-10.yaml"
 )
 
 const (
