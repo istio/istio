@@ -154,14 +154,11 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	if ctx.Settings().CIMode {
-		s.DeployTimeout = DefaultDeployTimeout
-		s.UndeployTimeout = DefaultUndeployTimeout
-	} else {
 		s.DeployTimeout = DefaultCIDeployTimeout
 		s.UndeployTimeout = DefaultCIUndeployTimeout
-
-		// Always pull the image when doing local development.
-		s.Values[deployment.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+	} else {
+		s.DeployTimeout = DefaultDeployTimeout
+		s.UndeployTimeout = DefaultUndeployTimeout
 	}
 
 	return s, nil
