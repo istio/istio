@@ -345,7 +345,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
-	LocalityLbEndpoints := make([]endpoint.LocalityLbEndpoints, len(lbEndpoints))
+	var LocalityLbEndpoints []endpoint.LocalityLbEndpoints
 
 	for locality, eps := range lbEndpoints {
 		LocalityLbEndpoints = append(LocalityLbEndpoints, endpoint.LocalityLbEndpoints{
