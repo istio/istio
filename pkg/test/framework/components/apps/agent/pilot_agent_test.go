@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	proxyEnvoy "istio.io/istio/pilot/pkg/proxy/envoy"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 

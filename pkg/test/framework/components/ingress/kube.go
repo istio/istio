@@ -22,9 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )

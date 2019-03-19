@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
@@ -32,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )

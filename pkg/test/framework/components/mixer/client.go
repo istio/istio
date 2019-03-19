@@ -18,15 +18,13 @@ import (
 	"context"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
-
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 )
 

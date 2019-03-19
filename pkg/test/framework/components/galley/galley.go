@@ -18,10 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
-
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance of Galley

@@ -18,9 +18,9 @@ import (
 	"flag"
 	"os"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/mitchellh/go-homedir"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 var (

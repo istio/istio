@@ -21,10 +21,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 

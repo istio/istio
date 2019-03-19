@@ -17,10 +17,9 @@ package ingress
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance represents a deployed Ingress Gateway instance.

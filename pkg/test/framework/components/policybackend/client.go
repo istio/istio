@@ -67,15 +67,7 @@ func (c *client) ExpectReport(t testing.TB, expected ...proto.Message) {
 func (c *client) ExpectReportJSON(t testing.TB, expected ...string) {
 	t.Helper()
 
-	var err error
-	//for i, e := range expected {
-	//	expected[i], err = c.env.Evaluate(e)
-	//	if err != nil {
-	//		t.Fatalf("template evaluation failed: %v", err)
-	//	}
-	//}
-
-	_, err = retry.Do(func() (interface{}, bool, error) {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 		reports, err := c.controller.GetReports()
 		if err != nil {
 			return nil, false, err

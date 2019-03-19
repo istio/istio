@@ -19,14 +19,13 @@ import (
 	"io"
 	"net"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
