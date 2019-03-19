@@ -60,31 +60,34 @@ func applyLocalityWeight(
 	// Envoy to weight assignments across different zones and geographical locations.
 	for _, localityWeightSetting := range distribute {
 		if localityWeightSetting != nil && util.LocalityMatch(locality, localityWeightSetting.From) {
-			everMatched := map[int]struct{}{}
+			endpointWeights := map[int]float64{}
 			for locality, weight := range localityWeightSetting.To {
+				// find all endpoints in locality
 				inLocality := map[int]struct{}{}
 				for i, ep := range loadAssignment.Endpoints {
 					if util.LocalityMatch(ep.Locality, locality) {
 						inLocality[i] = struct{}{}
-						everMatched[i] = struct{}{}
 					}
 				}
-				// in case wildcard dest matching multi groups of endpoints
-				// the load balancing weight for a locality is divided by the sum of the weights of all localities
+
+				// distribute assigned weight amongst matching endpoints
 				for i := range inLocality {
-					epWeight := float64(weight) / float64(len(inLocality))
-					loadAssignment.Endpoints[i].LoadBalancingWeight = &types.UInt32Value{
-						Value: uint32(math.Ceil(epWeight)),
-					}
+					weight := float64(weight) / float64(len(inLocality))
+					endpointWeights[i] += weight
 				}
 			}
 
-			// remove groups of endpoints in a locality that never matched
 			for i := range loadAssignment.Endpoints {
-				if _, exists := everMatched[i]; !exists {
+				if endpointWeights[i] == 0 {
+					// remove groups of endpoints in a locality that never matched
 					loadAssignment.Endpoints[i].LbEndpoints = nil
+				} else {
+					loadAssignment.Endpoints[i].LoadBalancingWeight = &types.UInt32Value{
+						Value: uint32(math.Ceil(endpointWeights[i])),
+					}
 				}
 			}
+			// Only apply the first rule that matches
 			break
 		}
 	}

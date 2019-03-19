@@ -1,6 +1,7 @@
 package loadbalancer
 
 import (
+	"reflect"
 	"testing"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -13,7 +14,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -24,21 +24,67 @@ func TestApplyLocalitySetting(t *testing.T) {
 	}
 
 	t.Run("Distribute", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-		env := buildEnvForClustersWithDistribute()
-		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
-
-		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-			if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
-				g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
-				continue
-			}
-			if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1") {
-				g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(5)))
-				continue
-			}
-			g.Expect(localityEndpoint.LbEndpoints).To(BeNil())
+		tests := []struct {
+			name       string
+			distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute
+			expected   []int
+		}{
+			{
+				name: "distribution between subzones",
+				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "region1/zone1/subzone1",
+						To: map[string]uint32{
+							"region1/zone1/subzone1": 80,
+							"region1/zone1/subzone2": 15,
+							"region1/zone1/subzone3": 5,
+						},
+					},
+				},
+				expected: []int{40, 40, 15, 5, 0, 0, 0},
+			},
+			{
+				name: "distribute with overlapping to",
+				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "region1/zone1/subzone1",
+						To: map[string]uint32{
+							"region1/zone1/subzone1": 50,
+							"region1/zone1/*":        40,
+							"region1/zone2/*":        10,
+						},
+					},
+				},
+				expected: []int{35, 35, 10, 10, 10, 0, 0},
+			},
+			{
+				name: "distribute with overlapping to, alternate order",
+				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "region1/zone1/subzone1",
+						To: map[string]uint32{
+							"region1/zone2/*":        10,
+							"region1/zone1/*":        40,
+							"region1/zone1/subzone1": 50,
+						},
+					},
+				},
+				expected: []int{35, 35, 10, 10, 10, 0, 0},
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				env := buildEnvForClustersWithDistribute(tt.distribute)
+				cluster := buildFakeCluster()
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+				weights := []int{}
+				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
+				}
+				if !reflect.DeepEqual(weights, tt.expected) {
+					t.Errorf("Got weights %v expected %v", weights, tt.expected)
+				}
+			})
 		}
 	})
 
@@ -95,7 +141,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 }
 
-func buildEnvForClustersWithDistribute() *model.Environment {
+func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -119,16 +165,7 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 			Nanos:   1,
 		},
 		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
-			Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
-				{
-					From: "region1/zone1/subzone1",
-					To: map[string]uint32{
-						"region1/zone1/subzone1": 80,
-						"region1/zone1/subzone2": 15,
-						"region1/zone1/subzone3": 5,
-					},
-				},
-			},
+			Distribute: distribute,
 		},
 	}
 
