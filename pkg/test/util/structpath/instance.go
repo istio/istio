@@ -270,7 +270,7 @@ func (i *Instance) findValue(path string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("err finding results for path: %v - %v", path, err)
 	}
-	if len(values) == 0 {
+	if len(values) == 0 || len(values[0]) == 0 {
 		return nil, fmt.Errorf("no value for path: %v", path)
 	}
 	return values[0][0].Interface(), nil
