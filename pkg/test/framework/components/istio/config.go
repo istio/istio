@@ -43,13 +43,13 @@ const (
 	DefaultDeployTimeout = time.Second * 300
 
 	// DefaultCIDeployTimeout for Istio
-	DefaultCIDeployTimeout = time.Second * 600
+	DefaultCIDeployTimeout = time.Second * 900
 
 	// DefaultUndeployTimeout for Istio.
 	DefaultUndeployTimeout = time.Second * 300
 
 	// DefaultCIUndeployTimeout for Istio.
-	DefaultCIUndeployTimeout = time.Second * 600
+	DefaultCIUndeployTimeout = time.Second * 900
 
 	// DefaultIstioChartRepo for Istio.
 	DefaultIstioChartRepo = "https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/"
