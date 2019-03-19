@@ -36,7 +36,7 @@ var (
 )
 
 func TestSidecarListeners(t *testing.T) {
-	t.Skipf("https://github.com/istio/istio/issues/12601")
+	t.Skip("https://github.com/istio/istio/issues/12601")
 
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.NewContext(t)
