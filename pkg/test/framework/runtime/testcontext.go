@@ -95,10 +95,10 @@ func (c *testContext) Environment() resource.Environment {
 func (c *testContext) CreateDirectory(name string) (string, error) {
 	dir, err := ioutil.TempDir(c.workDir, name)
 	if err != nil {
-		scopes.Framework.Errorf("Error creating temp dir: runID='%c', prefix='%c', workDir='%v', err='%v'",
+		scopes.Framework.Errorf("Error creating temp dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
 			c.suite.settings.RunID, name, c.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%c', name='%c'", c.suite.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%v', name='%s'", c.suite.settings.RunID, dir)
 	}
 	return dir, err
 }
@@ -118,10 +118,10 @@ func (c *testContext) CreateDirectoryOrFail(t *testing.T, name string) string {
 func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	dir, err := ioutil.TempDir(c.workDir, prefix)
 	if err != nil {
-		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
+		scopes.Framework.Errorf("Error creating temp dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
 			c.suite.settings.RunID, prefix, c.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", c.suite.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%v', name='%s'", c.suite.settings.RunID, dir)
 	}
 
 	return dir, err
