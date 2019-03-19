@@ -35,7 +35,8 @@ metadata:
 `
 	zeroCRDInstallFile = "crd-10.yaml"
 	oneCRDInstallFile  = "crd-11.yaml"
-	twoCRDInstallFile  = "crd-certmanager-10.yaml"
+	twoCRDInstallFile  = "crd-12.yaml"
+	threeCRDInstallFile  = "crd-certmanager-10.yaml"
 )
 
 const (
@@ -106,7 +107,7 @@ func splitIstioYaml(istioYaml string) (string, string) {
 func getCrdsYamlFiles(crdFilesDir string) (string, error) {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile, threeCRDInstallFile}
 	// Get Joined Crds Yaml file
 	prevContent := ""
 	for _, yamlFileName := range istioCRDFileNames {
