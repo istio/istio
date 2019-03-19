@@ -25,15 +25,15 @@ To begin using the test framework, you'll need a write a `TestMain` that simply 
 
 ```golang
 func TestMain(m *testing.M) { 
-    framework.Run("my_test", m)
+    framework.Main("my_test", m)
 }
 ```
 
 The first parameter is a `TestID`, which can be any string. It's used mainly for creating a working directory for the test output.
 
-The call to `framework.Run` does the following:
+The call to `framework.Main` does the following:
 
-1. Starts the platform-specific environment. By default, the native environment is used. To run on Kubernetes, set the flag: `--istio.test.env=kubernetes`.
+1. Starts the platform-specific environment. By default, the native environment is used. To run on Kubernetes, set the flag: `--istio.test.env=kube`.
 2. Run all tests in the current package. This is the standard Go behavior for `TestMain`.
 3. Stops the environment.
 
@@ -43,12 +43,10 @@ Then, in the same package as `TestMain`, define your tests:
 func TestHTTP(t *testing.T) {
     // Get the test context from the framework.
     ctx := framework.GetContext(t)
+    defer ctx.Done(t)
     
-    // Indicate the components required by this test.
-    ctx.RequireOrSkip(t, lifecycle.Test, &ids.Apps)
-
     // Get the component(s) that you need.
-    apps := components.GetApps(ctx, t)
+    apps := components.GetApps(t, ctx)
     a := apps.GetAppOrFail("a", t)
     b := apps.GetAppOrFail("b", t)
 
@@ -66,18 +64,24 @@ func TestHTTP(t *testing.T) {
 Every test will follow the pattern in the example above:
 
 1. Get the context. The context is the main API for the test framework.
-2. Indicate the requirements for your test. The context will immediately attempt to start the required components. If for some reason, a requirement cannot be met, you can choose whether the test should be skipped (`RequireOrSkip`) or failed (`RequireOrFail`).
-3. Get and use components. Each component (e.g. Pilot, Mixer, Apps) defines its own API. See the interface documentation for details on usage.
+2. Get and use components. Each component (e.g. Pilot, Mixer, Apps) defines its own API. See the interface documentation for details on usage.
 
-### Component Lifecycles
+If you need to do suite-level checks, then you can pass additional parameters to `framework.Main`:
 
-When requiring components, you must provide a lifecycle scope. Components in the test framework can be assigned the following lifecycle scopes:
+```golang
+func TestMain(m *testing.M) { 
+    framework.Main("my_test", m,
+    framework.RequireEnvironment(environment.Kube), // Require Kubernetes environment.
+    istio.SetupOnKube(&ist, nil),            // Deploy Istio, to be used by the whole suite.
+    setup)                                   // Call your setup function.
+}
 
-| Scope | Description |
-| --- | --- |
-| Suite | Used for a component that should exist for duration of the test suite (i.e. until the environment is destroyed). |
-| Test | Used for a component that should exist for the duration of a single test method. |
-| System | Same as `Suite`, but reserved for Istio system components. Regardless of the scope passed to `RequireXXX`, Istio system components are upgraded automatically to `System`.|
+func setup(ctx core.SuiteContext) error {
+  // ...
+}
+
+```
+
 
 ### Supported Platforms
 
@@ -89,19 +93,24 @@ Running natively requires no flags, since `--istio.test.env=native` is the defau
 
 #### Kubernetes
 
-To run on Kubernetes, specify the flag `--istio.test.env=kubernetes`.  By default, Istio will be deployed using the configuration in `~/.kube/config`.
+To run on Kubernetes, specify the flag `--istio.test.env=kube`.  By default, Istio will be deployed using the configuration in `~/.kube/config`.
 
 Several flags are available to customize the behavior, such as:
 
 | Flag | Default | Description |
 | --- | --- | --- |
+| istio.test.env | `native` | Specify the environment to run the tests against. Allowed values are: `kube`, `native`. Defaults to `native`. |
+| istio.test.work_dir | '' | Local working directory for creating logs/temp files. If left empty, os.TempDir() is used. |
+| istio.test.hub | '' | Container registry hub to use. If not specified, `HUB` environment value will be used. |
+| istio.test.tag | '' | Common container tag to use when deploying container images. If not specified `TAG` environment value will be used. |
+| istio.test.pullpolicy | `Always` | Common image pull policy to use when deploying container images. If not specified `PULL_POLICY` environment value will be used. Defaults to `Always` |
+| istio.test.nocleanup | `false` | Do not cleanup resources after test completion. |
+| istio.test.ci | `false` | Enable CI Mode. Additional logging and state dumping will be enabled. |
 | istio.test.kube.config | `~/.kube/config` | Location of the kube config file to be used. |
-| istio.test.kube.systemNamespace | `istio-system` | Namespace for components in the `System` scope. If '', the namespace is generated with the prefix "istio-system-". |
-| istio.test.kube.suiteNamespace | `''` | Namespace for components in the `Suite` scope. If '', the namespace is generated with the prefix "istio-suite-". |
-| istio.test.kube.testNamespace | `''` | Namespace for components in the `Test` scope. If '', the namespace is generated with the prefix "istio-test-". |
+| istio.test.kube.minikube | `false` | If `true` access to the ingress will be via nodeport. Should be set to `true` if running on Minikube. |
+| istio.test.kube.systemNamespace | `istio-system` | Namespace for Istio deployment. If '', the namespace is generated with the prefix "istio-system-". |
 | istio.test.kube.deploy | `true` | If `true`, the components should be deployed to the cluster. Otherwise, it is assumed that the components have already deployed. |
-| istio.test.kube.minikubeingress | `false` | If `true` access to the ingress will be via nodeport. Should be set to `true` if running on Minikube. |
 | istio.test.kube.helm.chartDir | `$(ISTIO)/install/kubernetes/helm/istio` | |
-| istio.test.kube.helm.valuesFile | `values-istio-mcp.yaml` | The name of a file (relative to `istio.test.kube.helm.chartDir`) to provide Helm values. |
+| istio.test.kube.helm.valuesFile | `values-e2e.yaml` | The name of a file (relative to `istio.test.kube.helm.chartDir`) to provide Helm values. |
 | istio.test.kube.helm.values | `''` | A comma-separated list of helm values that will override those provided by `istio.test.kube.helm.valuesFile`. These are overlaid on top of a map containing the following: `global.hub=${HUB}`, `global.tag=${TAG}`, `global.proxy.enableCoreDump=true`, `global.mtls.enabled=true`,`galley.enabled=true`. |
 

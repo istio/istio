@@ -74,15 +74,15 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		}
 	}
 
-	var err error
-	var generatedYaml string
-	if generatedYaml, err = HelmTemplate(
+	generatedYaml, err := HelmTemplate(
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
 		c.WorkDir,
 		valuesFile,
-		c.Values); err != nil {
+		c.Values)
+
+	if err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
 
@@ -146,6 +146,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
+	// TODO cleanup
 	// Adding cni dependency as a workaround for now.
 	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
 	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
