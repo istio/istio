@@ -42,8 +42,10 @@ const (
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
 
+	// TODO(https://github.com/istio/istio/issues/12606): This timeout is insanely large, but Prow seems to take a lot of time
+	//  pulling images.
 	// DefaultCIDeployTimeout for Istio
-	DefaultCIDeployTimeout = time.Second * 900
+	DefaultCIDeployTimeout = time.Minute * 20
 
 	// DefaultUndeployTimeout for Istio.
 	DefaultUndeployTimeout = time.Second * 300
