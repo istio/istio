@@ -19,12 +19,11 @@ import (
 	"io"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )

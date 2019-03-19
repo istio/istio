@@ -19,12 +19,11 @@ import (
 	"io"
 	"net"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 

@@ -63,7 +63,6 @@ func loadTestData(t *testing.T) []testData {
 func TestValidation(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
-
 	// Validation tests only works in Kubernetes environment
 	ctx.RequireOrSkip(t, environment.Kube)
 

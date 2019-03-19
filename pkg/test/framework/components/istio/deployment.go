@@ -16,8 +16,10 @@ package istio
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -33,10 +35,6 @@ metadata:
   labels:
     istio-injection: disabled
 `
-	zeroCRDInstallFile  = "crd-10.yaml"
-	oneCRDInstallFile   = "crd-11.yaml"
-	twoCRDInstallFile   = "crd-12.yaml"
-	threeCRDInstallFile = "crd-certmanager-10.yaml"
 )
 
 const (
@@ -105,12 +103,25 @@ func splitIstioYaml(istioYaml string) (string, string) {
 }
 
 func getCrdsYamlFiles(crdFilesDir string) (string, error) {
+
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile, threeCRDInstallFile}
+	var crdFiles []string
+	fs, err := ioutil.ReadDir(crdFilesDir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, f := range fs {
+		if strings.HasPrefix(f.Name(), "crd-") {
+			crdFiles = append(crdFiles, f.Name())
+		}
+	}
+	sort.Strings(crdFiles)
+
 	// Get Joined Crds Yaml file
 	prevContent := ""
-	for _, yamlFileName := range istioCRDFileNames {
+	for _, yamlFileName := range crdFiles {
 		content, err := test.ReadConfigFile(path.Join(crdFilesDir, yamlFileName))
 		if err != nil {
 			return "", err
