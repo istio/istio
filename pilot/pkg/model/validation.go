@@ -1585,7 +1585,7 @@ func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Sub
 	return false
 }
 
-// isStarInNames returns true if the user defines "*" as of the values for names or not_names in ServiceRoleBinding.
+// isStarInNames returns true if there is a "*" in the names slice.
 func isStarInNames(names []string) bool {
 	for _, name := range names {
 		if name == "*" {
