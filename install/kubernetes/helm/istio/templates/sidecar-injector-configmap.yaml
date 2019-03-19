@@ -17,7 +17,11 @@ data:
       rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
+{{- if .Values.sidecarInjectorWebhook.interceptionNoneByDefault }}
+      {{ "[[ if and (ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` \"\") \"\") (ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` \"\") \"NONE\") ]]" }}
+{{- else }}
       {{ "[[ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"NONE\" ]]" }}
+{{- end }}
 {{- if not .Values.istio_cni.enabled }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
