@@ -157,34 +157,34 @@ func init() {
 		"to false.")
 
 	// Configuration if Citadel accepts key/cert configured through arguments.
-	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
-	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file")
-	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file")
+	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file.")
+	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file.")
+	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file.")
 
 	// Both self-signed or non-self-signed Citadel may take a root certificate file with a list of root certificates.
-	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file")
+	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file.")
 
 	// Configuration if Citadel acts as a self signed CA.
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
-		"The TTL of self-signed CA root certificate")
+		"The TTL of self-signed CA root certificate.")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
-		"The domain serves to identify the system with spiffe ")
+		"The domain serves to identify the system with SPIFFE.")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
-	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
+	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the certificate.")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", cmd.DefaultRequestedCACertTTL,
-		"The requested TTL for the workload")
-	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+		"The requested TTL for the CA certificate.")
+	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key.")
 
 	// Certificate signing configuration.
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", cmd.DefaultWorkloadCertTTL,
-		"The TTL of issued workload certificates")
+		"The TTL of issued workload certificates.")
 	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", cmd.DefaultMaxWorkloadCertTTL,
-		"The max TTL of issued workload certificates")
+		"The max TTL of issued workload certificates.")
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
@@ -199,7 +199,7 @@ func init() {
 	flags.BoolVar(&opts.serverOnly, "server-only", false, "When set, Citadel only serves as a server without writing "+
 		"the Kubernetes secrets.")
 
-	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
+	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs.")
 
 	// Monitoring configuration
 	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
