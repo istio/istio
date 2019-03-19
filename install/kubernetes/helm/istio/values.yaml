@@ -31,11 +31,11 @@ mixer:
     enabled: true
   telemetry:
     enabled: true
-  # mixer load shedding configuration.
-  # When mixer detects that it is overloaded, it starts rejecting grpc requests.
-  loadshedding:
-    # disabled, logonly or enforce
-    mode: enforce
+    # mixer load shedding configuration.
+    # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+    loadshedding:
+      # disabled, logonly or enforce
+      mode: enforce
 
   adapters:
     # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
