@@ -121,10 +121,14 @@ func TestNew_NoReuse_DifferentConnectionConfig(t *testing.T) {
 	// Join base dynamic config with dynamic handler
 	config1 := data.JoinConfigs(dynamicConfig, data.ListHandler3)
 	if err != nil {
-		t.Fatalf("Fail to load dynamic config: %v", err)
+		t.Fatalf("fail to load dynamic config: %v", err)
 	}
 	s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, config1)
 	table := NewTable(Empty(), s, nil)
+
+	if len(table.entries) != 1 {
+		t.Fatalf("got %v entries in route table, want 1", len(table.entries))
+	}
 
 	// Join base dynamic config with dynamic handler which has different connection address
 	config2 := data.JoinConfigs(dynamicConfig, data.ListHandler3Addr)
@@ -134,11 +138,11 @@ func TestNew_NoReuse_DifferentConnectionConfig(t *testing.T) {
 	table2 := NewTable(table, s, nil)
 
 	if len(table2.entries) != 1 {
-		t.Fatal("size")
+		t.Fatalf("got %v entries in route table, want 1", len(table2.entries))
 	}
 
 	if table2.entries[data.FqdnListHandler3] == table.entries[data.FqdnListHandler3] {
-		t.Fail()
+		t.Fatalf("got same entry %+v in route table after handler config change, want different entries", table2.entries[data.FqdnListHandler3])
 	}
 }
 
