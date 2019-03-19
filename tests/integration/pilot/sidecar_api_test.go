@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -83,6 +82,8 @@ func TestSidecarListeners(t *testing.T) {
 		t.Fatalf("Failed to test as no resource accepted: %v", err)
 	}
 
+	// TODO: The code below is flaky. We should re-enable this once we have explicit config loading trigger support in Galley.
+	/*
 	// Apply some config
 	path, err := filepath.Abs("../../testdata/config")
 	if err != nil {
@@ -106,6 +107,7 @@ func TestSidecarListeners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to test as no resource accepted: %v", err)
 	}
+	*/
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
