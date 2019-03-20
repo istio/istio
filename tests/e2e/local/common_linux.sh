@@ -64,14 +64,6 @@ function check_rpm() {
   fi
 }
 
-# Install Go
-function install_go() {
-  if ! go --help > /dev/null; then
-    echo "Go not installed. Installing Go latest stable version..."
-    apt-get install -y golang
-  fi
-}
-
 # Install Docker
 function install_docker() {
   echo "Checking and Installing Docker as required"
