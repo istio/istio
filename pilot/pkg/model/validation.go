@@ -1486,11 +1486,18 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 
 // Returns true if the user defines a constraint that already exists in the first-class fields, false
 // if none has overlapped.
+// First-class fields are the immediate-level fields right after the `rules` field in a ServiceRole, e.g.
+// methods, services, etc., or after the `subjects` field in a binding, e.g. names, groups, etc. In shorts,
+// they are not fields under Constraints (in ServiceRole) and Properties (in binding).
+// This prevents the user from defining the same key, e.g. port of the serving service, in multiple places
+// in a ServiceRole definition.
 func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
 	// Same as authz.attrDestPort
 	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
 	// defined at another place and both authz and model package can access them.
 	const attrDestPort = "destination.port"
+	// Only check for port since we only have ports (or not_ports) as first-class field and in destination.port
+	// in a ServiceRole definition.
 	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
 		return true
 	}
