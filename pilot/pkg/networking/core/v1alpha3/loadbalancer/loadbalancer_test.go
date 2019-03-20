@@ -17,50 +17,82 @@ import (
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
-	g := NewGomegaWithT(t)
 	locality := &envoycore.Locality{
 		Region:  "region1",
 		Zone:    "zone1",
 		SubZone: "subzone1",
 	}
-	env := buildEnvForClustersWithDistribute()
-	cluster := buildFakeCluster()
-	ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 
-	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
-			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
-			continue
-		}
-		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1") {
-			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(5)))
-			continue
-		}
-		g.Expect(localityEndpoint.LbEndpoints).To(BeNil())
-	}
+	t.Run("Distribute", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithDistribute()
+		cluster := buildFakeCluster()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 
-	env = buildEnvForClustersWithFailover()
-	cluster = buildFakeCluster()
-	ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
-	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-		if localityEndpoint.Locality.Region == locality.Region {
-			if localityEndpoint.Locality.Zone == locality.Zone {
-				if localityEndpoint.Locality.SubZone == locality.SubZone {
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
+				g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
+				continue
+			}
+			if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1") {
+				g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(5)))
+				continue
+			}
+			g.Expect(localityEndpoint.LbEndpoints).To(BeNil())
+		}
+	})
+
+	t.Run("Failover: all priorities", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildFakeCluster()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+						continue
+					}
+					g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+					continue
+				}
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+				continue
+			}
+			if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
+			} else {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
+			}
+		}
+	})
+
+	t.Run("Failover: priorities with gaps", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildSmallCluster()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						t.Errorf("Should not exist")
+						continue
+					}
 					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 					continue
 				}
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+				t.Errorf("Should not exist")
 				continue
 			}
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
-			continue
+			if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+			} else {
+				t.Errorf("Should not exist")
+			}
 		}
-		if localityEndpoint.Locality.Region == "region2" {
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
-		} else {
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
-		}
-	}
+	})
 }
 
 func buildEnvForClustersWithDistribute() *model.Environment {
@@ -270,6 +302,39 @@ func buildFakeCluster() *apiv2.Cluster {
 						Value: 1,
 					},
 					Priority: 0,
+				},
+			},
+		},
+	}
+
+}
+
+func buildSmallCluster() *apiv2.Cluster {
+	return &apiv2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &apiv2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
 				},
 			},
 		},
