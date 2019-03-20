@@ -78,14 +78,16 @@ type AppCallOptions struct {
 	// Count indicates the number of exchanges that should be made with the service endpoint. If not set (i.e. 0), defaults to 1.
 	Count int
 
-	// Headers indicates headers that should be sent in the request. Ingnored for WebSocket calls.
+	// Headers indicates headers that should be sent in the request. Ignored for WebSocket calls.
 	Headers http.Header
-
 	// Secure indicates whether a secure connection should be established to the endpoint.
 	Secure bool
 
 	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
 	UseShortHostname bool
+
+	// IgnoreWrongPort indicates that a wrong port returned in the response should not lead to an error
+	IgnoreWrongPort bool
 }
 
 // AppEndpoint represents a single endpoint in a DeployedApp.

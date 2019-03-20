@@ -325,7 +325,7 @@ func TestTunnel(t *testing.T) {
 	be.SetURL(&url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme})
 	log.Infof("Trying to call %s", be.URL().String())
 
-	result := a.CallOrFail(be, apps.AppCallOptions{}, t)[0]
+	result := a.CallOrFail(be, apps.AppCallOptions{IgnoreWrongPort: true}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)

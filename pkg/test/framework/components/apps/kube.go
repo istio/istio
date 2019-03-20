@@ -643,8 +643,10 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
+	if !opts.IgnoreWrongPort {
+		if resp[0].Port != strconv.Itoa(dst.port.Port) {
+			return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
+		}
 	}
 
 	return resp, nil
