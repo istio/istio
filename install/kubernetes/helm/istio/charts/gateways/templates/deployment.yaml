@@ -105,8 +105,9 @@ spec:
         {{- if $.Values.global.proxy.logLevel }}
           - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
         {{- end}}
-          - --log_output_level
-          - 'info'
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+        {{- end}}
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
