@@ -429,12 +429,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
-
-	var workloadLabels LabelsCollection
-	for _, w := range proxyInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels Labels) *SidecarScope {
 
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
@@ -451,7 +446,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
 					workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
-					if !workloadLabels.IsSupersetOf(workloadSelector) {
+					if !workloadSelector.SubsetOf(workloadLabels) {
 						continue
 					}
 					return wrapper
@@ -459,7 +454,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 				defaultSidecar = wrapper
 				continue
 			}
-			// Not sure when this can heppn (Config = nil ?)
+			// Not sure when this can happen (Config = nil ?)
 			if defaultSidecar != nil {
 				return defaultSidecar // still return the valid one
 			}

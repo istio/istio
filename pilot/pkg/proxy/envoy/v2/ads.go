@@ -642,7 +642,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 
 	// Set the sidecarScope associated with this proxy if its a sidecar.
 	if nt.Type == model.SidecarProxy {
-		nt.SetSidecarScope(s.globalPushContext())
+		nt.SetSidecarScope(s.workloadLabels(nt), s.globalPushContext())
 	}
 
 	con.mu.Lock()
@@ -693,7 +693,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(pushEv.push)
+		con.modelNode.SetSidecarScope(s.workloadLabels(con.modelNode), pushEv.push)
 	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
@@ -933,6 +933,14 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
 		}
 	}
+}
+
+func (s *DiscoveryServer) workloadLabels(proxy *model.Proxy) model.Labels {
+	var workloadLabels model.Labels
+	if workload := s.WorkloadsByID[proxy.IPAddresses[0]]; workload != nil {
+		workloadLabels = workload.Labels
+	}
+	return workloadLabels
 }
 
 // Send with timeout

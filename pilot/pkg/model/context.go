@@ -183,9 +183,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 //
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
-func (node *Proxy) SetSidecarScope(ps *PushContext) {
-	instances := node.ServiceInstances
-	node.SidecarScope = ps.getSidecarScope(node, instances)
+func (node *Proxy) SetSidecarScope(workloadLabels Labels, ps *PushContext) {
+	node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {
