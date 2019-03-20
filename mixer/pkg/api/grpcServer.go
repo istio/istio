@@ -212,6 +212,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			} else {
 				if !status.IsOK(qr.Status) {
 					lg.Debugf("Quota denied: %v", qr.Status)
+					resp.Precondition.Status = qr.Status
 				}
 				crqr.ValidDuration = qr.ValidDuration
 				crqr.GrantedAmount = qr.Amount
