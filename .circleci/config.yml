@@ -125,9 +125,6 @@ workflows:
       - install-kind
       - install-minikube
       - install-remote
-          context: org-global
-          requires:
-            - install-kind
 
   all:
     jobs:
