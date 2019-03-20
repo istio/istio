@@ -45,6 +45,18 @@ func NewKubeComponent(ctx resource.Context, cfg Config) (Egress, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.Secret != nil {
+		_, err := c.configureSecretAndWaitForExistence(cfg.Secret)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.AdditionalSecretMountPoint != "" {
+			err = c.addSecretMountPoint(cfg.AdditionalSecretMountPoint)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	return c, nil
 }
@@ -53,7 +65,7 @@ func (c *kubeEgress) ID() resource.ID {
 	return c.id
 }
 
-func (c *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (*corev1.Secret, error) {
+func (c *kubeEgress) configureSecretAndWaitForExistence(secret *corev1.Secret) (*corev1.Secret, error) {
 	secret.Name = secretName
 	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
 	_, err := secretAPI.Create(secret)
@@ -86,7 +98,7 @@ func (c *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (
 	return secret, nil
 }
 
-func (c *kubeEgress) AddSecretMountPoint(path string) error {
+func (c *kubeEgress) addSecretMountPoint(path string) error {
 	deployment, err := c.accessor.GetDeployment(c.istioSystemNamespace, deploymentName)
 	if err != nil {
 		return err

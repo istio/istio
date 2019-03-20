@@ -39,9 +39,9 @@ import (
 const (
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
-	// Specifies how long we wait before a secret becomes existent.
+	// Specifies how long we wait before a Secret becomes existent.
 	secretWaitTime = 120 * time.Second
-	// Name of secret used by egress
+	// Name of Secret used by egress
 	secretName     = "istio-ingressgateway-certs"
 	deploymentName = "istio-ingressgateway"
 )
@@ -140,6 +140,18 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	c.url = address.(func(protocol model.Protocol) (*url.URL, error))
+	if cfg.Secret != nil {
+		_, err := c.configureSecretAndWaitForExistence(cfg.Secret)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.AdditionalSecretMountPoint != "" {
+			err = c.addSecretMountPoint(cfg.AdditionalSecretMountPoint)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return c, nil
 }
 
@@ -207,7 +219,7 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	return response, nil
 }
 
-func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
+func (c *kubeComponent) configureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
 	secret.Name = secretName
 	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
 	_, err := secretAPI.Create(secret)
@@ -240,7 +252,7 @@ func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*
 	return secret, nil
 }
 
-func (c *kubeComponent) AddSecretMountPoint(path string) error {
+func (c *kubeComponent) addSecretMountPoint(path string) error {
 	deployment, err := c.accessor.GetDeployment(c.istioSystemNamespace, deploymentName)
 	if err != nil {
 		return err

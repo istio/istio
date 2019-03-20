@@ -28,16 +28,12 @@ import (
 // Egress represents a deployed Egress Gateway instance.
 type Egress interface {
 	resource.Resource
-
-	// Configure a secret and wait for the existence
-	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
-
-	// Add addition secret mountpoint
-	AddSecretMountPoint(path string) error
 }
 
 type Config struct {
-	Istio istio.Instance
+	Istio                      istio.Instance
+	Secret                     *v1.Secret
+	AdditionalSecretMountPoint string
 }
 
 // Deploy returns a new instance of an egress.

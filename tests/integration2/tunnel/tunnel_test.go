@@ -240,39 +240,26 @@ func TestTunnel(t *testing.T) {
 
 	ctx.RequireOrSkip(t, environment.Kube)
 
-	egressGateway := egress.NewOrFail(t, ctx, egress.Config{Istio: ist})
-	egressGateway.AddSecretMountPoint("/etc/istio/tunnel-certs")
-
-	_, err := egressGateway.ConfigureSecretAndWaitForExistence(&v1.Secret{
+	secret := &v1.Secret{
 		Data: map[string][]byte{
 			"ca.crt":      readFileOrFail("certs/ca.crt", t),
 			"service.crt": readFileOrFail("certs/service.crt", t),
 			"service.key": readFileOrFail("certs/service.key", t),
 			"client.crt":  readFileOrFail("certs/client.crt", t),
 			"client.key":  readFileOrFail("certs/client.key", t),
-		},
+		}}
+	_ := egress.NewOrFail(t, ctx, egress.Config{
+		Istio:                      ist,
+		Secret:                     secret,
+		AdditionalSecretMountPoint: "/etc/istio/tunnel-certs",
 	})
 
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ingress := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
-	ingress.AddSecretMountPoint("/etc/istio/tunnel-certs")
-
-	_, err = ingress.ConfigureSecretAndWaitForExistence(&v1.Secret{
-		Data: map[string][]byte{
-			"ca.crt":      readFileOrFail("certs/ca.crt", t),
-			"service.crt": readFileOrFail("certs/service.crt", t),
-			"service.key": readFileOrFail("certs/service.key", t),
-			"client.crt":  readFileOrFail("certs/client.crt", t),
-			"client.key":  readFileOrFail("certs/client.key", t),
-		},
+	ingress := ingress.NewOrFail(t, ctx, ingress.Config{
+		Istio:                      ist,
+		Secret:                     secret,
+		AdditionalSecretMountPoint: "/etc/istio/tunnel-certs",
 	})
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
 	applications := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
 	a := applications.GetAppOrFail("a", t)
