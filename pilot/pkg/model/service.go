@@ -392,11 +392,8 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	if strings.Contains(si.Labels[LocalityLabel], k8sSeparator) {
-		// replace "." with "/"
-		si.Labels[LocalityLabel] = strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
-	}
-	return si.Labels[LocalityLabel]
+	// replace "." with "/"
+	return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
