@@ -103,6 +103,11 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+	hiddenFlags := []string{"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
+		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller"}
+	for _, opt := range hiddenFlags {
+		_ = rootCmd.PersistentFlags().MarkHidden(opt)
+	}
 
 	cmd.AddFlags(rootCmd)
 
