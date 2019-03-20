@@ -937,7 +937,11 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 func (s *DiscoveryServer) workloadLabels(proxy *model.Proxy) model.Labels {
 	var workloadLabels model.Labels
-	if workload := s.WorkloadsByID[proxy.IPAddresses[0]]; workload != nil {
+	ipAddresses := proxy.IPAddresses
+	if len(ipAddresses) == 0 {
+		return workloadLabels
+	}
+	if workload := s.WorkloadsByID[ipAddresses[0]]; workload != nil {
 		workloadLabels = workload.Labels
 	}
 	return workloadLabels
