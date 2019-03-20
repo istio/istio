@@ -27,7 +27,7 @@ function build_kind_images(){
 	kind load --name e2e image-archive "${IMAGE_FILE}"
 
 	# Delete the local tar images.
-	# rm -rf "${IMAGE_FILE}"
+	rm -rf "${IMAGE_FILE}"
 }
 
 echo "Setting up HUB and TAG"
