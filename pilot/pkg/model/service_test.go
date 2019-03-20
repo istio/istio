@@ -22,34 +22,34 @@ import (
 )
 
 var validServiceKeys = map[string]struct {
-	service Service
+	service *Service
 	labels  LabelsCollection
 }{
 	"example-service1.default|grpc,http|a=b,c=d;e=f": {
-		service: Service{
+		service: &Service{
 			Hostname: "example-service1.default",
 			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
 		labels: LabelsCollection{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
-		service: Service{
+		service: &Service{
 			Hostname: "my-service",
 			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc.ns": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc.ns",
 			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "", Port: 80}}},
 		labels: LabelsCollection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc|test|prod": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "test", Port: 80}}},
 		labels: LabelsCollection{{"prod": ""}}},
 	"svc.default.svc.cluster.local|http-test": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc.default.svc.cluster.local",
 			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
 }
@@ -195,6 +195,9 @@ func TestParseProtocol(t *testing.T) {
 		{"https", ProtocolHTTPS},
 		{"http2", ProtocolHTTP2},
 		{"grpc", ProtocolGRPC},
+		{"grpc-web", ProtocolGRPCWeb},
+		{"gRPC-Web", ProtocolGRPCWeb},
+		{"grpc-Web", ProtocolGRPCWeb},
 		{"udp", ProtocolUDP},
 		{"Mongo", ProtocolMongo},
 		{"mongo", ProtocolMongo},
@@ -202,6 +205,10 @@ func TestParseProtocol(t *testing.T) {
 		{"Redis", ProtocolRedis},
 		{"redis", ProtocolRedis},
 		{"REDIS", ProtocolRedis},
+		{"Mysql", ProtocolMySQL},
+		{"mysql", ProtocolMySQL},
+		{"MYSQL", ProtocolMySQL},
+		{"MySQL", ProtocolMySQL},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
 	}
@@ -221,6 +228,8 @@ func TestHostnameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
 
 		{"non-wildcard domain",
 			"foo.com", "foo.com", true},
@@ -249,14 +258,69 @@ func TestHostnameMatches(t *testing.T) {
 
 		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
 		{"wildcarded sub-domain does not match domain", "foo.com", "*.foo.com", false},
+		{"wildcarded sub-domain does not match domain - order doesn't matter", "*.foo.com", "foo.com", false},
 
-		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
+		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false},
+		{"long wildcard does not match short host - order doesn't matter", "baz", "*.foo.bar.baz", false},
+		{"long wildcard matches short wildcard", "*.foo.bar.baz", "*.baz", true},
+		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			if tt.out != tt.a.Matches(tt.b) {
 				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+		})
+	}
+}
+
+func TestHostnameSubsetOf(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Hostname
+		out  bool
+	}{
+		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
+
+		{"non-wildcard domain",
+			"foo.com", "foo.com", true},
+		{"non-wildcard domain",
+			"bar.com", "foo.com", false},
+		{"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false},
+
+		{"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false},
+		{"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false},
+
+		{"wildcard matches subdomains",
+			"foo.com", "*.com", true},
+		{"wildcard matches subdomains",
+			"bar.com", "*.com", true},
+		{"wildcard matches subdomains",
+			"bar.foo.com", "*.foo.com", true},
+
+		{"wildcard matches anything", "foo.com", "*", true},
+		{"wildcard matches anything", "*.com", "*", true},
+		{"wildcard matches anything", "com", "*", true},
+		{"wildcard matches anything", "*", "*", true},
+		{"wildcard matches anything", "", "*", true},
+
+		{"wildcarded domain matches wildcarded subdomain", "*.foo.com", "*.com", true},
+		{"wildcarded sub-domain does not match domain", "*.foo.com", "foo.com", false},
+
+		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false},
+		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if tt.out != tt.a.SubsetOf(tt.b) {
+				t.Fatalf("%q.SubsetOf(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
 			}
 		})
 	}
@@ -275,7 +339,7 @@ func BenchmarkMatch(b *testing.B) {
 		{"*", "", true},
 		{"*.com", "*.foo.com", true},
 		{"foo.com", "*.foo.com", false},
-		{"*.foo.bar.baz", "baz", true},
+		{"*.foo.bar.baz", "baz", false},
 	}
 	for n := 0; n < b.N; n++ {
 		for _, test := range tests {
@@ -345,5 +409,36 @@ func BenchmarkSort(b *testing.B) {
 		given := make(Hostnames, len(unsorted))
 		copy(given, unsorted)
 		sort.Sort(given)
+	}
+}
+
+func TestIsValidSubsetKey(t *testing.T) {
+	cases := []struct {
+		subsetkey string
+		expectErr bool
+	}{
+		{
+			subsetkey: "outbound|80|subset|hostname",
+			expectErr: false,
+		},
+		{
+			subsetkey: "outbound|80||hostname",
+			expectErr: false,
+		},
+		{
+			subsetkey: "outbound|80|subset||hostname",
+			expectErr: true,
+		},
+		{
+			subsetkey: "",
+			expectErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		err := IsValidSubsetKey(c.subsetkey)
+		if !err != c.expectErr {
+			t.Errorf("got %v but want %v\n", err, c.expectErr)
+		}
 	}
 }

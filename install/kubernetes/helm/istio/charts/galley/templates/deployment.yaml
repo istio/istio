@@ -5,9 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: galley
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -18,6 +18,10 @@ spec:
   template:
     metadata:
       labels:
+        app: {{ template "galley.name" . }}
+        chart: {{ template "galley.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}      
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -28,36 +32,48 @@ spec:
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-        - name: validator
-          image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
+        - name: galley
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
-          - containerPort: 9093
+          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 9901
           command:
           - /usr/local/bin/galley
-          - validator
-          - --deployment-namespace={{ .Release.Namespace }}
-          - --caCertFile=/etc/istio/certs/root-cert.pem
-          - --tlsCertFile=/etc/istio/certs/cert-chain.pem
-          - --tlsKeyFile=/etc/istio/certs/key.pem
-          - --healthCheckInterval=1s
-          - --healthCheckFile=/health
-          - --webhook-config-file
-          - /etc/istio/config/validatingwebhookconfiguration.yaml
+          - server
+          - --meshConfigFile=/etc/mesh-config/mesh
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
+          - --readinessProbeInterval=1s
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+          - --insecure=false
+{{- else }}
+          - --insecure=true
+{{- end }}
+{{- if not $.Values.global.useMCP }}
+          - --enable-server=false
+{{- end }}
+          - --validation-webhook-config-file
+          - /etc/config/validatingwebhookconfiguration.yaml
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
-            mountPath: /etc/istio/certs
+            mountPath: /etc/certs
             readOnly: true
           - name: config
-            mountPath: /etc/istio/config
+            mountPath: /etc/config
+            readOnly: true
+          - name: mesh-config
+            mountPath: /etc/mesh-config
             readOnly: true
           livenessProbe:
             exec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/health
+                - --probe-path=/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -66,7 +82,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/health
+                - --probe-path=/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -83,5 +99,8 @@ spec:
       - name: config
         configMap:
           name: istio-galley-configuration
+      - name: mesh-config
+        configMap:
+          name: istio
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

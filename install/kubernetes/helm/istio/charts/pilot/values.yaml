@@ -1,0 +1,28 @@
+#
+# pilot configuration
+#
+enabled: true
+autoscaleEnabled: true
+autoscaleMin: 1
+autoscaleMax: 5
+# specify replicaCount when autoscaleEnabled: false
+# replicaCount: 1
+image: pilot
+sidecar: true
+traceSampling: 1.0
+# Resources for a small pilot install
+resources:
+  requests:
+    cpu: 500m
+    memory: 2048Mi
+env:
+  PILOT_PUSH_THROTTLE: 100
+  GODEBUG: gctrace=1
+cpu:
+  targetAverageUtilization: 80
+nodeSelector: {}
+
+# The following is used to limit how long a sidecar can be connected
+# to a pilot. It balances out load across pilot instances at the cost of
+# increasing system churn.
+keepaliveMaxServerConnectionAge: 30m

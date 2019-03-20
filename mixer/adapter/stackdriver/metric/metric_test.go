@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -253,7 +253,8 @@ func TestRecord(t *testing.T) {
 	}
 	now := time.Now()
 	pbnow, _ := ptypes.TimestampProto(now)
-
+	pbend, _ := ptypes.TimestampProto(now)
+	pbend.Nanos += usec
 	tests := []struct {
 		name     string
 		vals     []*metrict.Instance
@@ -274,8 +275,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_GAUGE,
 				ValueType:  metricpb.MetricDescriptor_INT64,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
 				}},
 			},
 		}},
@@ -292,8 +293,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_STRING,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "asldkfj"}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_StringValue{StringValue: "asldkfj"}},
 				}},
 			},
 		}},
@@ -310,8 +311,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_DELTA,
 				ValueType:  metricpb.MetricDescriptor_BOOL,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: true}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_BoolValue{BoolValue: true}},
 				}},
 			},
 		}},
@@ -328,7 +329,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -351,7 +352,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -374,7 +375,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -473,8 +474,9 @@ func TestProjectMetadata(t *testing.T) {
 			"filled",
 			[]*metrict.Instance{
 				{
-					Name:  "metric",
-					Value: int64(1),
+					// nolint: goimports
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "id",
@@ -496,8 +498,9 @@ func TestProjectMetadata(t *testing.T) {
 			"empty",
 			[]*metrict.Instance{
 				{
-					Name:  "metric",
-					Value: int64(1),
+					// nolint: goimports
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "",

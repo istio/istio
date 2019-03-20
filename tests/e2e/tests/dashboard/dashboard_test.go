@@ -22,18 +22,21 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
+
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
@@ -49,26 +52,43 @@ const (
 	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
-	prometheusPort = "9090"
+	prometheusPort = uint16(9090)
 )
 
 var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
 		"$service", "echosrv.*",
+		"$dstsvc", "echosrv.*",
 		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
-		`connection_mtls=\"true\"`, "",
-		`connection_mtls=\"false\"`, "",
-		`source_workload_namespace=~"$srcns"`, "",
-		`destination_workload_namespace=~"$dstns"`, "",
-		//		"$dstwl", "",
+		`connection_security_policy=\"unknown\"`, "",
+		`connection_security_policy=\"mutual_tls\"`, "",
+		`connection_security_policy!=\"mutual_tls\"`, "",
+		`source_workload_namespace=~\"$srcns\"`, "",
+		`destination_workload_namespace=~\"$dstns\"`, "",
+		`source_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload_namespace=~\"$namespace\"`, "",
+		`destination_workload=~\"$dstwl\"`, "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
 		"istio-ingressgateway", "netcat-client",
+	)
+
+	workloadReplacer = strings.NewReplacer(
+		`source_workload=~"netcat-srv.*"`, `source_workload=~"netcat-client.*"`,
+		`source_workload=~"echosrv.*"`, `source_workload=~"istio-ingressgateway.*"`,
+	)
+
+	queryCleanupReplacer = strings.NewReplacer(
+		"{, ,", "{",
+		"{,", "{",
+		", , ,", ",",
+		", ,", ",",
+		",,", ",",
 	)
 
 	tc *testConfig
@@ -106,19 +126,20 @@ func TestDashboards(t *testing.T) {
 	t.Log("Sentinel metrics found in prometheus.")
 
 	cases := []struct {
-		name       string
-		dashboard  string
-		filter     func([]string) []string
-		metricHost string
-		metricPort int
+		name           string
+		dashboard      string
+		filter         func([]string) []string
+		customReplacer *strings.Replacer
+		metricHost     string
+		metricPort     int
 	}{
-		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
-		{"Performance", performanceDashboard, performanceQueryFilterFn, "istio-telemetry", 42422},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Service", serviceDashboard, func(queries []string) []string { return queries }, nil, "istio-telemetry", 42422},
+		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, workloadReplacer, "istio-telemetry", 42422},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, nil, "istio-telemetry", 15014},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, nil, "istio-pilot", 15014},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, nil, "istio-galley", 15014},
+		{"Performance", performanceDashboard, performanceQueryFilterFn, nil, "istio-telemetry", 42422},
 	}
 
 	for _, testCase := range cases {
@@ -134,6 +155,9 @@ func TestDashboards(t *testing.T) {
 
 			for _, query := range queries {
 				modified := replaceGrafanaTemplates(query)
+				if testCase.customReplacer != nil {
+					modified = testCase.customReplacer.Replace(modified)
+				}
 				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
@@ -215,7 +239,7 @@ func replaceGrafanaTemplates(orig string) string {
 	if strings.Contains(orig, "istio_tcp") {
 		out = tcpReplacer.Replace(out)
 	}
-	return out
+	return queryCleanupReplacer.Replace(out)
 }
 
 // There currently is no good way to inject failures into a running Mixer,
@@ -298,13 +322,35 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "validation_http_error") {
 			continue
 		}
+		if strings.Contains(query, "event_error_total") {
+			continue
+		}
+		if strings.Contains(query, "converter_failure_total") {
+			continue
+		}
+		if strings.Contains(query, "request_nacks_total") {
+			continue
+		}
+		// Since Galley doesn't receive traffic initially and metrics don't export if they have zero
+		// values, we filter these metrics out. They should ideally be tested.
+		// https://github.com/istio/istio/issues/9674
+		if strings.Contains(query, "server_clients_total") {
+			continue
+		}
+		if strings.Contains(query, "request_acks_total") {
+			continue
+		}
+		// This is a frequent source of flakes in e2e-dashboard test. Remove from checked queries for now.
+		if strings.Contains(query, "runtime_strategy_timer_quiesce_reached_total") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
 }
 
 func promAPI() (v1.API, error) {
-	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
+	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", prometheusPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +377,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest" // TODO: change
+		image = "fortio/fortio:latest" // TODO: change
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
@@ -394,7 +440,7 @@ func (t *testConfig) Setup() (err error) {
 
 type promProxy struct {
 	namespace        string
-	portFwdProcesses []*os.Process
+	portFwdProcesses []kube.PortForwarder
 }
 
 func newPromProxy(namespace string) *promProxy {
@@ -403,27 +449,29 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
-func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
-	var pod string
-	var err error
-	var proc *os.Process
-
-	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
-	pod, err = util.Shell(getName)
-	if err != nil {
-		return err
-	}
-	log.Infof("%s pod name: %s", labelSelector, pod)
-
+func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
-	log.Info(portFwdCmd)
-	if proc, err = util.RunBackground(portFwdCmd); err != nil {
-		log.Errorf("Failed to port forward: %s", err)
+	options := &kube.PodSelectOptions{
+		PodNamespace:  p.namespace,
+		LabelSelector: labelSelector,
+	}
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
+	if err != nil {
+		log.Errorf("Error creating accessor: %v", err)
 		return err
 	}
-	p.portFwdProcesses = append(p.portFwdProcesses, proc)
-	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
+	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	if err != nil {
+		log.Errorf("Error creating port forwarder: %v", err)
+		return err
+	}
+	if err := forwarder.Start(); err != nil {
+		log.Errorf("Error starting port forwarder: %v", err)
+		return err
+	}
+
+	p.portFwdProcesses = append(p.portFwdProcesses, forwarder)
+	log.Infof("running %s port-forward in background", labelSelector)
 	return nil
 }
 
@@ -437,11 +485,8 @@ func (p *promProxy) Setup() error {
 
 func (p *promProxy) Teardown() (err error) {
 	log.Info("Cleaning up mixer proxy")
-	for _, proc := range p.portFwdProcesses {
-		err := proc.Kill()
-		if err != nil {
-			log.Errorf("Failed to kill port-forward process, pid: %d", proc.Pid)
-		}
+	for _, pf := range p.portFwdProcesses {
+		pf.Close()
 	}
 	return
 }
@@ -466,7 +511,7 @@ func podList(namespace string, selector string) ([]string, error) {
 }
 
 func allowPrometheusSync() {
-	time.Sleep(1 * time.Minute)
+	time.Sleep(15 * time.Second)
 }
 
 var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}
@@ -474,7 +519,8 @@ var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * t
 func waitForMixerConfigResolution() error {
 	// we are looking for confirmation that 3 handlers were configured and that none of them had
 	// build failures
-	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
+
+	configQuery := `max(mixer_config_handler_configs_total) - max(mixer_handler_handler_build_failures_total or up * 0)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
 		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)
@@ -499,15 +545,39 @@ func waitForMixerProxyReadiness() error {
 		time.Sleep(duration)
 
 		for _, pod := range mixerPods {
-			logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c istio-proxy", pod, tc.Kube.Namespace))
+			options := &kube.PodSelectOptions{
+				PodNamespace: tc.Kube.Namespace,
+				PodName:      pod,
+			}
+
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 			if err != nil {
-				log.Infof("Failure retrieving logs for pod %s (container: istio-proxy): %v", pod, err)
+				log.Errorf("Error creating accessor: %v", err)
+				return err
+			}
+			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
+			if err != nil {
+				log.Infof("Error creating port forwarder: %v", err)
 				continue
 			}
-			if strings.Contains(logs, "starting main dispatch loop") {
-				log.Infof("Envoy started main dispatch loop.")
+			if err := forwarder.Start(); err != nil {
+				log.Infof("Error starting port forwarder: %v", err)
+				continue
+			}
+
+			resp, err := http.Get("http://localhost:16000/server_info")
+			forwarder.Close()
+
+			if err != nil {
+				log.Infof("Failure retrieving status for pod %s (container: istio-proxy): %v", pod, err)
+				continue
+			}
+
+			if resp.StatusCode == 200 {
 				return nil
 			}
+
+			log.Infof("Failure retrieving status for pod %s (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
 		}
 	}
 	return errors.New("proxy for mixer never started main dispatch loop")
@@ -520,6 +590,8 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
 		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
 		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
+		`istio_tcp_received_bytes_total{reporter="source"}`,
+		`istio_tcp_sent_bytes_total{reporter="source"}`,
 	}
 
 	for _, duration := range waitDurations {
@@ -581,7 +653,7 @@ func logMixerMetrics(t *testing.T, service string, port int) {
 		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return

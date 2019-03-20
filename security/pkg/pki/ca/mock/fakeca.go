@@ -27,10 +27,12 @@ type FakeCA struct {
 	SignedCert    []byte
 	SignErr       *ca.Error
 	KeyCertBundle util.KeyCertBundle
+	ReceivedIDs   []string
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign([]byte, time.Duration, bool) ([]byte, error) {
+func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
+	ca.ReceivedIDs = identities
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}

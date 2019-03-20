@@ -1,5 +1,5 @@
 
-FORTIO_IMAGE:='istio/fortio:latest'
+FORTIO_IMAGE:='fortio/fortio:latest'
 VERBOSITY:=2
 NAMESPACE:=fortio
 

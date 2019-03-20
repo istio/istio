@@ -16,15 +16,21 @@ package spybackend
 
 import (
 	"sync"
+	"time"
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
+	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
+	checkoutputTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
+	quotaTmpl "istio.io/istio/mixer/test/spyAdapter/template/quota"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 type (
-	// Args specify captured requests and programmed behaviour
+	// Args specify captured requests and programmed behavior
 	Args struct {
 		// manipulate the behavior of the backend.
 		Behavior *Behavior
@@ -33,7 +39,7 @@ type (
 		Requests *Requests
 	}
 
-	// Behavior specifies programmed behaviour
+	// Behavior specifies programmed behavior
 	Behavior struct {
 		ValidateResponse *adptModel.ValidateResponse
 		ValidateError    error
@@ -47,14 +53,48 @@ type (
 		// report metric IBP
 		HandleMetricResult *adptModel.ReportResult
 		HandleMetricError  error
+		HandleMetricSleep  time.Duration
 
 		// check listEntry IBP
 		HandleListEntryResult *adptModel.CheckResult
 		HandleListEntryError  error
+		HandleListEntrySleep  time.Duration
 
 		// quota IBP
 		HandleQuotaResult *adptModel.QuotaResult
 		HandleQuotaError  error
+		HandleQuotaSleep  time.Duration
+
+		// sample quota IBP
+		HandleSampleQuotaResult *adptModel.QuotaResult
+		HandleSampleQuotaError  error
+		HandleSampleQuotaSleep  time.Duration
+
+		// sample check IBP
+		HandleSampleCheckResult *adptModel.CheckResult
+		HandleSampleCheckError  error
+		HandleCheckOutput       *checkoutputTmpl.OutputMsg
+		HandleSampleCheckSleep  time.Duration
+
+		// sample report IBP
+		HandleSampleReportResult *adptModel.ReportResult
+		HandleSampleReportError  error
+		HandleSampleReportSleep  time.Duration
+
+		// sample APA IBP
+		HandleSampleApaResult *apaTmpl.OutputMsg
+		HandleSampleApaError  error
+		HandleSampleApaSleep  time.Duration
+
+		// Auth
+		RequireTLS               bool
+		RequireMTls              bool
+		HeaderKey                string
+		HeaderToken              string
+		CredsPath                string
+		KeyPath                  string
+		CertPath                 string
+		InsecureSkipVerification bool
 	}
 
 	// Requests record captured requests by the spy
@@ -73,6 +113,14 @@ type (
 
 		quotaLock          sync.RWMutex
 		HandleQuotaRequest []*quota.HandleQuotaRequest
+
+		HandleSampleCheckRequest []*checkTmpl.HandleSampleCheckRequest
+
+		HandleSampleQuotaRequest []*quotaTmpl.HandleSampleQuotaRequest
+
+		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
+
+		HandleSampleApaRequest []*apaTmpl.HandleSampleApaRequest
 	}
 )
 

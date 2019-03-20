@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
@@ -49,18 +50,19 @@ type Args struct {
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
 
-	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// URL of the config store. Use k8s://path_to_kubeconfig, fs:// for file system, or mcps://<host> to
+	// connect to Galley. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// The certificate file locations for the MCP config backend.
+	CredentialOptions *creds.Options
 
 	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
 	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
-
-	// Configuration fetch interval in seconds
-	ConfigFetchIntervalSec uint
 
 	// The logging options to use
 	LoggingOptions *log.Options
@@ -99,6 +101,9 @@ type Args struct {
 	// Maximum number of entries in the check cache
 	NumCheckCacheEntries int32
 
+	// Whether or not to establish watches for adapter-specific CRDs
+	UseAdapterCRDs bool
+
 	LoadSheddingOptions loadshedding.Options
 }
 
@@ -106,11 +111,12 @@ type Args struct {
 func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                9091,
-		MonitoringPort:         9093,
+		MonitoringPort:         15014,
 		MaxMessageSize:         1024 * 1024,
 		MaxConcurrentStreams:   1024,
 		APIWorkerPoolSize:      1024,
 		AdapterWorkerPoolSize:  1024,
+		CredentialOptions:      creds.DefaultOptions(),
 		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
 		LoggingOptions:         log.DefaultOptions(),
 		TracingOptions:         tracing.DefaultOptions(),
@@ -119,17 +125,26 @@ func DefaultArgs() *Args {
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
+		UseAdapterCRDs:         true,
 		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}
 }
 
 func (a *Args) validate() error {
+	if a.MaxMessageSize <= 0 {
+		return fmt.Errorf("max message size must be > 0, got %d", a.MaxMessageSize)
+	}
+
+	if a.MaxConcurrentStreams <= 0 {
+		return fmt.Errorf("max concurrent streams must be > 0, got %d", a.MaxConcurrentStreams)
+	}
+
 	if a.APIWorkerPoolSize <= 0 {
-		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.APIWorkerPoolSize)
+		return fmt.Errorf("api worker pool size must be > 0, got pool size %d", a.APIWorkerPoolSize)
 	}
 
 	if a.AdapterWorkerPoolSize <= 0 {
-		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
+		return fmt.Errorf("adapter worker pool size must be > 0 , got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
 	if a.NumCheckCacheEntries < 0 {
@@ -143,18 +158,21 @@ func (a *Args) validate() error {
 func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprint(buf, "MaxMessageSize: ", a.MaxMessageSize, "\n")
-	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
-	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
-	fmt.Fprint(buf, "APIAddress: ", a.APIAddress, "\n")
-	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
-	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
-	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
-	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
-	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
-	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
+	fmt.Fprintln(buf, "MaxMessageSize: ", a.MaxMessageSize)
+	fmt.Fprintln(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams)
+	fmt.Fprintln(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize)
+	fmt.Fprintln(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize)
+	fmt.Fprintln(buf, "APIPort: ", a.APIPort)
+	fmt.Fprintln(buf, "APIAddress: ", a.APIAddress)
+	fmt.Fprintln(buf, "MonitoringPort: ", a.MonitoringPort)
+	fmt.Fprintln(buf, "EnableProfiling: ", a.EnableProfiling)
+	fmt.Fprintln(buf, "SingleThreaded: ", a.SingleThreaded)
+	fmt.Fprintln(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries)
+	fmt.Fprintln(buf, "ConfigStoreURL: ", a.ConfigStoreURL)
+	fmt.Fprintln(buf, "CertificateFile: ", a.CredentialOptions.CertificateFile)
+	fmt.Fprintln(buf, "KeyFile: ", a.CredentialOptions.KeyFile)
+	fmt.Fprintln(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile)
+	fmt.Fprintln(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)

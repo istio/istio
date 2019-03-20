@@ -3,50 +3,87 @@
 
 package v1alpha1
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
-import google_rpc "github.com/gogo/googleapis/google/rpc"
-import _ "github.com/gogo/protobuf/gogoproto"
-
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
-
-import io "io"
+import (
+	bytes "bytes"
+	context "context"
+	fmt "fmt"
+	rpc "github.com/gogo/googleapis/google/rpc"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	grpc "google.golang.org/grpc"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// Identifies a specific MCP client instance. The client identifier is
-// presented to the management server, which may use this identifier
-// to distinguish per client configuration for serving. This
-// information is not authoriative. Authoritative identity should come
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
+// Identifies a specific MCP sink node instance. The node identifier is
+// presented to the resource source, which may use this identifier
+// to distinguish per sink configuration for serving. This
+// information is not authoritative. Authoritative identity should come
 // from the underlying transport layer (e.g. rpc credentials).
-type Client struct {
-	// An opaque identifier for the MCP client.
+type SinkNode struct {
+	// An opaque identifier for the MCP node.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Opaque metadata extending the client identifier.
-	Metadata *google_protobuf2.Struct `protobuf:"bytes,2,opt,name=metadata" json:"metadata,omitempty"`
+	// Opaque annotations extending the node identifier.
+	Annotations          map[string]string `protobuf:"bytes,2,rep,name=annotations,proto3" json:"annotations,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *Client) Reset()                    { *m = Client{} }
-func (m *Client) String() string            { return proto.CompactTextString(m) }
-func (*Client) ProtoMessage()               {}
-func (*Client) Descriptor() ([]byte, []int) { return fileDescriptorMcp, []int{0} }
+func (m *SinkNode) Reset()         { *m = SinkNode{} }
+func (m *SinkNode) String() string { return proto.CompactTextString(m) }
+func (*SinkNode) ProtoMessage()    {}
+func (*SinkNode) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{0}
+}
+func (m *SinkNode) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SinkNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SinkNode.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SinkNode) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SinkNode.Merge(m, src)
+}
+func (m *SinkNode) XXX_Size() int {
+	return m.Size()
+}
+func (m *SinkNode) XXX_DiscardUnknown() {
+	xxx_messageInfo_SinkNode.DiscardUnknown(m)
+}
 
-func (m *Client) GetId() string {
+var xxx_messageInfo_SinkNode proto.InternalMessageInfo
+
+func (m *SinkNode) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-func (m *Client) GetMetadata() *google_protobuf2.Struct {
+func (m *SinkNode) GetAnnotations() map[string]string {
 	if m != nil {
-		return m.Metadata
+		return m.Annotations
 	}
 	return nil
 }
@@ -63,8 +100,8 @@ type MeshConfigRequest struct {
 	// the previous API config version respectively. Each type_url (see
 	// below) has an independent version associated with it.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
-	// The client making the request.
-	Client *Client `protobuf:"bytes,2,opt,name=client" json:"client,omitempty"`
+	// The sink node making the request.
+	SinkNode *SinkNode `protobuf:"bytes,2,opt,name=sink_node,json=sinkNode,proto3" json:"sink_node,omitempty"`
 	// Type of the resource that is being requested, e.g.
 	// "type.googleapis.com/istio.io.networking.v1alpha3.VirtualService".
 	TypeUrl string `protobuf:"bytes,3,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
@@ -79,13 +116,44 @@ type MeshConfigRequest struct {
 	// is only intended for consumption during manual debugging, the
 	// string provided is not guaranteed to be stable across client
 	// versions.
-	ErrorDetail *google_rpc.Status `protobuf:"bytes,5,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	ErrorDetail          *rpc.Status `protobuf:"bytes,5,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *MeshConfigRequest) Reset()                    { *m = MeshConfigRequest{} }
-func (m *MeshConfigRequest) String() string            { return proto.CompactTextString(m) }
-func (*MeshConfigRequest) ProtoMessage()               {}
-func (*MeshConfigRequest) Descriptor() ([]byte, []int) { return fileDescriptorMcp, []int{1} }
+func (m *MeshConfigRequest) Reset()         { *m = MeshConfigRequest{} }
+func (m *MeshConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*MeshConfigRequest) ProtoMessage()    {}
+func (*MeshConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{1}
+}
+func (m *MeshConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MeshConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MeshConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MeshConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MeshConfigRequest.Merge(m, src)
+}
+func (m *MeshConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *MeshConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_MeshConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MeshConfigRequest proto.InternalMessageInfo
 
 func (m *MeshConfigRequest) GetVersionInfo() string {
 	if m != nil {
@@ -94,9 +162,9 @@ func (m *MeshConfigRequest) GetVersionInfo() string {
 	return ""
 }
 
-func (m *MeshConfigRequest) GetClient() *Client {
+func (m *MeshConfigRequest) GetSinkNode() *SinkNode {
 	if m != nil {
-		return m.Client
+		return m.SinkNode
 	}
 	return nil
 }
@@ -115,7 +183,7 @@ func (m *MeshConfigRequest) GetResponseNonce() string {
 	return ""
 }
 
-func (m *MeshConfigRequest) GetErrorDetail() *google_rpc.Status {
+func (m *MeshConfigRequest) GetErrorDetail() *rpc.Status {
 	if m != nil {
 		return m.ErrorDetail
 	}
@@ -127,12 +195,12 @@ func (m *MeshConfigRequest) GetErrorDetail() *google_rpc.Status {
 type MeshConfigResponse struct {
 	// The version of the response data.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
-	// The response resources wrapped in the common MCP *Envelope*
+	// The response resources wrapped in the common MCP *Resource*
 	// message.
-	Envelopes []Envelope `protobuf:"bytes,2,rep,name=envelopes" json:"envelopes"`
-	// Type URL for resources wrapped in the provided envelope(s). This
+	Resources []Resource `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources"`
+	// Type URL for resources wrapped in the provided resources(s). This
 	// must be consistent with the type_url in the wrapper messages if
-	// envelopes is non-empty.
+	// resources is non-empty.
 	TypeUrl string `protobuf:"bytes,3,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
 	// The nonce provides a way to explicitly ack a specific
 	// MeshConfigResponse in a following MeshConfigRequest. Additional
@@ -142,13 +210,44 @@ type MeshConfigResponse struct {
 	// time. The nonce allows the management server to ignore any
 	// further MeshConfigRequests for the previous version until a
 	// MeshConfigRequest bearing the nonce.
-	Nonce string `protobuf:"bytes,4,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Nonce                string   `protobuf:"bytes,4,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *MeshConfigResponse) Reset()                    { *m = MeshConfigResponse{} }
-func (m *MeshConfigResponse) String() string            { return proto.CompactTextString(m) }
-func (*MeshConfigResponse) ProtoMessage()               {}
-func (*MeshConfigResponse) Descriptor() ([]byte, []int) { return fileDescriptorMcp, []int{2} }
+func (m *MeshConfigResponse) Reset()         { *m = MeshConfigResponse{} }
+func (m *MeshConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*MeshConfigResponse) ProtoMessage()    {}
+func (*MeshConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{2}
+}
+func (m *MeshConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MeshConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MeshConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MeshConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MeshConfigResponse.Merge(m, src)
+}
+func (m *MeshConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MeshConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MeshConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MeshConfigResponse proto.InternalMessageInfo
 
 func (m *MeshConfigResponse) GetVersionInfo() string {
 	if m != nil {
@@ -157,9 +256,9 @@ func (m *MeshConfigResponse) GetVersionInfo() string {
 	return ""
 }
 
-func (m *MeshConfigResponse) GetEnvelopes() []Envelope {
+func (m *MeshConfigResponse) GetResources() []Resource {
 	if m != nil {
-		return m.Envelopes
+		return m.Resources
 	}
 	return nil
 }
@@ -178,19 +277,517 @@ func (m *MeshConfigResponse) GetNonce() string {
 	return ""
 }
 
+// IncrementalMeshConfigRequest are be sent in 2 situations:
+//
+//   1. Initial message in a MCP bidirectional gRPC stream.
+//
+//   2. As a ACK or NACK response to a previous IncrementalMeshConfigResponse.
+//      In this case the response_nonce is set to the nonce value in the Response.
+//      ACK or NACK is determined by the absence or presence of error_detail.
+type IncrementalMeshConfigRequest struct {
+	// The sink node making the request.
+	SinkNode *SinkNode `protobuf:"bytes,1,opt,name=sink_node,json=sinkNode,proto3" json:"sink_node,omitempty"`
+	// Type of the resource that is being requested, e.g.
+	// "type.googleapis.com/istio.io.networking.v1alpha3.VirtualService".
+	TypeUrl string `protobuf:"bytes,2,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
+	// When the IncrementalMeshConfigRequest is the first in a stream,
+	// the initial_resource_versions must be populated. Otherwise,
+	// initial_resource_versions must be omitted. The keys are the
+	// resources names of the MCP resources known to the MCP client. The
+	// values in the map are the associated resource level version info.
+	InitialResourceVersions map[string]string `protobuf:"bytes,3,rep,name=initial_resource_versions,json=initialResourceVersions,proto3" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// When the IncrementalMeshConfigRequest is a ACK or NACK message in response
+	// to a previous IncrementalMeshConfigResponse, the response_nonce must be the
+	// nonce in the IncrementalMeshConfigResponse.
+	// Otherwise response_nonce must be omitted.
+	ResponseNonce string `protobuf:"bytes,4,opt,name=response_nonce,json=responseNonce,proto3" json:"response_nonce,omitempty"`
+	// This is populated when the previous IncrementalMeshConfigResponses
+	// failed to update configuration. The *message* field in *error_details*
+	// provides the client internal exception related to the failure.
+	ErrorDetail          *rpc.Status `protobuf:"bytes,5,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *IncrementalMeshConfigRequest) Reset()         { *m = IncrementalMeshConfigRequest{} }
+func (m *IncrementalMeshConfigRequest) String() string { return proto.CompactTextString(m) }
+func (*IncrementalMeshConfigRequest) ProtoMessage()    {}
+func (*IncrementalMeshConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{3}
+}
+func (m *IncrementalMeshConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IncrementalMeshConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IncrementalMeshConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IncrementalMeshConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IncrementalMeshConfigRequest.Merge(m, src)
+}
+func (m *IncrementalMeshConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *IncrementalMeshConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_IncrementalMeshConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IncrementalMeshConfigRequest proto.InternalMessageInfo
+
+func (m *IncrementalMeshConfigRequest) GetSinkNode() *SinkNode {
+	if m != nil {
+		return m.SinkNode
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigRequest) GetTypeUrl() string {
+	if m != nil {
+		return m.TypeUrl
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigRequest) GetInitialResourceVersions() map[string]string {
+	if m != nil {
+		return m.InitialResourceVersions
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigRequest) GetResponseNonce() string {
+	if m != nil {
+		return m.ResponseNonce
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigRequest) GetErrorDetail() *rpc.Status {
+	if m != nil {
+		return m.ErrorDetail
+	}
+	return nil
+}
+
+// IncrementalMeshConfigResponses do not need to include a full
+// snapshot of the tracked resources. Instead they are a diff to the
+// state of a MCP client. Per resource versions allow servers and
+// clients to track state at the resource granularity. An MCP
+// incremental session is always in the context of a gRPC
+// bidirectional stream. This allows the MCP server to keep track of
+// the state of MCP clients connected to it.
+//
+// In Incremental MCP the nonce field is required and used to pair
+// IncrementalMeshConfigResponse to an IncrementalMeshConfigRequest
+// ACK or NACK.  Optionally, a response message level
+// system_version_info is present for debugging purposes only.
+type IncrementalMeshConfigResponse struct {
+	// The version of the response data (used for debugging).
+	SystemVersionInfo string `protobuf:"bytes,1,opt,name=system_version_info,json=systemVersionInfo,proto3" json:"system_version_info,omitempty"`
+	// The response resources wrapped in the common MCP *Resource*
+	// message. These are typed resources that match the type url in the
+	// IncrementalMeshConfigRequest.
+	Resources []Resource `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources"`
+	// Resources names of resources that have be deleted and to be
+	// removed from the MCP Client.  Removed resources for missing
+	// resources can be ignored.
+	RemovedResources []string `protobuf:"bytes,3,rep,name=removed_resources,json=removedResources,proto3" json:"removed_resources,omitempty"`
+	// The nonce provides a way for IncrementalMeshConfigRequests to
+	// uniquely reference an IncrementalMeshConfigResponse. The nonce is
+	// required.
+	Nonce                string   `protobuf:"bytes,4,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *IncrementalMeshConfigResponse) Reset()         { *m = IncrementalMeshConfigResponse{} }
+func (m *IncrementalMeshConfigResponse) String() string { return proto.CompactTextString(m) }
+func (*IncrementalMeshConfigResponse) ProtoMessage()    {}
+func (*IncrementalMeshConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{4}
+}
+func (m *IncrementalMeshConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IncrementalMeshConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IncrementalMeshConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IncrementalMeshConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IncrementalMeshConfigResponse.Merge(m, src)
+}
+func (m *IncrementalMeshConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *IncrementalMeshConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_IncrementalMeshConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IncrementalMeshConfigResponse proto.InternalMessageInfo
+
+func (m *IncrementalMeshConfigResponse) GetSystemVersionInfo() string {
+	if m != nil {
+		return m.SystemVersionInfo
+	}
+	return ""
+}
+
+func (m *IncrementalMeshConfigResponse) GetResources() []Resource {
+	if m != nil {
+		return m.Resources
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigResponse) GetRemovedResources() []string {
+	if m != nil {
+		return m.RemovedResources
+	}
+	return nil
+}
+
+func (m *IncrementalMeshConfigResponse) GetNonce() string {
+	if m != nil {
+		return m.Nonce
+	}
+	return ""
+}
+
+// A RequestResource can be sent in two situations:
+//
+// Initial message in an MCP bidirectional change stream
+// as an ACK or NACK response to a previous Resources. In
+// this case the response_nonce is set to the nonce value
+// in the Resources. ACK/NACK is determined by the presence
+// of error_detail.
+//
+// * ACK  (nonce!="",error_details==nil)
+// * NACK (nonce!="",error_details!=nil)
+// * New/Update request (nonce=="",error_details ignored)
+//
+type RequestResources struct {
+	// The sink node making the request.
+	SinkNode *SinkNode `protobuf:"bytes,1,opt,name=sink_node,json=sinkNode,proto3" json:"sink_node,omitempty"`
+	// Type of resource collection that is being requested, e.g.
+	//
+	// istio/networking/v1alpha3/VirtualService
+	// k8s/<apiVersion>/<kind>
+	Collection string `protobuf:"bytes,2,opt,name=collection,proto3" json:"collection,omitempty"`
+	// When the RequestResources is the first in a stream, the initial_resource_versions must
+	// be populated. Otherwise, initial_resource_versions must be omitted. The keys are the
+	// resources names of the MCP resources known to the MCP client. The values in the map
+	// are the associated resource level version info.
+	InitialResourceVersions map[string]string `protobuf:"bytes,3,rep,name=initial_resource_versions,json=initialResourceVersions,proto3" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// When the RequestResources is an ACK or NACK message in response to a previous RequestResources,
+	// the response_nonce must be the nonce in the RequestResources. Otherwise response_nonce must
+	// be omitted.
+	ResponseNonce string `protobuf:"bytes,4,opt,name=response_nonce,json=responseNonce,proto3" json:"response_nonce,omitempty"`
+	// This is populated when the previously received resources could not be applied
+	// The *message* field in *error_details* provides the source internal error
+	// related to the failure.
+	ErrorDetail *rpc.Status `protobuf:"bytes,5,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
+	// Request an incremental update for the specified collection. The source may choose to
+	// honor this request or ignore and and provide a full-state update in the corresponding
+	// `Resource` response.
+	Incremental          bool     `protobuf:"varint,6,opt,name=incremental,proto3" json:"incremental,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestResources) Reset()         { *m = RequestResources{} }
+func (m *RequestResources) String() string { return proto.CompactTextString(m) }
+func (*RequestResources) ProtoMessage()    {}
+func (*RequestResources) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{5}
+}
+func (m *RequestResources) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RequestResources) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RequestResources.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RequestResources) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestResources.Merge(m, src)
+}
+func (m *RequestResources) XXX_Size() int {
+	return m.Size()
+}
+func (m *RequestResources) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestResources.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestResources proto.InternalMessageInfo
+
+func (m *RequestResources) GetSinkNode() *SinkNode {
+	if m != nil {
+		return m.SinkNode
+	}
+	return nil
+}
+
+func (m *RequestResources) GetCollection() string {
+	if m != nil {
+		return m.Collection
+	}
+	return ""
+}
+
+func (m *RequestResources) GetInitialResourceVersions() map[string]string {
+	if m != nil {
+		return m.InitialResourceVersions
+	}
+	return nil
+}
+
+func (m *RequestResources) GetResponseNonce() string {
+	if m != nil {
+		return m.ResponseNonce
+	}
+	return ""
+}
+
+func (m *RequestResources) GetErrorDetail() *rpc.Status {
+	if m != nil {
+		return m.ErrorDetail
+	}
+	return nil
+}
+
+func (m *RequestResources) GetIncremental() bool {
+	if m != nil {
+		return m.Incremental
+	}
+	return false
+}
+
+// Resources do not need to include a full snapshot of the tracked
+// resources. Instead they are a diff to the state of a MCP client.
+// Per resource versions allow sources and sinks to track state at
+// the resource granularity. An MCP incremental session is always
+// in the context of a gRPC bidirectional stream. This allows the
+// MCP source to keep track of the state of MCP sink connected to
+// it.
+//
+// In Incremental MCP the nonce field is required and used to pair
+// Resources to an RequestResources ACK or NACK.
+type Resources struct {
+	// The version of the response data (used for debugging).
+	SystemVersionInfo string `protobuf:"bytes,1,opt,name=system_version_info,json=systemVersionInfo,proto3" json:"system_version_info,omitempty"`
+	// Type of resource collection that is being requested, e.g.
+	//
+	// istio/networking/v1alpha3/VirtualService
+	// k8s/<apiVersion>/<kind>
+	Collection string `protobuf:"bytes,2,opt,name=collection,proto3" json:"collection,omitempty"`
+	// The response resources wrapped in the common MCP *Resource* message.
+	// These are typed resources that match the type url in the
+	// RequestResources message.
+	//
+	// When `incremental` is true, this contains an array of resources to add/update
+	// for the specified collection. This modifies the existing collection at the sink
+	//
+	// When `incremental` is false, this contains the full set of resources for the
+	// specified collection. This replaces any previously delivered resources.
+	Resources []Resource `protobuf:"bytes,3,rep,name=resources,proto3" json:"resources"`
+	// Names of resources that have been deleted and to be
+	// removed from the MCP sink node. Removed resources for missing
+	// resources can be ignored.
+	//
+	// When `incremental` is true, this contains an array of resource names to remove
+	// for the specified collection. This modifies the existing resource collection at
+	// the sink.
+	//
+	// When `incremental` is false, this field should be ignored.
+	RemovedResources []string `protobuf:"bytes,4,rep,name=removed_resources,json=removedResources,proto3" json:"removed_resources,omitempty"`
+	// Required. The nonce provides a way for RequestChange to uniquely
+	// reference a RequestResources.
+	Nonce string `protobuf:"bytes,5,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	// This resource response is an incremental update. The source should only send
+	// incremental updates if the sink requested them.
+	Incremental          bool     `protobuf:"varint,6,opt,name=incremental,proto3" json:"incremental,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Resources) Reset()         { *m = Resources{} }
+func (m *Resources) String() string { return proto.CompactTextString(m) }
+func (*Resources) ProtoMessage()    {}
+func (*Resources) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0713683a7297bd65, []int{6}
+}
+func (m *Resources) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Resources) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Resources.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Resources) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Resources.Merge(m, src)
+}
+func (m *Resources) XXX_Size() int {
+	return m.Size()
+}
+func (m *Resources) XXX_DiscardUnknown() {
+	xxx_messageInfo_Resources.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Resources proto.InternalMessageInfo
+
+func (m *Resources) GetSystemVersionInfo() string {
+	if m != nil {
+		return m.SystemVersionInfo
+	}
+	return ""
+}
+
+func (m *Resources) GetCollection() string {
+	if m != nil {
+		return m.Collection
+	}
+	return ""
+}
+
+func (m *Resources) GetResources() []Resource {
+	if m != nil {
+		return m.Resources
+	}
+	return nil
+}
+
+func (m *Resources) GetRemovedResources() []string {
+	if m != nil {
+		return m.RemovedResources
+	}
+	return nil
+}
+
+func (m *Resources) GetNonce() string {
+	if m != nil {
+		return m.Nonce
+	}
+	return ""
+}
+
+func (m *Resources) GetIncremental() bool {
+	if m != nil {
+		return m.Incremental
+	}
+	return false
+}
+
 func init() {
-	proto.RegisterType((*Client)(nil), "istio.mcp.v1alpha1.Client")
+	proto.RegisterType((*SinkNode)(nil), "istio.mcp.v1alpha1.SinkNode")
+	proto.RegisterMapType((map[string]string)(nil), "istio.mcp.v1alpha1.SinkNode.AnnotationsEntry")
 	proto.RegisterType((*MeshConfigRequest)(nil), "istio.mcp.v1alpha1.MeshConfigRequest")
 	proto.RegisterType((*MeshConfigResponse)(nil), "istio.mcp.v1alpha1.MeshConfigResponse")
+	proto.RegisterType((*IncrementalMeshConfigRequest)(nil), "istio.mcp.v1alpha1.IncrementalMeshConfigRequest")
+	proto.RegisterMapType((map[string]string)(nil), "istio.mcp.v1alpha1.IncrementalMeshConfigRequest.InitialResourceVersionsEntry")
+	proto.RegisterType((*IncrementalMeshConfigResponse)(nil), "istio.mcp.v1alpha1.IncrementalMeshConfigResponse")
+	proto.RegisterType((*RequestResources)(nil), "istio.mcp.v1alpha1.RequestResources")
+	proto.RegisterMapType((map[string]string)(nil), "istio.mcp.v1alpha1.RequestResources.InitialResourceVersionsEntry")
+	proto.RegisterType((*Resources)(nil), "istio.mcp.v1alpha1.Resources")
 }
-func (this *Client) Equal(that interface{}) bool {
+
+func init() { proto.RegisterFile("mcp/v1alpha1/mcp.proto", fileDescriptor_0713683a7297bd65) }
+
+var fileDescriptor_0713683a7297bd65 = []byte{
+	// 774 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0xcd, 0x6e, 0xeb, 0x44,
+	0x14, 0xbe, 0xe3, 0x34, 0x97, 0xe4, 0xa4, 0x54, 0xe9, 0x50, 0x51, 0xc7, 0xf7, 0xde, 0x10, 0x22,
+	0x8a, 0x22, 0x55, 0x38, 0x6d, 0x10, 0x12, 0xb0, 0x40, 0xb4, 0xd0, 0x45, 0x91, 0x5a, 0x24, 0x47,
+	0x74, 0xc1, 0xc6, 0x72, 0xed, 0xa9, 0x3b, 0x8a, 0x33, 0x63, 0x66, 0x26, 0x91, 0xb2, 0x60, 0xc3,
+	0x0e, 0xf1, 0x0c, 0xec, 0x51, 0x79, 0x01, 0x1e, 0xa1, 0x4b, 0x16, 0xac, 0x11, 0xca, 0x92, 0xa7,
+	0x40, 0xfe, 0xab, 0x1d, 0xea, 0x26, 0x0d, 0x14, 0x89, 0x8d, 0x35, 0x73, 0xce, 0x99, 0xef, 0xfc,
+	0x7c, 0xdf, 0x8c, 0x0c, 0x6f, 0x8e, 0xdd, 0xb0, 0x3f, 0x3d, 0x74, 0x82, 0xf0, 0xda, 0x39, 0xec,
+	0x8f, 0xdd, 0xd0, 0x0c, 0x05, 0x57, 0x1c, 0x63, 0x2a, 0x15, 0xe5, 0x66, 0x64, 0xc8, 0xbc, 0xc6,
+	0xae, 0xcf, 0xb9, 0x1f, 0x90, 0xbe, 0x08, 0xdd, 0xbe, 0x54, 0x8e, 0x9a, 0xc8, 0x24, 0xd8, 0xd8,
+	0xf1, 0xb9, 0xcf, 0xe3, 0x65, 0x3f, 0x5a, 0xa5, 0xd6, 0x17, 0x0b, 0xd0, 0x82, 0x48, 0x3e, 0x11,
+	0x2e, 0x49, 0x9c, 0xdd, 0x9f, 0x11, 0xd4, 0x86, 0x94, 0x8d, 0xce, 0xb9, 0x47, 0xf0, 0x16, 0x68,
+	0xd4, 0xd3, 0x51, 0x07, 0xf5, 0xea, 0x96, 0x46, 0x3d, 0xfc, 0x25, 0x34, 0x1c, 0xc6, 0xb8, 0x72,
+	0x14, 0xe5, 0x4c, 0xea, 0x5a, 0xa7, 0xd2, 0x6b, 0x0c, 0xde, 0x33, 0xef, 0x97, 0x64, 0x66, 0x10,
+	0xe6, 0x51, 0x1e, 0x7f, 0xc2, 0x94, 0x98, 0x59, 0x45, 0x04, 0xe3, 0x13, 0x68, 0xfe, 0x3d, 0x00,
+	0x37, 0xa1, 0x32, 0x22, 0xb3, 0x34, 0x6b, 0xb4, 0xc4, 0x3b, 0x50, 0x9d, 0x3a, 0xc1, 0x84, 0xe8,
+	0x5a, 0x6c, 0x4b, 0x36, 0x1f, 0x6b, 0x1f, 0xa2, 0xee, 0x9f, 0x08, 0xb6, 0xcf, 0x88, 0xbc, 0xfe,
+	0x8c, 0xb3, 0x2b, 0xea, 0x5b, 0xe4, 0x9b, 0x09, 0x91, 0x0a, 0xbf, 0x0d, 0x9b, 0x53, 0x22, 0x24,
+	0xe5, 0xcc, 0xa6, 0xec, 0x8a, 0xa7, 0x50, 0x8d, 0xd4, 0x76, 0xca, 0xae, 0x38, 0xfe, 0x08, 0xea,
+	0x92, 0xb2, 0x91, 0xcd, 0xb8, 0x97, 0xc0, 0x36, 0x06, 0x2f, 0x97, 0xf5, 0x61, 0xd5, 0x64, 0x36,
+	0x94, 0x16, 0xd4, 0xd4, 0x2c, 0x24, 0xf6, 0x44, 0x04, 0x7a, 0x25, 0x46, 0x7e, 0x2d, 0xda, 0x7f,
+	0x25, 0x02, 0xbc, 0x07, 0x5b, 0x82, 0xc8, 0x90, 0x33, 0x49, 0x6c, 0xc6, 0x99, 0x4b, 0xf4, 0x8d,
+	0x38, 0xe0, 0xf5, 0xcc, 0x7a, 0x1e, 0x19, 0xf1, 0x07, 0xb0, 0x49, 0x84, 0xe0, 0xc2, 0xf6, 0x88,
+	0x72, 0x68, 0xa0, 0x57, 0xe3, 0xfc, 0xd8, 0x4c, 0x68, 0x34, 0x45, 0xe8, 0x9a, 0xc3, 0x98, 0x46,
+	0xab, 0x11, 0xc7, 0x7d, 0x1e, 0x87, 0x75, 0x6f, 0x10, 0xe0, 0x62, 0xb3, 0x09, 0xe4, 0x63, 0xba,
+	0xfd, 0x14, 0xea, 0x19, 0xcd, 0x19, 0x6b, 0xa5, 0xdd, 0x5a, 0x69, 0xd0, 0xf1, 0xc6, 0xed, 0xef,
+	0x6f, 0x3d, 0xb3, 0xf2, 0x43, 0xcb, 0x9a, 0xde, 0x81, 0x6a, 0xb1, 0xd7, 0x64, 0xd3, 0xbd, 0xa9,
+	0xc0, 0xcb, 0x53, 0xe6, 0x0a, 0x32, 0x26, 0x4c, 0x39, 0xc1, 0x7d, 0x92, 0x16, 0x18, 0x40, 0xff,
+	0x98, 0x01, 0x6d, 0xb1, 0x98, 0xef, 0x11, 0xb4, 0x28, 0xa3, 0x8a, 0x3a, 0x81, 0x9d, 0x55, 0x6f,
+	0xa7, 0xa3, 0x90, 0x7a, 0x25, 0x6e, 0xfd, 0xac, 0x2c, 0xcd, 0xb2, 0x5a, 0xcd, 0xd3, 0x04, 0x31,
+	0x1b, 0xcf, 0x45, 0x8a, 0x97, 0x08, 0x7a, 0x97, 0x96, 0x7b, 0xff, 0x5b, 0x35, 0x18, 0x5f, 0x44,
+	0xf3, 0x7d, 0xb8, 0xac, 0xb5, 0xae, 0xd1, 0x6f, 0x08, 0x5e, 0x3d, 0x30, 0x80, 0x54, 0x64, 0x26,
+	0xbc, 0x21, 0x67, 0x52, 0x91, 0xb1, 0x5d, 0xa2, 0xb5, 0xed, 0xc4, 0x75, 0xf1, 0xa4, 0x8a, 0xdb,
+	0x87, 0x6d, 0x41, 0xc6, 0x7c, 0x4a, 0x3c, 0x3b, 0x47, 0x8a, 0x08, 0xac, 0x5b, 0xcd, 0xd4, 0x61,
+	0xdd, 0x05, 0x97, 0x6b, 0xf0, 0x97, 0x0a, 0x34, 0x53, 0x0a, 0xf3, 0xd0, 0x7f, 0xa1, 0xbb, 0x36,
+	0x80, 0xcb, 0x83, 0x80, 0xb8, 0xd1, 0x6b, 0x95, 0x4e, 0xb1, 0x60, 0xc1, 0xdf, 0xae, 0xd6, 0xde,
+	0x51, 0xf9, 0x10, 0x16, 0x6b, 0xfc, 0x3f, 0xea, 0x0d, 0x77, 0xa0, 0x41, 0x73, 0x89, 0xe8, 0xcf,
+	0x3b, 0xa8, 0x57, 0xb3, 0x8a, 0xa6, 0x27, 0x55, 0xe4, 0x77, 0x1a, 0xd4, 0x73, 0xce, 0xd6, 0x55,
+	0xdf, 0x2a, 0xa2, 0x16, 0xd4, 0x59, 0x79, 0x32, 0x75, 0x6e, 0xac, 0x52, 0x67, 0xb5, 0xa0, 0xce,
+	0xd5, 0x03, 0x1d, 0xfc, 0xa8, 0xc1, 0x8b, 0x23, 0xdf, 0x17, 0xc4, 0x77, 0x14, 0xf1, 0xf2, 0x5b,
+	0x39, 0x24, 0x62, 0x4a, 0x5d, 0x82, 0x43, 0x68, 0x0d, 0x95, 0x20, 0xce, 0x38, 0x0f, 0xca, 0x93,
+	0xee, 0x95, 0x35, 0x74, 0xef, 0x69, 0x33, 0xde, 0x5d, 0x15, 0x96, 0x48, 0xa7, 0xfb, 0xac, 0x87,
+	0x0e, 0x10, 0xfe, 0x01, 0x41, 0xbb, 0xf0, 0x50, 0x94, 0xe5, 0x3d, 0x58, 0xf7, 0x75, 0x35, 0x0e,
+	0xd7, 0x38, 0x51, 0xac, 0x66, 0x30, 0x85, 0xad, 0x2c, 0xef, 0x30, 0xfe, 0x62, 0x0f, 0x76, 0x4f,
+	0xa4, 0x72, 0x2e, 0x03, 0x2a, 0xaf, 0xef, 0x5c, 0xf1, 0x88, 0xf0, 0x3b, 0x8f, 0xb9, 0x79, 0xc6,
+	0xab, 0x65, 0x32, 0x90, 0x69, 0x5e, 0x05, 0x9b, 0x77, 0xe0, 0x94, 0x8d, 0x96, 0x65, 0x5d, 0x8e,
+	0x67, 0x3c, 0xaa, 0xa8, 0x24, 0xeb, 0xf1, 0xfe, 0x4f, 0xf3, 0x36, 0xba, 0x9d, 0xb7, 0xd1, 0xaf,
+	0xf3, 0x36, 0xfa, 0x63, 0xde, 0x46, 0x5f, 0xb7, 0x92, 0xc3, 0x94, 0xf7, 0x9d, 0x90, 0xf6, 0x8b,
+	0x7f, 0x75, 0x97, 0xcf, 0xe3, 0xbf, 0xb9, 0xf7, 0xff, 0x0a, 0x00, 0x00, 0xff, 0xff, 0x4e, 0x31,
+	0xdd, 0xdb, 0x47, 0x0a, 0x00, 0x00,
+}
+
+func (this *SinkNode) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*Client)
+	that1, ok := that.(*SinkNode)
 	if !ok {
-		that2, ok := that.(Client)
+		that2, ok := that.(SinkNode)
 		if ok {
 			that1 = &that2
 		} else {
@@ -205,7 +802,15 @@ func (this *Client) Equal(that interface{}) bool {
 	if this.Id != that1.Id {
 		return false
 	}
-	if !this.Metadata.Equal(that1.Metadata) {
+	if len(this.Annotations) != len(that1.Annotations) {
+		return false
+	}
+	for i := range this.Annotations {
+		if this.Annotations[i] != that1.Annotations[i] {
+			return false
+		}
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -232,7 +837,7 @@ func (this *MeshConfigRequest) Equal(that interface{}) bool {
 	if this.VersionInfo != that1.VersionInfo {
 		return false
 	}
-	if !this.Client.Equal(that1.Client) {
+	if !this.SinkNode.Equal(that1.SinkNode) {
 		return false
 	}
 	if this.TypeUrl != that1.TypeUrl {
@@ -242,6 +847,9 @@ func (this *MeshConfigRequest) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.ErrorDetail.Equal(that1.ErrorDetail) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -268,11 +876,11 @@ func (this *MeshConfigResponse) Equal(that interface{}) bool {
 	if this.VersionInfo != that1.VersionInfo {
 		return false
 	}
-	if len(this.Envelopes) != len(that1.Envelopes) {
+	if len(this.Resources) != len(that1.Resources) {
 		return false
 	}
-	for i := range this.Envelopes {
-		if !this.Envelopes[i].Equal(&that1.Envelopes[i]) {
+	for i := range this.Resources {
+		if !this.Resources[i].Equal(&that1.Resources[i]) {
 			return false
 		}
 	}
@@ -280,6 +888,198 @@ func (this *MeshConfigResponse) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Nonce != that1.Nonce {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *IncrementalMeshConfigRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalMeshConfigRequest)
+	if !ok {
+		that2, ok := that.(IncrementalMeshConfigRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.SinkNode.Equal(that1.SinkNode) {
+		return false
+	}
+	if this.TypeUrl != that1.TypeUrl {
+		return false
+	}
+	if len(this.InitialResourceVersions) != len(that1.InitialResourceVersions) {
+		return false
+	}
+	for i := range this.InitialResourceVersions {
+		if this.InitialResourceVersions[i] != that1.InitialResourceVersions[i] {
+			return false
+		}
+	}
+	if this.ResponseNonce != that1.ResponseNonce {
+		return false
+	}
+	if !this.ErrorDetail.Equal(that1.ErrorDetail) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *IncrementalMeshConfigResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*IncrementalMeshConfigResponse)
+	if !ok {
+		that2, ok := that.(IncrementalMeshConfigResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.SystemVersionInfo != that1.SystemVersionInfo {
+		return false
+	}
+	if len(this.Resources) != len(that1.Resources) {
+		return false
+	}
+	for i := range this.Resources {
+		if !this.Resources[i].Equal(&that1.Resources[i]) {
+			return false
+		}
+	}
+	if len(this.RemovedResources) != len(that1.RemovedResources) {
+		return false
+	}
+	for i := range this.RemovedResources {
+		if this.RemovedResources[i] != that1.RemovedResources[i] {
+			return false
+		}
+	}
+	if this.Nonce != that1.Nonce {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RequestResources) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RequestResources)
+	if !ok {
+		that2, ok := that.(RequestResources)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.SinkNode.Equal(that1.SinkNode) {
+		return false
+	}
+	if this.Collection != that1.Collection {
+		return false
+	}
+	if len(this.InitialResourceVersions) != len(that1.InitialResourceVersions) {
+		return false
+	}
+	for i := range this.InitialResourceVersions {
+		if this.InitialResourceVersions[i] != that1.InitialResourceVersions[i] {
+			return false
+		}
+	}
+	if this.ResponseNonce != that1.ResponseNonce {
+		return false
+	}
+	if !this.ErrorDetail.Equal(that1.ErrorDetail) {
+		return false
+	}
+	if this.Incremental != that1.Incremental {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *Resources) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Resources)
+	if !ok {
+		that2, ok := that.(Resources)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.SystemVersionInfo != that1.SystemVersionInfo {
+		return false
+	}
+	if this.Collection != that1.Collection {
+		return false
+	}
+	if len(this.Resources) != len(that1.Resources) {
+		return false
+	}
+	for i := range this.Resources {
+		if !this.Resources[i].Equal(&that1.Resources[i]) {
+			return false
+		}
+	}
+	if len(this.RemovedResources) != len(that1.RemovedResources) {
+		return false
+	}
+	for i := range this.RemovedResources {
+		if this.RemovedResources[i] != that1.RemovedResources[i] {
+			return false
+		}
+	}
+	if this.Nonce != that1.Nonce {
+		return false
+	}
+	if this.Incremental != that1.Incremental {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -293,14 +1093,19 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for AggregatedMeshConfigService service
-
+// AggregatedMeshConfigServiceClient is the client API for AggregatedMeshConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AggregatedMeshConfigServiceClient interface {
 	// StreamAggregatedResources provides the ability to carefully
 	// sequence updates across multiple resource types. A single stream
 	// is used with multiple independent MeshConfigRequest /
 	// MeshConfigResponses sequences multiplexed via the type URL.
 	StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_StreamAggregatedResourcesClient, error)
+	// IncrementalAggregatedResources provides the ability to incrementally
+	// update the resources on the client. This supports the goal of
+	// scalability of MCP resources.
+	IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error)
 }
 
 type aggregatedMeshConfigServiceClient struct {
@@ -312,7 +1117,7 @@ func NewAggregatedMeshConfigServiceClient(cc *grpc.ClientConn) AggregatedMeshCon
 }
 
 func (c *aggregatedMeshConfigServiceClient) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_AggregatedMeshConfigService_serviceDesc.Streams[0], c.cc, "/istio.mcp.v1alpha1.AggregatedMeshConfigService/StreamAggregatedResources", opts...)
+	stream, err := c.cc.NewStream(ctx, &_AggregatedMeshConfigService_serviceDesc.Streams[0], "/istio.mcp.v1alpha1.AggregatedMeshConfigService/StreamAggregatedResources", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -342,14 +1147,48 @@ func (x *aggregatedMeshConfigServiceStreamAggregatedResourcesClient) Recv() (*Me
 	return m, nil
 }
 
-// Server API for AggregatedMeshConfigService service
+func (c *aggregatedMeshConfigServiceClient) IncrementalAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedMeshConfigService_IncrementalAggregatedResourcesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_AggregatedMeshConfigService_serviceDesc.Streams[1], "/istio.mcp.v1alpha1.AggregatedMeshConfigService/IncrementalAggregatedResources", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient{stream}
+	return x, nil
+}
 
+type AggregatedMeshConfigService_IncrementalAggregatedResourcesClient interface {
+	Send(*IncrementalMeshConfigRequest) error
+	Recv() (*IncrementalMeshConfigResponse, error)
+	grpc.ClientStream
+}
+
+type aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient struct {
+	grpc.ClientStream
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient) Send(m *IncrementalMeshConfigRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesClient) Recv() (*IncrementalMeshConfigResponse, error) {
+	m := new(IncrementalMeshConfigResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// AggregatedMeshConfigServiceServer is the server API for AggregatedMeshConfigService service.
 type AggregatedMeshConfigServiceServer interface {
 	// StreamAggregatedResources provides the ability to carefully
 	// sequence updates across multiple resource types. A single stream
 	// is used with multiple independent MeshConfigRequest /
 	// MeshConfigResponses sequences multiplexed via the type URL.
 	StreamAggregatedResources(AggregatedMeshConfigService_StreamAggregatedResourcesServer) error
+	// IncrementalAggregatedResources provides the ability to incrementally
+	// update the resources on the client. This supports the goal of
+	// scalability of MCP resources.
+	IncrementalAggregatedResources(AggregatedMeshConfigService_IncrementalAggregatedResourcesServer) error
 }
 
 func RegisterAggregatedMeshConfigServiceServer(s *grpc.Server, srv AggregatedMeshConfigServiceServer) {
@@ -382,6 +1221,32 @@ func (x *aggregatedMeshConfigServiceStreamAggregatedResourcesServer) Recv() (*Me
 	return m, nil
 }
 
+func _AggregatedMeshConfigService_IncrementalAggregatedResources_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(AggregatedMeshConfigServiceServer).IncrementalAggregatedResources(&aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer{stream})
+}
+
+type AggregatedMeshConfigService_IncrementalAggregatedResourcesServer interface {
+	Send(*IncrementalMeshConfigResponse) error
+	Recv() (*IncrementalMeshConfigRequest, error)
+	grpc.ServerStream
+}
+
+type aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer struct {
+	grpc.ServerStream
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer) Send(m *IncrementalMeshConfigResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *aggregatedMeshConfigServiceIncrementalAggregatedResourcesServer) Recv() (*IncrementalMeshConfigRequest, error) {
+	m := new(IncrementalMeshConfigRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _AggregatedMeshConfigService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "istio.mcp.v1alpha1.AggregatedMeshConfigService",
 	HandlerType: (*AggregatedMeshConfigServiceServer)(nil),
@@ -393,11 +1258,221 @@ var _AggregatedMeshConfigService_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 			ClientStreams: true,
 		},
+		{
+			StreamName:    "IncrementalAggregatedResources",
+			Handler:       _AggregatedMeshConfigService_IncrementalAggregatedResources_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
 	},
 	Metadata: "mcp/v1alpha1/mcp.proto",
 }
 
-func (m *Client) Marshal() (dAtA []byte, err error) {
+// ResourceSourceClient is the client API for ResourceSource service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type ResourceSourceClient interface {
+	// The sink, acting as gRPC client, establishes a new resource stream
+	// with the source. The sink sends RequestResources message to
+	// and receives Resources messages from the source.
+	EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (ResourceSource_EstablishResourceStreamClient, error)
+}
+
+type resourceSourceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewResourceSourceClient(cc *grpc.ClientConn) ResourceSourceClient {
+	return &resourceSourceClient{cc}
+}
+
+func (c *resourceSourceClient) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (ResourceSource_EstablishResourceStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ResourceSource_serviceDesc.Streams[0], "/istio.mcp.v1alpha1.ResourceSource/EstablishResourceStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &resourceSourceEstablishResourceStreamClient{stream}
+	return x, nil
+}
+
+type ResourceSource_EstablishResourceStreamClient interface {
+	Send(*RequestResources) error
+	Recv() (*Resources, error)
+	grpc.ClientStream
+}
+
+type resourceSourceEstablishResourceStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *resourceSourceEstablishResourceStreamClient) Send(m *RequestResources) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *resourceSourceEstablishResourceStreamClient) Recv() (*Resources, error) {
+	m := new(Resources)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ResourceSourceServer is the server API for ResourceSource service.
+type ResourceSourceServer interface {
+	// The sink, acting as gRPC client, establishes a new resource stream
+	// with the source. The sink sends RequestResources message to
+	// and receives Resources messages from the source.
+	EstablishResourceStream(ResourceSource_EstablishResourceStreamServer) error
+}
+
+func RegisterResourceSourceServer(s *grpc.Server, srv ResourceSourceServer) {
+	s.RegisterService(&_ResourceSource_serviceDesc, srv)
+}
+
+func _ResourceSource_EstablishResourceStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ResourceSourceServer).EstablishResourceStream(&resourceSourceEstablishResourceStreamServer{stream})
+}
+
+type ResourceSource_EstablishResourceStreamServer interface {
+	Send(*Resources) error
+	Recv() (*RequestResources, error)
+	grpc.ServerStream
+}
+
+type resourceSourceEstablishResourceStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *resourceSourceEstablishResourceStreamServer) Send(m *Resources) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *resourceSourceEstablishResourceStreamServer) Recv() (*RequestResources, error) {
+	m := new(RequestResources)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _ResourceSource_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "istio.mcp.v1alpha1.ResourceSource",
+	HandlerType: (*ResourceSourceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "EstablishResourceStream",
+			Handler:       _ResourceSource_EstablishResourceStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "mcp/v1alpha1/mcp.proto",
+}
+
+// ResourceSinkClient is the client API for ResourceSink service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type ResourceSinkClient interface {
+	// The source, acting as gRPC client, establishes a new resource stream
+	// with the sink. The sink sends RequestResources message to and
+	// receives Resources messages from the source.
+	EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (ResourceSink_EstablishResourceStreamClient, error)
+}
+
+type resourceSinkClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewResourceSinkClient(cc *grpc.ClientConn) ResourceSinkClient {
+	return &resourceSinkClient{cc}
+}
+
+func (c *resourceSinkClient) EstablishResourceStream(ctx context.Context, opts ...grpc.CallOption) (ResourceSink_EstablishResourceStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ResourceSink_serviceDesc.Streams[0], "/istio.mcp.v1alpha1.ResourceSink/EstablishResourceStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &resourceSinkEstablishResourceStreamClient{stream}
+	return x, nil
+}
+
+type ResourceSink_EstablishResourceStreamClient interface {
+	Send(*Resources) error
+	Recv() (*RequestResources, error)
+	grpc.ClientStream
+}
+
+type resourceSinkEstablishResourceStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *resourceSinkEstablishResourceStreamClient) Send(m *Resources) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *resourceSinkEstablishResourceStreamClient) Recv() (*RequestResources, error) {
+	m := new(RequestResources)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ResourceSinkServer is the server API for ResourceSink service.
+type ResourceSinkServer interface {
+	// The source, acting as gRPC client, establishes a new resource stream
+	// with the sink. The sink sends RequestResources message to and
+	// receives Resources messages from the source.
+	EstablishResourceStream(ResourceSink_EstablishResourceStreamServer) error
+}
+
+func RegisterResourceSinkServer(s *grpc.Server, srv ResourceSinkServer) {
+	s.RegisterService(&_ResourceSink_serviceDesc, srv)
+}
+
+func _ResourceSink_EstablishResourceStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ResourceSinkServer).EstablishResourceStream(&resourceSinkEstablishResourceStreamServer{stream})
+}
+
+type ResourceSink_EstablishResourceStreamServer interface {
+	Send(*RequestResources) error
+	Recv() (*Resources, error)
+	grpc.ServerStream
+}
+
+type resourceSinkEstablishResourceStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *resourceSinkEstablishResourceStreamServer) Send(m *RequestResources) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *resourceSinkEstablishResourceStreamServer) Recv() (*Resources, error) {
+	m := new(Resources)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _ResourceSink_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "istio.mcp.v1alpha1.ResourceSink",
+	HandlerType: (*ResourceSinkServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "EstablishResourceStream",
+			Handler:       _ResourceSink_EstablishResourceStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "mcp/v1alpha1/mcp.proto",
+}
+
+func (m *SinkNode) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -407,7 +1482,7 @@ func (m *Client) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Client) MarshalTo(dAtA []byte) (int, error) {
+func (m *SinkNode) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -418,15 +1493,25 @@ func (m *Client) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.Id)))
 		i += copy(dAtA[i:], m.Id)
 	}
-	if m.Metadata != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.Metadata.Size()))
-		n1, err := m.Metadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Annotations) > 0 {
+		for k, _ := range m.Annotations {
+			dAtA[i] = 0x12
+			i++
+			v := m.Annotations[k]
+			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
 		}
-		i += n1
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -452,15 +1537,15 @@ func (m *MeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
 		i += copy(dAtA[i:], m.VersionInfo)
 	}
-	if m.Client != nil {
+	if m.SinkNode != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintMcp(dAtA, i, uint64(m.Client.Size()))
-		n2, err := m.Client.MarshalTo(dAtA[i:])
+		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
+		n1, err := m.SinkNode.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n1
 	}
 	if len(m.TypeUrl) > 0 {
 		dAtA[i] = 0x1a
@@ -478,11 +1563,14 @@ func (m *MeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n3, err := m.ErrorDetail.MarshalTo(dAtA[i:])
+		n2, err := m.ErrorDetail.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n2
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -508,8 +1596,8 @@ func (m *MeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.VersionInfo)))
 		i += copy(dAtA[i:], m.VersionInfo)
 	}
-	if len(m.Envelopes) > 0 {
-		for _, msg := range m.Envelopes {
+	if len(m.Resources) > 0 {
+		for _, msg := range m.Resources {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
@@ -532,6 +1620,295 @@ func (m *MeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
 		i += copy(dAtA[i:], m.Nonce)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *IncrementalMeshConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalMeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.SinkNode != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
+		n3, err := m.SinkNode.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.TypeUrl) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.TypeUrl)))
+		i += copy(dAtA[i:], m.TypeUrl)
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, _ := range m.InitialResourceVersions {
+			dAtA[i] = 0x1a
+			i++
+			v := m.InitialResourceVersions[k]
+			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.ResponseNonce) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i += copy(dAtA[i:], m.ResponseNonce)
+	}
+	if m.ErrorDetail != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
+		n4, err := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *IncrementalMeshConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IncrementalMeshConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SystemVersionInfo) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i += copy(dAtA[i:], m.SystemVersionInfo)
+	}
+	if len(m.Resources) > 0 {
+		for _, msg := range m.Resources {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Nonce) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
+		i += copy(dAtA[i:], m.Nonce)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RequestResources) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequestResources) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.SinkNode != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
+		n5, err := m.SinkNode.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if len(m.Collection) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
+		i += copy(dAtA[i:], m.Collection)
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, _ := range m.InitialResourceVersions {
+			dAtA[i] = 0x1a
+			i++
+			v := m.InitialResourceVersions[k]
+			mapSize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			i = encodeVarintMcp(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.ResponseNonce) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.ResponseNonce)))
+		i += copy(dAtA[i:], m.ResponseNonce)
+	}
+	if m.ErrorDetail != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
+		n6, err := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if m.Incremental {
+		dAtA[i] = 0x30
+		i++
+		if m.Incremental {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Resources) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resources) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.SystemVersionInfo) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.SystemVersionInfo)))
+		i += copy(dAtA[i:], m.SystemVersionInfo)
+	}
+	if len(m.Collection) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Collection)))
+		i += copy(dAtA[i:], m.Collection)
+	}
+	if len(m.Resources) > 0 {
+		for _, msg := range m.Resources {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintMcp(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			dAtA[i] = 0x22
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Nonce) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintMcp(dAtA, i, uint64(len(m.Nonce)))
+		i += copy(dAtA[i:], m.Nonce)
+	}
+	if m.Incremental {
+		dAtA[i] = 0x30
+		i++
+		if m.Incremental {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -544,29 +1921,42 @@ func encodeVarintMcp(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *Client) Size() (n int) {
+func (m *SinkNode) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Id)
 	if l > 0 {
 		n += 1 + l + sovMcp(uint64(l))
 	}
-	if m.Metadata != nil {
-		l = m.Metadata.Size()
-		n += 1 + l + sovMcp(uint64(l))
+	if len(m.Annotations) > 0 {
+		for k, v := range m.Annotations {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			n += mapEntrySize + 1 + sovMcp(uint64(mapEntrySize))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
 func (m *MeshConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
 	if l > 0 {
 		n += 1 + l + sovMcp(uint64(l))
 	}
-	if m.Client != nil {
-		l = m.Client.Size()
+	if m.SinkNode != nil {
+		l = m.SinkNode.Size()
 		n += 1 + l + sovMcp(uint64(l))
 	}
 	l = len(m.TypeUrl)
@@ -581,18 +1971,24 @@ func (m *MeshConfigRequest) Size() (n int) {
 		l = m.ErrorDetail.Size()
 		n += 1 + l + sovMcp(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *MeshConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
 	if l > 0 {
 		n += 1 + l + sovMcp(uint64(l))
 	}
-	if len(m.Envelopes) > 0 {
-		for _, e := range m.Envelopes {
+	if len(m.Resources) > 0 {
+		for _, e := range m.Resources {
 			l = e.Size()
 			n += 1 + l + sovMcp(uint64(l))
 		}
@@ -604,6 +2000,155 @@ func (m *MeshConfigResponse) Size() (n int) {
 	l = len(m.Nonce)
 	if l > 0 {
 		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *IncrementalMeshConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SinkNode != nil {
+		l = m.SinkNode.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	l = len(m.TypeUrl)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, v := range m.InitialResourceVersions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			n += mapEntrySize + 1 + sovMcp(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.ResponseNonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.ErrorDetail != nil {
+		l = m.ErrorDetail.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *IncrementalMeshConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.SystemVersionInfo)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.Resources) > 0 {
+		for _, e := range m.Resources {
+			l = e.Size()
+			n += 1 + l + sovMcp(uint64(l))
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			l = len(s)
+			n += 1 + l + sovMcp(uint64(l))
+		}
+	}
+	l = len(m.Nonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RequestResources) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SinkNode != nil {
+		l = m.SinkNode.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	l = len(m.Collection)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.InitialResourceVersions) > 0 {
+		for k, v := range m.InitialResourceVersions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovMcp(uint64(len(k))) + 1 + len(v) + sovMcp(uint64(len(v)))
+			n += mapEntrySize + 1 + sovMcp(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.ResponseNonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.ErrorDetail != nil {
+		l = m.ErrorDetail.Size()
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.Incremental {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Resources) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.SystemVersionInfo)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	l = len(m.Collection)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if len(m.Resources) > 0 {
+		for _, e := range m.Resources {
+			l = e.Size()
+			n += 1 + l + sovMcp(uint64(l))
+		}
+	}
+	if len(m.RemovedResources) > 0 {
+		for _, s := range m.RemovedResources {
+			l = len(s)
+			n += 1 + l + sovMcp(uint64(l))
+		}
+	}
+	l = len(m.Nonce)
+	if l > 0 {
+		n += 1 + l + sovMcp(uint64(l))
+	}
+	if m.Incremental {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -621,7 +2166,7 @@ func sovMcp(x uint64) (n int) {
 func sozMcp(x uint64) (n int) {
 	return sovMcp(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *Client) Unmarshal(dAtA []byte) error {
+func (m *SinkNode) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -636,7 +2181,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -644,10 +2189,10 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Client: wiretype end group for non-group")
+			return fmt.Errorf("proto: SinkNode: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Client: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: SinkNode: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -664,7 +2209,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -674,6 +2219,9 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -681,7 +2229,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Metadata", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Annotations", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -693,7 +2241,7 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -702,15 +2250,109 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Metadata == nil {
-				m.Metadata = &google_protobuf2.Struct{}
+			if m.Annotations == nil {
+				m.Annotations = make(map[string]string)
 			}
-			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowMcp
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMcp(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
 			}
+			m.Annotations[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -721,9 +2363,13 @@ func (m *Client) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthMcp
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -748,7 +2394,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -776,7 +2422,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -786,6 +2432,9 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -793,7 +2442,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Client", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field SinkNode", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -805,7 +2454,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -814,13 +2463,16 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Client == nil {
-				m.Client = &Client{}
+			if m.SinkNode == nil {
+				m.SinkNode = &SinkNode{}
 			}
-			if err := m.Client.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.SinkNode.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -838,7 +2490,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -848,6 +2500,9 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -867,7 +2522,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -877,6 +2532,9 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -896,7 +2554,7 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -905,11 +2563,14 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ErrorDetail == nil {
-				m.ErrorDetail = &google_rpc.Status{}
+				m.ErrorDetail = &rpc.Status{}
 			}
 			if err := m.ErrorDetail.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -924,9 +2585,13 @@ func (m *MeshConfigRequest) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthMcp
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -951,7 +2616,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -979,7 +2644,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -989,6 +2654,9 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -996,7 +2664,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Envelopes", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Resources", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1008,7 +2676,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1017,11 +2685,14 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Envelopes = append(m.Envelopes, Envelope{})
-			if err := m.Envelopes[len(m.Envelopes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Resources = append(m.Resources, Resource{})
+			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1039,7 +2710,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1049,6 +2720,9 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1068,7 +2742,7 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1078,6 +2752,9 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMcp
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1092,9 +2769,1087 @@ func (m *MeshConfigResponse) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthMcp
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IncrementalMeshConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalMeshConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalMeshConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SinkNode", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SinkNode == nil {
+				m.SinkNode = &SinkNode{}
+			}
+			if err := m.SinkNode.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypeUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TypeUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InitialResourceVersions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InitialResourceVersions == nil {
+				m.InitialResourceVersions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowMcp
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMcp(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.InitialResourceVersions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseNonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResponseNonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorDetail", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ErrorDetail == nil {
+				m.ErrorDetail = &rpc.Status{}
+			}
+			if err := m.ErrorDetail.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IncrementalMeshConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IncrementalMeshConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IncrementalMeshConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SystemVersionInfo", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SystemVersionInfo = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Resources", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Resources = append(m.Resources, Resource{})
+			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RemovedResources", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RemovedResources = append(m.RemovedResources, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Nonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RequestResources) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequestResources: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequestResources: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SinkNode", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SinkNode == nil {
+				m.SinkNode = &SinkNode{}
+			}
+			if err := m.SinkNode.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Collection", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Collection = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InitialResourceVersions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InitialResourceVersions == nil {
+				m.InitialResourceVersions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowMcp
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMcp
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMcp(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMcp
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.InitialResourceVersions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResponseNonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ResponseNonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorDetail", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ErrorDetail == nil {
+				m.ErrorDetail = &rpc.Status{}
+			}
+			if err := m.ErrorDetail.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Incremental", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Incremental = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resources) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMcp
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resources: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resources: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SystemVersionInfo", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SystemVersionInfo = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Collection", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Collection = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Resources", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Resources = append(m.Resources, Resource{})
+			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RemovedResources", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RemovedResources = append(m.RemovedResources, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nonce", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMcp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Nonce = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Incremental", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMcp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Incremental = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMcp(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMcp
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1158,8 +3913,11 @@ func skipMcp(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthMcp
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthMcp
 			}
 			return iNdEx, nil
@@ -1190,6 +3948,9 @@ func skipMcp(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthMcp
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1208,38 +3969,3 @@ var (
 	ErrInvalidLengthMcp = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowMcp   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("mcp/v1alpha1/mcp.proto", fileDescriptorMcp) }
-
-var fileDescriptorMcp = []byte{
-	// 461 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xc1, 0x6e, 0x13, 0x31,
-	0x10, 0xad, 0xd3, 0x36, 0xb4, 0x4e, 0xa9, 0x84, 0x55, 0xd1, 0x4d, 0x5a, 0x85, 0x10, 0xa9, 0x28,
-	0x12, 0xd2, 0x2e, 0x4d, 0xc5, 0x1d, 0x5a, 0x38, 0x70, 0x28, 0x87, 0x8d, 0xb8, 0x70, 0x89, 0x5c,
-	0xef, 0x64, 0x6b, 0x69, 0xe3, 0x31, 0xb6, 0x37, 0x12, 0x5f, 0xc1, 0x6f, 0x20, 0xbe, 0xa4, 0x47,
-	0xbe, 0x00, 0xa1, 0xf0, 0x23, 0x68, 0xbd, 0x5e, 0x12, 0xd4, 0x0a, 0x7a, 0xb3, 0xdf, 0xbc, 0xf1,
-	0x7b, 0x6f, 0x3c, 0xf4, 0xf1, 0x5c, 0xe8, 0x64, 0x71, 0xca, 0x0b, 0x7d, 0xcd, 0x4f, 0x93, 0xb9,
-	0xd0, 0xb1, 0x36, 0xe8, 0x90, 0x31, 0x69, 0x9d, 0xc4, 0xb8, 0x02, 0x9a, 0x6a, 0xef, 0x38, 0x47,
-	0xcc, 0x0b, 0x48, 0x3c, 0xe3, 0xaa, 0x9c, 0x25, 0xd6, 0x99, 0x52, 0xb8, 0xba, 0xa3, 0x77, 0x18,
-	0xaa, 0x46, 0x8b, 0xc4, 0x3a, 0xee, 0x4a, 0x1b, 0x0a, 0x07, 0x39, 0xe6, 0xe8, 0x8f, 0x49, 0x75,
-	0x0a, 0xe8, 0xd1, 0x5f, 0xc2, 0xa0, 0x16, 0x50, 0xa0, 0x86, 0xba, 0x38, 0xbc, 0xa4, 0xed, 0x8b,
-	0x42, 0x82, 0x72, 0x6c, 0x9f, 0xb6, 0x64, 0x16, 0x91, 0x01, 0x19, 0xed, 0xa6, 0x2d, 0x99, 0xb1,
-	0x33, 0xba, 0x33, 0x07, 0xc7, 0x33, 0xee, 0x78, 0xd4, 0x1a, 0x90, 0x51, 0x67, 0x7c, 0x18, 0xd7,
-	0xc2, 0x71, 0x63, 0x2b, 0x9e, 0x78, 0x5b, 0xe9, 0x1f, 0xe2, 0xf0, 0x17, 0xa1, 0x8f, 0x2e, 0xc1,
-	0x5e, 0x5f, 0xa0, 0x9a, 0xc9, 0x3c, 0x85, 0x4f, 0x25, 0x58, 0xc7, 0x9e, 0xd2, 0xbd, 0x05, 0x18,
-	0x2b, 0x51, 0x4d, 0xa5, 0x9a, 0x61, 0x10, 0xe9, 0x04, 0xec, 0x9d, 0x9a, 0x21, 0x1b, 0xd3, 0xb6,
-	0xf0, 0x3e, 0x82, 0x56, 0x2f, 0xbe, 0x3d, 0x96, 0xb8, 0x76, 0x9a, 0x06, 0x26, 0xeb, 0xd2, 0x1d,
-	0xf7, 0x59, 0xc3, 0xb4, 0x34, 0x45, 0xb4, 0xe9, 0x9f, 0x7c, 0x50, 0xdd, 0x3f, 0x98, 0x82, 0x9d,
-	0xd0, 0x7d, 0x03, 0x56, 0xa3, 0xb2, 0x30, 0x55, 0xa8, 0x04, 0x44, 0x5b, 0x9e, 0xf0, 0xb0, 0x41,
-	0xdf, 0x57, 0x20, 0x7b, 0x49, 0xf7, 0xc0, 0x18, 0x34, 0xd3, 0x0c, 0x1c, 0x97, 0x45, 0xb4, 0xed,
-	0xb5, 0x59, 0x93, 0xd3, 0x68, 0x11, 0x4f, 0xfc, 0x80, 0xd3, 0x8e, 0xe7, 0xbd, 0xf1, 0xb4, 0xe1,
-	0x37, 0x42, 0xd9, 0x7a, 0xca, 0xfa, 0xc9, 0xfb, 0xc4, 0x7c, 0x45, 0x77, 0x9b, 0x0f, 0xb0, 0x51,
-	0x6b, 0xb0, 0x39, 0xea, 0x8c, 0x8f, 0xef, 0x4a, 0xfa, 0x36, 0x90, 0xce, 0xb7, 0x6e, 0x7e, 0x3c,
-	0xd9, 0x48, 0x57, 0x4d, 0xff, 0x0a, 0x7d, 0x40, 0xb7, 0xd7, 0xb3, 0xd6, 0x97, 0xf1, 0x17, 0x42,
-	0x8f, 0x5e, 0xe7, 0xb9, 0x81, 0x9c, 0x3b, 0xc8, 0x56, 0xb6, 0x27, 0x60, 0x16, 0x52, 0x00, 0xd3,
-	0xb4, 0x3b, 0x71, 0x06, 0xf8, 0x7c, 0x45, 0x4a, 0xc1, 0x62, 0x69, 0x04, 0x58, 0x76, 0x72, 0x97,
-	0xb9, 0x5b, 0x1f, 0xdc, 0x7b, 0xf6, 0x3f, 0x5a, 0x3d, 0xa1, 0xe1, 0xc6, 0x88, 0xbc, 0x20, 0xe7,
-	0xcf, 0xbf, 0x2e, 0xfb, 0xe4, 0x66, 0xd9, 0x27, 0xdf, 0x97, 0x7d, 0xf2, 0x73, 0xd9, 0x27, 0x1f,
-	0xbb, 0x75, 0xbb, 0xc4, 0x84, 0x6b, 0x99, 0xac, 0xef, 0xeb, 0x55, 0xdb, 0x2f, 0xdb, 0xd9, 0xef,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0xec, 0xf3, 0xd6, 0xfe, 0x3f, 0x03, 0x00, 0x00,
-}

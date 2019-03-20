@@ -31,7 +31,7 @@ option (gogoproto.gostring_all) = false;
 service IstioCAService {
 
   // A request object includes a PEM-encoded certificate signing request that
-  // is generated on the Node Agent. Additionaly credential can be attached
+  // is generated on the Node Agent. Additionally credential can be attached
   // within the request object for a server to authenticate the originating
   // node agent.
   rpc HandleCSR(CsrRequest) returns (CsrResponse);

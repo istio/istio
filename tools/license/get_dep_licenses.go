@@ -16,14 +16,16 @@
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
 //   1) Generate complete dump of every license, suitable for including in release build/binary image:
-//      go run get_dep_licenses.go --branch release-0.8
+//      go run get_dep_licenses.go --branch release-1.0.1
 //   2) CSV format output with one package per line:
-//      go run get_dep_licenses.go --summary --branch release-0.8
+//      go run get_dep_licenses.go --summary --branch release-1.0.1
 //   3) Detailed info about how closely each license matches official text:
-//      go run get_dep_licenses.go --match-detail --branch release-0.8
+//      go run get_dep_licenses.go --match-detail --branch release-1.0.1
 //   4) Use a different branch from the current one. Will do git checkout to that branch and back to the current on completion.
 //      This can only be used from inside Istio repo:
-//      go run get_dep_licenses.go --branch release-0.8 --checkout
+//      go run get_dep_licenses.go --branch release-1.0.1 --checkout
+//   5) Check if all licenses are Google approved. Outputs lists of restricted, reciprocal, missing, and unknown status licenses.
+//      go run get_dep_licenses.go --check
 package main
 
 import (
@@ -42,10 +44,88 @@ import (
 const (
 	// maxLevelsToLicense is the maximum levels to go up to the root to find
 	// license in parent directories.
-	maxLevelsToLicense = 7
+	maxLevelsToLicense = 8
+)
+
+type licenseType int
+
+const (
+	// licenseTypeApproved is definitely ok to use and modify.
+	licenseTypeApproved licenseType = iota
+	// licenseTypeReciprocal can be used but not modified.
+	licenseTypeReciprocal
+	// licenseTypeRestricted
+	licenseTypeRestricted
 )
 
 var (
+	// licenseStrToType are code that's definitely ok to use and modify.
+	licenseStrToType = map[string]licenseType{
+		// licenseTypeApproved
+		"Apache-2.0":   licenseTypeApproved,
+		"ISC":          licenseTypeApproved,
+		"AFL-2.1":      licenseTypeApproved,
+		"AFL-3.0":      licenseTypeApproved,
+		"Artistic-1.0": licenseTypeApproved,
+		"Artistic-2.0": licenseTypeApproved,
+		"Apache-1.1":   licenseTypeApproved,
+		"BSD-1-Clause": licenseTypeApproved,
+		"BSD-2-Clause": licenseTypeApproved,
+		"BSD-3-Clause": licenseTypeApproved,
+		"FTL":          licenseTypeApproved,
+		"LPL-1.02":     licenseTypeApproved,
+		"MS-PL":        licenseTypeApproved,
+		"MIT":          licenseTypeApproved,
+		"NCSA":         licenseTypeApproved,
+		"OpenSSL":      licenseTypeApproved,
+		"PHP-3.0":      licenseTypeApproved,
+		"TCP-wrappers": licenseTypeApproved,
+		"W3C":          licenseTypeApproved,
+		"Xnet":         licenseTypeApproved,
+		"Zlib":         licenseTypeApproved,
+		// licenseTypeReciprocal
+		"CC0-1.0":  licenseTypeReciprocal,
+		"APSL-2.0": licenseTypeReciprocal,
+		"CDDL-1.0": licenseTypeReciprocal,
+		"CDDL-1.1": licenseTypeReciprocal,
+		"CPL-1.0":  licenseTypeReciprocal,
+		"EPL-1.0":  licenseTypeReciprocal,
+		"IPL-1.0":  licenseTypeReciprocal,
+		"MPL-1.0":  licenseTypeReciprocal,
+		"MPL-1.1":  licenseTypeReciprocal,
+		"MPL-2.0":  licenseTypeReciprocal,
+		"Ruby":     licenseTypeReciprocal,
+		// licenseTypeRestricted
+		"GPL-1.0-only":      licenseTypeRestricted,
+		"GPL-1.0-or-later":  licenseTypeRestricted,
+		"GPL-2.0-only":      licenseTypeRestricted,
+		"GPL-2.0-or-later":  licenseTypeRestricted,
+		"GPL-3.0-only":      licenseTypeRestricted,
+		"GPL-3.0-or-later":  licenseTypeRestricted,
+		"LGPL-2.0-only":     licenseTypeRestricted,
+		"LGPL-2.0-or-later": licenseTypeRestricted,
+		"LGPL-2.1-only":     licenseTypeRestricted,
+		"LGPL-2.1-or-later": licenseTypeRestricted,
+		"LGPL-3.0-only":     licenseTypeRestricted,
+		"LGPL-3.0-or-later": licenseTypeRestricted,
+		"NPL-1.0":           licenseTypeRestricted,
+		"NPL-1.1":           licenseTypeRestricted,
+		"OSL-1.0":           licenseTypeRestricted,
+		"OSL-1.1":           licenseTypeRestricted,
+		"OSL-2.0":           licenseTypeRestricted,
+		"OSL-2.1":           licenseTypeRestricted,
+		"OSL-3.0":           licenseTypeRestricted,
+		"QPL-1.0":           licenseTypeRestricted,
+		"Sleepycat":         licenseTypeRestricted,
+	}
+	// knownUnknownLicenses are either missing or unknown to licensee, but were manually copied and /or reviewed
+	// and are considered ok, so the tool will not complain about these.
+	knownUnknownLicenses = map[string]bool{
+		"github.com/jmespath/go-jmespath":                                         true,
+		"github.com/alicebob/gopher-json":                                         true,
+		"istio.io/istio/vendor/github.com/dchest/siphash":                         true,
+		"istio.io/istio/vendor/github.com/signalfx/com_signalfx_metrics_protobuf": true,
+	}
 	// Ignore package paths that don't start with this.
 	mustStartWith = []string{
 		"istio.io/istio/vendor",
@@ -97,10 +177,12 @@ func (s LicenseInfos) Swap(i, j int) {
 }
 
 func main() {
-	var summary, checkout, matchDetail bool
+	var summary, checkout, matchDetail, check bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
 	flag.BoolVar(&checkout, "checkout", false, "Checkout target branch, return to current branch on completion. Can only use from inside Istio git repo.")
 	flag.BoolVar(&matchDetail, "match_detail", false, "Show information about match closeness for inexact matches.")
+	flag.BoolVar(&check, "check", false, "Check licenses to see if they are Google approved. Exits with error if any unapproved licenses are found, "+
+		"but success does not imply all licenses are approved.")
 	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use.")
 	flag.Parse()
 
@@ -109,8 +191,13 @@ func main() {
 		log.Fatal("--summary and --match_detail cannot both be set.")
 	}
 
-	if istioReleaseBranch == "" {
-		log.Fatal("--branch must be set.")
+	if istioReleaseBranch == "" && !check {
+		var err error
+		istioReleaseBranch, err = runBash("git", "rev-parse", "HEAD")
+		if err != nil {
+			log.Fatalf("Could not get current commit: %s", err)
+		}
+		istioReleaseBranch = strings.TrimSpace(istioReleaseBranch)
 	}
 
 	// Everything happens from istio root.
@@ -126,7 +213,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not get current branch: %s", err)
 		}
-		prevBranch = strings.TrimSpace(string(pb))
+		prevBranch = strings.TrimSpace(pb)
 
 		// Need to switch to branch we're getting the licenses for.
 		_, err = runBash("git", "checkout", istioReleaseBranch)
@@ -150,7 +237,7 @@ func main() {
 	if err != nil {
 		log.Fatal(out)
 	}
-	outv := strings.Split(string(out), "\n")
+	outv := strings.Split(out, "\n")
 	outv, skipv := filter(dedup(outv))
 	sort.Strings(outv)
 	sort.Strings(skipv)
@@ -161,17 +248,21 @@ func main() {
 	for _, p := range outv {
 		lf, err := findLicenseFile(p)
 		if err != nil || lf == nil {
-			missing = append(missing, p)
+			if !knownUnknownLicenses[p] {
+				missing = append(missing, p)
+			}
 			continue
 		}
 		licensePath[p] = lf[0]
 	}
 
 	licenseTypes := make(map[string][]string, 0)
+	var reciprocalList, restrictedList, missingList []string
+	unknownMap := make(map[string]string, 0)
 	var licenses, exact, inexact LicenseInfos
 	for p, lp := range licensePath {
 		linfo := &LicenseInfo{}
-		if matchDetail || summary {
+		if matchDetail || summary || check {
 			// This requires the external licensee program.
 			linfo, err = getLicenseeInfo(lp)
 			if err != nil {
@@ -184,12 +275,70 @@ func main() {
 		linfo.path = lp
 		linfo.url = pathToURL(lp)
 		licenses = append(licenses, linfo)
+		ltypeStr := linfo.licenseTypeString
 		if linfo.exact {
-			licenseTypes[linfo.licenseTypeString] = append(licenseTypes[linfo.licenseTypeString], p)
+			licenseTypes[ltypeStr] = append(licenseTypes[ltypeStr], p)
 			exact = append(exact, linfo)
 		} else {
 			inexact = append(inexact, linfo)
 		}
+
+		log.Printf("Checking %s\n", linfo.packageName)
+		lt, ok := licenseStrToType[ltypeStr]
+		switch {
+		// No license was found by licensee.
+		case ltypeStr == "":
+			missingList = append(missingList, linfo.packageName)
+		// License was found but not in a definite category.
+		case !ok:
+			if !knownUnknownLicenses[linfo.packageName] {
+				unknownMap[linfo.packageName] = ltypeStr
+			}
+		case lt == licenseTypeApproved:
+		case lt == licenseTypeReciprocal:
+			reciprocalList = append(reciprocalList, linfo.packageName)
+		case lt == licenseTypeRestricted:
+			restrictedList = append(restrictedList, linfo.packageName)
+		}
+	}
+
+	if check {
+		exitCode := 0
+		if len(reciprocalList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have reciprocal licenses (code may")
+			fmt.Println("be used but not modified):")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(reciprocalList, "\n"))
+			exitCode |= 1
+		}
+		if len(missingList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have missing licenses:")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(missingList, "\n"))
+			exitCode |= 2
+		}
+		if len(unknownMap) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages have unknown status licenses (legal")
+			fmt.Println("review required). ")
+			fmt.Println("===========================================================")
+			for k, v := range unknownMap {
+				fmt.Printf("%s:%s\n", k, v)
+			}
+			exitCode |= 4
+		}
+		if len(restrictedList) > 0 {
+			fmt.Println("===========================================================")
+			fmt.Println("The following packages had RESTRICTED licenses!")
+			fmt.Println("Packages MUST BE REMOVED! ")
+			fmt.Println("===========================================================")
+			fmt.Println(strings.Join(restrictedList, "\n"))
+			exitCode |= 8
+		}
+		os.Exit(exitCode)
+		return
 	}
 
 	sort.Sort(licenses)
@@ -206,15 +355,18 @@ func main() {
 		return
 	}
 
-	fmt.Println("===========================================================")
-	fmt.Println("The following packages were missing license files:")
-	fmt.Println("===========================================================")
-	for _, p := range missing {
-		fmt.Println(p)
+	if len(missing) > 0 {
+		fmt.Fprintln(os.Stderr, "===========================================================")
+		fmt.Fprintln(os.Stderr, "The following packages were missing license files.")
+		fmt.Fprintln(os.Stderr, "===========================================================")
+		for _, p := range missing {
+			fmt.Fprintln(os.Stderr, p)
+		}
+		os.Exit(2)
 	}
 
 	if matchDetail {
-		fmt.Println("\n\n")
+		fmt.Println()
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had inexact licenses:")
 		fmt.Println("===========================================================")
@@ -226,7 +378,7 @@ func main() {
 			fmt.Println("-----------------------------------------------------------")
 		}
 
-		fmt.Println("\n\n")
+		fmt.Println()
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had exact licenses:")
 		fmt.Println("===========================================================")
@@ -238,7 +390,6 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Println("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("Package licenses")
 		fmt.Println("===========================================================")
@@ -249,6 +400,21 @@ func main() {
 			fmt.Printf("License text:\n%s\n", l.licenseText)
 			fmt.Println("-----------------------------------------------------------")
 		}
+
+		// Append manually added files.
+		manualAppendDir := filepath.Join(istioRoot, "tools/license/manual_append")
+		fs, err := ioutil.ReadDir(manualAppendDir)
+		if err != nil {
+			log.Fatalf("ReadDir: %s\n", err)
+		}
+		for _, f := range fs {
+			b, err := ioutil.ReadFile(filepath.Join(manualAppendDir, f.Name()))
+			if err != nil {
+				log.Fatalf("ReadFile (%s): %s\n", f.Name(), err)
+			}
+			fmt.Print(string(b))
+		}
+
 	}
 }
 

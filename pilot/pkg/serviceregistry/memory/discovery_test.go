@@ -16,6 +16,8 @@ package memory
 
 import (
 	"testing"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestMemoryServices(t *testing.T) {
@@ -27,9 +29,13 @@ func TestMemoryServices(t *testing.T) {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
 		}
-		instances, err := MockDiscovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
-		if err != nil {
-			t.Errorf("Discovery.Instances encountered error: %v", err)
+		instances := make([]*model.ServiceInstance, 0)
+		for _, port := range svc.Ports {
+			svcInstances, err := MockDiscovery.InstancesByPort(svc.Hostname, port.Port, nil)
+			if err != nil {
+				t.Errorf("Discovery.InstancesByPort encountered error: %v", err)
+			}
+			instances = append(instances, svcInstances...)
 		}
 		if svc.External() {
 			if len(instances) > 0 {

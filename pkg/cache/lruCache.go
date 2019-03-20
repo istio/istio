@@ -81,7 +81,7 @@ type lruWrapper struct {
 }
 
 type lruCache struct {
-	sync.Mutex
+	sync.RWMutex
 	entries           []lruEntry            // allocate once, not resizable
 	sentinel          *lruEntry             // direct pointer to entries[0] to avoid bounds checking
 	lookup            map[interface{}]int32 // keys => entry index
@@ -248,9 +248,9 @@ func (c *lruCache) SetWithExpiration(key interface{}, value interface{}, expirat
 	ent.value = value
 	ent.expiration = exp
 
-	c.Unlock()
-
 	atomic.AddUint64(&c.stats.Writes, 1)
+
+	c.Unlock()
 }
 
 func (c *lruCache) Get(key interface{}) (interface{}, bool) {
@@ -308,6 +308,8 @@ func (c *lruCache) remove(index int32) {
 }
 
 func (c *lruCache) Stats() Stats {
+	c.RLock()
+	defer c.RUnlock()
 	return c.stats
 }
 

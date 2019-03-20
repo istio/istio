@@ -19,26 +19,40 @@ import (
 	"reflect"
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func TestServiceNode(t *testing.T) {
 	nodes := []struct {
-		in  model.Proxy
+		in  *model.Proxy
 		out string
 	}{
 		{
-			in:  memory.HelloProxyV0,
+			in:  &memory.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{
-			in: model.Proxy{
-				Type:   model.Ingress,
-				ID:     "random",
-				Domain: "local",
+			in: &model.Proxy{
+				Type:        model.Ingress,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3"},
+				DNSDomain:   "local",
 			},
-			out: "ingress~~random~local",
+			out: "ingress~10.3.3.3~random~local",
+		},
+		{
+			in: &model.Proxy{
+				Type:        model.SidecarProxy,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				DNSDomain:   "local",
+				Metadata: map[string]string{
+					"INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
+				},
+			},
+			out: "sidecar~10.3.3.3~random~local",
 		},
 	}
 
@@ -47,7 +61,8 @@ func TestServiceNode(t *testing.T) {
 		if out != node.out {
 			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
 		}
-		in, err := model.ParseServiceNode(node.out)
+		in, err := model.ParseServiceNodeWithMetadata(node.out, node.in.Metadata)
+
 		if err != nil {
 			t.Errorf("ParseServiceNode(%q) => Got error %v", node.out, err)
 		}
@@ -96,5 +111,69 @@ defaultConfig:
 	}
 	if !reflect.DeepEqual(got, &want) {
 		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
+	}
+}
+
+func TestApplyMeshNetworksDefaults(t *testing.T) {
+	yml := fmt.Sprintf(`
+networks:
+  network1:
+    endpoints:
+    - fromCidr: "192.168.0.1/24"
+    gateways:
+    - address: 1.1.1.1
+      port: 80
+  network2:
+    endpoints:
+    - fromRegistry: reg1
+    gateways:
+    - registryServiceName: reg1
+      port: 443
+`)
+
+	want := model.EmptyMeshNetworks()
+	want.Networks = map[string]*meshconfig.Network{
+		"network1": {
+			Endpoints: []*meshconfig.Network_NetworkEndpoints{
+				{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+						FromCidr: "192.168.0.1/24",
+					},
+				},
+			},
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{
+				{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: "1.1.1.1",
+					},
+					Port: 80,
+				},
+			},
+		},
+		"network2": {
+			Endpoints: []*meshconfig.Network_NetworkEndpoints{
+				{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+						FromRegistry: "reg1",
+					},
+				},
+			},
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{
+				{
+					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+						RegistryServiceName: "reg1",
+					},
+					Port: 443,
+				},
+			},
+		},
+	}
+
+	got, err := model.LoadMeshNetworksConfig(yml)
+	if err != nil {
+		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, &want) {
+		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
 }

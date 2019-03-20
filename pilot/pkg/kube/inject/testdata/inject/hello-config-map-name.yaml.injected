@@ -31,17 +31,13 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello
+        - hello.default
         - --drainDuration
-        - 2s
+        - 45s
         - --parentShutdownDuration
-        - 3s
+        - 1m0s
         - --discoveryAddress
-        - istio-pilot:15007
-        - --discoveryRefreshDelay
-        - 1s
-        - --zipkinAddress
-        - ""
+        - istio-pilot:15010
         - --connectTimeout
         - 1s
         - --statsdUdpAddress
@@ -54,6 +50,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:
@@ -92,7 +90,6 @@ spec:
             cpu: 10m
         securityContext:
           readOnlyRootFilesystem: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

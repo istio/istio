@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	cryptotls "crypto/tls"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -27,7 +28,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/test"
@@ -51,6 +52,7 @@ var (
 	clusters      int
 	httpListeners int
 	tcpListeners  int
+	tls           bool
 
 	nodeID string
 )
@@ -70,6 +72,7 @@ func init() {
 	flag.IntVar(&httpListeners, "http", 2, "Number of HTTP listeners (and RDS configs)")
 	flag.IntVar(&tcpListeners, "tcp", 2, "Number of TCP pass-through listeners")
 	flag.StringVar(&nodeID, "nodeID", "test-id", "Node ID")
+	flag.BoolVar(&tls, "tls", false, "Enable TLS on all listeners and use SDS for secret delivery")
 }
 
 // main returns code 1 if any of the batches failed to pass all requests
@@ -98,6 +101,7 @@ func main() {
 		NumClusters:      clusters,
 		NumHTTPListeners: httpListeners,
 		NumTCPListeners:  tcpListeners,
+		TLS:              tls,
 	}
 
 	// start the xDS server
@@ -164,8 +168,15 @@ func callEcho() (int, int) {
 		go func(i int) {
 			client := http.Client{
 				Timeout: 100 * time.Millisecond,
+				Transport: &http.Transport{
+					TLSClientConfig: &cryptotls.Config{InsecureSkipVerify: true},
+				},
 			}
-			req, err := client.Get(fmt.Sprintf("http://localhost:%d", basePort+uint(i)))
+			proto := "http"
+			if tls {
+				proto = "https"
+			}
+			req, err := client.Get(fmt.Sprintf("%s://127.0.0.1:%d", proto, basePort+uint(i)))
 			if err != nil {
 				ch <- err
 				return
@@ -218,13 +229,14 @@ func (cb *callbacks) Report() {
 	defer cb.mu.Unlock()
 	log.WithFields(log.Fields{"fetches": cb.fetches, "requests": cb.requests}).Info("server callbacks")
 }
-func (cb *callbacks) OnStreamOpen(id int64, typ string) {
+func (cb *callbacks) OnStreamOpen(_ context.Context, id int64, typ string) error {
 	log.Debugf("stream %d open for %s", id, typ)
+	return nil
 }
 func (cb *callbacks) OnStreamClosed(id int64) {
 	log.Debugf("stream %d closed", id)
 }
-func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) {
+func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.requests++
@@ -232,9 +244,10 @@ func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) {
 		close(cb.signal)
 		cb.signal = nil
 	}
+	return nil
 }
 func (cb *callbacks) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
-func (cb *callbacks) OnFetchRequest(req *v2.DiscoveryRequest) {
+func (cb *callbacks) OnFetchRequest(_ context.Context, req *v2.DiscoveryRequest) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.fetches++
@@ -242,5 +255,6 @@ func (cb *callbacks) OnFetchRequest(req *v2.DiscoveryRequest) {
 		close(cb.signal)
 		cb.signal = nil
 	}
+	return nil
 }
 func (cb *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse) {}

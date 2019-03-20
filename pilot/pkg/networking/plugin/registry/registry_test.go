@@ -19,14 +19,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 )
 
 func TestPlugins(t *testing.T) {
-	expectedPlugins := []string{"mixer", "health", "envoyfilter"}
+	expectedPlugins := []string{"mixer", "health"}
 	plugins := registry.NewPlugins(expectedPlugins)
 	if len(plugins) != len(expectedPlugins) {
 		t.Errorf("expected length of plugins to be %d, but got %d", len(expectedPlugins), len(plugins))
@@ -40,7 +39,6 @@ func TestPlugins(t *testing.T) {
 
 	checkPluginType(0, mixer.NewPlugin)
 	checkPluginType(1, health.NewPlugin)
-	checkPluginType(2, envoyfilter.NewPlugin)
 }
 
 func TestPluginsNonValid(t *testing.T) {

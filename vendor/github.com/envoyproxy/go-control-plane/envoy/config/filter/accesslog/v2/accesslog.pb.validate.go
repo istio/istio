@@ -53,14 +53,32 @@ func (m *AccessLog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return AccessLogValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *AccessLog_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *AccessLog_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -209,6 +227,18 @@ func (m *AccessLogFilter) Validate() error {
 			if err := v.Validate(); err != nil {
 				return AccessLogFilterValidationError{
 					Field:  "ResponseFlagFilter",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *AccessLogFilter_GrpcStatusFilter:
+
+		if v, ok := interface{}(m.GetGrpcStatusFilter()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogFilterValidationError{
+					Field:  "GrpcStatusFilter",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -778,7 +808,7 @@ func (m *ResponseFlagFilter) Validate() error {
 		if _, ok := _ResponseFlagFilter_Flags_InLookup[item]; !ok {
 			return ResponseFlagFilterValidationError{
 				Field:  fmt.Sprintf("Flags[%v]", idx),
-				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX]",
+				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC URX SI]",
 			}
 		}
 
@@ -832,4 +862,64 @@ var _ResponseFlagFilter_Flags_InLookup = map[string]struct{}{
 	"FI":   {},
 	"RL":   {},
 	"UAEX": {},
+	"RLSE": {},
+	"DC":   {},
+	"URX":  {},
+	"SI":   {},
 }
+
+// Validate checks the field values on GrpcStatusFilter with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *GrpcStatusFilter) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	for idx, item := range m.GetStatuses() {
+		_, _ = idx, item
+
+		if _, ok := GrpcStatusFilter_Status_name[int32(item)]; !ok {
+			return GrpcStatusFilterValidationError{
+				Field:  fmt.Sprintf("Statuses[%v]", idx),
+				Reason: "value must be one of the defined enum values",
+			}
+		}
+
+	}
+
+	// no validation rules for Exclude
+
+	return nil
+}
+
+// GrpcStatusFilterValidationError is the validation error returned by
+// GrpcStatusFilter.Validate if the designated constraints aren't met.
+type GrpcStatusFilterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e GrpcStatusFilterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGrpcStatusFilter.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = GrpcStatusFilterValidationError{}

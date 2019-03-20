@@ -113,6 +113,17 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for ServerName
 
+	if wrapper := m.GetMaxRequestHeadersKb(); wrapper != nil {
+
+		if wrapper.GetValue() > 96 {
+			return HttpConnectionManagerValidationError{
+				Field:  "MaxRequestHeadersKb",
+				Reason: "value must be less than or equal to 96",
+			}
+		}
+
+	}
+
 	if v, ok := interface{}(m.GetIdleTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -133,10 +144,30 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetRequestTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "RequestTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
 				Field:  "DrainTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetDelayedCloseTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "DelayedCloseTimeout",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -169,6 +200,16 @@ func (m *HttpConnectionManager) Validate() error {
 	}
 
 	// no validation rules for XffNumTrustedHops
+
+	if v, ok := interface{}(m.GetInternalAddressConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "InternalAddressConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	// no validation rules for SkipXffAppend
 
@@ -360,24 +401,32 @@ func (m *HttpFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpFilterValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
+	switch m.ConfigType.(type) {
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpFilterValidationError{
-				Field:  "DeprecatedV1",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	case *HttpFilter_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpFilterValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *HttpFilter_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpFilterValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -459,6 +508,8 @@ func (m *HttpConnectionManager_Tracing) Validate() error {
 		}
 	}
 
+	// no validation rules for Verbose
+
 	return nil
 }
 
@@ -493,6 +544,51 @@ func (e HttpConnectionManager_TracingValidationError) Error() string {
 }
 
 var _ error = HttpConnectionManager_TracingValidationError{}
+
+// Validate checks the field values on
+// HttpConnectionManager_InternalAddressConfig with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *HttpConnectionManager_InternalAddressConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UnixSockets
+
+	return nil
+}
+
+// HttpConnectionManager_InternalAddressConfigValidationError is the validation
+// error returned by HttpConnectionManager_InternalAddressConfig.Validate if
+// the designated constraints aren't met.
+type HttpConnectionManager_InternalAddressConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HttpConnectionManager_InternalAddressConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpConnectionManager_InternalAddressConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HttpConnectionManager_InternalAddressConfigValidationError{}
 
 // Validate checks the field values on
 // HttpConnectionManager_SetCurrentClientCertDetails with the rules defined in
@@ -580,6 +676,16 @@ func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManager_UpgradeConfigValidationError{
+				Field:  "Enabled",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -614,47 +720,3 @@ func (e HttpConnectionManager_UpgradeConfigValidationError) Error() string {
 }
 
 var _ error = HttpConnectionManager_UpgradeConfigValidationError{}
-
-// Validate checks the field values on HttpFilter_DeprecatedV1 with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *HttpFilter_DeprecatedV1) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	// no validation rules for Type
-
-	return nil
-}
-
-// HttpFilter_DeprecatedV1ValidationError is the validation error returned by
-// HttpFilter_DeprecatedV1.Validate if the designated constraints aren't met.
-type HttpFilter_DeprecatedV1ValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e HttpFilter_DeprecatedV1ValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sHttpFilter_DeprecatedV1.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = HttpFilter_DeprecatedV1ValidationError{}

@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         ports:
          - containerPort: 8080

@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest_release
+        image: fortio/fortio:latest_release
         imagePullPolicy: Always # needed despite what is documented to really get latest
         ports:
         - containerPort: 8080
@@ -59,27 +59,8 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest_release
+        image: fortio/fortio:latest_release
         imagePullPolicy: Always # needed despite what is documented to really get latest
         ports:
         - containerPort: 8080
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
-  name: istio-ingress
-spec:
-  rules:
-    - http:
-        paths:
-          - path: /fortio1/.*
-            backend:
-              serviceName: echosrv1
-              servicePort: http-echo
-          - path: /fortio2/.*
-            backend:
-              serviceName: echosrv2
-              servicePort: http-echo
 ---

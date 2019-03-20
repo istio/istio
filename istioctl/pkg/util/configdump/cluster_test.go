@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
+
+	proto "github.com/gogo/protobuf/types"
 )
 
 func setupWrapper(t *testing.T) *Wrapper {
@@ -59,7 +61,7 @@ func TestWrapper_GetClusterConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noCluster {
-				delete(w.Configs, "clusters")
+				w.Configs = []proto.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -118,7 +120,7 @@ func TestWrapper_GetDynamicClusterDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noCluster {
-				delete(w.Configs, "clusters")
+				w.Configs = []proto.Any{}
 			}
 			got, err := w.GetDynamicClusterDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

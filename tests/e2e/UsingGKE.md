@@ -1,4 +1,4 @@
-# Running E2E tests on your own kubernets cluster
+# Running E2E tests on your own kubernetes cluster
 
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
@@ -58,10 +58,12 @@ kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cl
 
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
+# also optional: GS_BUCKET to use a different Google Storage Bucket than the default one (you need write permissions)
 # it allows you to customize Makefile rules. For example:
 cat .istiorc.mk
 HUB=costinm
 TAG=mybranch
+GS_BUCKET=mybucket
 
 # Build images on the local docker.
 make docker
@@ -71,6 +73,12 @@ make push
 
 # the hub/tag set in your .istiorc.mk will be used by the test.
 
+```
+
+On MacOS, you need to set the target operating system before building the images
+
+```
+GOOS=linux make docker push
 ```
 
 **Option 2:** Already committed changes to istio/istio master branch
@@ -129,7 +137,7 @@ Please see golang testing options for more information.
   go test --help
   ```
 
-* For **simple test** specific, you can run test multiple time against the same environement setup by `skip_setup`:
+* For **simple test** specific, you can run test multiple time against the same environment setup by `skip_setup`:
   ```bash
   # First time you want to run: deploy in namespace e2e and leave it running:
   make e2e_simple E2E_ARGS="--skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable"

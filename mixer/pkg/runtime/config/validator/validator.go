@@ -44,6 +44,9 @@ type Validator struct {
 func NewValidator(tc checker.TypeChecker, s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
 	kinds := config.KindMap(adapterInfo, templateInfo)
+	if err := s.Init(kinds); err != nil {
+		return nil, err
+	}
 	data, ch, err := store.StartWatch(s, kinds)
 	if err != nil {
 		return nil, err

@@ -54,14 +54,16 @@ To bring up the app containers, from the `samples/bookinfo/consul` directory run
   ```
 
 
-To view the productpage webpage, open a web browser and enter `localhost:9081/productpage`.  
+To view the productpage webpage, open a web browser and enter `localhost:9081/productpage`.
 
 If you refresh the page several times, you should see different versions of reviews shown in productpage presented in a round robin style (red stars, black stars, no stars).
 
-Configure `istioctl` to use the locally mapped port for the Istio api server
+Configure `kubectl` to use the locally mapped port for the Istio api server
 
 ```
-istioctl context-create --api-server http://localhost:8080
+kubectl config set-context istio --cluster=istio
+kubectl config set-cluster istio --server=http://localhost:8080
+kubectl config use-context istio
 ```
 
 If you are an advanced consul and docker network user, you may choose to configure your own envoymesh network dns and consul port mapping and istio-apiserver ipv4_address in the `istio.yaml` file.

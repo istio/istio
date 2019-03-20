@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: virtual-service-scope-public
+spec:
+  exportTo:
+  - "*"
+  hosts:
+  - "bookinfo.com"
+  http:
+  - route:
+    - destination:
+        host: "bookinfo.com"
+    headers:
+      request:
+        add: 
+          scope: public
+  tcp:
+  - route:
+    - destination:
+        host: "bookinfo.com"

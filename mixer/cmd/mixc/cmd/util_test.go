@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -40,13 +39,13 @@ func TestAttributeHandling(t *testing.T) {
 		attributes:          "t=XYZ,u=2,v=3.0,w=true,x=2006-01-02T15:04:05Z,y=42s,z=98:76,zz=k3:v3",
 	}
 
-	a, err := parseAttributes(&ra)
+	a, dw, err := parseAttributes(&ra)
 	if err != nil {
 		t.Errorf("Expected to parse attributes, got failure %v", err)
 	}
 
 	var b attribute.Bag
-	if b, err = attribute.GetBagFromProto(a, nil); err != nil {
+	if b, err = attribute.GetBagFromProto(a, dw); err != nil {
 		t.Errorf("Expected to get proto bag, got failure %v", err)
 	}
 
@@ -72,7 +71,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"p", 42 * time.Second},
 		{"q", []byte{1}},
 		{"r", []byte{0x34, 0x56}},
-		{"s", map[string]string{"k1": "v1", "k2": "v2"}},
+		{"s", attribute.WrapStringMap(map[string]string{"k1": "v1", "k2": "v2"})},
 		{"t", "XYZ"},
 		{"u", int64(2)},
 		{"v", 3.0},
@@ -80,7 +79,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"x", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
 		{"y", 42 * time.Second},
 		{"z", []byte{0x98, 0x76}},
-		{"zz", map[string]string{"k3": "v3"}},
+		{"zz", attribute.WrapStringMap(map[string]string{"k3": "v3"})},
 	}
 
 	for _, r := range results {
@@ -90,8 +89,19 @@ func TestAttributeHandling(t *testing.T) {
 				t.Error("Got false, expecting true")
 			}
 
-			if !reflect.DeepEqual(v, r.value) {
+			if !attribute.Equal(v, r.value) {
 				t.Errorf("Got %v, expected %v", v, r.value)
+			}
+
+			found = false
+			for _, v := range dw {
+				if v == r.name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Got false, want true")
 			}
 		})
 	}
@@ -150,7 +160,7 @@ func TestAttributeErrorHandling(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			a, err := parseAttributes(&c)
+			a, _, err := parseAttributes(&c)
 			if a != nil {
 				t.Error("Got a valid struct, expected nil")
 			}

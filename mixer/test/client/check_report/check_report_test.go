@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,20 @@ import (
 const checkAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -57,19 +60,23 @@ const checkAttributesOkGet = `
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -98,7 +105,7 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 266
 }
 `
 
@@ -106,17 +113,20 @@ const reportAttributesOkGet = `
 const checkAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -138,19 +148,23 @@ const checkAttributesOkPost = `
 const reportAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -180,20 +194,40 @@ const reportAttributesOkPost = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 342
+  "request.total_size": 302
 }
 `
 
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
-	"http_mixer_filter.total_blocking_remote_check_calls": 2,
-	"http_mixer_filter.total_blocking_remote_quota_calls": 0,
-	"http_mixer_filter.total_check_calls":                 2,
+	// Policy check stats
+	"http_mixer_filter.total_check_calls":             2,
+	"http_mixer_filter.total_check_cache_hits":        0,
+	"http_mixer_filter.total_check_cache_misses":      2,
+	"http_mixer_filter.total_check_cache_hit_accepts": 0,
+	"http_mixer_filter.total_check_cache_hit_denies":  0,
+	"http_mixer_filter.total_remote_check_calls":      2,
+	"http_mixer_filter.total_remote_check_accepts":    2,
+	"http_mixer_filter.total_remote_check_denies":     0,
+	// Quota check stats
 	"http_mixer_filter.total_quota_calls":                 0,
-	"http_mixer_filter.total_remote_check_calls":          2,
+	"http_mixer_filter.total_quota_cache_hits":            0,
+	"http_mixer_filter.total_quota_cache_misses":          0,
+	"http_mixer_filter.total_quota_cache_hit_accepts":     0,
+	"http_mixer_filter.total_quota_cache_hit_denies":      0,
 	"http_mixer_filter.total_remote_quota_calls":          0,
-	"http_mixer_filter.total_remote_report_calls":         2,
-	"http_mixer_filter.total_report_calls":                2,
+	"http_mixer_filter.total_remote_quota_accepts":        0,
+	"http_mixer_filter.total_remote_quota_denies":         0,
+	"http_mixer_filter.total_remote_quota_prefetch_calls": 0,
+	// Stats for RPCs to mixer policy server
+	"http_mixer_filter.total_remote_calls":             2,
+	"http_mixer_filter.total_remote_call_successes":    2,
+	"http_mixer_filter.total_remote_call_timeouts":     0,
+	"http_mixer_filter.total_remote_call_send_errors":  0,
+	"http_mixer_filter.total_remote_call_other_errors": 0,
+	// Report stats
+	"http_mixer_filter.total_remote_report_calls": 2,
+	"http_mixer_filter.total_report_calls":        2,
 }
 
 func TestCheckReportAttributes(t *testing.T) {

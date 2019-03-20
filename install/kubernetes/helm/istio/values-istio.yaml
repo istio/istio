@@ -1,9 +1,0 @@
-# This is used to generate istio.yaml for automated CI/CD test, using v1/alpha1
-# or v2/alpha3 with 'gradual migration' (using env variable at inject time).
-global:
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
-
-  # Default is 10s second
-  refreshInterval: 1s

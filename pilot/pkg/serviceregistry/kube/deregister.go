@@ -15,9 +15,10 @@
 package kube
 
 import (
+	"fmt"
 	"strings"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -61,8 +62,8 @@ func removeIPFromEndpoint(eps *v1.Endpoints, ip string) bool {
 	return match
 }
 
-// DeRegisterEndpoint registers the endpoint (and the service if it
-// already exists). It creates or updates as needed.
+// DeRegisterEndpoint removes the endpoint (and the service if it
+// already exists) from Kubernetes. It creates or updates as needed.
 func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
 	ip string) error {
 	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
@@ -78,7 +79,8 @@ func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName s
 			If the service endpoint has not been registered
 			before, report proper error message.
 		*/
-		log.Errora("Could not find ip %s in svc %s endpoints", ip, svcName)
+		err = fmt.Errorf("could not find ip %s in svc %s endpoints", ip, svcName)
+		log.Errora(err)
 		return err
 	}
 	eps, err = client.CoreV1().Endpoints(namespace).Update(eps)

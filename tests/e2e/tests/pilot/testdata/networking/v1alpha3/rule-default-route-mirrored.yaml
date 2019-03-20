@@ -10,4 +10,4 @@ spec:
       - destination:
           host: c
       mirror:
-        name: b
+        host: b

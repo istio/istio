@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
@@ -67,7 +68,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
+	fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {
 		ss := []*writerStatus{}
@@ -103,5 +104,17 @@ func xdsStatus(sent, acked string) string {
 	if sent == acked {
 		return "SYNCED"
 	}
-	return "STALE"
+	timeSent, _ := parseTime(sent)
+	timeAcked, _ := parseTime(acked)
+	if timeAcked.Equal(time.Time{}) {
+		return "STALE (Never Acknowledged)"
+	}
+	timeDiff := timeSent.Sub(timeAcked)
+	return fmt.Sprintf("STALE (%v)", timeDiff.String())
+}
+
+func parseTime(s string) (time.Time, error) {
+	s = strings.Split(s, " m=+")[0]
+	layout := "2006-01-02 15:04:05 +0000 MST"
+	return time.Parse(layout, s)
 }

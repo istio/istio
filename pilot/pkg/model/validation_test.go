@@ -20,10 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -353,7 +351,7 @@ func TestValidateWildcardDomain(t *testing.T) {
 		{"wildcard prefix dash", "*-foo.bar.com", ""},
 		{"bad wildcard", "foo.*.com", "invalid"},
 		{"bad wildcard", "foo*.bar.com", "invalid"},
-		{"IP address", "1.1.1.1", ""},
+		{"IP address", "1.1.1.1", "invalid"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -409,29 +407,29 @@ func TestValidateProxyAddress(t *testing.T) {
 
 func TestValidateDuration(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			duration: &types.Duration{Seconds: 1, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			duration: &types.Duration{Seconds: -11, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 1},
+			duration: &types.Duration{Nanos: 1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			duration: &types.Duration{Seconds: 1, Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -445,55 +443,55 @@ func TestValidateDuration(t *testing.T) {
 
 func TestValidateParentAndDrain(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent duration.Duration
-		Drain  duration.Duration
+		Parent types.Duration
+		Drain  types.Duration
 		Valid  bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  true,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 2},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 2},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1, Nanos: 1000000},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2, Nanos: 1000000},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: -2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: -2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: -1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: -1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  duration.Duration{Seconds: 10},
+			Parent: types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  types.Duration{Seconds: 10},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 10},
-			Drain:  duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Parent: types.Duration{Seconds: 10},
+			Drain:  types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
@@ -505,51 +503,23 @@ func TestValidateParentAndDrain(t *testing.T) {
 	}
 }
 
-func TestValidateRefreshDelay(t *testing.T) {
-	type durationCheck struct {
-		duration *duration.Duration
-		isValid  bool
-	}
-
-	checks := []durationCheck{
-		{
-			duration: &duration.Duration{Seconds: 1},
-			isValid:  true,
-		},
-		{
-			duration: &duration.Duration{Seconds: 36001},
-			isValid:  false,
-		},
-		{
-			duration: &duration.Duration{Nanos: 1},
-			isValid:  false,
-		},
-	}
-
-	for _, check := range checks {
-		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
-		}
-	}
-}
-
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 31},
+			duration: &types.Duration{Seconds: 31},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 99999},
+			duration: &types.Duration{Nanos: 99999},
 			isValid:  false,
 		},
 	}
@@ -570,9 +540,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		MixerCheckServer:  "10.0.0.100",
 		MixerReportServer: "10.0.0.100",
 		ProxyListenPort:   0,
-		ConnectTimeout:    ptypes.DurationProto(-1 * time.Second),
-		AuthPolicy:        -1,
-		RdsRefreshDelay:   ptypes.DurationProto(-1 * time.Second),
+		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -593,23 +561,290 @@ func TestValidateMeshConfig(t *testing.T) {
 }
 
 func TestValidateProxyConfig(t *testing.T) {
-	if ValidateProxyConfig(&meshconfig.ProxyConfig{}) == nil {
-		t.Error("expected an error on an empty proxy config")
+	valid := &meshconfig.ProxyConfig{
+		ConfigPath:                 "/etc/istio/proxy",
+		BinaryPath:                 "/usr/local/bin/envoy",
+		DiscoveryAddress:           "istio-pilot.istio-system:15010",
+		ProxyAdminPort:             15000,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		ConnectTimeout:             types.DurationProto(10 * time.Second),
+		ServiceCluster:             "istio-proxy",
+		StatsdUdpAddress:           "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsServiceAddress: "metrics-service.istio-system:15000",
+		ControlPlaneAuthPolicy:     1,
+		Tracing:                    nil,
+	}
+
+	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
+		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
+		fieldSetter(clone)
+		return clone
+	}
+
+	cases := []struct {
+		name    string
+		in      *meshconfig.ProxyConfig
+		isValid bool
+	}{
+		{
+			name:    "empty proxy config",
+			in:      &meshconfig.ProxyConfig{},
+			isValid: false,
+		},
+		{
+			name:    "valid proxy config",
+			in:      valid,
+			isValid: true,
+		},
+		{
+			name:    "config path invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConfigPath = "" }),
+			isValid: false,
+		},
+		{
+			name:    "binary path invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.BinaryPath = "" }),
+			isValid: false,
+		},
+		{
+			name:    "discovery address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DiscoveryAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "proxy admin port invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "proxy admin port invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "drain duration invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "parent shutdown duration invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "connect timeout invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConnectTimeout = types.DurationProto(-1 * time.Second) }),
+			isValid: false,
+		},
+		{
+			name:    "service cluster invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ServiceCluster = "" }),
+			isValid: false,
+		},
+		{
+			name:    "statsd udp address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatsdUdpAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "envoy metrics service address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
+			isValid: false,
+		},
+		{
+			name:    "control plane auth policy invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ControlPlaneAuthPolicy = -1 }),
+			isValid: false,
+		},
+		{
+			name: "zipkin address is valid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Zipkin_{
+							Zipkin: &meshconfig.Tracing_Zipkin{
+								Address: "zipkin.istio-system:9411",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "zipkin config invalid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Zipkin_{
+							Zipkin: &meshconfig.Tracing_Zipkin{
+								Address: "10.0.0.100",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep config is valid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "lightstep address invalid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "10.0.0.100",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address empty but lightstep access token is not",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "",
+								AccessToken: "abcdefg1234567",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address is valid but access token is empty",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep access token empty but lightstep address is not",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "10.0.0.100",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep address and lightstep token both empty",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "",
+								AccessToken: "",
+								Secure:      false,
+								CacertPath:  "/etc/lightstep/cacert.pem",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "lightstep cacert is missing",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Lightstep_{
+							Lightstep: &meshconfig.Tracing_Lightstep{
+								Address:     "collector.lightstep:8080",
+								AccessToken: "abcdefg1234567",
+								Secure:      true,
+								CacertPath:  "",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateProxyConfig(c.in); (got == nil) != c.isValid {
+				if c.isValid {
+					t.Errorf("got error %v, wanted none", got)
+				} else {
+					t.Error("got no error, wanted one")
+				}
+			}
+		})
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:             "",
-		BinaryPath:             "",
-		DiscoveryAddress:       "10.0.0.100",
-		ProxyAdminPort:         0,
-		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  ptypes.DurationProto(-1 * time.Second),
-		ConnectTimeout:         ptypes.DurationProto(-1 * time.Second),
-		ServiceCluster:         "",
-		StatsdUdpAddress:       "10.0.0.100",
-		ZipkinAddress:          "10.0.0.100",
-		ControlPlaneAuthPolicy: -1,
+		ConfigPath:                 "",
+		BinaryPath:                 "",
+		DiscoveryAddress:           "10.0.0.100",
+		ProxyAdminPort:             0,
+		DrainDuration:              types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(-1 * time.Second),
+		ConnectTimeout:             types.DurationProto(-1 * time.Second),
+		ServiceCluster:             "",
+		StatsdUdpAddress:           "10.0.0.100",
+		EnvoyMetricsServiceAddress: "metrics-service",
+		ControlPlaneAuthPolicy:     -1,
+		Tracing: &meshconfig.Tracing{
+			Tracer: &meshconfig.Tracing_Zipkin_{
+				Zipkin: &meshconfig.Tracing_Zipkin{
+					Address: "10.0.0.100",
+				},
+			},
+		},
 	}
 
 	err := ValidateProxyConfig(&invalid)
@@ -619,7 +854,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 12 {
+			if len(err.(*multierror.Error).Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1113,6 +1348,36 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
+		{"happy ip",
+			&networking.Server{
+				Hosts: []string{"1.1.1.1"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ns/name",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy */name",
+			&networking.Server{
+				Hosts: []string{"*/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ./name",
+			&networking.Server{
+				Hosts: []string{"./foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"invalid domain ns/name format",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.*.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -1236,35 +1501,89 @@ func TestValidateTlsOptions(t *testing.T) {
 		{"simple",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: "Captain Jean-Luc Picard"},
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"simple sds with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: ""},
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+			},
 			"server certificate"},
+		{"simple no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        ""},
+			"private key"},
+		{"simple sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CredentialName:    "sds-name",
+			},
+			""},
+		{"simple sds no private key",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "",
+				CredentialName:    "sds-name",
+			},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
+			""},
+		{"mutual sds",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name",
+			},
 			""},
 		{"mutual no server cert",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"server certificate"},
+		{"mutual sds no server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				CredentialName:    "sds-name"},
+			""},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
@@ -1273,14 +1592,30 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			"private key"},
+		{"mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
+		{"pass through sds no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CredentialName:    "sds-name"},
+			""},
 	}
 
 	for _, tt := range tests {
@@ -1407,6 +1742,22 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 9000,
 			},
 		}, valid: false},
+		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: true},
+		{name: "invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1449,6 +1800,22 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
+		{name: "valid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
+			},
+		}, valid: true},
+		{name: "invalid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &types.Duration{Seconds: 3},
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1470,11 +1837,17 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "valid", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
-		{name: "bad attempts", in: &networking.HTTPRetry{
+		{name: "valid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "503,connect-failure",
+		}, valid: true},
+		{name: "invalid attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
@@ -1485,6 +1858,16 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "timeout too small", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Nanos: 999},
+		}, valid: false},
+		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,invalid policy",
+		}, valid: false},
+		{name: "invalid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "600,connect-failure",
 		}, valid: false},
 	}
 
@@ -1504,17 +1887,38 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		in    *networking.HTTPRewrite
 		valid bool
 	}{
-		{name: "uri and authority", in: &networking.HTTPRewrite{
-			Uri:       "/path/to/resource",
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "uri", in: &networking.HTTPRewrite{
-			Uri: "/path/to/resource",
-		}, valid: true},
-		{name: "authority", in: &networking.HTTPRewrite{
-			Authority: "foobar.org",
-		}, valid: true},
-		{name: "no uri or authority", in: &networking.HTTPRewrite{}, valid: false},
+		{
+			name:  "nil in",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uri and authority",
+			in: &networking.HTTPRewrite{
+				Uri:       "/path/to/resource",
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name: "uri",
+			in: &networking.HTTPRewrite{
+				Uri: "/path/to/resource",
+			},
+			valid: true,
+		},
+		{
+			name: "authority",
+			in: &networking.HTTPRewrite{
+				Authority: "foobar.org",
+			},
+			valid: true,
+		},
+		{
+			name:  "no uri or authority",
+			in:    &networking.HTTPRewrite{},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1527,22 +1931,122 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	}
 }
 
+func TestValidatePortName(t *testing.T) {
+	testCases := []struct {
+		name  string
+		valid bool
+	}{
+		{
+			name:  "",
+			valid: false,
+		},
+		{
+			name:  "simple",
+			valid: true,
+		},
+		{
+			name:  "full",
+			valid: true,
+		},
+		{
+			name:  "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong",
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validatePortName(tc.name); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRedirect(t *testing.T) {
+	testCases := []struct {
+		name     string
+		redirect *networking.HTTPRedirect
+		valid    bool
+	}{
+		{
+			name:     "nil redirect",
+			redirect: nil,
+			valid:    true,
+		},
+		{
+			name: "empty uri and authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "",
+			},
+			valid: false,
+		},
+		{
+			name: "empty authority",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "",
+			},
+			valid: true,
+		},
+		{
+			name: "empty uri",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "",
+				Authority: "t",
+			},
+			valid: true,
+		},
+		{
+			name: "normal redirect",
+			redirect: &networking.HTTPRedirect{
+				Uri:       "t",
+				Authority: "t",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
 		destination *networking.Destination
 		valid       bool
 	}{
-		{name: "empty", destination: &networking.Destination{ // nothing
-		}, valid:                                             false},
-		{name: "simple", destination: &networking.Destination{
-			Host: "foo.bar",
-		}, valid: true},
-		{name: "full", destination: &networking.Destination{
-			Host:   "foo.bar",
-			Subset: "shiny",
-			Port:   &networking.PortSelector{Port: &networking.PortSelector_Number{Number: 5000}},
-		}, valid: true},
+		{
+			name:        "empty",
+			destination: &networking.Destination{}, // nothing
+			valid:       false,
+		},
+		{
+			name: "simple",
+			destination: &networking.Destination{
+				Host: "foo.bar",
+			},
+			valid: true,
+		},
+		{name: "full",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 5000,
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1563,17 +2067,17 @@ func TestValidateHTTPRoute(t *testing.T) {
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
 		{name: "simple", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 		}, valid: true},
 		{name: "no destination", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: nil,
 			}},
 		}, valid: false},
 		{name: "weighted", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      25,
 			}, {
@@ -1582,7 +2086,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 		}, valid: true},
 		{name: "total weight > 100", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      55,
 			}, {
@@ -1591,7 +2095,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 		}, valid: false},
 		{name: "total weight < 100", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      49,
 			}, {
@@ -1606,7 +2110,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			},
 		}, valid: true},
 		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
-			Route: []*networking.DestinationWeight{{
+			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 			Redirect: &networking.HTTPRedirect{
@@ -1614,11 +2118,203 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Authority: "foo.biz",
 			},
 		}, valid: false},
+		{name: "request response headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			AppendRequestHeaders: map[string]string{
+				"name": "",
+			},
+			AppendResponseHeaders: map[string]string{
+				"name": "",
+			},
+		}, valid: true},
+		{name: "empty request response headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			AppendRequestHeaders: map[string]string{
+				"": "value",
+			},
+			AppendResponseHeaders: map[string]string{
+				"": "value",
+			},
+		}, valid: false},
+		{name: "valid headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "empty header name - request add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateRouteDestination(t *testing.T) {
+	testCases := []struct {
+		name   string
+		routes []*networking.RouteDestination
+		valid  bool
+	}{
+		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz"},
+		}}, valid: true},
+		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: nil,
+		}}, valid: false},
+		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      25,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      75,
+		}}, valid: true},
+		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      5,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      -1,
+		}}, valid: false},
+		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      55,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: false},
+		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      49,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      50,
+		}}, valid: false},
+		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      100,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
+		}}, valid: true},
+		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}}, valid: true},
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
+		}}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateRouteDestinations(tc.routes); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -1635,7 +2331,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "simple", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1643,7 +2339,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "duplicate hosts", in: &networking.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1651,7 +2347,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1659,7 +2355,7 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "bad host", in: &networking.VirtualService{
 			Hosts: []string{"foo.ba!r"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1671,7 +2367,7 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"b@dgateway"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1680,15 +2376,42 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"gateway.example.com"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: true},
+		{name: "namespace/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/* for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "*/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"*/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
@@ -1697,9 +2420,18 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"*"},
 			Gateways: []string{"somegateway"},
 			Http: []*networking.HTTPRoute{{
-				Route: []*networking.DestinationWeight{{
+				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
+			}},
+		}, valid: true},
+		{name: "valid removeResponseHeaders", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				RemoveResponseHeaders: []string{"unwantedHeader", "secretStuff"},
 			}},
 		}, valid: true},
 	}
@@ -1757,6 +2489,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1776,6 +2509,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1800,6 +2534,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  20,
 						},
 					},
 				},
@@ -1820,6 +2555,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  20,
 						},
 					},
 				},
@@ -1841,6 +2577,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1857,6 +2594,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  30,
 						},
 					},
 				},
@@ -1890,6 +2628,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			OutlierDetection: &networking.OutlierDetection{
 				ConsecutiveErrors: 5,
+				MinHealthPercent:  20,
 			},
 		},
 			valid: true},
@@ -1910,6 +2649,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 					},
 					OutlierDetection: &networking.OutlierDetection{
 						ConsecutiveErrors: 5,
+						MinHealthPercent:  20,
 					},
 				},
 			},
@@ -1924,6 +2664,23 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
 				ConsecutiveErrors: 5,
+				MinHealthPercent:  20,
+			},
+		},
+			valid: false},
+		{name: "invalid traffic policy, panic threshold too low", in: networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{
+					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+				},
+			},
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			},
+			OutlierDetection: &networking.OutlierDetection{
+				ConsecutiveErrors: 5,
+				MinHealthPercent:  -1,
 			},
 		},
 			valid: false},
@@ -2010,6 +2767,72 @@ func TestValidateConnectionPool(t *testing.T) {
 	}
 }
 
+func TestValidateLoadBalancer(t *testing.T) {
+	duration := time.Hour
+	cases := []struct {
+		name  string
+		in    networking.LoadBalancerSettings
+		valid bool
+	}{
+		{name: "valid load balancer with simple load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+		},
+			valid: true},
+
+		{name: "valid load balancer with consistentHash load balancing", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+							Ttl:  &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: true},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Name: "test",
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+
+		{name: "invalid load balancer with consistentHash load balancing, missing name", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+					MinimumRingSize: 1024,
+					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+							Ttl: &duration,
+						},
+					},
+				},
+			},
+		},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := validateLoadBalancer(&c.in); (got == nil) != c.valid {
+			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
 func TestValidateOutlierDetection(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -2037,6 +2860,14 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
 			MaxEjectionPercent: 105},
+			valid: false},
+		{name: "invalid outlier detection, panic threshold too low", in: networking.OutlierDetection{
+			MinHealthPercent: -1,
+		},
+			valid: false},
+		{name: "invalid outlier detection, panic threshold too high", in: networking.OutlierDetection{
+			MinHealthPercent: 101,
+		},
 			valid: false},
 	}
 
@@ -2205,11 +3036,11 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
-			valid: false},
+			valid: true},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -2720,28 +3551,6 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 service must be specified for rule 1",
 		},
 		{
-			name: "no method",
-			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-				{
-					Services: []string{"service0"},
-					Methods:  []string{},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-			}},
-			expectErrMsg: "at least 1 method must be specified for rule 1",
-		},
-		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
@@ -2942,7 +3751,7 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func TestValidateRbacConfig(t *testing.T) {
+func TestValidateClusterRbacConfig(t *testing.T) {
 	cases := []struct {
 		caseName     string
 		name         string
@@ -2952,13 +3761,13 @@ func TestValidateRbacConfig(t *testing.T) {
 	}{
 		{
 			caseName:     "invalid proto",
-			expectErrMsg: "cannot cast to RbacConfig",
+			expectErrMsg: "cannot cast to ClusterRbacConfig",
 		},
 		{
 			caseName: "invalid name",
-			name:     "Rbac-config",
+			name:     "cluster-rbac-config",
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: fmt.Sprintf("rbacConfig has invalid name(Rbac-config), name must be %s",
+			expectErrMsg: fmt.Sprintf("ClusterRbacConfig has invalid name(cluster-rbac-config), name must be %q",
 				DefaultRbacConfigName),
 		},
 		{
@@ -2980,13 +3789,600 @@ func TestValidateRbacConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		err := ValidateRbacConfig(c.name, c.namespace, c.in)
+		err := ValidateClusterRbacConfig(c.name, c.namespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
-				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.caseName, c.expectErrMsg)
+				t.Errorf("ValidateClusterRbacConfig(%v): got nil but want %q\n", c.caseName, c.expectErrMsg)
 			}
 		} else if err.Error() != c.expectErrMsg {
-			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
+			t.Errorf("ValidateClusterRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
 		}
 	}
+}
+
+func TestValidateMixerService(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *mccpb.IstioService
+		valid bool
+	}{
+		{
+			name: "no name and service",
+			in:   &mccpb.IstioService{},
+		},
+		{
+			name: "specify both name and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Name: "test-service-name"},
+		},
+		{
+			name: "specify both namespace and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Namespace: "test-service-namespace"},
+		},
+		{
+			name: "specify both domain and service",
+			in:   &mccpb.IstioService{Service: "test-service-service", Domain: "test-service-domain"},
+		},
+		{
+			name: "invalid name label",
+			in:   &mccpb.IstioService{Name: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid namespace label",
+			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
+		},
+		{
+			name: "invalid domian or labels",
+			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
+		},
+		{
+			name:  "valid",
+			in:    validService,
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateMixerService(c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateMixerService(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateSidecar(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    *networking.Sidecar
+		valid bool
+	}{
+		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"default", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"import local namespace with wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./*"},
+				},
+			},
+		}, true},
+		{"import local namespace with fqdn", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./foo.com"},
+				},
+			},
+		}, true},
+		{"import nothing", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/*"},
+				},
+			},
+		}, true},
+		{"bad egress host 1", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*"},
+				},
+			},
+		}, false},
+		{"bad egress host 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"/"},
+				},
+			},
+		}, false},
+		{"empty egress host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{},
+				},
+			},
+		}, false},
+		{"multiple wildcard egress", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"wildcard egress not in end", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+						Name:     "h8080",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"invalid Port", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http1",
+						Number:   1000000,
+						Name:     "",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"Port without name", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, true},
+		{"UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, true},
+		{"UDS bind 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///foo/bar/com",
+				},
+			},
+		}, true},
+		{"invalid bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "foobar:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"invalid capture mode with uds bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind:        "unix:///@foo/bar/com",
+					CaptureMode: networking.CaptureMode_IPTABLES,
+				},
+			},
+		}, false},
+		{"duplicate UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"duplicate ports", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "tcp",
+					},
+					Hosts: []string{
+						"ns2/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"ingress without port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"ingress with duplicate ports", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "bar",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"ingress without default endpoint", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint IP", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "1.1.1.1:90",
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint uds", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "unix:///",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:hi",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false},
+		{"valid ingress and egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"valid ingress and empty egress", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+		}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSidecar("foo", "bar", tt.in)
+			if err == nil && !tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
+			} else if err != nil && tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = %v, wanted true", tt.in, err)
+			}
+		})
+	}
+}
+
+func TestValidateLocalityLbSetting(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *meshconfig.LocalityLoadBalancerSetting
+		valid bool
+	}{
+		{
+			name:  "valid mesh config without LocalityLoadBalancerSetting",
+			in:    nil,
+			valid: true,
+		},
+
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  15,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 0,
+							"a/b1":  100,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  20,
+						},
+					},
+				},
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid failover src and dst have same region",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region1",
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := validateLocalityLbSetting(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateLocalityLbSetting failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateLocalities(t *testing.T) {
+	cases := []struct {
+		name       string
+		localities []string
+		valid      bool
+	}{
+		{
+			name:       "multi wildcard locality",
+			localities: []string{"*/zone/*"},
+			valid:      false,
+		},
+		{
+			name:       "wildcard not in suffix",
+			localities: []string{"*/zone"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard region overlap",
+			localities: []string{"*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard region overlap",
+			localities: []string{"a", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard zone overlap",
+			localities: []string{"a/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard zone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard subzone overlap",
+			localities: []string{"a/b/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard subzone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "valid localities",
+			localities: []string{"a1/*", "a2/*", "a3/b3/c3", "a4/b4", "a5/b5/*"},
+			valid:      true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateLocalities(c.localities)
+			if !c.valid && err == nil {
+				t.Errorf("expect invalid localities")
+			}
+
+			if c.valid && err != nil {
+				t.Errorf("expect valid localities. but got err %v", err)
+			}
+		})
+	}
+
 }

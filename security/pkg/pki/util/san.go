@@ -20,16 +20,13 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 // IdentityType represents type of an identity. This is used to properly encode
 // an identity into a SAN extension.
 type IdentityType int
-
-const (
-	// URIScheme is the URI scheme for Istio identities.
-	URIScheme string = "spiffe"
-)
 
 const (
 	// TypeDNS represents a DNS name.
@@ -85,7 +82,7 @@ func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 				ip = eip
 			}
 			ids = append(ids, Identity{Type: TypeIP, Value: ip})
-		} else if strings.HasPrefix(host, URIScheme+":") {
+		} else if strings.HasPrefix(host, spiffe.Scheme+":") {
 			ids = append(ids, Identity{Type: TypeURI, Value: []byte(host)})
 		} else {
 			ids = append(ids, Identity{Type: TypeDNS, Value: []byte(host)})
@@ -193,15 +190,6 @@ func ExtractIDs(exts []pkix.Extension) ([]string, error) {
 		ids = append(ids, string(id.Value))
 	}
 	return ids, nil
-}
-
-// GenSanURI returns the formatted uri(SPIFFEE format for now) for the certificate.
-func GenSanURI(ns, serviceAccount string) (string, error) {
-	if ns == "" || serviceAccount == "" {
-		return "", fmt.Errorf(
-			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
-	}
-	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccount), nil
 }
 
 func generateReversedMap(m map[IdentityType]int) map[int]IdentityType {

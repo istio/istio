@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package interpreter implements an interpreter based runtime for the Mixer IL. Typically a user
-// creates a program, in IL form, and creates an Interpreter, by calling interpeter.New, which takes
+// creates a program, in IL form, and creates an Interpreter, by calling interpreter.New, which takes
 // a program, and its external, native bindings as input.
 //
 // Once an interpreter with a program is created, it can be used for multiple evaluation sessions.

@@ -4,10 +4,11 @@ metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-pilot
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: pilot
 spec:
   ports:
   - port: 15010
@@ -16,7 +17,7 @@ spec:
     name: https-xds # mTLS
   - port: 8080
     name: http-legacy-discovery # direct
-  - port: 9093
+  - port: {{ .Values.global.monitoringPort }}
     name: http-monitoring
   selector:
     istio: pilot

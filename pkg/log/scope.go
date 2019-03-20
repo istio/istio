@@ -42,7 +42,7 @@ type Scope struct {
 }
 
 var scopes = make(map[string]*Scope)
-var lock = sync.Mutex{}
+var lock = sync.RWMutex{}
 
 // set by the Configure method
 var writeFn atomic.Value
@@ -83,8 +83,8 @@ func RegisterScope(name string, description string, callerSkip int) *Scope {
 
 // FindScope returns a previously registered scope, or nil if the named scope wasn't previously registered
 func FindScope(scope string) *Scope {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	s := scopes[scope]
 	return s
@@ -92,8 +92,8 @@ func FindScope(scope string) *Scope {
 
 // Scopes returns a snapshot of the currently defined set of scopes
 func Scopes() map[string]*Scope {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	s := make(map[string]*Scope, len(scopes))
 	for k, v := range scopes {
@@ -101,6 +101,36 @@ func Scopes() map[string]*Scope {
 	}
 
 	return s
+}
+
+// Fatal outputs a message at fatal level.
+func (s *Scope) Fatal(msg string, fields ...zapcore.Field) {
+	if s.GetOutputLevel() >= FatalLevel {
+		s.emit(zapcore.FatalLevel, s.GetStackTraceLevel() >= FatalLevel, msg, fields)
+	}
+}
+
+// Fatala uses fmt.Sprint to construct and log a message at fatal level.
+func (s *Scope) Fatala(args ...interface{}) {
+	if s.GetOutputLevel() >= FatalLevel {
+		s.emit(zapcore.FatalLevel, s.GetStackTraceLevel() >= FatalLevel, fmt.Sprint(args...), nil)
+	}
+}
+
+// Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
+func (s *Scope) Fatalf(template string, args ...interface{}) {
+	if s.GetOutputLevel() >= FatalLevel {
+		msg := template
+		if len(args) > 0 {
+			msg = fmt.Sprintf(template, args...)
+		}
+		s.emit(zapcore.FatalLevel, s.GetStackTraceLevel() >= FatalLevel, msg, nil)
+	}
+}
+
+// FatalEnabled returns whether output of messages using this scope is currently enabled for fatal-level output.
+func (s *Scope) FatalEnabled() bool {
+	return s.GetOutputLevel() >= FatalLevel
 }
 
 // Error outputs a message at error level.

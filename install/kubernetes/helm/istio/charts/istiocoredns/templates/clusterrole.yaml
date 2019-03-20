@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiocoredns
+  labels:
+    app: {{ template "istiocoredns.name" . }}
+    chart: {{ template "istiocoredns.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]

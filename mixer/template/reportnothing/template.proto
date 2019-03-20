@@ -32,7 +32,7 @@ syntax = "proto3";
 //   name: reportrequest
 //   namespace: istio-system
 // spec:
-// ```\
+// ```
 package reportNothing;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";

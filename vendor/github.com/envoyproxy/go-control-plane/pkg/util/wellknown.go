@@ -62,8 +62,12 @@ const (
 	RateLimit = "envoy.ratelimit"
 	// MongoProxy network filter
 	MongoProxy = "envoy.mongo_proxy"
+	// ThriftProxy network filter
+	ThriftProxy = "envoy.filters.network.thrift_proxy"
 	// RedisProxy network filter
 	RedisProxy = "envoy.redis_proxy"
+	// MySQLProxy network filter
+	MySQLProxy = "envoy.filters.network.mysql_proxy"
 	// ExternalAuthorization network filter
 	ExternalAuthorization = "envoy.ext_authz"
 )
@@ -74,6 +78,8 @@ const (
 	OriginalDestination = "envoy.listener.original_dst"
 	// ProxyProtocol listener filter
 	ProxyProtocol = "envoy.listener.proxy_protocol"
+	// TlsInspector listener filter
+	TlsInspector = "envoy.listener.tls_inspector"
 )
 
 // Tracing provider names

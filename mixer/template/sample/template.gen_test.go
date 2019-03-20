@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
-	"istio.io/istio/mixer/template/sample/apa"
+	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
@@ -872,17 +872,6 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
-// attributeFinder exposes ast.AttributeDescriptorFinder
-type attributeFinder struct {
-	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
-}
-
-// GetAttribute finds an attribute by name.
-// This function is only called when a new handler is instantiated.
-func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.AttributeManifest_AttributeInfo {
-	return a.attrs[name]
-}
-
 func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) ast.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
@@ -895,7 +884,7 @@ func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.
 			attrs[an] = at
 		}
 	}
-	return &attributeFinder{attrs: attrs}
+	return ast.NewFinder(attrs)
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
@@ -1062,27 +1051,6 @@ attribute_bindings:
 			}
 		})
 	}
-}
-
-func cmp(m interface{}, n interface{}) bool {
-	a := InterfaceSlice(m)
-	b := InterfaceSlice(n)
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, x1 := range a {
-		f := false
-		for _, x2 := range b {
-			if reflect.DeepEqual(x1, x2) {
-				f = true
-			}
-		}
-		if !f {
-			return false
-		}
-	}
-	return true
 }
 
 func InterfaceSlice(slice interface{}) []interface{} {

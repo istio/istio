@@ -97,7 +97,7 @@ func TestNewClient(t *testing.T) {
 		}
 		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,
-				string(expectedType), string(credentialType))
+				expectedType, credentialType)
 		}
 	}
 }

@@ -22,16 +22,19 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/types"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	v1 "istio.io/api/mixer/v1"
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -91,7 +94,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -120,7 +123,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (ERROR)
 `,
 	},
@@ -152,7 +155,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
@@ -160,7 +163,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -211,7 +214,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
@@ -219,7 +222,148 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "CheckResultCustomError",
+		templates: []data.FakeTemplateSettings{{
+			Name: "tcheck",
+			CheckResults: []adapter.CheckResult{
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DATA_LOSS),
+						Message: "data loss details",
+						Details: []*types.Any{status.PackErrorDetail(&v1beta1.DirectHttpResponse{
+							Code:    403,
+							Body:    "nope",
+							Headers: map[string]string{"istio-test": "istio-value"},
+						})},
+					},
+					ValidUseCount: 10,
+					ValidDuration: time.Second,
+				},
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DEADLINE_EXCEEDED),
+						Message: "deadline",
+					},
+					ValidUseCount: 20,
+					ValidDuration: time.Second,
+				},
+			},
+		}},
+		config: []string{
+			data.HandlerACheck1,
+			data.InstanceCheck1,
+			data.InstanceCheck2,
+			data.RuleCheck1WithInstance1And2Operation,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{
+			Status: rpc.Status{
+				Code:    int32(rpc.DATA_LOSS),
+				Message: "hcheck1.acheck.istio-system:data loss details, hcheck1.acheck.istio-system:deadline",
+			},
+			ValidUseCount: 10,
+			ValidDuration: time.Second,
+			// note no header operation in case of an error
+			RouteDirective: &v1.RouteDirective{
+				DirectResponseCode: 403,
+				DirectResponseBody: "nope",
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:  "istio-test",
+					Value: "istio-value",
+				}},
+			},
+		},
+		log: `
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "CheckResultCustomErrorNoCode",
+		templates: []data.FakeTemplateSettings{{
+			Name: "tcheck",
+			CheckResults: []adapter.CheckResult{
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DATA_LOSS),
+						Message: "data loss details",
+						Details: []*types.Any{status.PackErrorDetail(&v1beta1.DirectHttpResponse{
+							Headers: map[string]string{"istio-test": "istio-value"},
+						})},
+					},
+					ValidUseCount: 10,
+					ValidDuration: time.Second,
+				},
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DEADLINE_EXCEEDED),
+						Message: "deadline",
+					},
+					ValidUseCount: 20,
+					ValidDuration: time.Second,
+				},
+			},
+		}},
+		config: []string{
+			data.HandlerACheck1,
+			data.InstanceCheck1,
+			data.InstanceCheck2,
+			data.RuleCheck1WithInstance1And2Operation,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{
+			Status: rpc.Status{
+				Code:    int32(rpc.DATA_LOSS),
+				Message: "hcheck1.acheck.istio-system:data loss details, hcheck1.acheck.istio-system:deadline",
+			},
+			ValidUseCount: 10,
+			ValidDuration: time.Second,
+			// note no header operation in case of an error
+			RouteDirective: &v1.RouteDirective{
+				DirectResponseCode: 500,
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:  "istio-test",
+					Value: "istio-value",
+				}},
+			},
+		},
+		log: `
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -237,6 +381,7 @@ ident                         : dest.istio-system
 			"ident":       "dest.istio-system",
 		},
 		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
+		// nolint
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 attr.string                   : bar
@@ -245,8 +390,98 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "BasicCheckOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 123 * time.Second,
+			ValidUseCount: 123,
+			RouteDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:  "user",
+					Value: "1337",
+				}},
+			},
+		},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
+`,
+	},
+
+	{
+		name: "BasicCheckMultipleOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput2,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		attr: map[string]interface{}{
+			"prefix.generated.string": "bar",
+			"ident":                   "dest.istio-system",
+		},
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 123 * time.Second,
+			ValidUseCount: 123,
+			RouteDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:      "a-header",
+					Value:     "1337",
+					Operation: v1.REPLACE,
+				}, {
+					Name:      "user",
+					Operation: v1.REMOVE,
+				}},
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:      "b-header",
+					Value:     "1337",
+					Operation: v1.APPEND,
+				}, {
+					Name:      "b-header",
+					Value:     "bar",
+					Operation: v1.APPEND,
+				}},
+			},
+		},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+prefix.generated.string       : bar
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+prefix.generated.string       : bar
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
 `,
 	},
 
@@ -265,7 +500,7 @@ ident                         : dest.istio-system
 [treport] InstanceBuilderFn() <= (SUCCESS)
 [treport] DispatchReport => context exists: 'true'
 [treport] DispatchReport => handler exists: 'true'
-[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},}]'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}]'
 [treport] DispatchReport <= (SUCCESS)
 `,
 	},
@@ -273,7 +508,8 @@ ident                         : dest.istio-system
 	{
 		name: "BasicReportError",
 		templates: []data.FakeTemplateSettings{{
-			Name: "treport",
+			// nolint: goimports
+			Name:                  "treport",
 			ErrorOnDispatchReport: true,
 		}},
 		config: []string{
@@ -294,7 +530,7 @@ ident                         : dest.istio-system
 [treport] InstanceBuilderFn() <= (SUCCESS)
 [treport] DispatchReport => context exists: 'true'
 [treport] DispatchReport => handler exists: 'true'
-[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},}]'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}]'
 [treport] DispatchReport <= (ERROR)
 `,
 	},
@@ -311,6 +547,7 @@ ident                         : dest.istio-system
 			"attr.string": "bar",
 			"ident":       "dest.istio-system",
 		},
+		// nolint
 		log: `
 [treport] InstanceBuilderFn() => name: 'treport', bag: '---
 attr.string                   : bar
@@ -319,7 +556,7 @@ ident                         : dest.istio-system
 [treport] InstanceBuilderFn() <= (SUCCESS)
 [treport] DispatchReport => context exists: 'true'
 [treport] DispatchReport => handler exists: 'true'
-[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}]'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}]'
 [treport] DispatchReport <= (SUCCESS)
 
 `,
@@ -346,7 +583,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'42', amount:'64', best:'true'}
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}' qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -374,7 +611,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}' qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (ERROR)
 `,
 	},
@@ -457,7 +694,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}' qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -514,7 +751,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'dedup-id', amount:'42', best:'true'}
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}' qArgs:{dedup:'dedup-id', amount:'42', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -537,6 +774,7 @@ ident                         : dest.istio-system
 			DeduplicationID: "42",
 			Amount:          64,
 		},
+		// nolint
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 attr.string                   : bar
@@ -545,7 +783,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}' ` +
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}' ` +
 			`qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 			`,
@@ -564,7 +802,7 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tapa] DispatchGenAttrs => attrs:    '---
 ident                         : dest.istio-system
 '
@@ -576,7 +814,8 @@ ident                         : dest.istio-system
 	{
 		name: "BasicPreprocessError",
 		templates: []data.FakeTemplateSettings{{
-			Name: "tapa",
+			// nolint: goimports
+			Name:                    "tapa",
 			ErrorOnDispatchGenAttrs: true,
 		}},
 		config: []string{
@@ -595,7 +834,7 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tapa] DispatchGenAttrs => attrs:    '---
 ident                         : dest.istio-system
 '
@@ -625,13 +864,14 @@ ident                         : dest.istio-system
 		responseAttrs: map[string]interface{}{
 			"prefix.generated.string": "boz",
 		},
+		// nolint
 		log: `
 [tapa] InstanceBuilderFn() => name: 'tapa', bag: '---
 attr.string                   : bar
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}'
 [tapa] DispatchGenAttrs => attrs:    '---
 attr.string                   : bar
 ident                         : dest.istio-system
@@ -700,9 +940,46 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (PANIC)
 `,
+	},
+
+	{
+		name: "CheckElidedRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckNoActionsOrHeaderOps,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
+		},
+		log: ``,
+	},
+
+	{
+		name: "CheckOnlyHeaderOperationRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckHeaderOpWithNoActions,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
+			RouteDirective: &v1.RouteDirective{
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:      "b-header",
+					Value:     "test",
+					Operation: v1.APPEND,
+				}},
+			},
+		},
+		log: ``,
 	},
 }
 
@@ -726,8 +1003,7 @@ func TestDispatcher(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
 
-			expb := compiled.NewBuilder(s.Attributes)
-			r := routing.BuildTable(h, s, expb, "istio-system", true)
+			r := routing.BuildTable(h, s, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)
 
 			// clear logger, as we are not interested in adapter/template logs during config step.
@@ -747,12 +1023,12 @@ func TestDispatcher(t *testing.T) {
 
 			var err error
 			switch tst.variety {
-			case tpb.TEMPLATE_VARIETY_CHECK:
+			case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 				cres, e := dispatcher.Check(context.TODO(), bag)
 
 				if e == nil {
 					if !reflect.DeepEqual(&cres, &tst.expectedCheckResult) {
-						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
+						tt.Fatalf("check result mismatch: '%#v' != '%#v'", cres, tst.expectedCheckResult)
 					}
 				} else {
 					err = e

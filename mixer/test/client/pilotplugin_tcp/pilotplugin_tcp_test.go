@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -47,6 +47,10 @@ admin:
 node:
   id: id
   cluster: unknown
+  metadata:
+    # these two must come together and they need to be set
+    NODE_UID: pod.ns
+    NODE_NAMESPACE: ns
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
@@ -98,7 +102,6 @@ const (
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "context.time": "*",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -144,6 +147,8 @@ func TestPilotPluginTCP(t *testing.T) {
 	}()
 	defer grpcServer.GracefulStop()
 
+	s.SetMixerSourceUID("pod.ns")
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -170,15 +175,13 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) Instances(_ model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, nil
-}
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
-func (mock) ManagementPorts(_ string) model.PortList          { return nil }
-func (mock) Services() ([]*model.Service, error)              { return nil, nil }
-func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList { return nil }
+func (mock) ManagementPorts(_ string) model.PortList                               { return nil }
+func (mock) Services() ([]*model.Service, error)                                   { return nil, nil }
+func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList                      { return nil }
+func (mock) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string { return nil }
 
 const (
 	id = "id"
@@ -211,10 +214,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod1.ns1",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
-			},
+			Type: model.SidecarProxy,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -224,10 +224,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
-			},
+			Type: model.SidecarProxy,
 		},
 		Service: &svc,
 		Push:    &pushContext,
@@ -242,10 +239,12 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		FilterChains: []listener.FilterChain{{Filters: []listener.Filter{{
 			Name: util.TCPProxy,
-			Config: pilotutil.MessageToStruct(&tcp_proxy.TcpProxy{
-				StatPrefix: "tcp",
-				Cluster:    cluster,
-			}),
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: pilotutil.MessageToAny(&tcp_proxy.TcpProxy{
+					StatPrefix:       "tcp",
+					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: cluster},
+				}),
+			},
 		}}}},
 	}
 }

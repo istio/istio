@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -41,10 +42,11 @@ func BuildTemplates(l *Logger, settings ...FakeTemplateSettings) map[string]*tem
 	}
 
 	var t = map[string]*template.Info{
-		"tcheck":  createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
-		"treport": createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
-		"tquota":  createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
-		"tapa":    createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
+		"tcheck":       createFakeTemplate("tcheck", m["tcheck"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
+		"tcheckoutput": createFakeTemplate("tcheckoutput", m["tcheckoutput"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT),
+		"treport":      createFakeTemplate("treport", m["treport"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT),
+		"tquota":       createFakeTemplate("tquota", m["tquota"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA),
+		"tapa":         createFakeTemplate("tapa", m["tapa"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR),
 
 		// This is another template with check.
 		"thalt": createFakeTemplate("thalt", m["thalt"], l, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK),
@@ -64,6 +66,14 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			{
 				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
 					"prefix.generated.string": {
+						ValueType: policy.STRING,
+					},
+				},
+			},
+			// output template attribute manifest
+			{
+				Attributes: map[string]*policy.AttributeManifest_AttributeInfo{
+					"value": {
 						ValueType: policy.STRING,
 					},
 				},
@@ -95,7 +105,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.WriteFormat(name, "SetType => types: '%+v'", types)
 			l.Write(name, "SetType <=")
 		},
-		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}, out *attribute.MutableBag,
+			outPrefix string) (adapter.CheckResult, error) {
 			l.WriteFormat(name, "DispatchCheck => context exists: '%+v'", ctx != nil)
 			l.WriteFormat(name, "DispatchCheck => handler exists: '%+v'", handler != nil)
 			l.WriteFormat(name, "DispatchCheck => instance:       '%+v'", instance)
@@ -122,6 +133,14 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			callCount++
 
 			l.Write(name, "DispatchCheck <= (SUCCESS)")
+
+			if variety == istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+				l.Write(name, "DispatchCheck => output: {value: '1337'}")
+				if out != nil {
+					out.Set(outPrefix+"value", "1337")
+				}
+				return result, nil
+			}
 			return result, nil
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
@@ -198,7 +217,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return attribute.GetMutableBagForTesting(outputAttrs), nil
 
 		},
-		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder lang.Compiler) (template.InstanceBuilderFn, error) {
 			l.WriteFormat(name, "CreateInstanceBuilder => instanceName: '%+s'", instanceName)
 			l.WriteFormat(name, "CreateInstanceBuilder => instanceParam: '%s'", instanceParam)
 			if s.ErrorAtCreateInstanceBuilder {
@@ -252,7 +271,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		CreateOutputExpressions: func(
 			instanceParam proto.Message,
 			finder ast.AttributeDescriptorFinder,
-			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+			expb lang.Compiler) (map[string]compiled.Expression, error) {
 			l.WriteFormat(name, "CreateOutputExpressions => param:            '%+v'", instanceParam)
 			l.WriteFormat(name, "CreateOutputExpressions => finder exists:    '%+v'", finder != nil)
 			l.WriteFormat(name, "CreateOutputExpressions => expb exists:      '%+v'", expb != nil)

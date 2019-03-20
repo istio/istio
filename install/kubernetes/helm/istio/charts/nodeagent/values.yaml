@@ -1,0 +1,13 @@
+#
+# nodeagent configuration
+#
+enabled: false
+image: node-agent-k8s
+env:
+  # name of authentication provider.
+  CA_PROVIDER: ""
+  # CA endpoint.
+  CA_ADDR: ""  
+  # names of authentication provider's plugins.
+  Plugins: ""
+nodeSelector: {}

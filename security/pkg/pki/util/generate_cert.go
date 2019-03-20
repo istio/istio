@@ -28,7 +28,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"strings"
 	"time"
+
+	"istio.io/istio/pkg/log"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -56,7 +59,7 @@ type CertOptions struct {
 	// Whether this certificate is used as signing cert for CA.
 	IsCA bool
 
-	// Whether this cerificate is self-signed.
+	// Whether this certificate is self-signed.
 	IsSelfSigned bool
 
 	// Whether this certificate is for a client.
@@ -67,6 +70,9 @@ type CertOptions struct {
 
 	// The size of RSA private key to be generated.
 	RSAKeySize int
+
+	// Whether this certificate is for dual-use clients (SAN+CN).
+	IsDualUse bool
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -100,8 +106,8 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 
 // GenCertFromCSR generates a X.509 certificate with the given CSR.
 func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey interface{},
-	signingKey crypto.PrivateKey, ttl time.Duration, isCA bool) (cert []byte, err error) {
-	tmpl, err := genCertTemplateFromCSR(csr, ttl, isCA)
+	signingKey crypto.PrivateKey, subjectIDs []string, ttl time.Duration, isCA bool) (cert []byte, err error) {
+	tmpl, err := genCertTemplateFromCSR(csr, subjectIDs, ttl, isCA)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +143,9 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
 // The NotBefore value of the cert is set to current time.
-func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isCA bool) (*x509.Certificate, error) {
+func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, ttl time.Duration, isCA bool) (
+	*x509.Certificate, error) {
+	subjectIDsInString := strings.Join(subjectIDs, ",")
 	var keyUsage x509.KeyUsage
 	extKeyUsages := []x509.ExtKeyUsage{}
 	if isCA {
@@ -150,7 +158,25 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isC
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth)
 	}
 
-	exts := append(csr.Extensions, csr.ExtraExtensions...)
+	// Build cert extensions with the subjectIDs.
+	ext, err := BuildSubjectAltNameExtension(subjectIDsInString)
+	if err != nil {
+		return nil, err
+	}
+	exts := []pkix.Extension{*ext}
+
+	subject := pkix.Name{}
+	// Dual use mode if common name in CSR is not empty.
+	// In this case, set CN as determined by DualUseCommonName(subjectIDsInString).
+	if len(csr.Subject.CommonName) != 0 {
+		cn, err := DualUseCommonName(subjectIDsInString)
+		if err != nil {
+			// log and continue
+			log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
+		} else {
+			subject.CommonName = cn
+		}
+	}
 
 	now := time.Now()
 
@@ -160,18 +186,16 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isC
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject:      csr.Subject,
-		NotBefore:    now,
-		NotAfter:     now.Add(ttl),
-		KeyUsage:     keyUsage,
-		ExtKeyUsage:  extKeyUsages,
-		IsCA:         isCA,
+		// nolint: goimports
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             now,
+		NotAfter:              now.Add(ttl),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  isCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts,
-		DNSNames:              csr.DNSNames,
-		EmailAddresses:        csr.EmailAddresses,
-		IPAddresses:           csr.IPAddresses,
 		SignatureAlgorithm:    csr.SignatureAlgorithm}, nil
 }
 
@@ -204,25 +228,37 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		return nil, err
 	}
 
+	subject := pkix.Name{
+		Organization: []string{options.Org},
+	}
+
 	exts := []pkix.Extension{}
 	if h := options.Host; len(h) > 0 {
 		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
 		}
+		if options.IsDualUse {
+			cn, err := DualUseCommonName(h)
+			if err != nil {
+				// log and continue
+				log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
+			} else {
+				subject.CommonName = cn
+			}
+		}
 		exts = []pkix.Extension{*s}
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject: pkix.Name{
-			Organization: []string{options.Org},
-		},
-		NotBefore:   notBefore,
-		NotAfter:    notBefore.Add(options.TTL),
-		KeyUsage:    keyUsage,
-		ExtKeyUsage: extKeyUsages,
-		IsCA:        options.IsCA,
+		// nolint: goimports
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts}, nil
 }

@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 	"time"
 )
@@ -26,47 +27,61 @@ const (
 	waitTimeout  = 2 * time.Minute
 )
 
-// GetPrivateIP returns a private IP address, or panics if no IP is available.
-func GetPrivateIP() net.IP {
-	addr := getPrivateIPIfAvailable()
-	if addr.IsUnspecified() {
-		panic("No private IP address is available")
+// GetPrivateIPs blocks until private IP addresses are available, or a timeout is reached.
+func GetPrivateIPs(ctx context.Context) ([]string, bool) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, waitTimeout)
+		defer cancel()
 	}
-	return addr
-}
 
-// WaitForPrivateNetwork blocks until a private IP address is available, or a timeout is reached.
-// Returns 'true' if a private IP is available before timeout is reached, and 'false' otherwise.
-func WaitForPrivateNetwork() bool {
-	deadline := time.Now().Add(waitTimeout)
 	for {
-		addr := getPrivateIPIfAvailable()
-		if !addr.IsUnspecified() {
-			return true
+		select {
+		case <-ctx.Done():
+			return getPrivateIPsIfAvailable()
+		default:
+			addr, ok := getPrivateIPsIfAvailable()
+			if ok {
+				return addr, true
+			}
+			time.Sleep(waitInterval)
 		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(waitInterval)
 	}
 }
 
-// Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPIfAvailable() net.IP {
-	addrs, _ := net.InterfaceAddrs()
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		default:
-			continue
+// Returns all the private IP addresses
+func getPrivateIPsIfAvailable() ([]string, bool) {
+	ok := true
+	ipAddresses := make([]string, 0)
+
+	ifaces, _ := net.Interfaces()
+
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
 		}
-		if !ip.IsLoopback() {
-			return ip
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, _ := iface.Addrs()
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			if ip.IsUnspecified() {
+				ok = false
+				continue
+			}
+			ipAddresses = append(ipAddresses, ip.String())
 		}
 	}
-	return net.IPv4zero
+	return ipAddresses, ok
 }

@@ -30,12 +30,12 @@ def generate(src, dst):
     code = HEADER
     for line in src:
         if line.startswith("-"):
-            code += "\t\t\"" + line[1:].strip() + "\",\n"
+            code += "\t\t\"" + line[1:].strip().replace("\"", "\\\"") + "\",\n"
     code += FOOTER
     dst.write(code)
 
 def main(args):
-    parser = argparse.ArgumentParser(description='Generate global world list code.')
+    parser = argparse.ArgumentParser(description='Generate global word list code.')
     parser.add_argument('infile', type=argparse.FileType('r'), help='source file for global word list')
     parser.add_argument('outfile', type=argparse.FileType('w'), help='output file for generated code')
     parsed = parser.parse_args(args)

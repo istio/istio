@@ -53,6 +53,7 @@ package log
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -72,6 +73,7 @@ var levelToZap = map[Level]zapcore.Level{
 	InfoLevel:  zapcore.InfoLevel,
 	WarnLevel:  zapcore.WarnLevel,
 	ErrorLevel: zapcore.ErrorLevel,
+	FatalLevel: zapcore.FatalLevel,
 	NoneLevel:  none,
 }
 
@@ -108,8 +110,8 @@ func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer,
 		rotaterSink = zapcore.AddSync(&lumberjack.Logger{
 			Filename:   options.RotateOutputPath,
 			MaxSize:    options.RotationMaxSize,
-			MaxBackups: options.RotationMaxAge,
-			MaxAge:     options.RotationMaxBackups,
+			MaxBackups: options.RotationMaxBackups,
+			MaxAge:     options.RotationMaxAge,
 		})
 	}
 
@@ -194,7 +196,16 @@ func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSyncer) error {
 	// init the global I/O funcs
-	writeFn.Store(core.Write)
+	writeFn.Store(func(ent zapcore.Entry, fields []zapcore.Field) error {
+		err := core.Write(ent, fields)
+		if ent.Level == zapcore.FatalLevel {
+			if options.testonlyExit == nil {
+				os.Exit(1)
+			}
+			options.testonlyExit()
+		}
+		return err
+	})
 	syncFn.Store(core.Sync)
 	errorSink.Store(errSink)
 

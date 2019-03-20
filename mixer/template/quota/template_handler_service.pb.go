@@ -8,7 +8,7 @@
 
 	Example config:
 
-	```
+	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: quota
 	metadata:
@@ -16,9 +16,9 @@
 	  namespace: istio-system
 	spec:
 	  dimensions:
-	    source: source.labels["app"] | source.service | "unknown"
+	    source: source.name | "unknown"
 	    sourceVersion: source.labels["version"] | "unknown"
-	    destination: destination.labels["app"] | destination.service | "unknown"
+	    destination: destination.labels["app"] | destination.service.host | "unknown"
 	    destinationVersion: destination.labels["version"] | "unknown"
 	```
 

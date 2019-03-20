@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,11 +115,8 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
 
-	m, err := newMetricsHandler(ctx, env, b.cfg)
-	if err != nil {
-		return nil, err
-	}
-	l, err := newLogHandler(ctx, env, b.cfg)
+	m := newMetricsHandler(env, b.cfg)
+	l, err := newLogHandler(env, b.cfg)
 	if err != nil {
 		_ = m.close()
 		return nil, err

@@ -16,8 +16,10 @@ package cache
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 )
@@ -35,6 +37,7 @@ const (
 	ClusterType  = typePrefix + "Cluster"
 	RouteType    = typePrefix + "RouteConfiguration"
 	ListenerType = typePrefix + "Listener"
+	SecretType   = typePrefix + "auth.Secret"
 
 	// AnyType is used only by ADS
 	AnyType = ""
@@ -47,6 +50,7 @@ var (
 		ClusterType,
 		RouteType,
 		ListenerType,
+		SecretType,
 	}
 )
 
@@ -60,6 +64,8 @@ func GetResourceName(res Resource) string {
 	case *v2.RouteConfiguration:
 		return v.GetName()
 	case *v2.Listener:
+		return v.GetName()
+	case *auth.Secret:
 		return v.GetName()
 	default:
 		return ""
@@ -79,11 +85,14 @@ func GetResourceReferences(resources map[string]Resource) map[string]bool {
 			// no dependencies
 		case *v2.Cluster:
 			// for EDS type, use cluster name or ServiceName override
-			if v.Type == v2.Cluster_EDS {
-				if v.EdsClusterConfig != nil && v.EdsClusterConfig.ServiceName != "" {
-					out[v.EdsClusterConfig.ServiceName] = true
-				} else {
-					out[v.Name] = true
+			switch typ := v.ClusterDiscoveryType.(type) {
+			case *v2.Cluster_Type:
+				if typ.Type == v2.Cluster_EDS {
+					if v.EdsClusterConfig != nil && v.EdsClusterConfig.ServiceName != "" {
+						out[v.EdsClusterConfig.ServiceName] = true
+					} else {
+						out[v.Name] = true
+					}
 				}
 			}
 		case *v2.RouteConfiguration:
@@ -99,10 +108,20 @@ func GetResourceReferences(resources map[string]Resource) map[string]bool {
 					}
 
 					config := &hcm.HttpConnectionManager{}
-					if util.StructToMessage(filter.Config, config) == nil && config != nil {
-						if rds, ok := config.RouteSpecifier.(*hcm.HttpConnectionManager_Rds); ok && rds != nil && rds.Rds != nil {
-							out[rds.Rds.RouteConfigName] = true
-						}
+
+					// use typed config if available
+					if typedConfig := filter.GetTypedConfig(); typedConfig != nil {
+						types.UnmarshalAny(typedConfig, config)
+					} else {
+						util.StructToMessage(filter.GetConfig(), config)
+					}
+
+					if config == nil {
+						continue
+					}
+
+					if rds, ok := config.RouteSpecifier.(*hcm.HttpConnectionManager_Rds); ok && rds != nil && rds.Rds != nil {
+						out[rds.Rds.RouteConfigName] = true
 					}
 				}
 			}

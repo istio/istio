@@ -17,7 +17,6 @@ package framework
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -68,19 +67,14 @@ func newTestInfo(testID string) (*testInfo, error) {
 	// Bootstrap already gather stdout and stdin so we don't need to keep the logs from glog.
 	if *testLogsPath != "" {
 		tmpDir = path.Join(*testLogsPath, id)
-		if err = os.MkdirAll(tmpDir, 0777); err != nil {
-			return nil, err
-		}
+		err = os.MkdirAll(tmpDir, 0777)
 	} else {
 		tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not create a temporary dir: %v", err)
 	}
 	log.Infof("Using temp dir %s", tmpDir)
-	if err != nil {
-		return nil, errors.New("could not create a temporary dir")
-	}
 	// Need to setup logging here
 	return &testInfo{
 		TestID:  testID,

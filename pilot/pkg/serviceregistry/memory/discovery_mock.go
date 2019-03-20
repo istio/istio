@@ -29,11 +29,11 @@ var (
 
 	// ExtHTTPService is a mock external HTTP service
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
+		true, "")
 
 	// ExtHTTPSService is a mock external HTTPS service
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
+		true, "")
 
 	// HelloInstanceV0 is a mock IP address for v0 of HelloService
 	HelloInstanceV0 = MakeIP(HelloService, 0)
@@ -43,26 +43,26 @@ var (
 
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV0,
-		ID:        "v0.default",
-		Domain:    "default.svc.cluster.local",
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{HelloInstanceV0},
+		ID:          "v0.default",
+		DNSDomain:   "default.svc.cluster.local",
 	}
 
 	// HelloProxyV1 is a mock proxy v1 of HelloService
 	HelloProxyV1 = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV1,
-		ID:        "v1.default",
-		Domain:    "default.svc.cluster.local",
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{HelloInstanceV1},
+		ID:          "v1.default",
+		DNSDomain:   "default.svc.cluster.local",
 	}
 
 	// Ingress is a mock proxy to IP 10.3.3.3
 	Ingress = model.Proxy{
-		Type:      model.Ingress,
-		IPAddress: "10.3.3.3",
-		ID:        "ingress.default",
-		Domain:    "default.svc.cluster.local",
+		Type:        model.Ingress,
+		IPAddresses: []string{"10.3.3.3"},
+		ID:          "ingress.default",
+		DNSDomain:   "default.svc.cluster.local",
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services

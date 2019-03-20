@@ -15,8 +15,9 @@
 syntax = "proto3";
 
 // $title: Stackdriver
-// $description: Adapter to deliver logs, metrics, and traces to Stackdriver
+// $description: Adapter to deliver logs, metrics, and traces to Stackdriver.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stackdriver.html
+// $supported_templates: metric,logentry,tracespan
 // $aliases:
 // $  - /docs/reference/config/adapters/stackdriver.html
 
@@ -242,7 +243,7 @@ message Params {
             bool UpdateDestination = 5;
             // Update sink filter.
             bool UpdateFilter = 6;
-            // Update inlcudes children.
+            // Update includes children.
             bool UpdateIncludeChildren = 7;
         }
         // If SinkInfo is provided, Stackriver logs would be exported to that sink.

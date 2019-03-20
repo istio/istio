@@ -17,7 +17,7 @@ package kube
 import (
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestStr2NamedPort(t *testing.T) {
@@ -42,7 +42,7 @@ func TestStr2NamedPort(t *testing.T) {
 		}
 		if tst.expErr {
 			if actErr == nil {
-				t.Errorf("Got no error when expecting an error for for Str2NamedPort('%s')", tst.input)
+				t.Errorf("Got no error when expecting an error for Str2NamedPort('%s')", tst.input)
 			}
 		} else {
 			if actErr != nil {

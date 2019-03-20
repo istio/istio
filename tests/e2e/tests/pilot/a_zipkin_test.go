@@ -32,13 +32,13 @@ const (
 )
 
 func TestZipkin(t *testing.T) {
-	t.Skipf("Skipping %s", t.Name())
+	t.Skip("https://github.com/istio/istio/issues/7695")
 	for i := 0; i < numTraces; i++ {
 		testName := fmt.Sprintf("index_%d", i)
 		traceSent := false
 		var id string
 
-		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
 			if !traceSent {
 				// Send a request with a trace header.
 				id = uuid.NewV4().String()

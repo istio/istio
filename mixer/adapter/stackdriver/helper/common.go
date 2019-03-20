@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 		if key == "project_id" {
 			in[key] = md.ProjectID
 		}
-		if key == "location" {
+		if key == "location" || key == "zone" {
 			in[key] = md.Location
 		}
 		if key == "cluster_name" {

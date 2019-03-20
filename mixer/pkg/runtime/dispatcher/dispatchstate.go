@@ -18,13 +18,17 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"strconv"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -48,6 +52,9 @@ type dispatchState struct {
 	outputBag   *attribute.MutableBag
 	checkResult adapter.CheckResult
 	quotaResult adapter.QuotaResult
+
+	// attribute prefix for the output bag
+	outputPrefix string
 }
 
 func (ds *dispatchState) clear() {
@@ -59,6 +66,7 @@ func (ds *dispatchState) clear() {
 	ds.quotaArgs = adapter.QuotaArgs{}
 	ds.err = nil
 	ds.outputBag = nil
+	ds.outputPrefix = ""
 	ds.checkResult = adapter.CheckResult{}
 	ds.quotaResult = adapter.QuotaResult{}
 
@@ -75,12 +83,30 @@ func (ds *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, conte
 	return span, ctx, time.Now()
 }
 
-func (ds *dispatchState) completeSpan(span opentracing.Span, duration time.Duration, err error) {
+func (ds *dispatchState) logCheckResultToDispatchSpan(span opentracing.Span) {
 	if ds.session.impl.enableTracing {
-		logToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, err)
+		logCheckResultToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.checkResult, ds.err)
+	}
+}
+
+func (ds *dispatchState) logQuotaResultToDispatchSpan(span opentracing.Span) {
+	if ds.session.impl.enableTracing {
+		logQuotaResultToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.quotaResult, ds.err)
+	}
+}
+
+func (ds *dispatchState) logErrToDispatchSpan(span opentracing.Span) {
+	if ds.session.impl.enableTracing {
+		logErrorToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.err)
+	}
+}
+
+func (ds *dispatchState) completeSpan(ctx context.Context, span opentracing.Span, duration time.Duration, err error) {
+	if ds.session.impl.enableTracing {
 		span.Finish()
 	}
-	ds.destination.Counters.Update(duration, err != nil)
+	newCtx, _ := tag.New(ctx, tag.Insert(monitoring.ErrorTag, strconv.FormatBool(err != nil)))
+	stats.Record(newCtx, monitoring.DispatchesTotal.M(1), monitoring.DispatchDurationsSeconds.M(duration.Seconds()))
 }
 
 func (ds *dispatchState) invokeHandler(interface{}) {
@@ -102,7 +128,13 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 		ds.session.completed <- ds
 	}()
 
-	span, ctx, start := ds.beginSpan(ds.ctx)
+	destCtx, _ := tag.New(ds.ctx,
+		tag.Insert(monitoring.HandlerTag, ds.destination.HandlerName),
+		tag.Insert(monitoring.MeshFunctionTag, ds.destination.Template.Name),
+		tag.Insert(monitoring.AdapterTag, ds.destination.AdapterName),
+	)
+
+	span, ctx, start := ds.beginSpan(destCtx)
 
 	log.Debugf("begin dispatch: destination='%s'", ds.destination.FriendlyName)
 
@@ -110,18 +142,26 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 	case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 		ds.outputBag, ds.err = ds.destination.Template.DispatchGenAttrs(
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
+		ds.logErrToDispatchSpan(span)
 
-	case tpb.TEMPLATE_VARIETY_CHECK:
+	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		// allocate a bag to store check output results
+		// this bag is released in session waitForDispatched
+		ds.outputBag = attribute.GetMutableBag(nil)
+
 		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
-			ctx, ds.destination.Handler, ds.instances[0])
+			ctx, ds.destination.Handler, ds.instances[0], ds.outputBag, ds.outputPrefix)
+		ds.logCheckResultToDispatchSpan(span)
 
 	case tpb.TEMPLATE_VARIETY_REPORT:
 		ds.err = ds.destination.Template.DispatchReport(
 			ctx, ds.destination.Handler, ds.instances)
+		ds.logErrToDispatchSpan(span)
 
 	case tpb.TEMPLATE_VARIETY_QUOTA:
 		ds.quotaResult, ds.err = ds.destination.Template.DispatchQuota(
 			ctx, ds.destination.Handler, ds.instances[0], ds.quotaArgs)
+		ds.logQuotaResultToDispatchSpan(span)
 
 	default:
 		panic(fmt.Sprintf("unknown variety type: '%v'", ds.destination.Template.Variety))
@@ -129,7 +169,7 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 
 	log.Debugf("complete dispatch: destination='%s' {err:%v}", ds.destination.FriendlyName, ds.err)
 
-	ds.completeSpan(span, time.Since(start), ds.err)
+	ds.completeSpan(ctx, span, time.Since(start), ds.err)
 	ds.session.completed <- ds
 
 	reachedEnd = true

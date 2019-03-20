@@ -72,7 +72,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 )
 
@@ -98,7 +98,7 @@ func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientset.Core().Pods("").List(meta_v1.ListOptions{})
+	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 }
 
 func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
@@ -214,8 +214,8 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	}
 	defer conn.Close()
 
-	adsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := adsClient.StreamEndpoints(context.Background())
+	edsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	stream, err := edsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}
@@ -239,6 +239,7 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
+// nolint: golint
 func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.
@@ -291,6 +292,7 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	// nolint: lll
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()

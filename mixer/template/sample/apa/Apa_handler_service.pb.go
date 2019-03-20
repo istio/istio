@@ -11,6 +11,16 @@
 		mixer/template/sample/apa/Apa_handler_service.proto
 
 	It has these top-level messages:
+		HandleMyApaRequest
+		OutputMsg
+		InstanceMsg
+		Resource1Msg
+		Resource2Msg
+		Resource3Msg
+		Type
+		Resource1Type
+		Resource2Type
+		Resource3Type
 		InstanceParam
 		Resource1InstanceParam
 		Resource2InstanceParam
@@ -23,6 +33,13 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import google_protobuf1 "github.com/gogo/protobuf/types"
+import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
+
+import binary "encoding/binary"
 
 import strings "strings"
 import reflect "reflect"
@@ -40,6 +57,136 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
+// Request message for HandleMyApa method.
+type HandleMyApaRequest struct {
+	// 'myapa' instance.
+	Instance *InstanceMsg `protobuf:"bytes,1,opt,name=instance" json:"instance,omitempty"`
+	// Adapter specific handler configuration.
+	//
+	// Note: Backends can also implement [InfrastructureBackend][https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#InfrastructureBackend]
+	// service and therefore opt to receive handler configuration during session creation through [InfrastructureBackend.CreateSession][TODO: Link to this fragment]
+	// call. In that case, adapter_config will have type_url as 'google.protobuf.Any.type_url' and would contain string
+	// value of session_id (returned from InfrastructureBackend.CreateSession).
+	AdapterConfig *google_protobuf1.Any `protobuf:"bytes,2,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
+	// Id to dedupe identical requests from Mixer.
+	DedupId string `protobuf:"bytes,3,opt,name=dedup_id,json=dedupId,proto3" json:"dedup_id,omitempty"`
+}
+
+func (m *HandleMyApaRequest) Reset()      { *m = HandleMyApaRequest{} }
+func (*HandleMyApaRequest) ProtoMessage() {}
+func (*HandleMyApaRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorApaHandlerService, []int{0}
+}
+
+// Contains output payload for 'myapa' template.
+type OutputMsg struct {
+	Int64Primitive  int64                              `protobuf:"varint,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive   bool                               `protobuf:"varint,2,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive float64                            `protobuf:"fixed64,3,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive string                             `protobuf:"bytes,4,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	TimeStamp       *istio_policy_v1beta1.TimeStamp    `protobuf:"bytes,6,opt,name=timeStamp" json:"timeStamp,omitempty"`
+	Duration        *istio_policy_v1beta1.Duration     `protobuf:"bytes,7,opt,name=duration" json:"duration,omitempty"`
+	Email           *istio_policy_v1beta1.EmailAddress `protobuf:"bytes,10,opt,name=email" json:"email,omitempty"`
+	OutIp           *istio_policy_v1beta1.IPAddress    `protobuf:"bytes,11,opt,name=out_ip,json=outIp" json:"out_ip,omitempty"`
+	OutStrMap       map[string]string                  `protobuf:"bytes,12,rep,name=out_str_map,json=outStrMap" json:"out_str_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *OutputMsg) Reset()                    { *m = OutputMsg{} }
+func (*OutputMsg) ProtoMessage()               {}
+func (*OutputMsg) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{1} }
+
+// Contains instance payload for 'myapa' template. This is passed to infrastructure backends during request-time
+// through HandleMyApaService.HandleMyApa.
+type InstanceMsg struct {
+	// Name of the instance as specified in configuration.
+	Name                           string                             `protobuf:"bytes,72295727,opt,name=name,proto3" json:"name,omitempty"`
+	Int64Primitive                 int64                              `protobuf:"varint,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive                  bool                               `protobuf:"varint,2,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive                float64                            `protobuf:"fixed64,3,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive                string                             `protobuf:"bytes,4,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	DimensionsFixedInt64ValueDType map[string]int64                   `protobuf:"bytes,5,rep,name=dimensionsFixedInt64ValueDType" json:"dimensionsFixedInt64ValueDType,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	TimeStamp                      *istio_policy_v1beta1.TimeStamp    `protobuf:"bytes,6,opt,name=timeStamp" json:"timeStamp,omitempty"`
+	Duration                       *istio_policy_v1beta1.Duration     `protobuf:"bytes,7,opt,name=duration" json:"duration,omitempty"`
+	Res3Map                        map[string]*Resource3Msg           `protobuf:"bytes,8,rep,name=res3_map,json=res3Map" json:"res3_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	OptionalIP                     *istio_policy_v1beta1.IPAddress    `protobuf:"bytes,9,opt,name=optionalIP" json:"optionalIP,omitempty"`
+	Email                          *istio_policy_v1beta1.EmailAddress `protobuf:"bytes,10,opt,name=email" json:"email,omitempty"`
+}
+
+func (m *InstanceMsg) Reset()                    { *m = InstanceMsg{} }
+func (*InstanceMsg) ProtoMessage()               {}
+func (*InstanceMsg) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{2} }
+
+type Resource1Msg struct {
+	Str         string        `protobuf:"bytes,1,opt,name=str,proto3" json:"str,omitempty"`
+	SelfRefRes1 *Resource1Msg `protobuf:"bytes,3,opt,name=self_ref_res1,json=selfRefRes1" json:"self_ref_res1,omitempty"`
+	ResRef2     *Resource2Msg `protobuf:"bytes,2,opt,name=resRef2" json:"resRef2,omitempty"`
+}
+
+func (m *Resource1Msg) Reset()                    { *m = Resource1Msg{} }
+func (*Resource1Msg) ProtoMessage()               {}
+func (*Resource1Msg) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{3} }
+
+type Resource2Msg struct {
+	Str     string                   `protobuf:"bytes,1,opt,name=str,proto3" json:"str,omitempty"`
+	Res3    *Resource3Msg            `protobuf:"bytes,2,opt,name=res3" json:"res3,omitempty"`
+	Res3Map map[string]*Resource3Msg `protobuf:"bytes,3,rep,name=res3_map,json=res3Map" json:"res3_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Resource2Msg) Reset()                    { *m = Resource2Msg{} }
+func (*Resource2Msg) ProtoMessage()               {}
+func (*Resource2Msg) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{4} }
+
+// resource3 comment
+type Resource3Msg struct {
+	Int64Primitive                 int64                           `protobuf:"varint,1,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive                  bool                            `protobuf:"varint,2,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive                float64                         `protobuf:"fixed64,3,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive                string                          `protobuf:"bytes,4,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	DimensionsFixedInt64ValueDType map[string]int64                `protobuf:"bytes,5,rep,name=dimensionsFixedInt64ValueDType" json:"dimensionsFixedInt64ValueDType,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	TimeStamp                      *istio_policy_v1beta1.TimeStamp `protobuf:"bytes,6,opt,name=timeStamp" json:"timeStamp,omitempty"`
+	Duration                       *istio_policy_v1beta1.Duration  `protobuf:"bytes,7,opt,name=duration" json:"duration,omitempty"`
+}
+
+func (m *Resource3Msg) Reset()                    { *m = Resource3Msg{} }
+func (*Resource3Msg) ProtoMessage()               {}
+func (*Resource3Msg) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{5} }
+
+// Contains inferred type information about specific instance of 'myapa' template. This is passed to
+// infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
+type Type struct {
+	Res3Map map[string]*Resource3Type `protobuf:"bytes,8,rep,name=res3_map,json=res3Map" json:"res3_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Type) Reset()                    { *m = Type{} }
+func (*Type) ProtoMessage()               {}
+func (*Type) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{6} }
+
+type Resource1Type struct {
+	SelfRefRes1 *Resource1Type `protobuf:"bytes,3,opt,name=self_ref_res1,json=selfRefRes1" json:"self_ref_res1,omitempty"`
+	ResRef2     *Resource2Type `protobuf:"bytes,2,opt,name=resRef2" json:"resRef2,omitempty"`
+}
+
+func (m *Resource1Type) Reset()                    { *m = Resource1Type{} }
+func (*Resource1Type) ProtoMessage()               {}
+func (*Resource1Type) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{7} }
+
+type Resource2Type struct {
+	Res3    *Resource3Type            `protobuf:"bytes,2,opt,name=res3" json:"res3,omitempty"`
+	Res3Map map[string]*Resource3Type `protobuf:"bytes,3,rep,name=res3_map,json=res3Map" json:"res3_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Resource2Type) Reset()                    { *m = Resource2Type{} }
+func (*Resource2Type) ProtoMessage()               {}
+func (*Resource2Type) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{8} }
+
+// resource3 comment
+type Resource3Type struct {
+}
+
+func (m *Resource3Type) Reset()                    { *m = Resource3Type{} }
+func (*Resource3Type) ProtoMessage()               {}
+func (*Resource3Type) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{9} }
 
 // Represents instance configuration schema for 'myapa' template.
 type InstanceParam struct {
@@ -63,7 +210,7 @@ type InstanceParam struct {
 
 func (m *InstanceParam) Reset()                    { *m = InstanceParam{} }
 func (*InstanceParam) ProtoMessage()               {}
-func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{0} }
+func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorApaHandlerService, []int{10} }
 
 type Resource1InstanceParam struct {
 	Str         string                  `protobuf:"bytes,1,opt,name=str,proto3" json:"str,omitempty"`
@@ -74,7 +221,7 @@ type Resource1InstanceParam struct {
 func (m *Resource1InstanceParam) Reset()      { *m = Resource1InstanceParam{} }
 func (*Resource1InstanceParam) ProtoMessage() {}
 func (*Resource1InstanceParam) Descriptor() ([]byte, []int) {
-	return fileDescriptorApaHandlerService, []int{1}
+	return fileDescriptorApaHandlerService, []int{11}
 }
 
 type Resource2InstanceParam struct {
@@ -86,7 +233,7 @@ type Resource2InstanceParam struct {
 func (m *Resource2InstanceParam) Reset()      { *m = Resource2InstanceParam{} }
 func (*Resource2InstanceParam) ProtoMessage() {}
 func (*Resource2InstanceParam) Descriptor() ([]byte, []int) {
-	return fileDescriptorApaHandlerService, []int{2}
+	return fileDescriptorApaHandlerService, []int{12}
 }
 
 // resource3 comment
@@ -103,15 +250,734 @@ type Resource3InstanceParam struct {
 func (m *Resource3InstanceParam) Reset()      { *m = Resource3InstanceParam{} }
 func (*Resource3InstanceParam) ProtoMessage() {}
 func (*Resource3InstanceParam) Descriptor() ([]byte, []int) {
-	return fileDescriptorApaHandlerService, []int{3}
+	return fileDescriptorApaHandlerService, []int{13}
 }
 
 func init() {
+	proto.RegisterType((*HandleMyApaRequest)(nil), "istio.mixer.adapter.sample.myapa.HandleMyApaRequest")
+	proto.RegisterType((*OutputMsg)(nil), "istio.mixer.adapter.sample.myapa.OutputMsg")
+	proto.RegisterType((*InstanceMsg)(nil), "istio.mixer.adapter.sample.myapa.InstanceMsg")
+	proto.RegisterType((*Resource1Msg)(nil), "istio.mixer.adapter.sample.myapa.Resource1Msg")
+	proto.RegisterType((*Resource2Msg)(nil), "istio.mixer.adapter.sample.myapa.Resource2Msg")
+	proto.RegisterType((*Resource3Msg)(nil), "istio.mixer.adapter.sample.myapa.Resource3Msg")
+	proto.RegisterType((*Type)(nil), "istio.mixer.adapter.sample.myapa.Type")
+	proto.RegisterType((*Resource1Type)(nil), "istio.mixer.adapter.sample.myapa.Resource1Type")
+	proto.RegisterType((*Resource2Type)(nil), "istio.mixer.adapter.sample.myapa.Resource2Type")
+	proto.RegisterType((*Resource3Type)(nil), "istio.mixer.adapter.sample.myapa.Resource3Type")
 	proto.RegisterType((*InstanceParam)(nil), "istio.mixer.adapter.sample.myapa.InstanceParam")
 	proto.RegisterType((*Resource1InstanceParam)(nil), "istio.mixer.adapter.sample.myapa.Resource1InstanceParam")
 	proto.RegisterType((*Resource2InstanceParam)(nil), "istio.mixer.adapter.sample.myapa.Resource2InstanceParam")
 	proto.RegisterType((*Resource3InstanceParam)(nil), "istio.mixer.adapter.sample.myapa.Resource3InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleMyApaService service
+
+type HandleMyApaServiceClient interface {
+	// HandleMyApa is called by Mixer at request-time to deliver 'myapa' instances to the backend.
+	HandleMyApa(ctx context.Context, in *HandleMyApaRequest, opts ...grpc.CallOption) (*OutputMsg, error)
+}
+
+type handleMyApaServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleMyApaServiceClient(cc *grpc.ClientConn) HandleMyApaServiceClient {
+	return &handleMyApaServiceClient{cc}
+}
+
+func (c *handleMyApaServiceClient) HandleMyApa(ctx context.Context, in *HandleMyApaRequest, opts ...grpc.CallOption) (*OutputMsg, error) {
+	out := new(OutputMsg)
+	err := grpc.Invoke(ctx, "/istio.mixer.adapter.sample.myapa.HandleMyApaService/HandleMyApa", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleMyApaService service
+
+type HandleMyApaServiceServer interface {
+	// HandleMyApa is called by Mixer at request-time to deliver 'myapa' instances to the backend.
+	HandleMyApa(context.Context, *HandleMyApaRequest) (*OutputMsg, error)
+}
+
+func RegisterHandleMyApaServiceServer(s *grpc.Server, srv HandleMyApaServiceServer) {
+	s.RegisterService(&_HandleMyApaService_serviceDesc, srv)
+}
+
+func _HandleMyApaService_HandleMyApa_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleMyApaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleMyApaServiceServer).HandleMyApa(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/istio.mixer.adapter.sample.myapa.HandleMyApaService/HandleMyApa",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleMyApaServiceServer).HandleMyApa(ctx, req.(*HandleMyApaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleMyApaService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "istio.mixer.adapter.sample.myapa.HandleMyApaService",
+	HandlerType: (*HandleMyApaServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleMyApa",
+			Handler:    _HandleMyApaService_HandleMyApa_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/sample/apa/Apa_handler_service.proto",
+}
+
+func (m *HandleMyApaRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HandleMyApaRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Instance != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Instance.Size()))
+		n1, err := m.Instance.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if m.AdapterConfig != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.AdapterConfig.Size()))
+		n2, err := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if len(m.DedupId) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.DedupId)))
+		i += copy(dAtA[i:], m.DedupId)
+	}
+	return i, nil
+}
+
+func (m *OutputMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OutputMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		dAtA[i] = 0x10
+		i++
+		if m.BoolPrimitive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DoublePrimitive != 0 {
+		dAtA[i] = 0x19
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i += 8
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if m.TimeStamp != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
+		n3, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if m.Duration != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
+		n4, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if m.Email != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
+		n5, err := m.Email.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if m.OutIp != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OutIp.Size()))
+		n6, err := m.OutIp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if len(m.OutStrMap) > 0 {
+		for k, _ := range m.OutStrMap {
+			dAtA[i] = 0x62
+			i++
+			v := m.OutStrMap[k]
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	return i, nil
+}
+
+func (m *InstanceMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *InstanceMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		dAtA[i] = 0x10
+		i++
+		if m.BoolPrimitive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DoublePrimitive != 0 {
+		dAtA[i] = 0x19
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i += 8
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k, _ := range m.DimensionsFixedInt64ValueDType {
+			dAtA[i] = 0x2a
+			i++
+			v := m.DimensionsFixedInt64ValueDType[k]
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x10
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
+		}
+	}
+	if m.TimeStamp != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
+		n7, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	if m.Duration != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
+		n8, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	if len(m.Res3Map) > 0 {
+		for k, _ := range m.Res3Map {
+			dAtA[i] = 0x42
+			i++
+			v := m.Res3Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
+				n9, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n9
+			}
+		}
+	}
+	if m.OptionalIP != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.OptionalIP.Size()))
+		n10, err := m.OptionalIP.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n10
+	}
+	if m.Email != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Email.Size()))
+		n11, err := m.Email.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
+	}
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xfa
+		i++
+		dAtA[i] = 0xd2
+		i++
+		dAtA[i] = 0xe4
+		i++
+		dAtA[i] = 0x93
+		i++
+		dAtA[i] = 0x2
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	return i, nil
+}
+
+func (m *Resource1Msg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource1Msg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Str) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i += copy(dAtA[i:], m.Str)
+	}
+	if m.ResRef2 != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
+		n12, err := m.ResRef2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
+	}
+	if m.SelfRefRes1 != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
+		n13, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n13
+	}
+	return i, nil
+}
+
+func (m *Resource2Msg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource2Msg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Str) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.Str)))
+		i += copy(dAtA[i:], m.Str)
+	}
+	if m.Res3 != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
+		n14, err := m.Res3.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n14
+	}
+	if len(m.Res3Map) > 0 {
+		for k, _ := range m.Res3Map {
+			dAtA[i] = 0x1a
+			i++
+			v := m.Res3Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
+				n15, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n15
+			}
+		}
+	}
+	return i, nil
+}
+
+func (m *Resource3Msg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource3Msg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		dAtA[i] = 0x10
+		i++
+		if m.BoolPrimitive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.DoublePrimitive != 0 {
+		dAtA[i] = 0x19
+		i++
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		i += 8
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k, _ := range m.DimensionsFixedInt64ValueDType {
+			dAtA[i] = 0x2a
+			i++
+			v := m.DimensionsFixedInt64ValueDType[k]
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x10
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(v))
+		}
+	}
+	if m.TimeStamp != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.TimeStamp.Size()))
+		n16, err := m.TimeStamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n16
+	}
+	if m.Duration != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Duration.Size()))
+		n17, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
+	return i, nil
+}
+
+func (m *Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Res3Map) > 0 {
+		for k, _ := range m.Res3Map {
+			dAtA[i] = 0x42
+			i++
+			v := m.Res3Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
+				n18, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n18
+			}
+		}
+	}
+	return i, nil
+}
+
+func (m *Resource1Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource1Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.ResRef2 != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
+		n19, err := m.ResRef2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n19
+	}
+	if m.SelfRefRes1 != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
+		n20, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n20
+	}
+	return i, nil
+}
+
+func (m *Resource2Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource2Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Res3 != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
+		n21, err := m.Res3.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n21
+	}
+	if len(m.Res3Map) > 0 {
+		for k, _ := range m.Res3Map {
+			dAtA[i] = 0x1a
+			i++
+			v := m.Res3Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovApaHandlerService(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + msgSize
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApaHandlerService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
+				n22, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n22
+			}
+		}
+	}
+	return i, nil
+}
+
+func (m *Resource3Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Resource3Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *InstanceParam) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -200,11 +1066,11 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n1, err := v.MarshalTo(dAtA[i:])
+				n23, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n1
+				i += n23
 			}
 		}
 	}
@@ -273,21 +1139,21 @@ func (m *Resource1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.ResRef2.Size()))
-		n2, err := m.ResRef2.MarshalTo(dAtA[i:])
+		n24, err := m.ResRef2.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n24
 	}
 	if m.SelfRefRes1 != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.SelfRefRes1.Size()))
-		n3, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
+		n25, err := m.SelfRefRes1.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n25
 	}
 	return i, nil
 }
@@ -317,11 +1183,11 @@ func (m *Resource2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintApaHandlerService(dAtA, i, uint64(m.Res3.Size()))
-		n4, err := m.Res3.MarshalTo(dAtA[i:])
+		n26, err := m.Res3.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n26
 	}
 	if len(m.Res3Map) > 0 {
 		for k, _ := range m.Res3Map {
@@ -343,11 +1209,11 @@ func (m *Resource2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintApaHandlerService(dAtA, i, uint64(v.Size()))
-				n5, err := v.MarshalTo(dAtA[i:])
+				n27, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n5
+				i += n27
 			}
 		}
 	}
@@ -434,6 +1300,269 @@ func encodeVarintApaHandlerService(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *HandleMyApaRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Instance != nil {
+		l = m.Instance.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.AdapterConfig != nil {
+		l = m.AdapterConfig.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	l = len(m.DedupId)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *OutputMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		n += 1 + sovApaHandlerService(uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		n += 2
+	}
+	if m.DoublePrimitive != 0 {
+		n += 9
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.TimeStamp != nil {
+		l = m.TimeStamp.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Duration != nil {
+		l = m.Duration.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Email != nil {
+		l = m.Email.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.OutIp != nil {
+		l = m.OutIp.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.OutStrMap) > 0 {
+		for k, v := range m.OutStrMap {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + len(v) + sovApaHandlerService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *InstanceMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		n += 1 + sovApaHandlerService(uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		n += 2
+	}
+	if m.DoublePrimitive != 0 {
+		n += 9
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k, v := range m.DimensionsFixedInt64ValueDType {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	if m.TimeStamp != nil {
+		l = m.TimeStamp.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Duration != nil {
+		l = m.Duration.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.Res3Map) > 0 {
+		for k, v := range m.Res3Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovApaHandlerService(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	if m.OptionalIP != nil {
+		l = m.OptionalIP.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Email != nil {
+		l = m.Email.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	l = len(m.Name)
+	if l > 0 {
+		n += 5 + l + sovApaHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Resource1Msg) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Str)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.ResRef2 != nil {
+		l = m.ResRef2.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.SelfRefRes1 != nil {
+		l = m.SelfRefRes1.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Resource2Msg) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Str)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Res3 != nil {
+		l = m.Res3.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.Res3Map) > 0 {
+		for k, v := range m.Res3Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovApaHandlerService(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Resource3Msg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Int64Primitive != 0 {
+		n += 1 + sovApaHandlerService(uint64(m.Int64Primitive))
+	}
+	if m.BoolPrimitive {
+		n += 2
+	}
+	if m.DoublePrimitive != 0 {
+		n += 9
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.DimensionsFixedInt64ValueDType) > 0 {
+		for k, v := range m.DimensionsFixedInt64ValueDType {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + 1 + sovApaHandlerService(uint64(v))
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	if m.TimeStamp != nil {
+		l = m.TimeStamp.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.Duration != nil {
+		l = m.Duration.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Type) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Res3Map) > 0 {
+		for k, v := range m.Res3Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovApaHandlerService(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Resource1Type) Size() (n int) {
+	var l int
+	_ = l
+	if m.ResRef2 != nil {
+		l = m.ResRef2.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if m.SelfRefRes1 != nil {
+		l = m.SelfRefRes1.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Resource2Type) Size() (n int) {
+	var l int
+	_ = l
+	if m.Res3 != nil {
+		l = m.Res3.Size()
+		n += 1 + l + sovApaHandlerService(uint64(l))
+	}
+	if len(m.Res3Map) > 0 {
+		for k, v := range m.Res3Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovApaHandlerService(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovApaHandlerService(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovApaHandlerService(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Resource3Type) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
 func (m *InstanceParam) Size() (n int) {
 	var l int
 	_ = l
@@ -597,6 +1726,207 @@ func sovApaHandlerService(x uint64) (n int) {
 func sozApaHandlerService(x uint64) (n int) {
 	return sovApaHandlerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+func (this *HandleMyApaRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HandleMyApaRequest{`,
+		`Instance:` + strings.Replace(fmt.Sprintf("%v", this.Instance), "InstanceMsg", "InstanceMsg", 1) + `,`,
+		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf1.Any", 1) + `,`,
+		`DedupId:` + fmt.Sprintf("%v", this.DedupId) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *OutputMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForOutStrMap := make([]string, 0, len(this.OutStrMap))
+	for k, _ := range this.OutStrMap {
+		keysForOutStrMap = append(keysForOutStrMap, k)
+	}
+	sortkeys.Strings(keysForOutStrMap)
+	mapStringForOutStrMap := "map[string]string{"
+	for _, k := range keysForOutStrMap {
+		mapStringForOutStrMap += fmt.Sprintf("%v: %v,", k, this.OutStrMap[k])
+	}
+	mapStringForOutStrMap += "}"
+	s := strings.Join([]string{`&OutputMsg{`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "istio_policy_v1beta1.TimeStamp", 1) + `,`,
+		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "istio_policy_v1beta1.Duration", 1) + `,`,
+		`Email:` + strings.Replace(fmt.Sprintf("%v", this.Email), "EmailAddress", "istio_policy_v1beta1.EmailAddress", 1) + `,`,
+		`OutIp:` + strings.Replace(fmt.Sprintf("%v", this.OutIp), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`OutStrMap:` + mapStringForOutStrMap + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *InstanceMsg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensionsFixedInt64ValueDType := make([]string, 0, len(this.DimensionsFixedInt64ValueDType))
+	for k, _ := range this.DimensionsFixedInt64ValueDType {
+		keysForDimensionsFixedInt64ValueDType = append(keysForDimensionsFixedInt64ValueDType, k)
+	}
+	sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
+	mapStringForDimensionsFixedInt64ValueDType := "map[string]int64{"
+	for _, k := range keysForDimensionsFixedInt64ValueDType {
+		mapStringForDimensionsFixedInt64ValueDType += fmt.Sprintf("%v: %v,", k, this.DimensionsFixedInt64ValueDType[k])
+	}
+	mapStringForDimensionsFixedInt64ValueDType += "}"
+	keysForRes3Map := make([]string, 0, len(this.Res3Map))
+	for k, _ := range this.Res3Map {
+		keysForRes3Map = append(keysForRes3Map, k)
+	}
+	sortkeys.Strings(keysForRes3Map)
+	mapStringForRes3Map := "map[string]*Resource3Msg{"
+	for _, k := range keysForRes3Map {
+		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
+	}
+	mapStringForRes3Map += "}"
+	s := strings.Join([]string{`&InstanceMsg{`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`DimensionsFixedInt64ValueDType:` + mapStringForDimensionsFixedInt64ValueDType + `,`,
+		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "istio_policy_v1beta1.TimeStamp", 1) + `,`,
+		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "istio_policy_v1beta1.Duration", 1) + `,`,
+		`Res3Map:` + mapStringForRes3Map + `,`,
+		`OptionalIP:` + strings.Replace(fmt.Sprintf("%v", this.OptionalIP), "IPAddress", "istio_policy_v1beta1.IPAddress", 1) + `,`,
+		`Email:` + strings.Replace(fmt.Sprintf("%v", this.Email), "EmailAddress", "istio_policy_v1beta1.EmailAddress", 1) + `,`,
+		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource1Msg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Resource1Msg{`,
+		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
+		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Msg", "Resource2Msg", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Msg", "Resource1Msg", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource2Msg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForRes3Map := make([]string, 0, len(this.Res3Map))
+	for k, _ := range this.Res3Map {
+		keysForRes3Map = append(keysForRes3Map, k)
+	}
+	sortkeys.Strings(keysForRes3Map)
+	mapStringForRes3Map := "map[string]*Resource3Msg{"
+	for _, k := range keysForRes3Map {
+		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
+	}
+	mapStringForRes3Map += "}"
+	s := strings.Join([]string{`&Resource2Msg{`,
+		`Str:` + fmt.Sprintf("%v", this.Str) + `,`,
+		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Msg", "Resource3Msg", 1) + `,`,
+		`Res3Map:` + mapStringForRes3Map + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource3Msg) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensionsFixedInt64ValueDType := make([]string, 0, len(this.DimensionsFixedInt64ValueDType))
+	for k, _ := range this.DimensionsFixedInt64ValueDType {
+		keysForDimensionsFixedInt64ValueDType = append(keysForDimensionsFixedInt64ValueDType, k)
+	}
+	sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
+	mapStringForDimensionsFixedInt64ValueDType := "map[string]int64{"
+	for _, k := range keysForDimensionsFixedInt64ValueDType {
+		mapStringForDimensionsFixedInt64ValueDType += fmt.Sprintf("%v: %v,", k, this.DimensionsFixedInt64ValueDType[k])
+	}
+	mapStringForDimensionsFixedInt64ValueDType += "}"
+	s := strings.Join([]string{`&Resource3Msg{`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`DimensionsFixedInt64ValueDType:` + mapStringForDimensionsFixedInt64ValueDType + `,`,
+		`TimeStamp:` + strings.Replace(fmt.Sprintf("%v", this.TimeStamp), "TimeStamp", "istio_policy_v1beta1.TimeStamp", 1) + `,`,
+		`Duration:` + strings.Replace(fmt.Sprintf("%v", this.Duration), "Duration", "istio_policy_v1beta1.Duration", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForRes3Map := make([]string, 0, len(this.Res3Map))
+	for k, _ := range this.Res3Map {
+		keysForRes3Map = append(keysForRes3Map, k)
+	}
+	sortkeys.Strings(keysForRes3Map)
+	mapStringForRes3Map := "map[string]*Resource3Type{"
+	for _, k := range keysForRes3Map {
+		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
+	}
+	mapStringForRes3Map += "}"
+	s := strings.Join([]string{`&Type{`,
+		`Res3Map:` + mapStringForRes3Map + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource1Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Resource1Type{`,
+		`ResRef2:` + strings.Replace(fmt.Sprintf("%v", this.ResRef2), "Resource2Type", "Resource2Type", 1) + `,`,
+		`SelfRefRes1:` + strings.Replace(fmt.Sprintf("%v", this.SelfRefRes1), "Resource1Type", "Resource1Type", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource2Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForRes3Map := make([]string, 0, len(this.Res3Map))
+	for k, _ := range this.Res3Map {
+		keysForRes3Map = append(keysForRes3Map, k)
+	}
+	sortkeys.Strings(keysForRes3Map)
+	mapStringForRes3Map := "map[string]*Resource3Type{"
+	for _, k := range keysForRes3Map {
+		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
+	}
+	mapStringForRes3Map += "}"
+	s := strings.Join([]string{`&Resource2Type{`,
+		`Res3:` + strings.Replace(fmt.Sprintf("%v", this.Res3), "Resource3Type", "Resource3Type", 1) + `,`,
+		`Res3Map:` + mapStringForRes3Map + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Resource3Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Resource3Type{`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *InstanceParam) String() string {
 	if this == nil {
 		return "nil"
@@ -714,6 +2044,2277 @@ func valueToStringApaHandlerService(v interface{}) string {
 	}
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
+}
+func (m *HandleMyApaRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HandleMyApaRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HandleMyApaRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Instance", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Instance == nil {
+				m.Instance = &InstanceMsg{}
+			}
+			if err := m.Instance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdapterConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AdapterConfig == nil {
+				m.AdapterConfig = &google_protobuf1.Any{}
+			}
+			if err := m.AdapterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DedupId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DedupId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *OutputMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OutputMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OutputMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			m.Int64Primitive = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Int64Primitive |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.BoolPrimitive = bool(v != 0)
+		case 3:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.DoublePrimitive = float64(math.Float64frombits(v))
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TimeStamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TimeStamp == nil {
+				m.TimeStamp = &istio_policy_v1beta1.TimeStamp{}
+			}
+			if err := m.TimeStamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Duration == nil {
+				m.Duration = &istio_policy_v1beta1.Duration{}
+			}
+			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Email", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Email == nil {
+				m.Email = &istio_policy_v1beta1.EmailAddress{}
+			}
+			if err := m.Email.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutIp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OutIp == nil {
+				m.OutIp = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.OutIp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutStrMap", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OutStrMap == nil {
+				m.OutStrMap = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.OutStrMap[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *InstanceMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: InstanceMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: InstanceMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			m.Int64Primitive = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Int64Primitive |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.BoolPrimitive = bool(v != 0)
+		case 3:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.DoublePrimitive = float64(math.Float64frombits(v))
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DimensionsFixedInt64ValueDType", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DimensionsFixedInt64ValueDType == nil {
+				m.DimensionsFixedInt64ValueDType = make(map[string]int64)
+			}
+			var mapkey string
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.DimensionsFixedInt64ValueDType[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TimeStamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TimeStamp == nil {
+				m.TimeStamp = &istio_policy_v1beta1.TimeStamp{}
+			}
+			if err := m.TimeStamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Duration == nil {
+				m.Duration = &istio_policy_v1beta1.Duration{}
+			}
+			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3Map == nil {
+				m.Res3Map = make(map[string]*Resource3Msg)
+			}
+			var mapkey string
+			var mapvalue *Resource3Msg
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Resource3Msg{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res3Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OptionalIP", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OptionalIP == nil {
+				m.OptionalIP = &istio_policy_v1beta1.IPAddress{}
+			}
+			if err := m.OptionalIP.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Email", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Email == nil {
+				m.Email = &istio_policy_v1beta1.EmailAddress{}
+			}
+			if err := m.Email.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 72295727:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource1Msg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource1Msg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource1Msg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Str", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Str = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResRef2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ResRef2 == nil {
+				m.ResRef2 = &Resource2Msg{}
+			}
+			if err := m.ResRef2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SelfRefRes1", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SelfRefRes1 == nil {
+				m.SelfRefRes1 = &Resource1Msg{}
+			}
+			if err := m.SelfRefRes1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource2Msg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource2Msg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource2Msg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Str", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Str = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3 == nil {
+				m.Res3 = &Resource3Msg{}
+			}
+			if err := m.Res3.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3Map == nil {
+				m.Res3Map = make(map[string]*Resource3Msg)
+			}
+			var mapkey string
+			var mapvalue *Resource3Msg
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Resource3Msg{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res3Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource3Msg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource3Msg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource3Msg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			m.Int64Primitive = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Int64Primitive |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.BoolPrimitive = bool(v != 0)
+		case 3:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.DoublePrimitive = float64(math.Float64frombits(v))
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DimensionsFixedInt64ValueDType", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DimensionsFixedInt64ValueDType == nil {
+				m.DimensionsFixedInt64ValueDType = make(map[string]int64)
+			}
+			var mapkey string
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.DimensionsFixedInt64ValueDType[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TimeStamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TimeStamp == nil {
+				m.TimeStamp = &istio_policy_v1beta1.TimeStamp{}
+			}
+			if err := m.TimeStamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Duration == nil {
+				m.Duration = &istio_policy_v1beta1.Duration{}
+			}
+			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3Map == nil {
+				m.Res3Map = make(map[string]*Resource3Type)
+			}
+			var mapkey string
+			var mapvalue *Resource3Type
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Resource3Type{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res3Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource1Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource1Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource1Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResRef2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ResRef2 == nil {
+				m.ResRef2 = &Resource2Type{}
+			}
+			if err := m.ResRef2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SelfRefRes1", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SelfRefRes1 == nil {
+				m.SelfRefRes1 = &Resource1Type{}
+			}
+			if err := m.SelfRefRes1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource2Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource2Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource2Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3 == nil {
+				m.Res3 = &Resource3Type{}
+			}
+			if err := m.Res3.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res3Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApaHandlerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res3Map == nil {
+				m.Res3Map = make(map[string]*Resource3Type)
+			}
+			var mapkey string
+			var mapvalue *Resource3Type
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApaHandlerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowApaHandlerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Resource3Type{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthApaHandlerService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res3Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Resource3Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApaHandlerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Resource3Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Resource3Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApaHandlerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApaHandlerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *InstanceParam) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -2188,49 +5789,83 @@ func init() {
 }
 
 var fileDescriptorApaHandlerService = []byte{
-	// 689 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x56, 0x4f, 0x6b, 0x13, 0x41,
-	0x14, 0xcf, 0x66, 0xfb, 0x77, 0x6a, 0xb5, 0x0e, 0xa5, 0x2c, 0x41, 0x86, 0x12, 0x45, 0x7a, 0x90,
-	0x5d, 0x92, 0x88, 0x14, 0xf1, 0xd2, 0xd2, 0x16, 0x0a, 0x2a, 0x75, 0x2b, 0x7a, 0x29, 0xc4, 0x49,
-	0xf7, 0x35, 0x0e, 0xee, 0xee, 0x2c, 0x33, 0x93, 0x90, 0xdc, 0xc4, 0x4f, 0x20, 0xf4, 0xe8, 0x49,
-	0xf0, 0xe0, 0xd1, 0x0f, 0xe0, 0x07, 0x28, 0x9e, 0x8a, 0x27, 0x0f, 0x0a, 0x66, 0xed, 0xc1, 0x93,
-	0xf4, 0xe8, 0x51, 0x76, 0x36, 0x31, 0x7f, 0x28, 0xa6, 0xa9, 0x48, 0xf1, 0x10, 0xd8, 0x79, 0xf3,
-	0x7b, 0xbf, 0xf7, 0x7e, 0x6f, 0xde, 0x7b, 0x04, 0x95, 0x02, 0xd6, 0x00, 0xe1, 0x28, 0x08, 0x22,
-	0x9f, 0x2a, 0x70, 0x24, 0x0d, 0x22, 0x1f, 0x1c, 0x1a, 0x51, 0x67, 0x25, 0xa2, 0xe5, 0xa7, 0x34,
-	0xf4, 0x7c, 0x10, 0x65, 0x09, 0xa2, 0xce, 0x76, 0xc1, 0x8e, 0x04, 0x57, 0x1c, 0x2f, 0x32, 0xa9,
-	0x18, 0xb7, 0xb5, 0xab, 0x4d, 0x3d, 0x1a, 0x29, 0x10, 0x76, 0xea, 0x69, 0x07, 0x4d, 0x1a, 0xd1,
-	0xdc, 0x7c, 0x95, 0x57, 0xb9, 0x06, 0x3b, 0xc9, 0x57, 0xea, 0x97, 0xbb, 0x91, 0x06, 0x6b, 0x7b,
-	0x38, 0x01, 0xf7, 0xc0, 0x77, 0xea, 0x85, 0x0a, 0x28, 0x5a, 0x70, 0xa0, 0xa1, 0x20, 0x94, 0x8c,
-	0x87, 0x32, 0x45, 0xe7, 0x5f, 0x4f, 0xa2, 0xd9, 0xcd, 0x50, 0x2a, 0x1a, 0xee, 0xc2, 0x16, 0x15,
-	0x34, 0xc0, 0xd7, 0xd1, 0x45, 0x16, 0xaa, 0x5b, 0x37, 0xb7, 0x04, 0x0b, 0x98, 0x62, 0x75, 0xb0,
-	0x8c, 0x45, 0x63, 0x69, 0xda, 0x1d, 0xb0, 0xe2, 0x6b, 0x68, 0xb6, 0xc2, 0xb9, 0xdf, 0x85, 0x65,
-	0x35, 0xac, 0xdf, 0x88, 0x97, 0xd0, 0x25, 0x8f, 0xd7, 0x2a, 0x3e, 0x74, 0x71, 0xa6, 0xc6, 0x0d,
-	0x9a, 0x13, 0xa4, 0x54, 0x82, 0x85, 0xd5, 0x2e, 0x72, 0x2c, 0x45, 0x0e, 0x98, 0xf1, 0x2b, 0x03,
-	0x11, 0x8f, 0x05, 0x6d, 0x21, 0x1b, 0xac, 0x01, 0xde, 0x66, 0x92, 0xdb, 0x23, 0xea, 0xd7, 0x60,
-	0xed, 0x61, 0x33, 0x02, 0x6b, 0x7c, 0xd1, 0x5c, 0x9a, 0x29, 0x6e, 0xdb, 0xc3, 0x6a, 0x68, 0xf7,
-	0x69, 0xb7, 0xd7, 0xfe, 0xc8, 0xba, 0x1e, 0x2a, 0xd1, 0x74, 0x87, 0x84, 0xc6, 0x57, 0xd0, 0xb4,
-	0x62, 0x01, 0x6c, 0x2b, 0x1a, 0x44, 0xd6, 0x84, 0x56, 0xd0, 0x35, 0xe0, 0x1c, 0x9a, 0xf2, 0x6a,
-	0x82, 0x2a, 0xc6, 0x43, 0x6b, 0x52, 0x5f, 0xfe, 0x3e, 0xe3, 0xc7, 0x68, 0x4a, 0x80, 0x2c, 0x95,
-	0x03, 0x1a, 0x59, 0x53, 0x5a, 0xc0, 0x9d, 0x51, 0x05, 0xb8, 0x20, 0x4b, 0xf7, 0x68, 0x94, 0x66,
-	0x3a, 0x29, 0xd2, 0x13, 0x26, 0x08, 0xf1, 0x28, 0x09, 0x41, 0xfd, 0xcd, 0x2d, 0x6b, 0x5a, 0x87,
-	0xed, 0xb1, 0xe0, 0x79, 0x34, 0x0e, 0x01, 0x65, 0xbe, 0x85, 0xf4, 0x55, 0x7a, 0xc0, 0x0d, 0x84,
-	0xa9, 0x52, 0x82, 0x55, 0x6a, 0x0a, 0xca, 0x15, 0x16, 0x7a, 0x2c, 0xac, 0x4a, 0xeb, 0xdd, 0x87,
-	0xf7, 0x79, 0x9d, 0xdb, 0xc6, 0xa8, 0xb9, 0xad, 0x74, 0xc8, 0x56, 0xdb, 0x5c, 0x69, 0x96, 0x97,
-	0xe9, 0xa0, 0x3d, 0xf7, 0x00, 0x5d, 0x3d, 0xc5, 0x4b, 0xe0, 0x39, 0x64, 0x3e, 0x83, 0x66, 0xbb,
-	0x3d, 0x93, 0xcf, 0x44, 0x48, 0x3d, 0x01, 0xb5, 0x7b, 0x31, 0x3d, 0xdc, 0xce, 0x2e, 0x1b, 0x39,
-	0x85, 0x2e, 0xf4, 0xd6, 0xe6, 0x04, 0xdf, 0xfb, 0xbd, 0xbe, 0x33, 0xc5, 0xe5, 0xe1, 0xf2, 0x5c,
-	0x90, 0xbc, 0x26, 0x76, 0xa1, 0xd4, 0xa7, 0xb3, 0x37, 0xea, 0x1a, 0x5a, 0x38, 0x59, 0xf5, 0x28,
-	0xb9, 0xe7, 0x3f, 0x1b, 0x68, 0xa1, 0x13, 0xab, 0xd0, 0x3f, 0xac, 0x73, 0xc8, 0x94, 0x4a, 0x74,
-	0x68, 0xa4, 0x12, 0xd8, 0x45, 0xc9, 0xb3, 0xbb, 0xb0, 0x57, 0x1c, 0x5d, 0x48, 0xb1, 0x5f, 0x48,
-	0x87, 0x08, 0xef, 0xa0, 0x59, 0x09, 0xfe, 0x5e, 0x59, 0x40, 0xf2, 0x93, 0x05, 0x3d, 0xc2, 0x23,
-	0x31, 0xf7, 0xa7, 0xed, 0xce, 0x24, 0x74, 0x2e, 0xec, 0xb9, 0x20, 0x0b, 0xf9, 0xc3, 0x6c, 0x57,
-	0x5e, 0x71, 0x98, 0xbc, 0xbb, 0x68, 0x2c, 0xe9, 0xea, 0xbf, 0x7e, 0x24, 0xcd, 0x82, 0x9f, 0xf4,
-	0x4c, 0x9c, 0xa9, 0xbb, 0x7a, 0xfd, 0xac, 0xd5, 0x3a, 0x79, 0xf4, 0xce, 0xa7, 0xef, 0xf2, 0x3f,
-	0xcc, 0x6e, 0x49, 0x4b, 0xff, 0xdb, 0x7a, 0x7f, 0x73, 0xda, 0xf5, 0xbe, 0x73, 0xd6, 0x52, 0x9d,
-	0xef, 0x9e, 0xff, 0x07, 0xeb, 0x6d, 0x75, 0xe5, 0xa0, 0x45, 0x32, 0x87, 0x2d, 0x92, 0xf9, 0xd4,
-	0x22, 0x99, 0xe3, 0x16, 0xc9, 0x3c, 0x8f, 0x89, 0xf1, 0x36, 0x26, 0x99, 0x83, 0x98, 0x18, 0x87,
-	0x31, 0x31, 0xbe, 0xc6, 0xc4, 0xf8, 0x1e, 0x93, 0xcc, 0x71, 0x4c, 0x8c, 0x97, 0xdf, 0x48, 0xe6,
-	0xe7, 0xc7, 0xa3, 0xfd, 0xac, 0xf9, 0xe2, 0xcb, 0xd1, 0x7e, 0x76, 0x5c, 0x97, 0xaa, 0x32, 0xa1,
-	0xff, 0x10, 0x94, 0x7e, 0x05, 0x00, 0x00, 0xff, 0xff, 0x1e, 0x34, 0x54, 0x12, 0xad, 0x08, 0x00,
-	0x00,
+	// 1243 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x58, 0x4d, 0x6c, 0x1b, 0xc5,
+	0x17, 0xf7, 0xda, 0x4e, 0xe2, 0x1d, 0x37, 0x6d, 0xff, 0xa3, 0xfc, 0xab, 0xad, 0x85, 0x96, 0xc8,
+	0x20, 0x14, 0x09, 0x58, 0x2b, 0x76, 0x55, 0x45, 0x69, 0x10, 0x72, 0x9a, 0x54, 0xb5, 0x44, 0x4a,
+	0x3a, 0x29, 0xad, 0x84, 0x2a, 0x99, 0x71, 0x76, 0x62, 0x86, 0xee, 0x17, 0x3b, 0xb3, 0x51, 0x7c,
+	0x43, 0x1c, 0x38, 0x23, 0xf5, 0x44, 0x7b, 0x42, 0xe2, 0xd0, 0x5b, 0x39, 0x20, 0x71, 0x41, 0x5c,
+	0xb8, 0x54, 0x9c, 0x22, 0x4e, 0x1c, 0x40, 0x22, 0xa6, 0x07, 0x4e, 0x55, 0x8f, 0x1c, 0xd1, 0xcc,
+	0xfa, 0x63, 0xd7, 0x76, 0x6a, 0x6f, 0xda, 0x12, 0x72, 0xb0, 0xb4, 0x33, 0xfb, 0x7e, 0xef, 0xfb,
+	0xfd, 0xf4, 0xbc, 0xa0, 0x62, 0xd3, 0x3d, 0xe2, 0x97, 0x38, 0xb1, 0x3d, 0x0b, 0x73, 0x52, 0x62,
+	0xd8, 0xf6, 0x2c, 0x52, 0xc2, 0x1e, 0x2e, 0x55, 0x3d, 0x5c, 0xff, 0x18, 0x3b, 0xa6, 0x45, 0xfc,
+	0x3a, 0x23, 0xfe, 0x2e, 0xdd, 0x26, 0x86, 0xe7, 0xbb, 0xdc, 0x85, 0xf3, 0x94, 0x71, 0xea, 0x1a,
+	0x12, 0x6a, 0x60, 0x13, 0x7b, 0x9c, 0xf8, 0x46, 0x88, 0x34, 0xec, 0x16, 0xf6, 0x70, 0x61, 0xae,
+	0xe9, 0x36, 0x5d, 0x29, 0x5c, 0x12, 0x4f, 0x21, 0xae, 0xf0, 0x56, 0x68, 0xac, 0x83, 0x28, 0xd9,
+	0xae, 0x49, 0xac, 0xd2, 0xee, 0x62, 0x83, 0x70, 0xbc, 0x58, 0x22, 0x7b, 0x9c, 0x38, 0x8c, 0xba,
+	0x0e, 0xeb, 0x48, 0x9f, 0x6f, 0xba, 0x6e, 0xd3, 0x22, 0x25, 0x79, 0x6a, 0x04, 0x3b, 0x25, 0xec,
+	0xb4, 0xba, 0xaf, 0x3c, 0xd7, 0xa2, 0xdb, 0xad, 0x1e, 0x96, 0xb7, 0xbc, 0x8e, 0x6f, 0xc5, 0xef,
+	0x15, 0x00, 0xaf, 0x4a, 0xaf, 0x37, 0x5a, 0x55, 0x0f, 0x23, 0xf2, 0x69, 0x40, 0x18, 0x87, 0x35,
+	0x90, 0xa3, 0x0e, 0xe3, 0xd8, 0xd9, 0x26, 0x9a, 0x32, 0xaf, 0x2c, 0xe4, 0xcb, 0x6f, 0x1b, 0xe3,
+	0xa2, 0x30, 0x6a, 0x1d, 0xc4, 0x06, 0x6b, 0xa2, 0x1e, 0x1c, 0x5e, 0x02, 0xa7, 0x3b, 0xd2, 0xf5,
+	0x6d, 0xd7, 0xd9, 0xa1, 0x4d, 0x2d, 0x2d, 0x15, 0xce, 0x19, 0xa1, 0xc3, 0x46, 0xd7, 0x61, 0xa3,
+	0xea, 0xb4, 0xd0, 0x6c, 0x47, 0xf6, 0xb2, 0x14, 0x85, 0xe7, 0x41, 0xce, 0x24, 0x66, 0xe0, 0xd5,
+	0xa9, 0xa9, 0x65, 0xe6, 0x95, 0x05, 0x15, 0xcd, 0xc8, 0x73, 0xcd, 0x2c, 0x7e, 0x97, 0x05, 0xea,
+	0xfb, 0x01, 0xf7, 0x02, 0xbe, 0xc1, 0x9a, 0xf0, 0x0d, 0x70, 0x9a, 0x3a, 0xfc, 0xe2, 0x85, 0x4d,
+	0x9f, 0xda, 0x94, 0xd3, 0xdd, 0xd0, 0xed, 0x0c, 0x1a, 0xb8, 0x85, 0xaf, 0x83, 0xd9, 0x86, 0xeb,
+	0x5a, 0x7d, 0x31, 0xe1, 0x4c, 0x0e, 0xc5, 0x2f, 0xe1, 0x02, 0x38, 0x63, 0xba, 0x41, 0xc3, 0x22,
+	0x7d, 0x39, 0x61, 0x5d, 0x41, 0x83, 0xd7, 0x42, 0x92, 0x71, 0x9f, 0x3a, 0xcd, 0xbe, 0x64, 0x56,
+	0xfa, 0x39, 0x78, 0x0d, 0xdf, 0x01, 0x2a, 0xa7, 0x36, 0xd9, 0xe2, 0xd8, 0xf6, 0xb4, 0x69, 0x99,
+	0x82, 0x57, 0x3b, 0x39, 0x0d, 0xcb, 0x63, 0x74, 0xca, 0x63, 0xdc, 0xe8, 0x8a, 0xa1, 0x3e, 0x02,
+	0x2e, 0x83, 0x9c, 0x19, 0xf8, 0x98, 0x53, 0xd7, 0xd1, 0x66, 0x24, 0x5a, 0x1f, 0x8d, 0x5e, 0xeb,
+	0x48, 0xa1, 0x9e, 0x3c, 0x5c, 0x02, 0x53, 0xc4, 0xc6, 0xd4, 0xd2, 0x80, 0x04, 0x16, 0x47, 0x03,
+	0xd7, 0x85, 0x48, 0xd5, 0x34, 0x7d, 0xc2, 0x18, 0x0a, 0x01, 0xf0, 0x22, 0x98, 0x76, 0x03, 0x5e,
+	0xa7, 0x9e, 0x96, 0x7f, 0x96, 0xc7, 0xb5, 0xcd, 0x1e, 0xce, 0x0d, 0x78, 0xcd, 0x83, 0x1f, 0x82,
+	0xbc, 0xc0, 0x31, 0xee, 0xd7, 0x6d, 0xec, 0x69, 0xa7, 0xe6, 0x33, 0x0b, 0xf9, 0xf2, 0xf2, 0xf8,
+	0x16, 0xea, 0x15, 0x54, 0x3c, 0x6d, 0x71, 0x7f, 0x03, 0x7b, 0xeb, 0x0e, 0xf7, 0x5b, 0x48, 0x75,
+	0xbb, 0xe7, 0xc2, 0x0a, 0x38, 0x1d, 0x7f, 0x09, 0xcf, 0x82, 0xcc, 0x1d, 0xd2, 0x92, 0x15, 0x57,
+	0x91, 0x78, 0x84, 0x73, 0x60, 0x6a, 0x17, 0x5b, 0x41, 0x58, 0x5e, 0x15, 0x85, 0x87, 0xe5, 0xf4,
+	0x92, 0x52, 0x7c, 0x32, 0x0d, 0xf2, 0x91, 0x46, 0x3d, 0x01, 0x8d, 0xf3, 0x95, 0x02, 0x74, 0x93,
+	0xda, 0x9d, 0x69, 0xbf, 0x42, 0xf7, 0x88, 0x59, 0x13, 0xbe, 0xdd, 0x14, 0x31, 0xad, 0xdd, 0x68,
+	0x79, 0x44, 0x9b, 0x92, 0xf9, 0xbd, 0x9e, 0x68, 0x44, 0x8d, 0xb5, 0x67, 0xea, 0x0c, 0xd3, 0x3e,
+	0xc6, 0xf0, 0x71, 0x36, 0xf5, 0x07, 0x20, 0xe7, 0x13, 0x56, 0x91, 0xfd, 0x95, 0x9b, 0xb4, 0xbf,
+	0xa2, 0xf1, 0x23, 0xc2, 0x2a, 0xbd, 0xfe, 0x9a, 0xf1, 0xc3, 0x13, 0x7c, 0x17, 0x00, 0xd7, 0x13,
+	0x06, 0xb0, 0x55, 0xdb, 0xd4, 0xd4, 0xc9, 0xba, 0x3e, 0x02, 0x79, 0x8e, 0x61, 0xfb, 0x3f, 0xc8,
+	0x3a, 0xd8, 0x26, 0xda, 0xc3, 0x9f, 0x7f, 0x28, 0xca, 0x56, 0x90, 0xc7, 0xc2, 0x75, 0xf0, 0xda,
+	0x04, 0xa5, 0x1a, 0x37, 0x04, 0x99, 0xc8, 0x10, 0x14, 0x3e, 0x01, 0xa7, 0xa2, 0xd1, 0x8f, 0xc0,
+	0xae, 0x45, 0xb1, 0xf9, 0xb2, 0x31, 0x3e, 0xb5, 0x88, 0x30, 0x37, 0xf0, 0xb7, 0x49, 0x45, 0xd0,
+	0x7f, 0x64, 0xe0, 0x7e, 0x54, 0xa4, 0x31, 0xf9, 0x6e, 0x51, 0x4c, 0xdc, 0x59, 0x90, 0x61, 0xdc,
+	0xef, 0x1a, 0x63, 0xdc, 0x87, 0x57, 0x81, 0x48, 0x3f, 0x22, 0x3b, 0xe5, 0xe4, 0xe6, 0xca, 0xc2,
+	0x5c, 0x17, 0x0e, 0x11, 0x98, 0x65, 0xc4, 0xda, 0xa9, 0xfb, 0x44, 0xfc, 0xd8, 0xa2, 0x9c, 0xbe,
+	0x44, 0xfa, 0x84, 0x8b, 0x28, 0x2f, 0x94, 0x20, 0xb2, 0x83, 0x08, 0x5b, 0x2c, 0x3e, 0x48, 0xf7,
+	0x03, 0x28, 0x8f, 0x0e, 0x60, 0x15, 0x64, 0x45, 0xff, 0x1c, 0x31, 0x59, 0x12, 0x0b, 0x6f, 0x46,
+	0xfa, 0x39, 0x23, 0xfb, 0xf9, 0x52, 0xb2, 0x2c, 0x8c, 0x6e, 0xe8, 0x7f, 0xb5, 0xd6, 0xf7, 0xb3,
+	0xfd, 0x54, 0x55, 0x4e, 0x06, 0xbb, 0xde, 0x9b, 0x94, 0x5d, 0x51, 0xb2, 0xb4, 0x9c, 0x70, 0x7a,
+	0x7d, 0x09, 0xac, 0x53, 0xfc, 0x49, 0x01, 0x59, 0x19, 0xd6, 0xb5, 0x21, 0xea, 0xae, 0x8c, 0x4f,
+	0xae, 0x40, 0x1e, 0xd2, 0xe2, 0x77, 0xc6, 0xb6, 0xf8, 0x7a, 0xbc, 0xc5, 0x4b, 0x09, 0x6a, 0x29,
+	0xec, 0x46, 0xa3, 0x78, 0xa8, 0x80, 0xd9, 0x1e, 0x59, 0xc8, 0x70, 0x6a, 0x83, 0xf4, 0x95, 0x40,
+	0x7d, 0x59, 0xaa, 0xef, 0xf1, 0xd7, 0xd6, 0x68, 0xfe, 0x4a, 0xa0, 0x50, 0xba, 0x14, 0x27, 0xb0,
+	0x7b, 0xe9, 0xbe, 0xc7, 0xd2, 0x1e, 0xbc, 0x1c, 0xe3, 0xab, 0xc4, 0xd9, 0x08, 0x09, 0xeb, 0xd6,
+	0x10, 0x61, 0xad, 0x24, 0x8c, 0xfb, 0xbf, 0x50, 0xce, 0x33, 0xfd, 0xdc, 0xc8, 0x77, 0xc5, 0xaf,
+	0x67, 0xc0, 0x6c, 0x77, 0x4d, 0xd8, 0xc4, 0x3e, 0xb6, 0x0f, 0x21, 0x31, 0x75, 0x32, 0x12, 0x53,
+	0x27, 0x24, 0x31, 0xf5, 0x79, 0x48, 0xec, 0xfe, 0xa4, 0x24, 0xb6, 0x35, 0xf9, 0x8a, 0x24, 0x63,
+	0x7f, 0x21, 0x2c, 0xf6, 0xca, 0x20, 0x8b, 0xa9, 0x51, 0x92, 0x2a, 0x0c, 0x90, 0x94, 0x1a, 0xd9,
+	0xf1, 0x6e, 0x0d, 0x11, 0xc5, 0x4a, 0xd2, 0x00, 0x46, 0x6f, 0x79, 0xfa, 0xd0, 0x96, 0xa7, 0xc6,
+	0x96, 0xb8, 0xb9, 0xe8, 0x12, 0xa7, 0x76, 0x17, 0xb4, 0x3d, 0x00, 0x31, 0xe7, 0x3e, 0x6d, 0x04,
+	0x9c, 0xd4, 0x1b, 0xd4, 0x31, 0xa9, 0xd3, 0x64, 0xda, 0xb7, 0x62, 0x5d, 0x13, 0xbe, 0x5d, 0x49,
+	0xea, 0x5b, 0xb5, 0xab, 0x6c, 0xb5, 0xa3, 0x2b, 0xf4, 0xf2, 0x7f, 0x78, 0xf0, 0xfe, 0x05, 0xb1,
+	0x71, 0xf4, 0x8f, 0x50, 0x81, 0x8f, 0x9d, 0xb2, 0x6b, 0xf1, 0x29, 0x5b, 0x4a, 0x30, 0x65, 0xb1,
+	0x38, 0xa3, 0x56, 0xd7, 0xc0, 0xb9, 0xd1, 0x51, 0x27, 0xfa, 0x13, 0xf7, 0x9b, 0x02, 0xce, 0xf5,
+	0x08, 0x2f, 0x3e, 0xac, 0xc3, 0xcb, 0x19, 0x1a, 0xa4, 0xe7, 0x04, 0x81, 0x94, 0xe3, 0x81, 0xf4,
+	0x78, 0xfa, 0xf6, 0x68, 0x9e, 0x4e, 0xa0, 0x39, 0xee, 0x76, 0x9c, 0xb0, 0xf7, 0xd3, 0xfd, 0xf0,
+	0xca, 0xe3, 0xc2, 0x7b, 0x2f, 0xc6, 0xe5, 0x47, 0x2f, 0x52, 0x48, 0xea, 0x1f, 0x0d, 0x91, 0xfa,
+	0xfa, 0x51, 0xb3, 0x75, 0x08, 0xbb, 0x1f, 0x4b, 0xdf, 0x15, 0x9f, 0x64, 0xfa, 0x29, 0xad, 0x9c,
+	0x34, 0x7a, 0xff, 0x66, 0x52, 0x7a, 0xbf, 0x7d, 0xd4, 0x54, 0x1d, 0x2f, 0xcf, 0xbf, 0x04, 0x7a,
+	0x2b, 0x7f, 0x11, 0xff, 0xb0, 0xb9, 0x15, 0x7e, 0x91, 0x85, 0x1e, 0xc8, 0x47, 0x6e, 0xe1, 0x85,
+	0xf1, 0x09, 0x1b, 0xfe, 0x3a, 0x5a, 0x78, 0x33, 0xc1, 0x87, 0xac, 0xd5, 0xea, 0xa3, 0x03, 0x3d,
+	0xb5, 0x7f, 0xa0, 0xa7, 0x7e, 0x3d, 0xd0, 0x53, 0x4f, 0x0f, 0xf4, 0xd4, 0x67, 0x6d, 0x5d, 0x79,
+	0xd0, 0xd6, 0x53, 0x8f, 0xda, 0xba, 0xb2, 0xdf, 0xd6, 0x95, 0x3f, 0xda, 0xba, 0xf2, 0x57, 0x5b,
+	0x4f, 0x3d, 0x6d, 0xeb, 0xca, 0x97, 0x7f, 0xea, 0xa9, 0xbf, 0x7f, 0x79, 0x7c, 0x37, 0x9d, 0xf9,
+	0xfc, 0xf7, 0xc7, 0x77, 0xd3, 0x53, 0x52, 0x59, 0x63, 0x5a, 0x7e, 0x22, 0xad, 0xfc, 0x13, 0x00,
+	0x00, 0xff, 0xff, 0xcc, 0xc3, 0x67, 0x7f, 0x7e, 0x16, 0x00, 0x00,
 }

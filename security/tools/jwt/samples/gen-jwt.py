@@ -17,7 +17,7 @@
 """Python script generates a JWT signed with custom private key.
 
 Example:
-./gen-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.pem
+./gen-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.pem -listclaim key1 val2 val3 -listclaim key2 val3 val4
 """
 import argparse
 import time
@@ -63,6 +63,13 @@ def main(args):
             k, v = item.split(':')
             payload[k] = v
 
+    if args.listclaim:
+        for item in args.listclaim:
+            if (len(item)>1):
+                k = item[0]
+                v = item[1:]
+                payload[k] = v
+
     token = jwt.JWT(header={"alg": "RS256", "typ": "JWT", "kid": key.key_id},
                 claims=payload)
 
@@ -93,4 +100,6 @@ if __name__ == '__main__':
                          help="Path to the output file for JWKS.")
     parser.add_argument("-expire", "--expire", type=int, default=3600,
                          help="JWT expiration time in second. Default is 1 hour.")
+    parser.add_argument("-listclaim", "--listclaim", action='append', nargs='+',
+                        help="A list claim in format key1 value2 value3... Only string values are supported. Multiple list claims can be specified, e.g., -listclaim key1 val2 val3 -listclaim key2 val3 val4.")
     print main(parser.parse_args())

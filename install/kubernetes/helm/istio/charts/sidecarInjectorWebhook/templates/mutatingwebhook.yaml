@@ -4,10 +4,10 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-sidecar-injector
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:

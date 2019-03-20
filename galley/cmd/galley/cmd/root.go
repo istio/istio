@@ -16,54 +16,32 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
 
-var (
-	flags = struct {
-		kubeConfig   string
-		resyncPeriod time.Duration
-	}{}
-
-	loggingOptions = log.DefaultOptions()
-)
-
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string) *cobra.Command {
+
 	rootCmd := &cobra.Command{
 		Use:          "galley",
 		Short:        "Galley provides configuration management services for Istio.",
 		Long:         "Galley provides configuration management services for Istio.",
 		SilenceUsage: true,
+		Args:         cobra.ExactArgs(0),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return fmt.Errorf("%q is an invalid argument", args[0])
-			}
-
-			return log.Configure(loggingOptions)
+			return nil
 		},
 	}
+
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-
-	rootCmd.PersistentFlags().StringVar(&flags.kubeConfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
-		"Resync period for rescanning Kubernetes resources")
-
-	rootCmd.AddCommand(serverCmd(printf, fatalf))
-	rootCmd.AddCommand(validatorCmd(printf, fatalf))
-	rootCmd.AddCommand(probeCmd(printf, fatalf))
+	rootCmd.AddCommand(serverCmd())
+	rootCmd.AddCommand(probeCmd())
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Galley Server",

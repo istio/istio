@@ -58,11 +58,11 @@ import (
 // attempt timers. The call to schedule a configuration update will block until
 // the control loop is ready to accept and process the configuration update.
 type Agent interface {
-	// ScheduleConfigUpdate sets the desired configuration for the proxy.  Agent
-	// compares the current active configuration to the desired state and
+	// ConfigCh returns the config channel used to send configuration updates.
+	// Agent compares the current active configuration to the desired state and
 	// initiates a restart if necessary. If the restart fails, the agent attempts
 	// to retry with an exponential back-off.
-	ScheduleConfigUpdate(config interface{})
+	ConfigCh() chan<- interface{}
 
 	// Run starts the agent control loop and awaits for a signal on the input
 	// channel to exit the loop.
@@ -80,20 +80,21 @@ var (
 )
 
 const (
-	// MaxAborts is the maximum number of cascading abort messages to buffer.
+	// maxAborts is the maximum number of cascading abort messages to buffer.
 	// This should be the upper bound on the number of proxies available at any point in time.
-	MaxAborts = 10
+	maxAborts = 10
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, retry Retry) Agent {
+func NewAgent(proxy Proxy, retry Retry, terminationDrainDuration time.Duration) Agent {
 	return &agent{
-		proxy:    proxy,
-		retry:    retry,
-		epochs:   make(map[int]interface{}),
-		configCh: make(chan interface{}),
-		statusCh: make(chan exitStatus),
-		abortCh:  make(map[int]chan error),
+		proxy:                    proxy,
+		retry:                    retry,
+		epochs:                   make(map[int]interface{}),
+		configCh:                 make(chan interface{}),
+		statusCh:                 make(chan exitStatus),
+		abortCh:                  make(map[int]chan error),
+		terminationDrainDuration: terminationDrainDuration,
 	}
 }
 
@@ -126,6 +127,9 @@ type Proxy interface {
 	Panic(interface{})
 }
 
+// DrainConfig is used to signal to the Proxy that it should start draining connections
+type DrainConfig struct{}
+
 type agent struct {
 	// proxy commands
 	proxy Proxy
@@ -150,6 +154,9 @@ type agent struct {
 
 	// channel for aborting running instances
 	abortCh map[int]chan error
+
+	// time to allow for the proxy to drain before terminating all remaining proxy processes
+	terminationDrainDuration time.Duration
 }
 
 type exitStatus struct {
@@ -157,8 +164,8 @@ type exitStatus struct {
 	err   error
 }
 
-func (a *agent) ScheduleConfigUpdate(config interface{}) {
-	a.configCh <- config
+func (a *agent) ConfigCh() chan<- interface{} {
+	return a.configCh
 }
 
 func (a *agent) Run(ctx context.Context) {
@@ -168,6 +175,7 @@ func (a *agent) Run(ctx context.Context) {
 	// High QPS is needed to process messages on all channels.
 	rateLimiter := rate.NewLimiter(1, 10)
 
+	var reconcileTimer *time.Timer
 	for {
 		err := rateLimiter.Wait(ctx)
 		if err != nil {
@@ -180,6 +188,10 @@ func (a *agent) Run(ctx context.Context) {
 		if a.retry.restart != nil {
 			delay = time.Until(*a.retry.restart)
 		}
+		if reconcileTimer != nil {
+			reconcileTimer.Stop()
+		}
+		reconcileTimer = time.NewTimer(delay)
 
 		select {
 		case config := <-a.configCh:
@@ -238,20 +250,24 @@ func (a *agent) Run(ctx context.Context) {
 				}
 			}
 
-		case <-time.After(delay):
+		case <-reconcileTimer.C:
 			a.reconcile()
 
-		case _, more := <-ctx.Done():
-			if !more {
-				a.terminate()
-				return
-			}
+		case <-ctx.Done():
+			a.terminate()
+			log.Info("Agent has successfully terminated")
+			return
 		}
 	}
 }
 
 func (a *agent) terminate() {
-	log.Infof("Agent terminating")
+	log.Infof("Agent draining Proxy")
+	a.desiredConfig = DrainConfig{}
+	a.reconcile()
+	log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
+	time.Sleep(a.terminationDrainDuration)
+	log.Infof("Graceful termination period complete, terminating remaining proxies.")
 	a.abortAll()
 }
 
@@ -259,7 +275,7 @@ func (a *agent) reconcile() {
 	// cancel any scheduled restart
 	a.retry.restart = nil
 
-	log.Infof("Reconciling configuration (budget %d)", a.retry.budget)
+	log.Infof("Reconciling retry (budget %d)", a.retry.budget)
 
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
@@ -270,15 +286,15 @@ func (a *agent) reconcile() {
 	// discover and increment the latest running epoch
 	epoch := a.latestEpoch() + 1
 	// buffer aborts to prevent blocking on failing proxy
-	abortCh := make(chan error, MaxAborts)
+	abortCh := make(chan error, maxAborts)
 	a.epochs[epoch] = a.desiredConfig
 	a.abortCh[epoch] = abortCh
 	a.currentConfig = a.desiredConfig
-	go a.waitForExit(a.desiredConfig, epoch, abortCh)
+	go a.runWait(a.desiredConfig, epoch, abortCh)
 }
 
-// waitForExit runs the start-up command as a go routine and waits for it to finish
-func (a *agent) waitForExit(config interface{}, epoch int, abortCh <-chan error) {
+// runWait runs the start-up command as a go routine and waits for it to finish
+func (a *agent) runWait(config interface{}, epoch int, abortCh <-chan error) {
 	log.Infof("Epoch %d starting", epoch)
 	err := a.proxy.Run(config, epoch, abortCh)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}

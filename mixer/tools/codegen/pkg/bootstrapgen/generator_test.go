@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/report1/template.proto -otestdata/report1/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/report2/template.proto -otestdata/report2/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/report1/template.proto -otestdata/report1/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/report2/template.proto -otestdata/report2/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
 package bootstrapgen
 
 import (

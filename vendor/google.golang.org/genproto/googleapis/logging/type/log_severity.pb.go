@@ -3,15 +3,23 @@
 
 package ltype
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The severity of the event described in a log entry, expressed as one of the
 // standard severity levels listed below.  For your reference, the levels are
@@ -63,6 +71,7 @@ var LogSeverity_name = map[int32]string{
 	700: "ALERT",
 	800: "EMERGENCY",
 }
+
 var LogSeverity_value = map[string]int32{
 	"DEFAULT":   0,
 	"DEBUG":     100,
@@ -78,15 +87,20 @@ var LogSeverity_value = map[string]int32{
 func (x LogSeverity) String() string {
 	return proto.EnumName(LogSeverity_name, int32(x))
 }
-func (LogSeverity) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+
+func (LogSeverity) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_80f950dcc0b66556, []int{0}
+}
 
 func init() {
 	proto.RegisterEnum("google.logging.type.LogSeverity", LogSeverity_name, LogSeverity_value)
 }
 
-func init() { proto.RegisterFile("google/logging/type/log_severity.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("google/logging/type/log_severity.proto", fileDescriptor_80f950dcc0b66556)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_80f950dcc0b66556 = []byte{
 	// 309 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4b, 0xcf, 0xcf, 0x4f,
 	0xcf, 0x49, 0xd5, 0xcf, 0xc9, 0x4f, 0x4f, 0xcf, 0xcc, 0x4b, 0xd7, 0x2f, 0xa9, 0x2c, 0x00, 0x73,

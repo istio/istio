@@ -1,12 +1,12 @@
 # Debug interface
 
-The debug handlers are configured on the monitoring port (default 9093) as well
+The debug handlers are configured on the monitoring port (default 15014) as well
 as on the http port (8080).
 
 
 ```bash
 
-PILOT=istio-pilot.istio-system:9093
+PILOT=istio-pilot.istio-system:15014
 
 # What is sent to envoy
 # Listeners and routes
@@ -120,7 +120,7 @@ What we log and how to use it:
 - sidecar connecting to pilot: "EDS/CSD/LDS: REQ ...". This includes the node, IP and the discovery
 request proto. Should show up when the sidecar starts up.
 - sidecar disconnecting from pilot: xDS: close. This happens when a pod is stopped.
-- push events - whenever we push a config the the sidecar.
+- push events - whenever we push a config to the sidecar.
 - "XDS: Registry event..." - indicates a registry event, should be followed by PUSH messages for
 each endpoint.
 - "EDS: no instances": pay close attention to this event, it indicates that Envoy asked for

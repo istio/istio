@@ -14,7 +14,7 @@
 
 package policy
 
-//go:generate protoc --gogo_out=plugins=grpc:. controller.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --gogo_out=plugins=grpc:. controller.proto
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/pkg/log"
 )
@@ -53,6 +54,7 @@ type Backend struct {
 }
 
 var _ metric.HandleMetricServiceServer = &Backend{}
+var _ checknothing.HandleCheckNothingServiceServer = &Backend{}
 
 var _ v1beta1.InfrastructureBackendServer = &Backend{}
 
@@ -66,22 +68,30 @@ func NewPolicyBackend(port int) *Backend {
 	}
 }
 
+// Port returns the port number of the backend.
+func (b *Backend) Port() int {
+	return b.port
+}
+
 // Start the gRPC service for the policy backend.
 func (b *Backend) Start() error {
-	scope.Infof("Starting Policy Backend at port: %d", b.port)
+	scope.Info("Starting Policy Backend")
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", b.port))
 	if err != nil {
 		return err
 	}
 
+	b.port = listener.Addr().(*net.TCPAddr).Port
+
 	grpcServer := grpc.NewServer()
 	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)
 	metric.RegisterHandleMetricServiceServer(grpcServer, b)
+	checknothing.RegisterHandleCheckNothingServiceServer(grpcServer, b)
 	RegisterControllerServiceServer(grpcServer, b)
 
 	go func() {
-		scope.Info("Starting the GRPC service")
+		scope.Infof("Starting the GRPC service at port: %d", b.port)
 		_ = grpcServer.Serve(listener)
 	}()
 
@@ -121,7 +131,7 @@ func (b *Backend) Reset(ctx context.Context, req *ResetRequest) (*ResetResponse,
 
 // GetReports method of the control service.
 func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetReportsResponse, error) {
-	scope.Infof("Backend.GetReports %v", req)
+	scope.Debugf("Backend.GetReports %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -134,8 +144,6 @@ func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetR
 		resp.Instances = append(resp.Instances, a)
 	}
 
-	b.reports = b.reports[0:0]
-
 	return resp, nil
 }
 
@@ -143,7 +151,8 @@ func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetR
 func (b *Backend) Close() error {
 	scope.Info("Backend.Close")
 	b.server.Stop()
-	return b.listener.Close()
+	_ = b.listener.Close()
+	return nil
 }
 
 // Validate is an implementation InfrastructureBackendServer.Validate.
@@ -194,4 +203,30 @@ func (b *Backend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequ
 	}
 
 	return &istio_mixer_adapter_model_v1beta11.ReportResult{}, nil
+}
+
+// HandleCheckNothing is an implementation of HandleCheckNothingServiceServer.HandleCheckNothing.
+func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.HandleCheckNothingRequest) (
+	*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	scope.Infof("Backend.HandleCheckNothing %v", req)
+
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.settings.getDenyCheck() {
+		return &istio_mixer_adapter_model_v1beta11.CheckResult{
+			Status: google_rpc.Status{
+				Code:    int32(google_rpc.UNAUTHENTICATED),
+				Message: "bypass-backend-unauthenticated",
+			},
+		}, nil
+	}
+
+	return &istio_mixer_adapter_model_v1beta11.CheckResult{
+		Status: google_rpc.Status{
+			Code: int32(google_rpc.OK),
+		},
+		ValidDuration: 0,
+		ValidUseCount: 1,
+	}, nil
 }

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 )
 
 type fakeCompiledExpr struct {
@@ -288,13 +289,13 @@ func TestBuilderErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := yaml.NewResolver(fds)
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 
 	for _, td := range []struct {
 		desc        string
 		input       map[string]interface{}
 		msg         string
-		compiler    Compiler
+		compiler    lang.Compiler
 		skipUnknown bool
 		err         error
 		res         yaml.Resolver

@@ -18,13 +18,13 @@ import (
 	"bytes"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
-// MessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes correctly
+// MessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes/endpoints correctly
 type MessageSlice []proto.Message
 
-// MarshalJSON handles marshalling of slices of proto messages
+// MarshalJSON handles marshaling of slices of proto messages
 func (pSlice MessageSlice) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString("[")
 	sliceLength := len(pSlice)

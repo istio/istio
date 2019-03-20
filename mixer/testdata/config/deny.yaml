@@ -1,12 +1,15 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: denier
+kind: handler
 metadata:
   name: denyall
   namespace: istio-system
 spec:
-  status:
-    code: 7
-    message: Not allowed
+  compiledAdapter: denier
+  adapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
@@ -25,6 +28,6 @@ spec:
   match: request.headers["clnt"] == "abc"
   actions:
   # handler and instance names default to the rule's namespace.
-  - handler: denyall.denier
+  - handler: denyall
     instances:
     - denyrequest.checknothing

@@ -1,0 +1,109 @@
+---
+layout: "docs"
+page_title: "Commands: License"
+sidebar_current: "docs-commands-license"
+description: >
+  The license command provides datacenter-level management of the Consul Enterprise license.
+---
+
+# Consul License
+
+Command: `consul license`
+
+<%= enterprise_alert :consul %>
+
+The `license` command provides datacenter-level management of the Consul Enterprise license. This was added in Consul 1.1.0.
+
+If ACLs are enabled then a token with operator privileges may be required in
+order to use this command. Requests are forwarded internally to the leader
+if required, so this can be run from any Consul node in a cluster. See the
+[ACL Guide](/docs/guides/acl.html#operator) for more information.
+
+
+```text
+Usage: consul license <subcommand> [options] [args]
+
+  This command has subcommands for managing the Consul Enterprise license
+  Here are some simple examples, and more detailed examples are
+  available in the subcommands or the documentation.
+
+  Install a new license from a file:
+
+      $ consul license put @consul.license
+
+  Install a new license from stdin:
+
+      $ consul license put -
+
+  Install a new license from a string:
+
+      $ consul license put "<license blob>"
+
+  Retrieve the current license:
+
+      $ consul license get
+
+  For more examples, ask for subcommand help or view the documentation.
+
+Subcommands:
+    get    Get the current license
+    put    Puts a new license in the datacenter
+```
+
+## put
+
+This command sets the Consul Enterprise license.
+
+Usage: `consul license put [options] LICENSE`
+
+#### API Options
+
+<%= partial "docs/commands/http_api_options_client" %>
+<%= partial "docs/commands/http_api_options_server" %>
+
+The output looks like this:
+
+```
+License is valid
+License ID: 2afbf681-0d1a-0649-cb6c-333ec9f0989c
+Customer ID: 0259271d-8ffc-e85e-0830-c0822c1f5f2b
+Expires At: 2019-05-22 03:59:59.999 +0000 UTC
+Datacenter: *
+Package: premium
+Licensed Features:
+        Automated Backups
+        Automated Upgrades
+        Enhanced Read Scalability
+        Network Segments
+        Redundancy Zone
+        Advanced Network Federation
+```
+
+## get
+
+This command gets the Consul Enterprise license.
+
+Usage: `consul license get [options]`
+
+#### API Options
+
+<%= partial "docs/commands/http_api_options_client" %>
+<%= partial "docs/commands/http_api_options_server" %>
+
+The output looks like this:
+
+```
+License is valid
+License ID: 2afbf681-0d1a-0649-cb6c-333ec9f0989c
+Customer ID: 0259271d-8ffc-e85e-0830-c0822c1f5f2b
+Expires At: 2019-05-22 03:59:59.999 +0000 UTC
+Datacenter: *
+Package: premium
+Licensed Features:
+        Automated Backups
+        Automated Upgrades
+        Enhanced Read Scalability
+        Network Segments
+        Redundancy Zone
+        Advanced Network Federation
+```

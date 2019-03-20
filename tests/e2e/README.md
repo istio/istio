@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-E2E tests are meant for ensure functional correcttness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
+E2E tests are meant for ensure functional correctness in an E2E environment to make sure Istio works with one or more deployments. For now, these tests run with GKE in Prow and Minikube in CircleCI in both pre-submit and post-submit stages. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio.
 
 Developers, on the other hand, are recommended to run the tests locally before sending out any PR.
 
@@ -51,10 +51,10 @@ kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 
 
 # Adding New E2E Tests
-[demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, versiong routing, failt delay, and version migration.
+[demo_test.go](tests/bookinfo/demo_test.go) is a sample test that covers four cases: default routing, version routing, fault delay, and version migration.
 Each case applies traffic rules and then clean up after the test. It can serve as a reference for building new test cases.
 
-See below for guidelines for creating a new E2E testsr.
+See below for guidelines for creating a new E2E test.
 1. Create a new commonConfig for framework and add app used for this test in setTestConfig().
    Each test file has a `testConfig` handling framework and test configuration.
    `testConfig` is a cleanable structure which has  `Setup` and `Teardown`. `Setup` will run before all tests and `Teardown`
@@ -85,25 +85,29 @@ structures and calls teardown() while framework cleanup. The cleanable register 
 
 E2E tests have multiple options available while running them as follows:
 
-* `--skip_cleanup` - to skip cleanup steps
-* `--namespace <namespace>` : If you don't specify `namespace`, a random namespace is generated for each test.
-* `--verbose <debug level noise from proxies>`
-* `--istioctl <local istioctl path>`: Use local istioctl binary (i.e. `${GOPATH}/out/linux_amd64/release/istioctl`).
-* `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location.
-* `--use_local_cluster`: If running on minikube, this should be set to true.
-* `--auth_enable` - if you want to include auth
-* `--cluster_wide` - if you want to run the cluster wide installation and tests
-* `--use_automatic_injection` - if you want to do transparent sidecar injection
-* `--use_galley_config_validator` - if you want to enable automatic configuration validation
-* `--mixer_hub <mixer image hub>`
-* `--mixer_tag <mixer image tag>`
-* `--pilot_hub <pilot image hub>`
-* `--pilot_tag <pilot image tag>`
-* `--proxy_hub <proxy image hub>`
-* `--proxy_tag <proxy image tag>`
-* `--ca_hub <CA image hub>`
-* `--ca_tag <CA image tag>`
-* `--galley_hub <galley image hub>`
-* `--galley_tag <galley image tag>`
-
-
+* `--skip_setup` - Skip namespace creation and istio cluster setup (default: false)
+* `--skip_cleanup` - Skip the cleanup steps (default: false)
+* `--namespace <namespace>` - If you don't specify `namespace`, a random namespace is generated for each test.
+* `--use_local_cluster` - If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true. (default: false)
+* `--auth_enable` - If you want to include auth (default: false)
+* `--rbac_enabled` - Enable RBAC (default: true)
+* `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing namespace (default: false)
+* `--use_automatic_injection` - if you want to do transparent sidecar injection  (default: false)
+* `--use_galley_config_validator` - if you want to enable automatic configuration validation (default: false)
+* `--mixer_hub <hub>` - Image hub for the Mixer (default: environment $HUB)
+* `--mixer_tag <tag>` - Image tag for the Mixer (default: environment $TAG)
+* `--pilot_hub <hub>` - Image hub for the Pilot (default: environment $HUB)
+* `--pilot_tag <tag>` - Image tag for the Pilot (default: environment $TAG)
+* `--proxy_hub <hub>` - Image hub for the Proxy (default: environment $HUB)
+* `--proxy_tag <tag>` - Image tag for the Proxy (default: environment $TAG)
+* `--ca_hub <hub>` - Image hub for the Citadel (default: environment $HUB)
+* `--ca_tag <tag>` - Image tag for the Citadel (default: environment $TAG)
+* `--galley_hub <hub>` - Image hub for the Sidecar Injector (default: environment $HUB)
+* `--galley_tag <tag>` - Image tag for the Sidecar Injector (default: environment $TAG)
+* `--sidecar_injector_hub <hub>` - Image hub for the Sidecar Injector (default: environment $HUB)
+* `--sidecar_injector_tag <tag>` - Image tag for the Sidecar Injector (default: environment $TAG)
+* `--sidecar_injector_file <file>` - Sidecar injector YAML file name (default: istio-sidecar-injector.yaml)
+* `--image_pull_policy <policy>` - Specifies an override for the Docker image pull policy to be used
+* `--cluster_registry_dir <dir>` - Directory name for the cluster registry config. When provided this will trigger a multicluster test to be run across two clusters. 
+* `--installer <cmd>` - Use `helm` or `kubectl` to install Istio (default: kubectl)
+* `--kube_inject_configmap <configmap>` - Istioctl will use the specified configmap when running kube-inject (default: ""). This will normally be used with the CNI option to override the embedded initContainers insertion.

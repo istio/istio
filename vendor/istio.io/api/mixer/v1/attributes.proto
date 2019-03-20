@@ -25,6 +25,8 @@ import "google/protobuf/timestamp.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
+option cc_enable_arenas = true;
 
 // Attributes represents a set of typed name/value pairs. Many of Mixer's
 // API either consume and/or return attributes.
@@ -35,7 +37,7 @@ option (gogoproto.gostring_all) = false;
 // of information such as the error code of an API request, the latency of an API request, or the
 // original IP address of a TCP connection. For example:
 //
-// ```
+// ```yaml
 // request.path: xyz/abc
 // request.size: 234
 // request.time: 12:34:56.789 04/17/2017
@@ -49,7 +51,7 @@ option (gogoproto.gostring_all) = false;
 // specialized Mixer adapters and services can also generate attributes.
 //
 // The common baseline set of attributes available in most Istio deployments is defined
-// [here](https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html).
+// [here](https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/).
 //
 // Attributes are strongly typed. The supported attribute types are defined by
 // [ValueType](https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto).

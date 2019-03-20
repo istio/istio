@@ -16,8 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -28,7 +26,7 @@ import (
 
 var (
 	statusCmd = &cobra.Command{
-		Use:   "proxy-status [<proxy-name>]",
+		Use:   "proxy-status [<pod-name[.namespace]>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh
@@ -47,21 +45,18 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				return err
 			}
 			if len(args) > 0 {
-				parsedProxy := strings.Split(args[0], ".")
-				if len(parsedProxy) != 2 {
-					return fmt.Errorf("unable to parse %v into a pod name and namespace", args[0])
-				}
+				podName, ns := inferPodInfo(args[0], handleNamespace())
 				path := fmt.Sprintf("config_dump")
-				envoyDump, err := kubeClient.EnvoyDo(parsedProxy[0], parsedProxy[1], "GET", path, nil)
+				envoyDump, err := kubeClient.EnvoyDo(podName, ns, "GET", path, nil)
 				if err != nil {
 					return err
 				}
-				path = fmt.Sprintf("/debug/config_dump?proxyID=%v", args[0])
+				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
 				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewComparator(os.Stdout, pilotDumps, envoyDump)
+				c, err := compare.NewComparator(c.OutOrStdout(), pilotDumps, envoyDump)
 				if err != nil {
 					return err
 				}
@@ -82,5 +77,5 @@ func init() {
 }
 
 func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-	return kubernetes.NewExecClient(kubeconfig, configContext)
+	return kubernetes.NewClient(kubeconfig, configContext)
 }

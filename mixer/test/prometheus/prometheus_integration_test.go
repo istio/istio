@@ -103,11 +103,11 @@ func TestReport(t *testing.T) {
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 555},
+					Attrs:    map[string]interface{}{"request.size": int64(555)},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 445},
+					Attrs:    map[string]interface{}{"request.size": int64(445)},
 				},
 			},
 

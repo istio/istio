@@ -25,7 +25,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The message sent by the client when calling ServerReflectionInfo method.
 type ServerReflectionRequest struct {
-	Host string `protobuf:"bytes,1,opt,name=host" json:"host,omitempty"`
+	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	// To use reflection service, the client should set one of the following
 	// fields in message_request. The server distinguishes requests by their
 	// defined field and then handles them using corresponding methods.
@@ -66,44 +66,52 @@ func (m *ServerReflectionRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ServerReflectionRequest proto.InternalMessageInfo
 
+func (m *ServerReflectionRequest) GetHost() string {
+	if m != nil {
+		return m.Host
+	}
+	return ""
+}
+
 type isServerReflectionRequest_MessageRequest interface {
 	isServerReflectionRequest_MessageRequest()
 }
 
 type ServerReflectionRequest_FileByFilename struct {
-	FileByFilename string `protobuf:"bytes,3,opt,name=file_by_filename,json=fileByFilename,oneof"`
-}
-type ServerReflectionRequest_FileContainingSymbol struct {
-	FileContainingSymbol string `protobuf:"bytes,4,opt,name=file_containing_symbol,json=fileContainingSymbol,oneof"`
-}
-type ServerReflectionRequest_FileContainingExtension struct {
-	FileContainingExtension *ExtensionRequest `protobuf:"bytes,5,opt,name=file_containing_extension,json=fileContainingExtension,oneof"`
-}
-type ServerReflectionRequest_AllExtensionNumbersOfType struct {
-	AllExtensionNumbersOfType string `protobuf:"bytes,6,opt,name=all_extension_numbers_of_type,json=allExtensionNumbersOfType,oneof"`
-}
-type ServerReflectionRequest_ListServices struct {
-	ListServices string `protobuf:"bytes,7,opt,name=list_services,json=listServices,oneof"`
+	FileByFilename string `protobuf:"bytes,3,opt,name=file_by_filename,json=fileByFilename,proto3,oneof"`
 }
 
-func (*ServerReflectionRequest_FileByFilename) isServerReflectionRequest_MessageRequest()            {}
-func (*ServerReflectionRequest_FileContainingSymbol) isServerReflectionRequest_MessageRequest()      {}
-func (*ServerReflectionRequest_FileContainingExtension) isServerReflectionRequest_MessageRequest()   {}
+type ServerReflectionRequest_FileContainingSymbol struct {
+	FileContainingSymbol string `protobuf:"bytes,4,opt,name=file_containing_symbol,json=fileContainingSymbol,proto3,oneof"`
+}
+
+type ServerReflectionRequest_FileContainingExtension struct {
+	FileContainingExtension *ExtensionRequest `protobuf:"bytes,5,opt,name=file_containing_extension,json=fileContainingExtension,proto3,oneof"`
+}
+
+type ServerReflectionRequest_AllExtensionNumbersOfType struct {
+	AllExtensionNumbersOfType string `protobuf:"bytes,6,opt,name=all_extension_numbers_of_type,json=allExtensionNumbersOfType,proto3,oneof"`
+}
+
+type ServerReflectionRequest_ListServices struct {
+	ListServices string `protobuf:"bytes,7,opt,name=list_services,json=listServices,proto3,oneof"`
+}
+
+func (*ServerReflectionRequest_FileByFilename) isServerReflectionRequest_MessageRequest() {}
+
+func (*ServerReflectionRequest_FileContainingSymbol) isServerReflectionRequest_MessageRequest() {}
+
+func (*ServerReflectionRequest_FileContainingExtension) isServerReflectionRequest_MessageRequest() {}
+
 func (*ServerReflectionRequest_AllExtensionNumbersOfType) isServerReflectionRequest_MessageRequest() {}
-func (*ServerReflectionRequest_ListServices) isServerReflectionRequest_MessageRequest()              {}
+
+func (*ServerReflectionRequest_ListServices) isServerReflectionRequest_MessageRequest() {}
 
 func (m *ServerReflectionRequest) GetMessageRequest() isServerReflectionRequest_MessageRequest {
 	if m != nil {
 		return m.MessageRequest
 	}
 	return nil
-}
-
-func (m *ServerReflectionRequest) GetHost() string {
-	if m != nil {
-		return m.Host
-	}
-	return ""
 }
 
 func (m *ServerReflectionRequest) GetFileByFilename() string {
@@ -260,8 +268,8 @@ func _ServerReflectionRequest_OneofSizer(msg proto.Message) (n int) {
 // file_containing_extension.
 type ExtensionRequest struct {
 	// Fully-qualified type name. The format should be <package>.<type>
-	ContainingType       string   `protobuf:"bytes,1,opt,name=containing_type,json=containingType" json:"containing_type,omitempty"`
-	ExtensionNumber      int32    `protobuf:"varint,2,opt,name=extension_number,json=extensionNumber" json:"extension_number,omitempty"`
+	ContainingType       string   `protobuf:"bytes,1,opt,name=containing_type,json=containingType,proto3" json:"containing_type,omitempty"`
+	ExtensionNumber      int32    `protobuf:"varint,2,opt,name=extension_number,json=extensionNumber,proto3" json:"extension_number,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -307,8 +315,8 @@ func (m *ExtensionRequest) GetExtensionNumber() int32 {
 
 // The message sent by the server to answer ServerReflectionInfo method.
 type ServerReflectionResponse struct {
-	ValidHost       string                   `protobuf:"bytes,1,opt,name=valid_host,json=validHost" json:"valid_host,omitempty"`
-	OriginalRequest *ServerReflectionRequest `protobuf:"bytes,2,opt,name=original_request,json=originalRequest" json:"original_request,omitempty"`
+	ValidHost       string                   `protobuf:"bytes,1,opt,name=valid_host,json=validHost,proto3" json:"valid_host,omitempty"`
+	OriginalRequest *ServerReflectionRequest `protobuf:"bytes,2,opt,name=original_request,json=originalRequest,proto3" json:"original_request,omitempty"`
 	// The server sets one of the following fields according to the
 	// message_request in the request.
 	//
@@ -347,36 +355,6 @@ func (m *ServerReflectionResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ServerReflectionResponse proto.InternalMessageInfo
 
-type isServerReflectionResponse_MessageResponse interface {
-	isServerReflectionResponse_MessageResponse()
-}
-
-type ServerReflectionResponse_FileDescriptorResponse struct {
-	FileDescriptorResponse *FileDescriptorResponse `protobuf:"bytes,4,opt,name=file_descriptor_response,json=fileDescriptorResponse,oneof"`
-}
-type ServerReflectionResponse_AllExtensionNumbersResponse struct {
-	AllExtensionNumbersResponse *ExtensionNumberResponse `protobuf:"bytes,5,opt,name=all_extension_numbers_response,json=allExtensionNumbersResponse,oneof"`
-}
-type ServerReflectionResponse_ListServicesResponse struct {
-	ListServicesResponse *ListServiceResponse `protobuf:"bytes,6,opt,name=list_services_response,json=listServicesResponse,oneof"`
-}
-type ServerReflectionResponse_ErrorResponse struct {
-	ErrorResponse *ErrorResponse `protobuf:"bytes,7,opt,name=error_response,json=errorResponse,oneof"`
-}
-
-func (*ServerReflectionResponse_FileDescriptorResponse) isServerReflectionResponse_MessageResponse() {}
-func (*ServerReflectionResponse_AllExtensionNumbersResponse) isServerReflectionResponse_MessageResponse() {
-}
-func (*ServerReflectionResponse_ListServicesResponse) isServerReflectionResponse_MessageResponse() {}
-func (*ServerReflectionResponse_ErrorResponse) isServerReflectionResponse_MessageResponse()        {}
-
-func (m *ServerReflectionResponse) GetMessageResponse() isServerReflectionResponse_MessageResponse {
-	if m != nil {
-		return m.MessageResponse
-	}
-	return nil
-}
-
 func (m *ServerReflectionResponse) GetValidHost() string {
 	if m != nil {
 		return m.ValidHost
@@ -387,6 +365,42 @@ func (m *ServerReflectionResponse) GetValidHost() string {
 func (m *ServerReflectionResponse) GetOriginalRequest() *ServerReflectionRequest {
 	if m != nil {
 		return m.OriginalRequest
+	}
+	return nil
+}
+
+type isServerReflectionResponse_MessageResponse interface {
+	isServerReflectionResponse_MessageResponse()
+}
+
+type ServerReflectionResponse_FileDescriptorResponse struct {
+	FileDescriptorResponse *FileDescriptorResponse `protobuf:"bytes,4,opt,name=file_descriptor_response,json=fileDescriptorResponse,proto3,oneof"`
+}
+
+type ServerReflectionResponse_AllExtensionNumbersResponse struct {
+	AllExtensionNumbersResponse *ExtensionNumberResponse `protobuf:"bytes,5,opt,name=all_extension_numbers_response,json=allExtensionNumbersResponse,proto3,oneof"`
+}
+
+type ServerReflectionResponse_ListServicesResponse struct {
+	ListServicesResponse *ListServiceResponse `protobuf:"bytes,6,opt,name=list_services_response,json=listServicesResponse,proto3,oneof"`
+}
+
+type ServerReflectionResponse_ErrorResponse struct {
+	ErrorResponse *ErrorResponse `protobuf:"bytes,7,opt,name=error_response,json=errorResponse,proto3,oneof"`
+}
+
+func (*ServerReflectionResponse_FileDescriptorResponse) isServerReflectionResponse_MessageResponse() {}
+
+func (*ServerReflectionResponse_AllExtensionNumbersResponse) isServerReflectionResponse_MessageResponse() {
+}
+
+func (*ServerReflectionResponse_ListServicesResponse) isServerReflectionResponse_MessageResponse() {}
+
+func (*ServerReflectionResponse_ErrorResponse) isServerReflectionResponse_MessageResponse() {}
+
+func (m *ServerReflectionResponse) GetMessageResponse() isServerReflectionResponse_MessageResponse {
+	if m != nil {
+		return m.MessageResponse
 	}
 	return nil
 }
@@ -580,8 +594,8 @@ func (m *FileDescriptorResponse) GetFileDescriptorProto() [][]byte {
 type ExtensionNumberResponse struct {
 	// Full name of the base type, including the package name. The format
 	// is <package>.<type>
-	BaseTypeName         string   `protobuf:"bytes,1,opt,name=base_type_name,json=baseTypeName" json:"base_type_name,omitempty"`
-	ExtensionNumber      []int32  `protobuf:"varint,2,rep,packed,name=extension_number,json=extensionNumber" json:"extension_number,omitempty"`
+	BaseTypeName         string   `protobuf:"bytes,1,opt,name=base_type_name,json=baseTypeName,proto3" json:"base_type_name,omitempty"`
+	ExtensionNumber      []int32  `protobuf:"varint,2,rep,packed,name=extension_number,json=extensionNumber,proto3" json:"extension_number,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -629,7 +643,7 @@ func (m *ExtensionNumberResponse) GetExtensionNumber() []int32 {
 type ListServiceResponse struct {
 	// The information of each service may be expanded in the future, so we use
 	// ServiceResponse message to encapsulate it.
-	Service              []*ServiceResponse `protobuf:"bytes,1,rep,name=service" json:"service,omitempty"`
+	Service              []*ServiceResponse `protobuf:"bytes,1,rep,name=service,proto3" json:"service,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -671,7 +685,7 @@ func (m *ListServiceResponse) GetService() []*ServiceResponse {
 type ServiceResponse struct {
 	// Full name of a registered service, including its package name. The format
 	// is <package>.<service>
-	Name                 string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -711,8 +725,8 @@ func (m *ServiceResponse) GetName() string {
 // The error code and error message sent by the server when an error occurs.
 type ErrorResponse struct {
 	// This field uses the error codes defined in grpc::StatusCode.
-	ErrorCode            int32    `protobuf:"varint,1,opt,name=error_code,json=errorCode" json:"error_code,omitempty"`
-	ErrorMessage         string   `protobuf:"bytes,2,opt,name=error_message,json=errorMessage" json:"error_message,omitempty"`
+	ErrorCode            int32    `protobuf:"varint,1,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	ErrorMessage         string   `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -775,8 +789,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for ServerReflection service
-
+// ServerReflectionClient is the client API for ServerReflection service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ServerReflectionClient interface {
 	// The reflection service is structured as a bidirectional stream, ensuring
 	// all related requests go to a single server.
@@ -792,7 +807,7 @@ func NewServerReflectionClient(cc *grpc.ClientConn) ServerReflectionClient {
 }
 
 func (c *serverReflectionClient) ServerReflectionInfo(ctx context.Context, opts ...grpc.CallOption) (ServerReflection_ServerReflectionInfoClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ServerReflection_serviceDesc.Streams[0], c.cc, "/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo", opts...)
+	stream, err := c.cc.NewStream(ctx, &_ServerReflection_serviceDesc.Streams[0], "/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -822,8 +837,7 @@ func (x *serverReflectionServerReflectionInfoClient) Recv() (*ServerReflectionRe
 	return m, nil
 }
 
-// Server API for ServerReflection service
-
+// ServerReflectionServer is the server API for ServerReflection service.
 type ServerReflectionServer interface {
 	// The reflection service is structured as a bidirectional stream, ensuring
 	// all related requests go to a single server.

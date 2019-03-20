@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017-2018 Istio Authors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -17,11 +17,9 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Traffic Routing
-// $description: Configuration affecting traffic routing
-// $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
-// $aliases:
-// $  - /docs/reference/config/istio.routing.v1alpha1/
+// $title: Virtual Service
+// $description: Configuration affecting label/content routing, sni routing, etc.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -51,10 +49,7 @@ import "google/protobuf/wrappers.proto";
 // actual choice of the version is determined by the proxy/sidecar, enabling the
 // application code to decouple itself from the evolution of dependent
 // services.
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
-
+//
 // A `VirtualService` defines a set of traffic routing rules to apply when a host is
 // addressed. Each routing rule defines matching criteria for traffic of a specific
 // protocol. If the traffic is matched, then it is sent to a named destination service
@@ -65,7 +60,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // The following example on Kubernetes, routes all HTTP traffic by default to
 // pods of the reviews service with label "version: v1". In addition,
-// HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+// HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
 // be rewritten to /newcatalog and sent to pods with label "version: v2".
 //
 //
@@ -115,6 +110,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       version: v2
 // ```
 //
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message VirtualService {
   // REQUIRED. The destination hosts to which traffic is being sent. Could
   // be a DNS name with wildcard prefix or an IP address.  Depending on the
@@ -179,6 +178,23 @@ message VirtualService {
   // be applied to any port that is not a HTTP or TLS port. The first rule
   // matching an incoming request is used.
   repeated TCPRoute tcp = 4;
+
+  // A list of namespaces to which this virtual service is exported. Exporting a
+  // virtual service allows it to be used by sidecars and gateways defined in
+  // other namespaces. This feature provides a mechanism for service owners
+  // and mesh administrators to control the visibility of virtual services
+  // across namespace boundaries.
+  //
+  // If no namespaces are specified then the virtual service is exported to all
+  // namespaces by default.
+  //
+  // The value "." is reserved and defines an export to the same namespace that
+  // the virtual service is declared in. Similarly the value "*" is reserved and
+  // defines an export to all namespaces.
+  //
+  // NOTE: in the current release, the `exportTo` value is restricted to
+  // "." or "*" (i.e., the current namespace or all namespaces).
+  repeated string export_to = 6;
 }
 
 // Destination indicates the network addressable service to which the
@@ -187,7 +203,7 @@ message VirtualService {
 // registry. Istio's service registry is composed of all the services found
 // in the platform's service registry (e.g., Kubernetes services, Consul
 // services), as well as services declared through the
-// [ServiceEntry](#ServiceEntry) resource.
+// [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry) resource.
 //
 // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -200,7 +216,7 @@ message VirtualService {
 //
 // The following Kubernetes example routes all traffic by default to pods
 // of the reviews service with label "version: v1" (i.e., subset v1), and
-// some to subset v2, in a kubernetes environment.
+// some to subset v2, in a Kubernetes environment.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -312,7 +328,7 @@ message Destination {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ServiceEntry](#ServiceEntry). Traffic forwarded to
+  // declared by [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Traffic forwarded to
   // destinations that are not found in either of the two, will be dropped.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
@@ -349,7 +365,7 @@ message HTTPRoute {
   // forwarding target can be one of several versions of a service (see
   // glossary in beginning of document). Weights associated with the
   // service version determine the proportion of traffic it receives.
-  repeated DestinationWeight route = 2;
+  repeated HTTPRouteDestination route = 2;
 
   // A http rule can either redirect or forward (default) traffic. If
   // traffic passthrough option is specified in the rule,
@@ -385,17 +401,53 @@ message HTTPRoute {
   Destination mirror = 9;
 
   // Cross-Origin Resource Sharing policy (CORS). Refer to
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+  // [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 
-  // Additional HTTP headers to add before forwarding a request to the
-  // destination service.
-  map<string, string> append_headers = 11;
+  // Use of `append_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_headers = 11 [deprecated=true];
 
-  // Http headers to remove before returning the response to the caller
-  // $hide_from_docs
-  repeated string remove_response_headers = 12;
+  // Use of `remove_response_header` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_response_headers = 12 [deprecated=true];
+
+  // Use of `append_response_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_response_headers = 13 [deprecated=true];
+
+  // Use of `remove_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_request_headers = 14 [deprecated=true];
+
+  // Use of `append_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_request_headers = 15 [deprecated=true];
+
+  // Header manipulation rules
+  Headers headers = 16;
+}
+
+// Header manipulation rules
+message Headers {
+  // Header manipulation rules to apply before forwarding a request
+  // to the destination service
+  HeaderOperations request = 1;
+  // Header manipulation rules to apply before returning a response
+  // to the caller
+  HeaderOperations response = 2;
+
+  // HeaderOperations Describes the header manipulations to apply
+  message HeaderOperations {
+    // Overwrite the headers specified by key with the given values
+    map<string, string> set = 1;
+    // Append the given values to the headers specified by keys
+    // (will create a comma-separated list of values)
+    map<string, string> add = 2;
+    // Remove a the specified headers
+    repeated string remove = 3;
+  }
 }
 
 // Describes match conditions and actions for routing unterminated TLS
@@ -437,10 +489,7 @@ message TLSRoute {
   repeated TLSMatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
-  // Currently, only one destination is allowed for TLS services. When TCP
-  // weighted routing support is introduced in Envoy, multiple destinations
-  // with weights can be specified.
-  repeated DestinationWeight route = 2;
+  repeated RouteDestination route = 2;
 }
 
 // Describes match conditions and actions for routing TCP traffic. The
@@ -472,10 +521,7 @@ message TCPRoute {
   repeated L4MatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
-  // Currently, only one destination is allowed for TCP services. When TCP
-  // weighted routing support is introduced in Envoy, multiple destinations
-  // with weights can be specified.
-  repeated DestinationWeight route = 2;
+  repeated RouteDestination route = 2;
 }
 
 // HttpMatchRequest specifies a set of criterion to be met in order for the
@@ -647,15 +693,46 @@ message HTTPMatchRequest {
 //         host: reviews.com
 //       weight: 75
 // ```
-message DestinationWeight {
+message HTTPRouteDestination {
   // REQUIRED. Destination uniquely identifies the instances of a service
   // to which the request/connection should be forwarded to.
   Destination destination = 1;
 
   // REQUIRED. The proportion of traffic to be forwarded to the service
   // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-  // If there is only destination in a rule, the weight value is assumed to
+  // If there is only one destination in a rule, the weight value is assumed to
   // be 100.
+  int32 weight = 2;
+
+  // Use of `remove_response_header` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_response_headers = 3 [deprecated=true];
+
+  // Use of `append_response_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_response_headers = 4 [deprecated=true];
+
+  // Use of `remove_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_request_headers = 5 [deprecated=true];
+
+  // Use of `append_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_request_headers = 6 [deprecated=true];
+
+  // Header manipulation rules
+  Headers headers = 7;
+}
+
+// L4 routing rule weighted destination.
+message RouteDestination {
+  // REQUIRED. Destination uniquely identifies the instances of a service
+  // to which the request/connection should be forwarded to.
+  Destination destination = 1;
+
+  // REQUIRED. The proportion of traffic to be forwarded to the service
+  // version. If there is only one destination in a rule, all traffic will be
+  // routed to it irrespective of the weight.
   int32 weight = 2;
 }
 
@@ -691,8 +768,9 @@ message L4MatchAttributes {
 // TLS connection match attributes.
 message TLSMatchAttributes {
   // REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
-  // can be used in the SNI value. E.g., *.com will match foo.example.com
-  // as well as example.com.
+  // can be used in the SNI value, e.g., *.com will match foo.example.com
+  // as well as example.com. An SNI value must be a subset (i.e., fall
+  // within the domain) of the corresponding virtual serivce's hosts.
   repeated string sni_hosts = 1;
 
   // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
@@ -758,7 +836,7 @@ message HTTPRedirect {
 
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
-// be used only with the DestinationWeights. The following example
+// be used only with HTTPRouteDestination. The following example
 // demonstrates how to rewrite the URL prefix for api call (/ratings) to
 // ratings service before making the actual API call.
 //
@@ -828,6 +906,7 @@ message StringMatch {
 //     retries:
 //       attempts: 3
 //       perTryTimeout: 2s
+//       retryOn: gateway-error,connect-failure,refused-stream
 // ```
 //
 message HTTPRetry {
@@ -838,16 +917,21 @@ message HTTPRetry {
 
   // Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
   google.protobuf.Duration per_try_timeout = 2;
+
+  // Specifies the conditions under which retry takes place.
+  // One or more policies can be specified using a ‘,’ delimited list.
+  // See the [supported policies](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on)
+  // and [here](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on) for more details.
+  string retry_on = 3;
 }
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
-// service. Refer to
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// service. Refer to [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS)
 // for further details about cross origin resource sharing. For example,
 // the following rule restricts cross origin requests to those originating
 // from example.com domain using HTTP POST/GET, and sets the
-// Access-Control-Allow-Credentials header to false. In addition, it only
-// exposes X-Foo-bar header and sets an expiry period of 1 day.
+// `Access-Control-Allow-Credentials` header to false. In addition, it only
+// exposes `X-Foo-bar` header and sets an expiry period of 1 day.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -885,20 +969,20 @@ message CorsPolicy {
   repeated string allow_methods = 2;
 
   // List of HTTP headers that can be used when requesting the
-  // resource. Serialized to Access-Control-Allow-Methods header.
+  // resource. Serialized to Access-Control-Allow-Headers header.
   repeated string allow_headers = 3;
 
   // A white list of HTTP headers that the browsers are allowed to
   // access. Serialized into Access-Control-Expose-Headers header.
   repeated string expose_headers = 4;
 
-  // Specifies how long the the results of a preflight request can be
-  // cached. Translates to the Access-Control-Max-Age header.
+  // Specifies how long the results of a preflight request can be
+  // cached. Translates to the `Access-Control-Max-Age` header.
   google.protobuf.Duration max_age = 5;
 
   // Indicates whether the caller is allowed to send the actual request
   // (not the preflight) using credentials. Translates to
-  // Access-Control-Allow-Credentials header.
+  // `Access-Control-Allow-Credentials` header.
   google.protobuf.BoolValue allow_credentials = 6;
 }
 
@@ -921,7 +1005,7 @@ message HTTPFaultInjection {
 
   // Delay specification is used to inject latency into the request
   // forwarding path. The following example will introduce a 5 second delay
-  // in 10% of the requests to the "v1" version of the "reviews"
+  // in 1 out of every 1000 requests to the "v1" version of the "reviews"
   // service from all pods with label env: prod
   //
   // ```yaml
@@ -942,17 +1026,19 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       delay:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         fixedDelay: 5s
   // ```
   //
-  // The _fixedDelay_ field is used to indicate the amount of delay in
-  // seconds. An optional _percent_ field, a value between 0 and 100, can
-  // be used to only delay a certain percentage of requests. If left
-  // unspecified, all request will be delayed.
+  // The _fixedDelay_ field is used to indicate the amount of delay in seconds.
+  // The optional _percentage_ field can be used to only delay a certain
+  // percentage of requests. If left unspecified, all request will be delayed.
   message Delay {
     // Percentage of requests on which the delay will be injected (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof http_delay_type {
       // REQUIRED. Add a fixed delay before forwarding the request. Format:
@@ -962,11 +1048,14 @@ message HTTPFaultInjection {
       // $hide_from_docs
       google.protobuf.Duration exponential_delay = 3 ;
     }
+
+    // Percentage of requests on which the delay will be injected.
+    Percent percentage = 5;
   }
 
   // Abort specification is used to prematurely abort a request with a
-  // pre-specified error code. The following example will return an HTTP
-  // 400 error code for 10% of the requests to the "ratings" service "v1".
+  // pre-specified error code. The following example will return an HTTP 400
+  // error code for 1 out of every 1000 requests to the "ratings" service "v1".
   //
   // ```yaml
   // apiVersion: networking.istio.io/v1alpha3
@@ -983,17 +1072,20 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       abort:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         httpStatus: 400
   // ```
   //
   // The _httpStatus_ field is used to indicate the HTTP status code to
-  // return to the caller. The optional _percent_ field, a value between 0
-  // and 100, is used to only abort a certain percentage of requests. If
-  // not specified, all requests are aborted.
+  // return to the caller. The optional _percentage_ field can be used to only
+  // abort a certain percentage of requests. If not specified, all requests are
+  // aborted.
   message Abort {
     // Percentage of requests to be aborted with the error code provided (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof error_type {
       // REQUIRED. HTTP status code to use to abort the Http request.
@@ -1005,6 +1097,9 @@ message HTTPFaultInjection {
       // $hide_from_docs
       string http2_error = 4;
     }
+
+    // Percentage of requests to be aborted with the error code provided.
+    Percent percentage = 5;
   }
 }
 
@@ -1017,4 +1112,9 @@ message PortSelector {
     // $hide_from_docs
     string name = 2;
   }
+}
+
+// Percent specifies a percentage in the range of [0.0, 100.0].
+message Percent {
+  double value = 1;
 }

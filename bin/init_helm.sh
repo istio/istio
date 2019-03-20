@@ -1,6 +1,6 @@
 #!/bin/bash
-#
-# Copyright 2017,2018 Istio Authors. All Rights Reserved.
+
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,25 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOT=$(cd $(dirname $0)/..; pwd)
-ISTIO_GO=$ROOT
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO(nmittler): Remove before merging.
-set -x # echo on
-
 # TODO(nmittler): Remove these variables and require that this script be run from the Makefile
 
 # Set GOPATH to match the expected layout
-GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
+GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
@@ -69,14 +63,14 @@ export GOOS=${GOOS:-${LOCAL_OS}}
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # install helm if not present, it must be the local version.
-if [ ! -f ${ISTIO_OUT}/version.helm.${HELM_VER} ] ; then
+if [ ! -f "${ISTIO_OUT}/version.helm.${HELM_VER}" ] ; then
     TD=$(mktemp -d)
     # Install helm. Please keep it in sync with .circleci
-    cd ${TD} && \
-        curl -Lo ${TD}/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz && \
+    cd "${TD}" && \
+        curl -Lo "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
         tar xfz helm.tgz && \
-        mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm-${HELM_VER} && \
-        cp ${ISTIO_OUT}/helm-${HELM_VER} ${ISTIO_OUT}/helm && \
-        rm -rf ${TD} && \
-        touch ${ISTIO_OUT}/version.helm.${HELM_VER}
+        mv ${LOCAL_OS}-amd64/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
+        cp "${ISTIO_OUT}/helm-${HELM_VER}" "${ISTIO_OUT}/helm" && \
+        rm -rf "${TD}" && \
+        touch "${ISTIO_OUT}/version.helm.${HELM_VER}"
 fi

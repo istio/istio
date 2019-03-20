@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
-func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func apiGenCmd(fatalf shared.FormatFn) *cobra.Command {
 	var templateFile string
 	var outInterfaceFile string
 	var oAugmentedTmplFile string
@@ -57,6 +57,9 @@ func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command 
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
+				if len(m) != 2 {
+					fatalf("Invalid flag -m %v", mappings)
+				}
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 

@@ -3,7 +3,7 @@
 # Set up env ISTIO if not done yet 
 if [[ -z "${ISTIO// }" ]]; then
     export ISTIO=$GOPATH/src/istio.io
-    echo 'Set ISTIO to' $ISTIO
+    echo 'Set ISTIO to' "$ISTIO"
 fi
 
 case "$OSTYPE" in

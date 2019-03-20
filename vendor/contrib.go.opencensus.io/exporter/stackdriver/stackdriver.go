@@ -15,10 +15,37 @@
 // Package stackdriver contains the OpenCensus exporters for
 // Stackdriver Monitoring and Stackdriver Tracing.
 //
-// Please note that the Stackdriver exporter is currently experimental.
+// This exporter can be used to send metrics to Stackdriver Monitoring and traces
+// to Stackdriver trace.
 //
-// The package uses Application Default Credentials to authenticate.  See
-// https://developers.google.com/identity/protocols/application-default-credentials
+// The package uses Application Default Credentials to authenticate by default.
+// See: https://developers.google.com/identity/protocols/application-default-credentials
+//
+// Alternatively, pass the authentication options in both the MonitoringClientOptions
+// and the TraceClientOptions fields of Options.
+//
+// Stackdriver Monitoring
+//
+// This exporter support exporting OpenCensus views to Stackdriver Monitoring.
+// Each registered view becomes a metric in Stackdriver Monitoring, with the
+// tags becoming labels.
+//
+// The aggregation function determines the metric kind: LastValue aggregations
+// generate Gauge metrics and all other aggregations generate Cumulative metrics.
+//
+// In order to be able to push your stats to Stackdriver Monitoring, you must:
+//
+//   1. Create a Cloud project: https://support.google.com/cloud/answer/6251787?hl=en
+//   2. Enable billing: https://support.google.com/cloud/answer/6288653#new-billing
+//   3. Enable the Stackdriver Monitoring API: https://console.cloud.google.com/apis/dashboard
+//   4. Make sure you have a Premium Stackdriver account: https://cloud.google.com/monitoring/accounts/tiers
+//
+// These steps enable the API but don't require that your app is hosted on Google Cloud Platform.
+//
+// Stackdriver Trace
+//
+// This exporter supports exporting Trace Spans to Stackdriver Trace. It also
+// supports the Google "Cloud Trace" propagation format header.
 package stackdriver // import "contrib.go.opencensus.io/exporter/stackdriver"
 
 import (
@@ -29,6 +56,7 @@ import (
 	"time"
 
 	traceapi "cloud.google.com/go/trace/apiv2"
+	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"golang.org/x/oauth2/google"
@@ -71,19 +99,84 @@ type Options struct {
 	// Optional.
 	BundleCountThreshold int
 
-	// Resource is an optional field that represents the Stackdriver
-	// MonitoredResource, a resource that can be used for monitoring.
-	// If no custom ResourceDescriptor is set, a default MonitoredResource
-	// with type global and no resource labels will be used.
-	// Optional.
+	// Resource sets the MonitoredResource against which all views will be
+	// recorded by this exporter.
+	//
+	// All Stackdriver metrics created by this exporter are custom metrics,
+	// so only a limited number of MonitoredResource types are supported, see:
+	// https://cloud.google.com/monitoring/custom-metrics/creating-metrics#which-resource
+	//
+	// An important consideration when setting the Resource here is that
+	// Stackdriver Monitoring only allows a single writer per
+	// TimeSeries, see: https://cloud.google.com/monitoring/api/v3/metrics-details#intro-time-series
+	// A TimeSeries is uniquely defined by the metric type name
+	// (constructed from the view name and the MetricPrefix), the Resource field,
+	// and the set of label key/value pairs (in OpenCensus terminology: tag).
+	//
+	// If no custom Resource is set, a default MonitoredResource
+	// with type global and no resource labels will be used. If you explicitly
+	// set this field, you may also want to set custom DefaultMonitoringLabels.
+	//
+	// Deprecated: Use MonitoredResource instead.
 	Resource *monitoredrespb.MonitoredResource
 
-	// MetricPrefix overrides the OpenCensus prefix of a stackdriver metric.
-	// Optional.
+	// MonitoredResource sets the MonitoredResource against which all views will be
+	// recorded by this exporter.
+	//
+	// All Stackdriver metrics created by this exporter are custom metrics,
+	// so only a limited number of MonitoredResource types are supported, see:
+	// https://cloud.google.com/monitoring/custom-metrics/creating-metrics#which-resource
+	//
+	// An important consideration when setting the MonitoredResource here is that
+	// Stackdriver Monitoring only allows a single writer per
+	// TimeSeries, see: https://cloud.google.com/monitoring/api/v3/metrics-details#intro-time-series
+	// A TimeSeries is uniquely defined by the metric type name
+	// (constructed from the view name and the MetricPrefix), the MonitoredResource field,
+	// and the set of label key/value pairs (in OpenCensus terminology: tag).
+	//
+	// If no custom MonitoredResource is set AND if Resource is also not set then
+	// a default MonitoredResource with type global and no resource labels will be used.
+	// If you explicitly set this field, you may also want to set custom DefaultMonitoringLabels.
+	//
+	// This field replaces Resource field. If this is set then it will override the
+	// Resource field.
+	// Optional, but encouraged.
+	MonitoredResource monitoredresource.Interface
+
+	// MetricPrefix overrides the prefix of a Stackdriver metric type names.
+	// Optional. If unset defaults to "OpenCensus".
 	MetricPrefix string
 
-	// DefaultTraceAttributes will be appended to every span that is exported.
+	// DefaultTraceAttributes will be appended to every span that is exported to
+	// Stackdriver Trace.
 	DefaultTraceAttributes map[string]interface{}
+
+	// DefaultMonitoringLabels are labels added to every metric created by this
+	// exporter in Stackdriver Monitoring.
+	//
+	// If unset, this defaults to a single label with key "opencensus_task" and
+	// value "go-<pid>@<hostname>". This default ensures that the set of labels
+	// together with the default Resource (global) are unique to this
+	// process, as required by Stackdriver Monitoring.
+	//
+	// If you set DefaultMonitoringLabels, make sure that the Resource field
+	// together with these labels is unique to the
+	// current process. This is to ensure that there is only a single writer to
+	// each TimeSeries in Stackdriver.
+	//
+	// Set this to &Labels{} (a pointer to an empty Labels) to avoid getting the
+	// default "opencensus_task" label. You should only do this if you know that
+	// the Resource you set uniquely identifies this Go process.
+	DefaultMonitoringLabels *Labels
+
+	// Context allows users to provide a custom context for API calls.
+	//
+	// This context will be used several times: first, to create Stackdriver
+	// trace and metric clients, and then every time a new batch of traces or
+	// stats needs to be uploaded.
+	//
+	// If unset, context.Background() will be used.
+	Context context.Context
 }
 
 // Exporter is a stats.Exporter and trace.Exporter
@@ -96,8 +189,11 @@ type Exporter struct {
 // NewExporter creates a new Exporter that implements both stats.Exporter and
 // trace.Exporter.
 func NewExporter(o Options) (*Exporter, error) {
+	if o.Context == nil {
+		o.Context = context.Background()
+	}
 	if o.ProjectID == "" {
-		creds, err := google.FindDefaultCredentials(context.Background(), traceapi.DefaultAuthScopes()...)
+		creds, err := google.FindDefaultCredentials(o.Context, traceapi.DefaultAuthScopes()...)
 		if err != nil {
 			return nil, fmt.Errorf("stackdriver: %v", err)
 		}
@@ -106,7 +202,12 @@ func NewExporter(o Options) (*Exporter, error) {
 		}
 		o.ProjectID = creds.ProjectID
 	}
-	se, err := newStatsExporter(o)
+
+	if o.MonitoredResource != nil {
+		o.Resource = convertMonitoredResourceToPB(o.MonitoredResource)
+	}
+
+	se, err := newStatsExporter(o, true)
 	if err != nil {
 		return nil, err
 	}
@@ -160,5 +261,18 @@ func (o Options) handleError(err error) {
 		o.OnError(err)
 		return
 	}
-	log.Printf("Error exporting to Stackdriver: %v", err)
+	log.Printf("Failed to export to Stackdriver: %v", err)
+}
+
+// convertMonitoredResourceToPB converts MonitoredResource data in to
+// protocol buffer.
+func convertMonitoredResourceToPB(mr monitoredresource.Interface) *monitoredrespb.MonitoredResource {
+	mrpb := new(monitoredrespb.MonitoredResource)
+	var labels map[string]string
+	mrpb.Type, labels = mr.MonitoredResource()
+	mrpb.Labels = make(map[string]string)
+	for k, v := range labels {
+		mrpb.Labels[k] = v
+	}
+	return mrpb
 }

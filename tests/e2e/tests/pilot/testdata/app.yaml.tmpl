@@ -1,3 +1,4 @@
+{{if eq .createService "true"}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -31,7 +32,7 @@ spec:
     name: tcp
   - port: 9090
     targetPort: {{.port4}}
-    name: https
+    name: tcp-two
 {{end}}
   - port: 70
     targetPort: {{.port5}}
@@ -41,6 +42,7 @@ spec:
     name: grpc
   selector:
     app: {{.service}}
+{{end}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -48,16 +50,18 @@ metadata:
 
   name: {{.deployment}}
 spec:
-  replicas: 1
+  replicas: {{.replicas}}
   template:
     metadata:
       labels:
         app: {{.service}}
         version: {{.version}}
-{{if eq .injectProxy "false"}}
+        name: {{.deployment}}
       annotations:
+{{if eq .injectProxy "false"}}
         sidecar.istio.io/inject: "false"
 {{end}}
+        sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
     spec:
 {{if eq .serviceAccount "true"}}
       serviceAccountName: {{.service}}
@@ -66,6 +70,9 @@ spec:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
         imagePullPolicy: {{.ImagePullPolicy}}
+        volumeMounts:
+        - mountPath: /var/run/uds
+          name: uds
         args:
           - --port
           - "{{.port1}}"
@@ -79,6 +86,8 @@ spec:
           - "{{.port5}}"
           - --grpc
           - "{{.port6}}"
+          - --uds
+          - "/var/run/uds/serverSock"
 {{if eq .healthPort "true"}}
           - --port
           - "3333"
@@ -109,4 +118,8 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 {{end}}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: uds
 ---

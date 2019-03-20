@@ -1,5 +1,13 @@
 apiVersion: v1
 kind: List
+metadata:
+  name: tracing-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.provider }}
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -7,19 +15,19 @@ items:
     name: zipkin
     namespace: {{ .Release.Namespace }}
     labels:
-      app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      app: {{ .Values.provider }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     type: {{ .Values.service.type }}
     ports:
       - port: {{ .Values.service.externalPort }}
-        targetPort: {{ .Values.service.internalPort }}
+        targetPort: 9411
         protocol: TCP
         name: {{ .Values.service.name }}
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -27,18 +35,22 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
-      app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      app: {{ .Values.provider }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
       - name: http-query
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+{{ if eq .Values.provider "jaeger" }}
+        targetPort: 16686
+{{ else }}
+        targetPort: 9411
+{{ end}}
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}

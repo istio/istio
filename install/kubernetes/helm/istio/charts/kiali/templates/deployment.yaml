@@ -4,10 +4,10 @@ metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -18,6 +18,9 @@ spec:
       name: kiali
       labels:
         app: kiali
+        chart: {{ template "kiali.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -43,15 +46,21 @@ spec:
         - name: SERVER_CREDENTIALS_USERNAME
           valueFrom:
             secretKeyRef:
-              name: kiali
-              key: username
+              name: {{ .Values.dashboard.secretName }}
+              key: {{ .Values.dashboard.usernameKey }}
+              optional: true
         - name: SERVER_CREDENTIALS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: kiali
-              key: passphrase
+              name: {{ .Values.dashboard.secretName }}
+              key: {{ .Values.dashboard.passphraseKey }}
+              optional: true
         - name: PROMETHEUS_SERVICE_URL
-          value: http://prometheus:9090
+          value: {{ .Values.prometheusAddr }}
+{{- if .Values.contextPath }}
+        - name: SERVER_WEB_ROOT
+          value: {{ .Values.contextPath }}
+{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
@@ -65,3 +74,5 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

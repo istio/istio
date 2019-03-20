@@ -4,14 +4,15 @@ description: Adapter that extracts information from a Kubernetes environment.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: kubernetes
 aliases:
   - /docs/reference/config/adapters/kubernetesenv.html
 number_of_entries: 1
 ---
 <p>The <code>kubernetesenv</code> adapter extracts information from a Kubernetes environment
-and produces attribtes that can be used in downstream adapters.</p>
+and produces attributes that can be used in downstream adapters.</p>
 
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/">kubernetesenv template</a>.</p>
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/">kubernetes template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -40,13 +41,13 @@ values containing information about the related pods.</p>
 <td><code>kubeconfigPath</code></td>
 <td><code>string</code></td>
 <td>
-<p>File path to discover kubeconfig. For in-cluster configuration,
+<p>File path to discover <code>kubeconfig</code>. For in-cluster configuration,
 this should be left unset. For local configuration, this should
-be set to the path of a kubeconfig file that can be used to
+be set to the path of a <code>kubeconfig</code> file that can be used to
 reach a kubernetes API server.</p>
 
-<p>NOTE: The kubernetes adapter will use the value of the env var
-KUBECONFIG in the case where it is set (overriding any value configured
+<p>NOTE: The <code>kubernetesenv</code> adapter will use the value of the <code>KUBECONFIG</code> environment variable
+in the case where it is set (overriding any value configured
 through this proto).</p>
 
 <p>Default: &ldquo;&rdquo; (unset)</p>
@@ -57,11 +58,29 @@ through this proto).</p>
 <td><code>cacheRefreshDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Controls the resync period of the kubernetes cluster info cache.
+<p>Controls the resync period of the Kubernetes cluster info cache.
 The cache will watch for events and every so often completely resync.
 This controls how frequently the complete resync occurs.</p>
 
 <p>Default: 5 minutes</p>
+
+</td>
+</tr>
+<tr id="Params-cluster_registries_namespace">
+<td><code>clusterRegistriesNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace of the secret created for multicluster support.</p>
+
+<p>Details on multicluster and the Kubernetes secret required to
+access the remote cluster&rsquo;s credentials can be found in
+<a href="https://istio.io/docs/setup/kubernetes/install/multicluster/">multicluster install</a>.</p>
+
+<p>NOTE: If <code>cluster_registries_namespace</code> is not set then the environment
+variable <code>POD_NAMESPACE</code> is checked/used. If <code>POD_NAMESPACE</code> is not
+set then <code>cluster_registries_namespace</code> defaults to &ldquo;istio-system&rdquo;.</p>
+
+<p>Default: &ldquo;istio-system&rdquo;</p>
 
 </td>
 </tr>

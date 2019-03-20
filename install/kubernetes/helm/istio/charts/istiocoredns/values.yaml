@@ -1,0 +1,11 @@
+#
+# addon istiocoredns tracing configuration
+#
+enabled: false
+replicaCount: 1
+coreDNSImage: coredns/coredns:1.1.2
+# Source code for the plugin can be found at
+# https://github.com/istio-ecosystem/istio-coredns-plugin
+# The plugin listens for DNS requests from coredns server at 127.0.0.1:8053
+coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
+nodeSelector: {}

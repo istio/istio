@@ -4,47 +4,59 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         app: grafana
+        chart: {{ template "grafana.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
+      securityContext:
+        runAsUser: 472
+        fsGroup: 472
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}{{ .Values.global.img_tag_delim }}{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.internalPort }}
+          - containerPort: 3000
           readinessProbe:
             httpGet:
               path: /login
-              port: {{ .Values.service.internalPort }}
+              port: 3000
           env:
           - name: GRAFANA_PORT
-            value: {{ .Values.service.internalPort | quote }}
+            value: "3000"
 {{- if .Values.security.enabled }}
           - name: GF_SECURITY_ADMIN_USER
             valueFrom:
               secretKeyRef:
-                name: grafana
-                key: username
+                name: {{ .Values.security.secretName }}
+                key: {{ .Values.security.usernameKey }}
           - name: GF_SECURITY_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: grafana
-                key: password
+                name: {{ .Values.security.secretName }}
+                key: {{ .Values.security.passphraseKey }}
           - name: GF_AUTH_BASIC_ENABLED
             value: "true"
           - name: GF_AUTH_ANONYMOUS_ENABLED
@@ -70,8 +82,13 @@ spec:
           volumeMounts:
           - name: data
             mountPath: /data/grafana
-          - name: dashboards-istio
-            mountPath: "/var/lib/grafana/dashboards/istio"
+          {{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+          {{- $filename := trimSuffix (ext $path) (base $path) }}
+          - name: dashboards-istio-{{ $filename }}
+            mountPath: "/var/lib/grafana/dashboards/istio/{{ base $path }}"
+            subPath: {{ base $path }}
+            readOnly: true
+          {{- end }}
           - name: config
             mountPath: "/etc/grafana/provisioning/datasources/datasources.yaml"
             subPath: datasources.yaml
@@ -90,7 +107,10 @@ spec:
           claimName: istio-grafana-pvc
 {{- else }}
         emptyDir: {}
-      - name: dashboards-istio
+{{- end }}
+{{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+{{- $filename := trimSuffix (ext $path) (base $path) }}
+      - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards
+          name:  istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}

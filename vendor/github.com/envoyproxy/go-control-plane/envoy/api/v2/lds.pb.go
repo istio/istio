@@ -3,26 +3,37 @@
 
 package v2
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-import _ "github.com/gogo/googleapis/google/api"
-import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "github.com/gogo/protobuf/gogoproto"
+import (
+	bytes "bytes"
+	context "context"
+	fmt "fmt"
+	io "io"
+	math "math"
+	time "time"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+	_ "github.com/gogo/googleapis/google/api"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+	types "github.com/gogo/protobuf/types"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	grpc "google.golang.org/grpc"
 
-import io "io"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Listener_DrainType int32
 
@@ -40,6 +51,7 @@ var Listener_DrainType_name = map[int32]string{
 	0: "DEFAULT",
 	1: "MODIFY_ONLY",
 }
+
 var Listener_DrainType_value = map[string]int32{
 	"DEFAULT":     0,
 	"MODIFY_ONLY": 1,
@@ -48,8 +60,12 @@ var Listener_DrainType_value = map[string]int32{
 func (x Listener_DrainType) String() string {
 	return proto.EnumName(Listener_DrainType_name, int32(x))
 }
-func (Listener_DrainType) EnumDescriptor() ([]byte, []int) { return fileDescriptorLds, []int{0, 0} }
 
+func (Listener_DrainType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_34e2cd84a105bcd1, []int{0, 0}
+}
+
+// [#comment:next free field: 16]
 type Listener struct {
 	// The unique name by which this listener is known. If no name is provided,
 	// Envoy will allocate an internal UUID for the listener. If the listener is to be dynamically
@@ -61,7 +77,7 @@ type Listener struct {
 	// The address that the listener should listen on. In general, the address must be unique, though
 	// that is governed by the bind rules of the OS. E.g., multiple listeners can listen on port 0 on
 	// Linux as the actual port will be allocated by the OS.
-	Address envoy_api_v2_core1.Address `protobuf:"bytes,2,opt,name=address" json:"address"`
+	Address core.Address `protobuf:"bytes,2,opt,name=address,proto3" json:"address"`
 	// A list of filter chains to consider for this listener. The
 	// :ref:`FilterChain <envoy_api_msg_listener.FilterChain>` with the most specific
 	// :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>` criteria is used on a
@@ -69,7 +85,7 @@ type Listener struct {
 	//
 	// Example using SNI for filter chain selection can be found in the
 	// :ref:`FAQ entry <faq_how_to_setup_sni>`.
-	FilterChains []envoy_api_v2_listener.FilterChain `protobuf:"bytes,3,rep,name=filter_chains,json=filterChains" json:"filter_chains"`
+	FilterChains []listener.FilterChain `protobuf:"bytes,3,rep,name=filter_chains,json=filterChains,proto3" json:"filter_chains"`
 	// If a connection is redirected using *iptables*, the port on which the proxy
 	// receives it might be different from the original destination address. When this flag is set to
 	// true, the listener hands off redirected connections to the listener associated with the
@@ -85,14 +101,14 @@ type Listener struct {
 	//   :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>` is implemented this flag
 	//   will be removed, as filter chain matching can be used to select a filter chain based on the
 	//   restored destination address.
-	UseOriginalDst *google_protobuf1.BoolValue `protobuf:"bytes,4,opt,name=use_original_dst,json=useOriginalDst" json:"use_original_dst,omitempty"`
+	UseOriginalDst *types.BoolValue `protobuf:"bytes,4,opt,name=use_original_dst,json=useOriginalDst,proto3" json:"use_original_dst,omitempty"` // Deprecated: Do not use.
 	// Soft limit on size of the listener’s new connection read and write buffers.
 	// If unspecified, an implementation defined default is applied (1MiB).
-	PerConnectionBufferLimitBytes *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes" json:"per_connection_buffer_limit_bytes,omitempty"`
+	PerConnectionBufferLimitBytes *types.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes,proto3" json:"per_connection_buffer_limit_bytes,omitempty"`
 	// Listener metadata.
-	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,6,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *core.Metadata `protobuf:"bytes,6,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// [#not-implemented-hide:]
-	DeprecatedV1 *Listener_DeprecatedV1 `protobuf:"bytes,7,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
+	DeprecatedV1 *Listener_DeprecatedV1 `protobuf:"bytes,7,opt,name=deprecated_v1,json=deprecatedV1,proto3" json:"deprecated_v1,omitempty"`
 	// The type of draining to perform at a listener-wide level.
 	DrainType Listener_DrainType `protobuf:"varint,8,opt,name=drain_type,json=drainType,proto3,enum=envoy.api.v2.Listener_DrainType" json:"drain_type,omitempty"`
 	// Listener filters have the opportunity to manipulate and augment the connection metadata that
@@ -100,7 +116,11 @@ type Listener struct {
 	// :ref:`filter_chains <envoy_api_field_Listener.filter_chains>`. Order matters as the
 	// filters are processed sequentially right after a socket has been accepted by the listener, and
 	// before a connection is created.
-	ListenerFilters []envoy_api_v2_listener.ListenerFilter `protobuf:"bytes,9,rep,name=listener_filters,json=listenerFilters" json:"listener_filters"`
+	ListenerFilters []listener.ListenerFilter `protobuf:"bytes,9,rep,name=listener_filters,json=listenerFilters,proto3" json:"listener_filters"`
+	// The timeout to wait for all listener filters to complete operation. If the timeout is reached,
+	// the accepted socket is closed without a connection being created. Specify 0 to disable the
+	// timeout. If not specified, a default timeout of 15s is used.
+	ListenerFiltersTimeout *time.Duration `protobuf:"bytes,15,opt,name=listener_filters_timeout,json=listenerFiltersTimeout,proto3,stdduration" json:"listener_filters_timeout,omitempty"`
 	// Whether the listener should be set as a transparent socket.
 	// When this flag is set to true, connections can be redirected to the listener using an
 	// *iptables* *TPROXY* target, in which case the original source and destination addresses and
@@ -115,17 +135,17 @@ type Listener struct {
 	// Setting this flag requires Envoy to run with the *CAP_NET_ADMIN* capability.
 	// When this flag is not set (default), the socket is not modified, i.e. the transparent option
 	// is neither set nor reset.
-	Transparent *google_protobuf1.BoolValue `protobuf:"bytes,10,opt,name=transparent" json:"transparent,omitempty"`
+	Transparent *types.BoolValue `protobuf:"bytes,10,opt,name=transparent,proto3" json:"transparent,omitempty"`
 	// Whether the listener should set the *IP_FREEBIND* socket option. When this
 	// flag is set to true, listeners can be bound to an IP address that is not
 	// configured on the system running Envoy. When this flag is set to false, the
 	// option *IP_FREEBIND* is disabled on the socket. When this flag is not set
 	// (default), the socket is not modified, i.e. the option is neither enabled
 	// nor disabled.
-	Freebind *google_protobuf1.BoolValue `protobuf:"bytes,11,opt,name=freebind" json:"freebind,omitempty"`
+	Freebind *types.BoolValue `protobuf:"bytes,11,opt,name=freebind,proto3" json:"freebind,omitempty"`
 	// Additional socket options that may not be present in Envoy source code or
 	// precompiled binaries.
-	SocketOptions []*envoy_api_v2_core.SocketOption `protobuf:"bytes,13,rep,name=socket_options,json=socketOptions" json:"socket_options,omitempty"`
+	SocketOptions []*core.SocketOption `protobuf:"bytes,13,rep,name=socket_options,json=socketOptions,proto3" json:"socket_options,omitempty"`
 	// Whether the listener should accept TCP Fast Open (TFO) connections.
 	// When this flag is set to a value greater than 0, the option TCP_FASTOPEN is enabled on
 	// the socket, with a queue length of the specified size
@@ -140,13 +160,44 @@ type Listener struct {
 	//
 	// On macOS, only values of 0, 1, and unset are valid; other values may result in an error.
 	// To set the queue length on macOS, set the net.inet.tcp.fastopen_backlog kernel parameter.
-	TcpFastOpenQueueLength *google_protobuf1.UInt32Value `protobuf:"bytes,12,opt,name=tcp_fast_open_queue_length,json=tcpFastOpenQueueLength" json:"tcp_fast_open_queue_length,omitempty"`
+	TcpFastOpenQueueLength *types.UInt32Value `protobuf:"bytes,12,opt,name=tcp_fast_open_queue_length,json=tcpFastOpenQueueLength,proto3" json:"tcp_fast_open_queue_length,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{}           `json:"-"`
+	XXX_unrecognized       []byte             `json:"-"`
+	XXX_sizecache          int32              `json:"-"`
 }
 
-func (m *Listener) Reset()                    { *m = Listener{} }
-func (m *Listener) String() string            { return proto.CompactTextString(m) }
-func (*Listener) ProtoMessage()               {}
-func (*Listener) Descriptor() ([]byte, []int) { return fileDescriptorLds, []int{0} }
+func (m *Listener) Reset()         { *m = Listener{} }
+func (m *Listener) String() string { return proto.CompactTextString(m) }
+func (*Listener) ProtoMessage()    {}
+func (*Listener) Descriptor() ([]byte, []int) {
+	return fileDescriptor_34e2cd84a105bcd1, []int{0}
+}
+func (m *Listener) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Listener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Listener.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Listener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Listener.Merge(m, src)
+}
+func (m *Listener) XXX_Size() int {
+	return m.Size()
+}
+func (m *Listener) XXX_DiscardUnknown() {
+	xxx_messageInfo_Listener.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Listener proto.InternalMessageInfo
 
 func (m *Listener) GetName() string {
 	if m != nil {
@@ -155,35 +206,36 @@ func (m *Listener) GetName() string {
 	return ""
 }
 
-func (m *Listener) GetAddress() envoy_api_v2_core1.Address {
+func (m *Listener) GetAddress() core.Address {
 	if m != nil {
 		return m.Address
 	}
-	return envoy_api_v2_core1.Address{}
+	return core.Address{}
 }
 
-func (m *Listener) GetFilterChains() []envoy_api_v2_listener.FilterChain {
+func (m *Listener) GetFilterChains() []listener.FilterChain {
 	if m != nil {
 		return m.FilterChains
 	}
 	return nil
 }
 
-func (m *Listener) GetUseOriginalDst() *google_protobuf1.BoolValue {
+// Deprecated: Do not use.
+func (m *Listener) GetUseOriginalDst() *types.BoolValue {
 	if m != nil {
 		return m.UseOriginalDst
 	}
 	return nil
 }
 
-func (m *Listener) GetPerConnectionBufferLimitBytes() *google_protobuf1.UInt32Value {
+func (m *Listener) GetPerConnectionBufferLimitBytes() *types.UInt32Value {
 	if m != nil {
 		return m.PerConnectionBufferLimitBytes
 	}
 	return nil
 }
 
-func (m *Listener) GetMetadata() *envoy_api_v2_core.Metadata {
+func (m *Listener) GetMetadata() *core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
@@ -204,35 +256,42 @@ func (m *Listener) GetDrainType() Listener_DrainType {
 	return Listener_DEFAULT
 }
 
-func (m *Listener) GetListenerFilters() []envoy_api_v2_listener.ListenerFilter {
+func (m *Listener) GetListenerFilters() []listener.ListenerFilter {
 	if m != nil {
 		return m.ListenerFilters
 	}
 	return nil
 }
 
-func (m *Listener) GetTransparent() *google_protobuf1.BoolValue {
+func (m *Listener) GetListenerFiltersTimeout() *time.Duration {
+	if m != nil {
+		return m.ListenerFiltersTimeout
+	}
+	return nil
+}
+
+func (m *Listener) GetTransparent() *types.BoolValue {
 	if m != nil {
 		return m.Transparent
 	}
 	return nil
 }
 
-func (m *Listener) GetFreebind() *google_protobuf1.BoolValue {
+func (m *Listener) GetFreebind() *types.BoolValue {
 	if m != nil {
 		return m.Freebind
 	}
 	return nil
 }
 
-func (m *Listener) GetSocketOptions() []*envoy_api_v2_core.SocketOption {
+func (m *Listener) GetSocketOptions() []*core.SocketOption {
 	if m != nil {
 		return m.SocketOptions
 	}
 	return nil
 }
 
-func (m *Listener) GetTcpFastOpenQueueLength() *google_protobuf1.UInt32Value {
+func (m *Listener) GetTcpFastOpenQueueLength() *types.UInt32Value {
 	if m != nil {
 		return m.TcpFastOpenQueueLength
 	}
@@ -241,7 +300,7 @@ func (m *Listener) GetTcpFastOpenQueueLength() *google_protobuf1.UInt32Value {
 
 // [#not-implemented-hide:]
 type Listener_DeprecatedV1 struct {
-	// Whether the listener should bind to the port. A listener that doesn’t
+	// Whether the listener should bind to the port. A listener that doesn't
 	// bind can only receive connections redirected from other listeners that
 	// set use_original_dst parameter to true. Default is true.
 	//
@@ -249,15 +308,48 @@ type Listener_DeprecatedV1 struct {
 	// port. An additional filter chain must be created for every original
 	// destination port this listener may redirect to in v2, with the original
 	// port specified in the FilterChainMatch destination_port field.
-	BindToPort *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=bind_to_port,json=bindToPort" json:"bind_to_port,omitempty"`
+	//
+	// [#comment:TODO(PiotrSikora): Remove this once verified that we no longer need it.]
+	BindToPort           *types.BoolValue `protobuf:"bytes,1,opt,name=bind_to_port,json=bindToPort,proto3" json:"bind_to_port,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *Listener_DeprecatedV1) Reset()                    { *m = Listener_DeprecatedV1{} }
-func (m *Listener_DeprecatedV1) String() string            { return proto.CompactTextString(m) }
-func (*Listener_DeprecatedV1) ProtoMessage()               {}
-func (*Listener_DeprecatedV1) Descriptor() ([]byte, []int) { return fileDescriptorLds, []int{0, 0} }
+func (m *Listener_DeprecatedV1) Reset()         { *m = Listener_DeprecatedV1{} }
+func (m *Listener_DeprecatedV1) String() string { return proto.CompactTextString(m) }
+func (*Listener_DeprecatedV1) ProtoMessage()    {}
+func (*Listener_DeprecatedV1) Descriptor() ([]byte, []int) {
+	return fileDescriptor_34e2cd84a105bcd1, []int{0, 0}
+}
+func (m *Listener_DeprecatedV1) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Listener_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Listener_DeprecatedV1.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Listener_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Listener_DeprecatedV1.Merge(m, src)
+}
+func (m *Listener_DeprecatedV1) XXX_Size() int {
+	return m.Size()
+}
+func (m *Listener_DeprecatedV1) XXX_DiscardUnknown() {
+	xxx_messageInfo_Listener_DeprecatedV1.DiscardUnknown(m)
+}
 
-func (m *Listener_DeprecatedV1) GetBindToPort() *google_protobuf1.BoolValue {
+var xxx_messageInfo_Listener_DeprecatedV1 proto.InternalMessageInfo
+
+func (m *Listener_DeprecatedV1) GetBindToPort() *types.BoolValue {
 	if m != nil {
 		return m.BindToPort
 	}
@@ -265,10 +357,71 @@ func (m *Listener_DeprecatedV1) GetBindToPort() *google_protobuf1.BoolValue {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.api.v2.Listener_DrainType", Listener_DrainType_name, Listener_DrainType_value)
 	proto.RegisterType((*Listener)(nil), "envoy.api.v2.Listener")
 	proto.RegisterType((*Listener_DeprecatedV1)(nil), "envoy.api.v2.Listener.DeprecatedV1")
-	proto.RegisterEnum("envoy.api.v2.Listener_DrainType", Listener_DrainType_name, Listener_DrainType_value)
 }
+
+func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptor_34e2cd84a105bcd1) }
+
+var fileDescriptor_34e2cd84a105bcd1 = []byte{
+	// 857 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x41, 0x6f, 0x1b, 0x45,
+	0x14, 0xce, 0x38, 0x6e, 0xe3, 0x8c, 0x1d, 0xdb, 0x1a, 0xa1, 0x74, 0x31, 0xc1, 0x36, 0x06, 0x24,
+	0xc3, 0xc1, 0xa6, 0xae, 0x04, 0x52, 0xa9, 0x84, 0xba, 0x35, 0x56, 0x8b, 0x5c, 0x1c, 0x36, 0x69,
+	0x68, 0x4e, 0xab, 0xf1, 0xee, 0xb3, 0x33, 0x62, 0x3d, 0x33, 0x9d, 0x99, 0x35, 0xf8, 0xca, 0x09,
+	0x71, 0x84, 0x0b, 0x3f, 0x81, 0xdf, 0xc0, 0x89, 0x63, 0x8f, 0x48, 0xdc, 0x01, 0x45, 0x5c, 0x10,
+	0xbf, 0x01, 0x09, 0xed, 0x78, 0xd7, 0xd8, 0x4d, 0x42, 0x38, 0x70, 0x7b, 0x33, 0xef, 0xfb, 0xbe,
+	0x7d, 0xf3, 0xbd, 0x37, 0xb3, 0x78, 0x1f, 0xf8, 0x5c, 0x2c, 0xba, 0x54, 0xb2, 0xee, 0xbc, 0xd7,
+	0x8d, 0x42, 0xdd, 0x91, 0x4a, 0x18, 0x41, 0x4a, 0x76, 0xbf, 0x43, 0x25, 0xeb, 0xcc, 0x7b, 0xb5,
+	0xc6, 0x06, 0x2a, 0x10, 0x0a, 0xba, 0x34, 0x0c, 0x15, 0xe8, 0x14, 0x5e, 0x3b, 0xb8, 0x08, 0x18,
+	0x53, 0x0d, 0x97, 0x66, 0x43, 0xa6, 0x03, 0x31, 0x07, 0xb5, 0x48, 0xb3, 0x6f, 0x6c, 0x96, 0xc0,
+	0xb4, 0x01, 0x0e, 0x6a, 0x15, 0x64, 0x1a, 0x53, 0x21, 0xa6, 0x11, 0x58, 0x18, 0xe5, 0x5c, 0x18,
+	0x6a, 0x98, 0xe0, 0xd9, 0xf7, 0xeb, 0x69, 0xd6, 0xae, 0xc6, 0xf1, 0xa4, 0x1b, 0xc6, 0xca, 0x02,
+	0xae, 0xca, 0x7f, 0xae, 0xa8, 0x94, 0xa0, 0x32, 0xfe, 0xad, 0x39, 0x8d, 0x58, 0x48, 0x0d, 0x74,
+	0xb3, 0x20, 0x4d, 0xbc, 0x34, 0x15, 0x53, 0x61, 0xc3, 0x6e, 0x12, 0x2d, 0x77, 0x5b, 0x7f, 0x15,
+	0x70, 0x61, 0x98, 0xd6, 0x47, 0x08, 0xce, 0x73, 0x3a, 0x03, 0x07, 0x35, 0x51, 0x7b, 0xd7, 0xb3,
+	0x31, 0xe9, 0xe3, 0x9d, 0xd4, 0x20, 0x27, 0xd7, 0x44, 0xed, 0x62, 0xaf, 0xd6, 0x59, 0x37, 0xb4,
+	0x93, 0x38, 0xd4, 0xb9, 0xbf, 0x44, 0xb8, 0xe5, 0xe7, 0xbf, 0x34, 0xb6, 0x7e, 0xf8, 0xe3, 0xc7,
+	0xed, 0x1b, 0x5f, 0xa3, 0x5c, 0x15, 0x79, 0x19, 0x95, 0x7c, 0x8a, 0xf7, 0x26, 0x2c, 0x32, 0xa0,
+	0xfc, 0xe0, 0x8c, 0x32, 0xae, 0x9d, 0xed, 0xe6, 0x76, 0xbb, 0xd8, 0x6b, 0x6d, 0x6a, 0xad, 0x8c,
+	0x1a, 0x58, 0xec, 0x83, 0x04, 0xba, 0xa6, 0xf9, 0x0d, 0xca, 0x15, 0x90, 0x57, 0x9a, 0xfc, 0x93,
+	0xd4, 0xe4, 0x21, 0xae, 0xc6, 0x1a, 0x7c, 0xa1, 0xd8, 0x94, 0x71, 0x1a, 0xf9, 0xa1, 0x36, 0x4e,
+	0x3e, 0xad, 0x73, 0xe9, 0x54, 0x27, 0x73, 0xaa, 0xe3, 0x0a, 0x11, 0x9d, 0xd0, 0x28, 0x06, 0x37,
+	0xe7, 0x20, 0xaf, 0x1c, 0x6b, 0x18, 0xa5, 0xb4, 0xbe, 0x36, 0x64, 0x82, 0x5f, 0x93, 0x49, 0x7d,
+	0x82, 0x73, 0x08, 0x12, 0xc3, 0xfd, 0x71, 0x3c, 0x99, 0x80, 0xf2, 0x23, 0x36, 0x63, 0xc6, 0x1f,
+	0x2f, 0x0c, 0x68, 0xe7, 0x86, 0x95, 0x3e, 0xb8, 0x20, 0xfd, 0xe4, 0x11, 0x37, 0x77, 0x7a, 0x56,
+	0xdc, 0x7b, 0x55, 0x82, 0x7a, 0xb0, 0x52, 0x71, 0xad, 0xc8, 0x30, 0xd1, 0x70, 0x13, 0x09, 0xf2,
+	0x1e, 0x2e, 0xcc, 0xc0, 0xd0, 0x90, 0x1a, 0xea, 0xdc, 0xb4, 0x72, 0xaf, 0x5c, 0xe2, 0xe8, 0xe3,
+	0x14, 0xe2, 0xad, 0xc0, 0xe4, 0x21, 0xde, 0x0b, 0x41, 0x2a, 0x08, 0xa8, 0x81, 0xd0, 0x9f, 0xdf,
+	0x76, 0x76, 0x2c, 0xfb, 0xf5, 0x4d, 0x76, 0xd6, 0xcc, 0x4e, 0x7f, 0x85, 0x3d, 0xb9, 0xed, 0x95,
+	0xc2, 0xb5, 0x15, 0xf9, 0x00, 0xe3, 0x50, 0x51, 0xc6, 0x7d, 0xb3, 0x90, 0xe0, 0x14, 0x9a, 0xa8,
+	0x5d, 0xee, 0x35, 0xaf, 0x92, 0x49, 0x80, 0xc7, 0x0b, 0x09, 0xde, 0x6e, 0x98, 0x85, 0xe4, 0x04,
+	0x57, 0xb3, 0x5e, 0xf9, 0xcb, 0x76, 0x68, 0x67, 0xd7, 0x76, 0xf4, 0xcd, 0x2b, 0x3a, 0x9a, 0xe9,
+	0x2d, 0x3b, 0xeb, 0xe6, 0x93, 0xa6, 0x7a, 0x95, 0x68, 0x63, 0x57, 0x93, 0x53, 0xec, 0xbc, 0xa8,
+	0xeb, 0x1b, 0x36, 0x03, 0x11, 0x1b, 0xa7, 0x62, 0x4f, 0xfb, 0xf2, 0x05, 0xeb, 0xfb, 0xe9, 0xfd,
+	0x70, 0xf3, 0xdf, 0xfd, 0xda, 0x40, 0xde, 0xfe, 0x0b, 0x9a, 0xc7, 0x4b, 0x3a, 0xb9, 0x87, 0x8b,
+	0x46, 0x51, 0xae, 0x25, 0x55, 0xc0, 0x8d, 0x83, 0xaf, 0x9b, 0x11, 0x6f, 0x1d, 0x4e, 0xde, 0xc5,
+	0x85, 0x89, 0x02, 0x18, 0x33, 0x1e, 0x3a, 0xc5, 0x6b, 0xa9, 0x2b, 0x2c, 0x19, 0xe0, 0xb2, 0x16,
+	0xc1, 0x67, 0x60, 0x7c, 0x21, 0xed, 0x2d, 0x77, 0xf6, 0xac, 0x4d, 0x8d, 0x4b, 0x5a, 0x7e, 0x64,
+	0x81, 0x23, 0x8b, 0xf3, 0xf6, 0xf4, 0xda, 0x4a, 0x93, 0xa7, 0xb8, 0x66, 0x02, 0xe9, 0x4f, 0xa8,
+	0x4e, 0x94, 0x80, 0xfb, 0xcf, 0x62, 0x88, 0xc1, 0x8f, 0x80, 0x4f, 0xcd, 0x99, 0x53, 0xfa, 0x0f,
+	0x53, 0xb9, 0x6f, 0x02, 0x39, 0xa0, 0xda, 0x8c, 0x24, 0xf0, 0x4f, 0x12, 0xf2, 0xd0, 0x72, 0x6b,
+	0x43, 0x5c, 0x5a, 0x9f, 0x14, 0x72, 0x0f, 0x97, 0x92, 0xca, 0x7d, 0x23, 0x7c, 0x29, 0x94, 0xb1,
+	0x6f, 0xc1, 0xbf, 0x9f, 0x16, 0x27, 0xf8, 0x63, 0x71, 0x28, 0x94, 0x69, 0xbd, 0x85, 0x77, 0x57,
+	0x03, 0x43, 0x8a, 0x78, 0xa7, 0xff, 0xe1, 0xe0, 0xfe, 0x93, 0xe1, 0x71, 0x75, 0x8b, 0x54, 0x70,
+	0xf1, 0xf1, 0xa8, 0xff, 0x68, 0x70, 0xea, 0x8f, 0x3e, 0x1e, 0x9e, 0x56, 0xd1, 0x47, 0xf9, 0x42,
+	0xb9, 0x5a, 0xe9, 0xfd, 0x89, 0xb0, 0x93, 0xcd, 0x46, 0x3f, 0x7b, 0x4e, 0x8f, 0x40, 0xcd, 0x59,
+	0x00, 0xe4, 0x29, 0xae, 0x1c, 0x19, 0x05, 0x74, 0x96, 0x21, 0x34, 0xa9, 0x6f, 0x1a, 0xb7, 0xa2,
+	0x78, 0xf0, 0x2c, 0x06, 0x6d, 0x6a, 0x8d, 0x2b, 0xf3, 0x5a, 0x0a, 0xae, 0xa1, 0xb5, 0xd5, 0x46,
+	0xef, 0x20, 0x12, 0xe3, 0xf2, 0x00, 0x4c, 0x70, 0xf6, 0x3f, 0x0a, 0xb7, 0xbe, 0xfc, 0xf9, 0xf7,
+	0x6f, 0x73, 0x07, 0xad, 0x5b, 0x1b, 0x7f, 0x86, 0xbb, 0xd9, 0x38, 0xea, 0xbb, 0xe8, 0x6d, 0xf7,
+	0xfd, 0xef, 0xcf, 0xeb, 0xe8, 0xf9, 0x79, 0x1d, 0xfd, 0x74, 0x5e, 0x47, 0xbf, 0x9d, 0xd7, 0x11,
+	0xae, 0x31, 0xb1, 0x14, 0x96, 0x4a, 0x7c, 0xb1, 0xd8, 0xf8, 0x86, 0x5b, 0x18, 0x86, 0xfa, 0x30,
+	0xf1, 0xfb, 0x10, 0x7d, 0x85, 0xd0, 0xf8, 0xa6, 0xf5, 0xfe, 0xce, 0xdf, 0x01, 0x00, 0x00, 0xff,
+	0xff, 0x30, 0xb2, 0x88, 0xf1, 0xe9, 0x06, 0x00, 0x00,
+}
+
 func (this *Listener) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -325,6 +478,15 @@ func (this *Listener) Equal(that interface{}) bool {
 			return false
 		}
 	}
+	if this.ListenerFiltersTimeout != nil && that1.ListenerFiltersTimeout != nil {
+		if *this.ListenerFiltersTimeout != *that1.ListenerFiltersTimeout {
+			return false
+		}
+	} else if this.ListenerFiltersTimeout != nil {
+		return false
+	} else if that1.ListenerFiltersTimeout != nil {
+		return false
+	}
 	if !this.Transparent.Equal(that1.Transparent) {
 		return false
 	}
@@ -340,6 +502,9 @@ func (this *Listener) Equal(that interface{}) bool {
 		}
 	}
 	if !this.TcpFastOpenQueueLength.Equal(that1.TcpFastOpenQueueLength) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -366,6 +531,9 @@ func (this *Listener_DeprecatedV1) Equal(that interface{}) bool {
 	if !this.BindToPort.Equal(that1.BindToPort) {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 
@@ -377,8 +545,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for ListenerDiscoveryService service
-
+// ListenerDiscoveryServiceClient is the client API for ListenerDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ListenerDiscoveryServiceClient interface {
 	StreamListeners(ctx context.Context, opts ...grpc.CallOption) (ListenerDiscoveryService_StreamListenersClient, error)
 	FetchListeners(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
@@ -393,7 +562,7 @@ func NewListenerDiscoveryServiceClient(cc *grpc.ClientConn) ListenerDiscoverySer
 }
 
 func (c *listenerDiscoveryServiceClient) StreamListeners(ctx context.Context, opts ...grpc.CallOption) (ListenerDiscoveryService_StreamListenersClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ListenerDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.ListenerDiscoveryService/StreamListeners", opts...)
+	stream, err := c.cc.NewStream(ctx, &_ListenerDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.ListenerDiscoveryService/StreamListeners", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -425,15 +594,14 @@ func (x *listenerDiscoveryServiceStreamListenersClient) Recv() (*DiscoveryRespon
 
 func (c *listenerDiscoveryServiceClient) FetchListeners(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.api.v2.ListenerDiscoveryService/FetchListeners", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.api.v2.ListenerDiscoveryService/FetchListeners", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for ListenerDiscoveryService service
-
+// ListenerDiscoveryServiceServer is the server API for ListenerDiscoveryService service.
 type ListenerDiscoveryServiceServer interface {
 	StreamListeners(ListenerDiscoveryService_StreamListenersServer) error
 	FetchListeners(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
@@ -647,6 +815,19 @@ func (m *Listener) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
+	if m.ListenerFiltersTimeout != nil {
+		dAtA[i] = 0x7a
+		i++
+		i = encodeVarintLds(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.ListenerFiltersTimeout)))
+		n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.ListenerFiltersTimeout, dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -669,11 +850,14 @@ func (m *Listener_DeprecatedV1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintLds(dAtA, i, uint64(m.BindToPort.Size()))
-		n9, err := m.BindToPort.MarshalTo(dAtA[i:])
+		n10, err := m.BindToPort.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n10
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -688,6 +872,9 @@ func encodeVarintLds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Listener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -745,15 +932,28 @@ func (m *Listener) Size() (n int) {
 			n += 1 + l + sovLds(uint64(l))
 		}
 	}
+	if m.ListenerFiltersTimeout != nil {
+		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.ListenerFiltersTimeout)
+		n += 1 + l + sovLds(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Listener_DeprecatedV1) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.BindToPort != nil {
 		l = m.BindToPort.Size()
 		n += 1 + l + sovLds(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -786,7 +986,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -814,7 +1014,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -824,6 +1024,9 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -843,7 +1046,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -852,6 +1055,9 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -873,7 +1079,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -882,10 +1088,13 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.FilterChains = append(m.FilterChains, envoy_api_v2_listener.FilterChain{})
+			m.FilterChains = append(m.FilterChains, listener.FilterChain{})
 			if err := m.FilterChains[len(m.FilterChains)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -904,7 +1113,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -913,11 +1122,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UseOriginalDst == nil {
-				m.UseOriginalDst = &google_protobuf1.BoolValue{}
+				m.UseOriginalDst = &types.BoolValue{}
 			}
 			if err := m.UseOriginalDst.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -937,7 +1149,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -946,11 +1158,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PerConnectionBufferLimitBytes == nil {
-				m.PerConnectionBufferLimitBytes = &google_protobuf1.UInt32Value{}
+				m.PerConnectionBufferLimitBytes = &types.UInt32Value{}
 			}
 			if err := m.PerConnectionBufferLimitBytes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -970,7 +1185,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -979,11 +1194,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core.Metadata{}
+				m.Metadata = &core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1003,7 +1221,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1012,6 +1230,9 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1036,7 +1257,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.DrainType |= (Listener_DrainType(b) & 0x7F) << shift
+				m.DrainType |= Listener_DrainType(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1055,7 +1276,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1064,10 +1285,13 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ListenerFilters = append(m.ListenerFilters, envoy_api_v2_listener.ListenerFilter{})
+			m.ListenerFilters = append(m.ListenerFilters, listener.ListenerFilter{})
 			if err := m.ListenerFilters[len(m.ListenerFilters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1086,7 +1310,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1095,11 +1319,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Transparent == nil {
-				m.Transparent = &google_protobuf1.BoolValue{}
+				m.Transparent = &types.BoolValue{}
 			}
 			if err := m.Transparent.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1119,7 +1346,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1128,11 +1355,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Freebind == nil {
-				m.Freebind = &google_protobuf1.BoolValue{}
+				m.Freebind = &types.BoolValue{}
 			}
 			if err := m.Freebind.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1152,7 +1382,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1161,11 +1391,14 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TcpFastOpenQueueLength == nil {
-				m.TcpFastOpenQueueLength = &google_protobuf1.UInt32Value{}
+				m.TcpFastOpenQueueLength = &types.UInt32Value{}
 			}
 			if err := m.TcpFastOpenQueueLength.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1185,7 +1418,7 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1194,11 +1427,50 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SocketOptions = append(m.SocketOptions, &envoy_api_v2_core.SocketOption{})
+			m.SocketOptions = append(m.SocketOptions, &core.SocketOption{})
 			if err := m.SocketOptions[len(m.SocketOptions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 15:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ListenerFiltersTimeout", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowLds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthLds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ListenerFiltersTimeout == nil {
+				m.ListenerFiltersTimeout = new(time.Duration)
+			}
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.ListenerFiltersTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1211,9 +1483,13 @@ func (m *Listener) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthLds
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthLds
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1238,7 +1514,7 @@ func (m *Listener_DeprecatedV1) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1266,7 +1542,7 @@ func (m *Listener_DeprecatedV1) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1275,11 +1551,14 @@ func (m *Listener_DeprecatedV1) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthLds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthLds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.BindToPort == nil {
-				m.BindToPort = &google_protobuf1.BoolValue{}
+				m.BindToPort = &types.BoolValue{}
 			}
 			if err := m.BindToPort.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1294,9 +1573,13 @@ func (m *Listener_DeprecatedV1) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthLds
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthLds
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1360,8 +1643,11 @@ func skipLds(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthLds
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthLds
 			}
 			return iNdEx, nil
@@ -1392,6 +1678,9 @@ func skipLds(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthLds
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1410,59 +1699,3 @@ var (
 	ErrInvalidLengthLds = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowLds   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptorLds) }
-
-var fileDescriptorLds = []byte{
-	// 789 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0x4f, 0x8f, 0xdb, 0x44,
-	0x18, 0xc6, 0x77, 0xb2, 0xdb, 0x6e, 0x76, 0xf2, 0x67, 0xa3, 0x01, 0xb5, 0x56, 0x58, 0x92, 0x10,
-	0x40, 0x0a, 0x1c, 0x1c, 0x9a, 0x4a, 0x20, 0x55, 0x95, 0x50, 0xd3, 0x10, 0xb5, 0x52, 0x4a, 0xc0,
-	0xbb, 0x5d, 0xda, 0xd3, 0x68, 0x62, 0xbf, 0xce, 0x5a, 0x38, 0x33, 0xd3, 0x99, 0x71, 0x50, 0xae,
-	0x9c, 0x10, 0x47, 0xb8, 0xf2, 0x01, 0xf8, 0x0c, 0x9c, 0x38, 0xf6, 0x88, 0xc4, 0x1d, 0xa1, 0x88,
-	0x0b, 0xe2, 0x4b, 0x20, 0x4f, 0x6c, 0x93, 0xa8, 0xbb, 0x2c, 0x07, 0x6e, 0xef, 0xcc, 0xfb, 0x7b,
-	0x1f, 0x8f, 0x9f, 0xc7, 0x1e, 0x7c, 0x0b, 0xf8, 0x52, 0xac, 0xfa, 0x4c, 0x46, 0xfd, 0xe5, 0xa0,
-	0x1f, 0x07, 0xda, 0x95, 0x4a, 0x18, 0x41, 0xaa, 0x76, 0xdf, 0x65, 0x32, 0x72, 0x97, 0x83, 0x66,
-	0x7b, 0x87, 0xf2, 0x85, 0x82, 0x3e, 0x0b, 0x02, 0x05, 0x3a, 0xc3, 0x9b, 0x27, 0xaf, 0x02, 0x33,
-	0xa6, 0xe1, 0xd2, 0x6e, 0x10, 0x69, 0x5f, 0x2c, 0x41, 0xad, 0xb2, 0xee, 0x3b, 0xbb, 0x47, 0x88,
-	0xb4, 0x01, 0x0e, 0xaa, 0x28, 0x72, 0x8d, 0xb9, 0x10, 0xf3, 0x18, 0x2c, 0xc6, 0x38, 0x17, 0x86,
-	0x99, 0x48, 0xf0, 0xfc, 0xf9, 0xad, 0xac, 0x6b, 0x57, 0xb3, 0x24, 0xec, 0x7f, 0xa5, 0x98, 0x94,
-	0xa0, 0xf2, 0xfe, 0xed, 0x25, 0x8b, 0xa3, 0x80, 0x19, 0xe8, 0xe7, 0x45, 0xd6, 0x78, 0x7d, 0x2e,
-	0xe6, 0xc2, 0x96, 0xfd, 0xb4, 0xda, 0xec, 0x76, 0x7f, 0x28, 0xe3, 0xf2, 0x24, 0x7b, 0x3e, 0x21,
-	0xf8, 0x80, 0xb3, 0x05, 0x38, 0xa8, 0x83, 0x7a, 0x47, 0x9e, 0xad, 0xc9, 0x08, 0x1f, 0x66, 0x06,
-	0x38, 0xa5, 0x0e, 0xea, 0x55, 0x06, 0x4d, 0x77, 0xdb, 0x30, 0x37, 0x75, 0xc0, 0x7d, 0xb0, 0x21,
-	0x86, 0xf5, 0x97, 0xbf, 0xb5, 0xf7, 0x7e, 0xfa, 0xf3, 0xe7, 0xfd, 0x1b, 0xdf, 0xa2, 0x52, 0x03,
-	0x79, 0xf9, 0x28, 0xf9, 0x02, 0xd7, 0xc2, 0x28, 0x36, 0xa0, 0xa8, 0x7f, 0xc1, 0x22, 0xae, 0x9d,
-	0xfd, 0xce, 0x7e, 0xaf, 0x32, 0xe8, 0xee, 0x6a, 0x15, 0x46, 0x8c, 0x2d, 0xfb, 0x30, 0x45, 0xb7,
-	0x34, 0xbf, 0x43, 0xa5, 0x32, 0xf2, 0xaa, 0xe1, 0x3f, 0x4d, 0x4d, 0x1e, 0xe1, 0x46, 0xa2, 0x81,
-	0x0a, 0x15, 0xcd, 0x23, 0xce, 0x62, 0x1a, 0x68, 0xe3, 0x1c, 0x64, 0xe7, 0xdc, 0x38, 0xe5, 0xe6,
-	0x4e, 0xb9, 0x43, 0x21, 0xe2, 0x73, 0x16, 0x27, 0x30, 0x2c, 0x39, 0xc8, 0xab, 0x27, 0x1a, 0xa6,
-	0xd9, 0xd8, 0x48, 0x1b, 0x12, 0xe2, 0xb7, 0x64, 0x7a, 0x3e, 0xc1, 0x39, 0xf8, 0xa9, 0xe3, 0x74,
-	0x96, 0x84, 0x21, 0x28, 0x1a, 0x47, 0x8b, 0xc8, 0xd0, 0xd9, 0xca, 0x80, 0x76, 0x6e, 0x58, 0xe9,
-	0x93, 0x57, 0xa4, 0x9f, 0x3e, 0xe6, 0xe6, 0xee, 0xc0, 0x8a, 0x7b, 0x6f, 0x4a, 0x50, 0x0f, 0x0b,
-	0x95, 0xa1, 0x15, 0x99, 0xa4, 0x1a, 0xc3, 0x54, 0x82, 0x7c, 0x84, 0xcb, 0x0b, 0x30, 0x2c, 0x60,
-	0x86, 0x39, 0x37, 0xad, 0xdc, 0x1b, 0x97, 0x38, 0xfa, 0x24, 0x43, 0xbc, 0x02, 0x26, 0x8f, 0x70,
-	0x2d, 0x00, 0xa9, 0xc0, 0x67, 0x06, 0x02, 0xba, 0xbc, 0xe3, 0x1c, 0xda, 0xe9, 0xb7, 0x77, 0xa7,
-	0xf3, 0x30, 0xdd, 0x51, 0xc1, 0x9e, 0xdf, 0xf1, 0xaa, 0xc1, 0xd6, 0x8a, 0x7c, 0x8c, 0x71, 0xa0,
-	0x58, 0xc4, 0xa9, 0x59, 0x49, 0x70, 0xca, 0x1d, 0xd4, 0xab, 0x0f, 0x3a, 0x57, 0xc9, 0xa4, 0xe0,
-	0xd9, 0x4a, 0x82, 0x77, 0x14, 0xe4, 0x25, 0x39, 0xc7, 0x8d, 0x3c, 0x2b, 0xba, 0x89, 0x43, 0x3b,
-	0x47, 0x36, 0xd1, 0x77, 0xaf, 0x48, 0x34, 0xd7, 0xdb, 0x24, 0x3b, 0x3c, 0x48, 0x43, 0xf5, 0x8e,
-	0xe3, 0x9d, 0x5d, 0x4d, 0xee, 0xe3, 0x8a, 0x51, 0x8c, 0x6b, 0xc9, 0x14, 0x70, 0xe3, 0xe0, 0xeb,
-	0x82, 0xf4, 0xb6, 0x71, 0xf2, 0x21, 0x2e, 0x87, 0x0a, 0x60, 0x16, 0xf1, 0xc0, 0xa9, 0x5c, 0x3b,
-	0x5a, 0xb0, 0xe4, 0x19, 0x6e, 0x1a, 0x5f, 0xd2, 0x90, 0x69, 0x43, 0x85, 0x04, 0x4e, 0x5f, 0x24,
-	0x90, 0x00, 0x8d, 0x81, 0xcf, 0xcd, 0x85, 0x53, 0xfd, 0x0f, 0x91, 0xdf, 0x32, 0xbe, 0x1c, 0x33,
-	0x6d, 0xa6, 0x12, 0xf8, 0xe7, 0xe9, 0xf0, 0xc4, 0xce, 0x92, 0x31, 0xae, 0x6b, 0xe1, 0x7f, 0x09,
-	0xa9, 0xae, 0xfd, 0x89, 0x9d, 0x9a, 0x75, 0xa9, 0x7d, 0x49, 0xe2, 0xa7, 0x16, 0x9c, 0x5a, 0xce,
-	0xab, 0xe9, 0xad, 0x95, 0x6e, 0x4e, 0x70, 0x75, 0x3b, 0x4e, 0x72, 0x1f, 0x57, 0xd3, 0x93, 0x53,
-	0x23, 0xa8, 0x14, 0xca, 0xd8, 0x1f, 0xf6, 0xdf, 0xdf, 0x16, 0xa7, 0xfc, 0x99, 0xf8, 0x4c, 0x28,
-	0xd3, 0x7d, 0x0f, 0x1f, 0x15, 0xa9, 0x92, 0x0a, 0x3e, 0x1c, 0x7d, 0x32, 0x7e, 0xf0, 0x74, 0x72,
-	0xd6, 0xd8, 0x23, 0xc7, 0xb8, 0xf2, 0x64, 0x3a, 0x7a, 0x3c, 0x7e, 0x4e, 0xa7, 0x9f, 0x4e, 0x9e,
-	0x37, 0xd0, 0xe0, 0x2f, 0x84, 0x9d, 0x3c, 0xba, 0x51, 0x7e, 0x9b, 0x9d, 0x82, 0x5a, 0x46, 0x3e,
-	0x90, 0x67, 0xf8, 0xf8, 0xd4, 0x28, 0x60, 0x8b, 0x9c, 0xd0, 0xa4, 0xb5, 0xfb, 0x62, 0xc5, 0x88,
-	0x07, 0x2f, 0x12, 0xd0, 0xa6, 0xd9, 0xbe, 0xb2, 0xaf, 0xa5, 0xe0, 0x1a, 0xba, 0x7b, 0x3d, 0xf4,
-	0x01, 0x22, 0x09, 0xae, 0x8f, 0xc1, 0xf8, 0x17, 0xff, 0xa3, 0x70, 0xf7, 0xeb, 0x5f, 0xff, 0xf8,
-	0xbe, 0x74, 0xd2, 0xbd, 0xbd, 0x73, 0x31, 0xdf, 0xcb, 0xbf, 0x40, 0x7d, 0x0f, 0xbd, 0x3f, 0x7c,
-	0xed, 0xc7, 0x75, 0x0b, 0xbd, 0x5c, 0xb7, 0xd0, 0x2f, 0xeb, 0x16, 0xfa, 0x7d, 0xdd, 0x42, 0xdf,
-	0x20, 0x34, 0xbb, 0x69, 0xdd, 0xbc, 0xfb, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0xfa, 0x09, 0x10,
-	0x6b, 0x40, 0x06, 0x00, 0x00,
-}

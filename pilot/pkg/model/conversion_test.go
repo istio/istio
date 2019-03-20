@@ -15,17 +15,63 @@
 package model_test
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
+
+func TestApplyJSON(t *testing.T) {
+	cases := []struct {
+		in      string
+		want    *meshconfig.MeshConfig
+		strict  bool
+		wantErr bool
+	}{
+		{
+			in:     `{"enableTracing": true}`,
+			want:   &meshconfig.MeshConfig{EnableTracing: true},
+			strict: true,
+		},
+		{
+			in:      `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want:    &meshconfig.MeshConfig{EnableTracing: true},
+			strict:  true,
+			wantErr: true,
+		},
+		{
+			in:     `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want:   &meshconfig.MeshConfig{EnableTracing: true},
+			strict: false,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v]", i), func(tt *testing.T) {
+			var got meshconfig.MeshConfig
+			err := model.ApplyJSON(c.in, &got, c.strict)
+			if err != nil {
+				if !c.wantErr {
+					tt.Fatalf("got unexpected error: %v", err)
+				}
+			} else {
+				if c.wantErr {
+					tt.Fatal("unexpected success, expected error")
+				}
+				if !reflect.DeepEqual(&got, c.want) {
+					tt.Fatalf("ApplyJSON(%v): got %v want %v", c.in, &got, c.want)
+				}
+			}
+		})
+	}
+}
 
 func TestGogoProtoSchemaConversions(t *testing.T) {
 	msg := &mccpb.HTTPAPISpec{

@@ -59,6 +59,13 @@ func (m *RouteConfiguration) Validate() error {
 
 	}
 
+	if len(m.GetResponseHeadersToAdd()) > 1000 {
+		return RouteConfigurationValidationError{
+			Field:  "ResponseHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetResponseHeadersToAdd() {
 		_, _ = idx, item
 
@@ -72,6 +79,13 @@ func (m *RouteConfiguration) Validate() error {
 			}
 		}
 
+	}
+
+	if len(m.GetRequestHeadersToAdd()) > 1000 {
+		return RouteConfigurationValidationError{
+			Field:  "RequestHeadersToAdd",
+			Reason: "value must contain no more than 1000 item(s)",
+		}
 	}
 
 	for idx, item := range m.GetRequestHeadersToAdd() {

@@ -1,21 +1,27 @@
 apiVersion: v1
 kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
 metadata:
   name: istio-grafana-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-grafana-post-install-{{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
@@ -23,13 +29,13 @@ rules:
   resources: ["*"]
   verbs: ["*"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-grafana-post-install-role-binding-{{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 roleRef:
@@ -44,28 +50,30 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-grafana-post-install
+  name: istio-grafana-post-install-{{ .Values.global.tag | printf "%v" | trunc 32 }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   template:
     metadata:
       name: istio-grafana-post-install
       labels:
         app: istio-grafana
+        chart: {{ template "grafana.chart" . }}
+        heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:
-        - name: hyperkube
-          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+        - name: kubectl
+          image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
           command: [ "/bin/bash", "/tmp/grafana/run.sh", "/tmp/grafana/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/grafana"

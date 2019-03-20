@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ type TestSetup struct {
 	noProxy           bool
 	noBackend         bool
 	disableHotRestart bool
+	checkDict         bool
 
 	FiltersBeforeMixer string
 
@@ -65,6 +66,12 @@ type TestSetup struct {
 
 	// AccessLogPath is the access log path for Envoy
 	AccessLogPath string
+
+	// expected source.uid attribute at the mixer gRPC metadata
+	mixerSourceUID string
+
+	// Dir is the working dir for envoy
+	Dir string
 }
 
 // NewTestSetup creates a new test setup
@@ -139,6 +146,11 @@ func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
 }
 
+// SetCheckDict set the checkDict flag
+func (s *TestSetup) SetCheckDict(checkDict bool) {
+	s.checkDict = checkDict
+}
+
 // SetNoMixer set NoMixer flag
 func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
@@ -164,6 +176,11 @@ func (s *TestSetup) SetNoBackend(no bool) {
 	s.noBackend = no
 }
 
+// SetMixerSourceUID sets the expected source.uid at the mixer server gRPC metadata
+func (s *TestSetup) SetMixerSourceUID(uid string) {
+	s.mixerSourceUID = uid
+}
+
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
@@ -179,11 +196,14 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict, s.mixerSourceUID)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
-			s.mixer.Start()
+			errCh := s.mixer.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("mixer start failed %v", err)
+			}
 		}
 	}
 
@@ -192,7 +212,10 @@ func (s *TestSetup) SetUp() error {
 		if err != nil {
 			log.Printf("unable to create HTTP server %v", err)
 		} else {
-			s.backend.Start()
+			errCh := s.backend.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("backend server start failed %v", err)
+			}
 		}
 	}
 
@@ -206,6 +229,8 @@ func (s *TestSetup) TearDown() {
 	if err := s.envoy.Stop(); err != nil {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
+	s.envoy.TearDown()
+
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}

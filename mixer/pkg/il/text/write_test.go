@@ -108,7 +108,7 @@ func TestWriteStringArg(t *testing.T) {
 	id := p.Strings().Add("foo")
 	err := p.AddFunction("main", []il.Type{}, il.Bool, []uint32{
 		uint32(il.ResolveS),
-		uint32(id),
+		id,
 	})
 	if err != nil {
 		t.Error(err)

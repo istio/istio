@@ -12,7 +12,7 @@
 
 - name: Delete Kiali info
   shell: |
-    {{ cmd_path }} delete all,secrets,sa,templates,configmaps,deployments,clusterroles,clusterrolebindings,virtualservices,destinationrules  --selector=app=kiali --selector=version=master --ignore-not-found=true -n {{ istio_namespace }}
+    {{ cmd_path }} delete all,secrets,sa,templates,configmaps,deployments,clusterroles,clusterrolebindings,virtualservices,destinationrules  --selector=app=kiali  --ignore-not-found=true -n {{ istio_namespace }}
   ignore_errors: true
 
 - name: Delete content from Istio Kubernetes file

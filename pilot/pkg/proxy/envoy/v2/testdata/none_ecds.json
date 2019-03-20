@@ -1,0 +1,117 @@
+{
+    "outbound|2000||s1tcp.none": {
+      "name": "outbound|2000||s1tcp.none",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2000||s1tcp.none"
+      },
+      "connect_timeout": 1000000000,
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2001||s1http.none": {
+      "name": "outbound|2001||s1http.none",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2001||s1http.none"
+      },
+      "connect_timeout": 1000000000,
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2005||s2.external.test.istio.io": {
+      "name": "outbound|2005||s2.external.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2005||s2.external.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2008||tcpmeshstatic.seexamples.svc": {
+      "name": "outbound|2008||tcpmeshstatic.seexamples.svc",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2008||tcpmeshstatic.seexamples.svc"
+      },
+      "connect_timeout": 1000000000,
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2009||tcpmeshstaticint.seexamples.svc": {
+      "name": "outbound|2009||tcpmeshstaticint.seexamples.svc",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2009||tcpmeshstaticint.seexamples.svc"
+      },
+      "connect_timeout": 1000000000,
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_retries": {
+              "value": 1024
+            }
+          }
+        ]
+      },
+      "LbConfig": null
+    }
+  }

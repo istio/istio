@@ -14,7 +14,11 @@
 
 package il
 
-import "fmt"
+import (
+	"fmt"
+
+	"istio.io/istio/mixer/pkg/attribute"
+)
 
 // Type represents a core type in the il system.
 type Type uint32
@@ -82,14 +86,13 @@ type StringMap interface {
 	Get(key string) (value string, found bool)
 }
 
+var _ StringMap = attribute.StringMap{}
+
 // MapGet abstracts over map[string]string and refcounted stringMap
 // refcounted stringmaps are used by the protobag.
 // standard maps are used by attribute producing adapters.
 func MapGet(tVal interface{}, tStr string) (ret string, found bool) {
 	switch v := tVal.(type) {
-	case map[string]string:
-		ret, found = v[tStr]
-		return ret, found
 	case StringMap:
 		return v.Get(tStr)
 	default:

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -26,6 +28,7 @@ import (
 // Monitor will poll a config function in order to update a ConfigStore as
 // changes are found.
 type Monitor struct {
+	name            string
 	store           model.ConfigStore
 	checkDuration   time.Duration
 	configs         []*model.Config
@@ -35,8 +38,9 @@ type Monitor struct {
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
+func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
 	monitor := &Monitor{
+		name:            name,
 		store:           delegateStore,
 		getSnapshotFunc: getSnapshotFunc,
 		checkDuration:   checkInterval,
@@ -71,8 +75,16 @@ func (m *Monitor) checkAndUpdate() {
 	//Do not edit the local []*model.config until the connection has been reestablished
 	//The error will only come from a directory read error or a gRPC connection error
 	if err != nil {
-		log.Warnf("checkAndUpdate Error Caught: %v\n", err)
+		log.Warnf("checkAndUpdate Error Caught %s: %v\n", m.name, err)
 		return
+	}
+
+	// make a deep copy of newConfigs to prevent data race
+	copyConfigs := []*model.Config{}
+	for _, config := range newConfigs {
+		copy := *config
+		copy.Spec = proto.Clone(config.Spec)
+		copyConfigs = append(copyConfigs, &copy)
 	}
 
 	// Compare the new list to the previous one and detect changes.
@@ -110,43 +122,34 @@ func (m *Monitor) checkAndUpdate() {
 	}
 
 	// Save the updated list.
-	m.configs = newConfigs
+	m.configs = copyConfigs
 }
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		log.Warnf("Failed to create config %s %s/%s: %v (%m)", c.Type, c.Namespace, c.Name, err, *c)
+		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.Type, c.Namespace, c.Name, err, *c)
 	}
 }
 
 func (m *Monitor) updateConfig(c *model.Config) {
 	// Set the resource version based on the existing config.
-	if prev, exists := m.store.Get(c.Type, c.Name, c.Namespace); exists {
+	if prev := m.store.Get(c.Type, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
-		log.Warnf("Failed to update config (%m): %v ", *c, err)
+		log.Warnf("Failed to update config (%+v): %v ", *c, err)
 	}
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
 	if err := m.store.Delete(c.Type, c.Name, c.Namespace); err != nil {
-		log.Warnf("Failed to delete config (%m): %v ", *c, err)
+		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }
 
 // compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
 func compareIds(a, b *model.Config) int {
-	// Compare Namespace
-	if v := strings.Compare(a.Namespace, b.Namespace); v != 0 {
-		return v
-	}
-	// Compare Type
-	if v := strings.Compare(a.Type, b.Type); v != 0 {
-		return v
-	}
-	// Compare Name
-	return strings.Compare(a.Name, b.Name)
+	return strings.Compare(a.Key(), b.Key())
 }

@@ -102,7 +102,7 @@ type mainContext struct {
 	Error       string
 }
 
-func (c *collectionTopic) handleMain(w http.ResponseWriter, req *http.Request) {
+func (c *collectionTopic) handleMain(w http.ResponseWriter, _ *http.Request) {
 	context := mainContext{}
 	var names []string
 	for _, n := range c.collections {
@@ -121,7 +121,7 @@ type listContext struct {
 	Error      string
 }
 
-func (c *collectionTopic) handleCollection(w http.ResponseWriter, req *http.Request, collection string) {
+func (c *collectionTopic) handleCollection(w http.ResponseWriter, _ *http.Request, collection string) {
 	k, err := c.listCollection(collection)
 	context := listContext{}
 	if err == nil {
@@ -141,7 +141,7 @@ type itemContext struct {
 	Error      string
 }
 
-func (c *collectionTopic) handleItem(w http.ResponseWriter, req *http.Request, collection, key string) {
+func (c *collectionTopic) handleItem(w http.ResponseWriter, _ *http.Request, collection, key string) {
 	v, err := c.getItem(collection, key)
 	context := itemContext{}
 	if err == nil {
@@ -166,7 +166,7 @@ func (c *collectionTopic) handleItem(w http.ResponseWriter, req *http.Request, c
 	fw.RenderHTML(w, c.itemTmpl, context)
 }
 
-func (c *collectionTopic) handleError(w http.ResponseWriter, req *http.Request, error string) {
+func (c *collectionTopic) handleError(w http.ResponseWriter, _ *http.Request, error string) {
 	fw.RenderHTML(w, c.mainTmpl, mainContext{Error: error})
 }
 

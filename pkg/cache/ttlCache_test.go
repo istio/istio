@@ -37,7 +37,7 @@ func TestTTLExpiration(t *testing.T) {
 
 func TestTTLEvicter(t *testing.T) {
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond)
-	testCacheEvicter(ttl, t)
+	testCacheEvicter(ttl)
 }
 
 func TestTTLEvictExpired(t *testing.T) {
@@ -56,7 +56,7 @@ func (c *callbackRecorder) callback(key, value interface{}) {
 func TestTTLEvictionCallback(t *testing.T) {
 	c := &callbackRecorder{callbacks: 0}
 	ttl := NewTTLWithCallback(50*time.Millisecond, time.Millisecond, c.callback)
-	testCacheEvicter(ttl, t)
+	testCacheEvicter(ttl)
 	if atomic.LoadInt64(&c.callbacks) != 1 {
 		t.Errorf("evictExpired() => failed to invoke EvictionCallback: got %d callbacks, wanted 1", c.callbacks)
 	}
@@ -64,7 +64,7 @@ func TestTTLEvictionCallback(t *testing.T) {
 
 func TestTTLFinalizer(t *testing.T) {
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
-	testCacheFinalizer(&ttl.evicterTerminated, t)
+	testCacheFinalizer(&ttl.evicterTerminated)
 }
 
 func BenchmarkTTLGet(b *testing.B) {

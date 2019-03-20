@@ -56,4 +56,41 @@ func TestFinder(t *testing.T) {
 		t.Logf(expected)
 		t.Fatal("finder.String() mismatch")
 	}
+
+	num := len(finder.Attributes())
+	if num != 2 {
+		t.Errorf("got %d attributes, want 2", num)
+	}
+}
+
+func TestChainedFinder(t *testing.T) {
+	finder := NewFinder(map[string]*configpb.AttributeManifest_AttributeInfo{
+		"foo": {
+			ValueType: descriptorpb.DOUBLE,
+		},
+		"bar": {
+			ValueType: descriptorpb.DOUBLE,
+		},
+	})
+
+	child := NewChainedFinder(finder, map[string]*configpb.AttributeManifest_AttributeInfo{
+		"bar": {
+			ValueType: descriptorpb.INT64,
+		},
+	})
+
+	foo := child.GetAttribute("foo")
+	if foo == nil || foo.ValueType != descriptorpb.DOUBLE {
+		t.Errorf("unexpected attribute info %v", foo)
+	}
+
+	bar := child.GetAttribute("bar")
+	if bar == nil || bar.ValueType != descriptorpb.INT64 {
+		t.Errorf("unexpected attribute info %v", bar)
+	}
+
+	num := len(child.Attributes())
+	if num != 2 {
+		t.Errorf("got %d attributes, want 2", num)
+	}
 }

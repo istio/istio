@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ func TestLog(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-		ppi, err := NewLogger(fmt.Sprintf("%s:%d", "localhost", 6767), time.Duration(time.Hour), map[string]*config.Params_LogInfo{
+		ppi, err := NewLogger(fmt.Sprintf("%s:%d", "localhost", 6767), time.Hour, map[string]*config.Params_LogInfo{
 			"params1": {},
 		}, env)
 		if err != nil {

@@ -23,13 +23,14 @@ import "gogoproto/gogo.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // NOTE: this is a duplicate of proxy.v1.config.IstioService from
 // proxy/v1alpha1/config/route_rules.proto.
 //
 // Mixer protobufs have gogoproto specific options which are not
 // compatiable with the proxy's vanilla protobufs. Ideally, these
-// protobuf options be reconciled so fundamental istio concepts and
+// protobuf options be reconciled so fundamental Istio concepts and
 // types can be shared by components. Until then, make a copy of
 // IstioService for mixerclient to use.
 

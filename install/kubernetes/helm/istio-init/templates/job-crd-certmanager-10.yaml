@@ -1,0 +1,28 @@
+{{- if .Values.certmanager.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-init-crd-certmanager-10
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-init-service-account
+      containers:
+      - name: istio-init-crd-certmanager-10
+        image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        volumeMounts:
+        - name: crd-certmanager-10
+          mountPath: /etc/istio/crd-certmanager-10
+          readOnly: true
+        command: ["kubectl",  "apply", "-f", "/etc/istio/crd-certmanager-10/crd-certmanager-10.yaml"]
+      volumes:
+      - name: crd-certmanager-10
+        configMap:
+          name: istio-crd-certmanager-10
+      restartPolicy: OnFailure
+{{- end }}

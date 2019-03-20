@@ -21,6 +21,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"istio.io/istio/pkg/log"
 )
@@ -38,5 +39,12 @@ func WaitSignal(stop chan struct{}) {
 func AddFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		rootCmd.PersistentFlags().AddGoFlag(gf)
+	})
+}
+
+// PrintFlags logs the flags in the flagset
+func PrintFlags(flags *pflag.FlagSet) {
+	flags.VisitAll(func(flag *pflag.Flag) {
+		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 	})
 }

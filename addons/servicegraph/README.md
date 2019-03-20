@@ -1,4 +1,7 @@
-# Istio Servicegraph
+# Istio Servicegraph ** DEPRECATED. **
+
+> Servicegraph is being replaced by [Kiali](http://www.kiali.io/) as
+> the default visualization integration.
 
 Servicegraph is a small app that generates and visualizes graph
 representations of your Istio service mesh. Servicegraph is dependent
@@ -36,7 +39,20 @@ All endpoints take these query parameters:
 
 - `filter_empty=true` will restrict the nodes and edges shown to only
   those that reflect non-zero traffic levels during the specified
-  `time_horizon`. Deafult is `false`.
+  `time_horizon`. Default is `false`.
+  
+- `destination_namespace` will filter the nodes and edges show to only 
+  those where the destination workload is in the given namespace.
+  
+- `destination_workload` will filter the nodes and edges show to only 
+  those where the destination workload is with the given name.
+
+- `source_namespace` will filter the nodes and edges show to only 
+  those where the source workload is in the given namespace. 
+
+- `source_workload` will filter the nodes and edges show to only 
+  those where the source workload is with the given name.
+
 
 # Demosvc service
 Defined in `servicegraph/cmd/demosvc`, this provides a simple HTTP

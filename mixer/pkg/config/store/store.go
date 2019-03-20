@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gogo/protobuf/proto"
-
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -77,7 +77,11 @@ type BackEndResource struct {
 
 // Key returns the key of the resource in the store.
 func (ber *BackEndResource) Key() Key {
-	return Key{Kind: ber.Kind, Name: ber.Metadata.Name, Namespace: ber.Metadata.Namespace}
+	return Key{
+		Kind:      ber.Kind,
+		Name:      ber.Metadata.Name,
+		Namespace: ber.Metadata.Namespace,
+	}
 }
 
 // Resource represents a resources with converted spec.
@@ -230,7 +234,10 @@ func (s *store) Get(key Key) (*Resource, error) {
 	if err = convert(key, obj.Spec, pbSpec); err != nil {
 		return nil, err
 	}
-	return &Resource{Metadata: obj.Metadata, Spec: pbSpec}, nil
+	return &Resource{
+		Metadata: obj.Metadata,
+		Spec:     pbSpec,
+	}, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.
@@ -262,7 +269,7 @@ func WithBackend(b Backend) Store {
 }
 
 // Builder is the type of function to build a Backend.
-type Builder func(u *url.URL, gv *schema.GroupVersion, ck []string) (Backend, error)
+type Builder func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options, ck []string) (Backend, error)
 
 // RegisterFunc is the type to register a builder for URL scheme.
 type RegisterFunc func(map[string]Builder)
@@ -289,7 +296,11 @@ const (
 )
 
 // NewStore creates a new Store instance with the specified backend.
-func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion, criticalKinds []string) (Store, error) {
+func (r *Registry) NewStore(
+	configURL string,
+	groupVersion *schema.GroupVersion,
+	credOptions *creds.Options,
+	criticalKinds []string) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
@@ -302,7 +313,7 @@ func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion,
 		b = newFsStore(u.Path)
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
-			b, err = builder(u, groupVersion, criticalKinds)
+			b, err = builder(u, groupVersion, credOptions, criticalKinds)
 			if err != nil {
 				return nil, err
 			}

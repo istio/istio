@@ -18,22 +18,24 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 func TestCDS(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
-	cdsr, err := connectADS(util.MockPilotGrpcAddr)
+	cdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), cdsr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), cdsr)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer cancel()
 	res, err := cdsr.Recv()
 	if err != nil {
 		t.Fatal("Failed to receive CDS", err)
@@ -41,7 +43,7 @@ func TestCDS(t *testing.T) {
 	}
 
 	strResponse, _ := model.ToJSONWithIndent(res, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
+	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	t.Log("CDS response", strResponse)
 	if len(res.Resources) == 0 {

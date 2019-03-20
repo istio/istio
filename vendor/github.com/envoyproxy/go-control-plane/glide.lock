@@ -1,15 +1,15 @@
-hash: 059de1e1fc0a1174107ee8b52f51d3a503bd050f74be2647e0c934c5b2052a8f
-updated: 2018-07-29T19:05:03.198933-04:00
+hash: 6c16e13ca41a4f49e11f9e8dc9731be609557d51a68b001c8e17923af4e2a0ae
+updated: 2019-03-11T13:32:13.140956548-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 55833ac4e2008f760631392dd0a446325e4b7fef
+  version: 4f4ee118c54b7a52393c7d45b94f6bd5040a7118
 - name: github.com/gogo/googleapis
-  version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
+  version: 8558fb44d2f1fc223118afc694129d2c2d2924d1
   subpackages:
   - google/api
   - google/rpc
 - name: github.com/gogo/protobuf
-  version: 1adfc126b41513cc696b209667c8656ea7aac67c
+  version: ba06b47c162d49f2af050fb4c75bcbc86a159d5c
   subpackages:
   - gogoproto
   - jsonpb
@@ -19,7 +19,7 @@ imports:
   - sortkeys
   - types
 - name: github.com/golang/protobuf
-  version: ab9f9a6dab164b7d1246e0e688b0ab7b94d8553e
+  version: 347cf4a86c1cb8d262994d8ef5924d4576c5b331
   subpackages:
   - proto
   - protoc-gen-go/descriptor
@@ -32,53 +32,62 @@ imports:
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus
-  version: 3e01752db0189b9157070a0e1668a620f9a85da2
+  version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
 - name: golang.org/x/crypto
-  version: 5119cf507ed5294cc409c092980c7497ee5d6fd2
+  version: 057139ce5d2bdbe6fe73c53679e24e9cf007f637
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: 5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec
+  version: d26f9f9a57f3fab6a695bec0d84433c2c50f8bbf
   subpackages:
   - context
+  - http/httpguts
   - http2
   - http2/hpack
   - idna
   - internal/timeseries
-  - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 37707fdb30a5b38865cfb95e5aab41707daec7fd
+  version: acbc56fc7007d2a01796d5bde54f39e3b3e95945
   subpackages:
   - unix
   - windows
 - name: golang.org/x/text
-  version: e19ae1496984b1c655b8044a65c0300a3c878dd3
+  version: e6919f6577db79269a6443b9dc46d18f2238fb5d
   subpackages:
   - secure/bidirule
   - transform
   - unicode/bidi
   - unicode/norm
 - name: google.golang.org/genproto
-  version: a8101f21cf983e773d0c1133ebc5424792003214
+  version: 7cdc0b958d7541690c155bb01fa9a219bbf35296
   subpackages:
   - googleapis
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: 1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34
+  version: 2fdaae294f38ed9a121193c51ec99fecd3b13eb7
   subpackages:
   - balancer
   - balancer/base
   - balancer/roundrobin
+  - binarylog/grpc_binarylog_v1
   - codes
   - connectivity
   - credentials
+  - credentials/internal
   - encoding
   - encoding/proto
-  - grpclb/grpc_lb_v1/messages
   - grpclog
   - internal
+  - internal/backoff
+  - internal/binarylog
+  - internal/channelz
+  - internal/envconfig
+  - internal/grpcrand
+  - internal/grpcsync
+  - internal/syscall
+  - internal/transport
   - keepalive
   - metadata
   - naming
@@ -89,10 +98,9 @@ imports:
   - stats
   - status
   - tap
-  - transport
 - name: istio.io/gogo-genproto
-  version: dd2b5b6a8f1400838165245e704a011a30154a44
+  version: 6d926a6e6feb2c0a1a72234b4aafa638dca29956
   subpackages:
-  - opencensus/proto/trace
+  - opencensus/proto/trace/v1
   - prometheus
 testImports: []

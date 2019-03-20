@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import (
 	"net/http"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/mixer/adapter/prometheus/config"
@@ -677,4 +679,24 @@ func makeConfigWithExpirationPolicy(policy *config.Params_MetricsExpirationPolic
 
 func expPolicy(expiry, check time.Duration) *config.Params_MetricsExpirationPolicy {
 	return &config.Params_MetricsExpirationPolicy{expiry, check}
+}
+
+func TestPromLogger_Println(t *testing.T) {
+	testEnvLogger := test.NewEnv(t)
+	var underTest promhttp.Logger
+	underTest = &promLogger{logger: testEnvLogger}
+
+	underTest.Println("Istio Service Mesh", 94.5, false)
+
+	logs := testEnvLogger.GetLogs()
+	if len(logs) != 1 {
+		t.Fatalf("Println() did not produce correct number of logs; got %d, want 1", len(logs))
+	}
+
+	line := logs[0]
+	want := "Prometheus handler error: Istio Service Mesh 94.5 false\n"
+	if !strings.EqualFold(line, want) {
+		t.Fatalf("Println() did not produce expected logs; got '%s', want '%s'", line, want)
+	}
+
 }

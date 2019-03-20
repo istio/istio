@@ -4,6 +4,10 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ template "sidecar-injector.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: sidecar-injector
 spec:
   ports:

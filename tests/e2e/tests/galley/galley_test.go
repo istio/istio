@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -32,10 +33,7 @@ import (
 )
 
 const (
-	// This namespace is used by default in all mixer config documents.
-	// It will be replaced with the test namespace.
-	templateNamespace = "istio-system"
-	yamlExtension     = "yaml"
+	yamlExtension = "yaml"
 )
 
 type testConfig struct {
@@ -77,10 +75,6 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func deleteGalleyConfig(ruleName string) error {
-	return doGalleyConfig(ruleName, util.KubeDeleteContents)
-}
-
 func applyGalleyConfig(ruleName string) error {
 	return doGalleyConfig(ruleName, util.KubeApplyContentSilent)
 }
@@ -94,6 +88,11 @@ func doGalleyConfig(configName string, do kubeDo) error {
 	}
 	return do(tc.Kube.Namespace, string(contents), tc.Kube.KubeConfig)
 }
+
+const (
+	waitForValidatingWebhookConfigTimeout   = 5 * time.Second
+	waitForValidatingWebhookConfigCheckFreq = 100 * time.Millisecond
+)
 
 func TestValidation(t *testing.T) {
 	const base = "tests/e2e/tests/galley/testdata"
@@ -145,10 +144,6 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-rbac-valid", true},
 		{"config-v1alpha2-reportnothing-invalid", false},
 		{"config-v1alpha2-reportnothing-valid", true},
-		{"config-v1alpha2-servicecontrol-invalid", false},
-		{"config-v1alpha2-servicecontrol-valid", true},
-		{"config-v1alpha2-servicecontrolreport-invalid", false},
-		{"config-v1alpha2-servicecontrolreport-valid", true},
 		{"config-v1alpha2-solarwinds-invalid", false},
 		{"config-v1alpha2-solarwinds-valid", true},
 		{"config-v1alpha2-stackdriver-invalid", false},
@@ -185,10 +180,7 @@ func TestValidation(t *testing.T) {
 
 		{"networking-v1alpha3-DestinationRule-invalid", false},
 		{"networking-v1alpha3-DestinationRule-valid", true},
-		// TODO(https://github.com/istio/istio/issues/6689)
-		// ServiceEntry is temporarily disabled. Verify that invalid
-		// configuration is not rejected by galley.
-		{"networking-v1alpha3-ServiceEntry-invalid", true},
+		{"networking-v1alpha3-ServiceEntry-invalid", false},
 		{"networking-v1alpha3-ServiceEntry-valid", true},
 		{"networking-v1alpha3-VirtualService-invalid", false},
 		{"networking-v1alpha3-VirtualService-valid", true},
@@ -202,6 +194,20 @@ func TestValidation(t *testing.T) {
 		}
 		return strings.Contains(err.Error(), "denied the request")
 	}
+
+	t.Log("Checking for istio-galley validatingwebhookconfiguration ...")
+	timeout := time.Now().Add(waitForValidatingWebhookConfigTimeout)
+	for {
+		if time.Now().After(timeout) {
+			t.Fatal("Timeout waiting for istio-galley validatingwebhookconfiguration to be created")
+		}
+		if util.ValidatingWebhookConfigurationExists("istio-galley", tc.Kube.KubeConfig) {
+			break
+		}
+		t.Log("istio-galley validatingwebhookconfiguration not ready")
+		time.Sleep(waitForValidatingWebhookConfigCheckFreq)
+	}
+	t.Log("Found istio-galley validatingwebhookconfiguration. Proceeding with test.")
 
 	for i := range cases {
 		c := cases[i]

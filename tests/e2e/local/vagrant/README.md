@@ -3,7 +3,7 @@
 1. No need to worry about kubernetes cluster setup.
 
 # Prereqs:
-1. Set up Istio Dev envrionment using https://github.com/istio/istio/wiki/Dev-Guide.
+1. Set up Istio Dev environment using https://github.com/istio/istio/wiki/Dev-Guide.
 
 1. Install
   * [virtual box](https://www.virtualbox.org/wiki/Downloads) - Verify `virtualbox` command opens up a virtual box window
@@ -106,3 +106,6 @@ sh cleanup_host.sh
 
 # Troubleshooting
 Please refer [Troubleshooting](Troubleshooting.md) doc for information on this.
+
+# Tips
+Please refer [Tips](../Tips.md) doc for some suggestions that we have found useful for debugging with e2e tests.

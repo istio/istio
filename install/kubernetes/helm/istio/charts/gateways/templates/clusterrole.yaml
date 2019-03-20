@@ -1,18 +1,18 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: {{ $key }}-{{ $.Release.Namespace }}
   labels:
-    app: {{ template "istio.name" $ }}
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    app: {{ $spec.labels.istio }}
+    chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
-  name: {{ $key }}-{{ $.Release.Namespace }}
 rules:
-- apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["virtualservices", "destinationrules", "gateways"]
   verbs: ["get", "watch", "list", "update"]
 ---
 {{- end }}

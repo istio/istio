@@ -15,11 +15,13 @@
 package kube
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 
-	"k8s.io/api/core/v1"
+	"istio.io/istio/pkg/spiffe"
+
+	v1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -27,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
 )
 
@@ -45,20 +47,22 @@ type ServiceAccountController struct {
 }
 
 // NewServiceAccountController returns a new ServiceAccountController
-func NewServiceAccountController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceAccountController {
+func NewServiceAccountController(core corev1.CoreV1Interface, namespaces []string, reg registry.Registry) *ServiceAccountController {
 	c := &ServiceAccountController{
 		core: core,
 		reg:  reg,
 	}
 
-	LW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(namespace).Watch(options)
-		},
-	}
+	LW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.ServiceAccounts(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.ServiceAccounts(namespace).Watch(options)
+			},
+		}
+	})
 
 	_, c.controller = cache.NewInformer(LW, &v1.ServiceAccount{}, time.Minute, cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.serviceAccountAdded,
@@ -75,8 +79,7 @@ func (c *ServiceAccountController) Run(stopCh chan struct{}) {
 }
 
 func getSpiffeID(sa *v1.ServiceAccount) string {
-	// borrowed from security/pkg/pki/ca/controller/secret.go:generateKeyAndCert()
-	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, sa.GetNamespace(), sa.GetName())
+	return spiffe.MustGenSpiffeURI(sa.GetNamespace(), sa.GetName())
 }
 
 func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {

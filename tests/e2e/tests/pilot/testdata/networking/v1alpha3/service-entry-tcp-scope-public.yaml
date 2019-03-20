@@ -1,0 +1,22 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-tcp-scope-public
+spec:
+  hosts:
+  - "service.tcp.com"
+  addresses:
+  - "127.255.255.11"
+  ports:
+  - number: 8888
+    name: tcp
+    protocol: TCP
+  resolution: DNS
+  endpoints:
+  # Rather than relying on an external host that might become unreachable (causing test failures)
+  # we can mock the external endpoint using service t which has no sidecar.
+  - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+    ports:
+      tcp: 8080
+  exportTo:
+  - "*"

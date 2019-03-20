@@ -1,0 +1,15 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: valid-prometheus
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code

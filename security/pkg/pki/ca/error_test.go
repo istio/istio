@@ -17,6 +17,8 @@ package ca
 import (
 	"fmt"
 	"testing"
+
+	"google.golang.org/grpc/codes"
 )
 
 func TestError(t *testing.T) {
@@ -24,31 +26,37 @@ func TestError(t *testing.T) {
 		eType   ErrType
 		err     error
 		message string
+		code    codes.Code
 	}{
 		"CA_NOT_READY": {
 			eType:   CANotReady,
 			err:     fmt.Errorf("test error1"),
 			message: "CA_NOT_READY",
+			code:    codes.Internal,
 		},
 		"CSR_ERROR": {
 			eType:   CSRError,
 			err:     fmt.Errorf("test error2"),
 			message: "CSR_ERROR",
+			code:    codes.InvalidArgument,
 		},
 		"TTL_ERROR": {
 			eType:   TTLError,
 			err:     fmt.Errorf("test error3"),
 			message: "TTL_ERROR",
+			code:    codes.InvalidArgument,
 		},
 		"CERT_GEN_ERROR": {
 			eType:   CertGenError,
 			err:     fmt.Errorf("test error4"),
 			message: "CERT_GEN_ERROR",
+			code:    codes.Internal,
 		},
 		"UNKNOWN": {
 			eType:   -1,
 			err:     fmt.Errorf("test error5"),
 			message: "UNKNOWN",
+			code:    codes.Internal,
 		},
 	}
 
@@ -59,6 +67,9 @@ func TestError(t *testing.T) {
 		}
 		if caErr.ErrorType() != tc.message {
 			t.Errorf("[%s] unexpected error type message: '%s' VS (expected)'%s'", k, caErr.ErrorType(), tc.message)
+		}
+		if caErr.HTTPErrorCode() != tc.code {
+			t.Errorf("[%s] unexpected error HTTP code: '%d' VS (expected)'%d'", k, caErr.HTTPErrorCode(), tc.code)
 		}
 	}
 }

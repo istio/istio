@@ -24,7 +24,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 )
 
@@ -45,11 +44,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: "1.1.1.1",
-		ID:        "someID",
-		Domain:    "foo.com",
-		Metadata:  map[string]string{"ISTIO_PROXY_VERSION": "1.0"},
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "someID",
+		DNSDomain:   "foo.com",
+		Metadata:    map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -61,32 +60,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
 
-	t.Run("destination rule nil traffic policy", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
-
-		configStore := &fakes.IstioConfigStore{}
-		rule := networkingDestinationRule
-		rule.TrafficPolicy = nil
-		cnfg := &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
-			Spec: rule,
-		}
-
-		configStore.DestinationRuleReturns(cnfg)
-
-		_, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	})
-
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Duration(time.Nanosecond * 100)
-		push := &model.PushContext{}
+		ttl := time.Nanosecond * 100
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -141,7 +124,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -181,7 +169,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			{
 
@@ -231,7 +225,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
@@ -253,7 +253,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -298,7 +304,7 @@ var virtualServiceWithSubset = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "some-subset",
@@ -321,7 +327,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 	Gateways: []string{"some-gateway"},
 	Http: []*networking.HTTPRoute{
 		{
-			Route: []*networking.DestinationWeight{
+			Route: []*networking.HTTPRouteDestination{
 				{
 					Destination: &networking.Destination{
 						Subset: "port-level-settings-subset",
@@ -350,7 +356,7 @@ var virtualServicePlain = model.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
-				Route: []*networking.DestinationWeight{
+				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
 							Host: "*.example.org",

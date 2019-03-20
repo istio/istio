@@ -18,7 +18,7 @@ echo WORK_DIR = "$WORK_DIR"
 echo HELM_DIR = "$HELM_DIR"
 
 # Helm setup
-HELM_BUILD_DIR=${HELM_DIR}/istio-repository
+HELM_BUILD_DIR="/workspace/charts"
 HELM="helm --home $HELM_DIR"
 
 # Copy Istio release files to WORK_DIR
@@ -28,14 +28,14 @@ mkdir -vp "$WORK_DIR/istio"
 cp -R "./istio-${CB_VERSION}/install" "$WORK_DIR/istio/install"
 
 pushd "$WORK_DIR"
-    git clone -b master https://github.com/istio-ecosystem/cni.git
+    git clone -b master https://github.com/istio/cni.git
 popd
 
 
 # Charts to extract from repos
 CHARTS=(
   "${WORK_DIR}/istio/install/kubernetes/helm/istio"
-  "${WORK_DIR}/istio/install/kubernetes/helm/istio-remote"
+  "${WORK_DIR}/istio/install/kubernetes/helm/istio-init"
   "${WORK_DIR}/cni/deployments/kubernetes/install/helm/istio-cni"
 )
 
@@ -47,7 +47,7 @@ $HELM init --client-only
 mkdir -vp "$HELM_BUILD_DIR"
 for CHART_PATH in "${CHARTS[@]}"
 do
-    $HELM package -u "$CHART_PATH" -d "$HELM_BUILD_DIR"
+    $HELM package "$CHART_PATH" -d "$HELM_BUILD_DIR"
 done
 
 $HELM repo index "$HELM_BUILD_DIR"

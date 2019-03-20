@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,11 +25,13 @@ import (
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
@@ -38,6 +40,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -48,7 +52,7 @@ const reportAttributesOkGet = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -66,7 +70,8 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 274,
+  "request.url_path": "/echo"
 }
 `
 
@@ -74,11 +79,13 @@ const reportAttributesOkGet = `
 const reportAttributesOkPost1 = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -87,6 +94,8 @@ const reportAttributesOkPost1 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -97,7 +106,7 @@ const reportAttributesOkPost1 = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -116,7 +125,8 @@ const reportAttributesOkPost1 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 342
+  "request.total_size": 310,
+  "request.url_path": "/echo"
 }
 `
 
@@ -124,11 +134,13 @@ const reportAttributesOkPost1 = `
 const reportAttributesOkPost2 = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
-  "request.path": "/echo",
+  "request.path": "/echo?a=b&c=d",
+  "request.query_params": {"a": "b", "c": "d"},
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
@@ -137,6 +149,8 @@ const reportAttributesOkPost2 = `
   "source.namespace": "XYZ11",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -147,7 +161,7 @@ const reportAttributesOkPost2 = `
   "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
-     ":path": "/echo",
+     ":path": "/echo?a=b&c=d",
      ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -166,20 +180,41 @@ const reportAttributesOkPost2 = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 348
+  "request.total_size": 316,
+  "request.url_path": "/echo"
 }
 `
 
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
-	"http_mixer_filter.total_blocking_remote_check_calls": 3,
-	"http_mixer_filter.total_blocking_remote_quota_calls": 0,
-	"http_mixer_filter.total_check_calls":                 3,
+	// Policy check stats
+	"http_mixer_filter.total_check_calls":             3,
+	"http_mixer_filter.total_check_cache_hits":        0,
+	"http_mixer_filter.total_check_cache_misses":      3,
+	"http_mixer_filter.total_check_cache_hit_accepts": 0,
+	"http_mixer_filter.total_check_cache_hit_denies":  0,
+	"http_mixer_filter.total_remote_check_calls":      3,
+	"http_mixer_filter.total_remote_check_accepts":    3,
+	"http_mixer_filter.total_remote_check_denies":     0,
+	// Quota check stats
 	"http_mixer_filter.total_quota_calls":                 0,
-	"http_mixer_filter.total_remote_check_calls":          3,
+	"http_mixer_filter.total_quota_cache_hits":            0,
+	"http_mixer_filter.total_quota_cache_misses":          0,
+	"http_mixer_filter.total_quota_cache_hit_accepts":     0,
+	"http_mixer_filter.total_quota_cache_hit_denies":      0,
 	"http_mixer_filter.total_remote_quota_calls":          0,
-	"http_mixer_filter.total_remote_report_calls":         1,
-	"http_mixer_filter.total_report_calls":                3,
+	"http_mixer_filter.total_remote_quota_accepts":        0,
+	"http_mixer_filter.total_remote_quota_denies":         0,
+	"http_mixer_filter.total_remote_quota_prefetch_calls": 0,
+	// Stats for RPCs to mixer policy server
+	"http_mixer_filter.total_remote_calls":             3,
+	"http_mixer_filter.total_remote_call_successes":    3,
+	"http_mixer_filter.total_remote_call_timeouts":     0,
+	"http_mixer_filter.total_remote_call_send_errors":  0,
+	"http_mixer_filter.total_remote_call_other_errors": 0,
+	// Report stats
+	"http_mixer_filter.total_remote_report_calls": 1,
+	"http_mixer_filter.total_report_calls":        3,
 }
 
 func TestReportBatch(t *testing.T) {
@@ -190,7 +225,7 @@ func TestReportBatch(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo?a=b&c=d", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"

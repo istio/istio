@@ -1,7 +1,7 @@
 # Istio Load Testing User Guide
 ### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/#fortio)
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/fortio/fortio/#fortio)
 on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh.
 
 It should not be too difficult to adapt the script to other cloud providers or environments and contributions for additional automated setup are welcome.
@@ -30,7 +30,7 @@ $ git clone https://github.com/istio/istio.git && cd istio
 Optional but recommended:
 
 If not already present from building from source,
-Install fortio: `go get istio.io/fortio` (so you can run `fortio report` to visualize the results)
+Install fortio: `go get fortio.org/fortio` (so you can run `fortio report` to visualize the results)
 
 ### Prepare the Istio Deployment Manifest and Istio Client
 
@@ -91,10 +91,7 @@ you can view the functions from within the `setup_perf_cluster.sh` script. The m
 $ setup_all
 Obtaining latest ubuntu xenial image name... (takes a few seconds)...
 <SNIP>
-### Running: istioctl create -n istio -f tools/cache_buster.yaml
-Created config denier/istio/denyall at revision 881
-Created config checknothing/istio/denyrequest at revision 882
-Created config rule/istio/mixercachebuster at revision 883
+### Running: kubectl apply -n istio -f tools/cache_buster.yaml
 ```
 The deployment is now complete. You can verify the deployment using standard `kubectl` commands:
 ```
@@ -177,7 +174,7 @@ Compare the test results to understand the load differential between the 3 test 
 
 ### Interactive Testing / UI Graphing of results
 
-Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
+Fortio provides a [Web UI](https://github.com/fortio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
@@ -193,7 +190,7 @@ to one of the Fortio echo servers:
 `echosrv1.istio.svc.cluster.local:8080` or `echosrv2.istio.svc.cluster.local:8080`.
 
 Fortio provides additional load testing capabilities not covered by this document. For more information, refer to the
-[Fortio documentation](https://github.com/istio/fortio/blob/master/README.md)
+[Fortio documentation](https://github.com/fortio/fortio/blob/master/README.md)
 
 ### Canonical Tests
 
@@ -243,7 +240,7 @@ canonical,fortio2,echo1,1200,1s,24,0.003420898,0.086621239,0.0248239801951,0.020
 ```
 
 To test the affects of your change, simply update your cluster with your binaries by following the
-[Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) and rerun the tests again. To ensure
+[Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide) and rerun the tests again. To ensure
 you're tracking the results of your changes correctly, you can explicitly specify a label:
 
 ```

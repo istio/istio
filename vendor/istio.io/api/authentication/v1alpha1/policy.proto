@@ -23,6 +23,25 @@ package istio.authentication.v1alpha1;
 
 option go_package = "istio.io/api/authentication/v1alpha1";
 
+// Describes how to match a given string. Match is case-sensitive.
+message StringMatch {
+  oneof match_type {
+    // exact string match.
+    string exact = 1;
+
+    // prefix-based match.
+    string prefix = 2;
+
+    // suffix-based match.
+    string suffix = 3;
+
+    // ECMAscript style regex-based match as defined by [EDCA-262](
+    // http://en.cppreference.com/w/cpp/regex/ecmascript).
+    // Example: "^/pets/(.*?)?"
+    string regex = 4;
+  }
+}
+
 // TLS authentication params.
 message MutualTls {
   // Defines the acceptable connection TLS mode.
@@ -47,12 +66,14 @@ message MutualTls {
 }
 
 // JSON Web Token (JWT) token format for authentication as defined by
-// https://tools.ietf.org/html/rfc7519. See [OAuth
+// [RFC 7519](https://tools.ietf.org/html/rfc7519). See [OAuth
 // 2.0](https://tools.ietf.org/html/rfc6749) and [OIDC
 // 1.0](http://openid.net/connect) for how this is used in the whole
 // authentication flow.
 //
-// Example,
+// For example:
+//
+// A JWT for any requests:
 //
 // ```yaml
 // issuer: https://example.com
@@ -60,6 +81,44 @@ message MutualTls {
 // - bookstore_android.apps.googleusercontent.com
 //   bookstore_web.apps.googleusercontent.com
 // jwksUri: https://example.com/.well-known/jwks.json
+// ```
+//
+// A JWT for all requests except request at path `/health_check` and path with
+// prefix `/status/`. This is useful to expose some paths for public access but
+// keep others JWT validated.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - excluded_paths:
+//   - exact: /health_check
+//   - prefix: /status/
+// ```
+//
+// A JWT only for requests at path `/admin`. This is useful to only require JWT
+// validation on a specific set of paths but keep others public accessible.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - included_paths:
+//   - prefix: /admin
+// ```
+//
+// A JWT only for requests at path of prefix `/status/` but except the path of
+// `/status/version`. This means for any request path with prefix `/status/` except
+// `/status/version` will require a valid JWT to proceed.
+//
+// ```yaml
+// issuer: https://example.com
+// jwks_uri: https://example.com/.well-known/jwks.json
+// trigger_rules:
+// - excluded_paths:
+//   - exact: /status/version
+//   included_paths:
+//   - prefix: /status/
 // ```
 message Jwt {
   // Identifies the issuer that issued the JWT. See
@@ -96,7 +155,7 @@ message Jwt {
   // the issuer or (b) inferred from the email domain of the issuer (e.g. a
   // Google service account).
   //
-  // Example: https://www.googleapis.com/oauth2/v1/certs
+  // Example: `https://www.googleapis.com/oauth2/v1/certs`
   string jwks_uri = 3;
 
   // Two fields below define where to extract the JWT from an HTTP request.
@@ -124,6 +183,26 @@ message Jwt {
   //
   // For example, `query=jwt_token`.
   repeated string jwt_params = 7;
+
+  // Trigger rule to match against a request. The trigger rule is satisfied if
+  // and only if both rules, excluded_paths and include_paths are satisfied.
+  message TriggerRule {
+    // List of paths to be excluded from the request. The rule is satisfied if
+    // request path does not match to any of the path in this list.
+    repeated StringMatch excluded_paths = 1;
+
+    // List of paths that the request must include. If the list is not empty, the
+    // rule is satisfied if request path matches at least one of the path in the list.
+    // If the list is empty, the rule is ignored, in other words the rule is always satisfied.
+    repeated StringMatch included_paths = 2;
+  }
+
+  // List of trigger rules to decide if this JWT should be used to validate the
+  // request. The JWT validation happens if any one of the rules matched.
+  // If the list is not empty and none of the rules matched, authentication will
+  // skip the JWT validation.
+  // Leave this empty to always trigger the JWT validation.
+  repeated TriggerRule trigger_rules = 9;
 }
 
 // PeerAuthenticationMethod defines one particular type of authentication, e.g
@@ -176,13 +255,14 @@ enum PrincipalBinding {
 //
 // Examples:
 //
-// Policy to enable mTLS for all services in namespace frod
+// Policy to enable mTLS for all services in namespace frod. The policy name must be
+// `default`, and it contains no rule for `targets`.
 //
 // ```yaml
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_enable
+//   name: default
 //   namespace: frod
 // spec:
 //   peers:
@@ -194,20 +274,20 @@ enum PrincipalBinding {
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_disable
+//   name: productpage_mTLS_disable
 //   namespace: frod
 // spec:
 //   targets:
 //   - name: productpage
 // ```
-// Policy to require mTLS for peer authentication, and JWT for origin authenticationn
-// for productpage:9000. Principal is set from origin identity.
+// Policy to require mTLS for peer authentication, and JWT for origin authentication
+// for productpage:9000 except the path '/health_check' . Principal is set from origin identity.
 //
 // ```yaml
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_enable
+//   name: productpage_mTLS_with_JWT
 //   namespace: frod
 // spec:
 //   target:
@@ -224,50 +304,20 @@ enum PrincipalBinding {
 //       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
 //       jwt_headers:
 //       - "x-goog-iap-jwt-assertion"
-//   principaBinding: USE_ORIGIN
-// ```
-//
-// Policy to require mTLS for peer authentication, and JWT for origin authenticationn
-// for productpage:9000, but allow origin authentication failed. Principal is set
-// from origin identity.
-// Note: this example can be used for use cases when we want to allow request from
-// certain peers, given it comes with an approperiate authorization poicy to check
-// and reject request accoridingly.
-//
-// ```yaml
-// apiVersion: authentication.istio.io/v1alpha1
-// kind: Policy
-// metadata:
-//   name: mTLS_enable
-//   namespace: frod
-// spec:
-//   target:
-//   - name: productpage
-//     ports:
-//     - number: 9000
-//   peers:
-//   - mtls:
-//   origins:
-//   - jwt:
-//       issuer: "https://securetoken.google.com"
-//       audiences:
-//       - "productpage"
-//       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
-//       jwt_headers:
-//       - "x-goog-iap-jwt-assertion"
-//   originIsOptional: true
+//       trigger_rules:
+//       - excluded_paths:
+//         - exact: /health_check
 //   principalBinding: USE_ORIGIN
 // ```
 message Policy {
-  // List rules to select destinations that the policy should be applied on.
-  // If empty, policy will be used on all destinations in the same namespace.
+  // List rules to select workloads that the policy should be applied on.
+  // If empty, policy will be used on all workloads in the same namespace.
   repeated TargetSelector targets = 1;
 
   // List of authentication methods that can be used for peer authentication.
   // They will be evaluated in order; the first validate one will be used to
   // set peer identity (source.user) and other peer attributes. If none of
-  // these methods pass, and peer_is_optional flag is false (see below),
-  // request will be rejected with authentication failed error (401).
+  // these methods pass, request will be rejected with authentication failed error (401).
   // Leave the list empty if peer authentication is not required
   repeated PeerAuthenticationMethod peers = 2;
 
@@ -281,9 +331,10 @@ message Policy {
   // List of authentication methods that can be used for origin authentication.
   // Similar to peers, these will be evaluated in order; the first validate one
   // will be used to set origin identity and attributes (i.e request.auth.user,
-  // request.auth.issuer etc). If none of these methods pass, and origin_is_optional
-  // is false (see below), request will be rejected with authentication failed
-  // error (401).
+  // request.auth.issuer etc). If none of these methods pass, request will be
+  // rejected with authentication failed error (401).
+  // A method may be skipped, depends on its trigger rule. If all of these methods
+  // are skipped, origin authentication will be ignored, as if it is not defined.
   // Leave the list empty if origin authentication is not required.
   repeated OriginAuthenticationMethod origins = 4;
 
@@ -296,26 +347,46 @@ message Policy {
 
   // Define whether peer or origin identity should be use for principal. Default
   // value is USE_PEER.
-  // If peer (or orgin) identity is not available, either because of peer/origin
+  // If peer (or origin) identity is not available, either because of peer/origin
   // authentication is not defined, or failed, principal will be left unset.
   // In other words, binding rule does not affect the decision to accept or
   // reject request.
   PrincipalBinding principal_binding = 6;
 }
 
-// TargetSelector defines a matching rule to a service/destination.
+// TargetSelector defines a matching rule to a workload. A workload is selected
+// if it is associated with the service name and service port(s) specified in the selector rule.
 message TargetSelector {
   // REQUIRED. The name must be a short name from the service registry. The
   // fully qualified domain name will be resolved in a platform specific manner.
   string name = 1;
 
-  // Specifies the ports on the destination. Leave empty to match all ports
-  // that are exposed.
+  // $hide_from_docs
+  // $not-implemented-hide
+  // Select workload by labels.
+  // Once implemented, this is a prefer way over using service name.
+  map<string, string> labels = 3;
+
+  // Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+  // For example, if a service is defined as below, then `8000` should be used, not `9000`.
+  // ```yaml
+  // kind: Service
+  // metadata:
+  //   ...
+  // spec:
+  //   ports:
+  //   - name: http
+  //     port: 8000
+  //     targetPort: 9000
+  //   selector:
+  //     app: backend
+  // ```
+  //Leave empty to match all ports that are exposed.
   repeated PortSelector ports = 2;
 }
 
 // PortSelector specifies the name or number of a port to be used for
-// matching targets for authenticationn policy. This is copied from
+// matching targets for authentication policy. This is copied from
 // networking API to avoid dependency.
 message PortSelector {
   oneof port {

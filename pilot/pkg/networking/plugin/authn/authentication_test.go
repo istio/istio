@@ -16,13 +16,12 @@ package authn
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -30,25 +29,25 @@ import (
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 func TestRequireTls(t *testing.T) {
 	cases := []struct {
 		name           string
 		in             *authn.Policy
-		expected       bool
 		expectedParams *authn.MutualTls
 	}{
 		{
 			name:           "Null policy",
 			in:             nil,
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
 			name:           "Empty policy",
 			in:             &authn.Policy{},
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
@@ -58,8 +57,7 @@ func TestRequireTls(t *testing.T) {
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected:       true,
-			expectedParams: nil,
+			expectedParams: &authn.MutualTls{Mode: authn.MutualTls_STRICT},
 		},
 		{
 			name: "Policy with mTls and Jwt",
@@ -77,7 +75,6 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       true,
 			expectedParams: &authn.MutualTls{AllowTls: true},
 		},
 		{
@@ -89,39 +86,12 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       false,
 			expectedParams: nil,
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
-			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
-		}
-	}
-}
-
-func TestJwksURIClusterName(t *testing.T) {
-	cases := []struct {
-		hostname string
-		port     *model.Port
-		expected string
-	}{
-		{
-			hostname: "foo.bar.com",
-			port:     &model.Port{Name: "http", Port: 80},
-			expected: "jwks.foo.bar.com|http",
-		},
-		{
-			hostname: "very.l" + strings.Repeat("o", 180) + "ng.hostname.com",
-			port:     &model.Port{Name: "http", Port: 80},
-			expected: "jwks.very.loooooooooooooooooooooooooooooooooooooooooooooooooo" +
-				"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
-				"ooooooooooooooooooooooooa96644bbd2fd09d9b6f9f0114d6c4dc792fa7efe",
-		},
-	}
-	for _, c := range cases {
-		if got := JwksURIClusterName(c.hostname, c.port); c.expected != got {
-			t.Errorf("JwksURIClusterName(%s, %#v): expected (%s), got (%s)", c.hostname, c.port, c.expected, got)
+		if params := GetMutualTLS(c.in); !reflect.DeepEqual(c.expectedParams, params) {
+			t.Errorf("%s: requireTLS(%v): got(%v) != want(%v)\n", c.name, c.in, params, c.expectedParams)
 		}
 	}
 }
@@ -219,244 +189,9 @@ func TestCollectJwtSpecs(t *testing.T) {
 }
 
 func TestConvertPolicyToJwtConfig(t *testing.T) {
-	cases := []struct {
-		name     string
-		in       authn.Policy
-		expected *jwtfilter.JwtAuthentication
-	}{
-		{
-			name:     "empty policy",
-			in:       authn.Policy{},
-			expected: nil,
-		},
-		{
-			name: "no jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			expected: nil,
-		},
-		{
-			name: "one jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								Issuer:     "foo",
-								Audiences:  []string{"dead", "beef"},
-								JwksUri:    "http://abc.com",
-								JwtHeaders: []string{"x-jwt-foo", "x-jwt-foo-another"},
-							},
-						},
-					},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						Issuer:    "foo",
-						Audiences: []string{"dead", "beef"},
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward: true,
-						FromHeaders: []*jwtfilter.JwtHeader{
-							{
-								Name: "x-jwt-foo",
-							},
-							{
-								Name: "x-jwt-foo-another",
-							},
-						},
-						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-		{
-			name: "two jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								Issuer:     "foo",
-								Audiences:  []string{"dead", "beef"},
-								JwksUri:    "http://abc.com",
-								JwtHeaders: []string{"x-jwt-foo", "x-jwt-foo-another"},
-							},
-						},
-					},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							Issuer:    "bar",
-							JwksUri:   "https://xyz.com",
-							JwtParams: []string{"x-jwt-bar"},
-						},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						Issuer:    "foo",
-						Audiences: []string{"dead", "beef"},
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward: true,
-						FromHeaders: []*jwtfilter.JwtHeader{
-							{
-								Name: "x-jwt-foo",
-							},
-							{
-								Name: "x-jwt-foo-another",
-							},
-						},
-						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
-					},
-					{
-						Issuer: "bar",
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "https://xyz.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.xyz.com|https",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						FromParams:           []string{"x-jwt-bar"},
-						ForwardPayloadHeader: "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-		{
-			name: "duplicate jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						Jwt: &authn.Jwt{
-							JwksUri: "http://abc.com",
-						},
-					},
-				},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							JwksUri: "https://xyz.com",
-						},
-					},
-					{
-						Jwt: &authn.Jwt{
-							JwksUri: "http://abc.com",
-						},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "https://xyz.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.xyz.com|https",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-	}
-	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(&c.in, false /*useInlinePublicKey*/); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
-		}
-	}
-}
-
-func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
@@ -496,19 +231,16 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(c.in, true); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
 }
 
 func TestBuildJwtFilter(t *testing.T) {
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
@@ -539,50 +271,31 @@ func TestBuildJwtFilter(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "jwt-auth",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
-						"rules": {
-							Kind: &types.Value_ListValue{
-								ListValue: &types.ListValue{
-									Values: []*types.Value{
-										{
-											Kind: &types.Value_StructValue{
-												StructValue: &types.Struct{
-													Fields: map[string]*types.Value{
-														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
-														"forward_payload_header": {
-															Kind: &types.Value_StringValue{
-																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-															},
-														},
-														"local_jwks": {
-															Kind: &types.Value_StructValue{
-																StructValue: &types.Struct{
-																	Fields: map[string]*types.Value{
-																		"inline_string": {
-																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
-																		},
-																	},
-																},
-															},
-														},
-													},
-												},
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&jwtfilter.JwtAuthentication{
+							AllowMissingOrFailed: true,
+							Rules: []*jwtfilter.JwtRule{
+								{
+									Forward:              true,
+									ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+									JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
+										LocalJwks: &jwtfilter.DataSource{
+											Specifier: &jwtfilter.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
 											},
 										},
 									},
 								},
 							},
-						},
-					},
+						}),
 				},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := BuildJwtFilter(c.in, true); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
@@ -711,7 +424,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -763,7 +476,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in, model.Sidecar)
+		got := BuildAuthNFilter(c.in, model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -776,7 +489,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 					t.Errorf("BuildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
 				}
 				filterConfig := &authn_filter.FilterConfig{}
-				if err := util.StructToMessage(got.GetConfig(), filterConfig); err != nil {
+				if err := filterConfig.Unmarshal(got.GetTypedConfig().GetValue()); err != nil {
 					t.Errorf("BuildAuthNFilter(%#v), bad filter config: %v", c.in, err)
 				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
 					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
@@ -786,24 +499,52 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 }
 
-func TestBuildListenerTLSContex(t *testing.T) {
+func TestOnInboundFilterChains(t *testing.T) {
+	tlsContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: proto.BoolTrue,
+	}
 	cases := []struct {
-		name     string
-		in       *authn.Policy
-		expected *auth.DownstreamTlsContext
+		name              string
+		in                *authn.Policy
+		sdsUdsPath        string
+		useTrustworthyJwt bool
+		useNormalJwt      bool
+		expected          []plugin.FilterChain
 	}{
 		{
-			name:     "nil policy",
-			in:       nil,
+			name: "NoAuthnPolicy",
+			in:   nil,
+			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
 		{
-			name:     "empty policy",
-			in:       &authn.Policy{},
-			expected: nil,
-		},
-		{
-			name: "non-mTLS policy",
+			name: "NonMTLSPolicy",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -818,7 +559,7 @@ func TestBuildListenerTLSContex(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name: "mTLS policy with nil param",
+			name: "mTLSWithNilParamMode",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -826,83 +567,133 @@ func TestBuildListenerTLSContex(t *testing.T) {
 					},
 				},
 			},
-			expected: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/cert-chain.pem",
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/key.pem",
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
-								},
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2", "http/1.1"},
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
-				RequireClientCertificate: &types.BoolValue{true},
 			},
 		},
 		{
-			name: "mTLS policy allowTls",
+			name: "StrictMTLS",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
 						Params: &authn.PeerAuthenticationMethod_Mtls{
-							&authn.MutualTls{
-								AllowTls: true,
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
 							},
 						},
 					},
 				},
 			},
-			expected: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/cert-chain.pem",
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/key.pem",
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
-								},
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2", "http/1.1"},
+			// Only one filter chain with mTLS settings should be generated.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
-				RequireClientCertificate: &types.BoolValue{false},
+			},
+		},
+		{
+			name: "PermissiveMTLS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
+			},
+			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
+					FilterChainMatch: &listener.FilterChainMatch{
+						ApplicationProtocols: []string{"istio"},
+					},
+					ListenerFilters: []listener.ListenerFilter{
+						{
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+				},
+			},
+		},
+		{
+			name: "mTLS policy using SDS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
+							},
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+									ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: proto.BoolTrue,
+					},
+				},
 			},
 		},
 	}
 	for _, c := range cases {
-		if got := buildListenerTLSContext(c.in, nil, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
+	}
+}
+
+func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: &core.GrpcService_GoogleGrpc{
+									TargetUri:  sdsudspath,
+									StatPrefix: model.SDSStatPrefix,
+									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+											LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+										},
+									},
+									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+										&core.GrpcService_GoogleGrpc_CallCredentials{
+											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+												GoogleComputeEngine: &types.Empty{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }

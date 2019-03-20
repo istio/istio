@@ -17,13 +17,13 @@ package interpreter
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
-	"istio.io/istio/mixer/pkg/il/testing"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
 
@@ -924,7 +924,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1101,9 +1101,9 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{
+				"a": attribute.WrapStringMap(map[string]string{
 					"b": "c",
-				},
+				}),
 			},
 			expected: "c",
 		},
@@ -1124,7 +1124,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1137,7 +1137,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			err: "member lookup failed: 'q'",
 		},
@@ -1150,7 +1150,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1163,7 +1163,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "",
 		},
@@ -1175,7 +1175,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1187,7 +1187,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			err: "member lookup failed: 'q'",
 		},
@@ -1199,7 +1199,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1211,7 +1211,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "",
 		},
@@ -1225,7 +1225,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			expected: "c",
 		},
@@ -1239,7 +1239,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end`,
 			input: map[string]interface{}{
-				"a": map[string]string{"b": "c"},
+				"a": attribute.WrapStringMap(map[string]string{"b": "c"}),
 			},
 			err: "not found!",
 		},
@@ -1667,8 +1667,8 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func() map[string]string {
-					return map[string]string{"b": "c"}
+				"ext": ExternFromFn("ext", func() il.StringMap {
+					return attribute.WrapStringMap(map[string]string{"b": "c"})
 				}),
 			},
 		},
@@ -1694,7 +1694,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: net.ParseIP("1.2.4.6"),
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() []byte {
 					return []byte{0x1, 0x2, 0x4, 0x6}
@@ -1832,9 +1832,9 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			input: map[string]interface{}{
-				"a": map[string]string{
+				"a": attribute.WrapStringMap(map[string]string{
 					"b": "c",
-				},
+				}),
 			},
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func(r il.StringMap) string {
@@ -1851,7 +1851,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: net.ParseIP("1.2.4.6"),
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
 			input: map[string]interface{}{
 				"a": []byte{0x1, 0x2, 0x4, 0x6},
 			},
@@ -1948,27 +1948,27 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			input: map[string]interface{}{
 				"a": int64(19),
-				"request.header": map[string]string{
+				"request.header": attribute.WrapStringMap(map[string]string{
 					"host": "abcd",
-				},
+				}),
 			},
 			expected: false,
 		},
 		"benchmark/success_at_A": {
 			input: map[string]interface{}{
 				"a": int64(20),
-				"request.header": map[string]string{
+				"request.header": attribute.WrapStringMap(map[string]string{
 					"host": "abcd",
-				},
+				}),
 			},
 			expected: true,
 		},
 		"benchmark/success_at_request_header": {
 			input: map[string]interface{}{
 				"a": int64(19),
-				"request.header": map[string]string{
+				"request.header": attribute.WrapStringMap(map[string]string{
 					"host": "abcd",
-				},
+				}),
 			},
 			expected: false,
 		},
@@ -2216,6 +2216,78 @@ L0:
 		"anlookup": {
 			code: `anlookup "a"`,
 		},
+		"alt_s": {
+			code: `alt_s "a"`,
+		},
+		"alt_i": {
+			code: `alt_i 232`,
+		},
+		"alt_d": {
+			code: `alt_d 12.34`,
+		},
+		"lt_s": {
+			code: `lt_s`,
+		},
+		"lt_i": {
+			code: `lt_i`,
+		},
+		"lt_d": {
+			code: `lt_d`,
+		},
+		"ale_s": {
+			code: `ale_s "a"`,
+		},
+		"ale_i": {
+			code: `ale_i 232`,
+		},
+		"ale_d": {
+			code: `ale_d 12.34`,
+		},
+		"le_s": {
+			code: `le_s`,
+		},
+		"le_i": {
+			code: `le_i`,
+		},
+		"le_d": {
+			code: `le_d`,
+		},
+		"age_s": {
+			code: `age_s "a"`,
+		},
+		"age_i": {
+			code: `age_i 232`,
+		},
+		"age_d": {
+			code: `age_d 12.34`,
+		},
+		"ge_s": {
+			code: `ge_s`,
+		},
+		"ge_i": {
+			code: `ge_i`,
+		},
+		"ge_d": {
+			code: `ge_d`,
+		},
+		"agt_s": {
+			code: `agt_s "a"`,
+		},
+		"agt_i": {
+			code: `agt_i 232`,
+		},
+		"agt_d": {
+			code: `agt_d 12.34`,
+		},
+		"gt_s": {
+			code: `gt_s`,
+		},
+		"gt_i": {
+			code: `gt_i`,
+		},
+		"gt_d": {
+			code: `gt_d`,
+		},
 	}
 
 	template := `
@@ -2377,9 +2449,9 @@ end
 		test.err = "heap overflow"
 		test.code = fmt.Sprintf(template, test.code)
 		test.input = map[string]interface{}{
-			"a": map[string]string{
+			"a": attribute.WrapStringMap(map[string]string{
 				"b": "c",
-			},
+			}),
 		}
 		name := n
 		t.Run(n, func(tt *testing.T) {
@@ -2392,7 +2464,7 @@ func runTestCode(name string, t *testing.T, test test) {
 	p := il.NewProgram()
 	err := text.MergeText(test.code, p)
 	if err != nil {
-		t.Fatalf("code compilation failed: %v", err)
+		t.Fatalf("code compilation failed in %q: %v", name, err)
 	}
 	runTestProgram(t, p, test)
 }
@@ -2421,7 +2493,7 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 
 		r := s.Result()
 		actual := r.AsInterface()
-		if !areEqual(actual, test.expected) {
+		if !attribute.Equal(actual, test.expected) {
 			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
@@ -2443,20 +2515,8 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		}
 
 		actual := r.AsInterface()
-		if !areEqual(actual, test.expected) {
+		if !attribute.Equal(actual, test.expected) {
 			t.Fatalf("(interpreter) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
-}
-
-func areEqual(a1 interface{}, a2 interface{}) bool {
-	b1, b1Ok := a1.(net.IP)
-	b2, b2Ok := a2.(net.IP)
-	if b1Ok != b2Ok {
-		return false
-	}
-	if b1Ok {
-		return b1.Equal(b2)
-	}
-	return a1 == a2
 }

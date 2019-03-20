@@ -1,0 +1,37 @@
+#
+# addon kiali
+#
+enabled: false
+replicaCount: 1
+hub: docker.io/kiali
+tag: v0.14
+contextPath: /kiali
+nodeSelector: {}
+ingress:
+  enabled: false
+  ## Used to create an Ingress record.
+  hosts:
+    - kiali.local
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  tls:
+    # Secrets must be manually created in the namespace.
+    # - secretName: kiali-tls
+    #   hosts:
+    #     - kiali.local
+
+dashboard:
+  secretName: kiali
+  usernameKey: username
+  passphraseKey: passphrase
+
+  # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
+  # grafanaURL:
+
+  # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
+  # jaegerURL:
+prometheusAddr: http://prometheus:9090
+
+# When true, a secret will be created with a default username and password. Useful for demos.
+createDemoSecret: false

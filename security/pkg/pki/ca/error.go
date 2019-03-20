@@ -14,6 +14,8 @@
 
 package ca
 
+import "google.golang.org/grpc/codes"
+
 // ErrType is the type for CA errors.
 type ErrType int
 
@@ -52,6 +54,21 @@ func (e Error) ErrorType() string {
 		return "CERT_GEN_ERROR"
 	}
 	return "UNKNOWN"
+}
+
+// HTTPErrorCode returns an HTTP error code representing the error type.
+func (e Error) HTTPErrorCode() codes.Code {
+	switch e.t {
+	case CANotReady:
+		return codes.Internal
+	case CertGenError:
+		return codes.Internal
+	case CSRError:
+		return codes.InvalidArgument
+	case TTLError:
+		return codes.InvalidArgument
+	}
+	return codes.Internal
 }
 
 // NewError creates a new Error instance.

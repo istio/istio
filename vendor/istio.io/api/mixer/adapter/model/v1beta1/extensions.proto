@@ -24,10 +24,10 @@ import "google/protobuf/descriptor.proto";
 // The available varieties of templates, controlling the semantics of what an adapter does with each instance.
 enum TemplateVariety {
     // Makes the template applicable for Mixer's check calls. Instances of such template are created during
-    // report calls in Mixer and passed to the handlers based on the rule configurations.
+    // check calls in Mixer and passed to the handlers based on the rule configurations.
     TEMPLATE_VARIETY_CHECK = 0;
     // Makes the template applicable for Mixer's report calls. Instances of such template are created during
-    // check calls in Mixer and passed to the handlers based on the rule configurations.
+    // report calls in Mixer and passed to the handlers based on the rule configurations.
     TEMPLATE_VARIETY_REPORT = 1;
     // Makes the template applicable for Mixer's quota calls. Instances of such template are created during
     // quota check calls in Mixer and passed to the handlers based on the rule configurations.
@@ -35,6 +35,9 @@ enum TemplateVariety {
     // Makes the template applicable for Mixer's attribute generation phase. Instances of such template are created during
     // pre-processing attribute generation phase and passed to the handlers based on the rule configurations.
     TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR = 3;
+    // Makes the template applicable for Mixer's check calls. Instances of such template are created during
+    // check calls in Mixer and passed to the handlers that produce values.
+    TEMPLATE_VARIETY_CHECK_WITH_OUTPUT = 4;
 }
 
 // File level options for the template.

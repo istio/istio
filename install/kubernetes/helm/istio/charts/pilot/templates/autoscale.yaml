@@ -1,20 +1,25 @@
-{{- if .Values.autoscaleMin }}
+{{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: istio-pilot
-    namespace: {{ $.Release.Namespace }}
+  name: istio-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
-    maxReplicas: {{ .Values.autoscaleMax }}
-    minReplicas: {{ .Values.autoscaleMin }}
-    scaleTargetRef:
-      apiVersion: apps/v1beta1
-      kind: Deployment
-      name: istio-pilot
-    metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+  maxReplicas: {{ .Values.autoscaleMax }}
+  minReplicas: {{ .Values.autoscaleMin }}
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: istio-pilot
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
 ---
 {{- end }}

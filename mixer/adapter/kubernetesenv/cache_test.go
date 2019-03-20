@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package kubernetesenv
 import (
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -48,8 +48,8 @@ func TestClusterInfoCache_Pod(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
+			c := newCacheController(clientset, 0, test.NewEnv(t), stopCh)
 			defer close(stopCh)
 			go c.Run(stopCh)
 			if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
@@ -102,15 +102,15 @@ func TestClusterInfoCache_Workload_ReplicationController(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
+			c := newCacheController(clientset, 0, test.NewEnv(t), stopCh)
 			defer close(stopCh)
 			go c.Run(stopCh)
 			if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
 				tt.Fatal("Failed to sync")
 			}
 			pod, _ := c.Pod(v.pod)
-			workload, _ := c.Workload(pod)
+			workload := c.Workload(pod)
 			if workload.name != v.workload {
 				tt.Errorf("GetWorkload() => (_, %s), wanted (_, %s)", workload.name, v.workload)
 			}

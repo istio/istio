@@ -108,10 +108,6 @@ func ilType(t reflect.Type) il.Type {
 		return il.Integer
 	case reflect.Float64:
 		return il.Double
-	case reflect.Map:
-		if t.Key().Kind() == reflect.String || t.Elem().Kind() == reflect.String {
-			return il.Interface
-		}
 	case reflect.Slice:
 		if t.Elem().Kind() == reflect.Uint8 {
 			return il.Interface
@@ -119,6 +115,8 @@ func ilType(t reflect.Type) il.Type {
 	case reflect.Struct:
 		switch t.Name() {
 		case "Time":
+			return il.Interface
+		case "StringMap":
 			return il.Interface
 		}
 	case reflect.Interface:
@@ -139,7 +137,7 @@ func ilType(t reflect.Type) il.Type {
 //
 // The function returns two uint32 values in the push order (i.e. first uint32 to be pushed on to
 // the stack first).
-func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack []uint32, sp uint32) (uint32, uint32, error) {
+func (e Extern) invoke(_ *il.StringTable, heap []interface{}, hp *uint32, stack []uint32, sp uint32) (uint32, uint32, error) {
 
 	// Convert the parameters on stack to reflect.Values.
 	ins := make([]reflect.Value, len(e.paramTypes))

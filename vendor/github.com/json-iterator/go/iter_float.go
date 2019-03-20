@@ -145,9 +145,7 @@ non_decimal_loop:
 				}
 				// too many decimal places
 				return iter.readFloat32SlowPath()
-			case invalidCharForNumber:
-				fallthrough
-			case dotInNumber:
+			case invalidCharForNumber, dotInNumber:
 				return iter.readFloat32SlowPath()
 			}
 			decimalPlaces++
@@ -286,9 +284,7 @@ non_decimal_loop:
 				}
 				// too many decimal places
 				return iter.readFloat64SlowPath()
-			case invalidCharForNumber:
-				fallthrough
-			case dotInNumber:
+			case invalidCharForNumber, dotInNumber:
 				return iter.readFloat64SlowPath()
 			}
 			decimalPlaces++

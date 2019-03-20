@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cleanup linux host setup to talk to kubernetest cluster on Vagrant VM.
+# Cleanup linux host setup to talk to kubernetes cluster on Vagrant VM.
 cp ~/.kube/config_old ~/.kube/config
 rm -rf ~/.kube/config_old
 

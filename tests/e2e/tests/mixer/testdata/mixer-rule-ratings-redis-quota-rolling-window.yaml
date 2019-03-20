@@ -7,7 +7,7 @@ spec:
   quotas:
   - name: requestcount.quota.istio-system
     maxAmount: 5000
-    validDuration: 10s
+    validDuration: 30s
     bucketDuration: 9s
     rateLimitAlgorithm: ROLLING_WINDOW
     # The first matching override is applied.
@@ -18,12 +18,12 @@ spec:
     - dimensions:
         destination: ratings
         source: reviews
-      maxAmount: 1
+      maxAmount: 50
     # The following override applies to 'ratings' regardless
     # of the source.
     - dimensions:
         destination: ratings
-      maxAmount: 10
+      maxAmount: 100
   redisServerUrl: "redis-release-master.istio-system.svc.cluster.local:6379"
   connectionPoolSize: 10
 ---
@@ -46,6 +46,7 @@ metadata:
   name: quota
   namespace: istio-system
 spec:
+  match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
   - handler: handler.redisquota
     instances:

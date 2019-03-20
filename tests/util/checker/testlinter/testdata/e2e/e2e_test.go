@@ -7,6 +7,7 @@ import (
 func SetCount()       {}
 func Count(n int) int { return n }
 
+// nolint: testlinter
 func TestE2eInvalidSkip(t *testing.T) {
 	t.Skip("invalid t.Skip without url to GitHub issue.")
 	SetCount()
@@ -22,6 +23,7 @@ func TestE2eInvalidSkip(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/6041")
 }
 
+// nolint: testlinter
 func TestE2eNoShort(t *testing.T) {
 	SetCount()
 	if Count(1) != 1 {
@@ -36,6 +38,7 @@ func TestE2eNoShort(t *testing.T) {
 	}
 }
 
+// nolint: testlinter
 func TestE2eSkipAtTop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode.")
@@ -53,6 +56,7 @@ func TestE2eSkipAtTop(t *testing.T) {
 	}
 }
 
+// nolint: testlinter
 func TestE2eSkipAtTop2(t *testing.T) {
 	if !testing.Short() {
 		SetCount()

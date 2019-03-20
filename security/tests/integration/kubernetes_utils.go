@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -29,7 +29,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -196,12 +197,12 @@ func createIstioCARole(clientset kubernetes.Interface, namespace string) error {
 		Rules: []rbac.PolicyRule{
 			{
 				Verbs:     []string{"create", "get", "watch", "list", "update"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"secrets"},
 			},
 			{
 				Verbs:     []string{"get", "watch", "list"},
-				APIGroups: []string{"core", ""},
+				APIGroups: []string{""},
 				Resources: []string{"serviceaccounts", "services", "pods"},
 			},
 		},
@@ -348,7 +349,7 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID, err := util.GenSanURI(secret.GetNamespace(), "default")
+	expectedID, err := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
 	if err != nil {
 		return err
 	}
@@ -356,11 +357,12 @@ func ExamineSecret(secret *v1.Secret) error {
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
+		Host:        expectedID,
 	}
 
 	if err := util.VerifyCertificate(secret.Data[controller.PrivateKeyID],
 		secret.Data[controller.CertChainID], secret.Data[controller.RootCertID],
-		expectedID, verifyFields); err != nil {
+		verifyFields); err != nil {
 		return fmt.Errorf("certificate verification failed: %v", err)
 	}
 

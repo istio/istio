@@ -46,7 +46,7 @@ func NewSkipByShort() *ShortSkip {
 
 // GetID returns skip_by_short_rule.
 func (lr *ShortSkip) GetID() string {
-	return getCallerFileName()
+	return GetCallerFileName()
 }
 
 // Check verifies if aNode is a valid t.Skip(). If verification fails lrp creates a new report.
@@ -72,7 +72,7 @@ func (lr *ShortSkip) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Repor
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
 					if call, ok := uExpr.X.(*ast.CallExpr); ok && uExpr.Op == token.NOT {
-						if matchCallExpr(call, "testing", "Short") {
+						if MatchCallExpr(call, "testing", "Short") {
 							return
 						}
 					}
@@ -81,10 +81,10 @@ func (lr *ShortSkip) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Repor
 		} else {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if call, ok := ifStmt.Cond.(*ast.CallExpr); ok {
-					if matchCallExpr(call, "testing", "Short") && len(ifStmt.Body.List) > 0 {
+					if MatchCallExpr(call, "testing", "Short") && len(ifStmt.Body.List) > 0 {
 						if exprStmt, ok := ifStmt.Body.List[0].(*ast.ExprStmt); ok {
 							if call, ok := exprStmt.X.(*ast.CallExpr); ok {
-								if matchCallExpr(call, "t", "Skip") {
+								if MatchCallExpr(call, "t", "Skip") {
 									return
 								}
 							}

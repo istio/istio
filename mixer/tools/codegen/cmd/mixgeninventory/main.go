@@ -53,6 +53,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			} else {
 				for _, maps := range mappings {
 					m := strings.Split(maps, ":")
+					if len(m) != 2 {
+						errorf("Invalid flag -p %v", mappings)
+					}
 					packageMap[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 				}
 			}

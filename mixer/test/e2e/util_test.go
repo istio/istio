@@ -29,22 +29,23 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	testEnv "istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 )
 
 type testData struct {
 	name      string
 	cfg       string
-	behaviors []spyAdapter.AdapterBehavior
+	behaviors []spyadapter.AdapterBehavior
 	templates map[string]template.Info
 	attrs     map[string]interface{}
 
-	expectError    error
-	expectSetTypes map[string]interface{}
-	expectCalls    []spyAdapter.CapturedCall
-	expectAttrRefs []expectedAttrRef
+	expectError     error
+	expectSetTypes  map[string]interface{}
+	expectCalls     []spyadapter.CapturedCall
+	expectDirective *istio_mixer_v1.RouteDirective
+	expectAttrRefs  []expectedAttrRef
 }
 
 type expectedAttrRef struct {
@@ -57,7 +58,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 	// Do common setup
 	adapterInfos, spyAdapters := constructAdapterInfos(tt.behaviors)
 
-	args := testEnv.DefaultArgs()
+	args := server.DefaultArgs()
 	args.APIPort = 0
 	args.MonitoringPort = 0
 	args.Templates = tt.templates
@@ -67,16 +68,16 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 		t.Fatal(cerr)
 	}
 
-	env, err := testEnv.New(args)
+	s, err := server.New(args)
 	if err != nil {
 		t.Fatalf("fail to create mixer: %v", err)
 	}
 
-	env.Run()
+	s.Run()
 
-	defer closeHelper(env)
+	defer closeHelper(s)
 
-	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Unable to connect to gRPC server: %v", err)
 	}
@@ -106,6 +107,13 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 		tt.checkCalls(t, spyAdapters)
 		tt.checkReferencedAttributes(t, response.Precondition.ReferencedAttributes)
 
+		if tt.expectDirective != nil {
+			if !reflect.DeepEqual(tt.expectDirective, response.Precondition.RouteDirective) {
+				t.Fatalf("Route directive mismatch:\ngot:\n%v\nwanted:\n%v\n", spew.Sdump(response.Precondition.RouteDirective),
+					spew.Sdump(tt.expectDirective))
+			}
+		}
+
 	default:
 		t.Fatalf("Unsupported variety: %v", variety)
 	}
@@ -117,7 +125,7 @@ func (tt *testData) checkReturnError(t *testing.T, err error) {
 	}
 }
 
-func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyAdapter.Adapter) {
+func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyadapter.Adapter) {
 	if tt.expectSetTypes == nil {
 		return
 	}
@@ -129,7 +137,7 @@ func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyAdapter.Adapter) 
 	}
 }
 
-func (tt *testData) checkCalls(t *testing.T, adapters []*spyAdapter.Adapter) {
+func (tt *testData) checkCalls(t *testing.T, adapters []*spyadapter.Adapter) {
 	if tt.expectCalls == nil {
 		return
 	}
@@ -214,11 +222,11 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 
 // constructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
-func constructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
+func constructAdapterInfos(adptBehaviors []spyadapter.AdapterBehavior) ([]adapter.InfoFn, []*spyadapter.Adapter) {
 	adapterInfos := make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter.Adapter, 0)
+	spyAdapters := make([]*spyadapter.Adapter, 0)
 	for _, b := range adptBehaviors {
-		sa := spyAdapter.NewSpyAdapter(b)
+		sa := spyadapter.NewSpyAdapter(b)
 		spyAdapters = append(spyAdapters, sa)
 		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
 	}

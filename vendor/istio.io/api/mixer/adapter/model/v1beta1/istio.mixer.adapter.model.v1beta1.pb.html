@@ -1,6 +1,6 @@
 ---
 title: Mixer Adapter Model
-description: Definitions used to create adapters and templates
+description: Definitions used to create adapters and templates.
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 17
@@ -15,7 +15,7 @@ This package also defines the types that are used to create Mixer templates.</p>
 out of process adapter.</p>
 
 <p><code>InfrastructureBackend</code> allows Mixer and the backends to have a session based model. In a session based model, Mixer passes
-the relevant configuration state to the backend only once and estabilshes a session using a session identifier.
+the relevant configuration state to the backend only once and establishes a session using a session identifier.
 All future communications between Mixer and the backend uses the session identifier which refers to the previously
 passed in configuration data.</p>
 
@@ -46,7 +46,7 @@ handler configurations whose existing sessions are invalidated or didn&rsquo;t e
 
 <p>Backend is allowed to return the same session id if given the same configuration block.
 This would happen when multiple instances of Mixer in a deployment all create sessions with the same configuration.
-Note that given individial instances of Mixer can call <code>CloseSession</code>, reusing <code>session_id</code> by the backend
+Note that given individual instances of Mixer can call <code>CloseSession</code>, reusing <code>session_id</code> by the backend
 assumes that the backend is doing reference counting.</p>
 
 <p>If the backend couldn&rsquo;t create a session for a specific handler configuration and
@@ -407,7 +407,7 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 </section>
 <h3 id="Template">Template</h3>
 <section>
-<p>Template provides the details of a mixer template.</p>
+<p>Template provides the details of a Mixer template.</p>
 
 <table class="message-fields">
 <thead>
@@ -445,7 +445,7 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <td><code>TEMPLATE_VARIETY_CHECK</code></td>
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
-report calls in Mixer and passed to the handlers based on the rule configurations.</p>
+check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -453,7 +453,7 @@ report calls in Mixer and passed to the handlers based on the rule configuration
 <td><code>TEMPLATE_VARIETY_REPORT</code></td>
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s report calls. Instances of such template are created during
-check calls in Mixer and passed to the handlers based on the rule configurations.</p>
+report calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -470,6 +470,14 @@ quota check calls in Mixer and passed to the handlers based on the rule configur
 <td>
 <p>Makes the template applicable for Mixer&rsquo;s attribute generation phase. Instances of such template are created during
 pre-processing attribute generation phase and passed to the handlers based on the rule configurations.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety-TEMPLATE_VARIETY_CHECK_WITH_OUTPUT">
+<td><code>TEMPLATE_VARIETY_CHECK_WITH_OUTPUT</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers that produce values.</p>
 
 </td>
 </tr>

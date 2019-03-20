@@ -51,7 +51,7 @@ func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]inte
 func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, error) {
 	msg, ok := kinds[kind]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized kind %s", kind)
+		return nil, fmt.Errorf("unrecognized kind %q", kind)
 	}
 	return proto.Clone(msg), nil
 }

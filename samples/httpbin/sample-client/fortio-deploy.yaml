@@ -1,3 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+  labels:
+    app: fortio
+spec:
+  ports:
+  - port: 8080
+    name: http
+  selector:
+    app: fortio
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -6,12 +19,17 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        # This annotation causes Envoy to serve cluster.outbound statistics via 15000/stats
+        # in addition to the stats normally served by Istio.  The Circuit Breaking example task
+        # gives an example of inspecting Envoy stats.
+        sidecar.istio.io/statsInclusionPrefixes: cluster.outbound,cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc
       labels:
         app: fortio
     spec:
       containers:
       - name: fortio
-        image: istio/fortio:latest_release
+        image: fortio/fortio:latest_release
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

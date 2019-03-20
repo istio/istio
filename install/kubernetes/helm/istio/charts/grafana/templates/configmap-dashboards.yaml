@@ -1,18 +1,18 @@
----
+{{- $files := .Files }}
+{{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+{{- $filename := trimSuffix (ext $path) (base $path) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-grafana-configuration-dashboards
-  namespace: {{ .Release.Namespace }}
+  name: istio-grafana-configuration-dashboards-{{ $filename }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app: {{ template "grafana.name" $ }}
+    chart: {{ template "grafana.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
     istio: grafana
-
 data:
-  {{- $files := .Files }}
-  {{ range $path, $bytes := .Files.Glob "dashboards/*.json" }}
   {{ base $path }}: '{{ $files.Get $path }}'
-  {{ end }}
+---
+{{- end }}

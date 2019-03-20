@@ -26,24 +26,26 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
+	fcache "k8s.io/client-go/tools/cache/testing"
 
-	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const (
@@ -101,9 +103,37 @@ var (
 	}
 
 	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+
+	createFakeWebhookSource   = fcache.NewFakeControllerSource
+	createFakeEndpointsSource = func() cache.ListerWatcher {
+		source := fcache.NewFakeControllerSource()
+		source.Add(&v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dummyDeployment.Name,
+				Namespace: dummyDeployment.Namespace,
+			},
+			Subsets: []v1.EndpointSubset{{
+				Addresses: []v1.EndpointAddress{{
+					IP: "1.2.3.4",
+				}},
+			}},
+		})
+		return source
+	}
 )
 
-func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
+func TestArgs_String(t *testing.T) {
+	p := DefaultArgs()
+	// Should not crash
+	_ = p.String()
+}
+
+func createTestWebhook(
+	t testing.TB,
+	cl clientset.Interface,
+	fakeWebhookSource, fakeEndpointSource cache.ListerWatcher,
+	config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
+
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
 	if err != nil {
@@ -116,7 +146,6 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	var (
 		certFile   = filepath.Join(dir, "cert-file.yaml")
 		keyFile    = filepath.Join(dir, "key-file.yaml")
-		healthFile = filepath.Join(dir, "health-file.yaml")
 		caFile     = filepath.Join(dir, "ca-file.yaml")
 		configFile = filepath.Join(dir, "config-file.yaml")
 		port       = uint(0)
@@ -149,24 +178,30 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	}
 
 	options := WebhookParameters{
-		CertFile:            certFile,
-		KeyFile:             keyFile,
-		Port:                port,
-		DomainSuffix:        testDomainSuffix,
-		PilotDescriptor:     mock.Types,
-		MixerValidator:      &fakeValidator{},
-		HealthCheckFile:     healthFile,
-		HealthCheckInterval: 10 * time.Millisecond,
-		WebhookConfigFile:   configFile,
-		CACertFile:          caFile,
-		Clientset:           cl,
-		DeploymentName:      dummyDeployment.Name,
-		DeploymentNamespace: dummyDeployment.Namespace,
+		CertFile:                      certFile,
+		KeyFile:                       keyFile,
+		Port:                          port,
+		DomainSuffix:                  testDomainSuffix,
+		PilotDescriptor:               mock.Types,
+		MixerValidator:                &fakeValidator{},
+		WebhookConfigFile:             configFile,
+		CACertFile:                    caFile,
+		Clientset:                     cl,
+		DeploymentName:                dummyDeployment.Name,
+		ServiceName:                   dummyDeployment.Name,
+		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
 		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)
+	}
+
+	wh.createInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
+		return fakeWebhookSource
+	}
+	wh.createInformerEndpointSource = func(cl clientset.Interface, namespace, name string) cache.ListerWatcher {
+		return fakeEndpointSource
 	}
 
 	return wh, func() {
@@ -175,7 +210,7 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	}
 }
 
-func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {
+func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool) []byte { // nolint: unparam
 	t.Helper()
 
 	var key string
@@ -211,14 +246,25 @@ func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {
 	if err != nil {
 		t.Fatalf("Marshal(%v) failed: %v", config.Name, err)
 	}
+	if includeBogusKey {
+		trial := make(map[string]interface{})
+		if err := json.Unmarshal(raw, &trial); err != nil {
+			t.Fatalf("Unmarshal(%v) failed: %v", config.Name, err)
+		}
+		trial["unexpected_key"] = "any value"
+		if raw, err = json.Marshal(&trial); err != nil {
+			t.Fatalf("re-Marshal(%v) failed: %v", config.Name, err)
+		}
+	}
 	return raw
 }
 
 func TestAdmitPilot(t *testing.T) {
-	valid := makePilotConfig(t, 0, true, true)
-	invalidConfig := makePilotConfig(t, 0, true, false)
+	valid := makePilotConfig(t, 0, true, false)
+	invalidConfig := makePilotConfig(t, 0, false, false)
+	extraKeyConfig := makePilotConfig(t, 0, true, true)
 
-	wh, cancel := createTestWebhook(t, dummyClient, dummyConfig)
+	wh, cancel := createTestWebhook(t, dummyClient, createFakeWebhookSource(), createFakeEndpointsSource(), dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -231,7 +277,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -241,7 +287,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Create,
 			},
@@ -251,7 +297,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: admissionv1beta1.Delete,
 			},
@@ -261,7 +307,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: admissionv1beta1.Create,
 			},
@@ -271,8 +317,18 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{}, // TODO
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
+				Operation: admissionv1beta1.Create,
+			},
+			allowed: false,
+		},
+		{
+			name:  "invalid extra key create",
+			admit: wh.admitPilot,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: admissionv1beta1.Create,
 			},
 			allowed: false,
@@ -282,20 +338,23 @@ func TestAdmitPilot(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
 			got := wh.admitPilot(c.in)
-			if c.allowed != got.Allowed {
-				t.Fatalf("got %v want %v", got, c.allowed)
+			if got.Allowed != c.allowed {
+				t.Fatalf("got %v want %v", got.Allowed, c.allowed)
 			}
 		})
 	}
 }
 
-func makeMixerConfig(t *testing.T, i int) []byte {
+func makeMixerConfig(t *testing.T, i int, includeBogusKey bool) []byte {
 	t.Helper()
 	uns := &unstructured.Unstructured{}
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	uns.SetName(name)
 	uns.SetKind("mock")
 	uns.Object["spec"] = map[string]interface{}{"foo": 1}
+	if includeBogusKey {
+		uns.Object["unexpected_key"] = "any value"
+	}
 	raw, err := json.Marshal(uns)
 	if err != nil {
 		t.Fatalf("Marshal(%v) failed: %v", uns, err)
@@ -304,8 +363,14 @@ func makeMixerConfig(t *testing.T, i int) []byte {
 }
 
 func TestAdmitMixer(t *testing.T) {
-	rawConfig := makeMixerConfig(t, 0)
-	wh, cancel := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	rawConfig := makeMixerConfig(t, 0, false)
+	extraKeyConfig := makeMixerConfig(t, 0, true)
+	wh, cancel := createTestWebhook(
+		t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -412,6 +477,17 @@ func TestAdmitMixer(t *testing.T) {
 			validator: &fakeValidator{},
 			allowed:   false,
 		},
+		{
+			name: "invalid extra key create",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Name:      "invalid extra key create",
+				Object:    runtime.RawExtension{Raw: extraKeyConfig},
+				Operation: admissionv1beta1.Create,
+			},
+			validator: &fakeValidator{},
+			allowed:   false,
+		},
 	}
 
 	for i, c := range cases {
@@ -431,7 +507,7 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 		Request: &admissionv1beta1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
-				Raw: makePilotConfig(t, 0, true, valid),
+				Raw: makePilotConfig(t, 0, valid, false),
 			},
 			Operation: admissionv1beta1.Create,
 		},
@@ -444,7 +520,11 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 }
 
 func TestServe(t *testing.T) {
-	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()

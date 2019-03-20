@@ -33,6 +33,8 @@ syntax = "proto2";
 
 package multitest;
 
+option go_package = "github.com/gogo/protobuf/protoc-gen-gogo/testdata/multi;multitest";
+
 message Multi3 {
   enum HatType {
     FEDORA = 1;

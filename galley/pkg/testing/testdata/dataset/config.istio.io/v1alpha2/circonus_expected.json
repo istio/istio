@@ -1,0 +1,24 @@
+{
+  "istio/config/v1alpha2/legacy/circonuses": [
+    {
+      "Metadata": {
+        "name": "valid-circonus"
+      },
+      "Body": {
+        "fields": {
+          "submission_interval": {
+            "Kind": {
+              "StringValue": "10s"
+            }
+          },
+          "submission_url": {
+            "Kind": {
+              "StringValue": "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+            }
+          }
+        }
+      },
+      "TypeURL": "type.googleapis.com/google.protobuf.Struct"
+    }
+  ]
+}

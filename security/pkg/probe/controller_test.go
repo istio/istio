@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
+	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
@@ -51,14 +52,15 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		err      string
 		expected string
 	}{
-		"Check success": {
+		// TODO: test successful case.
+		"Returned no cert": {
 			resp: &pb.CsrResponse{
 				IsApproved: true,
 				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
 				SignedCert: nil,
 				CertChain:  nil,
 			},
-			expected: "",
+			expected: "CSR sign failure: failed to parse cert PEM: invalid PEM encoded certificate",
 		},
 		"SendCSR failed": {
 			resp:     nil,
@@ -68,13 +70,13 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		"gRPC server is not available": {
 			resp:     nil,
 			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
-			expected: "",
+			expected: "all SubConns are in TransientFailure",
 		},
 	}
 
 	for id, c := range testCases {
 		fakeProvider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
-			return protocol.NewFakeProtocol(c.resp, c.err), nil
+			return mock.NewFakeProtocol(c.resp, c.err), nil
 		}
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(

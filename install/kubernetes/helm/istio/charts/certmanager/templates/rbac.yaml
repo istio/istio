@@ -1,31 +1,32 @@
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: certmanager
   labels:
     app: certmanager
+    chart: {{ template "certmanager.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 rules:
   - apiGroups: ["certmanager.k8s.io"]
-    resources: ["certificates", "issuers", "clusterissuers"]
+    resources: ["certificates", "certificates/finalizers", "issuers", "clusterissuers", "orders", "orders/finalizers", "challenges"]
     verbs: ["*"]
   - apiGroups: [""]
-    # TODO: remove endpoints once 0.4 is released. We include it here in case
-    # users use the 'master' version of the Helm chart with a 0.2.x release of
-    # certManager that still performs leader election with Endpoint resources.
-    # We advise users don't do this, but some will anyway and this will reduce
-    # friction.
-    resources: ["endpoints", "configmaps", "secrets", "events", "services", "pods"]
+    resources: ["configmaps", "secrets", "events", "services", "pods"]
     verbs: ["*"]
   - apiGroups: ["extensions"]
     resources: ["ingresses"]
     verbs: ["*"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: certmanager
   labels:
     app: certmanager
+    chart: {{ template "certmanager.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

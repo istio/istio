@@ -109,7 +109,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -142,7 +142,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load
@@ -177,7 +177,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: fortio/fortio:latest
         imagePullPolicy: Always
         args:
           - load

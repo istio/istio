@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/probe"
@@ -67,28 +67,36 @@ type dummyListerWatcherBuilder struct {
 	watchers map[string]*watch.RaceFreeFakeWatcher
 }
 
-func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+func (f *fakeDynamicResource) List(opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	list := &unstructured.UnstructuredList{}
+	f.d.mu.RLock()
+	for k, v := range f.d.data {
+		if k.Kind == f.res.Kind {
+			list.Items = append(list.Items, *v)
+		}
+	}
+	f.d.mu.RUnlock()
+	return list, nil
+}
+
+func (f *fakeDynamicResource) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	return f.w, nil
+}
+
+type fakeDynamicResource struct {
+	d *dummyListerWatcherBuilder
+	dynamic.ResourceInterface
+	w   watch.Interface
+	res metav1.APIResource
+}
+
+func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.ResourceInterface {
 	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
 	d.watchers[res.Kind] = w
 	d.mu.Unlock()
 
-	return &cache.ListWatch{
-		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
-			list := &unstructured.UnstructuredList{}
-			d.mu.RLock()
-			for k, v := range d.data {
-				if k.Kind == res.Kind {
-					list.Items = append(list.Items, *v)
-				}
-			}
-			d.mu.RUnlock()
-			return list, nil
-		},
-		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
-			return w, nil
-		},
-	}
+	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
@@ -305,9 +313,9 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		fakeDiscovery.Resources[0].APIResources = append(
 			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
@@ -329,8 +337,9 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %v from Init", err)
 	}
-	if callCount != 1 {
-		t.Errorf("callCount is not expected, got %v wang 1", callCount)
+	count := atomic.LoadInt32(&callCount)
+	if count != 1 {
+		t.Errorf("callCount is not expected, got %v wang 1", count)
 	}
 	s.Stop()
 }
@@ -343,9 +352,9 @@ func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		return true, nil, nil
 	})
 
@@ -363,8 +372,9 @@ func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
 	} else if err.Error() != errorMsg {
 		t.Errorf("got Init error message %v, want %v", err.Error(), errorMsg)
 	}
-	if callCount < 1 || callCount > 3 {
-		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", callCount)
+	count := atomic.LoadInt32(&callCount)
+	if count < 1 || count > 3 {
+		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", count)
 	}
 	s.Stop()
 }
@@ -377,16 +387,16 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	// Gradually increase the number of API resources.
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
-		if callCount == 2 {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 2 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
 			)
-		} else if callCount == 3 {
+		} else if count == 3 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
@@ -407,8 +417,9 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if callCount != 3 {
-		t.Errorf("Got %d, Want 3", callCount)
+	count := atomic.LoadInt32(&callCount)
+	if count != 3 {
+		t.Errorf("Got %d, Want 3", count)
 	}
 	s.Stop()
 }

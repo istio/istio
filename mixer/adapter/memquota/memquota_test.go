@@ -84,6 +84,7 @@ func TestAllocAndRelease(t *testing.T) {
 
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
+		// nolint: goimports
 		Quotas: limits,
 	}
 	info := GetInfo()
@@ -237,6 +238,7 @@ func TestReaper(t *testing.T) {
 
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
+		// nolint: goimports
 		Quotas: limits,
 	}
 	info := GetInfo()

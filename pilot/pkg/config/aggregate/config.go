@@ -78,14 +78,14 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 // Get the first config found in the stores.
-func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cr *store) Get(typ, name, namespace string) *model.Config {
 	for _, store := range cr.stores[typ] {
-		config, exists := store.Get(typ, name, namespace)
-		if exists {
-			return config, exists
+		config := store.Get(typ, name, namespace)
+		if config != nil {
+			return config
 		}
 	}
-	return nil, false
+	return nil
 }
 
 // List all configs in the stores.
@@ -95,12 +95,22 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	}
 	var errs *multierror.Error
 	var configs []model.Config
+	// Used to remove duplicated config
+	configMap := make(map[string]struct{})
+
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		configs = append(configs, storeConfigs...)
+		for _, config := range storeConfigs {
+			key := config.Type + config.Namespace + config.Name
+			if _, exist := configMap[key]; exist {
+				continue
+			}
+			configs = append(configs, config)
+			configMap[key] = struct{}{}
+		}
 	}
 	return configs, errs.ErrorOrNil()
 }

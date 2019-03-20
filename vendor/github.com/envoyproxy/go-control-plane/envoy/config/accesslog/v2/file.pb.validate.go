@@ -49,7 +49,24 @@ func (m *FileAccessLog) Validate() error {
 		}
 	}
 
-	// no validation rules for Format
+	switch m.AccessLogFormat.(type) {
+
+	case *FileAccessLog_Format:
+		// no validation rules for Format
+
+	case *FileAccessLog_JsonFormat:
+
+		if v, ok := interface{}(m.GetJsonFormat()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FileAccessLogValidationError{
+					Field:  "JsonFormat",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
 
 	return nil
 }

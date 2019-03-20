@@ -1,36 +1,18 @@
-{{- if .Values.global.meshExpansion }}
-
+{{- if .Values.global.meshExpansion.enabled }}
+{{- if .Values.global.meshExpansion.useILB }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-pilot
+  name: meshexpansion-ilb-vs-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   hosts:
-  - "pilot.istio-system"
-  gateways:
-  - meshexpansion-gateway
-  tcp:
-  - match:
-    - port: 15011
-    route:
-    - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
-        port:
-          number: 15011
-
-
-{{- end }}
-
-
-{{- if .Values.global.meshExpansionILB }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: ilb-meshexpansion-pilot
-spec:
-  hosts:
-  - "meshexpansionilb.istio-system"
+  - istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -38,22 +20,72 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15011
   - match:
     - port: 15010
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15010
   - match:
     - port: 5353
     route:
     - destination:
-        host: kube-dns.kube-system.svc.cluster.local
+        host: kube-dns.kube-system.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 53
+---
+{{- else }}
 
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istio-pilot.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15011
+    route:
+    - destination:
+        host: istio-pilot.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15011
+---
 {{- end }}
+
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15011
+      tls:
+        mode: DISABLE
+---
+{{- end }}
+{{- end }}
+

@@ -64,6 +64,8 @@ func (m *ClusterLoadAssignment) Validate() error {
 
 	}
 
+	// no validation rules for NamedEndpoints
+
 	if v, ok := interface{}(m.GetPolicy()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterLoadAssignmentValidationError{
@@ -126,6 +128,17 @@ func (m *ClusterLoadAssignment_Policy) Validate() error {
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
+			}
+		}
+
+	}
+
+	if wrapper := m.GetOverprovisioningFactor(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			return ClusterLoadAssignment_PolicyValidationError{
+				Field:  "OverprovisioningFactor",
+				Reason: "value must be greater than 0",
 			}
 		}
 

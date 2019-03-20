@@ -6,7 +6,7 @@
       "zone": "testzone"
     },
     "metadata": {
-      "foo": "bar"
+      {{ .EnvoyConfigOpt.meta_json_str }}
     }
   },
   "stats_config": {

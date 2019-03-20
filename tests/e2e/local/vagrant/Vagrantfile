@@ -59,7 +59,7 @@ Vagrant.configure("2") do |config|
      # Customize the amount of memory on the VM:
      vb.memory = "10240"
      vb.cpus = "4"
-     # Set the vboxnet interface to promiscous mode so that the docker veth
+     # Set the vboxnet interface to promiscuous mode so that the docker veth
      # interfaces are reachable
      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
      # Otherwise we get really slow DNS lookup on OSX (Changed DNS inside the machine)

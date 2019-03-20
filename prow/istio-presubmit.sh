@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,9 +19,9 @@
 
 # Separate (and parallel) jobs are doing lint, coverage, etc.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
@@ -29,11 +29,12 @@ set -u
 set -x
 set -e
 
-source ${ROOT}/prow/lib.sh
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 echo 'Build'
-(cd ${ROOT}; make build)
+(cd "${ROOT}"; make build)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"

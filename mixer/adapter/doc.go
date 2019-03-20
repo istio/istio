@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint: lll
 //go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgeninventory/main.go -f $GOPATH/src/istio.io/istio/mixer/adapter/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/adapter/inventory.gen.go
 
 // Package adapter contains the inventory for all Mixer adapters that are compiled into

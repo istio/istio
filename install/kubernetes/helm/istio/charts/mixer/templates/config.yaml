@@ -1,8 +1,14 @@
+{{- if or (.Values.policy.enabled) (.Values.telemetry.enabled) }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: istioproxy
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   attributes:
     origin.ip:
@@ -21,6 +27,10 @@ spec:
       valueType: STRING
     request.path:
       valueType: STRING
+    request.url_path:
+      valueType: STRING
+    request.query_params:
+      valueType: STRING_MAP
     request.reason:
       valueType: STRING
     request.referer:
@@ -28,7 +38,7 @@ spec:
     request.scheme:
       valueType: STRING
     request.total_size:
-          valueType: INT64
+      valueType: INT64
     request.size:
       valueType: INT64
     request.time:
@@ -42,11 +52,15 @@ spec:
     response.headers:
       valueType: STRING_MAP
     response.total_size:
-          valueType: INT64
+      valueType: INT64
     response.size:
       valueType: INT64
     response.time:
       valueType: TIMESTAMP
+    response.grpc_status:
+      valueType: STRING
+    response.grpc_message:
+      valueType: STRING
     source.uid:
       valueType: STRING
     source.user: # DEPRECATED
@@ -79,6 +93,8 @@ spec:
       valueType: STRING
     context.protocol:
       valueType: STRING
+    context.proxy_error_code:
+      valueType: STRING
     context.timestamp:
       valueType: TIMESTAMP
     context.time:
@@ -110,6 +126,18 @@ spec:
       valueType: STRING
     request.api_key:
       valueType: STRING
+    rbac.permissive.response_code:
+      valueType: STRING
+    rbac.permissive.effective_policy_id:
+      valueType: STRING
+    check.error_code:
+      valueType: INT64
+    check.error_message:
+      valueType: STRING
+    check.cache_hit:
+      valueType: BOOL
+    quota.cache_hit:
+      valueType: BOOL
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -117,6 +145,11 @@ kind: attributemanifest
 metadata:
   name: kubernetes
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   attributes:
     source.ip:
@@ -130,8 +163,6 @@ spec:
     source.namespace:
       valueType: STRING
     source.owner:
-      valueType: STRING
-    source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
       valueType: STRING
@@ -157,8 +188,6 @@ spec:
       valueType: STRING
     destination.namespace:
       valueType: STRING
-    destination.service: # DEPRECATED
-      valueType: STRING
     destination.service.uid:
       valueType: STRING
     destination.service.name:
@@ -176,19 +205,32 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
+{{- if and .Values.adapters.stdio.enabled .Values.telemetry.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
-kind: stdio
+kind: handler
 metadata:
-  name: handler
+  name: stdio
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
-  outputAsJson: true
+  compiledAdapter: stdio
+  params:
+    outputAsJson: {{ .Values.adapters.stdio.outputAsJson }}
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -214,7 +256,10 @@ spec:
     method: request.method | ""
     url: request.path | ""
     responseCode: response.code | 0
+    responseFlags: context.proxy_error_code | ""
     responseSize: response.size | 0
+    permissiveResponseCode: rbac.permissive.response_code | "none"
+    permissiveResponsePolicyID: rbac.permissive.effective_policy_id | "none"
     requestSize: request.size | 0
     requestId: request.headers["x-request-id"] | ""
     clientTraceId: request.headers["x-client-trace-id"] | ""
@@ -229,6 +274,8 @@ spec:
     httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    grpcStatus: response.grpc_status | ""
+    grpcMessage: response.grpc_message | ""
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -236,6 +283,11 @@ kind: logentry
 metadata:
   name: tcpaccesslog
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
@@ -265,6 +317,7 @@ spec:
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    responseFlags: context.proxy_error_code | ""
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -272,10 +325,15 @@ kind: rule
 metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
-  - handler: handler.stdio
+  - handler: stdio
     instances:
     - accesslog.logentry
 ---
@@ -284,18 +342,30 @@ kind: rule
 metadata:
   name: stdiotcp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
-  - handler: handler.stdio
+  - handler: stdio
     instances:
     - tcpaccesslog.logentry
+{{- end }}
 ---
+{{- if and .Values.adapters.prometheus.enabled .Values.telemetry.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestcount
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: "1"
   dimensions:
@@ -315,6 +385,9 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
+    permissive_response_code: rbac.permissive.response_code | "none"
+    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -323,6 +396,11 @@ kind: metric
 metadata:
   name: requestduration
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -342,6 +420,9 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
+    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -350,6 +431,11 @@ kind: metric
 metadata:
   name: requestsize
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: request.size | 0
   dimensions:
@@ -369,6 +455,9 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
+    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -377,6 +466,11 @@ kind: metric
 metadata:
   name: responsesize
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: response.size | 0
   dimensions:
@@ -396,6 +490,9 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
+    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -404,6 +501,11 @@ kind: metric
 metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -418,10 +520,11 @@ spec:
     destination_principal: destination.principal | "unknown"
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
+    destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -429,8 +532,39 @@ kind: metric
 metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   value: connection.received.bytes | 0
+  dimensions:
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpconnectionsopened
+  namespace: {{ .Release.Namespace }}
+spec:
+  value: "1"
   dimensions:
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
     source_workload: source.workload.name | "unknown"
@@ -447,162 +581,255 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: prometheus
+kind: metric
 metadata:
-  name: handler
+  name: tcpconnectionsclosed
   namespace: {{ .Release.Namespace }}
 spec:
-  metrics:
-  - name: requests_total
-    instance_name: requestcount.metric.{{ .Release.Namespace }}
-    kind: COUNTER
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - request_protocol
-    - response_code
-    - connection_security_policy
-  - name: request_duration_seconds
-    instance_name: requestduration.metric.{{ .Release.Namespace }}
-    kind: DISTRIBUTION
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - request_protocol
-    - response_code
-    - connection_security_policy
-    buckets:
-      explicit_buckets:
-        bounds: [0.004, 0.006, 0.008, 0.012, 0.017, 0.025, 0.036, 0.053,
-                 0.076, 0.110, 0.159, 0.229, 0.331, 0.479, 0.692, 1.000,
-                 1.778, 3.162, 5.623, 10 ]
-  - name: request_bytes
-    instance_name: requestsize.metric.{{ .Release.Namespace }}
-    kind: DISTRIBUTION
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - request_protocol
-    - response_code
-    - connection_security_policy
-    buckets:
-      exponentialBuckets:
-        numFiniteBuckets: 8
-        scale: 1
-        growthFactor: 10
-  - name: response_bytes
-    instance_name: responsesize.metric.{{ .Release.Namespace }}
-    kind: DISTRIBUTION
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - request_protocol
-    - response_code
-    - connection_security_policy
-    buckets:
-      exponentialBuckets:
-        numFiniteBuckets: 8
-        scale: 1
-        growthFactor: 10
-  - name: tcp_sent_bytes_total
-    instance_name: tcpbytesent.metric.{{ .Release.Namespace }}
-    kind: COUNTER
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - connection_security_policy
-  - name: tcp_received_bytes_total
-    instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
-    kind: COUNTER
-    label_names:
-    - reporter
-    - source_app
-    - source_principal
-    - source_workload
-    - source_workload_namespace
-    - source_version
-    - destination_app
-    - destination_principal
-    - destination_workload
-    - destination_workload_namespace
-    - destination_version
-    - destination_service
-    - destination_service_name
-    - destination_service_namespace
-    - connection_security_policy
+  value: "1"
+  dimensions:
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  compiledAdapter: prometheus
+  params:
+    metricsExpirationPolicy:
+      metricsExpiryDuration: "{{ .Values.adapters.prometheus.metricsExpiryDuration }}"
+    metrics:
+    - name: requests_total
+      instance_name: requestcount.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+    - name: request_duration_seconds
+      instance_name: requestduration.metric.{{ .Release.Namespace }}
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    - name: request_bytes
+      instance_name: requestsize.metric.{{ .Release.Namespace }}
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: response_bytes
+      instance_name: responsesize.metric.{{ .Release.Namespace }}
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - response_flags
+      - permissive_response_code
+      - permissive_response_policyid
+      - connection_security_policy
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: tcp_sent_bytes_total
+      instance_name: tcpbytesent.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_received_bytes_total
+      instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
-  - handler: handler.prometheus
+  - handler: prometheus
     instances:
     - requestcount.metric
     - requestduration.metric
@@ -614,27 +841,64 @@ kind: rule
 metadata:
   name: promtcp
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
-  - handler: handler.prometheus
+  - handler: prometheus
     instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
-
 apiVersion: "config.istio.io/v1alpha2"
-kind: kubernetesenv
+kind: rule
 metadata:
-  name: handler
+  name: promtcpconnectionopen
   namespace: {{ .Release.Namespace }}
 spec:
-  # when running from mixer root, use the following config after adding a
-  # symbolic link to a kubernetes config file via:
-  #
-  # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
-  #
-  # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionclosed
+  namespace: {{ .Release.Namespace }}
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "close")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed.metric
+{{- end }}
+---
+{{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: kubernetesenv
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  compiledAdapter: kubernetesenv
+  params:
+    # when running from mixer root, use the following config after adding a
+    # symbolic link to a kubernetes config file via:
+    #
+    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+    #
+    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -642,9 +906,14 @@ kind: rule
 metadata:
   name: kubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   actions:
-  - handler: handler.kubernetesenv
+  - handler: kubernetesenv
     instances:
     - attributes.kubernetes
 ---
@@ -653,10 +922,15 @@ kind: rule
 metadata:
   name: tcpkubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
-  - handler: handler.kubernetesenv
+  - handler: kubernetesenv
     instances:
     - attributes.kubernetes
 ---
@@ -665,6 +939,11 @@ kind: kubernetes
 metadata:
   name: attributes
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""
@@ -695,8 +974,9 @@ spec:
     destination.workload.uid: $out.destination_workload_uid | "unknown"
     destination.workload.name: $out.destination_workload_name | "unknown"
     destination.workload.namespace: $out.destination_workload_namespace | "unknown"
-
+{{- end }}
 ---
+{{- if .Values.policy.enabled }}
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS
 # Specify mixer cluster settings
@@ -705,8 +985,17 @@ kind: DestinationRule
 metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
-  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
@@ -719,14 +1008,25 @@ spec:
       http:
         http2MaxRequests: 10000
         maxRequestsPerConnection: 10000
+{{- end }}
 ---
+{{- if .Values.telemetry.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
-  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  {{- if .Values.global.defaultConfigVisibilitySettings }}
+  exportTo:
+  - '*'
+  {{- end }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
@@ -739,4 +1039,6 @@ spec:
       http:
         http2MaxRequests: 10000
         maxRequestsPerConnection: 10000
+{{- end }}
 ---
+{{- end }}

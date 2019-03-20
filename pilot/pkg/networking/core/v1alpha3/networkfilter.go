@@ -15,159 +15,148 @@
 package v1alpha3
 
 import (
-	"bytes"
-	"encoding/json"
-	"strings"
+	"fmt"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
+	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceInstance) []listener.Filter {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) []listener.Filter {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
+		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
-		StatPrefix: clusterName,
-		Cluster:    clusterName,
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
+	return buildNetworkFiltersStack(node, instance.Endpoint.ServicePort, tcpFilter, clusterName)
+}
 
+// setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
+// TcpProxy instance and builds a TCP filter out of it.
+func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path:   env.Mesh.AccessLogFile,
-			Format: EnvoyTCPLogFormat,
+			Path: env.Mesh.AccessLogFile,
 		}
-		config.AccessLog = []*accesslog.AccessLog{
-			{
-				Config: util.MessageToStruct(fl),
-				Name:   xdsutil.FileAccessLog,
-			},
+
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.FileAccessLog,
 		}
-	}
-
-	return []listener.Filter{
-		{
-			Name:   xdsutil.TCPProxy,
-			Config: util.MessageToStruct(config),
-		},
-	}
-}
-
-func buildDeprecatedTCPProxyFilter(clusterName string, addr string) (*listener.Filter, error) {
-	route := &DeprecatedTCPRoute{
-		Cluster: clusterName,
-	}
-
-	if addr != model.UnspecifiedIP {
-		tcpRouteAddr := addr
-		if !strings.Contains(addr, "/") {
-			tcpRouteAddr = addr + "/32"
+		if util.IsProxyVersionGE11(node) {
+			buildAccessLog(fl, env)
 		}
-		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		}
+
+		config.AccessLog = []*accesslog.AccessLog{acc}
+
 	}
 
-	// destination port is unnecessary with use_original_dst since
-	// the listener address already contains the port
-	filterConfig := &DeprecatedTCPProxyFilterConfig{
-		StatPrefix:  clusterName,
-		RouteConfig: &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}},
-	}
-
-	trueValue := types.Value{
-		Kind: &types.Value_BoolValue{
-			BoolValue: true,
-		},
-	}
-	data, err := json.Marshal(filterConfig)
-	if err != nil {
-		log.Errorf("filter config could not be marshalled: %v", err)
-		return nil, err
-	}
-	pbs := &types.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
-		log.Errorf("filter config could not be unmarshalled: %v", err)
-		return nil, err
-	}
-
-	structValue := types.Value{
-		Kind: &types.Value_StructValue{
-			StructValue: pbs,
-		},
-	}
-
-	// FIXME
 	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
-		Config: &types.Struct{Fields: map[string]*types.Value{
-			"deprecated_v1": &trueValue,
-			"value":         &structValue,
-		}},
 	}
-
-	return tcpFilter, nil
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+	return tcpFilter
 }
 
-// buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
-// protocol specific filters (e.g., Mongo filter)
-// this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy, clusterName string,
-	deprecatedTCPFilterMatchAddress string, port *model.Port) []listener.Filter {
+// buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
+// and builds a stack of network filters.
+func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, node *model.Proxy,
+	clusterName string, port *model.Port) []listener.Filter {
 
-	var tcpFilter *listener.Filter
-	var err error
-	_, is10Proxy := node.GetProxyVersion()
+	config := &tcp_proxy.TcpProxy{
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
+		// TODO: Need to set other fields such as Idle timeouts
+	}
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
+	return buildNetworkFiltersStack(node, port, tcpFilter, clusterName)
+}
 
-	if len(deprecatedTCPFilterMatchAddress) > 0 && !is10Proxy {
-		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, deprecatedTCPFilterMatchAddress); err != nil {
-			return nil
-		}
-	} else {
-		// construct TCP proxy using v2 config
-		config := &tcp_proxy.TcpProxy{
-			StatPrefix: clusterName,
-			Cluster:    clusterName,
-			// TODO: Need to set other fields such as Idle timeouts
-		}
+// buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
+// destination routes and builds a stack of network filters.
+func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, node *model.Proxy, routes []*networking.RouteDestination,
+	push *model.PushContext, port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-		if env.Mesh.AccessLogFile != "" {
-			fl := &fileaccesslog.FileAccessLog{
-				Path:   env.Mesh.AccessLogFile,
-				Format: EnvoyTCPLogFormat,
-			}
-			config.AccessLog = []*accesslog.AccessLog{
-				{
-					Config: util.MessageToStruct(fl),
-					Name:   xdsutil.FileAccessLog,
-				},
-			}
-		}
+	statPrefix := fmt.Sprintf("%s.%s", config.Name, config.Namespace)
+	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
+		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
+	}
+	proxyConfig := &tcp_proxy.TcpProxy{
+		StatPrefix:       statPrefix,
+		ClusterSpecifier: clusterSpecifier,
+		// TODO: Need to set other fields such as Idle timeouts
+	}
 
-		tcpFilter = &listener.Filter{
-			Name:   xdsutil.TCPProxy,
-			Config: util.MessageToStruct(config),
+	for _, route := range routes {
+		if route.Weight > 0 {
+			clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
+			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
+				Name:   clusterName,
+				Weight: uint32(route.Weight),
+			})
 		}
 	}
 
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
+	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix)
+}
+
+// buildNetworkFiltersStack builds a slice of network filters based on
+// the protocol in use and the given TCP filter instance.
+func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix string) []listener.Filter {
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildOutboundMongoFilter(clusterName))
+		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		filterstack = append(filterstack, *tcpFilter)
+	case model.ProtocolMySQL:
+		if util.IsProxyVersionGE11(node) {
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsProxyVersionGE11(node)))
+		}
+		filterstack = append(filterstack, *tcpFilter)
+	default:
+		filterstack = append(filterstack, *tcpFilter)
 	}
-	filterstack = append(filterstack, *tcpFilter)
-
 	return filterstack
 }
 
-func buildOutboundMongoFilter(statPrefix string) listener.Filter {
+// buildOutboundNetworkFilters generates a TCP proxy network filter for outbound
+// connections. In addition, it generates protocol specific filters (e.g., Mongo
+// filter).
+func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
+	routes []*networking.RouteDestination, push *model.PushContext,
+	port *model.Port, config model.ConfigMeta) []listener.Filter {
+
+	if !util.IsProxyVersionGE11(node) || len(routes) == 1 {
+		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
+		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
+		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
+	}
+	return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
+}
+
+// buildMongoFilter builds an outbound Envoy MongoProxy filter.
+func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -176,79 +165,48 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		// TODO enable faults in mongo
 	}
 
-	return listener.Filter{
-		Name:   xdsutil.MongoProxy,
-		Config: util.MessageToStruct(config),
+	out := listener.Filter{
+		Name: xdsutil.MongoProxy,
 	}
-}
-
-// DeprecatedTCPRoute definition
-type DeprecatedTCPRoute struct {
-	Cluster           string   `json:"cluster"`
-	DestinationIPList []string `json:"destination_ip_list,omitempty"`
-	DestinationPorts  string   `json:"destination_ports,omitempty"`
-	SourceIPList      []string `json:"source_ip_list,omitempty"`
-	SourcePorts       string   `json:"source_ports,omitempty"`
-}
-
-// DeprecatedTCPRouteByRoute sorts TCP routes over all route sub fields.
-type DeprecatedTCPRouteByRoute []*DeprecatedTCPRoute
-
-func (r DeprecatedTCPRouteByRoute) Len() int {
-	return len(r)
-}
-
-func (r DeprecatedTCPRouteByRoute) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
-}
-
-func (r DeprecatedTCPRouteByRoute) Less(i, j int) bool {
-	if r[i].Cluster != r[j].Cluster {
-		return r[i].Cluster < r[j].Cluster
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
 	}
 
-	compare := func(a, b []string) bool {
-		lenA, lenB := len(a), len(b)
-		min := lenA
-		if min > lenB {
-			min = lenB
-		}
-		for k := 0; k < min; k++ {
-			if a[k] != b[k] {
-				return a[k] < b[k]
-			}
-		}
-		return lenA < lenB
-	}
-
-	if less := compare(r[i].DestinationIPList, r[j].DestinationIPList); less {
-		return less
-	}
-	if r[i].DestinationPorts != r[j].DestinationPorts {
-		return r[i].DestinationPorts < r[j].DestinationPorts
-	}
-	if less := compare(r[i].SourceIPList, r[j].SourceIPList); less {
-		return less
-	}
-	if r[i].SourcePorts != r[j].SourcePorts {
-		return r[i].SourcePorts < r[j].SourcePorts
-	}
-	return false
+	return out
 }
 
-// DeprecatedTCPProxyFilterConfig definition
-type DeprecatedTCPProxyFilterConfig struct {
-	StatPrefix  string                    `json:"stat_prefix"`
-	RouteConfig *DeprecatedTCPRouteConfig `json:"route_config"`
+// buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp_proxy
+// used by auto_passthrough gateway servers
+func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model.Proxy, port *model.Port) []listener.Filter {
+	// First build tcp_proxy with access logs
+	// then add sni_cluster to the front
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(env, node, util.BlackHoleCluster, port)
+	filterstack := make([]listener.Filter, 0)
+	filterstack = append(filterstack, listener.Filter{
+		Name: util.SniClusterFilter,
+	})
+	filterstack = append(filterstack, tcpProxy...)
+
+	return filterstack
 }
 
-// DeprecatedTCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
-type DeprecatedTCPRouteConfig struct {
-	Routes []*DeprecatedTCPRoute `json:"routes"`
-}
+// buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
+func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) listener.Filter {
+	config := &mysql_proxy.MySQLProxy{
+		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
+	}
 
-// DeprecatedFilterConfigInV2 definition
-type DeprecatedFilterConfigInV2 struct {
-	DeprecatedV1 bool                            `json:"deprecated_v1"`
-	Value        *DeprecatedTCPProxyFilterConfig `json:"value"`
+	out := listener.Filter{
+		Name: xdsutil.MySQLProxy,
+	}
+
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
 }

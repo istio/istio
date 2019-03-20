@@ -29,15 +29,14 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/kubernetes/pkg/apis/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -45,27 +44,16 @@ var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
-
-	// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-	defaulter = runtime.ObjectDefaulter(runtimeScheme)
-)
-
-const (
-	watchDebounceDelay = 100 * time.Millisecond
 )
 
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
-	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
-
-	// The `v1` package from k8s.io/kubernetes/pkgp/apis/core/v1 has
-	// the object defaulting functions which are not included in
-	// k8s.io/api/corev1. The default functions are required by
-	// runtime.ObjectDefaulter to workaround lack of server-side
-	// defaulting with webhooks (see
-	// https://github.com/kubernetes/kubernetes/issues/57982).
-	_ = v1.AddToScheme(runtimeScheme)
+	_ = v1beta1.AddToScheme(runtimeScheme)
 }
+
+const (
+	watchDebounceDelay = 100 * time.Millisecond
+)
 
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
@@ -92,7 +80,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 		return nil, nil, err
 	}
 	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
+	if err := yaml.Unmarshal(data, &c); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, nil, err
 	}
@@ -103,6 +91,8 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
 	log.Infof("Policy: %v", c.Policy)
+	log.Infof("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
+	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
 	return &c, meshConfig, nil
@@ -188,12 +178,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil {
-			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
-	defer wh.watcher.Close() // nolint: errcheck
-	defer wh.server.Close()  // nolint: errcheck
+	defer wh.watcher.Close()
+	defer wh.server.Close()
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -206,6 +196,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-timerC:
+			timerC = nil
 			sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
 			if err != nil {
 				log.Errorf("update error: %v", err)
@@ -226,7 +217,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
-			if event.IsModify() || event.IsCreate() {
+			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.watcher.Error:
@@ -246,20 +237,6 @@ func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	wh.mu.Lock()
 	defer wh.mu.Unlock()
 	return wh.cert, nil
-}
-
-// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-// remove this workaround once server-side defaulting is fixed.
-func applyDefaultsWorkaround(initContainers, containers []corev1.Container, volumes []corev1.Volume) {
-	// runtime.ObjectDefaulter only accepts top-level resources. Construct
-	// a dummy pod with fields we needed defaulted.
-	defaulter.Default(&corev1.Pod{
-		Spec: corev1.PodSpec{
-			InitContainers: initContainers,
-			Containers:     containers,
-			Volumes:        volumes,
-		},
-	})
 }
 
 // It would be great to use https://github.com/mattbaird/jsonpatch to
@@ -323,9 +300,27 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 }
 
 func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
+	saJwtSecretMountName := ""
+	var saJwtSecretMount corev1.VolumeMount
+	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+	// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) from app container
+	for _, add := range target {
+		for _, vmount := range add.VolumeMounts {
+			if vmount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
+				saJwtSecretMountName = vmount.Name
+				saJwtSecretMount = vmount
+			}
+		}
+	}
 	first := len(target) == 0
 	var value interface{}
 	for _, add := range added {
+		if add.Name == "istio-proxy" && saJwtSecretMountName != "" {
+			// add service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+			// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) to istio-proxy container,
+			// so that envoy could fetch/pass k8s sa jwt and pass to sds server, which will be used to request workload identity for the pod.
+			add.VolumeMounts = append(add.VolumeMounts, saJwtSecretMount)
+		}
 		value = add
 		path := basePath
 		if first {
@@ -340,6 +335,15 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			Value: value,
 		})
 	}
+	return patch
+}
+
+func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
 	return patch
 }
 
@@ -385,6 +389,15 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 	return patch
 }
 
+func addPodDNSConfig(target *corev1.PodDNSConfig, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
+	return patch
+}
+
 // escape JSON Pointer value per https://tools.ietf.org/html/rfc6901
 func escapeJSONPointerValue(in string) string {
 	step := strings.Replace(in, "~", "~0", -1)
@@ -427,12 +440,41 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	rewrite := ShouldRewriteAppProbers(sic)
+	addAppProberCmd := func() {
+		if !rewrite {
+			return
+		}
+		sidecar := FindSidecar(sic.Containers)
+		if sidecar == nil {
+			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
+			return
+		}
+		// We don't have to escape json encoding here when using golang libraries.
+		if prober := DumpAppProbers(&pod.Spec); prober != "" {
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		}
+	}
+	addAppProberCmd()
+
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	if sic.DNSConfig != nil {
+		patch = append(patch, addPodDNSConfig(sic.DNSConfig, "/spec/dnsConfig")...)
+	}
+
+	if pod.Spec.SecurityContext != nil {
+		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
+	}
+
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(&pod.Spec, sic)...)
+	}
 
 	return json.Marshal(patch)
 }
@@ -489,28 +531,46 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
+	// Deal with potential empty fields, e.g., when the pod is created by a deployment
+	podName := potentialPodName(&pod.ObjectMeta)
+	if pod.ObjectMeta.Namespace == "" {
+		pod.ObjectMeta.Namespace = req.Namespace
+	}
+
 	log.Infof("AdmissionReview for Kind=%v Namespace=%v Name=%v (%v) UID=%v Rfc6902PatchOperation=%v UserInfo=%v",
-		req.Kind, req.Namespace, req.Name, pod.Name, req.UID, req.Operation, req.UserInfo)
+		req.Kind, req.Namespace, req.Name, podName, req.UID, req.Operation, req.UserInfo)
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
-	if !injectRequired(ignoredNamespaces, wh.sidecarConfig.Policy, &pod.Spec, &pod.ObjectMeta) {
-		log.Infof("Skipping %s/%s due to policy check", pod.Namespace, pod.Name)
+	if !injectRequired(ignoredNamespaces, wh.sidecarConfig, &pod.Spec, &pod.ObjectMeta) {
+		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
 	}
 
-	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+	if wh.meshConfig.EnableSdsTokenMount && wh.meshConfig.SdsUdsPath != "" {
+		var grp = int64(1337)
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
+		}
+	}
+
+	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
+		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)
 	}
 
-	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
 	annotations := map[string]string{annotationStatus.name: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
+		log.Infof("AdmissionResponse: err=%v spec=%v\n", err, spec)
+
 		return toAdmissionResponse(err)
 	}
 

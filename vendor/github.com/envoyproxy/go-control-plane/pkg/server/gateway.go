@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/log"
 )
@@ -50,6 +50,8 @@ func (h *HTTPGateway) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		typeURL = cache.ListenerType
 	case "/v2/discovery:routes":
 		typeURL = cache.RouteType
+	case "/v2/discovery:secrets":
+		typeURL = cache.SecretType
 	default:
 		http.Error(resp, "no endpoint", http.StatusNotFound)
 		return

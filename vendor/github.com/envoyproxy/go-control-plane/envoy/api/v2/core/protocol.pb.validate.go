@@ -235,6 +235,10 @@ func (m *Http2ProtocolOptions) Validate() error {
 
 	}
 
+	// no validation rules for AllowConnect
+
+	// no validation rules for AllowMetadata
+
 	return nil
 }
 

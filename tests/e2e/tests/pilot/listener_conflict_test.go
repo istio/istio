@@ -25,7 +25,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
@@ -122,9 +122,9 @@ func TestListenerConflicts(t *testing.T) {
 	newService.start()
 	defer newService.stop()
 
-	for cluster := range tc.Kube.Clusters {
+	for range tc.Kube.Clusters {
 		testName := oldService.ServiceName
-		runRetriableTest(t, cluster, testName, 10, func() error {
+		runRetriableTest(t, testName, 10, func() error {
 			infos, err := getPilotInfos()
 			if err != nil {
 				return err

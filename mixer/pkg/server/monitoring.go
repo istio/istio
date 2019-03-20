@@ -22,7 +22,9 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
+	ocprom "go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/stats"
 
 	"istio.io/istio/pkg/log"
@@ -57,12 +59,25 @@ func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, e
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how mixer reports its own metrics.
 	mux := http.NewServeMux()
-	mux.Handle(metricsPath, promhttp.Handler())
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	registry.MustRegister(prometheus.NewGoCollector())
+
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle(metricsPath, exporter)
+
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
+	version.Info.RecordComponentBuildTag("mixer")
 
 	if enableProfiling {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)

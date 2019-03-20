@@ -1,0 +1,37 @@
+#
+# addon prometheus configuration
+#
+enabled: true
+replicaCount: 1
+hub: docker.io/prom
+tag: v2.3.1
+retention: 6h
+nodeSelector: {}
+
+# Controls the frequency of prometheus scraping
+scrapeInterval: 15s
+
+contextPath: /prometheus
+
+ingress:
+  enabled: false
+  ## Used to create an Ingress record.
+  hosts:
+    - prometheus.local
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  tls:
+    # Secrets must be manually created in the namespace.
+    # - secretName: prometheus-tls
+    #   hosts:
+    #     - prometheus.local
+
+service:
+  annotations: {}
+  nodePort:
+    enabled: false
+    port: 32090
+
+security:
+  enabled: true

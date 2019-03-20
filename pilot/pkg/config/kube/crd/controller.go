@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -65,6 +66,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(k8sEvents)
+	prometheus.MustRegister(k8sErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -110,8 +112,8 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", schema.Type)
 			}
+			opts.Watch = true
 			req := rc.dynamic.Get().
-				Prefix("watch").
 				Resource(ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec)
 			if !schema.ClusterScoped {
@@ -164,7 +166,7 @@ func (c *controller) createInformer(
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
 		})
@@ -202,7 +204,12 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
+	go func() {
+		if pilot.EnableWaitCacheSync {
+			cache.WaitForCacheSync(stop, c.HasSynced)
+		}
+		c.queue.Run(stop)
+	}()
 
 	for _, ctl := range c.kinds {
 		go ctl.informer.Run(stop)
@@ -216,34 +223,34 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return c.client.ConfigDescriptor()
 }
 
-func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *controller) Get(typ, name, namespace string) *model.Config {
 	schema, exists := c.client.ConfigDescriptor().GetByType(typ)
 	if !exists {
-		return nil, false
+		return nil
 	}
 
 	store := c.kinds[typ].informer.GetStore()
 	data, exists, err := store.GetByKey(kube.KeyFunc(name, namespace))
 	if !exists {
-		return nil, false
+		return nil
 	}
 	if err != nil {
 		log.Warna(err)
-		return nil, false
+		return nil
 	}
 
 	obj, ok := data.(IstioObject)
 	if !ok {
 		log.Warn("Cannot convert to config from store")
-		return nil, false
+		return nil
 	}
 
 	config, err := ConvertObject(schema, obj, c.client.domainSuffix)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
-	return config, true
+	return config
 }
 
 func (c *controller) Create(config model.Config) (string, error) {

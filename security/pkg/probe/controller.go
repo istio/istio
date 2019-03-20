@@ -15,14 +15,14 @@
 package probe
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -35,6 +35,8 @@ const (
 	// LivenessProbeClientIdentity is the default identity for the liveness probe check
 	LivenessProbeClientIdentity   = "k8s.cluster.local"
 	probeCheckRequestedTTLMinutes = 60
+	// logEveryNChecks specifies we log once in every N successful checks.
+	logEveryNChecks = 100
 )
 
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
@@ -54,6 +56,7 @@ type LivenessCheckController struct {
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
 	provider           CAProtocolProvider
+	checkCount         int
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
@@ -75,6 +78,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 		ca:            ca,
 		caAddress:     caAddr,
 		provider:      provider,
+		checkCount:    0,
 	}, nil
 }
 
@@ -90,7 +94,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	certPEM, signErr := c.ca.Sign(csrPEM, c.interval, false)
+	certPEM, signErr := c.ca.Sign(csrPEM, []string{LivenessProbeClientIdentity}, c.interval, false)
 	if signErr != nil {
 		return signErr.(ca.Error)
 	}
@@ -141,7 +145,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	csr, _, err := util.GenCSR(util.CertOptions{
+	csr, privKeyBytes, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		Org:        c.serviceIdentityOrg,
 		RSAKeySize: c.rsaKeySize,
@@ -171,14 +175,31 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
-	_, err = caProtocol.SendCSR(req)
+	resp, err := caProtocol.SendCSR(req)
 
-	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
-	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
-		return nil
+	if err != nil {
+		return err
+	}
+	if resp == nil {
+		return fmt.Errorf("CSR sign failure: response is nil")
+	}
+	if !resp.IsApproved {
+		return fmt.Errorf("CSR sign failure: request is not approaved")
+	}
+	if vErr := util.Verify(resp.SignedCert, privKeyBytes, resp.CertChain, rootCertBytes); vErr != nil {
+		err := fmt.Errorf("CSR sign failure: %v", vErr)
+		log.Errora(err)
+		return err
 	}
 
-	return err
+	c.checkCount++
+	if c.checkCount%logEveryNChecks == 1 {
+		log.Infof("CSR signing service is healthy (logged every %d times).", logEveryNChecks)
+	}
+
+	log.Debugf("CSR signing service is healthy.")
+
+	return nil
 }
 
 // Run starts the check routine

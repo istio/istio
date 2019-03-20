@@ -58,8 +58,20 @@ type rootArgs struct {
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
-	// # times to repeat the operation
+	// number of times to repeat the operation
 	repeat int
+
+	// number of workers to send requests concurrently.
+	concurrency int
+
+	// rate limit of requests per second for each worker.
+	rate int
+
+	// whether to print mixer's response. It is useful when using mixc to generate heavy load.
+	printResponse bool
+
+	// Maximum number of report instances to include in each report API call.
+	reportBatchSize int
 
 	tracingOptions *tracing.Options
 }
@@ -69,6 +81,14 @@ func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 		"Address and port of a running Mixer instance")
 	cmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
 		"Sends the specified number of requests in quick succession")
+	cmd.PersistentFlags().IntVarP(&rootArgs.concurrency, "concurrency", "c", 1,
+		"Controls the number of workers used to send requests to Mixer concurrently.")
+	cmd.PersistentFlags().IntVarP(&rootArgs.rate, "rate", "", -1,
+		"Maximum number of requests per second sent by each worker.")
+	cmd.PersistentFlags().BoolVarP(&rootArgs.printResponse, "print_response", "", true,
+		"Whether to print mixer's response, useful when generating heavy load with mixc.")
+	cmd.PersistentFlags().IntVarP(&rootArgs.reportBatchSize, "report_batch_size", "", 1,
+		"Maximum number of report instances to include in each report API call.")
 
 	cmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")

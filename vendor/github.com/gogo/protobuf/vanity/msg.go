@@ -140,3 +140,7 @@ func TurnOffGoUnrecognized(msg *descriptor.DescriptorProto) {
 func TurnOnCompare(msg *descriptor.DescriptorProto) {
 	SetBoolMessageOption(gogoproto.E_Compare, true)(msg)
 }
+
+func TurnOnMessageName(msg *descriptor.DescriptorProto) {
+	SetBoolMessageOption(gogoproto.E_Messagename, true)(msg)
+}

@@ -57,14 +57,12 @@ func buildMockController() *Controller {
 	registry1 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ServiceDiscovery: discovery1,
-		ServiceAccounts:  discovery1,
 		Controller:       &MockController{},
 	}
 
 	registry2 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ServiceDiscovery: discovery2,
-		ServiceAccounts:  discovery2,
 		Controller:       &MockController{},
 	}
 
@@ -91,7 +89,6 @@ func buildMockControllerForMultiCluster() *Controller {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
-		ServiceAccounts:  discovery1,
 		Controller:       &MockController{},
 	}
 
@@ -99,7 +96,6 @@ func buildMockControllerForMultiCluster() *Controller {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
-		ServiceAccounts:  discovery2,
 		Controller:       &MockController{},
 	}
 
@@ -258,11 +254,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddress: memory.HelloInstanceV0})
+	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -272,11 +268,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddress: memory.MakeIP(memory.WorldService, 1)})
+	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.MakeIP(memory.WorldService, 1)}})
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -292,7 +288,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddress: memory.HelloInstanceV0})
+	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -302,11 +298,11 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddress: memory.MakeIP(memory.WorldService, 1)})
+	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.MakeIP(memory.WorldService, 1)}})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -320,8 +316,8 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.Instances(memory.HelloService.Hostname,
-		[]string{memory.PortHTTPName},
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+		80,
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -339,8 +335,8 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.Instances(memory.WorldService.Hostname,
-		[]string{memory.PortHTTPName},
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+		80,
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -364,8 +360,8 @@ func TestInstancesError(t *testing.T) {
 	discovery1.InstancesError = errors.New("mock Instances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.Instances(memory.HelloService.Hostname,
-		[]string{memory.PortHTTPName},
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+		80,
 		model.LabelsCollection{})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
@@ -376,8 +372,8 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.Instances(memory.WorldService.Hostname,
-		[]string{memory.PortHTTPName},
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+		80,
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() should not return error is instances are found: %v", err)
@@ -399,7 +395,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []string{})
+	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
 	expected := []string{}
 
 	if len(accounts) != len(expected) {
@@ -413,7 +409,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []string{})
+	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
 	expected = []string{
 		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
 		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
@@ -425,7 +421,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 
 	for i := 0; i < len(accounts); i++ {
 		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
+			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
 		}
 	}
 }

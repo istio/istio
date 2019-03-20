@@ -25,9 +25,6 @@ import (
 // StartWatch registers with store, initiates a watch, and returns the current config state.
 func StartWatch(s Store, kinds map[string]proto.Message) (map[Key]*Resource, <-chan Event, error) {
 
-	if err := s.Init(kinds); err != nil {
-		return nil, nil, err
-	}
 	// create channel before listing.
 	watchChan, err := s.Watch()
 	if err != nil {

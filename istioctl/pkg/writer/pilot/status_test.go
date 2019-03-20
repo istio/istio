@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
@@ -38,6 +39,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 			input: map[string][]v2.SyncStatus{
 				"pilot1": statusInput1(),
 				"pilot2": statusInput2(),
+				"pilot3": statusInput3(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
@@ -172,6 +174,22 @@ func statusInput2() []v2.SyncStatus {
 			ListenerAcked: "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 			EndpointSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 			EndpointAcked: "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
+			RouteSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			RouteAcked:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+		},
+	}
+}
+
+func statusInput3() []v2.SyncStatus {
+	return []v2.SyncStatus{
+		{
+			ProxyID:       "proxy3",
+			ProxyVersion:  "1.0",
+			ClusterSent:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			ClusterAcked:  time.Time{}.String(),
+			ListenerAcked: "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointAcked: time.Time{}.String(),
 			RouteSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 			RouteAcked:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
 		},

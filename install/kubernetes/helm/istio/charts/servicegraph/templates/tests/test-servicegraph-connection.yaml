@@ -1,0 +1,30 @@
+{{- if .Values.global.enableHelmTest }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "servicegraph.fullname" . }}-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: servicegraph-test
+    chart: {{ template "servicegraph.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: servicegraph
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+    sidecar.istio.io/inject: "false"
+    helm.sh/hook: test-success
+spec:
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  containers:
+    - name: "{{ template "servicegraph.fullname" . }}-test"
+      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      command: ['curl']
+      args: ['http://servicegraph:{{ .Values.servicegraph.service.externalPort }}']
+  restartPolicy: Never
+  affinity:
+    {{- include "nodeaffinity" . | indent 4 }}
+{{- end }}

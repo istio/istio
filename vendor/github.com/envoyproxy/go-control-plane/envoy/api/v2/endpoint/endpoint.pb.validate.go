@@ -102,16 +102,6 @@ func (m *LbEndpoint) Validate() error {
 		return nil
 	}
 
-	if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return LbEndpointValidationError{
-				Field:  "Endpoint",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for HealthStatus
 
 	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
@@ -132,6 +122,25 @@ func (m *LbEndpoint) Validate() error {
 				Reason: "value must be inside range [1, 128]",
 			}
 		}
+
+	}
+
+	switch m.HostIdentifier.(type) {
+
+	case *LbEndpoint_Endpoint:
+
+		if v, ok := interface{}(m.GetEndpoint()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LbEndpointValidationError{
+					Field:  "Endpoint",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *LbEndpoint_EndpointName:
+		// no validation rules for EndpointName
 
 	}
 
@@ -213,7 +222,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 
 	}
 
-	// no validation rules for Priority
+	if m.GetPriority() > 128 {
+		return LocalityLbEndpointsValidationError{
+			Field:  "Priority",
+			Reason: "value must be less than or equal to 128",
+		}
+	}
 
 	return nil
 }
@@ -257,7 +271,12 @@ func (m *Endpoint_HealthCheckConfig) Validate() error {
 		return nil
 	}
 
-	// no validation rules for PortValue
+	if m.GetPortValue() > 65535 {
+		return Endpoint_HealthCheckConfigValidationError{
+			Field:  "PortValue",
+			Reason: "value must be less than or equal to 65535",
+		}
+	}
 
 	return nil
 }

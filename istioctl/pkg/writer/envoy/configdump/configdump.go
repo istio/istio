@@ -33,6 +33,8 @@ type ConfigWriter struct {
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
 	cd := configdump.Wrapper{}
+	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
+	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)

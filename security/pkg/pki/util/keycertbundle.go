@@ -158,7 +158,7 @@ func (b *KeyCertBundleImpl) GetRootCertPem() []byte {
 // VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 // Setting all values together avoids inconsistency.
 func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
-	if err := verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
+	if err := Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return err
 	}
 	b.mutex.Lock()
@@ -196,11 +196,12 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 		IsCA:       b.cert.IsCA,
 		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
 		RSAKeySize: size,
+		IsDualUse:  ids[0] == b.cert.Subject.CommonName,
 	}, nil
 }
 
-// verify that the cert chain, root cert and key/cert match.
-func verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
+// Verify that the cert chain, root cert and key/cert match.
+func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	// Verify the cert can be verified from the root cert through the cert chain.
 	rcp := x509.NewCertPool()
 	rcp.AppendCertsFromPEM(rootCertBytes)

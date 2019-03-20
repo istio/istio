@@ -17,7 +17,7 @@
 package contextgraph_test
 
 import (
-	"cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	"golang.org/x/net/context"
 	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 )
@@ -40,7 +40,7 @@ func ExampleClient_AssertBatch() {
 	}
 
 	req := &contextgraphpb.AssertBatchRequest{
-	// TODO: Fill request struct fields.
+		// TODO: Fill request struct fields.
 	}
 	resp, err := c.AssertBatch(ctx, req)
 	if err != nil {

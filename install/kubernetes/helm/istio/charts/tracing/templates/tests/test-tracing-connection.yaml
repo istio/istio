@@ -1,0 +1,33 @@
+{{- if .Values.global.enableHelmTest }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.provider }}-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.provider }}-test
+    chart: {{ template "tracing.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+    sidecar.istio.io/inject: "false"
+    helm.sh/hook: test-success
+spec:
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  containers:
+    - name: "{{ .Values.provider }}-test"
+      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      command: ['curl']
+      {{- if eq .Values.provider "jaeger" }}
+      args: ['http://tracing:80{{ .Values.jaeger.contextPath}}']
+      {{- else }}
+      args: ['http://tracing:80']
+      {{- end }}
+  restartPolicy: Never
+  affinity:
+    {{- include "nodeaffinity" . | indent 4 }}
+{{- end }}

@@ -17,16 +17,19 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
+	"regexp"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/env"
 )
 
 // Generate configs for the default configs used by istio.
@@ -34,11 +37,14 @@ import (
 // cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
-		base        string
-		labels      map[string]string
-		annotations map[string]string
+		base                       string
+		labels                     map[string]string
+		annotations                map[string]string
+		expectLightstepAccessToken bool
 	}{
 		{
 			base: "auth",
@@ -60,18 +66,32 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			// nolint: goimports
+			base:                       "tracing_lightstep",
+			expectLightstepAccessToken: true,
+		},
+		{
+			base: "tracing_zipkin",
+		},
+		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
 			base: "all",
 		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+			},
+		},
 	}
 
-	out := os.Getenv("ISTIO_OUT") // defined in the makefile
+	out := env.ISTIO_OUT.Value() // defined in the makefile
 	if out == "" {
 		out = "/tmp"
 	}
 
 	for _, c := range cases {
-		t.Run("Bootrap-"+c.base, func(t *testing.T) {
+		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
 			cfg, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatal(err)
@@ -79,7 +99,7 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv)
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,6 +109,21 @@ func TestGolden(t *testing.T) {
 				t.Error("Error reading generated file ", err)
 				return
 			}
+
+			// apply minor modifications for the generated file so that tests are consistent
+			// across different env setups
+			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			if err != nil {
+				t.Error("Error modifying generated file ", err)
+				return
+			}
+			// re-read generated file with the changes having been made
+			real, err = ioutil.ReadFile(fn)
+			if err != nil {
+				t.Error("Error reading generated file ", err)
+				return
+			}
+
 			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
@@ -126,12 +161,52 @@ func TestGolden(t *testing.T) {
 				t.Logf("difference: %s", s)
 				t.Fatalf("\n got: %v\nwant: %v", realM, goldenM)
 			}
+
+			// Check if the LightStep access token file exists
+			_, err = os.Stat(lightstepAccessTokenFile(path.Dir(fn)))
+			if c.expectLightstepAccessToken {
+				if os.IsNotExist(err) {
+					t.Error("expected to find a LightStep access token file but none found")
+				} else if err != nil {
+					t.Error("error running Stat on file: ", err)
+				}
+			} else {
+				if err == nil {
+					t.Error("found a LightStep access token file but none was expected")
+				} else if !os.IsNotExist(err) {
+					t.Error("error running Stat on file: ", err)
+				}
+			}
 		})
 	}
 
 }
 
-func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, error) {
+type regexReplacement struct {
+	pattern     *regexp.Regexp
+	replacement []byte
+}
+
+// correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
+// so that they match the golden file's expected value.
+func correctForEnvDifference(in []byte) []byte {
+	replacements := []regexReplacement{
+		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
+		// are set. Standardize the path so that golden files can be properly checked.
+		{
+			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
+			replacement: []byte("$1/test-path/$2"),
+		},
+	}
+
+	out := in
+	for _, r := range replacements {
+		out = r.pattern.ReplaceAll(out, r.replacement)
+	}
+	return out
+}
+
+func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
 	content, err := ioutil.ReadFile("testdata/" + base + ".proto")
 	if err != nil {
 		return nil, err
@@ -259,16 +334,16 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	envs := make([]string, 0)
 
 	if labels != nil {
-		envs = append(envs, encodeAsJson(t, labels, "LABELS"))
+		envs = append(envs, encodeAsJSON(t, labels, "LABELS"))
 	}
 
 	if anno != nil {
-		envs = append(envs, encodeAsJson(t, anno, "ANNOTATIONS"))
+		envs = append(envs, encodeAsJSON(t, anno, "ANNOTATIONS"))
 	}
 	return merged, envs
 }
 
-func encodeAsJson(t *testing.T, data map[string]string, name string) string {
+func encodeAsJSON(t *testing.T, data map[string]string, name string) string {
 	jsonStr, err := json.Marshal(data)
 	if err != nil {
 		t.Fatalf("failed to marshal %s %v: %v", name, data, err)
@@ -283,7 +358,7 @@ func TestNodeMetadata(t *testing.T) {
 		"istio": "sidecar",
 	}
 	anno := map[string]string{
-		"istio.io/enable": "{\"abc\": 20}",
+		"istio.io/enable": "{20: 20}",
 	}
 
 	_, envs := createEnv(t, labels, nil)

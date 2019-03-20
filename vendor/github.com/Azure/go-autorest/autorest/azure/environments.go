@@ -45,6 +45,7 @@ type Environment struct {
 	KeyVaultEndpoint             string `json:"keyVaultEndpoint"`
 	GraphEndpoint                string `json:"graphEndpoint"`
 	ServiceBusEndpoint           string `json:"serviceBusEndpoint"`
+	BatchManagementEndpoint      string `json:"batchManagementEndpoint"`
 	StorageEndpointSuffix        string `json:"storageEndpointSuffix"`
 	SQLDatabaseDNSSuffix         string `json:"sqlDatabaseDNSSuffix"`
 	TrafficManagerDNSSuffix      string `json:"trafficManagerDNSSuffix"`
@@ -53,6 +54,7 @@ type Environment struct {
 	ServiceManagementVMDNSSuffix string `json:"serviceManagementVMDNSSuffix"`
 	ResourceManagerVMDNSSuffix   string `json:"resourceManagerVMDNSSuffix"`
 	ContainerRegistryDNSSuffix   string `json:"containerRegistryDNSSuffix"`
+	TokenAudience                string `json:"tokenAudience"`
 }
 
 var (
@@ -68,6 +70,7 @@ var (
 		KeyVaultEndpoint:             "https://vault.azure.net/",
 		GraphEndpoint:                "https://graph.windows.net/",
 		ServiceBusEndpoint:           "https://servicebus.windows.net/",
+		BatchManagementEndpoint:      "https://batch.core.windows.net/",
 		StorageEndpointSuffix:        "core.windows.net",
 		SQLDatabaseDNSSuffix:         "database.windows.net",
 		TrafficManagerDNSSuffix:      "trafficmanager.net",
@@ -76,6 +79,7 @@ var (
 		ServiceManagementVMDNSSuffix: "cloudapp.net",
 		ResourceManagerVMDNSSuffix:   "cloudapp.azure.com",
 		ContainerRegistryDNSSuffix:   "azurecr.io",
+		TokenAudience:                "https://management.azure.com/",
 	}
 
 	// USGovernmentCloud is the cloud environment for the US Government
@@ -90,6 +94,7 @@ var (
 		KeyVaultEndpoint:             "https://vault.usgovcloudapi.net/",
 		GraphEndpoint:                "https://graph.windows.net/",
 		ServiceBusEndpoint:           "https://servicebus.usgovcloudapi.net/",
+		BatchManagementEndpoint:      "https://batch.core.usgovcloudapi.net/",
 		StorageEndpointSuffix:        "core.usgovcloudapi.net",
 		SQLDatabaseDNSSuffix:         "database.usgovcloudapi.net",
 		TrafficManagerDNSSuffix:      "usgovtrafficmanager.net",
@@ -98,6 +103,7 @@ var (
 		ServiceManagementVMDNSSuffix: "usgovcloudapp.net",
 		ResourceManagerVMDNSSuffix:   "cloudapp.windowsazure.us",
 		ContainerRegistryDNSSuffix:   "azurecr.io",
+		TokenAudience:                "https://management.usgovcloudapi.net/",
 	}
 
 	// ChinaCloud is the cloud environment operated in China
@@ -112,6 +118,7 @@ var (
 		KeyVaultEndpoint:             "https://vault.azure.cn/",
 		GraphEndpoint:                "https://graph.chinacloudapi.cn/",
 		ServiceBusEndpoint:           "https://servicebus.chinacloudapi.cn/",
+		BatchManagementEndpoint:      "https://batch.chinacloudapi.cn/",
 		StorageEndpointSuffix:        "core.chinacloudapi.cn",
 		SQLDatabaseDNSSuffix:         "database.chinacloudapi.cn",
 		TrafficManagerDNSSuffix:      "trafficmanager.cn",
@@ -120,6 +127,7 @@ var (
 		ServiceManagementVMDNSSuffix: "chinacloudapp.cn",
 		ResourceManagerVMDNSSuffix:   "cloudapp.azure.cn",
 		ContainerRegistryDNSSuffix:   "azurecr.io",
+		TokenAudience:                "https://management.chinacloudapi.cn/",
 	}
 
 	// GermanCloud is the cloud environment operated in Germany
@@ -134,6 +142,7 @@ var (
 		KeyVaultEndpoint:             "https://vault.microsoftazure.de/",
 		GraphEndpoint:                "https://graph.cloudapi.de/",
 		ServiceBusEndpoint:           "https://servicebus.cloudapi.de/",
+		BatchManagementEndpoint:      "https://batch.cloudapi.de/",
 		StorageEndpointSuffix:        "core.cloudapi.de",
 		SQLDatabaseDNSSuffix:         "database.cloudapi.de",
 		TrafficManagerDNSSuffix:      "azuretrafficmanager.de",
@@ -142,6 +151,7 @@ var (
 		ServiceManagementVMDNSSuffix: "azurecloudapp.de",
 		ResourceManagerVMDNSSuffix:   "cloudapp.microsoftazure.de",
 		ContainerRegistryDNSSuffix:   "azurecr.io",
+		TokenAudience:                "https://management.microsoftazure.de/",
 	}
 )
 

@@ -14,6 +14,7 @@ option (gogoproto.equal_all) = true;
 option (gogoproto.verbose_equal_all) = true;
 option (gogoproto.unsafe_marshaler_all) = false;
 option (gogoproto.unsafe_unmarshaler_all) = false;
+option (gogoproto.goproto_unrecognized_all) = false;
 
 message Dropped {
     option (gogoproto.typedecl) = false;

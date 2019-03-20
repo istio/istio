@@ -52,6 +52,8 @@ func main() {
 	vanity.ForEachFile(files, vanity.TurnOnGoStringAll)
 	vanity.ForEachFile(files, vanity.TurnOffGoStringerAll)
 
+	vanity.ForEachFile(files, vanity.TurnOnMessageNameAll)
+
 	for _, file := range files {
 		if strings.HasSuffix(file.GetName(), "struct.proto") {
 			// TODO struct can also get a compare method when

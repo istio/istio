@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -34,12 +33,6 @@ type ServiceEntryStore struct {
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler
 	store            model.IstioConfigStore
-
-	// storeCache has callbacks. Some tests use mock store.
-	// Pilot 0.8 implementation only invalidates the v1 cache.
-	// Post 0.8 we want to remove the v1 cache and directly interface with ads, to
-	// simplify and optimize the code, this abstraction is not helping.
-	callbacks model.ConfigStoreCache
 
 	storeMutex sync.RWMutex
 
@@ -58,29 +51,26 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
-		callbacks:        callbacks,
 		ip2instance:      map[string][]*model.ServiceInstance{},
 		instances:        map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
 		callbacks.RegisterEventHandler(model.ServiceEntry.Type, func(config model.Config, event model.Event) {
-			serviceEntry := config.Spec.(*networking.ServiceEntry)
-
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
+			services := convertServices(config)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
 
-			instances := convertInstances(serviceEntry, config.CreationTimestamp.Time)
+			instances := convertInstances(config)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -115,8 +105,7 @@ func (d *ServiceEntryStore) Run(stop <-chan struct{}) {}
 func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
+		services = append(services, convertServices(config)...)
 	}
 
 	return services, nil
@@ -138,8 +127,7 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
+		services = append(services, convertServices(config)...)
 	}
 	return services
 }
@@ -158,36 +146,6 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-// This is only called from v1 code paths - which don't support ServiceEntry,
-// so it production it should never happen in v1/alpha1 case
-// However, since we implement this method, v1 users will still get the ServiceEntry.
-// This contradicts the general migration policy of keeping alpha3 separated, but
-// may help in cases where mesh expansion is moved with some workloads still using
-// v1.
-func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	portMap := make(map[string]bool)
-	for _, port := range ports {
-		portMap[port] = true
-	}
-
-	out := []*model.ServiceInstance{}
-	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
-			if instance.Service.Hostname == hostname &&
-				labels.HasSubsetOf(instance.Labels) &&
-				portMatchEnvoyV1(instance, portMap) {
-				out = append(out, instance)
-			}
-		}
-	}
-
-	return out, nil
-}
-
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
@@ -198,7 +156,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
 
-	instances, found := d.instances[hostname.String()]
+	instances, found := d.instances[string(hostname)]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
@@ -226,9 +184,8 @@ func (d *ServiceEntryStore) update() {
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
-			key := instance.Service.Hostname.String()
+		for _, instance := range convertInstances(config) {
+			key := string(instance.Service.Hostname)
 			out, found := di[key]
 			if !found {
 				out = []*model.ServiceInstance{}
@@ -236,7 +193,7 @@ func (d *ServiceEntryStore) update() {
 			out = append(out, instance)
 			di[key] = out
 
-			byip, found := di[instance.Endpoint.Address]
+			byip, found := dip[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}
@@ -260,11 +217,6 @@ func (d *ServiceEntryStore) update() {
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatchEnvoyV1(instance *model.ServiceInstance, portMap map[string]bool) bool {
-	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Name]
-}
-
-// returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
@@ -275,15 +227,19 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
-	instances, found := d.ip2instance[node.IPAddress]
-	if found {
-		return instances, nil
+	out := make([]*model.ServiceInstance, 0)
+
+	for _, ip := range node.IPAddresses {
+		instances, found := d.ip2instance[ip]
+		if found {
+			out = append(out, instances...)
+		}
 	}
-	return []*model.ServiceInstance{}, nil
+	return out, nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil

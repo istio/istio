@@ -17,7 +17,7 @@ type ConfigStoreCache struct {
 	configDescriptorReturnsOnCall map[int]struct {
 		result1 model.ConfigDescriptor
 	}
-	GetStub        func(typ, name, namespace string) (config *model.Config, exists bool)
+	GetStub        func(typ, name, namespace string) *model.Config
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		typ       string
@@ -26,11 +26,9 @@ type ConfigStoreCache struct {
 	}
 	getReturns struct {
 		result1 *model.Config
-		result2 bool
 	}
 	getReturnsOnCall map[int]struct {
 		result1 *model.Config
-		result2 bool
 	}
 	ListStub        func(typ, namespace string) ([]model.Config, error)
 	listMutex       sync.RWMutex
@@ -149,7 +147,7 @@ func (fake *ConfigStoreCache) ConfigDescriptorReturnsOnCall(i int, result1 model
 	}{result1}
 }
 
-func (fake *ConfigStoreCache) Get(typ string, name string, namespace string) (config *model.Config, exists bool) {
+func (fake *ConfigStoreCache) Get(typ string, name string, namespace string) *model.Config {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
@@ -163,9 +161,9 @@ func (fake *ConfigStoreCache) Get(typ string, name string, namespace string) (co
 		return fake.GetStub(typ, name, namespace)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fake.getReturns.result1, fake.getReturns.result2
+	return fake.getReturns.result1
 }
 
 func (fake *ConfigStoreCache) GetCallCount() int {
@@ -180,26 +178,23 @@ func (fake *ConfigStoreCache) GetArgsForCall(i int) (string, string, string) {
 	return fake.getArgsForCall[i].typ, fake.getArgsForCall[i].name, fake.getArgsForCall[i].namespace
 }
 
-func (fake *ConfigStoreCache) GetReturns(result1 *model.Config, result2 bool) {
+func (fake *ConfigStoreCache) GetReturns(result1 *model.Config) {
 	fake.GetStub = nil
 	fake.getReturns = struct {
 		result1 *model.Config
-		result2 bool
-	}{result1, result2}
+	}{result1}
 }
 
-func (fake *ConfigStoreCache) GetReturnsOnCall(i int, result1 *model.Config, result2 bool) {
+func (fake *ConfigStoreCache) GetReturnsOnCall(i int, result1 *model.Config) {
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
 			result1 *model.Config
-			result2 bool
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 *model.Config
-		result2 bool
-	}{result1, result2}
+	}{result1}
 }
 
 func (fake *ConfigStoreCache) List(typ string, namespace string) ([]model.Config, error) {

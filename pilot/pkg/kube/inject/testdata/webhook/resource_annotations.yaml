@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: resource
+spec:
+  replicas: 7
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/proxyCPU: "100m"
+        sidecar.istio.io/proxyMemory: "1Gi"
+      labels:
+        app: resource
+    spec:
+      containers:
+      - name: resource
+        image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 80

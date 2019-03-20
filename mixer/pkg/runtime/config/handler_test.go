@@ -198,3 +198,20 @@ func TestFailedBuild(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestElided(t *testing.T) {
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil)
+	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
+
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
+	h, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if h == nil {
+		t.Fail()
+	}
+}

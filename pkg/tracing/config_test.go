@@ -44,11 +44,12 @@ func TestConfigure(t *testing.T) {
 		wantLog    bool
 	}{
 		{"no options", Options{}, false, false, false},
-		{"with logging", Options{LogTraceSpans: true}, false, false, true},
-		{"with jaeger", Options{JaegerURL: jaegerServer.URL}, true, false, false},
-		{"with zipkin", Options{ZipkinURL: zipkinServer.URL}, false, true, false},
-		{"with jaeger and logging", Options{JaegerURL: jaegerServer.URL}, true, false, false},
-		{"with zipkin and logging", Options{ZipkinURL: zipkinServer.URL, LogTraceSpans: true}, false, true, true},
+		{"with logging", Options{LogTraceSpans: true, SamplingRate: 1.0}, false, false, true},
+		{"with logging and no sampling", Options{LogTraceSpans: true}, false, false, false},
+		{"with jaeger", Options{JaegerURL: jaegerServer.URL, SamplingRate: 1.0}, true, false, false},
+		{"with zipkin", Options{ZipkinURL: zipkinServer.URL, SamplingRate: 1.0}, false, true, false},
+		{"with jaeger and logging", Options{JaegerURL: jaegerServer.URL, SamplingRate: 1.0}, true, false, false},
+		{"with zipkin and logging", Options{ZipkinURL: zipkinServer.URL, LogTraceSpans: true, SamplingRate: 1.0}, false, true, true},
 	}
 
 	for _, c := range cases {

@@ -263,6 +263,18 @@ func (m *Permission) Validate() error {
 			}
 		}
 
+	case *Permission_RequestedServerName:
+
+		if v, ok := interface{}(m.GetRequestedServerName()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PermissionValidationError{
+					Field:  "RequestedServerName",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	default:
 		return PermissionValidationError{
 			Field:  "Rule",
@@ -585,7 +597,15 @@ func (m *Principal_Authenticated) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Name
+	if v, ok := interface{}(m.GetPrincipalName()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Principal_AuthenticatedValidationError{
+				Field:  "PrincipalName",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	return nil
 }

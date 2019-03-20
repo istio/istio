@@ -1,9 +1,9 @@
 package reflect2
 
 import (
+	"github.com/modern-go/concurrent"
 	"reflect"
 	"unsafe"
-	"github.com/modern-go/concurrent"
 )
 
 type Type interface {
@@ -136,7 +136,7 @@ type frozenConfig struct {
 func (cfg Config) Froze() *frozenConfig {
 	return &frozenConfig{
 		useSafeImplementation: cfg.UseSafeImplementation,
-		cache:                 concurrent.NewMap(),
+		cache: concurrent.NewMap(),
 	}
 }
 
@@ -150,6 +150,9 @@ func (cfg *frozenConfig) TypeOf(obj interface{}) Type {
 }
 
 func (cfg *frozenConfig) Type2(type1 reflect.Type) Type {
+	if type1 == nil {
+		return nil
+	}
 	cacheKey := uintptr(unpackEFace(type1).data)
 	typeObj, found := cfg.cache.Load(cacheKey)
 	if found {
@@ -213,6 +216,9 @@ func TypeOfPtr(obj interface{}) PtrType {
 }
 
 func Type2(type1 reflect.Type) Type {
+	if type1 == nil {
+		return nil
+	}
 	return ConfigUnsafe.Type2(type1)
 }
 
@@ -279,4 +285,14 @@ func likePtrType(typ reflect.Type) bool {
 func NoEscape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)
 	return unsafe.Pointer(x ^ 0)
+}
+
+func UnsafeCastString(str string) []byte {
+	stringHeader := (*reflect.StringHeader)(unsafe.Pointer(&str))
+	sliceHeader := &reflect.SliceHeader{
+		Data: stringHeader.Data,
+		Cap: stringHeader.Len,
+		Len: stringHeader.Len,
+	}
+	return *(*[]byte)(unsafe.Pointer(sliceHeader))
 }

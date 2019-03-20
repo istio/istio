@@ -4,12 +4,14 @@ metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   ports:
-  - name: tcp
+  - name: http-kiali
     protocol: TCP
     port: 20001
-    name: http-kiali
   selector:
     app: kiali

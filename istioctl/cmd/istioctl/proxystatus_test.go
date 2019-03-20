@@ -16,20 +16,40 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pilot/test/util"
 )
 
 func TestProxyStatus(t *testing.T) {
+	cannedConfig := map[string][]byte{
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+	}
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-status", " "),
-			expectedRegexp: regexp.MustCompile("^PROXY     CDS     LDS     EDS     RDS     PILOT"),
+			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
 		},
 		{ // case 1 short name "ps"
 			args:           strings.Split("ps", " "),
-			expectedRegexp: regexp.MustCompile("^PROXY     CDS     LDS     EDS     RDS     PILOT"),
+			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
+		},
+		{ // case 2  "proxy-status podName.namespace"
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb.default", " "),
+			expectedOutput: `Clusters Match
+Listeners Match
+Routes Match
+`,
+		},
+		{ // case 3  "proxy-status podName -n namespace"
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb -n default", " "),
+			expectedOutput: `Clusters Match
+Listeners Match
+Routes Match
+`,
 		},
 	}
 

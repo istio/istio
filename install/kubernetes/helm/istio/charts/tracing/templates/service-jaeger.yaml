@@ -2,6 +2,14 @@
 
 apiVersion: v1
 kind: List
+metadata:
+  name: jaeger-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -10,20 +18,20 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
       app: jaeger
       jaeger-infra: jaeger-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
       - name: query-http
-        port: {{ .Values.jaeger.ui.port }}
+        port: 16686
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+        targetPort: 16686
     selector:
       app: jaeger
 - apiVersion: v1
@@ -34,9 +42,9 @@ items:
     labels:
       app: jaeger
       jaeger-infra: collector-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
     - name: jaeger-collector-tchannel
@@ -58,9 +66,9 @@ items:
     labels:
       app: jaeger
       jaeger-infra: agent-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
     - name: agent-zipkin-thrift

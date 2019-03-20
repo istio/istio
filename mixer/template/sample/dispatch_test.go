@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
@@ -166,7 +167,7 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 	}
 
 	bag := attribute.GetMutableBagForTesting(defaultApaAttributes)
-	f := finder{combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...)}
+	f := ast.NewFinder(combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...))
 	builder := compiled.NewBuilder(f)
 	expressions, err := SupportedTmplInfo[sample_apa.TemplateName].CreateOutputExpressions(&sampleApaInstanceParam, f, builder)
 	if err != nil {
@@ -189,8 +190,8 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, defaultApaAttributes["ai"])
 	}
 
-	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte{0x2, 0x3, 0x4, 0x5}) {
-		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, []byte{0x2, 0x3, 0x4, 0x5})
+	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte(net.ParseIP("2.3.4.5"))) {
+		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, "2.3.4.5")
 	}
 }
 
@@ -213,7 +214,7 @@ func executeDispatchReport(t *testing.T, h adapter.Handler) error {
 
 func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, error) {
 	instance := createInstance(t, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
-	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance)
+	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance, nil, "")
 }
 
 func executeDispatchQuota(t *testing.T, h adapter.Handler, a adapter.QuotaArgs) (adapter.QuotaResult, error) {
@@ -227,7 +228,7 @@ func executeDispatchGenAttrs(t *testing.T, h adapter.Handler, bag attribute.Bag,
 }
 
 func createInstance(t *testing.T, template string, instanceParam proto.Message, attrs map[string]interface{}) interface{} {
-	expb := compiled.NewBuilder(finder{defaultAttributeInfos})
+	expb := compiled.NewBuilder(ast.NewFinder(defaultAttributeInfos))
 	builder, e := SupportedTmplInfo[template].CreateInstanceBuilder(
 		"instance1", instanceParam, expb)
 	if e != nil {

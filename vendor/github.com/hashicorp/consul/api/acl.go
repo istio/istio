@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	// ACLCLientType is the client type token
+	// ACLClientType is the client type token
 	ACLClientType = "client"
 
 	// ACLManagementType is the management type token

@@ -19,7 +19,9 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
+	ocprom "go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -35,13 +37,21 @@ const (
 	versionPath = "/version"
 )
 
-func addMonitor(mux *http.ServeMux) {
-	mux.Handle(metricsPath, promhttp.Handler())
+func addMonitor(mux *http.ServeMux) error {
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		return fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle(metricsPath, exporter)
+
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
+	return nil
 }
 
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
@@ -62,10 +72,14 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, net.Addr, error) {
 	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
-	addMonitor(mux)
+	if err = addMonitor(mux); err != nil {
+		return nil, nil, fmt.Errorf("could not establish self-monitoring: %v", err)
+	}
 	m.monitoringServer = &http.Server{
 		Handler: mux,
 	}
+
+	version.Info.RecordComponentBuildTag("pilot")
 
 	go func() {
 		m.shutdown <- struct{}{}

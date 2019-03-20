@@ -36,7 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	echopb "istio.io/istio/pilot/test/grpcecho"
+	echopb "istio.io/istio/pkg/test/application/echo/proto"
 )
 
 var upgrader = websocket.Upgrader{
@@ -59,7 +59,7 @@ type codeAndSlices struct {
 	slices           int
 }
 
-func (h *pilotTestHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
+func (h *pilotTestHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) { // nolint:interfacer
 
 	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
@@ -123,6 +123,10 @@ func (h *pilotTestHandler) Echo(ctx context.Context, req *echopb.EchoRequest) (*
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &echopb.EchoResponse{Message: body.String()}, nil
+}
+
+func (h *pilotTestHandler) ForwardEcho(ctx context.Context, in *echopb.ForwardEchoRequest) (*echopb.ForwardEchoResponse, error) {
+	return nil, fmt.Errorf("unsupported operation")
 }
 
 func (h *pilotTestHandler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
@@ -447,11 +451,13 @@ func (ec *EchoClient) setupDefaultTest() (job, error) {
 		}
 
 		var err error
-		ec.grpcConn, err = grpc.Dial(address,
+		ctx, cancel := context.WithTimeout(context.Background(), ec.timeout)
+		defer cancel()
+
+		ec.grpcConn, err = grpc.DialContext(ctx, address,
 			security,
 			grpc.WithAuthority(authority),
-			grpc.WithBlock(),
-			grpc.WithTimeout(ec.timeout))
+			grpc.WithBlock())
 		if err != nil {
 			return nil, err
 		}
@@ -535,9 +541,10 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 			<-throttle
 			wg.Add(1)
 
+			ic := i
 			go func() {
 				defer wg.Done()
-				e := j(i, w)
+				e := j(ic, w)
 				if e != nil {
 					m.Lock()
 					err = e

@@ -26,20 +26,22 @@ set -e
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
-  . $ISTIO_SIDECAR_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
-  . $ISTIO_CLUSTER_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_CLUSTER_CONFIG"
 fi
 
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
-NS=${ISTIO_NAMESPACE:-default}
-SVC=${ISTIO_SERVICE:-rawvm}
+export NS=${ISTIO_NAMESPACE:-default}
+export SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 EXEC_USER=${EXEC_USER:-istio-proxy}
@@ -50,19 +52,15 @@ fi
 
 CERTS_DIR=${CERTS_DIR:-/etc/certs}
 
-CITADEL_ARGS="--ca-address ${CITADEL_ADDRESS}"
-CITADEL_ARGS="${CITADEL_ARGS} --cert-chain ${CERTS_DIR}/cert-chain.pem"
-CITADEL_ARGS="${CITADEL_ARGS} --key ${CERTS_DIR}/key.pem"
-CITADEL_ARGS="${CITADEL_ARGS} --root-cert ${CERTS_DIR}/root-cert.pem"
+CITADEL_ARGS=(
+  "--ca-address" "${CITADEL_ADDRESS}"
+  "--cert-chain" "${CERTS_DIR}/cert-chain.pem"
+  "--key" "${CERTS_DIR}/key.pem"
+  "--root-cert" "${CERTS_DIR}/root-cert.pem"
+)
 
-if [ -z "${CITADEL_ENV:-}" ]; then
-  CITADEL_ARGS="${CITADEL_ARGS} --env onprem"
+if [ "${EXEC_USER}" == "${USER:-}" ] ; then
+  "${ISTIO_BIN_BASE}/node_agent" "${CITADEL_ARGS[@]}"
 else
-  CITADEL_ARGS="${CITADEL_ARGS} --env ${CITADEL_ENV}"
-fi
-
-if [ ${EXEC_USER} == ${USER:-} ] ; then
-  ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}
-else
-  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}" ${EXEC_USER}
+  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS[*]}" "${EXEC_USER}"
 fi

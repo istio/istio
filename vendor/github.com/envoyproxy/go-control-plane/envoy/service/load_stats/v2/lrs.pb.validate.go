@@ -126,6 +126,8 @@ func (m *LoadStatsResponse) Validate() error {
 		}
 	}
 
+	// no validation rules for ReportEndpointGranularity
+
 	return nil
 }
 

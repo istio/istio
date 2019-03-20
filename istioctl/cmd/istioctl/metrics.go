@@ -31,7 +31,7 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/portforward"
@@ -66,9 +66,10 @@ istioctl experimental metrics productpage-v1
 # Retrieve workload metrics for various services in the different namespaces
 istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
-		Aliases: []string{"m"},
-		Args:    cobra.MinimumNArgs(1),
-		RunE:    run,
+		// nolint: goimports
+		Aliases:               []string{"m"},
+		Args:                  cobra.MinimumNArgs(1),
+		RunE:                  run,
 		DisableFlagsInUseLine: true,
 	}
 )

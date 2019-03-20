@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	blockTypeECParameters    = "EC PARAMETERS"
+	blockTypeECPrivateKey    = "EC PRIVATE KEY"
 	blockTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#5 private key
 	blockTypePKCS8PrivateKey = "PRIVATE KEY"     // PKCS#8 plain private key
 )
@@ -67,7 +67,7 @@ func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	}
 
 	switch kb.Type {
-	case blockTypeECParameters:
+	case blockTypeECPrivateKey:
 		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse the ECDSA private key")

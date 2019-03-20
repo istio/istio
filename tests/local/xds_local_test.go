@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"k8s.io/api/core/v1"
+	"github.com/gogo/protobuf/types"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/keepalive"
 )
 
 func buildLocalClient(apiServerURL string) (*kubernetes.Clientset, error) {
@@ -169,7 +170,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
@@ -178,6 +179,8 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 			Registries: []string{
 				string(serviceregistry.KubernetesRegistry)},
 		},
+		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 	// Create the server for the discovery service.
 	discoveryServer, err := bootstrap.NewServer(serverAgrs)
@@ -190,7 +193,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	_, _ = s.Start(stop)
+	s.Start(stop)
 }
 
 // Test availability of local API Server

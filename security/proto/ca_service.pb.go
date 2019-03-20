@@ -85,7 +85,7 @@ const _ = grpc.SupportPackageIsVersion4
 
 type IstioCAServiceClient interface {
 	// A request object includes a PEM-encoded certificate signing request that
-	// is generated on the Node Agent. Additionaly credential can be attached
+	// is generated on the Node Agent. Additionally credential can be attached
 	// within the request object for a server to authenticate the originating
 	// node agent.
 	HandleCSR(ctx context.Context, in *CsrRequest, opts ...grpc.CallOption) (*CsrResponse, error)
@@ -112,7 +112,7 @@ func (c *istioCAServiceClient) HandleCSR(ctx context.Context, in *CsrRequest, op
 
 type IstioCAServiceServer interface {
 	// A request object includes a PEM-encoded certificate signing request that
-	// is generated on the Node Agent. Additionaly credential can be attached
+	// is generated on the Node Agent. Additionally credential can be attached
 	// within the request object for a server to authenticate the originating
 	// node agent.
 	HandleCSR(context.Context, *CsrRequest) (*CsrResponse, error)

@@ -31,3 +31,12 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 	}
 	return model.ApplyMeshConfigDefaults(string(yaml))
 }
+
+// ReadMeshNetworksConfig gets mesh networks configuration from a config file
+func ReadMeshNetworksConfig(filename string) (*meshconfig.MeshNetworks, error) {
+	yaml, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, multierror.Prefix(err, "cannot read networks config file")
+	}
+	return model.LoadMeshNetworksConfig(string(yaml))
+}

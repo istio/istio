@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/perf"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 )
 
 // Tests single check call into Mixer that dispatches instances to multiple noop inproc adapters.
@@ -35,9 +35,7 @@ func Benchmark_Check_1Client_1Call(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 1,
 			Requests: []perf.Request{
-				perf.BasicCheck{
-					Attributes: baseAttr,
-				},
+				perf.BuildBasicCheck(baseAttr, nil),
 			},
 		}},
 	}
@@ -60,9 +58,7 @@ func Benchmark_Check_1Client_5SameCalls(b *testing.B) {
 		Loads: []perf.Load{{
 			Multiplier: 5,
 			Requests: []perf.Request{
-				perf.BasicCheck{
-					Attributes: baseAttr,
-				},
+				perf.BuildBasicCheck(baseAttr, nil),
 			},
 		}},
 	}
@@ -86,21 +82,11 @@ func Benchmark_Check_1Client_5DifferentCalls(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-					},
+					perf.BuildBasicCheck(attr1, nil),
+					perf.BuildBasicCheck(attr2, nil),
+					perf.BuildBasicCheck(attr3, nil),
+					perf.BuildBasicCheck(attr4, nil),
+					perf.BuildBasicCheck(attr5, nil),
 				},
 			},
 		},
@@ -125,33 +111,25 @@ func Benchmark_Check_4Clients_5SameCallsEach(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 		},
@@ -176,81 +154,41 @@ func Benchmark_Check_4Clients_5DifferentCallsEach(b *testing.B) {
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-					},
+					perf.BuildBasicCheck(attr1, nil),
+					perf.BuildBasicCheck(attr2, nil),
+					perf.BuildBasicCheck(attr3, nil),
+					perf.BuildBasicCheck(attr4, nil),
+					perf.BuildBasicCheck(attr5, nil),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-					},
+					perf.BuildBasicCheck(attr1, nil),
+					perf.BuildBasicCheck(attr2, nil),
+					perf.BuildBasicCheck(attr3, nil),
+					perf.BuildBasicCheck(attr4, nil),
+					perf.BuildBasicCheck(attr5, nil),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-					},
+					perf.BuildBasicCheck(attr1, nil),
+					perf.BuildBasicCheck(attr2, nil),
+					perf.BuildBasicCheck(attr3, nil),
+					perf.BuildBasicCheck(attr4, nil),
+					perf.BuildBasicCheck(attr5, nil),
 				},
 			},
 			{
 				Multiplier: 1,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: attr1,
-					},
-					perf.BasicCheck{
-						Attributes: attr2,
-					},
-					perf.BasicCheck{
-						Attributes: attr3,
-					},
-					perf.BasicCheck{
-						Attributes: attr4,
-					},
-					perf.BasicCheck{
-						Attributes: attr5,
-					},
+					perf.BuildBasicCheck(attr1, nil),
+					perf.BuildBasicCheck(attr2, nil),
+					perf.BuildBasicCheck(attr3, nil),
+					perf.BuildBasicCheck(attr4, nil),
+					perf.BuildBasicCheck(attr5, nil),
 				},
 			},
 		},
@@ -275,33 +213,25 @@ func Benchmark_Check_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 			{
 				Multiplier: 5,
 				Requests: []perf.Request{
-					perf.BasicCheck{
-						Attributes: baseAttr,
-					},
+					perf.BuildBasicCheck(baseAttr, nil),
 				},
 			},
 		},
@@ -311,7 +241,7 @@ func Benchmark_Check_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	validateCheckBehavior(spyAdapter, b)
 }
 
-func validateCheckBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateCheckBehavior(spyAdapter *spyadapter.Adapter, b *testing.B) {
 	// validate all went as expected.
 	//
 	// based on the config, there must be, for each Check call from client,

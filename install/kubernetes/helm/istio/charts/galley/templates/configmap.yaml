@@ -4,12 +4,11 @@ metadata:
   name: istio-galley-configuration
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-galley
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
-    istio: mixer
+    release: {{ .Release.Name }}
+    istio: galley
 data:
   validatingwebhookconfiguration.yaml: |-
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
-

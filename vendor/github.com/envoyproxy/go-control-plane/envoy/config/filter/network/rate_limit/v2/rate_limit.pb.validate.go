@@ -87,6 +87,18 @@ func (m *RateLimit) Validate() error {
 		}
 	}
 
+	// no validation rules for FailureModeDeny
+
+	if v, ok := interface{}(m.GetRateLimitService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RateLimitValidationError{
+				Field:  "RateLimitService",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 

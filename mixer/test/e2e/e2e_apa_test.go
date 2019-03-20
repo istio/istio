@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
@@ -144,16 +144,16 @@ func TestApa(t *testing.T) {
 	tests := []testData{
 		{
 			name: "Apa",
-			behaviors: []spyAdapter.AdapterBehavior{
+			behaviors: []spyadapter.AdapterBehavior{
 				{
 					Name: "fakeHandler",
-					Handler: spyAdapter.HandlerBehavior{
+					Handler: spyadapter.HandlerBehavior{
 						GenerateSampleApaOutput: out,
 					},
 				},
 			},
 			attrs: map[string]interface{}{"target.name": "somesrvcname"},
-			expectCalls: []spyAdapter.CapturedCall{
+			expectCalls: []spyadapter.CapturedCall{
 				{
 					Name: "HandleSampleApaAttributes",
 					Instances: []interface{}{

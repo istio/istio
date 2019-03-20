@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,21 +20,28 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	messagediff "gopkg.in/d4l3k/messagediff.v1"
 	appsv1 "k8s.io/api/apps/v1"
-	appsv1beta2 "k8s.io/api/apps/v1beta2"
-	"k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/pkg/kube/secretcontroller"
+	pkgtest "istio.io/istio/pkg/test"
+)
+
+const (
+	testSecretName      = "testSecretName"
+	testSecretNameSpace = "istio-system"
 )
 
 type fakeK8sBuilder struct {
@@ -109,9 +116,49 @@ func TestBuilder_ControllerCache(t *testing.T) {
 		}
 	}
 
+	b.Lock()
+	defer b.Unlock()
 	if len(b.controllers) != 1 {
 		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
+}
+
+// tests closing and rebuilding a handler
+func TestHandler_Close(t *testing.T) {
+	b := newFakeBuilder()
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	err = handler.Close()
+	if err != nil {
+		t.Fatalf("Close() returned unexpected error: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 0; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	_, err = b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
 }
 
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
@@ -242,7 +289,7 @@ func TestKubegen_Generate(t *testing.T) {
 	ipDestinationOut.SetSourceWorkloadName("test-job")
 	ipDestinationOut.SetSourceWorkloadNamespace("testns")
 	ipDestinationOut.SetSourceWorkloadUid("istio://testns/workloads/test-job")
-	ipDestinationOut.SetSourceOwner("kubernetes://apis/core/v1/namespaces/testns/jobs/test-job")
+	ipDestinationOut.SetSourceOwner("kubernetes://apis/batch/v1/namespaces/testns/jobs/test-job")
 	ipDestinationOut.SetDestinationLabels(map[string]string{"app": "ipAddr"})
 	ipDestinationOut.SetDestinationNamespace("testns")
 	ipDestinationOut.SetDestinationPodName("ip-svc-pod")
@@ -411,6 +458,89 @@ func TestKubegen_Generate(t *testing.T) {
 	}
 }
 
+func createMultiClusterSecret(k8s *fake.Clientset) error {
+	data := map[string][]byte{}
+	secret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testSecretName,
+			Namespace: testSecretNameSpace,
+			Labels: map[string]string{
+				"istio/multiCluster": "true",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	data["testRemoteCluster"] = []byte("Test")
+	secret.Data = data
+	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(&secret)
+	return err
+}
+
+func deleteMultiClusterSecret(k8s *fake.Clientset) error {
+	var immediate int64
+
+	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
+		testSecretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
+func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, timeoutName string) {
+	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		b.Lock()
+		defer b.Unlock()
+		return len(b.controllers) == expectedControllerCount
+	})
+}
+
+func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+	return &clientcmdapi.Config{}, nil
+}
+
+func mockValidateClientConfig(config clientcmdapi.Config) error {
+	return nil
+}
+
+func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+	return fake.NewSimpleClientset(), nil
+}
+
+func Test_KubeSecretController(t *testing.T) {
+	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
+	secretcontroller.ValidateClientConfig = mockValidateClientConfig
+	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
+
+	clientset := fake.NewSimpleClientset()
+	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+		return clientset, nil
+	})
+
+	// Call kube Build function which will start the secret controller.
+	// Sleep to allow secret process to start.
+	_, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error building adapter: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	// Create the multicluster secret.
+	err = createMultiClusterSecret(clientset)
+	if err != nil {
+		t.Fatalf("Unexpected error on secret create: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been added.
+	verifyControllers(t, b, 2, "create remote controller")
+
+	// Delete the mulicluster secret.
+	err = deleteMultiClusterSecret(clientset)
+	if err != nil {
+		t.Fatalf("Unexpected error on secret delete: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been removed.
+	verifyControllers(t, b, 1, "delete remote controller")
+}
+
 // Kubernetes Runtime Object for Tests
 
 var trueVar = true
@@ -418,7 +548,7 @@ var falseVar = false
 
 var k8sobjs = []runtime.Object{
 	// replicasets
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-with-deployment",
 			Namespace: "testns",
@@ -438,13 +568,13 @@ var k8sobjs = []runtime.Object{
 			},
 		},
 	},
-	&extv1beta1.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-without-deployment",
 			Namespace: "testns",
 		},
 	},
-	&appsv1beta2.ReplicaSet{
+	&appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-appsv1beta2-replicaset-with-deployment",
 			Namespace: "testns",
@@ -645,7 +775,7 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "core/v1",
+					APIVersion: "batch/v1",
 					Controller: &trueVar,
 					Kind:       "Job",
 					Name:       "test-job",

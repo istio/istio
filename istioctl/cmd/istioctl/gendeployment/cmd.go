@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	defaultTag          = "release-1.0-latest-daily"
-	defaultHyperkubeTag = "v1.7.6_coreos.0"
+	defaultTag = "master-latest-daily"
 )
 
 // Command returns the "gen-deploy" subcommand for istioctl.
@@ -37,15 +36,16 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	install := defaultInstall()
 	cmd := &cobra.Command{
-		Use:     "gen-deploy",
-		Short:   "Generates the configuration for Istio's control plane.",
-		Long:    "istioctl gen-deploy produces deployment files to run the Istio.",
-		Example: `istioctl gen-deploy --values myvalues.yaml`,
+		Deprecated: "Please use `helm template` instead (see https://istio.io/docs/setup/kubernetes/helm-install/#option-1-install-with-helm-via-helm-template)", // nolint: lll
+		Use:        "gen-deploy",
+		Short:      "Generates the configuration for Istio's control plane.",
+		Long:       "istioctl gen-deploy produces deployment files to run the Istio.",
+		Example:    `istioctl gen-deploy --values myvalues.yaml`,
 		RunE: func(c *cobra.Command, args []string) error {
 			install.Namespace = *istioNamespaceFlag
 			// TODO: this is NOT merged with the values.yaml from helm directory.
 
-			values, err := getValues(valuesPath, install)
+			values, err := getValues(valuesPath)
 			if err != nil {
 				return err
 			}
@@ -75,9 +75,6 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
 		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
 
-	cmd.PersistentFlags().StringVar(&install.HyperkubeHub, "hyperkube-hub", install.HyperkubeHub, "The container registry to pull Hyperkube images from")
-	cmd.PersistentFlags().StringVar(&install.HyperkubeTag, "hyperkube-tag", install.HyperkubeTag, "The tag to use to pull the `Hyperkube` container")
-
 	_ = cmd.PersistentFlags().MarkHidden("hub")
 	_ = cmd.PersistentFlags().MarkHidden("mixer-tag")
 	_ = cmd.PersistentFlags().MarkHidden("pilot-tag")
@@ -86,7 +83,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	return cmd
 }
 
-func getValues(path string, i *installation) (string, error) {
+func getValues(path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
@@ -107,9 +104,6 @@ type installation struct {
 	PilotTag string
 	CaTag    string
 	ProxyTag string
-
-	HyperkubeHub string
-	HyperkubeTag string
 
 	NodePort uint16
 	Debug    bool
@@ -138,9 +132,6 @@ func defaultInstall() *installation {
 		PilotTag: defaultTag,
 		CaTag:    defaultTag,
 		ProxyTag: defaultTag,
-
-		HyperkubeHub: "quay.io/coreos/hyperkube",
-		HyperkubeTag: defaultHyperkubeTag,
 	}
 }
 

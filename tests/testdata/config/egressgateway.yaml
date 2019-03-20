@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-egressgateway
+  namespace: testns
 spec:
   selector:
     # DO NOT CHANGE THESE LABELS

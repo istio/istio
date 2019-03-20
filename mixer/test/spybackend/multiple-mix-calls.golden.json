@@ -224,28 +224,44 @@
    "dedup_id": "stripped_for_test",
    "instance": {
     "name": "i3list.instance.istio-system",
-    "value": "foobar"
+    "value": {
+     "Value": {
+      "StringValue": "foobar"
+      }
+     }
+  }
+  },
+  {
+   "dedup_id": "stripped_for_test",
+   "instance": {
+    "name": "i3list.instance.istio-system",
+    "value": {
+     "Value": {
+      "StringValue": "defaultstr"
+     }
+    }
    }
   },
   {
    "dedup_id": "stripped_for_test",
    "instance": {
     "name": "i3list.instance.istio-system",
-    "value": "defaultstr"
+    "value": {
+     "Value": {
+      "StringValue": "defaultstr"
+     }
+    }
    }
   },
   {
    "dedup_id": "stripped_for_test",
    "instance": {
     "name": "i3list.instance.istio-system",
-    "value": "defaultstr"
-   }
-  },
-  {
-   "dedup_id": "stripped_for_test",
-   "instance": {
-    "name": "i3list.instance.istio-system",
-    "value": "bazbaz"
+    "value": {
+     "Value": {
+      "StringValue": "bazbaz"
+     }
+    }
    }
   },
   {

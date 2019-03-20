@@ -28,6 +28,7 @@ func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			if !probeOptions.IsValid() {
 				fatalf("Some options are not valid")

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# shellcheck source=tools/setup_perf_cluster.sh
 source "${DIR}/setup_perf_cluster.sh"
 
 LABEL="${1}"

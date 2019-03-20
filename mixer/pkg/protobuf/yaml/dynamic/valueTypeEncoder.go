@@ -27,12 +27,13 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 )
 
 // valueTypeName is the Name of the value type with special input encoding
 const valueTypeName = ".istio.policy.v1beta1.Value"
 
-func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler Compiler) (Encoder, error) {
+func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler lang.Compiler) (Encoder, error) {
 	_, supported := vtRegistryByMsgName[fd.GetTypeName()]
 	if fd.GetTypeName() != valueTypeName && !supported {
 		return nil, fmt.Errorf("cannot process message of type:%s", fd.GetTypeName())
@@ -41,16 +42,16 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 	var vVal v1beta1.Value
 	switch vv := v.(type) {
 	case int:
-		vVal.Value = &v1beta1.Value_Int64Value{int64(vv)}
+		vVal.Value = &v1beta1.Value_Int64Value{Int64Value: int64(vv)}
 	case float64:
-		vVal.Value = &v1beta1.Value_DoubleValue{vv}
+		vVal.Value = &v1beta1.Value_DoubleValue{DoubleValue: vv}
 	case bool:
-		vVal.Value = &v1beta1.Value_BoolValue{vv}
+		vVal.Value = &v1beta1.Value_BoolValue{BoolValue: vv}
 	case string:
 		val, isConstString := transformQuotedString(vv)
 		sval, _ := val.(string)
 		if isConstString {
-			vVal.Value = &v1beta1.Value_StringValue{sval}
+			vVal.Value = &v1beta1.Value_StringValue{StringValue: sval}
 		} else {
 			return buildExprEncoder(sval, fd.GetTypeName(), compiler)
 		}
@@ -70,7 +71,7 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 	}, nil
 }
 
-func buildExprEncoder(sval string, msgType string, compiler Compiler) (Encoder, error) {
+func buildExprEncoder(sval string, msgType string, compiler lang.Compiler) (Encoder, error) {
 	var expr compiled.Expression
 	var vt v1beta1.ValueType
 	var err error
@@ -269,7 +270,7 @@ func init() {
 				var ok bool
 				var ip net.IP
 
-				if ip, ok = ev.(net.IP); !ok {
+				if ip, ok = ev.([]byte); !ok {
 					return nil, incorrectTypeError(vt, ev, "[]byte")
 				}
 				v := &v1beta1.IPAddress{Value: ip}

@@ -18,19 +18,23 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 // TestRDS is running RDSv2 tests.
 func TestRDS(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = sendRDSReq(sidecarId(app3Ip, "app3"), []string{"80", "8080"}, rdsr)
+		defer cancel()
+
+		err = sendRDSReq(sidecarID(app3Ip, "app3"), []string{"80", "8080"}, "", rdsr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -41,7 +45,7 @@ func TestRDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -49,11 +53,13 @@ func TestRDS(t *testing.T) {
 	})
 
 	t.Run("gateway", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, rdsr)
+		defer cancel()
+
+		err = sendRDSReq(gatewayID(gatewayIP), []string{"http.80", "https.443.https"}, "", rdsr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +72,7 @@ func TestRDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/rdsv2_gateway.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")

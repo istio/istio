@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -27,14 +27,15 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/registry"
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
-// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" annotation
-// enabled, the corresponding service account will be added to the identity registry
+// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" or
+// "alpha.istio.io/canonical-serviceaccounts" annotations enabled,
+// the corresponding service account will be added to the identity registry
 // for whitelisting.
-// TODO: change it to monitor "alpha.istio.io/canonical-serviceaccounts" annotation
 type ServiceController struct {
 	core corev1.CoreV1Interface
 
@@ -46,20 +47,22 @@ type ServiceController struct {
 }
 
 // NewServiceController returns a new ServiceController
-func NewServiceController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceController {
+func NewServiceController(core corev1.CoreV1Interface, namespaces []string, reg registry.Registry) *ServiceController {
 	c := &ServiceController{
 		core: core,
 		reg:  reg,
 	}
 
-	LW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.Services(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.Services(namespace).Watch(options)
-		},
-	}
+	LW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.Services(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.Services(namespace).Watch(options)
+			},
+		}
+	})
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.serviceAdded,
@@ -85,6 +88,13 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
+	if ok {
+		err := c.reg.AddMapping(canonicalSvcAcct, canonicalSvcAcct)
+		if err != nil {
+			log.Errorf("cannot add mapping %q -> %q to registry: %s", canonicalSvcAcct, canonicalSvcAcct, err.Error())
+		}
+	}
 }
 
 func (c *ServiceController) serviceDeleted(obj interface{}) {
@@ -94,6 +104,13 @@ func (c *ServiceController) serviceDeleted(obj interface{}) {
 		err := c.reg.DeleteMapping(svcAcct, svcAcct)
 		if err != nil {
 			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
+		}
+	}
+	canonicalSvcAcct, ok := svc.ObjectMeta.Annotations[kube.CanonicalServiceAccountsAnnotation]
+	if ok {
+		err := c.reg.DeleteMapping(canonicalSvcAcct, canonicalSvcAcct)
+		if err != nil {
+			log.Errorf("cannot delete mapping %q to %q from registry: %s", canonicalSvcAcct, canonicalSvcAcct, err.Error())
 		}
 	}
 }

@@ -16,6 +16,11 @@
 # Sleep service
 ##################################################################################################
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sleep
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: sleep
@@ -39,6 +44,7 @@ spec:
       labels:
         app: sleep
     spec:
+      serviceAccountName: sleep
       containers:
       - name: sleep
         image: pstauffer/curl

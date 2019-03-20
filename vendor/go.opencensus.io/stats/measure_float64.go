@@ -15,7 +15,7 @@
 
 package stats
 
-// Float64Measure is a measure of type float64.
+// Float64Measure is a measure for float64 values.
 type Float64Measure struct {
 	md *measureDescriptor
 }
@@ -44,8 +44,10 @@ func (m *Float64Measure) M(v float64) Measurement {
 	return Measurement{m: m, v: v}
 }
 
-// Float64 creates a new measure of type Float64Measure.
-// It never returns an error.
+// Float64 creates a new measure for float64 values.
+//
+// See the documentation for interface Measure for more guidance on the
+// parameters of this function.
 func Float64(name, description, unit string) *Float64Measure {
 	mi := registerMeasureHandle(name, description, unit)
 	return &Float64Measure{mi}

@@ -39,7 +39,7 @@ func NewSkipByIssue() *SkipIssue {
 
 // GetID returns skip_by_issue_rule.
 func (lr *SkipIssue) GetID() string {
-	return getCallerFileName()
+	return GetCallerFileName()
 }
 
 // Check returns verifies if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),

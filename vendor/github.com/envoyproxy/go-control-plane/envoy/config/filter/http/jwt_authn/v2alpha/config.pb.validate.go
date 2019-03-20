@@ -68,6 +68,8 @@ func (m *JwtProvider) Validate() error {
 
 	// no validation rules for ForwardPayloadHeader
 
+	// no validation rules for PayloadInMetadata
+
 	switch m.JwksSourceSpecifier.(type) {
 
 	case *JwtProvider_RemoteJwks:

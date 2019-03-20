@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: my-gateway
+  namespace: testns
 spec:
   selector:
     app: my-gateway-controller

@@ -34,7 +34,7 @@ import (
 //   name: reportrequest
 //   namespace: istio-system
 // spec:
-// ```\
+// ```
 
 // Fully qualified name of the template
 const TemplateName = "reportnothing"

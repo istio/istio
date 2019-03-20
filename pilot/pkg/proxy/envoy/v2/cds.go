@@ -47,7 +47,8 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 }
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
-	rawClusters, err := s.generateRawClusters(con, push)
+	// TODO: Modify interface to take services, and config instead of making library query registry
+	rawClusters, err := s.generateRawClusters(con.modelNode, push)
 	if err != nil {
 		return err
 	}
@@ -57,30 +58,30 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure, closing grpc %s: %v", con.modelNode.ID, err)
+		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
-	// The response can't be easily read due to 'any' marshalling.
+	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services))
+		con.ConID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, con.modelNode, push)
+func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) ([]*xdsapi.Cluster, error) {
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.Env, node, push)
 	if err != nil {
-		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
+		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", node.ID, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 		return nil, err
 	}
 
 	for _, c := range rawClusters {
 		if err = c.Validate(); err != nil {
-			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", con.modelNode, err)
-			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", con.modelNode, err, c)
+			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
+			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
 			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 			totalXDSInternalErrors.Add(1)
 			// Generating invalid clusters is a bug.

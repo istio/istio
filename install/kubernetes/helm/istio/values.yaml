@@ -1,47 +1,172 @@
-# Common settings.
-global:
-  hub: quay.io/aspenmesh/istio-private
-  hub_public: quay.io/aspenmesh/istio
-  hub_img_delim: ":"
-  # image: per deployment
-  img_tag_delim: "-"
-  tag: 1.0.0-am1
+# Top level istio values file has the following sections.
+#
+# global: This file is the authoritative and exhaustive source for the global section.
+#
+# chart sections: Every subdirectory inside the charts/ directory has a top level
+#       configuration key in this file. This file overrides the values specified
+#       by the charts/${chartname}/values.yaml.
+#       Check the chart level values file for exhaustive list of configuration options.
 
-  aspenMeshCloud:
+#
+# Gateways Configuration, refer to the charts/gateways/values.yaml
+# for detailed configuration
+#
+gateways:
+  enabled: true
+
+#
+# sidecar-injector webhook configuration, refer to the
+# charts/sidecarInjectorWebhook/values.yaml for detailed configuration
+#
+sidecarInjectorWebhook:
+  enabled: true
+
+#
+# galley configuration, refer to charts/galley/values.yaml
+# for detailed configuration
+#
+galley:
+  enabled: true
+
+#
+# mixer configuration
+#
+# @see charts/mixer/values.yaml, it takes precedence
+mixer:
+  enabled: true
+  policy:
+    # if policy is enabled the global.disablePolicyChecks has affect.
     enabled: true
 
-  # Gateway used for legacy k8s Ingress resources. By default it is
-  # using 'istio:ingress', to match 0.8 config. It requires that
-  # ingress.enabled is set to true. You can also set it
-  # to ingressgateway, or any other gateway you define in the 'gateway'
-  # section.
-  k8sIngressSelector: ingress
+  telemetry:
+    enabled: true
+#
+# pilot configuration
+#
+# @see charts/pilot/values.yaml
+pilot:
+  enabled: true
 
-  # k8sIngressHttps will add port 443 on the ingress and ingressgateway.
-  # It REQUIRES that the certificates are installed  in the
-  # expected secrets - enabling this option without certificates
-  # will result in LDS rejection and the ingress will not work.
-  k8sIngressHttps: false
+#
+# security configuration
+#
+security:
+  enabled: true
+
+#
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+
+#
+# addon grafana configuration
+#
+grafana:
+  enabled: false
+
+#
+# addon prometheus configuration
+#
+prometheus:
+  enabled: true
+
+#
+# addon servicegraph configuration
+#
+servicegraph:
+  enabled: false
+
+#
+# addon jaeger tracing configuration
+#
+tracing:
+  enabled: false
+
+#
+# addon kiali tracing configuration
+#
+kiali:
+  enabled: false
+
+#
+# Istio CNI plugin enabled
+#   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
+#   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
+#   settings for the istio-proxy.
+#
+istio_cni:
+  enabled: false
+
+# addon Istio CoreDNS configuration
+#
+istiocoredns:
+  enabled: false
+
+# Common settings used among istio subcharts.
+global:
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+  hub: gcr.io/istio-release
+
+  # Default tag for Istio images.
+  tag: release-1.1-latest-daily
+
+  # monitoring port used by mixer, pilot, galley
+  monitoringPort: 15014
+
+  k8sIngress:
+    enabled: false
+    # Gateway used for k8s Ingress resources. By default it is
+    # using 'istio:ingressgateway' that will be installed by setting
+    # 'gateways.enabled' and 'gateways.istio-ingressgateway.enabled'
+    # flags to true.
+    gatewayName: ingressgateway
+    # enableHttps will add port 443 on the ingress.
+    # It REQUIRES that the certificates are installed  in the
+    # expected secrets - enabling this option without certificates
+    # will result in LDS rejection and the ingress will not work.
+    enableHttps: false
 
   proxy:
     image: proxyv2
 
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
+
     # Resources for the sidecar.
     resources:
       requests:
-        cpu: 10m
-      #  memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 128Mi
 
     # Controls number of Proxy worker threads.
     # If set to 0 (default), then start worker thread for each CPU thread/core.
-    concurrency: 0
+    concurrency: 2
 
-    # Configures the access log for each sidecar. Setting it to an empty string will
-    # disable access log for sidecar.
-    accessLogFile: "/dev/stdout"
+    # Configures the access log for each sidecar.
+    # Options:
+    #   "" - disables access log
+    #   "/dev/stdout" - enables access log
+    accessLogFile: ""
+
+    # Configure how and what fields are displayed in sidecar access log. Setting to
+    # empty string will result in default log format
+    accessLogFormat: ""
+
+    # Configure the access log for sidecar to JSON or TEXT.
+    accessLogEncoding: TEXT
+
+    # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
+    # 5 seconds is the default refresh rate used by Envoy
+    dnsRefreshRate: 5s
+
+    #If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -52,8 +177,7 @@ global:
     enableCoreDump: false
 
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
-    # statusPort: 15020
-    statusPort: 0
+    statusPort: 15020
 
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
@@ -71,6 +195,9 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+
+    # pod internal interfaces
+    kubevirtInterfaces: ""
 
     # istio ingress capture whitelist
     # examples:
@@ -90,13 +217,25 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc.istio-system
       port: # example: 9125
 
-    # This controls the stats collection for proxies. To disable stats
-    # collection, set the prometheusPort to 0.
-    stats:
-      prometheusPort: 15090
+    # Sets the Envoy Metrics Service address, used to push Envoy metrics to an external collector
+    # via the Metrics Service gRPC API. This contains detailed stats information emitted directly
+    # by Envoy and should not be confused with the the Istio telemetry. The Envoy stats are also
+    # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
+    #
+    # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+    # for details about Envoy's Metrics Service API. 
+    #
+    # Disabled by default.
+    envoyMetricsService:
+      enabled: false
+      host: # example: metrics-service.istio-system
+      port: # example: 15000
+
+    # Specify which tracer to use. One of: lightstep, zipkin
+    tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -112,8 +251,13 @@ global:
   controlPlaneSecurityEnabled: true
 
   # disablePolicyChecks disables mixer policy checks.
+  # if mixer.policy.enabled==true then disablePolicyChecks has affect.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
-  disablePolicyChecks: false
+  disablePolicyChecks: true
+
+  # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+  # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+  policyCheckFailOpen: false
 
   # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
   # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
@@ -121,6 +265,27 @@ global:
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
+
+  # Configuration for each of the supported tracers
+  tracer:
+    # Configuration for envoy to send trace data to LightStep.
+    # Disabled by default.
+    # address: the <host>:<port> of the satellite pool
+    # accessToken: required for sending data to the pool
+    # secure: specifies whether data should be sent with TLS
+    # cacertPath: the path to the file containing the cacert to use when verifying TLS. If secure is true, this is
+    #   required. If a value is specified then a secret called "lightstep.cacert" must be created in the destination
+    #   namespace with the key matching the base of the provided cacertPath and the value being the cacert itself.
+    #
+    lightstep:
+      address: ""                # example: lightstep-satellite:443
+      accessToken: ""            # example: abcdefg1234567
+      secure: true               # example: true|false
+      cacertPath: ""             # example: /etc/lightstep/cacert.pem
+    zipkin:
+      # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+      # zipkin service (port 9411) in the same namespace as the other istio components.
+      address: ""
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -130,7 +295,9 @@ global:
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with privte docker registry.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any clustser configured with private docker registry.
   imagePullSecrets:
     - aspen-mesh-pull-secret
 
@@ -148,16 +315,41 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # Default node selector to be applied to all deployments so that all pods can be 
+  # constrained to run a particular nodes. Each component can overwrite these default 
+  # values by adding its node selector block in the relevant section below and setting 
+  # the desired values.
+  defaultNodeSelector: {}
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # Custom DNS config for the pod to resolve names of services in other
+  # clusters. Use this to add additional search domains, and other settings.
+  # see
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
+  # This does not apply to gateway pods as they typically need a different
+  # set of DNS settings than the normal application pods (e.g., in
+  # multicluster scenarios).
+  # NOTE: If using templates, follow the pattern in the commented example below.
+  #podDNSSearchNamespaces:
+  #- global
+  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
+
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
-  meshExpansion: false
+  meshExpansion:
+    enabled: false
+    # If set to true, the pilot and citadel mtls and the plain text pilot ports
+    # will be exposed on an internal gateway
+    useILB: false
 
-  # If set to true, the pilot and citadel mtls and the plain text pilot ports
-  # will be exposed on an internal gateway
-  meshExpansionILB: false
+  multiCluster:
+    # Set to true to connect two kubernetes clusters via their respective
+    # ingressgateway services when pods in each cluster cannot directly
+    # talk to one another. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
+    enabled: false
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -171,433 +363,93 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    hub: quay.io/coreos
-    tag: v1.7.6_coreos.0
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
+  defaultPodDisruptionBudget:
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
-  # will not be killed because of low prioroty class.
+  # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
 
-  # Include the crd definition when generating the template.
-  # For 'helm template' and helm install > 2.10 it should be true.
-  # For helm < 2.9, crds must be installed ahead of time with
-  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-  # and this options must be set off.
-  crds: true
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer and
+  # Pilot. Requires galley (`--set galley.enabled=true`).
+  useMCP: true
 
-#
-# ingress configuration
-#
-ingress:
-  enabled: false
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  service:
-    annotations: {}
-    loadBalancerIP: ""
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    # Uncomment the following line to preserve client source ip.
-    # externalTrafficPolicy: Local
-    ports:
-    - port: 80
-      name: http
-      nodePort: 32000
-    - port: 443
-      name: https
-    selector:
-      istio: ingress
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  # Indicate the domain used in SPIFFE identity URL
+  # The default depends on the environment.
+  #   kubernetes: cluster.local
+  #   else:  default dns domain
+  trustDomain: ""
 
-#
-# Gateways Configuration
-# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
-# You can add more gateways in addition to the defaults but make sure those are uniquely named
-# and that NodePorts are not conflicting.
-# Disable specifc gateway by setting the `enabled` to false.
-#
-gateways:
-  enabled: true
+  # Set the default behavior of the sidecar for handling outbound traffic from the application:
+  # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
+  #   services or ServiceEntries for the destination port
+  # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+  #   as those defined through ServiceEntries
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests 
+  # to services outside of the mesh without any ServiceEntry.
+  # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
 
-  istio-ingressgateway:
-    enabled: true
-    labels:
-      app: istio-ingressgateway
-      istio: ingressgateway
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 5
-    resources: {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      #requests:
-      #  cpu: 1800m
-      #  memory: 256Mi
-    cpu:
-      targetAverageUtilization: 80
-    loadBalancerIP: ""
-    serviceAnnotations: {}
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    # Uncomment the following line to preserve client source ip.
-    # externalTrafficPolicy: Local
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
+  # configRootNamespace: istio-config
 
-    ports:
-      ## You can add custom gateway ports
-    - port: 80
-      targetPort: 80
-      name: http2
-      nodePort: 31380
-    - port: 443
-      name: https
-      nodePort: 31390
-    - port: 31400
-      name: tcp
-      nodePort: 31400
-    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
-    # to pilot/citadel if global.meshExpansion settings are enabled.
-    - port: 15011
-      targetPort: 15011
-      name: tcp-pilot-grpc-tls
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc-tls
-    - port: 853
-      targetPort: 853
-      name: tcp-dns-tls
-    - port: 15030
-      targetPort: 15030
-      name: http2-prometheus
-    - port: 15031
-      targetPort: 15031
-      name: http2-grafana
-    secretVolumes:
-    - name: ingressgateway-certs
-      secretName: istio-ingressgateway-certs
-      mountPath: /etc/istio/ingressgateway-certs
-    - name: ingressgateway-ca-certs
-      secretName: istio-ingressgateway-ca-certs
-      mountPath: /etc/istio/ingressgateway-ca-certs
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
+  #defaultConfigVisibilitySettings:
+  #- '*'
 
-  istio-egressgateway:
-    enabled: true
-    labels:
-      app: istio-egressgateway
-      istio: egressgateway
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 5
-    cpu:
-      targetAverageUtilization: 80
-    serviceAnnotations: {}
-    type: ClusterIP #change to NodePort or LoadBalancer if need be
-    ports:
-      - port: 80
-        name: http2
-      - port: 443
-        name: https
-    secretVolumes:
-      - name: egressgateway-certs
-        secretName: istio-egressgateway-certs
-        mountPath: /etc/istio/egressgateway-certs
-      - name: egressgateway-ca-certs
-        secretName: istio-egressgateway-ca-certs
-        mountPath: /etc/istio/egressgateway-ca-certs
-
-  # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
-  # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
-  # as non-mtls ports to support upgrades and gradual transition.
-  istio-ilbgateway:
+  sds:
+    # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
+    # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
     enabled: false
-    labels:
-      app: istio-ilbgateway
-      istio: ilbgateway
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 5
-    resources:
-      requests:
-        cpu: 800m
-        memory: 512Mi
-      #limits:
-      #  cpu: 1800m
-      #  memory: 256Mi
-    cpu:
-      targetAverageUtilization: 80      
-    loadBalancerIP: ""
-    serviceAnnotations:
-      cloud.google.com/load-balancer-type: "internal"
-    type: LoadBalancer
-    ports:
-    ## You can add custom gateway ports - google ILB default quota is 5 ports,
-    - port: 15011
-      name: grpc-pilot-mtls
-    # Insecure port - only for migration from 0.8. Will be removed in 1.1
-    - port: 15010
-      name: grpc-pilot
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc-tls
-    # Port 853 is reserved for the kube-dns gateway
-    - port: 853
-      name: tcp-dns
-    secretVolumes:
-    - name: ilbgateway-certs
-      secretName: istio-ilbgateway-certs
-      mountPath: /etc/istio/ilbgateway-certs
-    - name: ilbgateway-ca-certs
-      secretName: istio-ilbgateway-ca-certs
-      mountPath: /etc/istio/ilbgateway-ca-certs
+    udsPath: ""
+    useTrustworthyJwt: false
+    useNormalJwt: false
 
-#
-# sidecar-injector webhook configuration
-#
-sidecarInjectorWebhook:
-  enabled: true
-  replicaCount: 1
-  image: sidecar_injector
-  enableNamespacesByDefault: false
+  # Configure the mesh networks to be used by the Split Horizon EDS.
+  #
+  # The following example defines two networks with different endpoints association methods.
+  # For `network1` all endpoints that their IP belongs to the provided CIDR range will be
+  # mapped to network1. The gateway for this network example is specified by its public IP
+  # address and port.
+  # The second network, `network2`, in this example is defined differently with all endpoints
+  # retrieved through the specified Multi-Cluster registry being mapped to network2. The
+  # gateway is also defined differently with the name of the gateway service on the remote
+  # cluster. The public IP for the gateway will be determined from that remote service (not
+  # supported yet).
+  #
+  # meshNetworks:
+  #   network1:
+  #     endpoints:
+  #     - fromCidr: "192.168.0.1/24"
+  #     gateways:
+  #     - address: 1.1.1.1
+  #       port: 80
+  #   network2:
+  #     endpoints:
+  #     - fromRegistry: reg1
+  #     gateways:
+  #     - registryServiceName: istio-ingressgateway
+  #       port: 443
+  #
+  meshNetworks: {}
 
-#
-# galley configuration
-#
-galley:
-  enabled: true
-  replicaCount: 1
-  image: galley
-
-#
-# mixer configuration
-#
-mixer:
-  enabled: true
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  image: mixer
-
-  env:
-    GODEBUG: gctrace=2
-
-  istio-policy:
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    cpu:
-      targetAverageUtilization: 80
-
-  istio-telemetry:
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    cpu:
-      targetAverageUtilization: 80
-
-  prometheusStatsdExporter:
-    hub: docker.io/prom
-    tag: v0.6.0
-
-#
-# pilot configuration
-#
-pilot:
-  enabled: true
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  image: pilot
-  sidecar: true
-  traceSampling: 1.0
-  # Resources for a small pilot install
-  resources:
-    requests:
-      cpu: 500m
-      memory: 2048Mi
-  env:
-    PILOT_PUSH_THROTTLE_COUNT: 100
-    GODEBUG: gctrace=2
-  cpu:
-    targetAverageUtilization: 80
-
-#
-# security configuration
-#
-security:
-  replicaCount: 1
-  image: citadel
-  selfSigned: true # indicate if self-signed CA is used.
-
-#
-# addons configuration
-#
-telemetry-gateway:
-  gatewayName: ingressgateway
-  grafanaEnabled: false
-  prometheusEnabled: false
-
-grafana:
-  enabled: false
-  replicaCount: 1
-  image:
-    repository: grafana/grafana
-    tag: 5.2.3
-  persist: false
-  storageClassName: ""
-  security:
-    enabled: false
-    adminUser: admin
-    adminPassword: admin
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 3000
-    internalPort: 3000
-
-prometheus:
-  enabled: true
-  replicaCount: 1
-  hub: docker.io/prom
-  tag: v2.3.1
-
-  service:
-    annotations: {}
-    nodePort:
-      enabled: false
-      port: 32090
-  scrapeTargets:
-    kubernetesApiservers: false
-    kubernetesCadvisor: true
-    kubernetesNodes: true
-    kubernetesServiceEndpoints: false
-    kubernetesPods: false
-
-servicegraph:
-  enabled: false
-  replicaCount: 1
-  image: servicegraph
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 8088
-    internalPort: 8088
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - servicegraph.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: servicegraph-tls
-      #   hosts:
-      #     - servicegraph.local
-  # prometheus addres
-  prometheusAddr: http://prometheus:9090
-
-tracing:
-  enabled: false
-  provider: jaeger
-  jaeger:
-    hub: docker.io/jaegertracing
-    tag: 1.5
-    memory:
-      max_traces: 50000
-    ui:
-      port: 16686
-    ingress:
-      enabled: false
-      # Used to create an Ingress record.
-      hosts:
-        - jaeger.local
-      annotations:
-        # kubernetes.io/ingress.class: nginx
-        # kubernetes.io/tls-acme: "true"
-      tls:
-        # Secrets must be manually created in the namespace.
-        # - secretName: jaeger-tls
-        #   hosts:
-        #     - jaeger.local
-  replicaCount: 1
-  service:
-    annotations: {}
-    name: http
-    type: ClusterIP
-    externalPort: 9411
-    internalPort: 9411
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - tracing.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: tracing-tls
-      #   hosts:
-      #     - tracing.local
-
-kiali:
-  enabled: false
-  replicaCount: 1
-  hub: docker.io/kiali
-  tag: v0.9
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    # hosts:
-    #  - kiali.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: kiali-tls
-      #   hosts:
-      #     - kiali.local
-  dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
-
-    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
-    # grafanaURL:
-
-    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
-    # jaegerURL:
-
-# Certmanager uses ACME to sign certificates. Since Istio gateways are
-# mounting the TLS secrets the Certificate CRDs must be created in the
-# istio-system namespace. Once the certificate has been created, the
-# gateway must be updated by adding 'secretVolumes'. After the gateway
-# restart, DestinationRules can be created using the ACME-signed certificates.
-certmanager:
-  enabled: false
-  hub: quay.io/jetstack
-  tag: v0.3.1
-  resources: {}
-
-aspen-mesh-agent:
-  image: quay.io/aspenmesh/agent:master-422
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-
-traffic-claim-enforcer:
-  enabled: true
-  image: quay.io/aspenmesh/traffic-claim-enforcer:master-4
-  resources: {}
+  # Specifies whether helm test is enabled or not.
+  # This field is set to false by default, so 'helm template ...'
+  # will ignore the helm test yaml files when generating the template
+  enableHelmTest: false

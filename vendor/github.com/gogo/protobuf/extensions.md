@@ -50,9 +50,9 @@ You might also find that basic structs that started their life as part of an API
 <tr><td><a href="https://github.com/gogo/protobuf/blob/master/test/types/types.proto">stdduration</a></td><td> Duration Field </td><td> bool </td><td>Changes the Well Known Duration Type to time.Duration</td><td>Duration</td></tr>
 </table>
 
-`Warning about nullable: according to the Protocol Buffer specification, you should be able to tell whether a field is set or unset. With the option nullable=false this feature is lost, since your non-nullable fields will always be set.` 
+`Warning about nullable: according to the Protocol Buffer specification, you should be able to tell whether a field is set or unset. With the option nullable=false this feature is lost, since your non-nullable fields will always be set.`
 
-# Goprotobuf Compatibility 
+# Goprotobuf Compatibility
 
 Gogoprotobuf is compatible with Goprotobuf, because it is compatible with protocol buffers (see the section on tests below).
 
@@ -70,6 +70,7 @@ The enumprefix, getters and stringer extensions can be used to remove some of th
 <tr><td> goproto_extensions_map (beta) </td><td> Message </td><td> bool </td><td> if false, the extensions field is generated as type []byte instead of type map[int32]proto.Extension </td><td> true </td></tr>
 <tr><td> goproto_unrecognized (beta) </td><td> Message </td><td> bool </td><td>if false, XXX_unrecognized field is not generated. This is useful to reduce GC pressure at the cost of losing information about unrecognized fields. </td><td> true </td></tr>
 <tr><td> goproto_registration (beta) </td><td> File </td><td> bool </td><td>if true, the generated files will register all messages and types against both gogo/protobuf and golang/protobuf. This is necessary when using third-party packages which read registrations from golang/protobuf (such as the grpc-gateway). </td><td> false </td></tr>
+<tr><td> message_name </td><td> Message </td><td> bool </td><td>if true, a `XXX_MessageName()` method is generated that returns the message's name.  This is useful for grpc-gateway compatibility.</td><td> false </td></tr>
 </table>
 
 # Less Typing
@@ -117,7 +118,7 @@ Other serialization formats like xml and json typically use reflect to marshal a
 
 <a href="https://groups.google.com/forum/#!topic/gogoprotobuf/xmFnqAS6MIc">Here is a longer explanation of jsontag and moretags</a>
 
-# File Options 
+# File Options
 
 Each of the boolean message and enum extensions also have a file extension:
 
@@ -148,12 +149,13 @@ Each of the boolean message and enum extensions also have a file extension:
   * `benchgen_all`
   * `enumdecl_all`
   * `typedecl_all`
+  * `messagename_all`
 
 Each of these are the same as their Message Option counterparts, except they apply to all messages in the file.  Their Message option counterparts can also be used to overwrite their effect.
 
 # Tests
 
-  * The normal barrage of tests are run with: `make tests` 
+  * The normal barrage of tests are run with: `make tests`
   * A few weird tests: `make testall`
   * Tests for compatibility with [golang/protobuf](https://github.com/golang/protobuf) are handled by a different project [harmonytests](https://github.com/gogo/harmonytests), since it requires goprotobuf.
   * Cross version tests are made with [Travis CI](https://travis-ci.org/gogo/protobuf).

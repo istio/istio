@@ -178,6 +178,16 @@ func (m *Bootstrap) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetOverloadManager()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BootstrapValidationError{
+				Field:  "OverloadManager",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -219,12 +229,7 @@ func (m *Admin) Validate() error {
 		return nil
 	}
 
-	if len(m.GetAccessLogPath()) < 1 {
-		return AdminValidationError{
-			Field:  "AccessLogPath",
-			Reason: "value length must be at least 1 bytes",
-		}
-	}
+	// no validation rules for AccessLogPath
 
 	// no validation rules for ProfilePath
 
@@ -604,16 +609,6 @@ func (m *Bootstrap_DynamicResources) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Bootstrap_DynamicResourcesValidationError{
-				Field:  "DeprecatedV1",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -647,59 +642,6 @@ func (e Bootstrap_DynamicResourcesValidationError) Error() string {
 }
 
 var _ error = Bootstrap_DynamicResourcesValidationError{}
-
-// Validate checks the field values on Bootstrap_DynamicResources_DeprecatedV1
-// with the rules defined in the proto definition for this message. If any
-// rules are violated, an error is returned.
-func (m *Bootstrap_DynamicResources_DeprecatedV1) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetSdsConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Bootstrap_DynamicResources_DeprecatedV1ValidationError{
-				Field:  "SdsConfig",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	return nil
-}
-
-// Bootstrap_DynamicResources_DeprecatedV1ValidationError is the validation
-// error returned by Bootstrap_DynamicResources_DeprecatedV1.Validate if the
-// designated constraints aren't met.
-type Bootstrap_DynamicResources_DeprecatedV1ValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e Bootstrap_DynamicResources_DeprecatedV1ValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sBootstrap_DynamicResources_DeprecatedV1.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = Bootstrap_DynamicResources_DeprecatedV1ValidationError{}
 
 // Validate checks the field values on ClusterManager_OutlierDetection with the
 // rules defined in the proto definition for this message. If any rules are

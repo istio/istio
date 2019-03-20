@@ -9,7 +9,7 @@
 	it to a URL from where the list should be fetched. Lists can be simple strings,
 	IP addresses, or regex patterns.
 
-	 This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
+	This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
 
 	It is generated from these files:
 		mixer/adapter/list/config/config.proto
@@ -79,7 +79,7 @@ func (Params_ListEntryType) EnumDescriptor() ([]byte, []int) { return fileDescri
 
 // Configuration format for the `list` adapter.
 type Params struct {
-	// Where to find the list to check against. This may be ommited for a completely local list.
+	// Where to find the list to check against. This may be omitted for a completely local list.
 	ProviderUrl string `protobuf:"bytes,1,opt,name=provider_url,json=providerUrl,proto3" json:"provider_url,omitempty"`
 	// Determines how often the provider is polled for
 	// an updated list

@@ -1,0 +1,8 @@
+{
+        "client_addr": "0.0.0.0",
+        "leave_on_terminate": true,
+        "dns_config": {
+                "allow_stale": true,
+                "max_stale": "1s"
+        }
+}

@@ -12,7 +12,8 @@ spec:
           exact: jason
     fault:
       abort:
-        percent: 100
+        percentage:
+          value: 100.0
         httpStatus: 500
     route:
     - destination:

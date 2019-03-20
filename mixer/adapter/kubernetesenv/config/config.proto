@@ -17,13 +17,14 @@ syntax = "proto3";
 // $title: Kubernetes Env
 // $description: Adapter that extracts information from a Kubernetes environment.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
+// $supported_templates: kubernetes
 // $aliases:
 // $  - /docs/reference/config/adapters/kubernetesenv.html
 
 // The `kubernetesenv` adapter extracts information from a Kubernetes environment
-// and produces attribtes that can be used in downstream adapters.
+// and produces attributes that can be used in downstream adapters.
 //
-// This adapter supports the [kubernetesenv template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
+// This adapter supports the [kubernetes template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
 package adapter.kubernetesenv.config;
 
 import "gogoproto/gogo.proto";
@@ -49,22 +50,35 @@ message Params {
 
     reserved 3, 4, 5, 6;
 
-    // File path to discover kubeconfig. For in-cluster configuration,
+    // File path to discover `kubeconfig`. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
-    // be set to the path of a kubeconfig file that can be used to
+    // be set to the path of a `kubeconfig` file that can be used to
     // reach a kubernetes API server.
     //
-    // NOTE: The kubernetes adapter will use the value of the env var
-    // KUBECONFIG in the case where it is set (overriding any value configured
+    // NOTE: The `kubernetesenv` adapter will use the value of the `KUBECONFIG` environment variable
+    // in the case where it is set (overriding any value configured
     // through this proto).
     //
     // Default: "" (unset)
     string kubeconfig_path = 1;
 
-    // Controls the resync period of the kubernetes cluster info cache.
+    // Controls the resync period of the Kubernetes cluster info cache.
     // The cache will watch for events and every so often completely resync.
     // This controls how frequently the complete resync occurs.
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+
+    // Namespace of the secret created for multicluster support.
+    //
+    // Details on multicluster and the Kubernetes secret required to
+    // access the remote cluster's credentials can be found in
+    // [multicluster install](https://istio.io/docs/setup/kubernetes/install/multicluster/).
+    //
+    // NOTE: If `cluster_registries_namespace` is not set then the environment
+    // variable `POD_NAMESPACE` is checked/used. If `POD_NAMESPACE` is not
+    // set then `cluster_registries_namespace` defaults to "istio-system".
+    //
+    // Default: "istio-system"
+    string cluster_registries_namespace = 7;
 }

@@ -1,14 +1,15 @@
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
   labels:
-    app: istio-sidecar-injector
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    istio: sidecar-injector
 rules:
-- apiGroups: ["*"]
+- apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["admissionregistration.k8s.io"]

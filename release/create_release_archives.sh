@@ -15,10 +15,6 @@
 #
 ################################################################################
 
-set -o errexit
-set -o pipefail
-set -x
-
 # This script primarily exists for Cloud Builder.  This script
 # reads artifacts from a specified directory, generates tar files
 # based on those artifacts, and then stores the tar files
@@ -31,6 +27,13 @@ OUTPUT_PATH=""
 VER_STRING=""
 PKG_NAME="aspenmesh"
 FLAVOR=""
+
+function cleanup() {
+  rm -rf "$TEMP_DIR"
+}
+
+# do cleanup before the script exits
+trap cleanup EXIT
 
 function usage() {
   echo "$0
@@ -47,7 +50,12 @@ function error_exit() {
   exit "${2:-1}"
 }
 
-while getopts d:f:i:o:v: arg ; do
+# since there are 2 required options, should show usage and exit with no args specified
+if (($# == 0)); then
+  usage
+fi
+
+while getopts d:i:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
     i) ISTIOCTL_SUBDIR="${OPTARG}";;
@@ -57,6 +65,10 @@ while getopts d:f:i:o:v: arg ; do
     *) usage;;
   esac
 done
+
+set -o errexit
+set -o pipefail
+set -x
 
 [[ -z "${BASE_DIR}"    ]] && usage
 [[ -z "${OUTPUT_PATH}" ]] && usage
@@ -76,7 +88,6 @@ mkdir -p "${BIN_DIR}"
 CP=${CP:-"cp"}
 TAR=${TAR:-"tar"}
 
-
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
@@ -84,7 +95,7 @@ function create_linux_archive() {
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czf \
-    "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-linux.tar.gz" "${PKG_NAME}-${VER_STRING}" \
+    "${OUTPUT_PATH}/istio-${VER_STRING}-linux.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create linux archive'
   rm "${istioctl_path}"
 }
@@ -96,7 +107,7 @@ function create_osx_archive() {
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czf \
-    "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-osx.tar.gz" "${PKG_NAME}-${VER_STRING}" \
+    "${OUTPUT_PATH}/istio-${VER_STRING}-osx.tar.gz" "istio-${VER_STRING}" \
     || error_exit 'Could not create osx archive'
   rm "${istioctl_path}"
 }
@@ -106,7 +117,7 @@ function create_windows_archive() {
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
 
-  zip -r -q "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-win.zip" "${PKG_NAME}-${VER_STRING}" \
+  zip -r -q "${OUTPUT_PATH}/istio-${VER_STRING}-win.zip" "istio-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
   rm "${istioctl_path}"
 }
@@ -124,6 +135,7 @@ find samples install -type f \( \
   -o -name "*.conf" \
   -o -name "*.pem" \
   -o -name "*.tpl" \
+  -o -name "*.txt" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
   -o -name "webhook-create-signed-cert.sh" \
@@ -134,42 +146,36 @@ find install/tools -type f -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
+# merge values-istio-demo-common.yaml into values-istio-demo yaml files
+cat "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml"
+cat "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml" >> "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml"
+mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo.yaml"  
+mv "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth-tmp.yaml" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-auth.yaml"
+
 for unwanted_manifest in \
+    istio-auth-non-mcp.yaml \
+    istio-auth-sds.yaml \
+    istio-non-mcp.yaml \
+    istio.yaml \
+    istio-auth.yaml \
+    istio-auth-mcp.yaml \
+    istio-auth-multicluster.yaml \
+    istio-mcp.yaml \
     istio-one-namespace.yaml \
     istio-one-namespace-auth.yaml \
-    istio-multicluster.yaml \
-    istio-auth-multicluster.yaml \
-    istio.yaml \
-    addons/zipkin.yaml \
-    istio-auth.yaml \
-    istio-remote.yaml; do
+    istio-one-namespace-trust-domain.yaml \
+    istio-remote.yaml \
+    istio-minimal.yaml \
+    addons/zipkin.yaml; do
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
 done
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
-# Remove unsupported files from aspen mesh
-rm -rf ${COMMON_FILES_DIR}/install/consul
-rm -rf ${COMMON_FILES_DIR}/install/gcp
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/addons
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/ansible
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio-remote
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-*.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-citadel*.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/istio-demo*.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/mesh-expansion.yaml
-rm -rf ${COMMON_FILES_DIR}/install/kubernetes/templates
-rm -rf ${COMMON_FILES_DIR}/install/tools
-rm -rf ${COMMON_FILES_DIR}/tools
-rm -rf ${COMMON_FILES_DIR}/samples/kubernetes-blog
-rm -rf ${COMMON_FILES_DIR}/samples/certs
-rm -rf ${COMMON_FILES_DIR}/samples/bookinfo/platform/consul
+rm "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/values-istio-demo-common.yaml"
+rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/test-values/"
 
-if [[ "${FLAVOR}" != "nocloud" ]]; then
-  rm -f ${COMMON_FILES_DIR}/install/kubernetes/aspenmesh*nocloud*.yaml
-fi
-
-ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy
@@ -179,4 +185,3 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf "$TEMP_DIR"

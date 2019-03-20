@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2018 Istio Authors. All Rights Reserved.
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ def main(args):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Compare kubenetes yaml files")
+        description="Compare kubernetes yaml files")
 
     parser.add_argument("orig")
     parser.add_argument("new")

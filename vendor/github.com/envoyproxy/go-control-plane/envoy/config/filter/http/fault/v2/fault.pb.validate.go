@@ -41,10 +41,13 @@ func (m *FaultAbort) Validate() error {
 		return nil
 	}
 
-	if m.GetPercent() > 100 {
-		return FaultAbortValidationError{
-			Field:  "Percent",
-			Reason: "value must be less than or equal to 100",
+	if v, ok := interface{}(m.GetPercentage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FaultAbortValidationError{
+				Field:  "Percentage",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
 		}
 	}
 
@@ -143,6 +146,16 @@ func (m *HTTPFault) Validate() error {
 			}
 		}
 
+	}
+
+	if v, ok := interface{}(m.GetMaxActiveFaults()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HTTPFaultValidationError{
+				Field:  "MaxActiveFaults",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
 	}
 
 	return nil

@@ -3,23 +3,28 @@
 
 package monitoring
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import google_protobuf5 "github.com/golang/protobuf/ptypes/empty"
-import google_protobuf6 "google.golang.org/genproto/protobuf/field_mask"
-import google_protobuf2 "github.com/golang/protobuf/ptypes/timestamp"
-
 import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	context "golang.org/x/net/context"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The `ListNotificationChannelDescriptors` request.
 type ListNotificationChannelDescriptorsRequest struct {
@@ -32,15 +37,18 @@ type ListNotificationChannelDescriptorsRequest struct {
 	// descriptors; to retrieve a single descriptor by name, use the
 	// [GetNotificationChannelDescriptor][google.monitoring.v3.NotificationChannelService.GetNotificationChannelDescriptor]
 	// operation, instead.
-	Name string `protobuf:"bytes,4,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	// The maximum number of results to return in a single response. If
 	// not set to a positive number, a reasonable value will be chosen by the
 	// service.
-	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize" json:"page_size,omitempty"`
+	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// If non-empty, `page_token` must contain a value returned as the
 	// `next_page_token` in a previous response to request the next set
 	// of results.
-	PageToken string `protobuf:"bytes,3,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken            string   `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListNotificationChannelDescriptorsRequest) Reset() {
@@ -49,8 +57,26 @@ func (m *ListNotificationChannelDescriptorsRequest) Reset() {
 func (m *ListNotificationChannelDescriptorsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListNotificationChannelDescriptorsRequest) ProtoMessage()    {}
 func (*ListNotificationChannelDescriptorsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{0}
+	return fileDescriptor_7e2bcd7194b305fe, []int{0}
 }
+
+func (m *ListNotificationChannelDescriptorsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsRequest.Unmarshal(m, b)
+}
+func (m *ListNotificationChannelDescriptorsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListNotificationChannelDescriptorsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListNotificationChannelDescriptorsRequest.Merge(m, src)
+}
+func (m *ListNotificationChannelDescriptorsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsRequest.Size(m)
+}
+func (m *ListNotificationChannelDescriptorsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListNotificationChannelDescriptorsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListNotificationChannelDescriptorsRequest proto.InternalMessageInfo
 
 func (m *ListNotificationChannelDescriptorsRequest) GetName() string {
 	if m != nil {
@@ -77,12 +103,15 @@ func (m *ListNotificationChannelDescriptorsRequest) GetPageToken() string {
 type ListNotificationChannelDescriptorsResponse struct {
 	// The monitored resource descriptors supported for the specified
 	// project, optionally filtered.
-	ChannelDescriptors []*NotificationChannelDescriptor `protobuf:"bytes,1,rep,name=channel_descriptors,json=channelDescriptors" json:"channel_descriptors,omitempty"`
+	ChannelDescriptors []*NotificationChannelDescriptor `protobuf:"bytes,1,rep,name=channel_descriptors,json=channelDescriptors,proto3" json:"channel_descriptors,omitempty"`
 	// If not empty, indicates that there may be more results that match
 	// the request. Use the value in the `page_token` field in a
 	// subsequent request to fetch the next set of results. If empty,
 	// all results have been returned.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken        string   `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListNotificationChannelDescriptorsResponse) Reset() {
@@ -93,8 +122,26 @@ func (m *ListNotificationChannelDescriptorsResponse) String() string {
 }
 func (*ListNotificationChannelDescriptorsResponse) ProtoMessage() {}
 func (*ListNotificationChannelDescriptorsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{1}
+	return fileDescriptor_7e2bcd7194b305fe, []int{1}
 }
+
+func (m *ListNotificationChannelDescriptorsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsResponse.Unmarshal(m, b)
+}
+func (m *ListNotificationChannelDescriptorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListNotificationChannelDescriptorsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListNotificationChannelDescriptorsResponse.Merge(m, src)
+}
+func (m *ListNotificationChannelDescriptorsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListNotificationChannelDescriptorsResponse.Size(m)
+}
+func (m *ListNotificationChannelDescriptorsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListNotificationChannelDescriptorsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListNotificationChannelDescriptorsResponse proto.InternalMessageInfo
 
 func (m *ListNotificationChannelDescriptorsResponse) GetChannelDescriptors() []*NotificationChannelDescriptor {
 	if m != nil {
@@ -114,7 +161,10 @@ func (m *ListNotificationChannelDescriptorsResponse) GetNextPageToken() string {
 type GetNotificationChannelDescriptorRequest struct {
 	// The channel type for which to execute the request. The format is
 	// `projects/[PROJECT_ID]/notificationChannelDescriptors/{channel_type}`.
-	Name string `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GetNotificationChannelDescriptorRequest) Reset() {
@@ -123,8 +173,26 @@ func (m *GetNotificationChannelDescriptorRequest) Reset() {
 func (m *GetNotificationChannelDescriptorRequest) String() string { return proto.CompactTextString(m) }
 func (*GetNotificationChannelDescriptorRequest) ProtoMessage()    {}
 func (*GetNotificationChannelDescriptorRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{2}
+	return fileDescriptor_7e2bcd7194b305fe, []int{2}
 }
+
+func (m *GetNotificationChannelDescriptorRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNotificationChannelDescriptorRequest.Unmarshal(m, b)
+}
+func (m *GetNotificationChannelDescriptorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNotificationChannelDescriptorRequest.Marshal(b, m, deterministic)
+}
+func (m *GetNotificationChannelDescriptorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNotificationChannelDescriptorRequest.Merge(m, src)
+}
+func (m *GetNotificationChannelDescriptorRequest) XXX_Size() int {
+	return xxx_messageInfo_GetNotificationChannelDescriptorRequest.Size(m)
+}
+func (m *GetNotificationChannelDescriptorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNotificationChannelDescriptorRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetNotificationChannelDescriptorRequest proto.InternalMessageInfo
 
 func (m *GetNotificationChannelDescriptorRequest) GetName() string {
 	if m != nil {
@@ -143,17 +211,38 @@ type CreateNotificationChannelRequest struct {
 	// written. This does not name the newly created channel. The resulting
 	// channel's name will have a normalized version of this field as a prefix,
 	// but will add `/notificationChannels/[CHANNEL_ID]` to identify the channel.
-	Name string `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// The definition of the `NotificationChannel` to create.
-	NotificationChannel *NotificationChannel `protobuf:"bytes,2,opt,name=notification_channel,json=notificationChannel" json:"notification_channel,omitempty"`
+	NotificationChannel  *NotificationChannel `protobuf:"bytes,2,opt,name=notification_channel,json=notificationChannel,proto3" json:"notification_channel,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *CreateNotificationChannelRequest) Reset()         { *m = CreateNotificationChannelRequest{} }
 func (m *CreateNotificationChannelRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateNotificationChannelRequest) ProtoMessage()    {}
 func (*CreateNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{3}
+	return fileDescriptor_7e2bcd7194b305fe, []int{3}
 }
+
+func (m *CreateNotificationChannelRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateNotificationChannelRequest.Unmarshal(m, b)
+}
+func (m *CreateNotificationChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateNotificationChannelRequest.Marshal(b, m, deterministic)
+}
+func (m *CreateNotificationChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateNotificationChannelRequest.Merge(m, src)
+}
+func (m *CreateNotificationChannelRequest) XXX_Size() int {
+	return xxx_messageInfo_CreateNotificationChannelRequest.Size(m)
+}
+func (m *CreateNotificationChannelRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateNotificationChannelRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateNotificationChannelRequest proto.InternalMessageInfo
 
 func (m *CreateNotificationChannelRequest) GetName() string {
 	if m != nil {
@@ -177,34 +266,57 @@ type ListNotificationChannelsRequest struct {
 	// specific channel. To query a specific channel by REST resource name, use
 	// the
 	// [`GetNotificationChannel`][google.monitoring.v3.NotificationChannelService.GetNotificationChannel] operation.
-	Name string `protobuf:"bytes,5,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
 	// If provided, this field specifies the criteria that must be met by
 	// notification channels to be included in the response.
 	//
 	// For more details, see [sorting and
 	// filtering](/monitoring/api/v3/sorting-and-filtering).
-	Filter string `protobuf:"bytes,6,opt,name=filter" json:"filter,omitempty"`
+	Filter string `protobuf:"bytes,6,opt,name=filter,proto3" json:"filter,omitempty"`
 	// A comma-separated list of fields by which to sort the result. Supports
 	// the same set of fields as in `filter`. Entries can be prefixed with
 	// a minus sign to sort in descending rather than ascending order.
 	//
 	// For more details, see [sorting and
 	// filtering](/monitoring/api/v3/sorting-and-filtering).
-	OrderBy string `protobuf:"bytes,7,opt,name=order_by,json=orderBy" json:"order_by,omitempty"`
+	OrderBy string `protobuf:"bytes,7,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	// The maximum number of results to return in a single response. If
 	// not set to a positive number, a reasonable value will be chosen by the
 	// service.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize" json:"page_size,omitempty"`
+	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// If non-empty, `page_token` must contain a value returned as the
 	// `next_page_token` in a previous response to request the next set
 	// of results.
-	PageToken string `protobuf:"bytes,4,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken            string   `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListNotificationChannelsRequest) Reset()                    { *m = ListNotificationChannelsRequest{} }
-func (m *ListNotificationChannelsRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListNotificationChannelsRequest) ProtoMessage()               {}
-func (*ListNotificationChannelsRequest) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{4} }
+func (m *ListNotificationChannelsRequest) Reset()         { *m = ListNotificationChannelsRequest{} }
+func (m *ListNotificationChannelsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListNotificationChannelsRequest) ProtoMessage()    {}
+func (*ListNotificationChannelsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7e2bcd7194b305fe, []int{4}
+}
+
+func (m *ListNotificationChannelsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListNotificationChannelsRequest.Unmarshal(m, b)
+}
+func (m *ListNotificationChannelsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListNotificationChannelsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListNotificationChannelsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListNotificationChannelsRequest.Merge(m, src)
+}
+func (m *ListNotificationChannelsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListNotificationChannelsRequest.Size(m)
+}
+func (m *ListNotificationChannelsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListNotificationChannelsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListNotificationChannelsRequest proto.InternalMessageInfo
 
 func (m *ListNotificationChannelsRequest) GetName() string {
 	if m != nil {
@@ -244,20 +356,41 @@ func (m *ListNotificationChannelsRequest) GetPageToken() string {
 // The `ListNotificationChannels` response.
 type ListNotificationChannelsResponse struct {
 	// The notification channels defined for the specified project.
-	NotificationChannels []*NotificationChannel `protobuf:"bytes,3,rep,name=notification_channels,json=notificationChannels" json:"notification_channels,omitempty"`
+	NotificationChannels []*NotificationChannel `protobuf:"bytes,3,rep,name=notification_channels,json=notificationChannels,proto3" json:"notification_channels,omitempty"`
 	// If not empty, indicates that there may be more results that match
 	// the request. Use the value in the `page_token` field in a
 	// subsequent request to fetch the next set of results. If empty,
 	// all results have been returned.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken        string   `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListNotificationChannelsResponse) Reset()         { *m = ListNotificationChannelsResponse{} }
 func (m *ListNotificationChannelsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListNotificationChannelsResponse) ProtoMessage()    {}
 func (*ListNotificationChannelsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{5}
+	return fileDescriptor_7e2bcd7194b305fe, []int{5}
 }
+
+func (m *ListNotificationChannelsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListNotificationChannelsResponse.Unmarshal(m, b)
+}
+func (m *ListNotificationChannelsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListNotificationChannelsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListNotificationChannelsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListNotificationChannelsResponse.Merge(m, src)
+}
+func (m *ListNotificationChannelsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListNotificationChannelsResponse.Size(m)
+}
+func (m *ListNotificationChannelsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListNotificationChannelsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListNotificationChannelsResponse proto.InternalMessageInfo
 
 func (m *ListNotificationChannelsResponse) GetNotificationChannels() []*NotificationChannel {
 	if m != nil {
@@ -277,13 +410,36 @@ func (m *ListNotificationChannelsResponse) GetNextPageToken() string {
 type GetNotificationChannelRequest struct {
 	// The channel for which to execute the request. The format is
 	// `projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]`.
-	Name string `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetNotificationChannelRequest) Reset()                    { *m = GetNotificationChannelRequest{} }
-func (m *GetNotificationChannelRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetNotificationChannelRequest) ProtoMessage()               {}
-func (*GetNotificationChannelRequest) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{6} }
+func (m *GetNotificationChannelRequest) Reset()         { *m = GetNotificationChannelRequest{} }
+func (m *GetNotificationChannelRequest) String() string { return proto.CompactTextString(m) }
+func (*GetNotificationChannelRequest) ProtoMessage()    {}
+func (*GetNotificationChannelRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7e2bcd7194b305fe, []int{6}
+}
+
+func (m *GetNotificationChannelRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNotificationChannelRequest.Unmarshal(m, b)
+}
+func (m *GetNotificationChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNotificationChannelRequest.Marshal(b, m, deterministic)
+}
+func (m *GetNotificationChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNotificationChannelRequest.Merge(m, src)
+}
+func (m *GetNotificationChannelRequest) XXX_Size() int {
+	return xxx_messageInfo_GetNotificationChannelRequest.Size(m)
+}
+func (m *GetNotificationChannelRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNotificationChannelRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetNotificationChannelRequest proto.InternalMessageInfo
 
 func (m *GetNotificationChannelRequest) GetName() string {
 	if m != nil {
@@ -295,22 +451,43 @@ func (m *GetNotificationChannelRequest) GetName() string {
 // The `UpdateNotificationChannel` request.
 type UpdateNotificationChannelRequest struct {
 	// The fields to update.
-	UpdateMask *google_protobuf6.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask" json:"update_mask,omitempty"`
+	UpdateMask *field_mask.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
 	// A description of the changes to be applied to the specified
 	// notification channel. The description must provide a definition for
 	// fields to be updated; the names of these fields should also be
 	// included in the `update_mask`.
-	NotificationChannel *NotificationChannel `protobuf:"bytes,3,opt,name=notification_channel,json=notificationChannel" json:"notification_channel,omitempty"`
+	NotificationChannel  *NotificationChannel `protobuf:"bytes,3,opt,name=notification_channel,json=notificationChannel,proto3" json:"notification_channel,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *UpdateNotificationChannelRequest) Reset()         { *m = UpdateNotificationChannelRequest{} }
 func (m *UpdateNotificationChannelRequest) String() string { return proto.CompactTextString(m) }
 func (*UpdateNotificationChannelRequest) ProtoMessage()    {}
 func (*UpdateNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{7}
+	return fileDescriptor_7e2bcd7194b305fe, []int{7}
 }
 
-func (m *UpdateNotificationChannelRequest) GetUpdateMask() *google_protobuf6.FieldMask {
+func (m *UpdateNotificationChannelRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateNotificationChannelRequest.Unmarshal(m, b)
+}
+func (m *UpdateNotificationChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateNotificationChannelRequest.Marshal(b, m, deterministic)
+}
+func (m *UpdateNotificationChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateNotificationChannelRequest.Merge(m, src)
+}
+func (m *UpdateNotificationChannelRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateNotificationChannelRequest.Size(m)
+}
+func (m *UpdateNotificationChannelRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateNotificationChannelRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateNotificationChannelRequest proto.InternalMessageInfo
+
+func (m *UpdateNotificationChannelRequest) GetUpdateMask() *field_mask.FieldMask {
 	if m != nil {
 		return m.UpdateMask
 	}
@@ -328,20 +505,41 @@ func (m *UpdateNotificationChannelRequest) GetNotificationChannel() *Notificatio
 type DeleteNotificationChannelRequest struct {
 	// The channel for which to execute the request. The format is
 	// `projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]`.
-	Name string `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// If true, the notification channel will be deleted regardless of its
 	// use in alert policies (the policies will be updated to remove the
 	// channel). If false, channels that are still referenced by an existing
 	// alerting policy will fail to be deleted in a delete operation.
-	Force bool `protobuf:"varint,5,opt,name=force" json:"force,omitempty"`
+	Force                bool     `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *DeleteNotificationChannelRequest) Reset()         { *m = DeleteNotificationChannelRequest{} }
 func (m *DeleteNotificationChannelRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteNotificationChannelRequest) ProtoMessage()    {}
 func (*DeleteNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{8}
+	return fileDescriptor_7e2bcd7194b305fe, []int{8}
 }
+
+func (m *DeleteNotificationChannelRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteNotificationChannelRequest.Unmarshal(m, b)
+}
+func (m *DeleteNotificationChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteNotificationChannelRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteNotificationChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteNotificationChannelRequest.Merge(m, src)
+}
+func (m *DeleteNotificationChannelRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteNotificationChannelRequest.Size(m)
+}
+func (m *DeleteNotificationChannelRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteNotificationChannelRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteNotificationChannelRequest proto.InternalMessageInfo
 
 func (m *DeleteNotificationChannelRequest) GetName() string {
 	if m != nil {
@@ -360,7 +558,10 @@ func (m *DeleteNotificationChannelRequest) GetForce() bool {
 // The `SendNotificationChannelVerificationCode` request.
 type SendNotificationChannelVerificationCodeRequest struct {
 	// The notification channel to which to send a verification code.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *SendNotificationChannelVerificationCodeRequest) Reset() {
@@ -371,8 +572,26 @@ func (m *SendNotificationChannelVerificationCodeRequest) String() string {
 }
 func (*SendNotificationChannelVerificationCodeRequest) ProtoMessage() {}
 func (*SendNotificationChannelVerificationCodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{9}
+	return fileDescriptor_7e2bcd7194b305fe, []int{9}
 }
+
+func (m *SendNotificationChannelVerificationCodeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SendNotificationChannelVerificationCodeRequest.Unmarshal(m, b)
+}
+func (m *SendNotificationChannelVerificationCodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SendNotificationChannelVerificationCodeRequest.Marshal(b, m, deterministic)
+}
+func (m *SendNotificationChannelVerificationCodeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SendNotificationChannelVerificationCodeRequest.Merge(m, src)
+}
+func (m *SendNotificationChannelVerificationCodeRequest) XXX_Size() int {
+	return xxx_messageInfo_SendNotificationChannelVerificationCodeRequest.Size(m)
+}
+func (m *SendNotificationChannelVerificationCodeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SendNotificationChannelVerificationCodeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SendNotificationChannelVerificationCodeRequest proto.InternalMessageInfo
 
 func (m *SendNotificationChannelVerificationCodeRequest) GetName() string {
 	if m != nil {
@@ -386,7 +605,7 @@ type GetNotificationChannelVerificationCodeRequest struct {
 	// The notification channel for which a verification code is to be generated
 	// and retrieved. This must name a channel that is already verified; if
 	// the specified channel is not verified, the request will fail.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The desired expiration time. If specified, the API will guarantee that
 	// the returned code will not be valid after the specified timestamp;
 	// however, the API cannot guarantee that the returned code will be
@@ -396,7 +615,10 @@ type GetNotificationChannelVerificationCodeRequest struct {
 	// permissible expiration (so specifying an expiration may extend the
 	// code's lifetime over omitting an expiration, even though the API does
 	// impose an upper limit on the maximum expiration that is permitted).
-	ExpireTime *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=expire_time,json=expireTime" json:"expire_time,omitempty"`
+	ExpireTime           *timestamp.Timestamp `protobuf:"bytes,2,opt,name=expire_time,json=expireTime,proto3" json:"expire_time,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *GetNotificationChannelVerificationCodeRequest) Reset() {
@@ -407,8 +629,26 @@ func (m *GetNotificationChannelVerificationCodeRequest) String() string {
 }
 func (*GetNotificationChannelVerificationCodeRequest) ProtoMessage() {}
 func (*GetNotificationChannelVerificationCodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{10}
+	return fileDescriptor_7e2bcd7194b305fe, []int{10}
 }
+
+func (m *GetNotificationChannelVerificationCodeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeRequest.Unmarshal(m, b)
+}
+func (m *GetNotificationChannelVerificationCodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeRequest.Marshal(b, m, deterministic)
+}
+func (m *GetNotificationChannelVerificationCodeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNotificationChannelVerificationCodeRequest.Merge(m, src)
+}
+func (m *GetNotificationChannelVerificationCodeRequest) XXX_Size() int {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeRequest.Size(m)
+}
+func (m *GetNotificationChannelVerificationCodeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNotificationChannelVerificationCodeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetNotificationChannelVerificationCodeRequest proto.InternalMessageInfo
 
 func (m *GetNotificationChannelVerificationCodeRequest) GetName() string {
 	if m != nil {
@@ -417,7 +657,7 @@ func (m *GetNotificationChannelVerificationCodeRequest) GetName() string {
 	return ""
 }
 
-func (m *GetNotificationChannelVerificationCodeRequest) GetExpireTime() *google_protobuf2.Timestamp {
+func (m *GetNotificationChannelVerificationCodeRequest) GetExpireTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.ExpireTime
 	}
@@ -430,11 +670,14 @@ type GetNotificationChannelVerificationCodeResponse struct {
 	// that have an equivalent identity (i.e. other channels of the same
 	// type with the same fingerprint such as other email channels with
 	// the same email address or other sms channels with the same number).
-	Code string `protobuf:"bytes,1,opt,name=code" json:"code,omitempty"`
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
 	// The expiration time associated with the code that was returned. If
 	// an expiration was provided in the request, this is the minimum of the
 	// requested expiration in the request and the max permitted expiration.
-	ExpireTime *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=expire_time,json=expireTime" json:"expire_time,omitempty"`
+	ExpireTime           *timestamp.Timestamp `protobuf:"bytes,2,opt,name=expire_time,json=expireTime,proto3" json:"expire_time,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *GetNotificationChannelVerificationCodeResponse) Reset() {
@@ -445,8 +688,26 @@ func (m *GetNotificationChannelVerificationCodeResponse) String() string {
 }
 func (*GetNotificationChannelVerificationCodeResponse) ProtoMessage() {}
 func (*GetNotificationChannelVerificationCodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{11}
+	return fileDescriptor_7e2bcd7194b305fe, []int{11}
 }
+
+func (m *GetNotificationChannelVerificationCodeResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeResponse.Unmarshal(m, b)
+}
+func (m *GetNotificationChannelVerificationCodeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeResponse.Marshal(b, m, deterministic)
+}
+func (m *GetNotificationChannelVerificationCodeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNotificationChannelVerificationCodeResponse.Merge(m, src)
+}
+func (m *GetNotificationChannelVerificationCodeResponse) XXX_Size() int {
+	return xxx_messageInfo_GetNotificationChannelVerificationCodeResponse.Size(m)
+}
+func (m *GetNotificationChannelVerificationCodeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNotificationChannelVerificationCodeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetNotificationChannelVerificationCodeResponse proto.InternalMessageInfo
 
 func (m *GetNotificationChannelVerificationCodeResponse) GetCode() string {
 	if m != nil {
@@ -455,7 +716,7 @@ func (m *GetNotificationChannelVerificationCodeResponse) GetCode() string {
 	return ""
 }
 
-func (m *GetNotificationChannelVerificationCodeResponse) GetExpireTime() *google_protobuf2.Timestamp {
+func (m *GetNotificationChannelVerificationCodeResponse) GetExpireTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.ExpireTime
 	}
@@ -465,7 +726,7 @@ func (m *GetNotificationChannelVerificationCodeResponse) GetExpireTime() *google
 // The `VerifyNotificationChannel` request.
 type VerifyNotificationChannelRequest struct {
 	// The notification channel to verify.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The verification code that was delivered to the channel as
 	// a result of invoking the `SendNotificationChannelVerificationCode` API
 	// method or that was retrieved from a verified channel via
@@ -473,15 +734,36 @@ type VerifyNotificationChannelRequest struct {
 	// "G-123456" or "TKNZGhhd2EyN3I1MnRnMjRv" (in general, one is only
 	// guaranteed that the code is valid UTF-8; one should not
 	// make any assumptions regarding the structure or format of the code).
-	Code string `protobuf:"bytes,2,opt,name=code" json:"code,omitempty"`
+	Code                 string   `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *VerifyNotificationChannelRequest) Reset()         { *m = VerifyNotificationChannelRequest{} }
 func (m *VerifyNotificationChannelRequest) String() string { return proto.CompactTextString(m) }
 func (*VerifyNotificationChannelRequest) ProtoMessage()    {}
 func (*VerifyNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor9, []int{12}
+	return fileDescriptor_7e2bcd7194b305fe, []int{12}
 }
+
+func (m *VerifyNotificationChannelRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_VerifyNotificationChannelRequest.Unmarshal(m, b)
+}
+func (m *VerifyNotificationChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_VerifyNotificationChannelRequest.Marshal(b, m, deterministic)
+}
+func (m *VerifyNotificationChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VerifyNotificationChannelRequest.Merge(m, src)
+}
+func (m *VerifyNotificationChannelRequest) XXX_Size() int {
+	return xxx_messageInfo_VerifyNotificationChannelRequest.Size(m)
+}
+func (m *VerifyNotificationChannelRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_VerifyNotificationChannelRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VerifyNotificationChannelRequest proto.InternalMessageInfo
 
 func (m *VerifyNotificationChannelRequest) GetName() string {
 	if m != nil {
@@ -513,6 +795,78 @@ func init() {
 	proto.RegisterType((*VerifyNotificationChannelRequest)(nil), "google.monitoring.v3.VerifyNotificationChannelRequest")
 }
 
+func init() {
+	proto.RegisterFile("google/monitoring/v3/notification_service.proto", fileDescriptor_7e2bcd7194b305fe)
+}
+
+var fileDescriptor_7e2bcd7194b305fe = []byte{
+	// 1011 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0x41, 0x6f, 0xdc, 0x44,
+	0x14, 0xd6, 0xec, 0x26, 0x69, 0xfa, 0x22, 0x04, 0x9a, 0x86, 0xc8, 0xbb, 0xa5, 0xaa, 0xe5, 0x43,
+	0x93, 0xae, 0x8a, 0x2d, 0xad, 0x4b, 0x84, 0x52, 0x52, 0xda, 0x64, 0xdb, 0x22, 0x48, 0x51, 0xb4,
+	0x29, 0x91, 0x40, 0x11, 0x2b, 0xc7, 0x7e, 0x6b, 0x4c, 0x76, 0x67, 0x8c, 0x3d, 0x89, 0x9a, 0x56,
+	0x95, 0x0a, 0x7f, 0x01, 0xfe, 0x00, 0x12, 0xa7, 0x1e, 0x10, 0x67, 0x50, 0x39, 0x23, 0xae, 0x08,
+	0xae, 0x5c, 0xe0, 0x7f, 0x20, 0x8f, 0xbd, 0xd9, 0xcd, 0x66, 0xbc, 0x6b, 0x37, 0xdc, 0x3c, 0xf3,
+	0xde, 0xbc, 0xf7, 0xbd, 0xef, 0x7d, 0x9e, 0x67, 0x83, 0xe5, 0x73, 0xee, 0xf7, 0xd0, 0xea, 0x73,
+	0x16, 0x08, 0x1e, 0x05, 0xcc, 0xb7, 0x8e, 0x6c, 0x8b, 0x71, 0x11, 0x74, 0x03, 0xd7, 0x11, 0x01,
+	0x67, 0x9d, 0x18, 0xa3, 0xa3, 0xc0, 0x45, 0x33, 0x8c, 0xb8, 0xe0, 0x74, 0x31, 0x3d, 0x60, 0x0e,
+	0x0f, 0x98, 0x47, 0x76, 0xfd, 0xad, 0x2c, 0x8c, 0x13, 0x06, 0x96, 0xc3, 0x18, 0x17, 0xf2, 0x68,
+	0x9c, 0x9e, 0xa9, 0x2f, 0x4f, 0x4d, 0x92, 0x39, 0x5e, 0xce, 0x1c, 0xe5, 0x6a, 0xff, 0xb0, 0x6b,
+	0x61, 0x3f, 0x14, 0xc7, 0x99, 0x51, 0x1f, 0x37, 0x76, 0x03, 0xec, 0x79, 0x9d, 0xbe, 0x13, 0x1f,
+	0x64, 0x1e, 0x57, 0xc7, 0x3d, 0x44, 0xd0, 0xc7, 0x58, 0x38, 0xfd, 0x30, 0x75, 0x30, 0x9e, 0xc2,
+	0xf5, 0xad, 0x20, 0x16, 0x1f, 0x8f, 0x64, 0xde, 0xfc, 0xc2, 0x61, 0x0c, 0x7b, 0x2d, 0x8c, 0xdd,
+	0x28, 0x08, 0x05, 0x8f, 0xe2, 0x36, 0x7e, 0x75, 0x88, 0xb1, 0xa0, 0x14, 0x66, 0x98, 0xd3, 0x47,
+	0x6d, 0x46, 0x27, 0x2b, 0x17, 0xdb, 0xf2, 0x99, 0x5e, 0x86, 0x8b, 0xa1, 0xe3, 0x63, 0x27, 0x0e,
+	0x9e, 0xa0, 0x56, 0xd1, 0xc9, 0xca, 0x6c, 0x7b, 0x3e, 0xd9, 0xd8, 0x09, 0x9e, 0x20, 0xbd, 0x02,
+	0x20, 0x8d, 0x82, 0x1f, 0x20, 0xd3, 0xaa, 0xf2, 0x98, 0x74, 0x7f, 0x94, 0x6c, 0x18, 0x3f, 0x13,
+	0x68, 0x14, 0xc9, 0x1e, 0x87, 0x9c, 0xc5, 0x48, 0x3d, 0xb8, 0xe4, 0xa6, 0xd6, 0x8e, 0x37, 0x34,
+	0x6b, 0x44, 0xaf, 0xae, 0x2c, 0x34, 0x6d, 0x53, 0xd5, 0x06, 0x73, 0x62, 0xe8, 0x36, 0x75, 0xcf,
+	0x64, 0xa3, 0xd7, 0xe0, 0x75, 0x86, 0x8f, 0x45, 0x67, 0x04, 0x78, 0x45, 0x02, 0x7f, 0x2d, 0xd9,
+	0xde, 0x3e, 0x01, 0xbf, 0x0e, 0xcb, 0x0f, 0x70, 0x32, 0xf4, 0x71, 0xde, 0xaa, 0x43, 0xde, 0x8c,
+	0xef, 0x08, 0xe8, 0x9b, 0x11, 0x3a, 0x02, 0x15, 0x21, 0x26, 0x1c, 0xa4, 0x7b, 0xb0, 0x78, 0x4a,
+	0x8c, 0x59, 0x09, 0x12, 0xe4, 0x42, 0xf3, 0x7a, 0x61, 0x1a, 0xda, 0x97, 0xd8, 0xd9, 0x4d, 0xe3,
+	0x07, 0x02, 0x57, 0x73, 0x5a, 0x72, 0x46, 0x06, 0xb3, 0x23, 0xa8, 0x96, 0x60, 0xae, 0x1b, 0xf4,
+	0x04, 0x46, 0xda, 0x9c, 0xdc, 0xcd, 0x56, 0xb4, 0x06, 0xf3, 0x3c, 0xf2, 0x30, 0xea, 0xec, 0x1f,
+	0x6b, 0x17, 0xa4, 0xe5, 0x82, 0x5c, 0x6f, 0x1c, 0x9f, 0x56, 0x4e, 0x75, 0xa2, 0x72, 0x66, 0xc6,
+	0x95, 0xf3, 0x82, 0x80, 0x9e, 0x0f, 0x33, 0xd3, 0xcb, 0xe7, 0xf0, 0xa6, 0x8a, 0xa9, 0x58, 0xab,
+	0x4a, 0xc5, 0x94, 0xa0, 0x6a, 0x51, 0x41, 0x55, 0x71, 0xa5, 0xd8, 0x70, 0x45, 0xad, 0x94, 0x49,
+	0xfa, 0x78, 0x49, 0x40, 0xff, 0x24, 0xf4, 0x26, 0xeb, 0xe3, 0x16, 0x2c, 0x1c, 0x4a, 0x1f, 0xf9,
+	0xce, 0x67, 0x12, 0xa8, 0x0f, 0xea, 0x1a, 0xbc, 0xf4, 0xe6, 0xfd, 0xe4, 0x5a, 0x78, 0xe8, 0xc4,
+	0x07, 0x6d, 0x48, 0xdd, 0x93, 0xe7, 0x5c, 0x21, 0x55, 0xff, 0x17, 0x21, 0x6d, 0x81, 0xde, 0xc2,
+	0x1e, 0x96, 0x96, 0xf7, 0x22, 0xcc, 0x76, 0x79, 0xe4, 0xa6, 0xea, 0x9a, 0x6f, 0xa7, 0x0b, 0xa3,
+	0x05, 0xe6, 0x0e, 0x32, 0x4f, 0x11, 0x6b, 0x17, 0xa3, 0xe1, 0x16, 0xf7, 0x70, 0x3c, 0x36, 0x19,
+	0xe1, 0xf4, 0x39, 0x81, 0xb7, 0xd5, 0x9d, 0x28, 0x11, 0x25, 0x21, 0x1d, 0x1f, 0x87, 0x41, 0x84,
+	0x9d, 0xe4, 0x32, 0xcd, 0x25, 0xfd, 0xd1, 0xe0, 0xa6, 0x6d, 0x43, 0xea, 0x9e, 0x6c, 0x18, 0x5f,
+	0x13, 0x30, 0x8b, 0x42, 0xc8, 0x64, 0x4c, 0x61, 0xc6, 0xe5, 0xde, 0x09, 0x86, 0xe4, 0xf9, 0x7c,
+	0x18, 0x3e, 0x04, 0x5d, 0x26, 0x3b, 0x2e, 0xd0, 0x9a, 0xd1, 0xc2, 0x07, 0x40, 0x2a, 0x43, 0x20,
+	0xcd, 0x5f, 0xde, 0x80, 0xba, 0x22, 0xcc, 0x4e, 0x3a, 0x21, 0xe9, 0xbf, 0x04, 0x8c, 0xe9, 0x37,
+	0x3c, 0x7d, 0x5f, 0x2d, 0xb6, 0xc2, 0x93, 0xa9, 0x7e, 0xe7, 0xd5, 0x03, 0xa4, 0x2c, 0x1b, 0xef,
+	0x7d, 0xf3, 0xc7, 0x3f, 0xdf, 0x56, 0x56, 0xe9, 0xcd, 0x64, 0x10, 0x3f, 0x4d, 0xea, 0x5d, 0x0f,
+	0x23, 0xfe, 0x25, 0xba, 0x22, 0xb6, 0x1a, 0xcf, 0x2c, 0x36, 0xb9, 0x80, 0xbf, 0x08, 0xe8, 0xd3,
+	0xa6, 0x01, 0x5d, 0x57, 0x83, 0x2c, 0x38, 0x45, 0xea, 0xaf, 0x32, 0xe1, 0x8c, 0xdb, 0xb2, 0xac,
+	0x77, 0xe9, 0xaa, 0xaa, 0xac, 0x29, 0x55, 0x59, 0x8d, 0x67, 0xf4, 0x25, 0x01, 0x2d, 0xef, 0xa2,
+	0xa5, 0xef, 0x94, 0x62, 0xfd, 0xa4, 0x59, 0xab, 0x65, 0x8f, 0x65, 0x2d, 0x6a, 0xca, 0x5a, 0x6e,
+	0xd0, 0x46, 0xe1, 0x16, 0xc5, 0xf4, 0x47, 0x02, 0x4b, 0x6a, 0x82, 0xa9, 0x5d, 0xa6, 0x1d, 0x03,
+	0xec, 0xc5, 0xaf, 0x45, 0xe3, 0xa6, 0x84, 0x6b, 0xd2, 0x1b, 0x45, 0xa9, 0x97, 0x84, 0xff, 0x46,
+	0xa0, 0x96, 0xfb, 0x5d, 0x40, 0x73, 0xa8, 0x9b, 0xf6, 0x21, 0x51, 0x06, 0xf6, 0x07, 0x12, 0xf6,
+	0x86, 0x51, 0x82, 0xe5, 0x35, 0xe5, 0x20, 0xa1, 0x7f, 0x13, 0xa8, 0xe5, 0x8e, 0xb0, 0xbc, 0x52,
+	0xa6, 0xcd, 0xbc, 0x32, 0xa5, 0x74, 0x64, 0x29, 0x9f, 0x36, 0xef, 0xa6, 0xa5, 0x28, 0x30, 0x9a,
+	0x05, 0xdb, 0x92, 0x53, 0xe1, 0xf7, 0x04, 0x6a, 0xb9, 0x53, 0x2e, 0xaf, 0xc2, 0x69, 0x63, 0xb1,
+	0xbe, 0x74, 0xe6, 0x1e, 0xbf, 0x97, 0x7c, 0xf4, 0x0f, 0x04, 0xd5, 0x28, 0x27, 0xa8, 0x3f, 0x09,
+	0x2c, 0x17, 0x9c, 0x9d, 0xb4, 0xa5, 0x46, 0x5c, 0x6e, 0xf4, 0xe6, 0xe2, 0xdf, 0x92, 0xf8, 0xef,
+	0x1b, 0x77, 0xcb, 0xe0, 0x5f, 0x8b, 0x91, 0x79, 0xe3, 0x99, 0xd6, 0x48, 0x83, 0x3e, 0xaf, 0xc0,
+	0xb5, 0x62, 0x93, 0x94, 0x6e, 0x96, 0x79, 0xd3, 0xf3, 0xaa, 0x6a, 0x9d, 0x2f, 0x48, 0x76, 0x87,
+	0x7d, 0x24, 0x39, 0xb8, 0x67, 0xdc, 0x29, 0xc5, 0x81, 0x8f, 0x42, 0x45, 0xc1, 0xaf, 0x04, 0x6a,
+	0xb9, 0x93, 0x3c, 0x4f, 0x7e, 0xd3, 0x46, 0x7f, 0x99, 0x17, 0x2c, 0x9b, 0x2e, 0x86, 0x5d, 0xaa,
+	0x9a, 0x23, 0x89, 0x60, 0x8d, 0x34, 0x36, 0x7e, 0x22, 0xa0, 0xb9, 0xbc, 0xaf, 0x4c, 0xb8, 0xa1,
+	0x8d, 0x66, 0xcc, 0x3e, 0x28, 0xb6, 0x13, 0x45, 0x6d, 0x93, 0xcf, 0x6e, 0x67, 0x27, 0x7c, 0xde,
+	0x73, 0x98, 0x6f, 0xf2, 0xc8, 0xb7, 0x7c, 0x64, 0x52, 0x6f, 0xd9, 0xff, 0xbb, 0x13, 0x06, 0xf1,
+	0xe9, 0xdf, 0xeb, 0x5b, 0xc3, 0xd5, 0x8b, 0x4a, 0xfd, 0x41, 0x1a, 0x60, 0xb3, 0xc7, 0x0f, 0x3d,
+	0xf3, 0xe1, 0x30, 0xf1, 0xae, 0xfd, 0xfb, 0xc0, 0xb8, 0x27, 0x8d, 0x7b, 0x43, 0xe3, 0xde, 0xae,
+	0xbd, 0x3f, 0x27, 0x93, 0xd8, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff, 0x3b, 0xf3, 0x96, 0xf5, 0x27,
+	0x10, 0x00, 0x00,
+}
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
@@ -521,8 +875,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for NotificationChannelService service
-
+// NotificationChannelServiceClient is the client API for NotificationChannelService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NotificationChannelServiceClient interface {
 	// Lists the descriptors for supported channel types. The use of descriptors
 	// makes it possible for new channel types to be dynamically added.
@@ -545,10 +900,10 @@ type NotificationChannelServiceClient interface {
 	// remain unchanged.
 	UpdateNotificationChannel(ctx context.Context, in *UpdateNotificationChannelRequest, opts ...grpc.CallOption) (*NotificationChannel, error)
 	// Deletes a notification channel.
-	DeleteNotificationChannel(ctx context.Context, in *DeleteNotificationChannelRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error)
+	DeleteNotificationChannel(ctx context.Context, in *DeleteNotificationChannelRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Causes a verification code to be delivered to the channel. The code
 	// can then be supplied in `VerifyNotificationChannel` to verify the channel.
-	SendNotificationChannelVerificationCode(ctx context.Context, in *SendNotificationChannelVerificationCodeRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error)
+	SendNotificationChannelVerificationCode(ctx context.Context, in *SendNotificationChannelVerificationCodeRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Requests a verification code for an already verified channel that can then
 	// be used in a call to VerifyNotificationChannel() on a different channel
 	// with an equivalent identity in the same or in a different project. This
@@ -587,7 +942,7 @@ func NewNotificationChannelServiceClient(cc *grpc.ClientConn) NotificationChanne
 
 func (c *notificationChannelServiceClient) ListNotificationChannelDescriptors(ctx context.Context, in *ListNotificationChannelDescriptorsRequest, opts ...grpc.CallOption) (*ListNotificationChannelDescriptorsResponse, error) {
 	out := new(ListNotificationChannelDescriptorsResponse)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/ListNotificationChannelDescriptors", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/ListNotificationChannelDescriptors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +951,7 @@ func (c *notificationChannelServiceClient) ListNotificationChannelDescriptors(ct
 
 func (c *notificationChannelServiceClient) GetNotificationChannelDescriptor(ctx context.Context, in *GetNotificationChannelDescriptorRequest, opts ...grpc.CallOption) (*NotificationChannelDescriptor, error) {
 	out := new(NotificationChannelDescriptor)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannelDescriptor", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannelDescriptor", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +960,7 @@ func (c *notificationChannelServiceClient) GetNotificationChannelDescriptor(ctx 
 
 func (c *notificationChannelServiceClient) ListNotificationChannels(ctx context.Context, in *ListNotificationChannelsRequest, opts ...grpc.CallOption) (*ListNotificationChannelsResponse, error) {
 	out := new(ListNotificationChannelsResponse)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/ListNotificationChannels", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/ListNotificationChannels", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +969,7 @@ func (c *notificationChannelServiceClient) ListNotificationChannels(ctx context.
 
 func (c *notificationChannelServiceClient) GetNotificationChannel(ctx context.Context, in *GetNotificationChannelRequest, opts ...grpc.CallOption) (*NotificationChannel, error) {
 	out := new(NotificationChannel)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannel", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +978,7 @@ func (c *notificationChannelServiceClient) GetNotificationChannel(ctx context.Co
 
 func (c *notificationChannelServiceClient) CreateNotificationChannel(ctx context.Context, in *CreateNotificationChannelRequest, opts ...grpc.CallOption) (*NotificationChannel, error) {
 	out := new(NotificationChannel)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/CreateNotificationChannel", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/CreateNotificationChannel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -632,25 +987,25 @@ func (c *notificationChannelServiceClient) CreateNotificationChannel(ctx context
 
 func (c *notificationChannelServiceClient) UpdateNotificationChannel(ctx context.Context, in *UpdateNotificationChannelRequest, opts ...grpc.CallOption) (*NotificationChannel, error) {
 	out := new(NotificationChannel)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/UpdateNotificationChannel", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/UpdateNotificationChannel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *notificationChannelServiceClient) DeleteNotificationChannel(ctx context.Context, in *DeleteNotificationChannelRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error) {
-	out := new(google_protobuf5.Empty)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/DeleteNotificationChannel", in, out, c.cc, opts...)
+func (c *notificationChannelServiceClient) DeleteNotificationChannel(ctx context.Context, in *DeleteNotificationChannelRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/DeleteNotificationChannel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *notificationChannelServiceClient) SendNotificationChannelVerificationCode(ctx context.Context, in *SendNotificationChannelVerificationCodeRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error) {
-	out := new(google_protobuf5.Empty)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/SendNotificationChannelVerificationCode", in, out, c.cc, opts...)
+func (c *notificationChannelServiceClient) SendNotificationChannelVerificationCode(ctx context.Context, in *SendNotificationChannelVerificationCodeRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/SendNotificationChannelVerificationCode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -659,7 +1014,7 @@ func (c *notificationChannelServiceClient) SendNotificationChannelVerificationCo
 
 func (c *notificationChannelServiceClient) GetNotificationChannelVerificationCode(ctx context.Context, in *GetNotificationChannelVerificationCodeRequest, opts ...grpc.CallOption) (*GetNotificationChannelVerificationCodeResponse, error) {
 	out := new(GetNotificationChannelVerificationCodeResponse)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannelVerificationCode", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/GetNotificationChannelVerificationCode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -668,15 +1023,14 @@ func (c *notificationChannelServiceClient) GetNotificationChannelVerificationCod
 
 func (c *notificationChannelServiceClient) VerifyNotificationChannel(ctx context.Context, in *VerifyNotificationChannelRequest, opts ...grpc.CallOption) (*NotificationChannel, error) {
 	out := new(NotificationChannel)
-	err := grpc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/VerifyNotificationChannel", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.monitoring.v3.NotificationChannelService/VerifyNotificationChannel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for NotificationChannelService service
-
+// NotificationChannelServiceServer is the server API for NotificationChannelService service.
 type NotificationChannelServiceServer interface {
 	// Lists the descriptors for supported channel types. The use of descriptors
 	// makes it possible for new channel types to be dynamically added.
@@ -699,10 +1053,10 @@ type NotificationChannelServiceServer interface {
 	// remain unchanged.
 	UpdateNotificationChannel(context.Context, *UpdateNotificationChannelRequest) (*NotificationChannel, error)
 	// Deletes a notification channel.
-	DeleteNotificationChannel(context.Context, *DeleteNotificationChannelRequest) (*google_protobuf5.Empty, error)
+	DeleteNotificationChannel(context.Context, *DeleteNotificationChannelRequest) (*empty.Empty, error)
 	// Causes a verification code to be delivered to the channel. The code
 	// can then be supplied in `VerifyNotificationChannel` to verify the channel.
-	SendNotificationChannelVerificationCode(context.Context, *SendNotificationChannelVerificationCodeRequest) (*google_protobuf5.Empty, error)
+	SendNotificationChannelVerificationCode(context.Context, *SendNotificationChannelVerificationCodeRequest) (*empty.Empty, error)
 	// Requests a verification code for an already verified channel that can then
 	// be used in a call to VerifyNotificationChannel() on a different channel
 	// with an equivalent identity in the same or in a different project. This
@@ -962,74 +1316,4 @@ var _NotificationChannelService_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "google/monitoring/v3/notification_service.proto",
-}
-
-func init() { proto.RegisterFile("google/monitoring/v3/notification_service.proto", fileDescriptor9) }
-
-var fileDescriptor9 = []byte{
-	// 1011 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0x41, 0x6f, 0xdc, 0x44,
-	0x14, 0xd6, 0xec, 0x26, 0x69, 0xfa, 0x22, 0x04, 0x9a, 0x86, 0xc8, 0xbb, 0xa5, 0xaa, 0xe5, 0x43,
-	0x93, 0xae, 0x8a, 0x2d, 0xad, 0x4b, 0x84, 0x52, 0x52, 0xda, 0x64, 0xdb, 0x22, 0x48, 0x51, 0xb4,
-	0x29, 0x91, 0x40, 0x11, 0x2b, 0xc7, 0x7e, 0x6b, 0x4c, 0x76, 0x67, 0x8c, 0x3d, 0x89, 0x9a, 0x56,
-	0x95, 0x0a, 0x7f, 0x01, 0xfe, 0x00, 0x12, 0xa7, 0x1e, 0x10, 0x67, 0x50, 0x39, 0x23, 0xae, 0x08,
-	0xae, 0x5c, 0xe0, 0x7f, 0x20, 0x8f, 0xbd, 0xd9, 0xcd, 0x66, 0xbc, 0x6b, 0x37, 0xdc, 0x3c, 0xf3,
-	0xde, 0xbc, 0xf7, 0xbd, 0xef, 0x7d, 0x9e, 0x67, 0x83, 0xe5, 0x73, 0xee, 0xf7, 0xd0, 0xea, 0x73,
-	0x16, 0x08, 0x1e, 0x05, 0xcc, 0xb7, 0x8e, 0x6c, 0x8b, 0x71, 0x11, 0x74, 0x03, 0xd7, 0x11, 0x01,
-	0x67, 0x9d, 0x18, 0xa3, 0xa3, 0xc0, 0x45, 0x33, 0x8c, 0xb8, 0xe0, 0x74, 0x31, 0x3d, 0x60, 0x0e,
-	0x0f, 0x98, 0x47, 0x76, 0xfd, 0xad, 0x2c, 0x8c, 0x13, 0x06, 0x96, 0xc3, 0x18, 0x17, 0xf2, 0x68,
-	0x9c, 0x9e, 0xa9, 0x2f, 0x4f, 0x4d, 0x92, 0x39, 0x5e, 0xce, 0x1c, 0xe5, 0x6a, 0xff, 0xb0, 0x6b,
-	0x61, 0x3f, 0x14, 0xc7, 0x99, 0x51, 0x1f, 0x37, 0x76, 0x03, 0xec, 0x79, 0x9d, 0xbe, 0x13, 0x1f,
-	0x64, 0x1e, 0x57, 0xc7, 0x3d, 0x44, 0xd0, 0xc7, 0x58, 0x38, 0xfd, 0x30, 0x75, 0x30, 0x9e, 0xc2,
-	0xf5, 0xad, 0x20, 0x16, 0x1f, 0x8f, 0x64, 0xde, 0xfc, 0xc2, 0x61, 0x0c, 0x7b, 0x2d, 0x8c, 0xdd,
-	0x28, 0x08, 0x05, 0x8f, 0xe2, 0x36, 0x7e, 0x75, 0x88, 0xb1, 0xa0, 0x14, 0x66, 0x98, 0xd3, 0x47,
-	0x6d, 0x46, 0x27, 0x2b, 0x17, 0xdb, 0xf2, 0x99, 0x5e, 0x86, 0x8b, 0xa1, 0xe3, 0x63, 0x27, 0x0e,
-	0x9e, 0xa0, 0x56, 0xd1, 0xc9, 0xca, 0x6c, 0x7b, 0x3e, 0xd9, 0xd8, 0x09, 0x9e, 0x20, 0xbd, 0x02,
-	0x20, 0x8d, 0x82, 0x1f, 0x20, 0xd3, 0xaa, 0xf2, 0x98, 0x74, 0x7f, 0x94, 0x6c, 0x18, 0x3f, 0x13,
-	0x68, 0x14, 0xc9, 0x1e, 0x87, 0x9c, 0xc5, 0x48, 0x3d, 0xb8, 0xe4, 0xa6, 0xd6, 0x8e, 0x37, 0x34,
-	0x6b, 0x44, 0xaf, 0xae, 0x2c, 0x34, 0x6d, 0x53, 0xd5, 0x06, 0x73, 0x62, 0xe8, 0x36, 0x75, 0xcf,
-	0x64, 0xa3, 0xd7, 0xe0, 0x75, 0x86, 0x8f, 0x45, 0x67, 0x04, 0x78, 0x45, 0x02, 0x7f, 0x2d, 0xd9,
-	0xde, 0x3e, 0x01, 0xbf, 0x0e, 0xcb, 0x0f, 0x70, 0x32, 0xf4, 0x71, 0xde, 0xaa, 0x43, 0xde, 0x8c,
-	0xef, 0x08, 0xe8, 0x9b, 0x11, 0x3a, 0x02, 0x15, 0x21, 0x26, 0x1c, 0xa4, 0x7b, 0xb0, 0x78, 0x4a,
-	0x8c, 0x59, 0x09, 0x12, 0xe4, 0x42, 0xf3, 0x7a, 0x61, 0x1a, 0xda, 0x97, 0xd8, 0xd9, 0x4d, 0xe3,
-	0x07, 0x02, 0x57, 0x73, 0x5a, 0x72, 0x46, 0x06, 0xb3, 0x23, 0xa8, 0x96, 0x60, 0xae, 0x1b, 0xf4,
-	0x04, 0x46, 0xda, 0x9c, 0xdc, 0xcd, 0x56, 0xb4, 0x06, 0xf3, 0x3c, 0xf2, 0x30, 0xea, 0xec, 0x1f,
-	0x6b, 0x17, 0xa4, 0xe5, 0x82, 0x5c, 0x6f, 0x1c, 0x9f, 0x56, 0x4e, 0x75, 0xa2, 0x72, 0x66, 0xc6,
-	0x95, 0xf3, 0x82, 0x80, 0x9e, 0x0f, 0x33, 0xd3, 0xcb, 0xe7, 0xf0, 0xa6, 0x8a, 0xa9, 0x58, 0xab,
-	0x4a, 0xc5, 0x94, 0xa0, 0x6a, 0x51, 0x41, 0x55, 0x71, 0xa5, 0xd8, 0x70, 0x45, 0xad, 0x94, 0x49,
-	0xfa, 0x78, 0x49, 0x40, 0xff, 0x24, 0xf4, 0x26, 0xeb, 0xe3, 0x16, 0x2c, 0x1c, 0x4a, 0x1f, 0xf9,
-	0xce, 0x67, 0x12, 0xa8, 0x0f, 0xea, 0x1a, 0xbc, 0xf4, 0xe6, 0xfd, 0xe4, 0x5a, 0x78, 0xe8, 0xc4,
-	0x07, 0x6d, 0x48, 0xdd, 0x93, 0xe7, 0x5c, 0x21, 0x55, 0xff, 0x17, 0x21, 0x6d, 0x81, 0xde, 0xc2,
-	0x1e, 0x96, 0x96, 0xf7, 0x22, 0xcc, 0x76, 0x79, 0xe4, 0xa6, 0xea, 0x9a, 0x6f, 0xa7, 0x0b, 0xa3,
-	0x05, 0xe6, 0x0e, 0x32, 0x4f, 0x11, 0x6b, 0x17, 0xa3, 0xe1, 0x16, 0xf7, 0x70, 0x3c, 0x36, 0x19,
-	0xe1, 0xf4, 0x39, 0x81, 0xb7, 0xd5, 0x9d, 0x28, 0x11, 0x25, 0x21, 0x1d, 0x1f, 0x87, 0x41, 0x84,
-	0x9d, 0xe4, 0x32, 0xcd, 0x25, 0xfd, 0xd1, 0xe0, 0xa6, 0x6d, 0x43, 0xea, 0x9e, 0x6c, 0x18, 0x5f,
-	0x13, 0x30, 0x8b, 0x42, 0xc8, 0x64, 0x4c, 0x61, 0xc6, 0xe5, 0xde, 0x09, 0x86, 0xe4, 0xf9, 0x7c,
-	0x18, 0x3e, 0x04, 0x5d, 0x26, 0x3b, 0x2e, 0xd0, 0x9a, 0xd1, 0xc2, 0x07, 0x40, 0x2a, 0x43, 0x20,
-	0xcd, 0x5f, 0xde, 0x80, 0xba, 0x22, 0xcc, 0x4e, 0x3a, 0x21, 0xe9, 0xbf, 0x04, 0x8c, 0xe9, 0x37,
-	0x3c, 0x7d, 0x5f, 0x2d, 0xb6, 0xc2, 0x93, 0xa9, 0x7e, 0xe7, 0xd5, 0x03, 0xa4, 0x2c, 0x1b, 0xef,
-	0x7d, 0xf3, 0xc7, 0x3f, 0xdf, 0x56, 0x56, 0xe9, 0xcd, 0x64, 0x10, 0x3f, 0x4d, 0xea, 0x5d, 0x0f,
-	0x23, 0xfe, 0x25, 0xba, 0x22, 0xb6, 0x1a, 0xcf, 0x2c, 0x36, 0xb9, 0x80, 0xbf, 0x08, 0xe8, 0xd3,
-	0xa6, 0x01, 0x5d, 0x57, 0x83, 0x2c, 0x38, 0x45, 0xea, 0xaf, 0x32, 0xe1, 0x8c, 0xdb, 0xb2, 0xac,
-	0x77, 0xe9, 0xaa, 0xaa, 0xac, 0x29, 0x55, 0x59, 0x8d, 0x67, 0xf4, 0x25, 0x01, 0x2d, 0xef, 0xa2,
-	0xa5, 0xef, 0x94, 0x62, 0xfd, 0xa4, 0x59, 0xab, 0x65, 0x8f, 0x65, 0x2d, 0x6a, 0xca, 0x5a, 0x6e,
-	0xd0, 0x46, 0xe1, 0x16, 0xc5, 0xf4, 0x47, 0x02, 0x4b, 0x6a, 0x82, 0xa9, 0x5d, 0xa6, 0x1d, 0x03,
-	0xec, 0xc5, 0xaf, 0x45, 0xe3, 0xa6, 0x84, 0x6b, 0xd2, 0x1b, 0x45, 0xa9, 0x97, 0x84, 0xff, 0x46,
-	0xa0, 0x96, 0xfb, 0x5d, 0x40, 0x73, 0xa8, 0x9b, 0xf6, 0x21, 0x51, 0x06, 0xf6, 0x07, 0x12, 0xf6,
-	0x86, 0x51, 0x82, 0xe5, 0x35, 0xe5, 0x20, 0xa1, 0x7f, 0x13, 0xa8, 0xe5, 0x8e, 0xb0, 0xbc, 0x52,
-	0xa6, 0xcd, 0xbc, 0x32, 0xa5, 0x74, 0x64, 0x29, 0x9f, 0x36, 0xef, 0xa6, 0xa5, 0x28, 0x30, 0x9a,
-	0x05, 0xdb, 0x92, 0x53, 0xe1, 0xf7, 0x04, 0x6a, 0xb9, 0x53, 0x2e, 0xaf, 0xc2, 0x69, 0x63, 0xb1,
-	0xbe, 0x74, 0xe6, 0x1e, 0xbf, 0x97, 0x7c, 0xf4, 0x0f, 0x04, 0xd5, 0x28, 0x27, 0xa8, 0x3f, 0x09,
-	0x2c, 0x17, 0x9c, 0x9d, 0xb4, 0xa5, 0x46, 0x5c, 0x6e, 0xf4, 0xe6, 0xe2, 0xdf, 0x92, 0xf8, 0xef,
-	0x1b, 0x77, 0xcb, 0xe0, 0x5f, 0x8b, 0x91, 0x79, 0xe3, 0x99, 0xd6, 0x48, 0x83, 0x3e, 0xaf, 0xc0,
-	0xb5, 0x62, 0x93, 0x94, 0x6e, 0x96, 0x79, 0xd3, 0xf3, 0xaa, 0x6a, 0x9d, 0x2f, 0x48, 0x76, 0x87,
-	0x7d, 0x24, 0x39, 0xb8, 0x67, 0xdc, 0x29, 0xc5, 0x81, 0x8f, 0x42, 0x45, 0xc1, 0xaf, 0x04, 0x6a,
-	0xb9, 0x93, 0x3c, 0x4f, 0x7e, 0xd3, 0x46, 0x7f, 0x99, 0x17, 0x2c, 0x9b, 0x2e, 0x86, 0x5d, 0xaa,
-	0x9a, 0x23, 0x89, 0x60, 0x8d, 0x34, 0x36, 0x7e, 0x22, 0xa0, 0xb9, 0xbc, 0xaf, 0x4c, 0xb8, 0xa1,
-	0x8d, 0x66, 0xcc, 0x3e, 0x28, 0xb6, 0x13, 0x45, 0x6d, 0x93, 0xcf, 0x6e, 0x67, 0x27, 0x7c, 0xde,
-	0x73, 0x98, 0x6f, 0xf2, 0xc8, 0xb7, 0x7c, 0x64, 0x52, 0x6f, 0xd9, 0xff, 0xbb, 0x13, 0x06, 0xf1,
-	0xe9, 0xdf, 0xeb, 0x5b, 0xc3, 0xd5, 0x8b, 0x4a, 0xfd, 0x41, 0x1a, 0x60, 0xb3, 0xc7, 0x0f, 0x3d,
-	0xf3, 0xe1, 0x30, 0xf1, 0xae, 0xfd, 0xfb, 0xc0, 0xb8, 0x27, 0x8d, 0x7b, 0x43, 0xe3, 0xde, 0xae,
-	0xbd, 0x3f, 0x27, 0x93, 0xd8, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff, 0x3b, 0xf3, 0x96, 0xf5, 0x27,
-	0x10, 0x00, 0x00,
 }

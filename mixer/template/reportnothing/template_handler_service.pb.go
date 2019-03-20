@@ -16,7 +16,7 @@ metadata:
   name: reportrequest
   namespace: istio-system
 spec:
-```\
+```
 
 ReportNothing represents an empty block of data that is used for Report-capable
 adapters which don't require any parameters. This is primarily intended for testing

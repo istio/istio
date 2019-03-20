@@ -1,18 +1,23 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
+  labels:
+    app: {{ $spec.labels.istio }}
+    chart: {{ template "gateway.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ $key }}-{{ $.Release.Namespace }}
 subjects:
-  - kind: ServiceAccount
-    name: {{ $key }}-service-account
-    namespace: {{ $.Release.Namespace }}
+- kind: ServiceAccount
+  name: {{ $key }}-service-account
+  namespace: {{ $.Release.Namespace }}
 ---
 {{- end }}
 {{- end }}

@@ -4,10 +4,10 @@ metadata:
   name: istio-grafana
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-grafana
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "grafana.name" . }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: grafana
 data:
 {{- if .Values.datasources }}

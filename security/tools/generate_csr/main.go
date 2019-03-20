@@ -35,7 +35,7 @@ var (
 )
 
 func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
+	log.Errorf(template, args...)
 	os.Exit(-1)
 }
 

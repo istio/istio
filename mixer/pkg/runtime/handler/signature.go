@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,7 +58,7 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 	}
 	sort.Strings(instanceNames)
 
-	buf := new(bytes.Buffer)
+	buf := pool.GetBuffer()
 	encoded := true
 
 	encoded = encoded && encode(buf, handler.AdapterName())
@@ -73,10 +74,11 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 
 	if encoded {
 		sha := sha1.Sum(buf.Bytes())
-		buf.Reset()
+		pool.PutBuffer(buf)
 		return sha
 	}
 
+	pool.PutBuffer(buf)
 	return zeroSignature
 }
 

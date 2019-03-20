@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-http-scope-private
+spec:
+  hosts:
+  - "private.com"
+  ports:
+  - number: 9999
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  # Rather than relying on an external host that might become unreachable (causing test failures)
+  # we can mock the external endpoint using service t which has no sidecar.
+  - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+    ports:
+      http: 8080
+  exportTo:
+  - "."

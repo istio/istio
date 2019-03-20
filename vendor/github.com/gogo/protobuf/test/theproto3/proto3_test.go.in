@@ -118,7 +118,7 @@ func TestCustomTypeMarshalUnmarshal(t *testing.T) {
 		if err := proto.Unmarshal(b, m2); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(m1, m2) {
+		if !m1.Equal(m2) {
 			t.Errorf("expected %+v, got %+v", m1, m2)
 		}
 	}

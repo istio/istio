@@ -70,7 +70,7 @@ $(BINDIR)/test-linux: vendor
 	@echo "--> building Linux test binary"
 	@env GOOS=linux GOARCH=amd64 go build -race -o $@ pkg/test/main/main.go
 
-docker: $(BINDIR)/test-linux
+docker: vendor
 	@echo "--> building test docker image"
 	@docker build -t test .
 
@@ -89,6 +89,9 @@ integration.docker: docker
 	docker run -it -e "XDS=ads" test -debug
 	docker run -it -e "XDS=xds" test -debug
 	docker run -it -e "XDS=rest" test -debug
+	docker run -it -e "XDS=ads" test -debug -tls
+	docker run -it -e "XDS=xds" test -debug -tls
+	docker run -it -e "XDS=rest" test -debug -tls
 
 #-----------------
 #-- code generaion

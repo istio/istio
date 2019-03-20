@@ -42,7 +42,7 @@ type Control struct {
 	// EmitBashCompletion controls whether to produce bash completion files.
 	EmitBashCompletion bool
 
-	// EmitMarkdown controls whether to produce mankdown documentation files.
+	// EmitMarkdown controls whether to produce markdown documentation files.
 	EmitMarkdown bool
 
 	// EmitHTMLFragmentWithFrontMatter controls whether to produce HTML fragments with Jekyll/Hugo front matter.
@@ -183,9 +183,28 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	if cmd.Runnable() {
 		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.UseLine()))
 		g.emit("</code></pre>")
-	}
 
-	// TODO: output aliases
+		if len(cmd.Aliases) > 0 {
+			// first word in cmd.Use represents the command that is being aliased
+			word := cmd.Use
+			index := strings.Index(word, " ")
+			if index > 0 {
+				word = word[0:index]
+			}
+
+			g.emit("<div class=\"aliases\">")
+			line := cmd.UseLine()
+			for i, alias := range cmd.Aliases {
+				r := strings.Replace(line, word, alias, 1)
+				if i == 0 {
+					g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(r))
+				} else {
+					g.emit(html.EscapeString(r))
+				}
+			}
+			g.emit("</code></pre></div>")
+		}
+	}
 
 	flags := cmd.NonInheritedFlags()
 	flags.SetOutput(g.buffer)

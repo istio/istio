@@ -4,12 +4,18 @@ metadata:
   name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
+    app: {{ template "galley.name" . }}
+    chart: {{ template "galley.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     istio: galley
 spec:
   ports:
   - port: 443
     name: https-validation
-  - port: 9093
+  - port: {{ .Values.global.monitoringPort }}
     name: http-monitoring
+  - port: 9901
+    name: grpc-mcp
   selector:
     istio: galley

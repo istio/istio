@@ -2,7 +2,7 @@
 title: istio.mixer.v1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 20
+number_of_entries: 21
 ---
 <p>This package defines the Mixer API that the sidecar proxy uses to perform
 precondition checks, manage quotas, and report telemetry.</p>
@@ -53,7 +53,7 @@ environment this traffic occurs in. An Istio attribute carries a specific piece
 of information such as the error code of an API request, the latency of an API request, or the
 original IP address of a TCP connection. For example:</p>
 
-<pre><code>request.path: xyz/abc
+<pre><code class="language-yaml">request.path: xyz/abc
 request.size: 234
 request.time: 12:34:56.789 04/17/2017
 source.ip: 192.168.0.1
@@ -66,7 +66,7 @@ in the deployment. The primary attribute producer in Istio is Envoy, although
 specialized Mixer adapters and services can also generate attributes.</p>
 
 <p>The common baseline set of attributes available in most Istio deployments is defined
-<a href="https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html">here</a>.</p>
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.</p>
 
 <p>Attributes are strongly typed. The supported attribute types are defined by
 <a href="https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto">ValueType</a>.
@@ -754,16 +754,13 @@ entire STRING_MAP will be used.</p>
 can be provided in a single message in order to improve communication efficiency. The
 client can accumulate a set of actions and send them all in one single message.</p>
 
-<p>Although each <code>Attributes</code> message is semantically treated as an independent
-stand-alone entity unrelated to the other attributes within the message, this
-message format leverages delta-encoding between attribute messages in order to
-substantially reduce the request size and improve end-to-end efficiency. Each
-individual set of attributes is used to modify the previous set. This eliminates
-the need to redundantly send the same attributes multiple times over within
-a single request.</p>
-
-<p>If a client is not sophisticated and doesn&rsquo;t want to use delta-encoding,
-a degenerate case is to include all attributes in every individual message.</p>
+</td>
+</tr>
+<tr id="ReportRequest-repeated_attributes_semantics">
+<td><code>repeatedAttributesSemantics</code></td>
+<td><code><a href="#ReportRequest-RepeatedAttributesSemantics">ReportRequest.RepeatedAttributesSemantics</a></code></td>
+<td>
+<p>Indicates how to decode the attributes sets in this request.</p>
 
 </td>
 </tr>
@@ -792,6 +789,40 @@ To detect global dictionary out of sync between client and server.</p>
 </tbody>
 </table>
 </section>
+<h3 id="ReportRequest-RepeatedAttributesSemantics">ReportRequest.RepeatedAttributesSemantics</h3>
+<section>
+<p>Used to signal how the sets of compressed attributes should be reconstitued server-side.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReportRequest-RepeatedAttributesSemantics-DELTA_ENCODING">
+<td><code>DELTA_ENCODING</code></td>
+<td>
+<p>Use delta encoding between sets of compressed attributes to reduce the overall on-wire
+request size. Each individual set of attributes is used to modify the previous set.
+NOTE: There is no way with this encoding to specify attribute value deletion. This
+option should be used with extreme caution.</p>
+
+</td>
+</tr>
+<tr id="ReportRequest-RepeatedAttributesSemantics-INDEPENDENT_ENCODING">
+<td><code>INDEPENDENT_ENCODING</code></td>
+<td>
+<p>Treat each set of compressed attributes as complete - independent from other sets
+in this request. This will result in on-wire duplication of attributes and values, but
+will allow for proper accounting of absent values in overall encoding.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="ReportResponse">ReportResponse</h3>
 <section>
 <p>Used to carry responses to telemetry reports</p>
@@ -800,7 +831,7 @@ To detect global dictionary out of sync between client and server.</p>
 <h3 id="RouteDirective">RouteDirective</h3>
 <section>
 <p>Expresses the routing manipulation actions to be performed on behalf of
-Mixer in response to a successful precondition check.</p>
+Mixer in response to a precondition check.</p>
 
 <table class="message-fields">
 <thead>

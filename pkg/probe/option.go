@@ -28,5 +28,5 @@ type Options struct {
 
 // IsValid returns true if some values are filled into the options.
 func (o *Options) IsValid() bool {
-	return o != nil && o.Path != "" && o.UpdateInterval > 0
+	return o != nil && o.Path != "" && o.UpdateInterval > 0*time.Second
 }

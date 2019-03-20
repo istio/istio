@@ -15,8 +15,9 @@
 syntax = "proto3";
 
 // $title: List
-// $description: Adapter that performs whitelist or blacklist checks
+// $description: Adapter that performs whitelist or blacklist checks.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list.html
+// $supported_templates: listentry
 // $aliases:
 // $  - /docs/reference/config/adapters/list.html
 
@@ -25,7 +26,7 @@ syntax = "proto3";
 // it to a URL from where the list should be fetched. Lists can be simple strings,
 // IP addresses, or regex patterns.
 //
-//  This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
+// This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
 package adapter.list.config;
 
 import "google/protobuf/duration.proto";
@@ -38,7 +39,7 @@ option (gogoproto.gostring_all) = false;
 
 // Configuration format for the `list` adapter.
 message Params {
-    // Where to find the list to check against. This may be ommited for a completely local list.
+    // Where to find the list to check against. This may be omitted for a completely local list.
     string provider_url = 1;
 
     // Determines how often the provider is polled for

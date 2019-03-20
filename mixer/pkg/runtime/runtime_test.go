@@ -148,11 +148,13 @@ ID: 3
 TemplatesStatic:
   Name: tapa
   Name: tcheck
+  Name: tcheckoutput
   Name: thalt
   Name: tquota
   Name: treport
 AdaptersStatic:
   Name: acheck
+  Name: acheckoutput
   Name: apa
   Name: aquota
   Name: areport
@@ -162,6 +164,7 @@ Rules:
 Attributes:
   foo: STRING
   prefix.generated.string: STRING
+  value: STRING
 `
 	if strings.TrimSpace(expected) != strings.TrimSpace(snapshot.String()) {
 		t.Fatalf("snapshot mismatch. got:\n%v\n, wanted:\n%v\n", snapshot, expected)

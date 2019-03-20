@@ -10,5 +10,7 @@
     - istio-ca-service-account
     - istio-sidecar-injector-service-account
     - istio-citadel-service-account
+    - istio-galley-service-account
+    - istio-cleanup-old-ca-service-account
     - prometheus
     - default

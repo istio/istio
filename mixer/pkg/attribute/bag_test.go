@@ -15,7 +15,6 @@
 package attribute
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -37,8 +36,8 @@ var (
 func TestBag(t *testing.T) {
 	sm1 := mixerpb.StringMap{Entries: map[int32]int32{-16: -16}}
 	sm2 := mixerpb.StringMap{Entries: map[int32]int32{-17: -17}}
-	m1 := map[string]string{"N16": "N16"}
-	m3 := map[string]string{"N42": "FourtyTwo"}
+	m1 := WrapStringMap(map[string]string{"N16": "N16"})
+	m3 := WrapStringMap(map[string]string{"N42": "FourtyTwo"})
 
 	attrs := mixerpb.CompressedAttributes{
 		Words:      []string{"N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10", "N11", "N12", "N13", "N14", "N15", "N16", "N17"},
@@ -96,8 +95,8 @@ func TestBag(t *testing.T) {
 				t.Error("Got false, expecting true")
 			}
 
-			if !reflect.DeepEqual(v, r.value) {
-				t.Errorf("Got %v, expected %v", v, r.value)
+			if !Equal(v, r.value) {
+				t.Errorf("Got %v, expected %v for %s", v, r.value, r.name)
 			}
 		})
 	}
@@ -220,7 +219,7 @@ func TestProtoBag(t *testing.T) {
 		{"M2", t9},
 		{"M3", d1},
 		{"M4", []byte{11}},
-		{"M5", map[string]string{"M6": "M7"}},
+		{"M5", WrapStringMap(map[string]string{"M6": "M7"})},
 	}
 
 	for j := 0; j < 2; j++ {
@@ -245,7 +244,7 @@ func TestProtoBag(t *testing.T) {
 						t.Error("Got false, expected true")
 					}
 
-					if ok, _ := compareAttributeValues(v, c.value); !ok {
+					if !Equal(v, c.value) {
 						t.Errorf("Got %v, expected %v", v, c.value)
 					}
 				})
@@ -376,11 +375,11 @@ func TestUpdateFromProto(t *testing.T) {
 	}
 
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M1", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("M5", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
@@ -390,13 +389,75 @@ func TestUpdateFromProto(t *testing.T) {
 	}
 }
 
+func TestUpdateFromProtoWithDupes(t *testing.T) {
+	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	messageDict := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
+
+	b := GetMutableBag(nil)
+
+	cases := []struct {
+		attrs mixerpb.CompressedAttributes
+	}{
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Int64S:  map[int32]int64{4: 5},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Doubles: map[int32]float64{4: 5.0},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Bools:   map[int32]bool{4: false},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:     messageDict,
+			Strings:   map[int32]int32{4: 5},
+			Durations: map[int32]time.Duration{4: time.Second},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:      messageDict,
+			Strings:    map[int32]int32{4: 5},
+			Timestamps: map[int32]time.Time{4: time.Time{}},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:   messageDict,
+			Strings: map[int32]int32{4: 5},
+			Bytes:   map[int32][]byte{4: nil},
+		}},
+
+		{mixerpb.CompressedAttributes{
+			Words:      messageDict,
+			Strings:    map[int32]int32{4: 5},
+			StringMaps: map[int32]mixerpb.StringMap{4: {}},
+		}},
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+
+			if err := b.UpdateBagFromProto(&c.attrs, globalDict); err == nil {
+				t.Errorf("Got success, expected error")
+			}
+		})
+	}
+}
+
 func TestCopyBag(t *testing.T) {
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M1", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("M5", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
@@ -473,59 +534,12 @@ func compareBags(b1 Bag, b2 Bag) bool {
 		v1, _ := b1.Get(name)
 		v2, _ := b2.Get(name)
 
-		match, _ := compareAttributeValues(v1, v2)
-		if !match {
+		if !Equal(v1, v2) {
 			return false
 		}
 	}
 
 	return true
-}
-
-func compareAttributeValues(v1, v2 interface{}) (bool, error) {
-	var result bool
-	switch t1 := v1.(type) {
-	case string:
-		t2, ok := v2.(string)
-		result = ok && t1 == t2
-	case int64:
-		t2, ok := v2.(int64)
-		result = ok && t1 == t2
-	case float64:
-		t2, ok := v2.(float64)
-		result = ok && t1 == t2
-	case bool:
-		t2, ok := v2.(bool)
-		result = ok && t1 == t2
-	case time.Time:
-		t2, ok := v2.(time.Time)
-		result = ok && t1 == t2
-	case time.Duration:
-		t2, ok := v2.(time.Duration)
-		result = ok && t1 == t2
-
-	case []byte:
-		t2, ok := v2.([]byte)
-		if result = ok && len(t1) == len(t2); result {
-			for i := 0; i < len(t1); i++ {
-				if t1[i] != t2[i] {
-					result = false
-					break
-				}
-			}
-		}
-
-	case StringMap:
-		return reflect.DeepEqual(t1.entries, v2), nil
-
-	case map[string]string:
-		return reflect.DeepEqual(t1, v2), nil
-
-	default:
-		return false, fmt.Errorf("unsupported attribute value type: %T", v1)
-	}
-
-	return result, nil
 }
 
 func TestBogusProto(t *testing.T) {
@@ -795,15 +809,15 @@ func TestGlobalWordCount(t *testing.T) {
 
 func TestMutableBagForTesting(t *testing.T) {
 	m := map[string]interface{}{
-		"A": 1,
-		"B": 2,
+		"A": int64(1),
+		"B": int64(2),
 	}
 
 	mb := GetMutableBagForTesting(m)
 	if v, found := mb.Get("A"); !found {
 		t.Errorf("Didn't find A")
-	} else if v.(int) != 1 {
-		t.Errorf("Got %d, expecting 1", v.(int))
+	} else if v.(int64) != 1 {
+		t.Errorf("Got %d, expecting 1", v)
 	}
 }
 
@@ -811,6 +825,7 @@ func TestToProtoForTesting(t *testing.T) {
 	m := map[string]interface{}{
 		"A": 1.0,
 		"B": 2.0,
+		"C": int64(3),
 	}
 
 	ca := GetProtoForTesting(m)
@@ -822,7 +837,19 @@ func TestToProtoForTesting(t *testing.T) {
 	if v, found := b.Get("A"); !found {
 		t.Errorf("Didn't find A")
 	} else if v.(float64) != 1.0 {
-		t.Errorf("Got %d, expecting 1", v.(int))
+		t.Errorf("Got %v, expecting 1.0", v)
+	}
+
+	if v, found := b.Get("B"); !found {
+		t.Errorf("Didn't find B")
+	} else if v.(float64) != 2.0 {
+		t.Errorf("Got %v, expecting 2.0", v)
+	}
+
+	if v, found := b.Get("C"); !found {
+		t.Errorf("Didn't find C")
+	} else if v.(int64) != 3 {
+		t.Errorf("Got %v, expecting 3", v)
 	}
 }
 
@@ -911,6 +938,15 @@ func TestParentRoundTrip(t *testing.T) {
 		if !reflect.DeepEqual(post, pre) {
 			t.Errorf("Got %v, expected %v for attribute %s", post, pre, k)
 		}
+	}
+}
+
+func TestTypes(t *testing.T) {
+	if Equal(List{}, &List{}) {
+		t.Error("unexpected equality")
+	}
+	if CheckType(List{}) {
+		t.Error("expect a list pointer")
 	}
 }
 

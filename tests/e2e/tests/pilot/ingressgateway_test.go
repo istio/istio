@@ -61,14 +61,14 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "HTTPIngressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, "HTTPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
 				return nil
 			}
@@ -96,14 +96,14 @@ func TestGateway_HTTPSIngress(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "HTTPSIngressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, "HTTPSIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("https://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
 				return nil
 			}
@@ -131,14 +131,14 @@ func TestGateway_TCPIngress(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "TCPIngressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, "TCPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s:31400/c", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v1"] >= 95 {
 				return nil
 			}
@@ -211,15 +211,16 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}
 	defer newVirtService.Teardown()
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	var wg sync.WaitGroup
 	for cluster := range tc.Kube.Clusters {
 		wg.Add(1)
+		clusterc := cluster
 		go func() {
 			defer wg.Done()
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			// 500 requests @20 qps = 25s. This is the minimum required to cover all rule changes below.
-			resp = ClientRequest(cluster, "t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
+			resp = ClientRequest(clusterc, "t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
 		}()
 	}
 
@@ -228,7 +229,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		fatalError = true
 		goto cleanup
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	log.Infof("routing to v3,v4")
 	if err = routeToNewSubsets.Setup(); err != nil {
 		fatalError = true
@@ -254,7 +255,7 @@ cleanup:
 			}
 			if count["200"] != len(resp.Code) {
 				// have entries other than 200
-				t.Errorf("Got non 200 status code while changing rules: %v", count)
+				t.Errorf("Got non 200 status code while changing rules: %+v", count)
 			} else {
 				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
 			}
@@ -283,7 +284,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route1", defaultRetryBudget, func() error {
+		runRetriableTest(t, "VirtualServiceMergingAtGateway-route1", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/route1", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
@@ -297,7 +298,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 			return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count)
 		})
 
-		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route2", defaultRetryBudget, func() error {
+		runRetriableTest(t, "VirtualServiceMergingAtGateway-route2", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/route2", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)

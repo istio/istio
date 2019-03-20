@@ -31,7 +31,7 @@ func NewNoGoroutine() *NoGoroutine {
 
 // GetID returns no_goroutine_rule.
 func (lr *NoGoroutine) GetID() string {
-	return getCallerFileName()
+	return GetCallerFileName()
 }
 
 // Check verifies if aNode is not goroutine. If verification fails lrp creates new report.

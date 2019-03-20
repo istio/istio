@@ -23,7 +23,8 @@ set -e
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
-  . $ISTIO_SIDECAR_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Set defaults
@@ -36,8 +37,8 @@ ISTIO_CFG=${ISTIO_CFG:-/var/lib/istio}
 KUBECONFIG=${ISTIO_CFG}/kube.config
 
 # TODO: use separate user for ca
-if [ $(id -u) = "0" ] ; then
+if [ "$(id -u)" = "0" ] ; then
     exec su -s /bin/bash -c "${ISTIO_BIN_BASE}/istio_ca --self-signed-ca --kube-config ${KUBECONFIG} 2> ${ISTIO_LOG_DIR}/istio_ca.err.log > ${ISTIO_LOG_DIR}/istio_ca.log" istio-proxy
 else
-    ${ISTIO_BIN_BASE}/istio_ca --self-signed-ca --kube-config ${KUBECONFIG}
+    "${ISTIO_BIN_BASE}/istio_ca" --self-signed-ca --kube-config "${KUBECONFIG}"
 fi

@@ -1,11 +1,12 @@
 ---
 title: OPA
-description: Adapter that implements an Open Policy Agent engine
+description: Adapter that implements an Open Policy Agent engine.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/opa.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: authorization
 aliases:
-  - /docs/reference/config/adapters/opa.htm l
+  - /docs/reference/config/adapters/opa.html
 number_of_entries: 1
 ---
 <p>The <code>opa</code> adapter exposes an <a href="http://www.openpolicyagent.org">Open Policy Agent</a> engine
@@ -19,7 +20,7 @@ that provides sophisticated access control mechanisms.</p>
 
 <p>Example configuration:</p>
 
-<pre><code>policy:
+<pre><code class="language-yaml">policy:
   - |+
     package mixerauthz
     policy = [

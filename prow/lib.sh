@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Copyright 2018 Istio Authors
-
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,8 +30,6 @@ function setup_and_export_git_sha() {
 
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
-      E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-      export E2E_ARGS
 
     elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
@@ -105,3 +103,30 @@ function setup_e2e_cluster() {
   setup_cluster
 }
 
+function clone_cni() {
+  # Clone the CNI repo so the CNI artifacts can be built.
+  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
+      TMP_DIR=$PWD
+      cd ../ || return
+      git clone -b master "https://github.com/istio/cni.git"
+      cd "${TMP_DIR}" || return
+  fi
+}
+
+function cni_run_daemon() {
+
+  echo 'Run the CNI daemon set'
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+
+  chartdir=$(pwd)/charts
+  mkdir "${chartdir}"
+  helm init --client-only
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
+  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+ 
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
+
+  kubectl apply -f istio-cni_install.yaml
+
+}

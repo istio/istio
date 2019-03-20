@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/protobuf/types"
+
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -59,14 +62,16 @@ func MakeEndpoint(clusterName string, port uint32) *v2.ClusterLoadAssignment {
 		ClusterName: clusterName,
 		Endpoints: []endpoint.LocalityLbEndpoints{{
 			LbEndpoints: []endpoint.LbEndpoint{{
-				Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Protocol: core.TCP,
-								Address:  localhost,
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: port,
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Protocol: core.TCP,
+									Address:  localhost,
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: port,
+									},
 								},
 							},
 						},
@@ -113,9 +118,9 @@ func MakeCluster(mode string, clusterName string) *v2.Cluster {
 	}
 
 	return &v2.Cluster{
-		Name:           clusterName,
-		ConnectTimeout: 5 * time.Second,
-		Type:           v2.Cluster_EDS,
+		Name:                 clusterName,
+		ConnectTimeout:       5 * time.Second,
+		ClusterDiscoveryType: &v2.Cluster_Type{Type: v2.Cluster_EDS},
 		EdsClusterConfig: &v2.Cluster_EdsClusterConfig{
 			EdsConfig: edsSource,
 		},
@@ -147,17 +152,16 @@ func MakeRoute(routeName, clusterName string) *v2.RouteConfiguration {
 	}
 }
 
-// MakeHTTPListener creates a listener using either ADS or RDS for the route.
-func MakeHTTPListener(mode string, listenerName string, port uint32, route string) *v2.Listener {
-	// data source configuration
-	rdsSource := core.ConfigSource{}
+// data source configuration
+func configSource(mode string) *core.ConfigSource {
+	source := &core.ConfigSource{}
 	switch mode {
 	case Ads:
-		rdsSource.ConfigSourceSpecifier = &core.ConfigSource_Ads{
+		source.ConfigSourceSpecifier = &core.ConfigSource_Ads{
 			Ads: &core.AggregatedConfigSource{},
 		}
 	case Xds:
-		rdsSource.ConfigSourceSpecifier = &core.ConfigSource_ApiConfigSource{
+		source.ConfigSourceSpecifier = &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
 				ApiType: core.ApiConfigSource_GRPC,
 				GrpcServices: []*core.GrpcService{{
@@ -168,7 +172,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			},
 		}
 	case Rest:
-		rdsSource.ConfigSourceSpecifier = &core.ConfigSource_ApiConfigSource{
+		source.ConfigSourceSpecifier = &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
 				ApiType:      core.ApiConfigSource_REST,
 				ClusterNames: []string{XdsCluster},
@@ -176,6 +180,12 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			},
 		}
 	}
+	return source
+}
+
+// MakeHTTPListener creates a listener using either ADS or RDS for the route.
+func MakeHTTPListener(mode string, listenerName string, port uint32, route string) *v2.Listener {
+	rdsSource := configSource(mode)
 
 	// access log service configuration
 	alsConfig := &als.HttpGrpcAccessLogConfig{
@@ -190,7 +200,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			},
 		},
 	}
-	alsConfigPbst, err := util.MessageToStruct(alsConfig)
+	alsConfigPbst, err := types.MarshalAny(alsConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -201,7 +211,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
-				ConfigSource:    rdsSource,
+				ConfigSource:    *rdsSource,
 				RouteConfigName: route,
 			},
 		},
@@ -209,11 +219,13 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			Name: util.Router,
 		}},
 		AccessLog: []*alf.AccessLog{{
-			Name:   util.HTTPGRPCAccessLog,
-			Config: alsConfigPbst,
+			Name: util.HTTPGRPCAccessLog,
+			ConfigType: &alf.AccessLog_TypedConfig{
+				TypedConfig: alsConfigPbst,
+			},
 		}},
 	}
-	pbst, err := util.MessageToStruct(manager)
+	pbst, err := types.MarshalAny(manager)
 	if err != nil {
 		panic(err)
 	}
@@ -233,8 +245,10 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 		},
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
-				Name:   util.HTTPConnectionManager,
-				Config: pbst,
+				Name: util.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: pbst,
+				},
 			}},
 		}},
 	}
@@ -245,9 +259,11 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 	// TCP filter configuration
 	config := &tcp.TcpProxy{
 		StatPrefix: "tcp",
-		Cluster:    clusterName,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{
+			Cluster: clusterName,
+		},
 	}
-	pbst, err := util.MessageToStruct(config)
+	pbst, err := types.MarshalAny(config)
 	if err != nil {
 		panic(err)
 	}
@@ -266,8 +282,10 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 		},
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
-				Name:   util.TCPProxy,
-				Config: pbst,
+				Name: util.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: pbst,
+				},
 			}},
 		}},
 	}
@@ -290,6 +308,8 @@ type TestSnapshot struct {
 	// NumTCPListeners is the total number of TCP listeners to generate.
 	// Listeners are assigned clusters in a round-robin fashion.
 	NumTCPListeners int
+	// TLS enables SDS-enabled TLS mode on all listeners
+	TLS bool
 }
 
 // Generate produces a snapshot from the parameters.
@@ -314,12 +334,46 @@ func (ts TestSnapshot) Generate() cache.Snapshot {
 		port := ts.BasePort + uint32(i)
 		// listener name must be same since ports are shared and previous listener is drained
 		name := fmt.Sprintf("listener-%d", port)
+		var listener *v2.Listener
 		if i < ts.NumHTTPListeners {
-			listeners[i] = MakeHTTPListener(ts.Xds, name, port, cache.GetResourceName(routes[i]))
+			listener = MakeHTTPListener(ts.Xds, name, port, cache.GetResourceName(routes[i]))
 		} else {
-			listeners[i] = MakeTCPListener(name, port, cache.GetResourceName(clusters[i%ts.NumClusters]))
+			listener = MakeTCPListener(name, port, cache.GetResourceName(clusters[i%ts.NumClusters]))
 		}
+
+		if ts.TLS {
+			for i, chain := range listener.FilterChains {
+				chain.TlsContext = &auth.DownstreamTlsContext{
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{{
+							Name:      tlsName,
+							SdsConfig: configSource(ts.Xds),
+						}},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name:      rootName,
+								SdsConfig: configSource(ts.Xds),
+							},
+						},
+					},
+				}
+				listener.FilterChains[i] = chain
+			}
+		}
+
+		listeners[i] = listener
 	}
 
-	return cache.NewSnapshot(ts.Version, endpoints, clusters, routes, listeners)
+	out := cache.Snapshot{
+		Endpoints: cache.NewResources(ts.Version, endpoints),
+		Clusters:  cache.NewResources(ts.Version, clusters),
+		Routes:    cache.NewResources(ts.Version, routes),
+		Listeners: cache.NewResources(ts.Version, listeners),
+	}
+
+	if ts.TLS {
+		out.Secrets = cache.NewResources(ts.Version, MakeSecrets(tlsName, rootName))
+	}
+
+	return out
 }
