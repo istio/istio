@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
@@ -219,6 +220,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
+	configz.Register(distributor)
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
