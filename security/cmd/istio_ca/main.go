@@ -160,8 +160,8 @@ func init() {
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
 	flags.BoolVar(&opts.explicitOptInRequired, "explicit-opt-in", false, "Specifies whether Citadel requires "+
-		"explicit opt-in for creating secrets. If set, only namespaces labeled with 'istio-injection=enabled' will "+
-		"have secrets created.")
+		"explicit opt-in for creating secrets. If set, only namespaces labeled with 'istio-managed=enabled' will "+
+		"have secrets created. This feature is only available in key and certificates delivered through secret volume mount.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
