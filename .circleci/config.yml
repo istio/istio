@@ -52,7 +52,7 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
 
 # Environment:
 #  by default runs in /home/circleci/project, and checkout is in current directory
-
+#  ID is circleci(3434)
 
 jobs:
   # TODO: add encrypted creds for real clusters, push to real clusters
@@ -61,13 +61,15 @@ jobs:
     docker:
       - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
         environment:
-          GOPATH: /go
-          KUBECONFIG: /go/src/github.com/istio-ecosystem/istio-installer/.circleci/config
-    # Can run multiple images, first is primary, all use localhost
+          GOPATH: /home/circleci/project/go
+          KUBECONFIG: /home/circleci/project/.circleci/config
 
+    # Can run multiple images, first is primary, all use localhost
     #resource_class: xlarge
     steps:
       - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           command: |
             pwd
@@ -75,7 +77,8 @@ jobs:
             mkdir -p out/tests
             echo "Hello" > out/tests/hello
 
-            go get -u sigs.k8s.io/kind && kind create cluster
+            go get -u sigs.k8s.io/kind
+            kind create cluster
 
             source bin/env.sh
             iop_istio
@@ -83,7 +86,7 @@ jobs:
       - store_test_results:
           path: out/tests
       - store_artifacts:
-          path: /tmp
+          path: out/tests
 
   install-minikube:
     <<: *integrationDefaults
