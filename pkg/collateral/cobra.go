@@ -41,7 +41,7 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 				c.EmitHTMLFragmentWithFrontMatter = true
 			}
 
-			return EmitCollateral(cmd, &c)
+			return EmitCollateral(root, &c)
 		},
 	}
 

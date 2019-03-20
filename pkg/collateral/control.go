@@ -55,40 +55,40 @@ type Control struct {
 // EmitCollateral produces a set of collateral files for a CLI command. You can
 // select to emit markdown to describe a command's function, man pages, YAML
 // descriptions, and bash completion files.
-func EmitCollateral(cmd *cobra.Command, c *Control) error {
+func EmitCollateral(root *cobra.Command, c *Control) error {
 	if c.EmitManPages {
-		if err := doc.GenManTree(cmd, &c.ManPageInfo, c.OutputDir); err != nil {
+		if err := doc.GenManTree(root, &c.ManPageInfo, c.OutputDir); err != nil {
 			return fmt.Errorf("unable to output manpage tree: %v", err)
 		}
 	}
 
 	if c.EmitMarkdown {
-		if err := doc.GenMarkdownTree(cmd, c.OutputDir); err != nil {
+		if err := doc.GenMarkdownTree(root, c.OutputDir); err != nil {
 			return fmt.Errorf("unable to output markdown tree: %v", err)
 		}
 	}
 
 	if c.EmitHTMLFragmentWithFrontMatter {
-		if err := genHTMLFragment(cmd, c.OutputDir+"/"+cmd.Name()+".html"); err != nil {
+		if err := genHTMLFragment(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
 			return fmt.Errorf("unable to output HTML fragment file: %v", err)
 		}
 	}
 
 	if c.EmitYAML {
-		if err := doc.GenYamlTree(cmd, c.OutputDir); err != nil {
+		if err := doc.GenYamlTree(root, c.OutputDir); err != nil {
 			return fmt.Errorf("unable to output YAML tree: %v", err)
 		}
 	}
 
 	if c.EmitBashCompletion {
-		if err := cmd.GenBashCompletionFile(c.OutputDir + "/" + cmd.Name() + ".bash"); err != nil {
+		if err := root.GenBashCompletionFile(c.OutputDir + "/" + root.Name() + ".bash"); err != nil {
 			return fmt.Errorf("unable to output bash completion file: %v", err)
 		}
-		cmd.Printf("Enable completions using `source %s/%s.bash`\n", c.OutputDir, cmd.Name())
+		root.Printf("Enable completions using `source %s/%s.bash`\n", c.OutputDir, root.Name())
 	}
 
 	if !c.EmitManPages && !c.EmitMarkdown && !c.EmitHTMLFragmentWithFrontMatter && !c.EmitYAML && !c.EmitBashCompletion {
-		cmd.Println("No output options specified, nothing generated.")
+		root.Println("No output options specified, nothing generated.")
 	}
 
 	return nil
