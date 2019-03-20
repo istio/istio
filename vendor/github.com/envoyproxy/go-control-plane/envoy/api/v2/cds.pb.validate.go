@@ -50,13 +50,6 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for AltStatName
 
-	if _, ok := Cluster_DiscoveryType_name[int32(m.GetType())]; !ok {
-		return ClusterValidationError{
-			Field:  "Type",
-			Reason: "value must be one of the defined enum values",
-		}
-	}
-
 	if v, ok := interface{}(m.GetEdsClusterConfig()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterValidationError{
@@ -328,6 +321,31 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for DrainConnectionsOnHostRemoval
 
+	switch m.ClusterDiscoveryType.(type) {
+
+	case *Cluster_Type:
+
+		if _, ok := Cluster_DiscoveryType_name[int32(m.GetType())]; !ok {
+			return ClusterValidationError{
+				Field:  "Type",
+				Reason: "value must be one of the defined enum values",
+			}
+		}
+
+	case *Cluster_ClusterType:
+
+		if v, ok := interface{}(m.GetClusterType()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClusterValidationError{
+					Field:  "ClusterType",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.LbConfig.(type) {
 
 	case *Cluster_RingHashLbConfig_:
@@ -506,6 +524,65 @@ func (e UpstreamConnectionOptionsValidationError) Error() string {
 
 var _ error = UpstreamConnectionOptionsValidationError{}
 
+// Validate checks the field values on Cluster_CustomClusterType with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *Cluster_CustomClusterType) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return Cluster_CustomClusterTypeValidationError{
+			Field:  "Name",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return Cluster_CustomClusterTypeValidationError{
+				Field:  "TypedConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// Cluster_CustomClusterTypeValidationError is the validation error returned by
+// Cluster_CustomClusterType.Validate if the designated constraints aren't met.
+type Cluster_CustomClusterTypeValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e Cluster_CustomClusterTypeValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCluster_CustomClusterType.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = Cluster_CustomClusterTypeValidationError{}
+
 // Validate checks the field values on Cluster_EdsClusterConfig with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -603,6 +680,8 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 	// no validation rules for LocalityWeightAware
 
 	// no validation rules for ScaleLocalityWeight
+
+	// no validation rules for PanicModeAny
 
 	return nil
 }
@@ -726,6 +805,17 @@ func (m *Cluster_RingHashLbConfig) Validate() error {
 			Field:  "HashFunction",
 			Reason: "value must be one of the defined enum values",
 		}
+	}
+
+	if wrapper := m.GetMaximumRingSize(); wrapper != nil {
+
+		if wrapper.GetValue() > 8388608 {
+			return Cluster_RingHashLbConfigValidationError{
+				Field:  "MaximumRingSize",
+				Reason: "value must be less than or equal to 8388608",
+			}
+		}
+
 	}
 
 	return nil

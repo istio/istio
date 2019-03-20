@@ -672,3 +672,46 @@ func makeMessage(value []byte, responseMessageName string) (proto.Message, error
 
 	return nil, err
 }
+
+func TestInvalidResource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	gw := proto.Clone(gateway).(*networking.Gateway)
+	gw.Servers[0].Hosts = nil
+
+	message0 := convertToResource(g, model.Gateway.MessageName, []proto.Message{gw})
+
+	change := convert(
+		[]proto.Message{message0[0]},
+		[]string{"bar-namespace/foo"},
+		model.Gateway.Collection, model.Gateway.MessageName)
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(model.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
+}
+
+func TestInvalidResource_BadTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	message0 := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
+	change := convert(
+		[]proto.Message{message0[0]},
+		[]string{"bar-namespace/foo"},
+		model.Gateway.Collection, model.Gateway.MessageName)
+	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
+		Seconds: -1,
+		Nanos:   -1,
+	}
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(model.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
+}

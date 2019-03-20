@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/galley/pkg/meshconfig"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/fs"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -480,7 +479,7 @@ func TestSnapshotDistribution(t *testing.T) {
 	s := newOrFail(t, dir)
 
 	// Create a snapshot distributor.
-	d := publish.NewInMemoryDistributor()
+	d := runtime.NewInMemoryDistributor()
 
 	// Create and start the runtime processor.
 	cfg := &runtime.Config{Mesh: meshconfig.NewInMemory()}
