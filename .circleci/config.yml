@@ -69,19 +69,31 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          docker_layer_caching: true
+      #    docker_layer_caching: true
       - run:
+          name: main
           command: |
             pwd
             id
+            env
             mkdir -p out/tests
             echo "Hello" > out/tests/hello
-
             go get -u sigs.k8s.io/kind
-            kind create cluster
+            $GOPATH/bin/kind create cluster
 
-            source bin/env.sh
-            iop_istio
+            # Option 1: use the kind docker to install stuff.
+            # We can copy our installer in the kind cluster
+            docker cp $HOME/project kind-control-plane:/
+            cat  $HOME/.kube/kind-config-kind | sed s/localhost:.*/localhost:6443/ > $HOME/.kube/config
+            docker cp $HOME/.kube/config kind-control-plane:/
+
+            # TODO: we can exec into the kind cluster and run 'stuff', but we don't have helm.
+            # Will need to run a pod - so need to create a pod with the installer and helm and kubectl
+
+            # TODO: for multi-cluster, we can create a second kind
+            # docker run --volumes-from configs --network container:kind-control-plane istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25 make control
+
+            # TODO: option 3 is to run DIND as the main image - this is likely the fastest
 
       - store_test_results:
           path: out/tests
