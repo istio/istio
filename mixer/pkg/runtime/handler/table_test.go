@@ -225,7 +225,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, globalCfg)
 			s.ID = int64(idx * 2)
 
-			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+			gp := pool.NewGoroutinePool(5, false)
+			gp.AddWorkers(5)
+			oldTable := NewTable(Empty(), s, gp)
 			oldTable.strayWorkersRetryDuration = 5 * time.Millisecond
 
 			s = config.Empty()
