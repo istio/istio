@@ -115,6 +115,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
             <tr>
                 <th>Time</th>
                 <th>Collection</th>
+                <th>Version</th>
                 <th>Acked</th>
                 <th>Nonce</th>
             </tr>
@@ -125,6 +126,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
             <tr>
                 <td>{{$entry.Time.Format "2006-01-02T15:04:05Z07:00"}}</td>
                 <td>{{$entry.Request.Collection}}</td>
+                <td>{{$entry.Request.VersionInfo}}</td>
                 <td>{{$entry.Acked}}</td>
                 <td>{{$entry.Request.ResponseNonce}}</td>
             </tr>
@@ -161,15 +163,15 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
                     row.appendChild(c1);
 
                     var c2 = document.createElement("td");
-                    c2.innerText = data.LatestRequests[i].Request.type_url;
+                    c2.innerText = data.LatestRequests[i].Request.Collection;
                     row.appendChild(c2);
 
                     var c3 = document.createElement("td");
-                    c3.innerText = data.LatestRequests[i].Request.version_info;
+                    c3.innerText = data.LatestRequests[i].Request.VersionInfo;
                     row.appendChild(c3);
 
                     var c4 = document.createElement("td");
-                    if (data.LatestRequests[i].Request.error_detail === null) {
+                    if (data.LatestRequests[i].Request.ErrorDetail === null) {
                         c4.innerText = "true"
                     } else {
                         c4.innerText = "false"
@@ -177,7 +179,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
                     row.appendChild(c4);
 
                     var c5 = document.createElement("td");
-                    c5.innerText = data.LatestRequests[i].Request.response_nonce;
+                    c5.innerText = data.LatestRequests[i].Request.ResponseNonce;
                     row.appendChild(c5);
 
                     tbody.appendChild(row)
