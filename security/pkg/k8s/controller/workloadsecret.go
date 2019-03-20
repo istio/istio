@@ -208,9 +208,12 @@ func GetSecretName(saName string) string {
 }
 
 // Determine if the object is "enabled" for Istio.
-// Currently this looks at the object's namespace annotation, but could be
-// extended to allow hierarchy of global < namespace < object annotations/labels.
+// Currently this looks at the list of watched namespaces and the object's namespace annotation
 func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
+	if _, watched := sc.namespaces[obj.GetNamespace()]; watched || !sc.explicitOptIn {
+		return true
+	}
+
 	const label = "istio-managed"
 	enabled := !sc.explicitOptIn // for backward compatibility, Citadel always creates secrets
 	// @todo this should be changed to false once we communicate behavior change and ensure customers
@@ -239,8 +242,7 @@ func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	if _, listed := sc.namespaces[acct.GetNamespace()]; listed ||
-		!sc.explicitOptIn || sc.istioEnabledObject(acct.GetObjectMeta()) {
+	if sc.istioEnabledObject(acct.GetObjectMeta()) {
 		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 	}
 	sc.monitoring.ServiceAccountCreation.Inc()
@@ -324,9 +326,11 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if _, err := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
+	if sa, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
-		sc.upsertSecret(saName, scrt.GetNamespace())
+		if sc.istioEnabledObject(sa.GetObjectMeta()) {
+			sc.upsertSecret(saName, scrt.GetNamespace())
+		}
 		sc.monitoring.SecretDeletion.Inc()
 	}
 }
