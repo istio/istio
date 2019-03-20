@@ -42,6 +42,7 @@ function build_kind_images(){
 	rm -rf "${IMAGE_FILE}"
 }
 
+build_kind_images
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
