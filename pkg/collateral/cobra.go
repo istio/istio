@@ -30,7 +30,7 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "collateral",
 		Short:  "Generate collateral support files for this program",
-		Hidden: true,
+		Hidden: false,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all {
@@ -41,7 +41,7 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 				c.EmitHTMLFragmentWithFrontMatter = true
 			}
 
-			return EmitCollateral(root, &c)
+			return EmitCollateral(cmd, &c)
 		},
 	}
 
@@ -53,6 +53,11 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 	cmd.Flags().BoolVarP(&c.EmitYAML, "yaml", "", c.EmitYAML, "Produce YAML documentation files")
 	cmd.Flags().BoolVarP(&c.EmitHTMLFragmentWithFrontMatter, "html_fragment_with_front_matter",
 		"", c.EmitHTMLFragmentWithFrontMatter, "Produce an HTML documentation file with Hugo/Jekyll-compatible front matter.")
+
+	hiddenFlags := []string{"markdown", "man", "yaml", "html_fragment_with_front_matter"}
+	for _, opt := range hiddenFlags {
+		_ = cmd.Flags().MarkHidden(opt)
+	}
 
 	return cmd
 }
