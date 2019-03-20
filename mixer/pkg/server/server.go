@@ -130,10 +130,10 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}()
 
 	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
-	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
+	s.gp.AddWorkers(a.APIWorkerPoolSize)
 
 	s.adapterGP = pool.NewGoroutinePool(a.AdapterWorkerPoolSize, a.SingleThreaded)
-	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize - 1)
+	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize)
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
