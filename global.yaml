@@ -33,10 +33,12 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: gcr.io/istio-release
+  #hub: gcr.io/istio-release
+  hub: istio
 
   # Default tag for Istio images.
-  tag: release-1.1-latest-daily
+  #tag: release-1.1-latest-daily
+  tag: 1.1.0
 
   # TODO: specific to control, move there
   k8sIngress:
