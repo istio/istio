@@ -110,7 +110,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         <table id="recent-requests-table">
             <thead>
             <tr>
-                <th colspan="5">Recent Requests</th>
+                <th colspan="4">Recent Requests</th>
             </tr>
             <tr>
                 <th>Time</th>
@@ -121,14 +121,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
             </thead>
 
             <tbody>
-        {{ range $entry := .LatestRequests }}
-            <tr>
-                <td>{{$entry.Time.Format "2006-01-02T15:04:05Z07:00"}}</td>
-                <td>{{$entry.Request.Collection}}</td>
-                <td>{{$entry.Acked}}</td>
-                <td>{{$entry.Request.ResponseNonce}}</td>
-            </tr>
-        {{ end }}
+
             </tbody>
         </table>
     </div>
@@ -161,24 +154,21 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
                     row.appendChild(c1);
 
                     var c2 = document.createElement("td");
-                    c2.innerText = data.LatestRequests[i].Request.type_url;
+                    c2.innerText = data.LatestRequests[i].Request.Collection;
                     row.appendChild(c2);
 
+
                     var c3 = document.createElement("td");
-                    c3.innerText = data.LatestRequests[i].Request.version_info;
+                    if (data.LatestRequests[i].Request.ErrorDetail === null) {
+                        c3.innerText = "true"
+                    } else {
+                        c3.innerText = "false"
+                    }
                     row.appendChild(c3);
 
                     var c4 = document.createElement("td");
-                    if (data.LatestRequests[i].Request.error_detail === null) {
-                        c4.innerText = "true"
-                    } else {
-                        c4.innerText = "false"
-                    }
+                    c4.innerText = data.LatestRequests[i].Request.ResponseNonce;
                     row.appendChild(c4);
-
-                    var c5 = document.createElement("td");
-                    c5.innerText = data.LatestRequests[i].Request.response_nonce;
-                    row.appendChild(c5);
 
                     tbody.appendChild(row)
                 }
