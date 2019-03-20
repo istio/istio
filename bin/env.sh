@@ -90,8 +90,9 @@ function iop_istio() {
 
     # Enable core dumps - for debugging
     iop istio-control autoinject ${BASE}/istio-control/istio-autoinject \
-        --set enableNamespacesByDefault=true  \
         --set global.proxy.enableCoreDump=true
+
+        #--set enableNamespacesByDefault=true  \
 
     #### Telemetry
     iop istio-telemetry mixer ${BASE}/istio-telemetry/mixer-telemetry
