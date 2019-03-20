@@ -336,16 +336,22 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint 
 	return eps
 }
 
-func (a *nativeApp) callURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := e.(*nativeEndpoint)
+	if !ok {
+		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
+	}
+
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	dstServiceName := dst.Name()
+	dstURL := dst.URL()
+	dstServiceName := dst.owner.Name()
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   url.String(),
+		Url:   dstURL.String(),
 		Count: int32(opts.Count),
 		Headers: []*proto.Header{
 			{
@@ -367,16 +373,11 @@ func (a *nativeApp) callURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	return resp, nil
-
-}
-
-func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*nativeEndpoint)
-	if !ok {
-		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
+	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
+		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
-	return a.callURL(dst.URL(), dst.owner, opts)
+
+	return resp, nil
 }
 
 func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {

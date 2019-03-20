@@ -18,10 +18,9 @@ import (
 	"net/url"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"k8s.io/api/core/v1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"

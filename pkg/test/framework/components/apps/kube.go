@@ -403,25 +403,33 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-type KubeEndpoint struct {
+type KubeEndpoint interface {
+	AppEndpoint
+	URL() *url.URL
+	SetURL(URL *url.URL)
+}
+
+type endpoint struct {
 	url   *url.URL
 	port  *model.Port
 	owner *kubeApp
 }
 
-func (e *KubeEndpoint) Name() string {
+var _ KubeEndpoint = &endpoint{}
+
+func (e *endpoint) Name() string {
 	return e.port.Name
 }
 
-func (e *KubeEndpoint) Owner() App {
+func (e *endpoint) Owner() App {
 	return e.owner
 }
 
-func (e *KubeEndpoint) Protocol() model.Protocol {
+func (e *endpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *KubeEndpoint) URL() *url.URL {
+func (e *endpoint) URL() *url.URL {
 	if e.url == nil {
 		var protocol string
 		switch e.port.Protocol {
@@ -444,7 +452,7 @@ func (e *KubeEndpoint) URL() *url.URL {
 	return e.url
 }
 
-func (e *KubeEndpoint) SetURL(URL *url.URL) {
+func (e *endpoint) SetURL(URL *url.URL) {
 	e.url = URL
 }
 
@@ -467,7 +475,7 @@ type kubeApp struct {
 	namespace   string
 	serviceName string
 	appName     string
-	endpoints   []*KubeEndpoint
+	endpoints   []*endpoint
 	forwarder   testKube.PortForwarder
 	client      *echo.Client
 	service     *kubeApiCore.Service
@@ -538,7 +546,7 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*KubeEndpoint).port.Port), nil
+	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
 }
 
 func (a *kubeApp) Name() string {
@@ -549,10 +557,10 @@ func (a *kubeApp) ClusterIP() string {
 	return (&kubeSvc{a.service}).ClusterIP()
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*KubeEndpoint {
-	out := make([]*KubeEndpoint, len(service.Spec.Ports))
+func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
+	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
-		out[i] = &KubeEndpoint{
+		out[i] = &endpoint{
 			owner: owner,
 			port: &model.Port{
 				Name:     servicePort.Name,
@@ -591,16 +599,29 @@ func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 	return nil
 }
 
-func (a *kubeApp) callURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+// Call implements the environment.DeployedApp interface
+func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := e.(*endpoint)
+	if !ok {
+		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
+	}
+
+	// Normalize the count.
+	if opts.Count <= 0 {
+		opts.Count = 1
+	}
+
+	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	dstServiceName := dst.Name()
+	dstURL := dst.URL()
+	dstServiceName := dst.owner.Name()
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   url.String(),
+		Url:   dstURL.String(),
 		Count: int32(opts.Count),
 		Headers: []*proto.Header{
 			{
@@ -622,18 +643,11 @@ func (a *kubeApp) callURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.P
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != url.Port() {
+	if resp[0].Port != strconv.Itoa(dst.port.Port) {
 		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
-
-}
-
-// Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
-	kubeEndpoint := e.(*KubeEndpoint)
-	return a.callURL(kubeEndpoint.URL(), e.Owner(), opts)
 }
 
 func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {

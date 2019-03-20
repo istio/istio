@@ -248,7 +248,7 @@ func TestTunnel(t *testing.T) {
 			"client.crt":  readFileOrFail("certs/client.crt", t),
 			"client.key":  readFileOrFail("certs/client.key", t),
 		}}
-	_ := egress.NewOrFail(t, ctx, egress.Config{
+	_ = egress.NewOrFail(t, ctx, egress.Config{
 		Istio:                      ist,
 		Secret:                     secret,
 		AdditionalSecretMountPoint: "/etc/istio/tunnel-certs",
@@ -265,7 +265,7 @@ func TestTunnel(t *testing.T) {
 	a := applications.GetAppOrFail("a", t)
 	b := applications.GetAppOrFail("t", t).(apps.KubeApp)
 
-	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0].(*apps.KubeEndpoint)
+	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0].(apps.KubeEndpoint)
 
 	ingressURL, err := ingress.URL(model.ProtocolHTTPS)
 	if err != nil {
