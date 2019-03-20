@@ -112,3 +112,33 @@ function clone_cni() {
       cd "${TMP_DIR}" || return
   fi
 }
+
+
+function check_and_install_kind() {
+  echo "Checking KinD is installed..."
+  if ! kind --help > /dev/null; then
+    if ! (go get sigs.k8s.io/kind); then
+      echo "Looks like KinD installation failed."
+      echo "Please install it manually then run this script again."
+      exit 1
+    fi
+  fi
+}
+
+function setup_kind_cluster() {
+  # Installing KinD
+  check_and_install_kind
+
+  # Delete any previous e2e KinD cluster
+  echo "Deleting previous KinD cluster with name=e2e-suite"
+  kind create cluster --name=e2e-suite
+
+  # Create KinD cluster
+  if ! (kind create cluster --name=e2e-suite) > /dev/null; then
+    echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
+    exit 1
+  fi
+
+  export GIT_SHA="${GIT_SHA:-$TAG}"
+  export KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+}

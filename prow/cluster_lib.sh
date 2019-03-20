@@ -156,6 +156,3 @@ function unsetup_clusters() {
      gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
   fi
 }
-
-
-
