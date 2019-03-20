@@ -151,6 +151,10 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			  {
 			   "Quota": {
 			    "requestCount": {
+                 "Status": {
+                  "code": 8,
+                  "message": "handler.redisquota.istio-system:redisquota: Resource exhausted"
+                 },
 			     "ValidDuration": 0,
 			     "Amount": 0
 			    }
@@ -253,7 +257,7 @@ func TestErrorFromRedis(t *testing.T) {
 			 	"requestCount": {
                  "Status": {
                   "code": 14,
-                  "message": "handler.redisquota.istio-system:EOF"
+                  "message": "handler.redisquota.istio-system:redisquota: Service Unavailable"
                  },
 			 	 "ValidDuration": 0,
 			 	 "Amount": 0

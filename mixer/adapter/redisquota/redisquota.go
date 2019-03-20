@@ -321,7 +321,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 			if err != nil {
 				_ = h.logger.Errorf("%v", err.Error())
 				return adapter.QuotaResult{
-					Status: status.WithInternal(err.Error()),
+					Status: status.WithInternal("redisquota: Internal Error"),
 				}, nil
 			}
 
@@ -346,7 +346,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 			if err != nil {
 				_ = h.logger.Errorf("failed to run quota script: %v", err)
 				return adapter.QuotaResult{
-					Status: status.WithUnavailable(err.Error()),
+					Status: status.WithUnavailable("redisquota: Service Unavailable"),
 				}, nil
 			}
 
@@ -354,7 +354,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 			if err != nil {
 				_ = h.logger.Errorf("%v", err)
 				return adapter.QuotaResult{
-					Status: status.WithInternal(err.Error()),
+					Status: status.WithInternal("redisquota: Internal Error"),
 				}, nil
 			}
 
