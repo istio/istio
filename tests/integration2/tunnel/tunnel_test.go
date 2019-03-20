@@ -7,27 +7,22 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/egress"
-
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
-	"istio.io/istio/pkg/test/framework/components/istio"
-
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
 	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-
+	"istio.io/istio/pkg/test/framework/components/egress"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-
-	"istio.io/istio/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/tmpl"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -288,37 +283,37 @@ func TestTunnel(t *testing.T) {
 	serverNamespace := namespace.NewOrFail(t, ctx, "server", true)
 
 	err = env.ApplyContents(cfg.SystemNamespace,
-		dump(tmpl.EvaluateOrFail(clientSideEgressConfig, map[string]interface{}{
+		dump(tmpl.EvaluateOrFail(t, clientSideEgressConfig, map[string]interface{}{
 			"ingressAddress":  ingressURL.Hostname(),
 			"ingressPort":     ingressPort,
 			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
 			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": cfg.SystemNamespace,
-		}, t)))
+		})))
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = env.ApplyContents(clientNamespace.Name(),
-		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
+		dump(tmpl.EvaluateOrFail(t, clientSideConfig, map[string]interface{}{
 			"vip":             virtualIP,
 			"serviceName":     serviceName,
 			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": cfg.SystemNamespace,
-		}, t)),
+		})),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = env.ApplyContents(serverNamespace.Name(),
-		dump(tmpl.EvaluateOrFail(serverSideConfig, map[string]interface{}{
+		dump(tmpl.EvaluateOrFail(t, serverSideConfig, map[string]interface{}{
 			"address":    b.ClusterIP(),
 			"port":       beURL.Port(),
 			"ingressDNS": "service.istio.test.local", // Must match CN in certs/server.crt
 			"clientSAN":  "client.istio.test.local",  // Must match CN and SAN in certs/client.crt
-		}, t)),
+		})),
 	)
 
 	if err != nil {
