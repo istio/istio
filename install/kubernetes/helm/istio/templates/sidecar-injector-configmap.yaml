@@ -249,6 +249,7 @@ data:
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds/uds_path
           name: sds-uds-path
+          readOnly: true
         {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
