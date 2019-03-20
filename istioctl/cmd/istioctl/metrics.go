@@ -66,6 +66,7 @@ istioctl experimental metrics productpage-v1
 # Retrieve workload metrics for various services in the different namespaces
 istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
+		// nolint: goimports
 		Aliases:               []string{"m"},
 		Args:                  cobra.MinimumNArgs(1),
 		RunE:                  run,
@@ -115,7 +116,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, port)
+	fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
@@ -161,8 +162,9 @@ func prometheusPods(client cache.Getter) (*v1.PodList, error) {
 	return obj.(*v1.PodList), nil
 }
 
-func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
-	req := client.Post().Resource("pods").Namespace(istioNamespace).Name(podName).SubResource("portforward")
+// nolint: lll
+func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName string, ns string, port int, podPort int) (*portforward.PortForwarder, <-chan struct{}, error) {
+	req := client.Post().Resource("pods").Namespace(ns).Name(podName).SubResource("portforward")
 
 	transport, upgrader, err := spdy.RoundTripperFor(config)
 	if err != nil {
@@ -173,7 +175,7 @@ func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName 
 
 	stop := make(chan struct{})
 	ready := make(chan struct{})
-	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:9090", port)}, stop, ready, ioutil.Discard, os.Stderr)
+	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", port, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
