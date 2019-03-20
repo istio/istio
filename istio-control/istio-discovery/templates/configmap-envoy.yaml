@@ -63,7 +63,7 @@ data:
 
         hosts:
           - socket_address:
-              address: istio-galley
+              address: istio-galley.{{ .Values.global.configNamespace }}
               port_value: 15019
 
 
