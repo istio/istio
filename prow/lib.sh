@@ -131,7 +131,7 @@ function setup_kind_cluster() {
 
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=e2e-suite"
-  kind create cluster --name=e2e-suite
+  kind delete cluster --name=e2e-suite
 
   # Create KinD cluster
   if ! (kind create cluster --name=e2e-suite) > /dev/null; then
