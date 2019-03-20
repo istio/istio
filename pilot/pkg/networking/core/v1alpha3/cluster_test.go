@@ -513,3 +513,22 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		})
 	}
 }
+
+func TestLocalityLB(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	if clusters[0].CommonLbConfig == nil {
+		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+}
