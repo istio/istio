@@ -91,19 +91,3 @@ function check_homebrew() {
     exit 1
   fi
 }
-
-# Install Go on MacOs platform
-function install_go() {
-  echo "Checking go..."
-  if ! go --help > /dev/null; then
-    echo "go is not installed. Installing the latest stable release..."
-    if ! brew install go; then
-      echo "Instalation of go from bew fails. Please install it manually."
-      exit 1
-    else
-      echo "Done."
-    fi
-  else
-    echo "go exists. Please make sure to update it to latest version."
-  fi
-}
