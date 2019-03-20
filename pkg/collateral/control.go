@@ -83,9 +83,8 @@ func EmitCollateral(cmd *cobra.Command, c *Control) error {
 	if c.EmitBashCompletion {
 		if err := cmd.GenBashCompletionFile(c.OutputDir + "/" + cmd.Name() + ".bash"); err != nil {
 			return fmt.Errorf("unable to output bash completion file: %v", err)
-		} else {
-			cmd.Printf("Enable completions using `source %s/%s.bash`\n", c.OutputDir, cmd.Name())
 		}
+		cmd.Printf("Enable completions using `source %s/%s.bash`\n", c.OutputDir, cmd.Name())
 	}
 
 	if !c.EmitManPages && !c.EmitMarkdown && !c.EmitHTMLFragmentWithFrontMatter && !c.EmitYAML && !c.EmitBashCompletion {
