@@ -935,16 +935,15 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 }
 
-func (s *DiscoveryServer) workloadLabels(proxy *model.Proxy) model.Labels {
-	var workloadLabels model.Labels
+func (s *DiscoveryServer) workloadLabels(proxy *model.Proxy) model.LabelsCollection {
 	ipAddresses := proxy.IPAddresses
-	if len(ipAddresses) == 0 {
-		return workloadLabels
+	labels := make([]model.Labels, 0, len(ipAddresses))
+	for _, ip := range ipAddresses {
+		if workload := s.WorkloadsByID[ip]; workload != nil {
+			labels = append(labels, workload.Labels)
+		}
 	}
-	if workload := s.WorkloadsByID[ipAddresses[0]]; workload != nil {
-		workloadLabels = workload.Labels
-	}
-	return workloadLabels
+	return labels
 }
 
 // Send with timeout
