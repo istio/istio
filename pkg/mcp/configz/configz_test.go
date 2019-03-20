@@ -114,7 +114,7 @@ func TestConfigZ(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithTwoRequests(tt, baseURL) })
+	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithTwoLatestRequests(tt, baseURL) })
 }
 
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
@@ -136,7 +136,7 @@ func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	}
 }
 
-func testConfigJWithTwoRequests(t *testing.T, baseURL string) {
+func testConfigJWithTwoLatestRequests(t *testing.T, baseURL string) {
 	t.Helper()
 
 	data := request(t, baseURL+"/configj/")
