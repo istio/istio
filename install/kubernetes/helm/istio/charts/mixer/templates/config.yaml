@@ -898,7 +898,7 @@ spec:
     #
     # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
     #
-    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+    # kubeconfigPath: "mixer/adapter/kubernetes/kubeconfig"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
