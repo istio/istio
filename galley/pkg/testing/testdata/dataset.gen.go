@@ -1166,6 +1166,7 @@ var _datasetV1PodYaml = []byte(`apiVersion: v1
 kind: Pod
 metadata:
   annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
     seccomp.security.alpha.kubernetes.io/pod: docker/default
   creationTimestamp: 2018-12-03T16:59:57Z
   generateName: kube-dns-548976df6c-
@@ -1467,6 +1468,7 @@ var _datasetV1Pod_expectedJson = []byte(`{
       "Metadata": {
         "name": "kube-dns-548976df6c-d9kkv",
         "annotations": {
+          "scheduler.alpha.kubernetes.io/critical-pod": "",
           "seccomp.security.alpha.kubernetes.io/pod": "docker/default"
         },
         "labels": {
@@ -1477,6 +1479,7 @@ var _datasetV1Pod_expectedJson = []byte(`{
       "Body": {
         "metadata": {
           "annotations": {
+            "scheduler.alpha.kubernetes.io/critical-pod": "",
             "seccomp.security.alpha.kubernetes.io/pod": "docker/default"
           },
           "creationTimestamp": "2018-12-03T16:59:57Z",
