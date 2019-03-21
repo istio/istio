@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
@@ -215,64 +214,5 @@ func generateExpectRBACForSinglePolicy(serviceRoleName string, rbacPolicy *polic
 		Policies: map[string]*policy.Policy{
 			serviceRoleName: rbacPolicy,
 		},
-	}
-}
-
-// nolint:deadcode
-func generateSimpleServiceRoleBindingAllGroups(serviceRoleName, serviceRoleBindingName string) model.Config {
-	return model.Config{
-		ConfigMeta: model.ConfigMeta{Name: serviceRoleBindingName},
-		Spec: &rbacproto.ServiceRoleBinding{
-			Subjects: []*rbacproto.Subject{
-				{
-					Properties: map[string]string{
-						"request.auth.claims[groups]": "group*",
-					},
-				},
-			},
-			RoleRef: &rbacproto.RoleRef{
-				Kind: "ServiceRole",
-				Name: serviceRoleName,
-			},
-		},
-	}
-}
-
-// nolint: deadcode
-func generateSimplePolicyForNotRuleWithHeader(header string, exactMatch string) *policy.Policy {
-	return &policy.Policy{
-		Permissions: []*policy.Permission{
-			{
-				Rule: &policy.Permission_AndRules{
-					AndRules: &policy.Permission_Set{
-						Rules: []*policy.Permission{
-							{
-								Rule: &policy.Permission_NotRule{
-									NotRule: &policy.Permission{
-										Rule: generateHeaderRule([]*route.HeaderMatcher{
-											{Name: header, HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: exactMatch}},
-										}),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
-									[]string{attrRequestClaims, "groups"}, "group*"),
-							},
-						},
-					},
-				},
-			},
-		}},
 	}
 }
