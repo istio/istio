@@ -147,41 +147,6 @@ type XDSUpdater interface {
 	ConfigUpdate(full bool)
 }
 
-// XDSUpdater is used for direct updates of the xDS model and incremental push.
-// Pilot uses multiple registries - for example each K8S cluster is a registry instance,
-// as well as consul and future EDS or MCP sources. Each registry is responsible for
-// tracking a set of endpoints associated with mesh services, and calling the EDSUpdate
-// on changes. A registry may group endpoints for a service in smaller subsets - for
-// example by deployment, or to deal with very large number of endpoints for a service.
-// We want to avoid passing around large objects - like full list of endpoints for a registry,
-// or the full list of endpoints for a service across registries, since it limits scalability.
-//
-// Future optimizations will include grouping the endpoints by labels, gateway or region to
-// reduce the time when subsetting or split-horizon is used. This desing assumes pilot
-// tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
-// It is possible to split the endpoint tracking in future.
-type XDSUpdater interface {
-
-	// EDSUpdate is called when the list of endpoints or labels in a ServiceEntry is
-	// changed. For each cluster and hostname, the full list of active endpoints (including empty list)
-	// must be sent. The shard name is used as a key - current implementation is using the registry
-	// name.
-	EDSUpdate(shard, hostname string, entry []*IstioEndpoint) error
-
-	// SvcUpdate is called when a service port mapping definition is updated.
-	// This interface is WIP - labels, annotations and other changes to service may be
-	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
-	// LDS/RDS.
-	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
-
-	// WorkloadUpdate is called by a registry when the labels or annotations on a workload have changed.
-	// The 'id' is the IP address of the pod for k8s if the pod is in the main/default network.
-	// In future it will include the 'network id' for pods in a different network, behind a zvpn gate.
-	// The IP is used because K8S Endpoints object associated with a Service only include the IP.
-	// We use Endpoints to track the membership to a service and readiness.
-	WorkloadUpdate(id string, labels map[string]string, annotations map[string]string)
-}
-
 // IstioEndpoint has the information about a single address+port for a specific
 // service and shard.
 //
