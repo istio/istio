@@ -352,14 +352,28 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return nil
 	}
 	option := rbacOption{authzPolicies: authzPolicies, globalPermissiveMode: globalPermissive}
+
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
-		if filter != nil {
+		tcpFilter := buildTCPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
+		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+			// For gateways, due to TLS termination, a listener marked as TCP could very well
+			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
+			// to decide the type of filter to attach
+			httpFilter := buildHTTPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
+			rbacLog.Infof("built http filter config for %s", service.name)
+			for cnum := range mutable.FilterChains {
+				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
+				}
+			}
+		} else {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *filter)
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
 			}
 		}
 	case plugin.ListenerProtocolHTTP:
