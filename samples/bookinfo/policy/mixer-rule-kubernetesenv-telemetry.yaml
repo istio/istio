@@ -52,6 +52,6 @@ metadata:
 spec:
   match: "true"
   actions:
-  - handler: kubeenvhandler.prometheus
+  - handler: kubeenvhandler
     instances:
-    - kubeenvrequestcount.metric
+    - kubeenvrequestcount.instance

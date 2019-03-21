@@ -27,5 +27,5 @@ metadata:
 spec:
   match: (source.labels["istio"] | "") == "ingressgateway" && (request.headers["x-user"] | "") == "john"
   actions:
-  - handler: ingressdenier.denier.istio-system
-    instances: [ denyrequest.checknothing.istio-system ]
+  - handler: ingressdenier
+    instances: [ denyrequest.instance ]
