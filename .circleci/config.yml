@@ -61,7 +61,6 @@ jobs:
     environment:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
-            - GOPATH: /go
     steps:
       - checkout
       - run: bin/testEnvRootMinikube.sh start
@@ -73,10 +72,11 @@ jobs:
       - run: docker images
 
   machine-kind:
-    <<: *integrationDefaults
+    machine:
+      enabled: true
+      image: circleci/classic:edge
     environment:
       - TEST_ENV: minikube-none
-      - GOPATH: /go
     steps:
       - checkout
       - run:
