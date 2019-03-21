@@ -224,6 +224,13 @@ func KubeScale(namespace, typeName string, replicaCount int, kubeconfig string) 
 	return err
 }
 
+// KubeVersion kubectl version
+func KubeVersion(kubeconfig string) error {
+	kubecommand := fmt.Sprintf("kubectl version --kubeconfig=%s", kubeconfig)
+	_, err := Shell(kubecommand)
+	return err
+}
+
 // KubeDeleteContents kubectl apply from contents
 func KubeDeleteContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
