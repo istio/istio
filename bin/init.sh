@@ -61,13 +61,12 @@ export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
 function set_download_command () {
-    # Try curl.
-    if command -v curl > /dev/null; then
-        if curl --version | grep Protocols  | grep https > /dev/null; then
-	       DOWNLOAD_COMMAND='curl -fLSs'
-	       return
-        fi
-        echo curl does not support https, will try wget for downloading files.
+  DOWNLOAD_COMMAND="${ROOTDIR}/bin/s3_download.sh"
+  # Aspenmesh uses s3.
+  if ! aws s3 help > /dev/null 2>&1; then
+    if [ "$CIRCLECI" == "true" ]; then
+      sudo apt update && sudo apt install awscli
+      DOWNLOAD_COMMAND="${ROOTDIR}/bin/s3_download.sh"
     else
       echo "aws cli tools are required"
       exit 1
