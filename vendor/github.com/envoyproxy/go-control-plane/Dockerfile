@@ -8,7 +8,8 @@ COPY . .
 RUN go build -race -o ${test_out_bin} pkg/test/main/main.go
 
 # Integration test docker file
-FROM envoyproxy/envoy:latest
+# Due to https://github.com/envoyproxy/envoy/issues/6237, we have to pin envoy temporarily
+FROM envoyproxy/envoy:0634e7bcbfea7317eaf805a657d048ffa27f519a
 ADD sample /sample
 ADD build/integration.sh build/integration.sh
 COPY --from=0 /go/src/github.com/envoyproxy/go-control-plane/bin/test-linux /bin/test

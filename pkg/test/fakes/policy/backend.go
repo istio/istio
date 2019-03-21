@@ -214,6 +214,7 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 	defer b.lock.Unlock()
 
 	if b.settings.getDenyCheck() {
+		scope.Infof("Backend.HandleCheckNothing => UNAUTHENTICATED")
 		return &istio_mixer_adapter_model_v1beta11.CheckResult{
 			Status: google_rpc.Status{
 				Code:    int32(google_rpc.UNAUTHENTICATED),
@@ -222,6 +223,7 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 		}, nil
 	}
 
+	scope.Infof("Backend.HandleCheckNothing => OK")
 	return &istio_mixer_adapter_model_v1beta11.CheckResult{
 		Status: google_rpc.Status{
 			Code: int32(google_rpc.OK),

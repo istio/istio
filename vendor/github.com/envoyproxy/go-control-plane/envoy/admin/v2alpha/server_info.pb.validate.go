@@ -189,6 +189,8 @@ func (m *CommandLineOptions) Validate() error {
 
 	// no validation rules for RestartEpoch
 
+	// no validation rules for CpusetThreads
+
 	return nil
 }
 
