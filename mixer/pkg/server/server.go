@@ -183,7 +183,6 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		}
 	}
 
-	var rt *runtime.Runtime
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
 		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
@@ -208,7 +207,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}
 	s.configStore = st
 	log.Info("Starting runtime config watch...")
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
