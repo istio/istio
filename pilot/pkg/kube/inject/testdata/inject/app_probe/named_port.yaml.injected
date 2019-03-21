@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"44e1081a36a5d985f23e2e697d388aadd76db06c5d63c9ef777c122ebe91784d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"76ee4e27aff3af035cd96d78d753d60ad89063d0fc3edbb3b1438a5452ad7b01","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -37,11 +37,11 @@ spec:
         - --serviceCluster
         - hello.default
         - --drainDuration
-        - 2s
+        - 45s
         - --parentShutdownDuration
-        - 3s
+        - 1m0s
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:15010
         - --connectTimeout
         - 1s
         - --statsdUdpAddress

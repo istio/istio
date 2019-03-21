@@ -154,7 +154,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	}
 	adsc.Metadata = opts.Meta
 
-	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
 	err := adsc.Run()
@@ -357,8 +357,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			}
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
-			// ignore for now
-		} else if f0.Name == "envoy.redis_proxy" {
 			// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now

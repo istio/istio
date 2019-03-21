@@ -120,7 +120,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
+	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
 		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
@@ -146,7 +146,7 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
+	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
 	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 }
 

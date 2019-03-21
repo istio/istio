@@ -1,13 +1,10 @@
 # Client inside the cluster, not istio injected
-apiVersion: apps/v1
+apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: raw-cli-deployement
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: fortio
   template:
     metadata:
       labels:

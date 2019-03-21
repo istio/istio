@@ -212,58 +212,76 @@ func TestHandleCSR(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
 		authorizer     *mockAuthorizer
-		ca             ca.CertificateAuthority
+		ca             *mockca.FakeCA
 		csr            string
 		cert           string
 		certChain      string
+		expectedIDs    []string
 		code           codes.Code
 	}{
 		"No authenticator": {
 			authenticators: nil,
-			code:           codes.Unauthenticated,
 			authorizer:     &mockAuthorizer{},
 			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			code:           codes.Unauthenticated,
 		},
 		"Unauthenticated request": {
 			authenticators: []authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
 			ca:         &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			code:       codes.Unauthenticated,
+		},
+		"No caller authenticated": {
+			authorizer:     &mockAuthorizer{},
+			authenticators: []authenticator{&mockAuthenticator{}},
+			code:           codes.Unauthenticated,
 		},
 		"Corrupted CSR": {
 			authorizer:     &mockAuthorizer{},
-			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            "deadbeef",
 			code:           codes.InvalidArgument,
 		},
 		"Invalid SAN CSR": {
 			authorizer:     &mockAuthorizer{},
-			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
+			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			csr:            badSanCsr,
 			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			ca:             &mockca.FakeCA{SignErr: ca.NewError(ca.CANotReady, fmt.Errorf("cannot sign"))},
 			csr:            csr,
 			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authenticators: []authenticator{&mockAuthenticator{}},
+			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test"}}},
 			authorizer:     &mockAuthorizer{},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte("generated cert"),
 				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
 			},
-			csr:       csr,
-			cert:      "generated cert",
-			certChain: "cert chain",
-			code:      codes.OK,
+			csr:         csr,
+			cert:        "generated cert",
+			certChain:   "cert chain",
+			expectedIDs: []string{"test"},
+			code:        codes.OK,
+		},
+		"Multiple identities received by CA signer": {
+			authenticators: []authenticator{&mockAuthenticator{identities: []string{"test1", "test2"}}},
+			authorizer:     &mockAuthorizer{},
+			ca: &mockca.FakeCA{
+				SignedCert:    []byte("generated cert"),
+				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
+			},
+			csr:         csr,
+			cert:        "generated cert",
+			certChain:   "cert chain",
+			expectedIDs: []string{"test1", "test2"},
+			code:        codes.OK,
 		},
 	}
 
@@ -290,7 +308,19 @@ func TestHandleCSR(t *testing.T) {
 			if !bytes.Equal(response.CertChain, []byte(c.certChain)) {
 				t.Errorf("Case %s: expecting cert chain to be (%s) but got (%s)", id, c.certChain, response.CertChain)
 			}
-
+		}
+		if c.expectedIDs != nil {
+			receivedIDs := c.ca.ReceivedIDs
+			if len(receivedIDs) != len(c.expectedIDs) {
+				t.Errorf("Case %s: CA received different IDs (%v) than the callers (%v)",
+					id, receivedIDs, c.expectedIDs)
+			}
+			for i, v := range receivedIDs {
+				if v != c.expectedIDs[i] {
+					t.Errorf("Case %s: CA received different IDs (%v) than the callers (%v)",
+						id, receivedIDs, c.expectedIDs)
+				}
+			}
 		}
 	}
 }

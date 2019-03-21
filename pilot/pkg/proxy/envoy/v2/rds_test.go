@@ -43,7 +43,7 @@ func TestRDS(t *testing.T) {
 		{
 			"gateway_new",
 			gatewayID(gatewayIP),
-			[]string{"http.80", "https.443.https"},
+			[]string{"http.80", "https.443.https.my-gateway.testns"},
 			true,
 		},
 		{
