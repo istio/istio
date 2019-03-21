@@ -18,7 +18,7 @@ package istio.mixer.adapter.model.v1beta1;
 
 option go_package="istio.io/api/mixer/adapter/model/v1beta1";
 
-// Template provides the details of a mixer template.
+// Template provides the details of a Mixer template.
 message Template {
     // Base64 encoded proto descriptor of the template.
     string descriptor = 1;

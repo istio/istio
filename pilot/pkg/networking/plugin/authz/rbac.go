@@ -355,7 +355,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, option, util.IsProxyVersionGE11(in.Node))
+		filter := buildTCPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
 		if filter != nil {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -364,7 +364,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		}
 	case plugin.ListenerProtocolHTTP:
 		rbacLog.Debugf("building http filter config for %v", *service)
-		filter := buildHTTPFilter(service, option, util.IsProxyVersionGE11(in.Node))
+		filter := buildHTTPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
 		if filter != nil {
 			rbacLog.Infof("built http filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -436,7 +436,7 @@ func isRbacEnabled(svc string, ns string, authzPolicies *model.AuthorizationPoli
 	}
 }
 
-func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *listener.Filter {
+func buildTCPFilter(service *serviceMetadata, option rbacOption, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
 	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
@@ -450,7 +450,7 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *lis
 		StatPrefix:  rbacTCPFilterStatPrefix,
 	}
 
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		tcpConfig.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
 	} else {
 		tcpConfig.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
@@ -462,7 +462,7 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, is11 bool) *lis
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *http_conn.HttpFilter {
+func buildHTTPFilter(service *serviceMetadata, option rbacOption, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	option.forTCPFilter = false
 	config := convertRbacRulesToFilterConfig(service, option)
 	rbacLog.Debugf("generated http filter config: %v", *config)
@@ -470,7 +470,7 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption, is11 bool) *ht
 		Name: rbacHTTPFilterName,
 	}
 
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}

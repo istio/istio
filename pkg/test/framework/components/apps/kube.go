@@ -87,16 +87,12 @@ spec:
   selector:
     app: {{ .service }}
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: {{ .deployment }}
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: {{ .service }}
-      version: {{ .version }}
   template:
     metadata:
       labels:

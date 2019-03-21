@@ -212,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
@@ -522,13 +522,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 			continue
 		}
 		if len(allChains) != 0 {
-			log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+			log.Warnf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
+				listenerMapKey)
 		}
 		allChains = append(allChains, chains...)
 	}
 	// Construct the default filter chain.
 	if len(allChains) == 0 {
-		log.Infof("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
+		log.Debugf("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
@@ -889,7 +890,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, virtualServices []model.Config) {
 
-	var destinationIPAddress string
+	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 
@@ -993,7 +994,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
-					destinationIPAddress = svcListenAddress
+					destinationCIDR = svcListenAddress
 					listenerOpts.bind = WildcardAddress
 				}
 			}
@@ -1061,7 +1062,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 			pluginParams.Push, virtualServices,
-			destinationIPAddress, pluginParams.Service,
+			destinationCIDR, pluginParams.Service,
 			pluginParams.Port, listenerOpts.proxyLabels, meshGateway)
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
@@ -1201,8 +1202,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
-// Deprecated: To be removed from code in 1.2. Likely redudant prior to 1.1 and turned off
-// when the Sidecar resource is explicitly used.
 func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
 	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
@@ -1429,6 +1428,9 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
@@ -1557,34 +1559,51 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	}
 
 	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
-	for i, chain := range mutable.FilterChains {
+	for i := range mutable.FilterChains {
+		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
-
-		if len(chain.TCP) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-		}
-
-		if len(opt.networkFilters) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
-		}
-
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
-		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
-		if opt.httpOpts != nil {
-			opt.httpOpts.statPrefix = mutable.Listener.Name
-			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			filter := listener.Filter{
-				Name: xdsutil.HTTPConnectionManager,
+		if opt.httpOpts == nil {
+			// we are building a network filter chain (no http connection manager) for this filter chain
+			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
+			// codec is used by RBAC or mixer later.
+
+			if len(opt.networkFilters) > 0 {
+				// this is the terminating filter
+				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
+
+				for n := 0; n < len(opt.networkFilters)-1; n++ {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
+				}
+
+				if len(chain.TCP) > 0 {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
 			}
-			if util.IsProxyVersionGE11(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
+		} else {
+			// Add the TCP filters first.. and then the HTTP connection manager
+			if len(chain.TCP) > 0 {
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 			}
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
-				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			if opt.httpOpts != nil {
+				opt.httpOpts.statPrefix = mutable.Listener.Name
+				httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+				filter := listener.Filter{
+					Name: xdsutil.HTTPConnectionManager,
+				}
+				if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+				} else {
+					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
+					len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			}
 		}
 	}
 

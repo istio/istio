@@ -31,17 +31,12 @@ spec:
   selector:
     name: fortionoistio
 ---
-apiVersion: apps/v1
+apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fortionoistio
 spec:
   replicas: 2
-  selector:
-    matchLabels:
-      app: fortionoistio
-      name: fortionoistio
-      version: fortionoistio
   template:
     metadata:
       labels:
@@ -96,17 +91,12 @@ spec:
   selector:
     name: fortionoistio1
 ---
-apiVersion: apps/v1
+apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fortionoistio1
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: fortionoistio1
-      name: fortionoistio1
-      version: fortionoistio1
   template:
     metadata:
       labels:
