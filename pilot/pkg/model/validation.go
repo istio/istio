@@ -1476,19 +1476,56 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 			if len(constraint.Values) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("at least 1 value must be specified for constraint %d in rule %d", j, i))
 			}
+			if hasExistingFirstClassFieldInRole(constraint.Key, rule) {
+				errs = appendErrors(errs, fmt.Errorf("cannot define %s for rule %d because a similar first-class field has been defined", constraint.Key, i))
+			}
 		}
 	}
 	return errs
 }
 
+// Returns true if the user defines a constraint that already exists in the first-class fields, false
+// if none has overlapped.
+// First-class fields are the immediate-level fields right after the `rules` field in a ServiceRole, e.g.
+// methods, services, etc., or after the `subjects` field in a binding, e.g. names, groups, etc. In shorts,
+// they are not fields under Constraints (in ServiceRole) and Properties (in binding).
+// This prevents the user from defining the same key, e.g. port of the serving service, in multiple places
+// in a ServiceRole definition.
+func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
+	// Same as authz.attrDestPort
+	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
+	// defined at another place and both authz and model package can access them.
+	const attrDestPort = "destination.port"
+	// Only check for port since we only have ports (or not_ports) as first-class field and in destination.port
+	// in a ServiceRole definition.
+	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
+		return true
+	}
+	if constraintKey == attrDestPort && len(rule.NotPorts) > 0 {
+		return true
+	}
+	return false
+}
+
+// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
 func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 	var errs error
 	if len(in.Subjects) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
 	}
 	for i, subject := range in.Subjects {
-		if len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 of user, group or properties must be specified for subject %d", i))
+		if isFirstClassFieldEmpty(subject) {
+			errs = appendErrors(errs, fmt.Errorf("empty subjects are not allowed. Found an empty subject at index %d", i))
+		}
+		for propertyKey := range subject.Properties {
+			if hasExistingFirstClassFieldInBinding(propertyKey, subject) {
+				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
+			}
+		}
+		// Since source.principal = "*" in binding properties is different than User: "*" from the old API,
+		// we want to remove ambiguity when the user defines "*" in names or not_names
+		if isStarInNames(subject.Names) || isStarInNames(subject.NotNames) {
+			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
 	if in.RoleRef == nil {
@@ -1527,6 +1564,42 @@ func ValidateAuthorizationPolicy(name, namespace string, msg proto.Message) erro
 		}
 	}
 	return nil
+}
+
+// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
+func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
+	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
+		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
+		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
+		len(subject.Names) == 0 && len(subject.NotNames) == 0
+}
+
+// Returns true if the user defines a property that already exists in the first-class fields, false
+// if none has overlapped.
+// In the future when we introduce expression conditions in properties field, we might need to revisit
+// this function.
+func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Subject) bool {
+	switch propertiesKey {
+	case "source.principal":
+		return len(subject.Names) > 0
+	case "request.auth.claims[groups]":
+		return len(subject.Groups) > 0
+	case "source.namespace":
+		return len(subject.Namespaces) > 0
+	case "source.ip":
+		return len(subject.Ips) > 0
+	}
+	return false
+}
+
+// isStarInNames returns true if there is a "*" in the names slice.
+func isStarInNames(names []string) bool {
+	for _, name := range names {
+		if name == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func checkRbacConfig(name, typ string, msg proto.Message) error {
