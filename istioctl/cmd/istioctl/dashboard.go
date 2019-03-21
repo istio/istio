@@ -17,6 +17,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"runtime"
 
@@ -37,6 +38,15 @@ var (
 		Use:     "dashboard",
 		Aliases: []string{"dash", "d"},
 		Short:   "Access to Istio web UIs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// cmd.Println(cmd.UsageString())
+			cmd.HelpFunc()(cmd, args)
+			if len(args) != 0 {
+				return fmt.Errorf("unknown dashboard %q", args[0])
+			}
+
+			return nil
+		},
 	}
 
 	controlZport = 0
@@ -71,7 +81,7 @@ func promDashCmd() *cobra.Command {
 
 			pl, err := prometheusPods(client)
 			if err != nil {
-				return fmt.Errorf("not able to locate Prometheus pod: %v", err) // @@@ TODO look for places Prometheus isn't capitalized in istioctl
+				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
 
 			if len(pl.Items) < 1 {
@@ -103,7 +113,7 @@ func promDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Prometheus pod ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -162,7 +172,7 @@ func grafanaDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Grafana pod ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -221,7 +231,7 @@ func kialiDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Kiali pod ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d/kiali", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d/kiali", port), cmd.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -280,7 +290,7 @@ func jaegerDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Jaeger pod ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -339,7 +349,7 @@ func zipkinDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Jaeger pod ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -402,7 +412,7 @@ func envoyDashCmd() *cobra.Command {
 				log.Debugf("port-forward to Envoy sidecar ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), c.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -456,7 +466,7 @@ func controlZDashCmd() *cobra.Command {
 				log.Debugf("port-forward to ControlZ port ready")
 				defer fw.Close()
 
-				openBrowser(fmt.Sprintf("http://localhost:%d", port))
+				openBrowser(fmt.Sprintf("http://localhost:%d", port), c.OutOrStdout())
 
 				// Block forever
 				<-(chan int)(nil)
@@ -468,8 +478,10 @@ func controlZDashCmd() *cobra.Command {
 	return cmd
 }
 
-func openBrowser(url string) {
+func openBrowser(url string, writer io.Writer) {
 	var err error
+
+	fmt.Fprintf(writer, "%s\n", url)
 
 	switch runtime.GOOS {
 	case "linux":
@@ -479,11 +491,11 @@ func openBrowser(url string) {
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
-		fmt.Printf("Unsupported platform %q; open %s in your browser.\n", runtime.GOOS, url)
+		fmt.Fprintf(writer, "Unsupported platform %q; open %s in your browser.\n", runtime.GOOS, url)
 	}
 
 	if err != nil {
-		fmt.Printf("Failed to open browser; open %s in your browser.\n", url)
+		fmt.Fprintf(writer, "Failed to open browser; open %s in your browser.\n", url)
 	}
 
 }
