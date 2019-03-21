@@ -108,10 +108,12 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: gcr.io/istio-release
-
-  # Default tag for Istio images.
-  tag: release-1.1-latest-daily
+  hub: quay.io/aspenmesh/istio-private
+  hub_public: quay.io/aspenmesh/istio
+  hub_img_delim: ":"
+  # image: per deployment
+  img_tag_delim: "-"
+  tag: 1.1.0-am1
 
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
@@ -453,3 +455,18 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+aspen-mesh-agent:
+  image: quay.io/aspenmesh/agent:master-422
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+traffic-claim-enforcer:
+  enabled: true
+  image: quay.io/aspenmesh/traffic-claim-enforcer:master-4
+  resources: {}
