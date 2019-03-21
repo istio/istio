@@ -163,6 +163,10 @@ func kubeCommand(subCommand, namespace, yamlFileName string, kubeconfig string) 
 	return fmt.Sprintf("kubectl %s -n %s -f %s --kubeconfig=%s", subCommand, namespace, yamlFileName, kubeconfig)
 }
 
+func kubeCommandExtraArgs(subCommand, namespace, yamlFileName string, kubeconfig string, extraArgs string) string {
+	return fmt.Sprintf("%s %s", kubeCommand(subCommand, namespace, yamlFileName, kubeconfig), extraArgs)
+}
+
 // KubeApply kubectl apply from file
 func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
@@ -187,6 +191,24 @@ func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) e
 	}
 	defer removeFile(tmpfile)
 	return KubeApplySilent(namespace, tmpfile, kubeconfig)
+}
+
+func KubeApplyContentSilentServerDryRun(namespace, yamlContents string, kubeconfig string) error {
+	return kubeApplyContentSilentExtraArgs(namespace, yamlContents, kubeconfig, "--server-dry-run")
+}
+
+func kubeApplyContentSilentExtraArgs(namespace, yamlContents string, kubeconfig string, extraArgs string) error {
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
+	if err != nil {
+		return err
+	}
+	defer removeFile(tmpfile)
+	return kubeApplySilentExtraArgs(namespace, tmpfile, kubeconfig, extraArgs)
+}
+
+func kubeApplySilentExtraArgs(namespace, yamlFileName string, kubeconfig string, extraArgs string) error {
+	_, err := ShellSilent(kubeCommandExtraArgs("apply", namespace, yamlFileName, kubeconfig, extraArgs))
+	return err
 }
 
 // KubeApplySilent kubectl apply from file silently

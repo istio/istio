@@ -79,6 +79,10 @@ func applyGalleyConfig(ruleName string) error {
 	return doGalleyConfig(ruleName, util.KubeApplyContentSilent)
 }
 
+func dryRunGalleyConfig(ruleName string) error {
+	return doGalleyConfig(ruleName, util.KubeApplyContentSilentServerDryRun)
+}
+
 type kubeDo func(namespace string, contents string, kubeconfig string) error
 
 func doGalleyConfig(configName string, do kubeDo) error {
@@ -220,19 +224,34 @@ func TestValidation(t *testing.T) {
 				t.Fatalf("%v does not exist", filename)
 			}
 
-			err := applyGalleyConfig(filename)
-			switch {
-			case err != nil && c.valid:
-				if denied(err) {
-					t.Fatalf("got unexpected for valid config: %v", err)
-				} else {
-					t.Fatalf("got unexpected unknown error for valid config: %v", err)
-				}
-			case err == nil && !c.valid:
-				t.Fatalf("got unexpected success for invalid config")
-			case err != nil && !c.valid:
-				if !denied(err) {
-					t.Fatalf("config request denied for wrong reason: %v", err)
+			methods := []struct {
+				name     string
+				function func(string) error
+			}{
+				{
+					name:     "apply --server-dry-run",
+					function: dryRunGalleyConfig,
+				},
+				{
+					name:     "apply",
+					function: applyGalleyConfig,
+				},
+			}
+			for _, method := range methods {
+				err := method.function(filename)
+				switch {
+				case err != nil && c.valid:
+					if denied(err) {
+						t.Fatalf("%q got unexpected for valid config: %v", method.name, err)
+					} else {
+						t.Fatalf("%q got unexpected unknown error for valid config: %v", method.name, err)
+					}
+				case err == nil && !c.valid:
+					t.Fatalf("%q got unexpected success for invalid config", method.name)
+				case err != nil && !c.valid:
+					if !denied(err) {
+						t.Fatalf("%q config request denied for wrong reason: %v", method.name, err)
+					}
 				}
 			}
 		})
