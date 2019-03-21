@@ -29,13 +29,24 @@ import (
 type Protocol string
 
 const (
-	// EchoProtocolHTTP calls echo with HTTP
-	EchoProtocolHTTP Protocol = "http"
-	// EchoProtocolGRPC calls echo with GRPC
-	EchoProtocolGRPC Protocol = "grpc"
-	// EchoProtocolWebSocket calls echo with WebSocket
-	EchoProtocolWebSocket Protocol = "ws"
+	// HTTP calls echo with HTTP
+	HTTP Protocol = "http"
+
+	// GRPC calls echo with GRPC
+	GRPC Protocol = "grpc"
+
+	// WebSocket calls echo with WebSocket
+	WebSocket Protocol = "ws"
 )
+
+func (p Protocol) normalize() Protocol {
+	switch p {
+	case HTTP, GRPC, WebSocket:
+		return p
+	default:
+		return HTTP
+	}
+}
 
 // Instance is a component that provides access to the deployed echo service.
 type Instance interface {
@@ -62,11 +73,47 @@ type Config struct {
 
 	// Version indicates the version path for calls to the Echo application.
 	Version string
+
+	// Ports for this application. Port numbers may or may not be used, depending
+	// on the implementation.
+	Ports model.PortList
+}
+
+func (c Config) fillInDefaults() Config {
+	if c.Service == "" {
+		c.Service = "echo"
+	}
+
+	if c.Version == "" {
+		c.Version = "v1"
+	}
+
+	// Append a gRPC port, if none was provided. This is needed
+	// for controlling the app.
+	if c.getGRPCPort() == nil {
+		c.Ports = append([]*model.Port{
+			{
+				Name:     "grpc",
+				Protocol: model.ProtocolGRPC,
+			},
+		}, c.Ports...)
+	}
+
+	return c
+}
+
+func (c Config) getGRPCPort() *model.Port {
+	for _, p := range c.Ports {
+		if p.Protocol == model.ProtocolGRPC {
+			return p
+		}
+	}
+	return nil
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)
-func (ec Config) String() string {
-	return fmt.Sprint("{service: ", ec.Service, ", version: ", ec.Version, "}")
+func (c Config) String() string {
+	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
 }
 
 // CallOptions defines options for calling a Endpoint.
