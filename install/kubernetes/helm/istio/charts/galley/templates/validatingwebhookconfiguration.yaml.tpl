@@ -64,6 +64,7 @@ webhooks:
         - serviceentries
         - virtualservices
     failurePolicy: Fail
+    sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
       service:
@@ -109,5 +110,6 @@ webhooks:
         - reportnothings
         - tracespans
     failurePolicy: Fail
+    sideEffects: None
 {{- end }}
 {{- end }}
