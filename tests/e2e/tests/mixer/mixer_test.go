@@ -177,7 +177,7 @@ func (t *testConfig) Setup() (err error) {
 		log.Infof("initial product page request failed: %v", err)
 	}
 
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	return
 }
@@ -529,7 +529,7 @@ func checkMetricReport(t *testing.T, name, label, labelValue string) {
 	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
@@ -570,7 +570,7 @@ func TestTcpMetrics(t *testing.T) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
@@ -663,7 +663,7 @@ func TestNewMetrics(t *testing.T) {
 		}
 
 		t.Logf("Successfully sent request(s) to /productpage; checking metrics...")
-		allowPrometheusSync()
+		allowPrometheusSync(30 * time.Second)
 		query := fmt.Sprintf("sum(istio_double_request_count{%s=\"%s\"})", "destination", "productpage-v1")
 
 		got, err = queryValue(promAPI, query)
@@ -708,7 +708,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	}
 
 	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
@@ -786,8 +786,6 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
-	//t.Skip("https://github.com/istio/istio/issues/6309")
-
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
 	t.Logf("block request through ingress if x-user header is john")
@@ -869,7 +867,7 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 		fatalf(t, "%v", err)
 	}
 
-	allowPrometheusSync()
+	allowPrometheusSync(60 * time.Second)
 	t.Log("Query promethus to get new cache hits number...")
 	// Get new check cache hit.
 	got, err := getCheckCacheHits(promAPI, app)
@@ -996,7 +994,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
@@ -1004,7 +1002,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 
 	res := sendTraffic(t, "Sending traffic...", 300)
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	totalReqs := res.DurationHistogram.Count
 	succReqs := float64(res.RetCodes[http.StatusOK])
@@ -1112,11 +1110,11 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	errorInRequestReportingAllowed := 5.0
 	// establish baseline
 	_ = sendTraffic(t, "Warming traffic...", 150)
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150-errorInRequestReportingAllowed)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
@@ -1127,7 +1125,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	logPolicyMetrics(t, "redisquota", "ratings")
 
 	res := sendTraffic(t, "Sending traffic...", 300)
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	totalReqs := res.DurationHistogram.Count
 	succReqs := float64(res.RetCodes[http.StatusOK])
@@ -1301,7 +1299,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 	}
 
 	log.Info("Successfully sent request(s) to productpage app through ingress.")
-	allowPrometheusSync()
+	allowPrometheusSync(30 * time.Second)
 
 	t.Logf("Validating metrics with 'istio-policy' have been generated... ")
 	query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-policy"), srcLabel)
@@ -1343,9 +1341,9 @@ func allowRuleSync() {
 	time.Sleep(15 * time.Second)
 }
 
-func allowPrometheusSync() {
+func allowPrometheusSync(t time.Duration) {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(t)
 }
 
 func promAPI() (v1.API, error) {
