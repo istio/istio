@@ -68,22 +68,7 @@ jobs:
       - run:
           command: |
             source bin/env.sh
-            iop_istio
-      - run: docker images
-
-  machine-kind:
-    machine:
-      enabled: true
-      image: circleci/classic:edge
-    environment:
-      - TEST_ENV: minikube-none
-    steps:
-      - checkout
-      - run:
-          command: |
-            go get -u sigs.k8s.io/kind
-            $GOPATH/bin/kind create cluster
-            source bin/env.sh
+            kubectl apply -f crds.yaml
             iop_istio
       - run: docker images
 
@@ -106,4 +91,3 @@ workflows:
   all:
     jobs:
       - install-minikube
-      - machine-kind
