@@ -1,18 +1,5 @@
 version: 2
 
-# Docker environment.
-defaults: &defaults
-  #working_directory: /go/src/github.com/istio-ecosystem/istio-installer
-  docker:
-    - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-  environment:
-    GOPATH: /go
-    SKIP_CLEANUP: true
-
-# DOCKER_USER
-# DOCKER_PASS
-# HUB: ex istio, costinm (it is not the hub, but the dockerhub org or user)
-
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
   machine: true
@@ -23,32 +10,6 @@ integrationDefaults: &integrationDefaults
     - SKIP_CLEANUP: true
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
-
-recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
-  run:
-    when: on_success
-    name: Record zero exit code as test passed
-    command: echo 0 > exit_code
-
-recordNonzeroExitCodeIfTestFailed: &recordNonzeroExitCodeIfTestFailed
-  run:
-    when: on_fail
-    name: Record nonzero exit code as test failed
-    command: echo 1 > exit_code
-
-markJobStartsOnGCS: &markJobStartsOnGCS
-  run:
-    when: always
-    command: bin/ci2gubernator.sh --job_starts
-
-markJobFinishesOnGCS: &markJobFinishesOnGCS
-  run:
-    when: always
-    command: |
-      make dumpsys || true
-      make junit-report || true
-      # TODO: upload the artifacts as well, for debugging !
-      bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
 
 # Environment:
 #  by default runs in /home/circleci/project, and checkout is in current directory
@@ -108,7 +69,6 @@ jobs:
             - GOPATH: /go
     steps:
       - checkout
-      - <<: *markJobStartsOnGCS
       - run: bin/testEnvRootMinikube.sh start
       - run: bin/testEnvRootMinikube.sh wait
       - run:
@@ -116,17 +76,21 @@ jobs:
             source bin/env.sh
             iop_istio
       - run: docker images
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-      - store_test_results:
-          path: /go/out/tests
+
+  machine-kind:
+    <<: *integrationDefaults
+    environment:
+      - TEST_ENV: minikube-none
+      - GOPATH: /go
+    steps:
+      - checkout
+      - run:
+          command: |
+            go get -u sigs.k8s.io/kind
+            $GOPATH/bin/kind create cluster
+            source bin/env.sh
+            iop_istio
+      - run: docker images
 
 
 workflows:
@@ -146,5 +110,5 @@ workflows:
 
   all:
     jobs:
-      - build
       - install-minikube
+      - machine-kind
