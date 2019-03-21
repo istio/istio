@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Check and setup KinD environment
-# shellcheck source=tests/e2e/local/kind/setup_kind_env.sh
-. ./setup_kind_env.sh
 
 # Remove old images.
 read -p "Do you want to delete old docker images tagged kind/*:e2e[default: no]: " -r update

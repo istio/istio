@@ -119,7 +119,6 @@ function check_and_install_kind() {
   if ! kind --help > /dev/null; then
     if ! (go get sigs.k8s.io/kind); then
       echo "Looks like KinD installation failed."
-      echo "Please install it manually then run this script again."
       exit 1
     fi
   fi
@@ -134,7 +133,7 @@ function setup_kind_cluster() {
   kind delete cluster --name=e2e-suite
 
   # Create KinD cluster
-  if ! (kind create cluster --name=e2e-suite) > /dev/null; then
+  if ! (kind create cluster --name=e2e-suite); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Please check your setup and try again."
     exit 1
   fi

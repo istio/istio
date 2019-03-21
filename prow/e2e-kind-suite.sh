@@ -35,16 +35,31 @@ set -u
 # Print commands
 set -x
 
+
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+# e2e tests with kind clusters on prow will get deleted when prow
+# deleted the pod 
+E2E_ARGS+=("--skip_cleanup")
+E2E_ARGS+=("--use_local_cluster")
+
+# getopts only handles single character flags
+for ((i=1; i<=$#; i++)); do
+    case ${!i} in
+        # -s/--single_test to specify test target to run.
+        # e.g. "-s e2e_mixer" will trigger e2e mixer_test
+        -s|--single_test) ((i++)); SINGLE_TEST=${!i}
+        continue
+        ;;
+        --timeout) ((i++)); E2E_TIMEOUT=${!i}
+        continue
+        ;;
+    esac
+    E2E_ARGS+=( "${!i}" )
+done
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_kind_cluster
-
-
-E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-# e2e tests on prow use clusters borrowed from boskos, which cleans up the
-# clusters. There is no need to cleanup in the test jobs.
-E2E_ARGS+=("--skip_cleanup")
-E2E_ARGS+=("--use_local_cluster")
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
@@ -67,23 +82,6 @@ function build_kind_images(){
 }
 
 build_kind_images
-
-# docker images "${HUB}"/*:"${TAG}" -q | xargs docker rmi -f
-
-# getopts only handles single character flags
-for ((i=1; i<=$#; i++)); do
-    case ${!i} in
-        # -s/--single_test to specify test target to run.
-        # e.g. "-s e2e_mixer" will trigger e2e mixer_test
-        -s|--single_test) ((i++)); SINGLE_TEST=${!i}
-        continue
-        ;;
-        --timeout) ((i++)); E2E_TIMEOUT=${!i}
-        continue
-        ;;
-    esac
-    E2E_ARGS+=( "${!i}" )
-done
 
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
