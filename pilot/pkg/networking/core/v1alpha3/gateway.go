@@ -90,7 +90,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push, server, mergedGateway.Names)...)
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push,
+						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})...)
 				}
 			}
 			opts.filterChainOpts = filterChainOpts
@@ -221,10 +222,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
+	gatewaysForVSSelection := make(map[string]bool)
 	gatewayHosts := make(map[model.Hostname]bool)
 	tlsRedirect := make(map[model.Hostname]bool)
 
 	for _, server := range servers {
+		// collect all the owning gateway names of these servers
+		// we will only select virtual services pertaining to these gateways
+		gatewaysForVSSelection[merged.GatewayNameForServer[server]] = true
 		for _, host := range server.Hosts {
 			gatewayHosts[model.Hostname(host)] = true
 			if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -235,7 +240,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := push.VirtualServices(node, merged.Names)
+	virtualServices := push.VirtualServices(node, gatewaysForVSSelection)
 	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
@@ -249,7 +254,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			log.Debugf("%s omitting virtual service %q because its hosts don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
 		}
-		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, v, nameToServiceMap, port, nil, merged.Names)
+		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, v, nameToServiceMap, port, nil, gatewaysForVSSelection)
 		if err != nil {
 			log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
 			continue
