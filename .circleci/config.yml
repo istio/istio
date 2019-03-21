@@ -3,13 +3,8 @@ version: 2
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
   machine: true
-  working_directory: /go/src/github.com/istio-ecosystem/istio-installer
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
-    - GOPATH: /go
-    - SKIP_CLEANUP: true
-    - KUBECONFIG: /go/out/minikube.conf
-    - TEST_ENV: minikube-none
 
 # Environment:
 #  by default runs in /home/circleci/project, and checkout is in current directory
