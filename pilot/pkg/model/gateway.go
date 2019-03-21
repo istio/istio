@@ -25,10 +25,12 @@ import (
 //
 // TODO: do we need a `func (m *MergedGateway) MergeInto(gateway *networking.Gateway)`?
 type MergedGateway struct {
-	Names map[string]bool
-
 	// maps from physical port to virtual servers
 	Servers map[uint32][]*networking.Server
+
+	// maps from server to the owning gateway name
+	// Needed to select the set of virtual services that apply to a port
+	GatewayNameForServer map[*networking.Server]string
 
 	// maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
@@ -52,17 +54,19 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	plaintextServers := make(map[uint32][]*networking.Server)
 	serversByRouteName := make(map[string][]*networking.Server)
 	routeNamesByServer := make(map[*networking.Server]string)
+	gatewayNameForServer := make(map[*networking.Server]string)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, config := range gateways {
-		name := fmt.Sprintf("%s/%s", config.Namespace, config.Name)
-		names[name] = true
+		gatewayName := fmt.Sprintf("%s/%s", config.Namespace, config.Name)
+		names[gatewayName] = true
 
 		gateway := config.Spec.(*networking.Gateway)
-		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
+		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gateway)
 		for _, s := range gateway.Servers {
 			sanitizeServerHostNamespace(s, config.Namespace)
-			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
+			gatewayNameForServer[s] = gatewayName
+			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			protocol := ParseProtocol(s.Port.Protocol)
 			if gatewayPorts[s.Port.Number] {
 				// We have two servers on the same port. Should we merge?
@@ -102,6 +106,8 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						// WE cannot have two servers with same port name because we need the port name to distinguish one HTTPS server from another
 						// WE cannot merge two HTTPS servers even if their TLS settings have same path to the keys, because we don't know if the contents
 						// of the keys are same. So we treat them as effectively different TLS settings.
+						// This check is largely redundant now since we create rds names for https using gateway name, namespace
+						// and validation ensures that all port names within a single gateway config are unique
 						if _, exists := serversByRouteName[routeName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
@@ -113,7 +119,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 
 					// We have another TLS server on the same port. Can differentiate servers using SNI
 					if s.Tls == nil {
-						log.Warnf("TLS server without TLS options %s %s", name, s.String())
+						log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 						continue
 					}
 					tlsServers[s.Port.Number] = append(tlsServers[s.Port.Number], s)
@@ -132,7 +138,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					routeNamesByServer[s] = routeName
 				}
 			}
-			log.Debugf("MergeGateways: gateway %q merged server %v", name, s.Hosts)
+			log.Debugf("MergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 		}
 	}
 
@@ -145,10 +151,10 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	}
 
 	return &MergedGateway{
-		Names:              names,
-		Servers:            servers,
-		ServersByRouteName: serversByRouteName,
-		RouteNamesByServer: routeNamesByServer,
+		Servers:              servers,
+		GatewayNameForServer: gatewayNameForServer,
+		ServersByRouteName:   serversByRouteName,
+		RouteNamesByServer:   routeNamesByServer,
 	}
 }
 
