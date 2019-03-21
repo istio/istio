@@ -1,17 +1,20 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: denier
+kind: handler
 metadata:
   name: denyreviewsv3handler
 spec:
-  status:
-    code: 7
-    message: Not allowed
+  compiledAdapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: checknothing
+kind: instance
 metadata:
   name: denyreviewsv3request
 spec:
+  template: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
