@@ -213,8 +213,8 @@ func TestValidation(t *testing.T) {
 	}
 	t.Log("Found istio-galley validatingwebhookconfiguration. Proceeding with test.")
 
-	if err = util.KubeVersion(tc.Kube.KubeConfig); err != nil {
-		t.Fatalf("can't check kubectl version", filename)
+	if err := util.KubeVersion(tc.Kube.KubeConfig); err != nil {
+		t.Fatalf("can't check kubectl version: %v", err)
 	}
 
 	for i := range cases {
