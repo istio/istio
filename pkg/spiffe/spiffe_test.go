@@ -18,20 +18,24 @@ func TestGenSpiffeURI(t *testing.T) {
 	}{
 		{
 			serviceAccount: "sa",
+			trustDomain:    defaultTrustDomain,
 			expectedError:  "namespace or service account can't be empty",
 		},
 		{
 			namespace:     "ns",
+			trustDomain:   defaultTrustDomain,
 			expectedError: "namespace or service account can't be empty",
 		},
 		{
 			namespace:      "namespace-foo",
 			serviceAccount: "service-bar",
+			trustDomain:    defaultTrustDomain,
 			expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
 		},
 		{
 			namespace:      "foo",
 			serviceAccount: "bar",
+			trustDomain:    defaultTrustDomain,
 			expectedURI:    "spiffe://cluster.local/ns/foo/sa/bar",
 		},
 		{
@@ -42,12 +46,7 @@ func TestGenSpiffeURI(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		if tc.trustDomain == "" {
-			SetTrustDomain(defaultTrustDomain)
-		} else {
-			SetTrustDomain(tc.trustDomain)
-		}
-
+		SetTrustDomain(tc.trustDomain)
 		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
@@ -63,7 +62,6 @@ func TestGenSpiffeURI(t *testing.T) {
 		if got != tc.expectedURI {
 			t.Errorf("unexpected subject name, want %v, got %v", tc.expectedURI, got)
 		}
-
 	}
 }
 
@@ -115,24 +113,17 @@ func TestGenCustomSpiffe(t *testing.T) {
 			expectedURI: "spiffe://mesh.com/foo",
 		},
 		{
-
 			//identity is empty
 			trustDomain: "mesh.com",
 			expectedURI: "",
 		},
 	}
 	for id, tc := range testCases {
-		if tc.trustDomain == "" {
-			SetTrustDomain(defaultTrustDomain)
-		} else {
-			SetTrustDomain(tc.trustDomain)
-		}
-
+		SetTrustDomain(tc.trustDomain)
 		got := GenCustomSpiffe(tc.identity)
 
 		if got != tc.expectedURI {
 			t.Errorf("Test id: %v , unexpected subject name, want %v, got %v", id, tc.expectedURI, got)
 		}
-
 	}
 }

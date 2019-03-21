@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -116,9 +118,9 @@ func MakeCluster(mode string, clusterName string) *v2.Cluster {
 	}
 
 	return &v2.Cluster{
-		Name:           clusterName,
-		ConnectTimeout: 5 * time.Second,
-		Type:           v2.Cluster_EDS,
+		Name:                 clusterName,
+		ConnectTimeout:       5 * time.Second,
+		ClusterDiscoveryType: &v2.Cluster_Type{Type: v2.Cluster_EDS},
 		EdsClusterConfig: &v2.Cluster_EdsClusterConfig{
 			EdsConfig: edsSource,
 		},
@@ -198,7 +200,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			},
 		},
 	}
-	alsConfigPbst, err := util.MessageToStruct(alsConfig)
+	alsConfigPbst, err := types.MarshalAny(alsConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -218,12 +220,12 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 		}},
 		AccessLog: []*alf.AccessLog{{
 			Name: util.HTTPGRPCAccessLog,
-			ConfigType: &alf.AccessLog_Config{
-				Config: alsConfigPbst,
+			ConfigType: &alf.AccessLog_TypedConfig{
+				TypedConfig: alsConfigPbst,
 			},
 		}},
 	}
-	pbst, err := util.MessageToStruct(manager)
+	pbst, err := types.MarshalAny(manager)
 	if err != nil {
 		panic(err)
 	}
@@ -244,8 +246,8 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
 				Name: util.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{
-					Config: pbst,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: pbst,
 				},
 			}},
 		}},
@@ -261,7 +263,7 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 			Cluster: clusterName,
 		},
 	}
-	pbst, err := util.MessageToStruct(config)
+	pbst, err := types.MarshalAny(config)
 	if err != nil {
 		panic(err)
 	}
@@ -281,8 +283,8 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
 				Name: util.TCPProxy,
-				ConfigType: &listener.Filter_Config{
-					Config: pbst,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: pbst,
 				},
 			}},
 		}},

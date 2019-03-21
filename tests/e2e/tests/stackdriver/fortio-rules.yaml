@@ -42,12 +42,16 @@ spec:
         host: echosrv
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echosrv-deployment
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: echosrv
+      version: v1
   template:
     metadata:
       labels:

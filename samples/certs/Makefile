@@ -1,18 +1,26 @@
 .SUFFIXES: .csr .pem .conf
 .PRECIOUS: %/ca-key.pem %/ca-cert.pem %/cert-chain.pem
-#.PRECIOUS: %/cluster-ca.csr %/intermediate.conf
+.PRECIOUS: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
+.SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
 
 .DEFAULT_GOAL := help
 
 #------------------------------------------------------------------------
 # variables: root CA
-ROOTCA_DAYS ?= 3650 					# 10 years
-ROOTCA_SUBJ ?= "/O=Istio/CN=Istio Root CA"
+ROOTCA_DAYS ?= 3650
+ROOTCA_KEYSZ ?= 4096
+ROOTCA_ORG ?= Istio
+ROOTCA_CN ?= Root CA
+# Additional variables are defined in root-ca.conf target below.
 
 #------------------------------------------------------------------------
 # variables: intermediate CA (Citadel)
 CITADEL_SERIAL ?= $(shell echo $$PPID) 	# certificate serial number (uses current PID)
-CITADEL_DAYS ?= 730						# 2 years
+CITADEL_DAYS ?= 730
+CITADEL_KEYSZ ?= 4096
+CITADEL_ORG ?= Istio
+CITADEL_CN ?= Intermediate CA
+CITADEL_SAN_DNS ?= localhost
 # Additional variables are defined in %/intermediate.conf target below.
 
 #------------------------------------------------------------------------
@@ -30,12 +38,31 @@ root-ca: root-key.pem root-cert.pem
 
 root-cert.pem: root-cert.csr root-key.pem
 	@echo "generating $@"
-	@openssl x509 -req -sha256 -days $(ROOTCA_DAYS) -signkey root-key.pem -in $< -out $@
-	@rm $<
+	@openssl x509 -req -days $(ROOTCA_DAYS) -signkey root-key.pem \
+		-extensions req_ext -extfile root-ca.conf \
+		-in $< -out $@
 
-root-cert.csr: root-key.pem
+root-cert.csr: root-key.pem root-ca.conf
 	@echo "generating $@"
-	@openssl req -new -sha256 -subj $(ROOTCA_SUBJ) -key $< -out $@ 
+	@openssl req -new -key $< -config root-ca.conf -out $@ 
+
+root-ca.conf: 
+	@echo "[ req ]" > $@
+	@echo "encrypt_key = no" >> $@
+	@echo "prompt = no" >> $@
+	@echo "utf8 = yes" >> $@
+	@echo "default_md = sha256" >> $@
+	@echo "default_bits = $(ROOTCA_KEYSZ)" >> $@
+	@echo "req_extensions = req_ext" >> $@
+	@echo "x509_extensions = req_ext" >> $@
+	@echo "distinguished_name = req_dn" >> $@
+	@echo "[ req_ext ]" >> $@
+	@echo "subjectKeyIdentifier = hash" >> $@
+	@echo "basicConstraints = critical, CA:true" >> $@
+	@echo "keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign" >> $@
+	@echo "[ req_dn ]" >> $@
+	@echo "O = $(ROOTCA_ORG)" >> $@
+	@echo "CN = $(ROOTCA_CN)" >> $@
 
 root-key.pem:
 	@echo "generating $@"
@@ -43,7 +70,6 @@ root-key.pem:
 
 #------------------------------------------------------------------------
 ##<name>-certs:	generate Citadel certificates for <name>. Includes all PEM files needed.
-
 .PHONY: %-certs
 
 %-certs: %/cert-chain.pem root-cert.pem
@@ -56,7 +82,7 @@ root-key.pem:
 
 %/ca-cert.pem: %/cluster-ca.csr root-key.pem root-cert.pem
 	@echo "generating $@"
-	@openssl x509 -req -days $(CITADEL_DAYS) -sha256 \
+	@openssl x509 -req -days $(CITADEL_DAYS) \
 		-CA root-cert.pem -CAkey root-key.pem -set_serial $(CITADEL_SERIAL) \
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
@@ -64,9 +90,7 @@ root-key.pem:
 %/cluster-ca.csr: L=$(dir $@)
 %/cluster-ca.csr: %/ca-key.pem %/intermediate.conf
 	@echo "generating $@"
-	@openssl req -new -batch -sha256 $(UTF8) \
-		-config $(L)/intermediate.conf \
-		-key $< -out $@ 
+	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@ 
 
 %/ca-key.pem:
 	@echo "generating $@"
@@ -80,7 +104,7 @@ root-key.pem:
 	@echo "prompt = no" >> $@
 	@echo "utf8 = yes" >> $@
 	@echo "default_md = sha256" >> $@
-	@echo "default_bits = 4096" >> $@
+	@echo "default_bits = $(CITADEL_KEYSZ)" >> $@
 	@echo "req_extensions = req_ext" >> $@
 	@echo "x509_extensions = req_ext" >> $@
 	@echo "distinguished_name = req_dn" >> $@
@@ -92,7 +116,8 @@ root-key.pem:
 	@echo "[ san ]" >> $@
 	@echo "URI.1 = spiffe://cluster.local/ns/istio-system/sa/citadel" >> $@
 	@echo "URI.2 = spiffe://$(L:/=)/ns/istio-system/sa/citadel" >> $@
+	@echo "DNS.1 = $(CITADEL_SAN_DNS)" >> $@
 	@echo "[ req_dn ]" >> $@
-	@echo "O = Istio" >> $@
-	@echo "CN = Intermediate CA" >> $@
+	@echo "O = $(CITADEL_ORG)" >> $@
+	@echo "CN = $(CITADEL_CN)" >> $@
 	@echo "L = $(L:/=)" >> $@

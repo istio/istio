@@ -50,7 +50,7 @@ type Processor struct {
 	state         *State
 	stateStrategy *publish.Strategy
 
-	distributor publish.Distributor
+	distributor Distributor
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
@@ -68,7 +68,7 @@ type Processor struct {
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
+func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
 	stateStrategy := publish.NewStrategyWithDefaults()
 
 	return newProcessor(src, cfg, metadata.Types, stateStrategy, distributor, nil)
@@ -79,7 +79,7 @@ func newProcessor(
 	cfg *Config,
 	schema *resource.Schema,
 	stateStrategy *publish.Strategy,
-	distributor publish.Distributor,
+	distributor Distributor,
 	postProcessHook postProcessHookFn) *Processor {
 	now := time.Now()
 
