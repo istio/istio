@@ -1805,7 +1805,8 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
+	return fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
+		sniHost, strings.Join(context.Hosts, ", "))
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
