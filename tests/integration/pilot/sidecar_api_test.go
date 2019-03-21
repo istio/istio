@@ -26,14 +26,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-var (
-	ist istio.Instance
-)
+//var (
+//	ist istio.Instance
+//)
 
 func TestSidecarListeners(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/12601")
@@ -55,7 +54,7 @@ func TestSidecarListeners(t *testing.T) {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"10.2.0.1"},
 		ID:          "app3.testns",
-		DNSDomains:  []string{"testns.cluster.local"},
+		DNSDomain:   "testns.cluster.local",
 	}
 
 	// ... and get listeners from Pilot for that proxy
@@ -172,5 +171,5 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
+	// framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
 }
