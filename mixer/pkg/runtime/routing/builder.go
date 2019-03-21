@@ -111,8 +111,8 @@ func BuildTable(
 			entries: make(map[tpb.TemplateVariety]*varietyTable, 4),
 		},
 
-		handlers: handlers,
-		expb:     expb,
+		handlers:               handlers,
+		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 

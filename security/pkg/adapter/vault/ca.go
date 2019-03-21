@@ -147,7 +147,7 @@ func signCsr(client *api.Client, csrPath string, csr string) (*api.Secret, error
 		"name":                "workload_role",
 		"format":              "pem",
 		"use_csr_common_name": true,
-		"csr": csr,
+		"csr":                 csr,
 	}
 
 	res, err := client.Logical().Write(csrPath, m)
