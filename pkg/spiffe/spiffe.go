@@ -40,7 +40,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
-			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
+			"namespace or service account empty for SPIFFEE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
 
 	// replace specifial character in spiffe
@@ -52,7 +52,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 func MustGenSpiffeURI(ns, serviceAccount string) string {
 	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
-		log.Error(err.Error())
+		log.Debug(err.Error())
 	}
 	return uri
 }
