@@ -22,8 +22,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-
 	networking "istio.io/api/networking/v1alpha3"
 )
 
