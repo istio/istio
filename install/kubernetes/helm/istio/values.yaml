@@ -440,6 +440,22 @@ global:
   #
   meshNetworks: {}
 
+  # Specifies the global locality load balancing settings. One of failover or distribute can be set.
+  # localityLbSetting:
+  #   distribute:
+  #   - from: "us-central1/*"
+  #     to:
+  #       "us-central1/*": 80
+  #       "us-central2/*": 20
+  #
+  # localityLbSetting:
+  #   failover:
+  #   - from: us-east
+  #     to: eu-west
+  #   - from: us-west
+  #     to: us-east
+  localityLbSetting: {}
+
   # Specifies whether helm test is enabled or not.
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
