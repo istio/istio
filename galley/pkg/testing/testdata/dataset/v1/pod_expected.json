@@ -5,7 +5,6 @@
       "Metadata": {
         "name": "kube-dns-548976df6c-d9kkv",
         "annotations": {
-          "scheduler.alpha.kubernetes.io/critical-pod": "",
           "seccomp.security.alpha.kubernetes.io/pod": "docker/default"
         },
         "labels": {
@@ -16,7 +15,6 @@
       "Body": {
         "metadata": {
           "annotations": {
-            "scheduler.alpha.kubernetes.io/critical-pod": "",
             "seccomp.security.alpha.kubernetes.io/pod": "docker/default"
           },
           "creationTimestamp": "2018-12-03T16:59:57Z",

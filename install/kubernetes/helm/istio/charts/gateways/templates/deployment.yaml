@@ -32,7 +32,6 @@ spec:
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if $spec.podAnnotations }}
 {{ toYaml $spec.podAnnotations | indent 8 }}
 {{ end }}
