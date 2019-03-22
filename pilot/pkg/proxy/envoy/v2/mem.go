@@ -323,22 +323,10 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
-	}
 	out := make(model.LabelsCollection, 0)
-	if sd.WantGetProxyServiceInstances != nil {
-		sis := sd.WantGetProxyServiceInstances
-		for _, si := range sis {
-			out = append(out, si.Labels)
-		}
-		return out, nil
-	}
 
 	for _, ip := range proxy.IPAddresses {
-		var sis []*model.ServiceInstance
-		sis, found := sd.ip2instance[ip]
-		if found {
+		if sis, found := sd.ip2instance[ip]; found {
 			for _, si := range sis {
 				out = append(out, si.Labels)
 			}
