@@ -2987,7 +2987,6 @@ Attributes:
 						"extra_field": &types.Value{},
 					},
 				},
-				AttributeBindings: map[string]string{"test": "test"},
 			}),
 		},
 		E: `
@@ -3018,6 +3017,7 @@ Attributes:
 						"extra_field": &types.Value{},
 					},
 				},
+				AttributeBindings: map[string]string{"test": "test"},
 			}),
 		},
 		E: `

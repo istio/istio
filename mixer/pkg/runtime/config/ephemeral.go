@@ -507,6 +507,10 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 			params = proto.Clone(info.CtrCfg)
 			buf := &bytes.Buffer{}
 
+			if inst.Params == nil {
+				inst.Params = &types.Struct{Fields: make(map[string]*types.Value)}
+			}
+
 			// populate attribute bindings
 			if len(inst.AttributeBindings) > 0 {
 				bindings := &types.Struct{Fields: make(map[string]*types.Value)}
