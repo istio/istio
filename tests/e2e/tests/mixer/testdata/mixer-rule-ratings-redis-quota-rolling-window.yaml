@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
 spec:
   quotas:
-  - name: requestcount.quota.istio-system
+  - name: requestcountquota.quota.istio-system
     maxAmount: 5000
     validDuration: 30s
     bucketDuration: 9s
@@ -30,7 +30,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: quota
 metadata:
-  name: requestcount
+  name: requestcountquota
   namespace: istio-system
 spec:
   dimensions:
@@ -50,7 +50,7 @@ spec:
   actions:
   - handler: handler.redisquota
     instances:
-    - requestcount.quota
+    - requestcountquota.quota
 
 ---
 apiVersion: config.istio.io/v1alpha2
@@ -62,7 +62,7 @@ spec:
   rules:
   - quotas:
     - charge: 1
-      quota: requestcount
+      quota: requestcountquota
 
 ---
 apiVersion: config.istio.io/v1alpha2

@@ -339,7 +339,7 @@ spec:
   actions:
   - handler: stdio
     instances:
-    - accesslog.instance
+    - accesslog
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -356,7 +356,7 @@ spec:
   actions:
   - handler: stdio
     instances:
-    - tcpaccesslog.instance
+    - tcpaccesslog
 {{- end }}
 ---
 {{- if and .Values.adapters.prometheus.enabled .Values.telemetry.enabled }}
@@ -851,10 +851,10 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - requestcount.instance
-    - requestduration.instance
-    - requestsize.instance
-    - responsesize.instance
+    - requestcount
+    - requestduration
+    - requestsize
+    - responsesize
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -871,8 +871,8 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpbytesent.instance
-    - tcpbytereceived.instance
+    - tcpbytesent
+    - tcpbytereceived
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -884,7 +884,7 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpconnectionsopened.instance
+    - tcpconnectionsopened
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -896,7 +896,7 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpconnectionsclosed.instance
+    - tcpconnectionsclosed
 {{- end }}
 ---
 {{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
@@ -935,7 +935,7 @@ spec:
   actions:
   - handler: kubernetesenv
     instances:
-    - attributes.instance
+    - attributes
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -952,7 +952,7 @@ spec:
   actions:
   - handler: kubernetesenv
     instances:
-    - attributes.instance
+    - attributes
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
