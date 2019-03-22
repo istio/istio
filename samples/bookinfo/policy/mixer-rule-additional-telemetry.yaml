@@ -26,7 +26,7 @@ spec:
   params:
     metrics:
     - name: double_request_count # Prometheus metric name
-      instance_name: doublerequestcount.metric.istio-system # Mixer instance name (fully-qualified)
+      instance_name: doublerequestcount.instance.istio-system # Mixer instance name (fully-qualified)
       kind: COUNTER
       label_names:
       - reporter
