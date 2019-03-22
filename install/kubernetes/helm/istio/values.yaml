@@ -316,6 +316,12 @@ global:
   # scheduled to run a particular nodes. Each component can overwrite these default 
   # values by adding its node selector block in the relevant section below and setting 
   # the desired values.
+  # For example:
+  # defaultTolerations:
+  # - key: "key1"
+  #   operator: "Equal"
+  #   value: "value1"
+  #   effect: "NoSchedule"
   defaultTolerations: {}
 
   # Whether to perform server-side validation of configuration.
