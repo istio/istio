@@ -83,3 +83,5 @@ spec:
           configMap:
             name: istio-grafana-custom-resources
       restartPolicy: OnFailure
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}

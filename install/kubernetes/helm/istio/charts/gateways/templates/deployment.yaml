@@ -274,6 +274,8 @@ spec:
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
+      tolerations:
+      {{- include "gatewayTolerations" (dict "root" $ "tolerations" $spec.tolerations) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

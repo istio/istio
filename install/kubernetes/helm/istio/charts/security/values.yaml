@@ -7,3 +7,4 @@ image: citadel
 selfSigned: true # indicate if self-signed CA is used.
 createMeshPolicy: true
 nodeSelector: {}
+tolerations: {}

@@ -97,6 +97,8 @@ spec:
             subPath: dashboardproviders.yaml
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}
       volumes:
       - name: config
         configMap:

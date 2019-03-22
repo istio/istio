@@ -190,3 +190,5 @@ spec:
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}

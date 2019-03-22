@@ -8,4 +8,4 @@ hub: quay.io/jetstack
 tag: v0.6.2
 resources: {}
 nodeSelector: {}
-
+tolerations: {}

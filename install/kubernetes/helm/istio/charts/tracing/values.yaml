@@ -5,6 +5,7 @@ enabled: false
 
 provider: jaeger
 nodeSelector: {}
+tolerations: {}
 
 jaeger:
   hub: docker.io/jaegertracing

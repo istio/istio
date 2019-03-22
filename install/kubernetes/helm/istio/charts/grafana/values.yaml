@@ -28,6 +28,7 @@ security:
   usernameKey: username
   passphraseKey: passphrase
 nodeSelector: {}
+tolerations: {}
 contextPath: /grafana
 service:
   annotations: {}

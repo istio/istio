@@ -41,3 +41,15 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{- define "gatewayTolerations" }}
+{{- $tolerations := default .root.Values.global.defaultTolerations .tolerations -}}
+{{- range $index, $item := $tolerations }}
+- key: {{ $item.key }}
+  operator: {{ $item.operator }}
+  {{- if $item.value }}
+  value: {{ $item.value }}
+  {{- end }}
+  effect: {{ $item.effect }}
+{{- end }}
+{{- end }}

@@ -79,3 +79,5 @@ spec:
           secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}

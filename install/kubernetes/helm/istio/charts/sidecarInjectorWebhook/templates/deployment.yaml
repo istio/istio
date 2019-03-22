@@ -92,3 +92,5 @@ spec:
             path: config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}

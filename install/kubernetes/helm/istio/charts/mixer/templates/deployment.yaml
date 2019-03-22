@@ -17,6 +17,8 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -161,6 +163,8 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+      {{- include "tolerations" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
