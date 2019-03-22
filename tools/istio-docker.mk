@@ -21,7 +21,7 @@
 # It does not upload to a registry.
 docker: build test-bins docker.all
 
-DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
+DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.proxyv2_distroless docker.app docker.test_policybackend \
 	docker.proxy_init docker.servicegraph docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -124,6 +124,21 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+	$(DOCKER_RULE)
+
+# Distroless proxy image.
+docker.proxyv2_distroless: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
+docker.proxyv2_distroless: tools/deb/envoy_bootstrap_v2.json
+docker.proxyv2_distroless: tools/deb/envoy_bootstrap_drain.json
+docker.proxyv2_distroless: install/gcp/bootstrap/gcp_envoy_bootstrap.json
+docker.proxyv2_distroless: $(ISTIO_DOCKER)/ca-certificates.tgz
+docker.proxyv2_distroless: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
+docker.proxyv2_distroless: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2_distroless: pilot/docker/Dockerfile.proxyv2_distroless
+docker.proxyv2_distroless: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxyv2_distroless: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxyv2_distroless: tools/deb/istio-iptables.sh
+docker.proxyv2_distroless: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps

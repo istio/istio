@@ -1,0 +1,25 @@
+FROM gcr.io/distroless/cc
+ARG proxy_version
+ARG istio_version
+
+# Install Envoy.
+ADD envoy /usr/local/bin/envoy
+
+# Environment variables indicating this proxy's version/capabilities as opaque string
+ENV ISTIO_META_ISTIO_PROXY_VERSION "1.1.0"
+# Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
+ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION $istio_version
+
+ADD pilot-agent /usr/local/bin/pilot-agent
+
+ADD envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
+ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
+ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
+
+COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+
+# The pilot-agent will bootstrap Envoy.
+ENTRYPOINT ["/usr/local/bin/pilot-agent"]
