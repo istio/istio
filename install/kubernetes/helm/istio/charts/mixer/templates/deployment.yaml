@@ -17,8 +17,11 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- $tolerations := default $.Values.global.defaultTolerations $.Values.tolerations -}}
+      {{- if $tolerations }}
       tolerations:
-      {{- include "tolerations" . | indent 6 }}
+      {{- toYaml $tolerations | indent 6 }}
+      {{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -163,6 +166,11 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
+      {{- if $tolerations }}
+      tolerations:
+      {{- toYaml $tolerations | indent 6 }}
+      {{- end }}
       tolerations:
       {{- include "tolerations" . | indent 6 }}
       containers:

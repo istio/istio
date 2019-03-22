@@ -79,5 +79,8 @@ spec:
           secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
+      {{- if $tolerations }}
       tolerations:
-      {{- include "tolerations" . | indent 6 }}
+      {{- toYaml $tolerations | indent 6 }}
+      {{- end }}

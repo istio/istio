@@ -41,15 +41,3 @@
     {{- end }}
   {{- end }}
 {{- end }}
-
-{{- define "tolerations" }}
-{{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
-{{- range $index, $item := $tolerations }}
-- key: {{ $item.key }}
-  operator: {{ $item.operator }}
-  {{- if $item.value }}
-  value: {{ $item.value }}
-  {{- end }}
-  effect: {{ $item.effect }}
-{{- end }}
-{{- end }}
