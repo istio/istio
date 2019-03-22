@@ -274,10 +274,9 @@ spec:
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
-      {{- $tolerations := default $.Values.global.defaultTolerations $spec.tolerations -}}
-      {{- if $tolerations }}
+      {{- if $spec.tolerations }}
       tolerations:
-{{ toYaml $tolerations | indent 6 }}
+{{ toYaml $spec.tolerations | indent 6 }}
       {{- end }}
 ---
 {{- end }}

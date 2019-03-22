@@ -26,9 +26,8 @@ spec:
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
-  {{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
-  {{- if $tolerations }}
+  {{- if .Values.tolerations }}
   tolerations:
-{{ toYaml $tolerations | indent 2 }}
+{{ toYaml .Values.tolerations | indent 2 }}
   {{- end }}
 {{- end }}

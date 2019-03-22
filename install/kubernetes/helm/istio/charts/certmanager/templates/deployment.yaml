@@ -57,12 +57,11 @@ spec:
       {{- end }}
       {{- if .Values.podDnsConfig }}
       dnsConfig:
-      {{ toYaml .Values.podDnsConfig | indent 8 }}
+{{ toYaml .Values.podDnsConfig | indent 8 }}
       {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-      {{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
-      {{- if $tolerations }}
+      {{- if .Values.tolerations }}
       tolerations:
-{{ toYaml $tolerations | indent 6 }}
+{{ toYaml .Values.tolerations | indent 6 }}
       {{- end }}
