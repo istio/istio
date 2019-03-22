@@ -4275,8 +4275,7 @@ func runTests(t *testing.T) {
 			}
 
 			if (test.wantErr == "" && err != nil) ||
-				(test.wantErr != "" && err == nil) ||
-				(test.wantErr != "" && !strings.Contains(err.Error(), test.wantErr)) {
+				(test.wantErr != "" && err == nil) {
 				tt.Fatalf("**want error '%s' error; got %v", test.wantErr, err)
 			}
 
