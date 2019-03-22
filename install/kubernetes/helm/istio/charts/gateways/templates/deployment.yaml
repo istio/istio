@@ -272,7 +272,7 @@ spec:
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
-      {{- include "gatewaypodAntiAffinity" (dict "root" $ "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAffinityTermLabelSelector" $spec.podAffinityTermLabelSelector) | indent 6 }}
+      {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAffinityTermLabelSelector" $spec.podAffinityTermLabelSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

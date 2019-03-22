@@ -51,40 +51,40 @@
     {{- end }}
     {{- if or .podAffinityTermLabelSelector}}
     preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "gatewaupodAntiAffinityPreferredDuringScheduling" . }}
+    {{- include "gatewaypodAntiAffinityPreferredDuringScheduling" . }}
     {{- end }}
 {{- end }}
 {{- end }}
 
 {{- define "gatewaypodAntiAffinityRequiredDuringScheduling" }}
-      {{- range $key, $val := .podAntiAffinityLabelSelector }}
-      - labelSelector:
+  {{- range $key, $val := .podAntiAffinityLabelSelector }}
+    - labelSelector:
         matchExpressions:
         - key: {{ $key }}
           operator: In
           values:
           - {{ $val }}
-        topologyKey: "kubernetes.io/hostname"
-      - labelSelector:
+      topologyKey: "kubernetes.io/hostname"
+    - labelSelector:
         matchExpressions:
         - key: {{ $key }}
           operator: In
           values:
           - {{ $val }}
-        topologyKey: "failure-domain.beta.kubernetes.io/zone"
-        {{- end }}
+      topologyKey: "failure-domain.beta.kubernetes.io/zone"
+  {{- end }}
 {{- end }}
 
 {{- define "gatewaypodAntiAffinityPreferredDuringScheduling" }}
-      - weight: 100
-      podAffinityTerm:
-      {{- range $key, $val := .podAffinityTermLabelSelector }}
-      - labelSelector:
+    - weight: 100
+    podAffinityTerm:
+    {{- range $key, $val := .podAffinityTermLabelSelector }}
+      labelSelector:
         matchExpressions:
         - key: {{ $key }}
           operator: In
           values:
           - {{ $val }}
-        topologyKey: failure-domain.beta.kubernetes.io/region
-        {{- end }}
+      topologyKey: failure-domain.beta.kubernetes.io/region
+    {{- end }}
 {{- end }}
