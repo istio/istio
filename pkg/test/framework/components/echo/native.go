@@ -32,40 +32,12 @@ import (
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	_ Instance  = &nativeComponent{}
 	_ io.Closer = &nativeComponent{}
-
-	ports = model.PortList{
-		{
-			Name:     "http",
-			Protocol: model.ProtocolHTTP,
-		},
-		{
-			Name:     "http-two",
-			Protocol: model.ProtocolHTTP,
-		},
-		{
-			Name:     "tcp",
-			Protocol: model.ProtocolTCP,
-		},
-		{
-			Name:     "https",
-			Protocol: model.ProtocolHTTPS,
-		},
-		{
-			Name:     "http2-example",
-			Protocol: model.ProtocolHTTP2,
-		},
-		{
-			Name:     "grpc",
-			Protocol: model.ProtocolGRPC,
-		},
-	}
 )
 
 type nativeComponent struct {
@@ -76,21 +48,16 @@ type nativeComponent struct {
 }
 
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
+	// Fill in defaults for any missing values.
+	cfg = cfg.fillInDefaults()
+
 	c := &nativeComponent{
 		config: cfg,
 	}
 	c.id = ctx.TrackResource(c)
 
-	// Setup defaults for config values if not provided.
-	if c.config.Service == "" {
-		c.config.Service = "echo"
-	}
-	if c.config.Version == "" {
-		c.config.Version = "v1"
-	}
-
 	echoFactory := (&echo.Factory{
-		Ports:   ports,
+		Ports:   cfg.Ports,
 		Version: c.config.Version,
 	}).NewApplication
 
@@ -99,10 +66,13 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		Websocket: c.dialWebsocket,
 		HTTP:      c.doHTTP,
 	}
+
+	// Start the echo application and assign ports, if unassigned.
 	app, err := echoFactory(dialer)
 	if err != nil {
 		return nil, err
 	}
+
 	// Create the endpoints for the app.
 	var grpcEndpoint *nativeEndpoint
 	ports := app.GetPorts()
@@ -122,8 +92,10 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Create the client for sending forward requests.
 	if grpcEndpoint == nil {
+		// This should never happen, since we're manually adding a GRPC port if one doesn't exist.
 		return nil, errors.New("unable to find grpc port for application")
 	}
+
 	c.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.Port))
 	if err != nil {
 		return nil, err
@@ -252,15 +224,7 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 }
 
 func (e *nativeEndpoint) makeURL(opts CallOptions) *url.URL {
-	protocol := string(opts.Protocol)
-	switch protocol {
-	case apps.AppProtocolHTTP:
-	case apps.AppProtocolGRPC:
-	case apps.AppProtocolWebSocket:
-	default:
-		protocol = string(apps.AppProtocolHTTP)
-	}
-
+	protocol := string(opts.Protocol.normalize())
 	if opts.Secure {
 		protocol += "s"
 	}
