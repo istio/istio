@@ -204,8 +204,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 message Sidecar {
   // Criteria used to select the specific set of pods/VMs on which this
   // sidecar configuration should be applied. If omitted, the sidecar
-  // configuration will be applied to all workloads in the same config
-  // namespace.
+  // configuration will be applied to all workloads in the same namespace.
   WorkloadSelector workload_selector = 1;
 
   // Ingress specifies the configuration of the sidecar for processing
