@@ -26,4 +26,5 @@ spec:
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "podAntiAffinity" . | indent 4 }}
 {{- end }}
