@@ -511,6 +511,12 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
+
+	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
+		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+		// remotely. ServerCertificate and CaCertificates fields are not required.
+		return
+	}
 	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
@@ -776,11 +782,15 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol))
 
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
@@ -794,7 +804,6 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 		}
 	} else {
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
@@ -1166,6 +1175,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.StatsdUdpAddress != "" {
 		if err := ValidateProxyAddress(config.StatsdUdpAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid statsd udp address %q:", config.StatsdUdpAddress)))
+		}
+	}
+
+	if config.EnvoyMetricsServiceAddress != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
 		}
 	}
 

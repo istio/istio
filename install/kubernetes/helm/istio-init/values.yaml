@@ -11,3 +11,6 @@ global:
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
+
+certmanager:
+  enabled: false

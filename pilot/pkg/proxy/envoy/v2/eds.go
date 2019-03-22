@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -369,8 +371,17 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	s.mutex.Lock()
 	for k, v := range svc2account {
-		ep := s.EndpointShardsByService[k]
-		ep.ServiceAccounts = v
+		if ep := s.EndpointShardsByService[k]; ep != nil {
+			ep.ServiceAccounts = v
+			continue
+		}
+		// we have not seen this service before.
+		// We will let edsUpdate() add endpoints to the list.
+		// Just record service accounts here.
+		s.EndpointShardsByService[k] = &EndpointShards{
+			Shards:          map[string][]*model.IstioEndpoint{},
+			ServiceAccounts: v,
+		}
 	}
 	s.mutex.Unlock()
 
@@ -694,7 +705,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 
 	// The service was never updated - do the full update
+	s.mutex.RLock()
 	se, f := s.EndpointShardsByService[string(hostname)]
+	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
@@ -801,6 +814,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
+		}
+
+		// If location prioritized load balancing is enabled, prioritize endpoints.
+		if pilot.EnableLocalityLoadBalancing() {
+			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+			clonedCLA := util.CloneClusterLoadAssignment(l)
+			l = &clonedCLA
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
 		}
 
 		endpoints += len(l.Endpoints)

@@ -114,6 +114,8 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
+	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
+	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
@@ -643,16 +645,16 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
-		istioYaml = mcNonAuthInstallFileNamespace
-	}
-	if *clusterWide {
+		if *authEnable {
+			istioYaml = mcAuthInstallFileNamespace
+		} else {
+			istioYaml = mcNonAuthInstallFileNamespace
+		}
+	} else if *clusterWide {
 		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
-			if *multiClusterDir != "" {
-				istioYaml = mcAuthInstallFileNamespace
-			}
 		}
 		if *trustDomainEnable {
 			istioYaml = trustDomainFileNamespace
@@ -881,6 +883,14 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set galley.enabled=true --set global.useMCP=false"
 	} else {
 		setValue += " --set galley.enabled=false --set global.useMCP=false"
+	}
+
+	if *outboundTrafficPolicy != "" {
+		setValue += " --set global.outboundTrafficPolicy.mode=" + *outboundTrafficPolicy
+	}
+
+	if *enableEgressGateway {
+		setValue += " --set gateways.istio-egressgateway.enabled=true"
 	}
 
 	// hubs and tags replacement.

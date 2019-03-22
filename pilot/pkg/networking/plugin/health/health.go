@@ -39,7 +39,7 @@ func NewPlugin() plugin.Plugin {
 }
 
 // BuildHealthCheckFilter returns a HealthCheck filter.
-func buildHealthCheckFilter(probe *model.Probe, is11 bool) *http_conn.HttpFilter {
+func buildHealthCheckFilter(probe *model.Probe, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	config := &hcfilter.HealthCheck{
 		PassThroughMode: proto.BoolTrue,
 		Headers: []*envoy_api_v2_route.HeaderMatcher{
@@ -54,7 +54,7 @@ func buildHealthCheckFilter(probe *model.Probe, is11 bool) *http_conn.HttpFilter
 		Name: xdsutil.HealthCheck,
 	}
 
-	if is11 {
+	if isXDSMarshalingToAnyEnabled {
 		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
 	} else {
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
@@ -63,7 +63,7 @@ func buildHealthCheckFilter(probe *model.Probe, is11 bool) *http_conn.HttpFilter
 	return out
 }
 
-func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint, is11 bool) {
+func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint, isXDSMarshalingToAnyEnabled bool) {
 	for _, probe := range probes {
 		// Check that the probe matches the listener port. If not, then the probe will be handled
 		// as a management port and not traced. If the port does match, then we need to add a
@@ -71,7 +71,7 @@ func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.Probe
 		// If no probe port is defined, then port has not specifically been defined, so assume filter
 		// needs to be applied.
 		if probe.Port == nil || probe.Port.Port == endpoint.Port {
-			filter := buildHealthCheckFilter(probe, is11)
+			filter := buildHealthCheckFilter(probe, isXDSMarshalingToAnyEnabled)
 			if !containsHTTPFilter(filterChain.HTTP, filter) {
 				filterChain.HTTP = append(filterChain.HTTP, filter)
 			}
@@ -116,13 +116,13 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return fmt.Errorf("listener not defined in mutable %v", mutable)
 	}
 
-	is11 := util.IsProxyVersionGE11(in.Node)
+	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
 
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			for _, ip := range in.Node.IPAddresses {
 				buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(ip),
-					&in.ServiceInstance.Endpoint, is11)
+					&in.ServiceInstance.Endpoint, isXDSMarshalingToAnyEnabled)
 			}
 		}
 	}
