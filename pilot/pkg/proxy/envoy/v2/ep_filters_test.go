@@ -72,12 +72,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 2 local endpoints
-						{address: "10.0.0.1", weight: 1},
-						{address: "10.0.0.2", weight: 1},
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 3,
+					weight: 6,
 				},
 			},
 		},
@@ -90,11 +91,11 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint
-						{address: "20.0.0.1", weight: 1},
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
+						{address: "20.0.0.1", weight: 2},
+						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 4},
 					},
-					weight: 2,
+					weight: 6,
 				},
 			},
 		},
@@ -106,12 +107,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
-						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 4},
+						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 2,
+					weight: 6,
 				},
 			},
 		},
@@ -124,13 +126,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint
-						{address: "40.0.0.1", weight: 1},
+						{address: "40.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
+						{address: "1.1.1.1", weight: 4},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 3,
+					weight: 8,
 				},
 			},
 		},
@@ -212,6 +215,12 @@ func environment() *model.Environment {
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
 								Address: "2.2.2.2",
+							},
+							Port: 80,
+						},
+						{
+							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+								Address: "2.2.2.20",
 							},
 							Port: 80,
 						},
