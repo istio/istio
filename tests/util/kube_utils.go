@@ -48,7 +48,7 @@ const (
 	// LoadBalancerServiceType LoadBalancer type of Kubernetes Service
 	LoadBalancerServiceType = "LoadBalancer"
 
-	ingressHttpServicePort = "80"
+	ingressHTTPServicePort = "80"
 )
 
 var (
@@ -362,7 +362,7 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 func getServicePort(serviceName, namespace, kubeconfig string) (string, error) {
 	port, err := Shell(
 		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[?(@.port==%s)].nodePort}' --kubeconfig=%s",
-		serviceName, namespace, ingressHttpServicePort, kubeconfig)
+		serviceName, namespace, ingressHTTPServicePort, kubeconfig)
 
 	if err != nil {
 		return "", err
