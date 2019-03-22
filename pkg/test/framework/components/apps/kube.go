@@ -268,12 +268,22 @@ func appSelector(serviceName string) string {
 }
 
 type kubeComponent struct {
-	scope        lifecycle.Scope
-	requiredApps KubeAppsConfig
-	deployments  []*deployment.Instance
-	apps         []components.App
-	env          *kube.Environment
+	id resource.ID
+
+	deployments []*deployment.Instance
+	apps        []App
+	env         *kube.Environment
+
+	namespace namespace.Instance
 }
+
+// type kubeComponent struct {
+// 	requiredApps KubeAppsConfig
+// 	deployments  []*deployment.Instance
+// 	apps         []App
+
+// 	env *kube.Environment
+// }
 
 // KubeAppsConfig specifies a list of Kubernetes app we need to deploy in apps component.
 type KubeAppsConfig []KubeApp
@@ -283,35 +293,171 @@ func (ka KubeAppsConfig) String() string {
 	return ""
 }
 
-// NewKubeComponent factory function for the component
-func NewKubeComponent() (api.Component, error) {
-	return &kubeComponent{
-		apps:        make([]components.App, 0),
-		deployments: make([]*deployment.Instance, 0),
-	}, nil
-}
-
 // Configure implements pkg/test/framework/runtime/api/Configurable interface to allow test suites
 // specify customized apps.
-func (c *kubeComponent) Configure(config component.Configuration) error {
-	apps, ok := config.(KubeAppsConfig)
-	if !ok {
-		return fmt.Errorf("supplied configuration was not an KubeAppConfig, got %T (%v)", config, config)
+// func (c *kubeComponent) Configure(config component.Configuration) error {
+// 	apps, ok := config.(KubeAppsConfig)
+// 	if !ok {
+// 		return fmt.Errorf("supplied configuration was not an KubeAppConfig, got %T (%v)", config, config)
+// 	}
+// 	c.requiredApps = apps
+// 	return nil
+// }
+
+type deploymentFactory struct {
+	deployment     string
+	service        string
+	version        string
+	port1          int
+	port2          int
+	port3          int
+	port4          int
+	port5          int
+	port6          int
+	injectProxy    bool
+	headless       bool
+	serviceAccount bool
+}
+
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+
+	s, err := deployment2.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
 	}
-	c.requiredApps = apps
-	return nil
+
+	result, err := tmpl.Evaluate(template, map[string]string{
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
+		"ImagePullPolicy": s.PullPolicy,
+		"deployment":      d.deployment,
+		"service":         d.service,
+		"app":             d.service,
+		"version":         d.version,
+		"port1":           strconv.Itoa(d.port1),
+		"port2":           strconv.Itoa(d.port2),
+		"port3":           strconv.Itoa(d.port3),
+		"port4":           strconv.Itoa(d.port4),
+		"port5":           strconv.Itoa(d.port5),
+		"port6":           strconv.Itoa(d.port6),
+		"healthPort":      "true",
+		"injectProxy":     strconv.FormatBool(d.injectProxy),
+		"headless":        strconv.FormatBool(d.headless),
+		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
+	if err = out.Deploy(e.Accessor, false); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (c *kubeComponent) Descriptor() component.Descriptor {
-	return descriptors.Apps
-	id resource.ID
-
-	deployments []*deployment.Instance
-	apps        []App
-	env         *kube.Environment
-
-	namespace namespace.Instance
-}
+var (
+	deploymentFactories = []*deploymentFactory{
+		{
+			deployment:     "t",
+			service:        "t",
+			version:        "unversioned",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    false,
+			headless:       false,
+			serviceAccount: false,
+		},
+		{
+			deployment:     "a",
+			service:        "a",
+			version:        "v1",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: false,
+		},
+		{
+			deployment:     "b",
+			service:        "b",
+			version:        "unversioned",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "c-v1",
+			service:        "c",
+			version:        "v1",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "c-v2",
+			service:        "c",
+			version:        "v2",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "d",
+			service:        "d",
+			version:        "per-svc-auth",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: true,
+		},
+		{
+			deployment:     "headless",
+			service:        "headless",
+			version:        "unversioned",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
+			injectProxy:    true,
+			headless:       true,
+			serviceAccount: true,
+		},
+	}
+)
 
 func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
@@ -328,36 +474,74 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
 		return nil, err
 	}
-	c.env = env
-	namespace := env.NamespaceForScope(scope)
 
-	// If the test does not explicitly describe the apps it needs, deploy a suite of default apps.
-	if len(c.requiredApps) == 0 {
-		c.requiredApps = defaultKubeApps
+	// Apply all the configs for the deployments.
+	for i, factory := range deploymentFactories {
+		if c.deployments[i], err = factory.newDeployment(env, c.namespace); err != nil {
+			return nil, err
+		}
 	}
 
-	// Deploy the apps required by the test.
-	for _, app := range c.requiredApps {
-		d, err := app.newDeployment(env, scope)
+	for _, d := range deploymentFactories {
+		pod, err := d.waitUntilPodIsReady(env, c.namespace)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
+			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 		}
-		c.deployments = append(c.deployments, d)
-	}
-	for _, app := range c.requiredApps {
-		pod, err := app.waitUntilPodIsReady(env, scope)
+		client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Deployment))
-		}
-		client, err := newKubeApp(app.Service, namespace, pod, env)
-		if err != nil {
-			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
+			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 		}
 		c.apps = append(c.apps, client)
 	}
 
 	return c, nil
 }
+
+// func newKube(ctx resource.Context, _ Config) (Instance, error) {
+// 	env := ctx.Environment().(*kube.Environment)
+// 	c := &kubeComponent{
+// 		apps:        make([]App, 0),
+// 		deployments: make([]*deployment.Instance, len(deploymentFactories)),
+// 		env:         env,
+// 	}
+// 	c.id = ctx.TrackResource(c)
+
+// 	var err error
+
+// 	// Wait for the pods to transition to running.
+// 	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
+// 		return nil, err
+// 	}
+// 	c.env = env
+// 	namespace := env.NamespaceForScope(scope)
+
+// 	// If the test does not explicitly describe the apps it needs, deploy a suite of default apps.
+// 	// if len(c.requiredApps) == 0 {
+// 	// 	c.requiredApps = defaultKubeApps
+// 	// }
+
+// 	// Deploy the apps required by the test.
+// 	for _, app := range c.deployments {
+// 		d, err := app.newDeployment(env, scope)
+// 		if err != nil {
+// 			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
+// 		}
+// 		c.deployments = append(c.deployments, d)
+// 	}
+// 	for _, app := range deploymentFactories {
+// 		pod, err := app.waitUntilPodIsReady(env)
+// 		if err != nil {
+// 			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Deployment))
+// 		}
+// 		client, err := newKubeApp(app.Service, namespace, pod, env)
+// 		if err != nil {
+// 			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
+// 		}
+// 		c.apps = append(c.apps, client)
+// 	}
+
+// 	return c, nil
+// }
 
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
@@ -398,14 +582,33 @@ func (c *kubeComponent) Close() (err error) {
 		}
 	}
 
-		// Wait for all deployments to be deleted.
-		for _, factory := range defaultKubeApps {
-			err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.scope)).ErrorOrNil()
-		}
+	// Wait for all deployments to be deleted.
+	for _, factory := range deploymentFactories {
+		err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.namespace)).ErrorOrNil()
 	}
 
 	return
 }
+
+// func (c *kubeComponent) Close() (err error) {
+// 	for _, app := range c.apps {
+// 		err = multierror.Append(err, app.(*kubeApp).Close()).ErrorOrNil()
+// 	}
+
+// 	// Delete any deployments
+// 	for i, d := range c.deployments {
+// 		if d != nil {
+// 			err = multierror.Append(err, d.Delete(c.env.Accessor, false)).ErrorOrNil()
+// 			c.deployments[i] = nil
+// 		}
+// 	}
+
+// 	// Wait for all deployments to be deleted.
+// 	for _, factory := range defaultKubeApps {
+// 		err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.scope)).ErrorOrNil()
+// 	}
+// 	return err
+// }
 
 type endpoint struct {
 	port  *model.Port
@@ -638,42 +841,42 @@ type KubeApp struct {
 	ServiceAccount bool
 }
 
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+// func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
 
-	s, err := deployment2.SettingsFromCommandLine()
-	if err != nil {
-		return nil, err
-	}
+// 	s, err := deployment2.SettingsFromCommandLine()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"ImagePullPolicy": s.PullPolicy,
-		"deployment":      d.deployment,
-		"service":         d.service,
-		"app":             d.service,
-		"version":         d.version,
-		"port1":           strconv.Itoa(d.port1),
-		"port2":           strconv.Itoa(d.port2),
-		"port3":           strconv.Itoa(d.port3),
-		"port4":           strconv.Itoa(d.port4),
-		"port5":           strconv.Itoa(d.port5),
-		"port6":           strconv.Itoa(d.port6),
-		"healthPort":      "true",
-		"injectProxy":     strconv.FormatBool(d.injectProxy),
-		"headless":        strconv.FormatBool(d.headless),
-		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
-	})
-	if err != nil {
-		return nil, err
-	}
+// 	result, err := tmpl.Evaluate(template, map[string]string{
+// 		"Hub":             s.Hub,
+// 		"Tag":             s.Tag,
+// 		"ImagePullPolicy": s.PullPolicy,
+// 		"deployment":      d.deployment,
+// 		"service":         d.service,
+// 		"app":             d.service,
+// 		"version":         d.version,
+// 		"port1":           strconv.Itoa(d.port1),
+// 		"port2":           strconv.Itoa(d.port2),
+// 		"port3":           strconv.Itoa(d.port3),
+// 		"port4":           strconv.Itoa(d.port4),
+// 		"port5":           strconv.Itoa(d.port5),
+// 		"port6":           strconv.Itoa(d.port6),
+// 		"healthPort":      "true",
+// 		"injectProxy":     strconv.FormatBool(d.injectProxy),
+// 		"headless":        strconv.FormatBool(d.headless),
+// 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
-	if err = out.Deploy(e.Accessor, false); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
+// 	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
+// 	if err = out.Deploy(e.Accessor, false); err != nil {
+// 		return nil, err
+// 	}
+// 	return out, nil
+// }
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))

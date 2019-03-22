@@ -19,66 +19,86 @@ package healthcheck
 import (
 	"os"
 	"testing"
+	"time"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/components/deployment"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/components/apps"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
+var (
+	ist istio.Instance
+)
+
+// go test -v ./tests/integration/security/healthcheck   -istio.test.env  \
+// kube -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily"
 func TestMain(m *testing.M) {
-	rt, _ := framework.Run("mtls_healthcheck", m)
-	os.Exit(rt)
+	// TODO: remove before merge.
+	scopes.Framework.SetOutputLevel(log.DebugLevel)
+	scopes.CI.SetOutputLevel(log.DebugLevel)
+	cfg, err := istio.DefaultConfig2()
+	if err != nil {
+		log.Errorf("failed with error %v", err)
+		os.Exit(-1)
+	}
+	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
+	framework.Main("mtls_healthcheck", m, istio.SetupOnKube(&ist, &cfg))
+}
+
+func setup(ctx framework.SuiteContext) error {
+	return nil
 }
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
 func TestMtlsHealthCheck(t *testing.T) {
-	ctx := framework.GetContext(t)
+	ctx := framework.NewContext(t)
+	ctx.RequireOrSkip(t, environment.Kube)
 
-	// TODO: remove before merge.
-	// scopes.Framework.SetOutputLevel(log.DebugLevel)
-	// scopes.CI.SetOutputLevel(log.DebugLevel)
-
-	// Kube environment only used for this test since it requires istio installed with specific helm
-	// values.
-	kubeEnvironment := descriptors.KubernetesEnvironment
-
-	// Test requires this Helm flag to be enabled.
-	// No need for special clean up since this is system level component.
-	kubeEnvironment.Configuration = kube.IstioConfiguration{
-		Values: map[string]string{
-			"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
-		},
-	}
-	ctx.RequireOrSkip(t, lifecycle.Test, &kubeEnvironment)
-	env := kube.GetEnvironmentOrFail(ctx, t)
-	_, err := env.DeployYaml("healthcheck_mtls.yaml", lifecycle.Test)
+	ns := namespace.ClaimOrFail(t, ctx, "default")
+	_, err := deployment.New(ctx, deployment.Config{
+		Yaml: `apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "mtls-strict-for-healthcheck"
+spec:
+  targets:
+  - name: "healthcheck"
+  peers:
+    - mtls:
+        mode: STRICT
+`,
+		Namespace: ns,
+	})
 	if err != nil {
 		t.Error(err)
 	}
-	healthcheckApp := apps.KubeApp{
-		Deployment:     "healthcheck",
-		Service:        "healthcheck",
-		Version:        "v1",
-		Port1:          80,
-		Port2:          8080,
-		Port3:          90,
-		Port4:          9090,
-		Port5:          70,
-		Port6:          7070,
-		InjectProxy:    true,
-		Headless:       false,
-		ServiceAccount: true,
-	}
+	time.Sleep(time.Second * 10000)
+	// healthcheckApp := apps.KubeApp{
+	// 	Deployment:     "healthcheck",
+	// 	Service:        "healthcheck",
+	// 	Version:        "v1",
+	// 	Port1:          80,
+	// 	Port2:          8080,
+	// 	Port3:          90,
+	// 	Port4:          9090,
+	// 	Port5:          70,
+	// 	Port6:          7070,
+	// 	InjectProxy:    true,
+	// 	Headless:       false,
+	// 	ServiceAccount: true,
+	// }
 	// Deploy app now.
-	kubeApps := &descriptors.Apps
-	kubeApps.Configuration = apps.KubeAppsConfig{healthcheckApp}
-	ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
-	apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
+	// kubeApps := &descriptors.Apps
+	// kubeApps.Configuration = apps.KubeAppsConfig{healthcheckApp}
+	// ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
+	// apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
 
 	// Being able to resolve healthcheck apps means that the health check is done.
-	apps.GetAppOrFail("healthcheck", t)
+	// apps.GetAppOrFail("healthcheck", t)
 }

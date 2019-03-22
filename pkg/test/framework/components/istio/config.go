@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,6 +163,38 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		s.DeployTimeout = DefaultDeployTimeout
 		s.UndeployTimeout = DefaultUndeployTimeout
 	}
+
+	return s, nil
+}
+
+func DefaultConfig2() (Config, error) {
+	flag.Parse()
+	// Make a local copy.
+	s := *settingsFromCommandline
+
+	if err := normalizeFile(&s.ChartDir); err != nil {
+		return Config{}, err
+	}
+
+	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
+		return Config{}, err
+	}
+
+	if err := normalizeFile(&s.CrdsFilesDir); err != nil {
+		return Config{}, err
+	}
+
+	deps, err := deployment.SettingsFromCommandLine()
+	if err != nil {
+		return Config{}, err
+	}
+
+	if s.Values, err = newHelmValues(deps); err != nil {
+		return Config{}, err
+	}
+
+	s.DeployTimeout = DefaultCIDeployTimeout
+	s.UndeployTimeout = DefaultCIUndeployTimeout
 
 	return s, nil
 }
