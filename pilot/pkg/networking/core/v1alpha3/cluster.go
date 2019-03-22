@@ -19,7 +19,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -140,8 +139,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
-	clusters = append(clusters, buildBlackHoleCluster())
-	clusters = append(clusters, buildDefaultPassthroughCluster())
+	clusters = append(clusters, buildBlackHoleCluster(env))
+	clusters = append(clusters, buildDefaultPassthroughCluster(env))
 
 	return normalizeClusters(push, proxy, clusters), nil
 }
@@ -965,11 +964,11 @@ func setUpstreamProtocol(cluster *apiv2.Cluster, port *model.Port) {
 
 // generates a cluster that sends traffic to dummy localport 0
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
-func buildBlackHoleCluster() *apiv2.Cluster {
+func buildBlackHoleCluster(env *model.Environment) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
-		ConnectTimeout:       1 * time.Second,
+		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
 	}
 	return cluster
@@ -977,11 +976,11 @@ func buildBlackHoleCluster() *apiv2.Cluster {
 
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
-func buildDefaultPassthroughCluster() *apiv2.Cluster {
+func buildDefaultPassthroughCluster(env *model.Environment) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       1 * time.Second,
+		ConnectTimeout:       util.GogoDurationToDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             apiv2.Cluster_ORIGINAL_DST_LB,
 	}
 	return cluster
