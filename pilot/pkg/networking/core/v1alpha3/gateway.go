@@ -247,8 +247,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		// We have two cases here:
 		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
 		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
-		// The logic below only handles case 1.
-		// TODO: handle case 2
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, v)
 		if len(matchingHosts) == 0 {
 			log.Debugf("%s omitting virtual service %q because its hosts don't match gateways %v server %d", node.ID, v.Name, gateways, port)
@@ -260,19 +258,25 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			continue
 		}
 
-		for vsvcHost, gatewayHost := range matchingHosts {
-			if currentVhost, exists := vHostDedupMap[vsvcHost]; exists {
-				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
-			} else {
-				newVhost := &route.VirtualHost{
-					Name:    fmt.Sprintf("%s:%d", vsvcHost, port),
-					Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
-					Routes:  routes,
+		for vsvcHost, gatewayHosts := range matchingHosts {
+			for _, gatewayHost := range gatewayHosts {
+				host := vsvcHost
+				if gatewayHost.SubsetOf(model.Hostname(vsvcHost)) {
+					host = string(gatewayHost)
 				}
-				if tlsRedirect[gatewayHost] {
-					newVhost.RequireTls = route.VirtualHost_ALL
+				if currentVhost, exists := vHostDedupMap[host]; exists {
+					currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
+				} else {
+					newVhost := &route.VirtualHost{
+						Name:    fmt.Sprintf("%s:%d", host, port),
+						Domains: []string{host, fmt.Sprintf("%s:%d", host, port)},
+						Routes:  routes,
+					}
+					if tlsRedirect[gatewayHost] {
+						newVhost.RequireTls = route.VirtualHost_ALL
+					}
+					vHostDedupMap[host] = newVhost
 				}
-				vHostDedupMap[vsvcHost] = newVhost
 			}
 		}
 	}
@@ -639,8 +643,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
-	matchingHosts := make(map[string]model.Hostname, 0)
+func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostnames {
+	matchingHosts := make(map[string]model.Hostnames, 0)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
@@ -659,7 +663,7 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtua
 			if gwHostnameForMatching.Matches(model.Hostname(vsvcHost)) {
 				// assign the actual gateway host because calling code uses it as a key
 				// to locate TLS redirect servers
-				matchingHosts[vsvcHost] = gatewayHost
+				matchingHosts[vsvcHost] = append(matchingHosts[vsvcHost], gatewayHost)
 			}
 		}
 	}
