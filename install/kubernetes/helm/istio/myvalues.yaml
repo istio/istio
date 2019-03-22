@@ -63,12 +63,12 @@ pilot:
     topologyKey: "failure-domain.beta.kubernetes.io/zone"
 
 mixer:
-  enabled: false
+  enabled: true
   policy:
-    enabled: false
+    enabled: true
 
   telemetry:
-    enabled: false
+    enabled: true
   
   podAntiAffinityLabelSelector:
   - key: mixerSecurity1
@@ -92,9 +92,6 @@ sidecarInjectorWebhook:
   enabled: false
 
 galley:
-  enabled: false
-
-pilot:
   enabled: false
 
 security:
