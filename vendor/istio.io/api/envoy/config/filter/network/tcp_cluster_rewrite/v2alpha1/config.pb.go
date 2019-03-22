@@ -3,29 +3,67 @@
 
 package v2alpha1
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // TcpClusterRewrite is the config for the TCP cluster rewrite filter.
 type TcpClusterRewrite struct {
 	// Specifies the regex pattern to be matched in the cluster name.
 	ClusterPattern string `protobuf:"bytes,1,opt,name=cluster_pattern,json=clusterPattern,proto3" json:"cluster_pattern,omitempty"`
 	// Specifies the replacement for the matched cluster pattern.
-	ClusterReplacement string `protobuf:"bytes,2,opt,name=cluster_replacement,json=clusterReplacement,proto3" json:"cluster_replacement,omitempty"`
+	ClusterReplacement   string   `protobuf:"bytes,2,opt,name=cluster_replacement,json=clusterReplacement,proto3" json:"cluster_replacement,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TcpClusterRewrite) Reset()                    { *m = TcpClusterRewrite{} }
-func (m *TcpClusterRewrite) String() string            { return proto.CompactTextString(m) }
-func (*TcpClusterRewrite) ProtoMessage()               {}
-func (*TcpClusterRewrite) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (m *TcpClusterRewrite) Reset()         { *m = TcpClusterRewrite{} }
+func (m *TcpClusterRewrite) String() string { return proto.CompactTextString(m) }
+func (*TcpClusterRewrite) ProtoMessage()    {}
+func (*TcpClusterRewrite) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3df0613c72936227, []int{0}
+}
+func (m *TcpClusterRewrite) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TcpClusterRewrite) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TcpClusterRewrite.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TcpClusterRewrite) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpClusterRewrite.Merge(m, src)
+}
+func (m *TcpClusterRewrite) XXX_Size() int {
+	return m.Size()
+}
+func (m *TcpClusterRewrite) XXX_DiscardUnknown() {
+	xxx_messageInfo_TcpClusterRewrite.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TcpClusterRewrite proto.InternalMessageInfo
 
 func (m *TcpClusterRewrite) GetClusterPattern() string {
 	if m != nil {
@@ -44,6 +82,29 @@ func (m *TcpClusterRewrite) GetClusterReplacement() string {
 func init() {
 	proto.RegisterType((*TcpClusterRewrite)(nil), "istio.envoy.config.filter.network.tcp_cluster_rewrite.v2alpha1.TcpClusterRewrite")
 }
+
+func init() {
+	proto.RegisterFile("envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1/config.proto", fileDescriptor_3df0613c72936227)
+}
+
+var fileDescriptor_3df0613c72936227 = []byte{
+	// 213 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x72, 0x4d, 0xcd, 0x2b, 0xcb,
+	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,
+	0xcf, 0x4b, 0x2d, 0x29, 0xcf, 0x2f, 0xca, 0xd6, 0x2f, 0x49, 0x2e, 0x88, 0x4f, 0xce, 0x29, 0x2d,
+	0x2e, 0x49, 0x2d, 0x8a, 0x2f, 0x4a, 0x2d, 0x2f, 0xca, 0x2c, 0x49, 0xd5, 0x2f, 0x33, 0x4a, 0xcc,
+	0x29, 0xc8, 0x48, 0x34, 0x84, 0x6a, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xb2, 0xcb, 0x2c,
+	0x2e, 0xc9, 0xcc, 0xd7, 0x03, 0x1b, 0xa6, 0x07, 0x95, 0x81, 0x18, 0xa6, 0x07, 0x35, 0x4c, 0x0f,
+	0x8b, 0x61, 0x7a, 0x30, 0xc3, 0x94, 0x72, 0xb9, 0x04, 0x43, 0x92, 0x0b, 0x9c, 0x21, 0xd2, 0x41,
+	0x10, 0x59, 0x21, 0x75, 0x2e, 0x7e, 0x98, 0x86, 0x82, 0xc4, 0x92, 0x92, 0xd4, 0xa2, 0x3c, 0x09,
+	0x46, 0x05, 0x46, 0x0d, 0xce, 0x20, 0x3e, 0xa8, 0x70, 0x00, 0x44, 0x54, 0x48, 0x9f, 0x4b, 0x18,
+	0x61, 0x72, 0x41, 0x4e, 0x62, 0x72, 0x6a, 0x6e, 0x6a, 0x5e, 0x89, 0x04, 0x13, 0x58, 0xb1, 0x50,
+	0x32, 0xcc, 0x54, 0xb8, 0x8c, 0x53, 0xf0, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e,
+	0x78, 0x24, 0xc7, 0x18, 0xe5, 0x0a, 0x71, 0x7c, 0x66, 0xbe, 0x7e, 0x62, 0x41, 0xa6, 0x3e, 0xb9,
+	0x01, 0x92, 0xc4, 0x06, 0x0e, 0x0a, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0xda, 0x0d, 0xa4,
+	0x2b, 0x53, 0x01, 0x00, 0x00,
+}
+
 func (m *TcpClusterRewrite) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -71,6 +132,9 @@ func (m *TcpClusterRewrite) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.ClusterReplacement)))
 		i += copy(dAtA[i:], m.ClusterReplacement)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -84,6 +148,9 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *TcpClusterRewrite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ClusterPattern)
@@ -93,6 +160,9 @@ func (m *TcpClusterRewrite) Size() (n int) {
 	l = len(m.ClusterReplacement)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -125,7 +195,7 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -153,7 +223,7 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -163,6 +233,9 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -182,7 +255,7 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -192,6 +265,9 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -206,9 +282,13 @@ func (m *TcpClusterRewrite) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -272,8 +352,11 @@ func skipConfig(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthConfig
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthConfig
 			}
 			return iNdEx, nil
@@ -304,6 +387,9 @@ func skipConfig(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthConfig
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -322,25 +408,3 @@ var (
 	ErrInvalidLengthConfig = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowConfig   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() {
-	proto.RegisterFile("envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1/config.proto", fileDescriptorConfig)
-}
-
-var fileDescriptorConfig = []byte{
-	// 213 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x72, 0x4d, 0xcd, 0x2b, 0xcb,
-	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,
-	0xcf, 0x4b, 0x2d, 0x29, 0xcf, 0x2f, 0xca, 0xd6, 0x2f, 0x49, 0x2e, 0x88, 0x4f, 0xce, 0x29, 0x2d,
-	0x2e, 0x49, 0x2d, 0x8a, 0x2f, 0x4a, 0x2d, 0x2f, 0xca, 0x2c, 0x49, 0xd5, 0x2f, 0x33, 0x4a, 0xcc,
-	0x29, 0xc8, 0x48, 0x34, 0x84, 0x6a, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xb2, 0xcb, 0x2c,
-	0x2e, 0xc9, 0xcc, 0xd7, 0x03, 0x1b, 0xa6, 0x07, 0x95, 0x81, 0x18, 0xa6, 0x07, 0x35, 0x4c, 0x0f,
-	0x8b, 0x61, 0x7a, 0x30, 0xc3, 0x94, 0x72, 0xb9, 0x04, 0x43, 0x92, 0x0b, 0x9c, 0x21, 0xd2, 0x41,
-	0x10, 0x59, 0x21, 0x75, 0x2e, 0x7e, 0x98, 0x86, 0x82, 0xc4, 0x92, 0x92, 0xd4, 0xa2, 0x3c, 0x09,
-	0x46, 0x05, 0x46, 0x0d, 0xce, 0x20, 0x3e, 0xa8, 0x70, 0x00, 0x44, 0x54, 0x48, 0x9f, 0x4b, 0x18,
-	0x61, 0x72, 0x41, 0x4e, 0x62, 0x72, 0x6a, 0x6e, 0x6a, 0x5e, 0x89, 0x04, 0x13, 0x58, 0xb1, 0x50,
-	0x32, 0xcc, 0x54, 0xb8, 0x8c, 0x53, 0xf0, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e,
-	0x78, 0x24, 0xc7, 0x18, 0xe5, 0x0a, 0x71, 0x7c, 0x66, 0xbe, 0x7e, 0x62, 0x41, 0xa6, 0x3e, 0xb9,
-	0x01, 0x92, 0xc4, 0x06, 0x0e, 0x0a, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0xda, 0x0d, 0xa4,
-	0x2b, 0x53, 0x01, 0x00, 0x00,
-}

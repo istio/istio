@@ -3,21 +3,19 @@
 
 package v1beta1
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/gogo/protobuf/types"
-
-import time "time"
-
-import types "github.com/gogo/protobuf/types"
-
-import strings "strings"
-import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
-
-import io "io"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+	_ "github.com/gogo/protobuf/types"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+	reflect "reflect"
+	strings "strings"
+	time "time"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -25,15 +23,49 @@ var _ = fmt.Errorf
 var _ = math.Inf
 var _ = time.Kitchen
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Expresses the quota allocation request.
 type QuotaRequest struct {
 	// The individual quotas to allocate
-	Quotas map[string]QuotaRequest_QuotaParams `protobuf:"bytes,1,rep,name=quotas" json:"quotas" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Quotas map[string]QuotaRequest_QuotaParams `protobuf:"bytes,1,rep,name=quotas,proto3" json:"quotas" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
-func (m *QuotaRequest) Reset()                    { *m = QuotaRequest{} }
-func (*QuotaRequest) ProtoMessage()               {}
-func (*QuotaRequest) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{0} }
+func (m *QuotaRequest) Reset()      { *m = QuotaRequest{} }
+func (*QuotaRequest) ProtoMessage() {}
+func (*QuotaRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f07acf62b4429357, []int{0}
+}
+func (m *QuotaRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuotaRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuotaRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaRequest.Merge(m, src)
+}
+func (m *QuotaRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaRequest proto.InternalMessageInfo
 
 // parameters for a quota allocation
 type QuotaRequest_QuotaParams struct {
@@ -43,39 +75,163 @@ type QuotaRequest_QuotaParams struct {
 	BestEffort bool `protobuf:"varint,2,opt,name=best_effort,json=bestEffort,proto3" json:"best_effort,omitempty"`
 }
 
-func (m *QuotaRequest_QuotaParams) Reset()                    { *m = QuotaRequest_QuotaParams{} }
-func (*QuotaRequest_QuotaParams) ProtoMessage()               {}
-func (*QuotaRequest_QuotaParams) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{0, 0} }
+func (m *QuotaRequest_QuotaParams) Reset()      { *m = QuotaRequest_QuotaParams{} }
+func (*QuotaRequest_QuotaParams) ProtoMessage() {}
+func (*QuotaRequest_QuotaParams) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f07acf62b4429357, []int{0, 0}
+}
+func (m *QuotaRequest_QuotaParams) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaRequest_QuotaParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuotaRequest_QuotaParams.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuotaRequest_QuotaParams) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaRequest_QuotaParams.Merge(m, src)
+}
+func (m *QuotaRequest_QuotaParams) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaRequest_QuotaParams) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaRequest_QuotaParams.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaRequest_QuotaParams proto.InternalMessageInfo
 
 // Expresses the result of multiple quota allocations.
 type QuotaResult struct {
 	// The resulting quota, one entry per requested quota.
-	Quotas map[string]QuotaResult_Result `protobuf:"bytes,1,rep,name=quotas" json:"quotas" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Quotas map[string]QuotaResult_Result `protobuf:"bytes,1,rep,name=quotas,proto3" json:"quotas" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
-func (m *QuotaResult) Reset()                    { *m = QuotaResult{} }
-func (*QuotaResult) ProtoMessage()               {}
-func (*QuotaResult) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{1} }
+func (m *QuotaResult) Reset()      { *m = QuotaResult{} }
+func (*QuotaResult) ProtoMessage() {}
+func (*QuotaResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f07acf62b4429357, []int{1}
+}
+func (m *QuotaResult) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuotaResult.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuotaResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaResult.Merge(m, src)
+}
+func (m *QuotaResult) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaResult.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaResult proto.InternalMessageInfo
 
 // Expresses the result of a quota allocation.
 type QuotaResult_Result struct {
 	// The amount of time for which this result can be considered valid.
-	ValidDuration time.Duration `protobuf:"bytes,2,opt,name=valid_duration,json=validDuration,stdduration" json:"valid_duration"`
+	ValidDuration time.Duration `protobuf:"bytes,2,opt,name=valid_duration,json=validDuration,proto3,stdduration" json:"valid_duration"`
 	// The amount of granted quota. When `QuotaParams.best_effort` is true, this will be >= 0.
 	// If `QuotaParams.best_effort` is false, this will be either 0 or >= `QuotaParams.amount`.
 	GrantedAmount int64 `protobuf:"varint,3,opt,name=granted_amount,json=grantedAmount,proto3" json:"granted_amount,omitempty"`
 }
 
-func (m *QuotaResult_Result) Reset()                    { *m = QuotaResult_Result{} }
-func (*QuotaResult_Result) ProtoMessage()               {}
-func (*QuotaResult_Result) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{1, 0} }
+func (m *QuotaResult_Result) Reset()      { *m = QuotaResult_Result{} }
+func (*QuotaResult_Result) ProtoMessage() {}
+func (*QuotaResult_Result) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f07acf62b4429357, []int{1, 0}
+}
+func (m *QuotaResult_Result) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaResult_Result) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QuotaResult_Result.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QuotaResult_Result) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaResult_Result.Merge(m, src)
+}
+func (m *QuotaResult_Result) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaResult_Result) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaResult_Result.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaResult_Result proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*QuotaRequest)(nil), "istio.mixer.adapter.model.v1beta1.QuotaRequest")
+	proto.RegisterMapType((map[string]QuotaRequest_QuotaParams)(nil), "istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotasEntry")
 	proto.RegisterType((*QuotaRequest_QuotaParams)(nil), "istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams")
 	proto.RegisterType((*QuotaResult)(nil), "istio.mixer.adapter.model.v1beta1.QuotaResult")
+	proto.RegisterMapType((map[string]QuotaResult_Result)(nil), "istio.mixer.adapter.model.v1beta1.QuotaResult.QuotasEntry")
 	proto.RegisterType((*QuotaResult_Result)(nil), "istio.mixer.adapter.model.v1beta1.QuotaResult.Result")
 }
+
+func init() {
+	proto.RegisterFile("mixer/adapter/model/v1beta1/quota.proto", fileDescriptor_f07acf62b4429357)
+}
+
+var fileDescriptor_f07acf62b4429357 = []byte{
+	// 451 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x53, 0x3d, 0x8f, 0xd3, 0x30,
+	0x18, 0xb6, 0x5b, 0xa8, 0x0e, 0x97, 0x3b, 0x21, 0x0b, 0xa1, 0x92, 0xc1, 0x2d, 0x27, 0x21, 0x3a,
+	0xd9, 0x3a, 0x10, 0x12, 0x3a, 0x26, 0x2a, 0x8e, 0x01, 0x16, 0xce, 0x13, 0xb0, 0x54, 0x8e, 0xe2,
+	0x46, 0x11, 0x49, 0x9c, 0x73, 0x9c, 0x88, 0x13, 0x0b, 0x3f, 0x81, 0x91, 0x9f, 0x00, 0xff, 0xa4,
+	0x63, 0x27, 0x74, 0x13, 0x90, 0x74, 0x61, 0xbc, 0x9f, 0x80, 0x62, 0xbb, 0xd2, 0xc1, 0x70, 0x05,
+	0xa6, 0xbc, 0x1f, 0xcf, 0xfb, 0x3c, 0x79, 0x9f, 0x57, 0x46, 0xf7, 0xb2, 0xe4, 0x9d, 0xd4, 0x4c,
+	0x44, 0xa2, 0x30, 0x52, 0xb3, 0x4c, 0x45, 0x32, 0x65, 0xf5, 0x41, 0x28, 0x8d, 0x38, 0x60, 0x27,
+	0x95, 0x32, 0x82, 0x16, 0x5a, 0x19, 0x85, 0xef, 0x24, 0xa5, 0x49, 0x14, 0xb5, 0x70, 0xea, 0xe1,
+	0xd4, 0xc2, 0xa9, 0x87, 0x07, 0x37, 0x63, 0x15, 0x2b, 0x8b, 0x66, 0x5d, 0xe4, 0x06, 0x03, 0x12,
+	0x2b, 0x15, 0xa7, 0x92, 0xd9, 0x2c, 0xac, 0x16, 0x2c, 0xaa, 0xb4, 0x30, 0x89, 0xca, 0x5d, 0x7f,
+	0xff, 0x4b, 0x0f, 0x5d, 0x3f, 0xee, 0x84, 0xb8, 0x3c, 0xa9, 0x64, 0x69, 0xf0, 0x6b, 0x34, 0xb0,
+	0xc2, 0xe5, 0x08, 0x4e, 0xfa, 0xd3, 0xe1, 0xfd, 0xc7, 0x74, 0xab, 0x34, 0xbd, 0x48, 0xe0, 0x92,
+	0xf2, 0x28, 0x37, 0xfa, 0x74, 0x76, 0x65, 0xf9, 0x6d, 0x0c, 0xb8, 0x27, 0x0c, 0x9e, 0xa1, 0xa1,
+	0x6d, 0xbe, 0x14, 0x5a, 0x64, 0x25, 0xbe, 0x85, 0x06, 0x22, 0x53, 0x55, 0x6e, 0x46, 0x70, 0x02,
+	0xa7, 0x7d, 0xee, 0x33, 0x3c, 0x46, 0xc3, 0x50, 0x96, 0x66, 0x2e, 0x17, 0x0b, 0xa5, 0xcd, 0xa8,
+	0x37, 0x81, 0xd3, 0x1d, 0x8e, 0xba, 0xd2, 0x91, 0xad, 0x04, 0xb5, 0xe7, 0x71, 0x22, 0xf8, 0x06,
+	0xea, 0xbf, 0x95, 0xa7, 0x96, 0xe4, 0x1a, 0xef, 0x42, 0x7c, 0x8c, 0xae, 0xd6, 0x22, 0xad, 0xa4,
+	0x9d, 0xfd, 0xdf, 0x15, 0xdc, 0x5f, 0x72, 0xc7, 0x74, 0xd8, 0x7b, 0x04, 0xf7, 0xbf, 0xf6, 0xbc,
+	0x30, 0x97, 0x65, 0x95, 0x1a, 0xfc, 0xea, 0x0f, 0xab, 0x0e, 0xff, 0x5e, 0xa7, 0x9b, 0xbf, 0xc4,
+	0xa9, 0xf7, 0x68, 0xe0, 0x35, 0x9e, 0xa3, 0xbd, 0x5a, 0xa4, 0x49, 0x34, 0xdf, 0xdc, 0xcd, 0xef,
+	0x74, 0x9b, 0xba, 0xc3, 0xd2, 0xcd, 0x61, 0xe9, 0x53, 0x0f, 0x98, 0xed, 0x74, 0x54, 0x9f, 0xbe,
+	0x8f, 0x21, 0xdf, 0xb5, 0xa3, 0x9b, 0x06, 0xbe, 0x8b, 0xf6, 0x62, 0x2d, 0x72, 0x23, 0xa3, 0xb9,
+	0x37, 0xbe, 0x6f, 0x8d, 0xdf, 0xf5, 0xd5, 0x27, 0xb6, 0x18, 0x14, 0xdb, 0xec, 0x7d, 0xf1, 0xbb,
+	0xbd, 0x0f, 0xff, 0x71, 0x6d, 0xf7, 0xb9, 0x60, 0xec, 0x2c, 0x5c, 0x36, 0x04, 0xac, 0x1a, 0x02,
+	0xce, 0x1a, 0x02, 0xce, 0x1b, 0x02, 0x3e, 0xb4, 0x04, 0x7e, 0x6e, 0x09, 0x58, 0xb6, 0x04, 0xae,
+	0x5a, 0x02, 0x7f, 0xb4, 0x04, 0xfe, 0x6c, 0x09, 0x38, 0x6f, 0x09, 0xfc, 0xb8, 0x26, 0x60, 0xb5,
+	0x26, 0xe0, 0x6c, 0x4d, 0xc0, 0x9b, 0xa9, 0x93, 0x4e, 0x14, 0x13, 0x45, 0xc2, 0x2e, 0x79, 0x4d,
+	0xe1, 0xc0, 0x1a, 0xf5, 0xe0, 0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0xf5, 0xdb, 0x42, 0x83, 0x73,
+	0x03, 0x00, 0x00,
+}
+
 func (m *QuotaRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -214,8 +370,8 @@ func (m *QuotaResult_Result) MarshalTo(dAtA []byte) (int, error) {
 	_ = l
 	dAtA[i] = 0x12
 	i++
-	i = encodeVarintQuota(dAtA, i, uint64(types.SizeOfStdDuration(m.ValidDuration)))
-	n3, err := types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	i = encodeVarintQuota(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
+	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -238,6 +394,9 @@ func encodeVarintQuota(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *QuotaRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Quotas) > 0 {
@@ -253,6 +412,9 @@ func (m *QuotaRequest) Size() (n int) {
 }
 
 func (m *QuotaRequest_QuotaParams) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Amount != 0 {
@@ -265,6 +427,9 @@ func (m *QuotaRequest_QuotaParams) Size() (n int) {
 }
 
 func (m *QuotaResult) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Quotas) > 0 {
@@ -280,9 +445,12 @@ func (m *QuotaResult) Size() (n int) {
 }
 
 func (m *QuotaResult_Result) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
-	l = types.SizeOfStdDuration(m.ValidDuration)
+	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)
 	n += 1 + l + sovQuota(uint64(l))
 	if m.GrantedAmount != 0 {
 		n += 1 + sovQuota(uint64(m.GrantedAmount))
@@ -311,7 +479,7 @@ func (this *QuotaRequest) String() string {
 	for k, _ := range this.Quotas {
 		keysForQuotas = append(keysForQuotas, k)
 	}
-	sortkeys.Strings(keysForQuotas)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForQuotas)
 	mapStringForQuotas := "map[string]QuotaRequest_QuotaParams{"
 	for _, k := range keysForQuotas {
 		mapStringForQuotas += fmt.Sprintf("%v: %v,", k, this.Quotas[k])
@@ -342,7 +510,7 @@ func (this *QuotaResult) String() string {
 	for k, _ := range this.Quotas {
 		keysForQuotas = append(keysForQuotas, k)
 	}
-	sortkeys.Strings(keysForQuotas)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForQuotas)
 	mapStringForQuotas := "map[string]QuotaResult_Result{"
 	for _, k := range keysForQuotas {
 		mapStringForQuotas += fmt.Sprintf("%v: %v,", k, this.Quotas[k])
@@ -359,7 +527,7 @@ func (this *QuotaResult_Result) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&QuotaResult_Result{`,
-		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "google_protobuf1.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`GrantedAmount:` + fmt.Sprintf("%v", this.GrantedAmount) + `,`,
 		`}`,
 	}, "")
@@ -388,7 +556,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -416,7 +584,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -425,6 +593,9 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -445,7 +616,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -462,7 +633,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -472,6 +643,9 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthQuota
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -488,7 +662,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -497,7 +671,7 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthQuota
 					}
 					if postmsgIndex > l {
@@ -534,6 +708,9 @@ func (m *QuotaRequest) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthQuota
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -561,7 +738,7 @@ func (m *QuotaRequest_QuotaParams) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -589,7 +766,7 @@ func (m *QuotaRequest_QuotaParams) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Amount |= (int64(b) & 0x7F) << shift
+				m.Amount |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -608,7 +785,7 @@ func (m *QuotaRequest_QuotaParams) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -621,6 +798,9 @@ func (m *QuotaRequest_QuotaParams) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -650,7 +830,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -678,7 +858,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -687,6 +867,9 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -707,7 +890,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -724,7 +907,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -734,6 +917,9 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthQuota
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -750,7 +936,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -759,7 +945,7 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthQuota
 					}
 					if postmsgIndex > l {
@@ -796,6 +982,9 @@ func (m *QuotaResult) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthQuota
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -823,7 +1012,7 @@ func (m *QuotaResult_Result) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -851,7 +1040,7 @@ func (m *QuotaResult_Result) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -860,10 +1049,13 @@ func (m *QuotaResult_Result) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -881,7 +1073,7 @@ func (m *QuotaResult_Result) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.GrantedAmount |= (int64(b) & 0x7F) << shift
+				m.GrantedAmount |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -893,6 +1085,9 @@ func (m *QuotaResult_Result) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -961,8 +1156,11 @@ func skipQuota(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthQuota
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthQuota
 			}
 			return iNdEx, nil
@@ -993,6 +1191,9 @@ func skipQuota(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthQuota
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1011,37 +1212,3 @@ var (
 	ErrInvalidLengthQuota = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowQuota   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("mixer/adapter/model/v1beta1/quota.proto", fileDescriptorQuota) }
-
-var fileDescriptorQuota = []byte{
-	// 444 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x53, 0x3d, 0x6f, 0xd4, 0x30,
-	0x18, 0xb6, 0xef, 0xe0, 0x54, 0x7c, 0xb4, 0x42, 0x16, 0x42, 0x47, 0x06, 0xdf, 0x51, 0x09, 0x91,
-	0xc9, 0x56, 0x41, 0x48, 0xa8, 0x4c, 0x9c, 0x28, 0x03, 0x2c, 0xd4, 0x13, 0x74, 0x39, 0x39, 0x8a,
-	0x2f, 0x8a, 0x48, 0xe2, 0xd4, 0x71, 0x22, 0x2a, 0x16, 0x7e, 0x02, 0x23, 0x3f, 0x01, 0xfe, 0xc9,
-	0x8d, 0x9d, 0x10, 0x13, 0x90, 0xb0, 0x30, 0xf6, 0x27, 0xa0, 0xd8, 0x3e, 0xa9, 0x30, 0xf4, 0xa0,
-	0x53, 0xde, 0x8f, 0xe7, 0x7d, 0x9e, 0xbc, 0xcf, 0x2b, 0xa3, 0x7b, 0x79, 0xfa, 0x56, 0x6a, 0x26,
-	0x62, 0x51, 0x1a, 0xa9, 0x59, 0xae, 0x62, 0x99, 0xb1, 0x66, 0x2f, 0x92, 0x46, 0xec, 0xb1, 0xe3,
-	0x5a, 0x19, 0x41, 0x4b, 0xad, 0x8c, 0xc2, 0x77, 0xd2, 0xca, 0xa4, 0x8a, 0x5a, 0x38, 0xf5, 0x70,
-	0x6a, 0xe1, 0xd4, 0xc3, 0x83, 0x9b, 0x89, 0x4a, 0x94, 0x45, 0xb3, 0x3e, 0x72, 0x83, 0x01, 0x49,
-	0x94, 0x4a, 0x32, 0xc9, 0x6c, 0x16, 0xd5, 0x4b, 0x16, 0xd7, 0x5a, 0x98, 0x54, 0x15, 0xae, 0xbf,
-	0xfb, 0x79, 0x80, 0xae, 0x1f, 0xf6, 0x42, 0x5c, 0x1e, 0xd7, 0xb2, 0x32, 0xf8, 0x35, 0x1a, 0x59,
-	0xe1, 0x6a, 0x02, 0x67, 0xc3, 0x70, 0x7c, 0xff, 0x31, 0xdd, 0x28, 0x4d, 0xcf, 0x13, 0xb8, 0xa4,
-	0x3a, 0x28, 0x8c, 0x3e, 0x99, 0x5f, 0x59, 0x7d, 0x9b, 0x02, 0xee, 0x09, 0x83, 0x67, 0x68, 0x6c,
-	0x9b, 0x2f, 0x85, 0x16, 0x79, 0x85, 0x6f, 0xa1, 0x91, 0xc8, 0x55, 0x5d, 0x98, 0x09, 0x9c, 0xc1,
-	0x70, 0xc8, 0x7d, 0x86, 0xa7, 0x68, 0x1c, 0xc9, 0xca, 0x2c, 0xe4, 0x72, 0xa9, 0xb4, 0x99, 0x0c,
-	0x66, 0x30, 0xdc, 0xe2, 0xa8, 0x2f, 0x1d, 0xd8, 0x4a, 0xd0, 0x78, 0x1e, 0x27, 0x82, 0x6f, 0xa0,
-	0xe1, 0x1b, 0x79, 0x62, 0x49, 0xae, 0xf1, 0x3e, 0xc4, 0x87, 0xe8, 0x6a, 0x23, 0xb2, 0x5a, 0xda,
-	0xd9, 0xcb, 0xae, 0xe0, 0xfe, 0x92, 0x3b, 0xa6, 0xfd, 0xc1, 0x23, 0xb8, 0xfb, 0x65, 0xe0, 0x85,
-	0xb9, 0xac, 0xea, 0xcc, 0xe0, 0x57, 0x7f, 0x59, 0xb5, 0xff, 0xef, 0x3a, 0xfd, 0xfc, 0x05, 0x4e,
-	0xbd, 0x43, 0x23, 0xaf, 0xf1, 0x1c, 0xed, 0x34, 0x22, 0x4b, 0xe3, 0xc5, 0xfa, 0x6e, 0x7e, 0xa7,
-	0xdb, 0xd4, 0x1d, 0x96, 0xae, 0x0f, 0x4b, 0x9f, 0x7a, 0xc0, 0x7c, 0xab, 0xa7, 0xfa, 0xf8, 0x7d,
-	0x0a, 0xf9, 0xb6, 0x1d, 0x5d, 0x37, 0xf0, 0x5d, 0xb4, 0x93, 0x68, 0x51, 0x18, 0x19, 0x2f, 0xbc,
-	0xf1, 0x43, 0x6b, 0xfc, 0xb6, 0xaf, 0x3e, 0xb1, 0xc5, 0xa0, 0xdc, 0x64, 0xef, 0x8b, 0x3f, 0xed,
-	0x7d, 0xf8, 0x9f, 0x6b, 0xbb, 0xcf, 0x39, 0x63, 0xe7, 0x47, 0xab, 0x96, 0x80, 0xd3, 0x96, 0x80,
-	0xaf, 0x2d, 0x01, 0x67, 0x2d, 0x01, 0xef, 0x3b, 0x02, 0x3f, 0x75, 0x04, 0xac, 0x3a, 0x02, 0x4f,
-	0x3b, 0x02, 0x7f, 0x74, 0x04, 0xfe, 0xea, 0x08, 0x38, 0xeb, 0x08, 0xfc, 0xf0, 0x93, 0x80, 0xa3,
-	0xd0, 0x49, 0xa6, 0x8a, 0x89, 0x32, 0x65, 0x17, 0xbc, 0xa2, 0x68, 0x64, 0x0d, 0x7a, 0xf0, 0x3b,
-	0x00, 0x00, 0xff, 0xff, 0xf7, 0xfa, 0xfe, 0x63, 0x6b, 0x03, 0x00, 0x00,
-}

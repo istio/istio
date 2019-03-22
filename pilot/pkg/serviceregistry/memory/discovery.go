@@ -235,7 +235,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 				// Only one IP for memory discovery?
 				if node.IPAddresses[0] == MakeIP(service, v) {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, "zone/region"))
+						out = append(out, MakeInstance(service, port, v, "region/zone"))
 					}
 				}
 			}

@@ -1,12 +1,17 @@
 #
 # mixer configuration
 #
+enabled: true
 image: mixer
 
 env:
   GODEBUG: gctrace=1
+  # max procs should be ceil(cpu limit + 1)
+  GOMAXPROCS: "6"
 
 policy:
+  # if policy is enabled, global.disablePolicyChecks has affect.
+  enabled: false
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
@@ -15,6 +20,7 @@ policy:
     targetAverageUtilization: 80
 
 telemetry:
+  enabled: true
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
@@ -27,9 +33,18 @@ telemetry:
   # When mixer detects that it is overloaded, it starts rejecting grpc requests.
   loadshedding:
     # disabled, logonly or enforce
-    mode: logonly
+    mode: enforce
     # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
     latencyThreshold: 100ms
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1G
+    limits:
+      # It is best to do horizontal scaling of mixer using moderate cpu allocation.
+      # We have experimentally found that these values work well.
+      cpu: 4800m
+      memory: 4G
 
 podAnnotations: {}
 nodeSelector: {}
@@ -37,8 +52,10 @@ nodeSelector: {}
 adapters:
   kubernetesenv:
     enabled: true
+
+  # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
   stdio:
-    enabled: true
+    enabled: false
     outputAsJson: true
   prometheus:
     enabled: true

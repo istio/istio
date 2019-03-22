@@ -477,7 +477,7 @@ istioctl delete virtualservice bookinfo
 	$ kubectl config set-cluster istio --server=http://localhost:8080
 	$ kubectl config use-context istio
 `,
-		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
+		Short: "Create a kubeconfig file suitable for use with istioctl in a non-Kubernetes environment",
 		Example: `# Create a config file for the api server.
 istioctl context-create --api-server http://127.0.0.1:8080
 `,
