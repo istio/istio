@@ -17,10 +17,8 @@
 package healthcheck
 
 import (
-	"os"
 	"testing"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -36,13 +34,14 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	cfg, err := istio.DefaultConfig2()
-	if err != nil {
-		log.Errorf("failed with error %v", err)
-		os.Exit(-1)
+	framework.Main("mtls_healthcheck", m, istio.SetupOnKube(&ist, setupConfig))
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
 	}
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-	framework.Main("mtls_healthcheck", m, istio.SetupOnKube(&ist, &cfg))
 }
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
