@@ -54,38 +54,38 @@ var (
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
-	DNSDomain        string
 
 	// proxy config flags (named identically)
-	configPath               string
-	controlPlaneBootstrap    bool
-	binaryPath               string
-	serviceCluster           string
-	drainDuration            time.Duration
-	parentShutdownDuration   time.Duration
-	discoveryAddress         string
-	zipkinAddress            string
-	lightstepAddress         string
-	lightstepAccessToken     string
-	lightstepSecure          bool
-	lightstepCacertPath      string
-	connectTimeout           time.Duration
-	statsdUDPAddress         string
-	proxyAdminPort           uint16
-	controlPlaneAuthPolicy   string
-	customConfigFile         string
-	proxyLogLevel            string
-	concurrency              int
-	templateFile             string
-	disableInternalTelemetry bool
-	tlsServerCertChain       string
-	tlsServerKey             string
-	tlsServerRootCert        string
-	tlsClientCertChain       string
-	tlsClientKey             string
-	tlsClientRootCert        string
-	tlsCertsToWatch          []string
-	loggingOptions           = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	tlsServerCertChain         string
+	tlsServerKey               string
+	tlsServerRootCert          string
+	tlsClientCertChain         string
+	tlsClientKey               string
+	tlsClientRootCert          string
+	tlsCertsToWatch            []string
+	loggingOptions             = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -195,6 +195,7 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
+			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -227,17 +228,13 @@ var (
 					}
 				}
 			}
+			role.DNSDomain = getDNSDomain(role.DNSDomain)
+			setSpiffeTrustDomain(role.DNSDomain)
 
-			// Parse the DNSDomain based upon service registry type into a registry specific domain.
-			DNSDomain = getDNSDomain(DNSDomain)
-			setSpiffeTrustDomain(DNSDomain)
-			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
-			role.DNSDomains = make([]string, 1)
-			role.DNSDomains[0] = DNSDomain
-			setSpiffeTrustDomain(DNSDomain)
 			// Obtain the SAN to later create a Envoy proxy.
 			pilotSAN = getSAN(ns, envoy.PilotSvcAccName, role.PilotIdentity)
 			log.Infof("PilotSAN %#v", pilotSAN)
+
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
@@ -442,7 +439,7 @@ func getDNSDomain(domain string) string {
 }
 
 func parseApplicationPorts() ([]uint16, error) {
-	parsedPorts := make([]uint16, len(applicationPorts))
+	parsedPorts := make([]uint16, 0, len(applicationPorts))
 	for _, port := range applicationPorts {
 		port := strings.TrimSpace(port)
 		if len(port) > 0 {
@@ -473,7 +470,7 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&DNSDomain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
@@ -518,6 +515,8 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
+		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
