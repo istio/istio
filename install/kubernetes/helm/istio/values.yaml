@@ -440,7 +440,11 @@ global:
   #
   meshNetworks: {}
 
-  # Specifies the global locality load balancing settings. One of failover or distribute can be set.
+  # Specifies the global locality load balancing settings.
+  # Locality-weighted load balancing allows administrators to control the distribution of traffic to
+  # endpoints based on the localities of where the traffic originates and where it will terminate.
+  # Please set either failover or distribute configuration but not both.
+  #
   # localityLbSetting:
   #   distribute:
   #   - from: "us-central1/*"
