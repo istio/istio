@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -221,7 +220,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
+	//g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
@@ -460,52 +459,74 @@ func TestClusterMetadata(t *testing.T) {
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	tlsSettings := &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
-		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
-		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+		CaCertificates:    model.DefaultRootCert,
+		ClientCertificate: model.DefaultCertChain,
+		PrivateKey:        model.DefaultKey,
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name string
-		tls  *networking.TLSSettings
-		sans []string
-		sni  string
-		want *networking.TLSSettings
+		name  string
+		tls   *networking.TLSSettings
+		sans  []string
+		sni   string
+		proxy *model.Proxy
+		want  *networking.TLSSettings
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
 			tlsSettings,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
+			&model.Proxy{Metadata: map[string]string{}},
 			tlsSettings,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
-				ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
-				PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+				CaCertificates:    model.DefaultRootCert,
+				ClientCertificate: model.DefaultCertChain,
+				PrivateKey:        model.DefaultKey,
 				SubjectAltNames:   []string{},
 				Sni:               "",
 			},
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
+			&model.Proxy{Metadata: map[string]string{}},
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
-				ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
-				PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+				CaCertificates:    model.DefaultRootCert,
+				ClientCertificate: model.DefaultCertChain,
+				PrivateKey:        model.DefaultKey,
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
+			},
+		},
+		{
+			"Cert path override",
+			tlsSettings,
+			[]string{},
+			"",
+			&model.Proxy{Metadata: map[string]string{
+				model.NodeMetadataTLSClientCertChain: "/custom/chain.pem",
+				model.NodeMetadataTLSClientKey:       "/custom/key.pem",
+				model.NodeMetadataTLSClientRootCert:  "/custom/root.pem",
+			}},
+			&networking.TLSSettings{
+				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+				CaCertificates:    "/custom/root.pem",
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				SubjectAltNames:   []string{"custom.foo.com"},
+				Sni:               "custom.foo.com",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni)
+			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}

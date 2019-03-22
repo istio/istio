@@ -443,6 +443,21 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 
 	// no validation rules for UseHttp2
 
+	for idx, item := range m.GetExpectedStatuses() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheck_HttpHealthCheckValidationError{
+					Field:  fmt.Sprintf("ExpectedStatuses[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
 

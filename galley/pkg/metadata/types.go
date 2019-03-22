@@ -1,17 +1,3 @@
-// Copyright 2019 Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // GENERATED FILE -- DO NOT EDIT
 //
 //go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
@@ -201,6 +187,9 @@ var (
 	// istio/policy/v1beta1/rules metadata
 	IstioPolicyV1beta1Rules resource.Info
 
+	// istio/rbac/v1alpha1/authorizationpolicies metadata
+	IstioRbacV1alpha1Authorizationpolicies resource.Info
+
 	// istio/rbac/v1alpha1/clusterrbacconfigs metadata
 	IstioRbacV1alpha1Clusterrbacconfigs resource.Info
 
@@ -379,6 +368,9 @@ func init() {
 	IstioPolicyV1beta1Rules = b.Register(
 		"istio/policy/v1beta1/rules",
 		"type.googleapis.com/istio.policy.v1beta1.Rule")
+	IstioRbacV1alpha1Authorizationpolicies = b.Register(
+		"istio/rbac/v1alpha1/authorizationpolicies",
+		"type.googleapis.com/istio.rbac.v1alpha1.AuthorizationPolicy")
 	IstioRbacV1alpha1Clusterrbacconfigs = b.Register(
 		"istio/rbac/v1alpha1/clusterrbacconfigs",
 		"type.googleapis.com/istio.rbac.v1alpha1.RbacConfig")

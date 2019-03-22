@@ -1,0 +1,81 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-sidecars
+spec:
+  hosts:
+    - eu.bookinfo.com
+  gateways:
+    - mesh
+  http:
+    - match:
+        - port: 80
+      route:
+        - destination:
+            host: istio-egressgateway.istio-system.svc.cluster.local
+            port:
+              number: 443
+          weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*"
+      tls:
+        mode: MUTUAL
+        serverCertificate: /etc/certs/cert-chain.pem
+        privateKey: /etc/certs/key.pem
+        caCertificates: /etc/certs/root-cert.pem
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-egressgateway
+spec:
+  hosts:
+    - eu.bookinfo.com
+  gateways:
+    - istio-system/istio-egressgateway
+  http:
+    - match:
+        - authority:
+            exact: eu.bookinfo.com
+          port: 443
+      route:
+        - destination:
+            host: eu.bookinfo.com
+            port:
+              number: 80
+          weight: 100
+      appendHeaders:
+        handled-by-egress-gateway: "true"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-bookinfo
+spec:
+  hosts:
+    - eu.bookinfo.com
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: DNS
+  endpoints:
+    # Rather than relying on an external host that might become unreachable (causing test failures)
+    # we can mock the external endpoint using service t which has no sidecar.
+    - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+      ports:
+        http: 8080
+---

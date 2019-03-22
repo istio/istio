@@ -38,9 +38,10 @@ metadata:
   labels:
     istio-injection: disabled
 `
-	zeroCRDInstallFile = "crd-10.yaml"
-	oneCRDInstallFile  = "crd-11.yaml"
-	twoCRDInstallFile  = "crd-certmanager-10.yaml"
+	zeroCRDInstallFile        = "crd-10.yaml"
+	oneCRDInstallFile         = "crd-11.yaml"
+	twoCRDInstallFile         = "crd-12.yaml"
+	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 )
 
 // HelmConfig configuration for a Helm-based deployment.
@@ -73,15 +74,15 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		}
 	}
 
-	var err error
-	var generatedYaml string
-	if generatedYaml, err = HelmTemplate(
+	generatedYaml, err := HelmTemplate(
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
 		c.WorkDir,
 		valuesFile,
-		c.Values); err != nil {
+		c.Values)
+
+	if err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
 
@@ -105,7 +106,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 func getCrdsYamlFiles(c HelmConfig) (string, error) {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile, certManagerCRDInstallFile}
 	// Get Joined Crds Yaml file
 	prevContent := ""
 	for _, yamlFileName := range istioCRDFileNames {
@@ -145,6 +146,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
+	// TODO cleanup
 	// Adding cni dependency as a workaround for now.
 	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
 	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
