@@ -56,6 +56,6 @@ spec:
       {{- $tolerations := default .Values.global.defaultTolerations .Values.tolerations -}}
       {{- if $tolerations }}
       tolerations:
-      {{- toYaml $tolerations | indent 6 }}
+{{ toYaml $tolerations | indent 6 }}
       {{- end }}
 {{ end }}
