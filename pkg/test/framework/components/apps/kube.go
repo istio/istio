@@ -277,14 +277,6 @@ type kubeComponent struct {
 	namespace namespace.Instance
 }
 
-// type kubeComponent struct {
-// 	requiredApps KubeAppsConfig
-// 	deployments  []*deployment.Instance
-// 	apps         []App
-
-// 	env *kube.Environment
-// }
-
 // KubeAppsConfig specifies a list of Kubernetes app we need to deploy in apps component.
 type KubeAppsConfig []KubeApp
 
@@ -459,11 +451,11 @@ var (
 	}
 )
 
-func newKube(ctx resource.Context, _ Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
-		deployments: make([]*deployment.Instance, len(deploymentFactories)),
+		deployments: make([]*deployment.Instance, 0),
 		env:         env,
 	}
 	c.id = ctx.TrackResource(c)
@@ -475,14 +467,55 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 		return nil, err
 	}
 
-	// Apply all the configs for the deployments.
-	for i, factory := range deploymentFactories {
-		if c.deployments[i], err = factory.newDeployment(env, c.namespace); err != nil {
-			return nil, err
+	params := cfg.AppParams
+	if len(params) == 0 {
+		// Apply all the configs for the deployments.
+		for _, factory := range deploymentFactories {
+			d, err := factory.newDeployment(env, c.namespace)
+			if err != nil {
+				return nil, err
+			}
+			c.deployments = append(c.deployments, d)
 		}
+
+		for _, d := range deploymentFactories {
+			pod, err := d.waitUntilPodIsReady(env, c.namespace)
+			if err != nil {
+				return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
+			}
+			client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
+			}
+			c.apps = append(c.apps, client)
+		}
+		return c, nil
 	}
 
-	for _, d := range deploymentFactories {
+	// Only deploys specified apps.
+	dfs := make([]deploymentFactory, len(params))
+	for i, param := range params {
+		dfs[i] = deploymentFactory{
+			deployment:     param.Name,
+			service:        param.Name,
+			version:        "v1",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: false,
+		}
+		d, err := dfs[i].newDeployment(env, c.namespace)
+		if err != nil {
+			return nil, err
+		}
+		c.deployments = append(c.deployments, d)
+	}
+	for _, d := range dfs {
 		pod, err := d.waitUntilPodIsReady(env, c.namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
@@ -496,53 +529,6 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 
 	return c, nil
 }
-
-// func newKube(ctx resource.Context, _ Config) (Instance, error) {
-// 	env := ctx.Environment().(*kube.Environment)
-// 	c := &kubeComponent{
-// 		apps:        make([]App, 0),
-// 		deployments: make([]*deployment.Instance, len(deploymentFactories)),
-// 		env:         env,
-// 	}
-// 	c.id = ctx.TrackResource(c)
-
-// 	var err error
-
-// 	// Wait for the pods to transition to running.
-// 	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
-// 		return nil, err
-// 	}
-// 	c.env = env
-// 	namespace := env.NamespaceForScope(scope)
-
-// 	// If the test does not explicitly describe the apps it needs, deploy a suite of default apps.
-// 	// if len(c.requiredApps) == 0 {
-// 	// 	c.requiredApps = defaultKubeApps
-// 	// }
-
-// 	// Deploy the apps required by the test.
-// 	for _, app := range c.deployments {
-// 		d, err := app.newDeployment(env, scope)
-// 		if err != nil {
-// 			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
-// 		}
-// 		c.deployments = append(c.deployments, d)
-// 	}
-// 	for _, app := range deploymentFactories {
-// 		pod, err := app.waitUntilPodIsReady(env)
-// 		if err != nil {
-// 			return multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", app.Deployment))
-// 		}
-// 		client, err := newKubeApp(app.Service, namespace, pod, env)
-// 		if err != nil {
-// 			return multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", app.Deployment))
-// 		}
-// 		c.apps = append(c.apps, client)
-// 	}
-
-// 	return c, nil
-// }
-
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }

@@ -19,12 +19,13 @@ package healthcheck
 import (
 	"os"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
@@ -78,27 +79,10 @@ spec:
 	if err != nil {
 		t.Error(err)
 	}
-	time.Sleep(time.Second * 10000)
-	// healthcheckApp := apps.KubeApp{
-	// 	Deployment:     "healthcheck",
-	// 	Service:        "healthcheck",
-	// 	Version:        "v1",
-	// 	Port1:          80,
-	// 	Port2:          8080,
-	// 	Port3:          90,
-	// 	Port4:          9090,
-	// 	Port5:          70,
-	// 	Port6:          7070,
-	// 	InjectProxy:    true,
-	// 	Headless:       false,
-	// 	ServiceAccount: true,
-	// }
-	// Deploy app now.
-	// kubeApps := &descriptors.Apps
-	// kubeApps.Configuration = apps.KubeAppsConfig{healthcheckApp}
-	// ctx.RequireOrFail(t, lifecycle.Test, kubeApps)
-	// apps := ctx.GetComponentOrFail(kubeApps, t).(components.Apps)
-
-	// Being able to resolve healthcheck apps means that the health check is done.
-	// apps.GetAppOrFail("healthcheck", t)
+	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
+	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot, AppParams: []apps.AppParam{
+		apps.AppParam{Name: "healthcheck"},
+	}})
+	aps.GetAppOrFail("healthcheck", t)
+	// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
 }
