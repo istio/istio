@@ -25,11 +25,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 
-	// import all known client auth plugins
-	v1 "k8s.io/api/core/v1"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/tools/cache"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -39,7 +34,6 @@ var (
 		Aliases: []string{"dash", "d"},
 		Short:   "Access to Istio web UIs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// cmd.Println(cmd.UsageString())
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
 				return fmt.Errorf("unknown dashboard %q", args[0])
@@ -79,7 +73,7 @@ func promDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := prometheusPods(client)
+			pl, err := client.PodsForSelector(istioNamespace, "app=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
@@ -88,15 +82,9 @@ func promDashCmd() *cobra.Command {
 				return errors.New("no Prometheus pods found")
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 9090)
+			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9090)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Prometheus: %v", err)
 			}
@@ -138,7 +126,7 @@ func grafanaDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := podsForSelector(client, "app=grafana")
+			pl, err := client.PodsForSelector(istioNamespace, "app=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
@@ -147,15 +135,9 @@ func grafanaDashCmd() *cobra.Command {
 				return errors.New("no Grafana pods found")
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 3000)
+			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 3000)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Grafana: %v", err)
 			}
@@ -197,7 +179,7 @@ func kialiDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := podsForSelector(client, "app=kiali")
+			pl, err := client.PodsForSelector(istioNamespace, "app=kiali")
 			if err != nil {
 				return fmt.Errorf("not able to locate Kiali pod: %v", err)
 			}
@@ -206,15 +188,9 @@ func kialiDashCmd() *cobra.Command {
 				return errors.New("no Kiali pods found")
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 20001)
+			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 20001)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Kiali: %v", err)
 			}
@@ -256,7 +232,7 @@ func jaegerDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := podsForSelector(client, "app=jaeger")
+			pl, err := client.PodsForSelector(istioNamespace, "app=jaeger")
 			if err != nil {
 				return fmt.Errorf("not able to locate Jaeger pod: %v", err)
 			}
@@ -265,15 +241,9 @@ func jaegerDashCmd() *cobra.Command {
 				return errors.New("no Jaeger pods found")
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 16686)
+			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 16686)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Jaeger: %v", err)
 			}
@@ -315,7 +285,7 @@ func zipkinDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := podsForSelector(client, "app=zipkin")
+			pl, err := client.PodsForSelector(istioNamespace, "app=zipkin")
 			if err != nil {
 				return fmt.Errorf("not able to locate Zipkin pod: %v", err)
 			}
@@ -324,15 +294,9 @@ func zipkinDashCmd() *cobra.Command {
 				return errors.New("no Zipkin pods found")
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, istioNamespace, port, 9411)
+			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9411)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Zipkin: %v", err)
 			}
@@ -361,15 +325,6 @@ func zipkinDashCmd() *cobra.Command {
 	return cmd
 }
 
-func podsForSelector(client cache.Getter, labelSelector string) (*v1.PodList, error) {
-	podGet := client.Get().Resource("pods").Namespace(istioNamespace).Param("labelSelector", labelSelector)
-	obj, err := podGet.Do().Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving pod: %v", err)
-	}
-	return obj.(*v1.PodList), nil
-}
-
 // port-forward to sidecar Envoy admin port; open browser
 func envoyDashCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -389,13 +344,7 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
-			fw, readyCh, err := buildPortForwarder(client, client.Config, podName, ns, port, 15000)
+			fw, readyCh, port, err := client.BuildPortForwarder(podName, ns, 0, 15000)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for %s: %v", podName, err)
 			}
@@ -443,13 +392,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			port, err := availablePort()
-			if err != nil {
-				return fmt.Errorf("not able to find available local port: %v", err)
-			}
-			log.Debugf("Using local port: %d", port)
-
-			fw, readyCh, err := buildPortForwarder(client, client.Config, podName, ns, port, controlZport)
+			fw, readyCh, port, err := client.BuildPortForwarder(podName, ns, 0, controlZport)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for %s: %v", podName, err)
 			}
