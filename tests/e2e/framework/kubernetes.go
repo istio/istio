@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"istio.io/istio/pkg/log"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
