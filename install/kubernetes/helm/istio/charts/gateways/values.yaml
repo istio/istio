@@ -73,6 +73,9 @@ istio-ingressgateway:
   - port: 15443
     targetPort: 15443
     name: tls
+  - port: 15020
+    targetPort: 15020
+    name: status-port
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -110,7 +113,7 @@ istio-ingressgateway:
   nodeSelector: {}
 
 istio-egressgateway:
-  enabled: true
+  enabled: false
   labels:
     app: istio-egressgateway
     istio: egressgateway

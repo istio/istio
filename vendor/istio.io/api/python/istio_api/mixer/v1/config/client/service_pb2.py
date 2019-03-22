@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/v1/config/client/service.proto',
   package='istio.mixer.v1.config.client',
   syntax='proto3',
-  serialized_pb=_b('\n$mixer/v1/config/client/service.proto\x12\x1cistio.mixer.v1.config.client\x1a\x14gogoproto/gogo.proto\"\xc7\x01\n\x0cIstioService\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tnamespace\x18\x02 \x01(\t\x12\x0e\n\x06\x64omain\x18\x03 \x01(\t\x12\x0f\n\x07service\x18\x04 \x01(\t\x12\x46\n\x06labels\x18\x05 \x03(\x0b\x32\x36.istio.mixer.v1.config.client.IstioService.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x31Z#istio.io/api/mixer/v1/config/client\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
+  serialized_pb=_b('\n$mixer/v1/config/client/service.proto\x12\x1cistio.mixer.v1.config.client\x1a\x14gogoproto/gogo.proto\"\xc7\x01\n\x0cIstioService\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tnamespace\x18\x02 \x01(\t\x12\x0e\n\x06\x64omain\x18\x03 \x01(\t\x12\x0f\n\x07service\x18\x04 \x01(\t\x12\x46\n\x06labels\x18\x05 \x03(\x0b\x32\x36.istio.mixer.v1.config.client.IstioService.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x35Z#istio.io/api/mixer/v1/config/client\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\xd8\xe2\x1e\x01\x62\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,])
 
@@ -144,7 +144,7 @@ _sym_db.RegisterMessage(IstioService.LabelsEntry)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z#istio.io/api/mixer/v1/config/client\310\341\036\000\250\342\036\000\360\341\036\000'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z#istio.io/api/mixer/v1/config/client\310\341\036\000\250\342\036\000\360\341\036\000\330\342\036\001'))
 _ISTIOSERVICE_LABELSENTRY.has_options = True
 _ISTIOSERVICE_LABELSENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 # @@protoc_insertion_point(module_scope)

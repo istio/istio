@@ -23,7 +23,7 @@ spec:
   variables:
     sourceIp: source.ip | ip(&quot;0.0.0.0&quot;)
     destinationIp: destination.ip | ip(&quot;0.0.0.0&quot;)
-    sourceUser: source.user | &quot;&quot;
+    sourceUser: source.principal | &quot;&quot;
     method: request.method | &quot;&quot;
     url: request.path | &quot;&quot;
     protocol: request.scheme | &quot;http&quot;

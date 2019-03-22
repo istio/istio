@@ -73,6 +73,14 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
+func mockValidateClientConfig(config clientcmdapi.Config) error {
+	return nil
+}
+
+func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+	return fake.NewSimpleClientset(), nil
+}
+
 func verifyControllerDeleted(t *testing.T, timeoutName string) {
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
 		return testDeleteControllerCalled == true
@@ -87,6 +95,8 @@ func verifyControllerCreated(t *testing.T, timeoutName string) {
 
 func Test_SecretController(t *testing.T) {
 	LoadKubeConfig = mockLoadKubeConfig
+	ValidateClientConfig = mockValidateClientConfig
+	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 
