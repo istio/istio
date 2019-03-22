@@ -129,7 +129,7 @@ func TestFeatureX(t *testing.T) {
 ### Helm Values Overrides
 
 If your tests require special Helm values flags, you can specify your Helm values via additional
-`Configuration` for Kubernetes environments. See [mtls_healthcheck_test.go](tests/integration2/security/healthcheck/mtls_healthcheck_test.go) for example.
+for Kubernetes environments. See [mtls_healthcheck_test.go](tests/integration2/security/healthcheck/mtls_healthcheck_test.go) for example.
 
 ### Command-Line Flags
 

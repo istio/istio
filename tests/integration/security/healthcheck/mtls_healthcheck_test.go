@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -36,12 +35,7 @@ var (
 	ist istio.Instance
 )
 
-// go test -v ./tests/integration/security/healthcheck   -istio.test.env  \
-// kube -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily"
 func TestMain(m *testing.M) {
-	// TODO: remove before merge.
-	scopes.Framework.SetOutputLevel(log.DebugLevel)
-	scopes.CI.SetOutputLevel(log.DebugLevel)
 	cfg, err := istio.DefaultConfig2()
 	if err != nil {
 		log.Errorf("failed with error %v", err)
@@ -49,10 +43,6 @@ func TestMain(m *testing.M) {
 	}
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
 	framework.Main("mtls_healthcheck", m, istio.SetupOnKube(&ist, &cfg))
-}
-
-func setup(ctx framework.SuiteContext) error {
-	return nil
 }
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS

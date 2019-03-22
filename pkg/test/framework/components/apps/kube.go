@@ -157,15 +157,6 @@ spec:
 `
 )
 
-var (
-	_ Instance  = &kubeComponent{}
-	_ io.Closer = &kubeComponent{}
-)
-
-func appSelector(serviceName string) string {
-	return fmt.Sprintf("%s=%s", appLabel, serviceName)
-}
-
 type kubeComponent struct {
 	id resource.ID
 
@@ -176,59 +167,10 @@ type kubeComponent struct {
 	namespace namespace.Instance
 }
 
-type deploymentFactory struct {
-	deployment     string
-	service        string
-	version        string
-	port1          int
-	port2          int
-	port3          int
-	port4          int
-	port5          int
-	port6          int
-	injectProxy    bool
-	headless       bool
-	serviceAccount bool
-}
-
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
-	s, err := deployment2.SettingsFromCommandLine()
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"ImagePullPolicy": s.PullPolicy,
-		"deployment":      d.deployment,
-		"service":         d.service,
-		"app":             d.service,
-		"version":         d.version,
-		"port1":           strconv.Itoa(d.port1),
-		"port2":           strconv.Itoa(d.port2),
-		"port3":           strconv.Itoa(d.port3),
-		"port4":           strconv.Itoa(d.port4),
-		"port5":           strconv.Itoa(d.port5),
-		"port6":           strconv.Itoa(d.port6),
-		"healthPort":      "true",
-		"injectProxy":     strconv.FormatBool(d.injectProxy),
-		"headless":        strconv.FormatBool(d.headless),
-		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
-	if err = out.Deploy(e.Accessor, false); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 var (
+	_ Instance  = &kubeComponent{}
+	_ io.Closer = &kubeComponent{}
+
 	deploymentFactories = []*deploymentFactory{
 		{
 			deployment:     "t",
@@ -330,6 +272,10 @@ var (
 		},
 	}
 )
+
+func appSelector(serviceName string) string {
+	return fmt.Sprintf("%s=%s", appLabel, serviceName)
+}
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
@@ -669,6 +615,58 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 		t.Fatal(err)
 	}
 	return r
+}
+
+type deploymentFactory struct {
+	deployment     string
+	service        string
+	version        string
+	port1          int
+	port2          int
+	port3          int
+	port4          int
+	port5          int
+	port6          int
+	injectProxy    bool
+	headless       bool
+	serviceAccount bool
+}
+
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+
+	s, err := deployment2.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := tmpl.Evaluate(template, map[string]string{
+		"Hub":             s.Hub,
+		"Tag":             s.Tag,
+		"ImagePullPolicy": s.PullPolicy,
+		"deployment":      d.deployment,
+		"service":         d.service,
+		"app":             d.service,
+		"version":         d.version,
+		"port1":           strconv.Itoa(d.port1),
+		"port2":           strconv.Itoa(d.port2),
+		"port3":           strconv.Itoa(d.port3),
+		"port4":           strconv.Itoa(d.port4),
+		"port5":           strconv.Itoa(d.port5),
+		"port6":           strconv.Itoa(d.port6),
+		"healthPort":      "true",
+		"injectProxy":     strconv.FormatBool(d.injectProxy),
+		"headless":        strconv.FormatBool(d.headless),
+		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
+	if err = out.Deploy(e.Accessor, false); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
