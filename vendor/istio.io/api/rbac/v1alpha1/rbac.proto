@@ -48,7 +48,7 @@ syntax = "proto3";
 //     methods: ["GET", "HEAD"]
 //     constraints:
 //     - key: "destination.labels[version]"
-//       value: ["v1", "v2"]
+//       values: ["v1", "v2"]
 // ```
 //
 // A ServiceRoleBinding specification includes two parts:
@@ -294,7 +294,8 @@ message RoleRef {
   string name = 2;
 }
 
-// RbacConfig defines the global config to control Istio RBAC behavior.
+// $hide_from_docs
+// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
 // This Custom Resource is a singleton where only one Custom Resource should be created globally in
 // the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
 // Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any

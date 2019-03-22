@@ -60,12 +60,20 @@ message Tracing {
     string cacert_path = 4;
   }
 
+  // Datadog defines configuration for a Datadog tracer.
+  message Datadog {
+    // Address of the Datadog Agent.
+    string address = 1;
+  }
+
   // The tracer implementation to be used by Envoy.
   oneof tracer {
     // Use a Zipkin tracer.
     Zipkin zipkin = 1;
     // Use a LightStep tracer.
     Lightstep lightstep = 2;
+    // Use a Datadog tracer.
+    Datadog datadog = 3;
   }
 }
 
