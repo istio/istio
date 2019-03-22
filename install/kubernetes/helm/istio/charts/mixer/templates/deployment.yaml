@@ -171,8 +171,6 @@
       tolerations:
       {{- toYaml $tolerations | indent 6 }}
       {{- end }}
-      tolerations:
-      {{- include "tolerations" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
