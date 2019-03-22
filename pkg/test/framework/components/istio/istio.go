@@ -65,7 +65,7 @@ func SetupOnKube(i *Instance, cfn SetupConfigFn) framework.SetupFn {
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
 func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("Deploy Istio receives an empty config")
+		return nil, fmt.Errorf("deploy Istio receives an empty config")
 	}
 
 	var err error
