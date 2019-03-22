@@ -115,14 +115,7 @@ In CircleCI, these files can be found in the artifacts section on the test job p
 
 ![CircleCI Artifacts Tab Screenshot](https://circleci.com/docs/assets/img/docs/artifacts.png)
 
-You can also turn on debugging log in your code.
-
-```go
-func TestFeatureX(t *testing.T) {
-  scopes.Framework.SetOutputLevel(log.DebugLevel)
-  scopes.CI.SetOutputLevel(log.DebugLevel)
-}
-```
+You can also enable debugging log via `--log_output_level=CI:debug,tf:debug`.
 
 ## Reference
 

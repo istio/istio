@@ -15,8 +15,6 @@
 package istio
 
 import (
-	"fmt"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -65,7 +63,11 @@ func SetupOnKube(i *Instance, cfn SetupConfigFn) framework.SetupFn {
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
 func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("deploy Istio receives an empty config")
+		c, err := DefaultConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cfg = &c
 	}
 
 	var err error

@@ -48,6 +48,7 @@ func setupConfig(cfg *istio.Config) {
 // is enabled.
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.NewContext(t)
+	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
 
 	ns := namespace.ClaimOrFail(t, ctx, "default")
