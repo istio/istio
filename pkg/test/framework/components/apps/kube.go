@@ -158,107 +158,6 @@ spec:
 )
 
 var (
-	defaultKubeApps = []KubeApp{
-		{
-			Deployment:     "t",
-			Service:        "t",
-			Version:        "unversioned",
-			Port1:          8080,
-			Port2:          80,
-			Port3:          9090,
-			Port4:          90,
-			Port5:          7070,
-			Port6:          70,
-			InjectProxy:    false,
-			Headless:       false,
-			ServiceAccount: false,
-		},
-		{
-			Deployment:     "a",
-			Service:        "a",
-			Version:        "v1",
-			Port1:          8080,
-			Port2:          80,
-			Port3:          9090,
-			Port4:          90,
-			Port5:          7070,
-			Port6:          70,
-			InjectProxy:    true,
-			Headless:       false,
-			ServiceAccount: false,
-		},
-		{
-			Deployment:     "b",
-			Service:        "b",
-			Version:        "unversioned",
-			Port1:          80,
-			Port2:          8080,
-			Port3:          90,
-			Port4:          9090,
-			Port5:          70,
-			Port6:          7070,
-			InjectProxy:    true,
-			Headless:       false,
-			ServiceAccount: true,
-		},
-		{
-			Deployment:     "c-v1",
-			Service:        "c",
-			Version:        "v1",
-			Port1:          80,
-			Port2:          8080,
-			Port3:          90,
-			Port4:          9090,
-			Port5:          70,
-			Port6:          7070,
-			InjectProxy:    true,
-			Headless:       false,
-			ServiceAccount: true,
-		},
-		{
-			Deployment:     "c-v2",
-			Service:        "c",
-			Version:        "v2",
-			Port1:          80,
-			Port2:          8080,
-			Port3:          90,
-			Port4:          9090,
-			Port5:          70,
-			Port6:          7070,
-			InjectProxy:    true,
-			Headless:       false,
-			ServiceAccount: true,
-		},
-		{
-			Deployment:     "d",
-			Service:        "d",
-			Version:        "per-svc-auth",
-			Port1:          80,
-			Port2:          8080,
-			Port3:          90,
-			Port4:          9090,
-			Port5:          70,
-			Port6:          7070,
-			InjectProxy:    true,
-			Headless:       false,
-			ServiceAccount: true,
-		},
-		{
-			Deployment:     "headless",
-			Service:        "headless",
-			Version:        "unversioned",
-			Port1:          80,
-			Port2:          8080,
-			Port3:          90,
-			Port4:          9090,
-			Port5:          70,
-			Port6:          7070,
-			InjectProxy:    true,
-			Headless:       true,
-			ServiceAccount: true,
-		},
-	}
-
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
 )
@@ -276,25 +175,6 @@ type kubeComponent struct {
 
 	namespace namespace.Instance
 }
-
-// KubeAppsConfig specifies a list of Kubernetes app we need to deploy in apps component.
-type KubeAppsConfig []KubeApp
-
-// String implements String interface required for api.Configuration.
-func (ka KubeAppsConfig) String() string {
-	return ""
-}
-
-// Configure implements pkg/test/framework/runtime/api/Configurable interface to allow test suites
-// specify customized apps.
-// func (c *kubeComponent) Configure(config component.Configuration) error {
-// 	apps, ok := config.(KubeAppsConfig)
-// 	if !ok {
-// 		return fmt.Errorf("supplied configuration was not an KubeAppConfig, got %T (%v)", config, config)
-// 	}
-// 	c.requiredApps = apps
-// 	return nil
-// }
 
 type deploymentFactory struct {
 	deployment     string
@@ -529,6 +409,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	return c, nil
 }
+
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
@@ -575,26 +456,6 @@ func (c *kubeComponent) Close() (err error) {
 
 	return
 }
-
-// func (c *kubeComponent) Close() (err error) {
-// 	for _, app := range c.apps {
-// 		err = multierror.Append(err, app.(*kubeApp).Close()).ErrorOrNil()
-// 	}
-
-// 	// Delete any deployments
-// 	for i, d := range c.deployments {
-// 		if d != nil {
-// 			err = multierror.Append(err, d.Delete(c.env.Accessor, false)).ErrorOrNil()
-// 			c.deployments[i] = nil
-// 		}
-// 	}
-
-// 	// Wait for all deployments to be deleted.
-// 	for _, factory := range defaultKubeApps {
-// 		err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.scope)).ErrorOrNil()
-// 	}
-// 	return err
-// }
 
 type endpoint struct {
 	port  *model.Port
@@ -809,60 +670,6 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	}
 	return r
 }
-
-// KubeApp describes the configuration, including port and deployment, service name.
-// TODO(incfly): document each option and rename it to be more meaningful.
-type KubeApp struct {
-	Deployment     string
-	Service        string
-	Version        string
-	Port1          int
-	Port2          int
-	Port3          int
-	Port4          int
-	Port5          int
-	Port6          int
-	InjectProxy    bool
-	Headless       bool
-	ServiceAccount bool
-}
-
-// func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
-// 	s, err := deployment2.SettingsFromCommandLine()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	result, err := tmpl.Evaluate(template, map[string]string{
-// 		"Hub":             s.Hub,
-// 		"Tag":             s.Tag,
-// 		"ImagePullPolicy": s.PullPolicy,
-// 		"deployment":      d.deployment,
-// 		"service":         d.service,
-// 		"app":             d.service,
-// 		"version":         d.version,
-// 		"port1":           strconv.Itoa(d.port1),
-// 		"port2":           strconv.Itoa(d.port2),
-// 		"port3":           strconv.Itoa(d.port3),
-// 		"port4":           strconv.Itoa(d.port4),
-// 		"port5":           strconv.Itoa(d.port5),
-// 		"port6":           strconv.Itoa(d.port6),
-// 		"healthPort":      "true",
-// 		"injectProxy":     strconv.FormatBool(d.injectProxy),
-// 		"headless":        strconv.FormatBool(d.headless),
-// 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
-// 	if err = out.Deploy(e.Accessor, false); err != nil {
-// 		return nil, err
-// 	}
-// 	return out, nil
-// }
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
