@@ -5,9 +5,6 @@ dependencies:
   - name: security
     version: 1.1.0
     condition: security.enabled
-  - name: ingress
-    version: 1.1.0
-    condition: ingress.enabled
   - name: gateways
     version: 1.1.0
     condition: gateways.enabled

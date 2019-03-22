@@ -114,7 +114,7 @@ func init() {
 	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
-	experimentalCmd.AddCommand(install.NewVerifyCommand())
+	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
 	rootCmd.AddCommand(experimentalCmd)
 
@@ -149,7 +149,7 @@ func main() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }
 
