@@ -883,7 +883,7 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 		}
 		t.Logf("New cache hits: %v", got)
 		if got == prior {
-			return errors.New("got check cache hit 0 want at least 1")
+			return fmt.Errorf("got new check cache hit %v, want at least %v", got, prior+1)
 		}
 		return nil
 	}
