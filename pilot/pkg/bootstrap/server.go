@@ -115,10 +115,6 @@ var (
 )
 
 func init() {
-	// get the grpc server wired up
-	// This should only be set before any RPCs are sent or received by this program.
-	grpc.EnableTracing = true
-
 	// Export pilot version as metric for fleet analytics.
 	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
 		Name: "pilot_info",
@@ -176,6 +172,7 @@ type PilotArgs struct {
 	Plugins            []string
 	MCPMaxMessageSize  int
 	KeepaliveOptions   *istiokeepalive.Options
+	EnableGRPCTracing  bool
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -212,6 +209,10 @@ var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
+	// get the grpc server wired up
+	// This should only be set before any RPCs are sent or received by this program.
+	grpc.EnableTracing = args.EnableGRPCTracing
+
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
 		args.Namespace = podNamespaceVar.Get()

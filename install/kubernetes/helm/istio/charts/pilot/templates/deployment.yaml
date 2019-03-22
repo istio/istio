@@ -76,6 +76,9 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.keepaliveMaxServerConnectionAge }}"
+{{- if .Values.global.enableGrpcTracing }}
+          - --enableGrpcTracing=true
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010

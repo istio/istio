@@ -148,6 +148,9 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
 
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.EnableGRPCTracing, "enableGrpcTracing", false,
+		"Enable gRPC request tracing")
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 

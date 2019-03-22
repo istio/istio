@@ -24,7 +24,7 @@ spec:
         app: {{ template "galley.name" . }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}      
+        release: {{ .Release.Name }}
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -67,6 +67,9 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
+{{- if .Values.global.enableGrpcTracing }}
+          - --enableGrpcTracing=true
+{{- end }}
           volumeMounts:
           - name: certs
             mountPath: /etc/certs

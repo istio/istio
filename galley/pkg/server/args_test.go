@@ -24,6 +24,10 @@ func TestDefaultArgs(t *testing.T) {
 		t.Fatalf("unexpected APIAddress: %v", a.APIAddress)
 	}
 
+	if a.EnableGRPCTracing {
+		t.Fatal("EnableGrpcTracing should be false")
+	}
+
 	if a.MaxReceivedMessageSize != 1024*1024 {
 		t.Fatalf("unexpected MaxReceivedMessageSize: %d", a.MaxReceivedMessageSize)
 	}

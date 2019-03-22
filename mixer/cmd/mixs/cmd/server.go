@@ -74,6 +74,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Path to the file for the readiness probe.")
 	serverCmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", sa.ReadinessProbeOptions.UpdateInterval,
 		"Interval of updating file for the readiness probe.")
+	serverCmd.PersistentFlags().BoolVar(&sa.EnableGRPCTracing, "enableGrpcTracing", sa.EnableGRPCTracing,
+		"Enable gRPC request tracing")
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling,
 		"Enable profiling via web interface host:port/debug/pprof")
 

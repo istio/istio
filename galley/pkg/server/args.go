@@ -102,6 +102,7 @@ type Args struct {
 func DefaultArgs() *Args {
 	return &Args{
 		APIAddress:                "tcp://0.0.0.0:9901",
+		EnableGRPCTracing:         false,
 		MaxReceivedMessageSize:    1024 * 1024,
 		MaxConcurrentStreams:      1024,
 		IntrospectionOptions:      ctrlz.DefaultOptions(),
