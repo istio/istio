@@ -361,7 +361,7 @@ spec:
 ---
 {{- if and .Values.adapters.prometheus.enabled .Values.telemetry.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: requestcount
   namespace: {{ .Release.Namespace }}
@@ -371,32 +371,34 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: "1"
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200
-    response_flags: context.proxy_error_code | "-"
-    permissive_response_code: rbac.permissive.response_code | "none"
-    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: requestduration
   namespace: {{ .Release.Namespace }}
@@ -406,32 +408,34 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: response.duration | "0ms"
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200
-    response_flags: context.proxy_error_code | "-"
-    permissive_response_code: rbac.permissive.response_code | "none" 
-    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: response.duration | "0ms"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: requestsize
   namespace: {{ .Release.Namespace }}
@@ -441,32 +445,34 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: request.size | 0
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200
-    response_flags: context.proxy_error_code | "-"
-    permissive_response_code: rbac.permissive.response_code | "none" 
-    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: request.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: responsesize
   namespace: {{ .Release.Namespace }}
@@ -476,32 +482,34 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: response.size | 0
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200
-    response_flags: context.proxy_error_code | "-"
-    permissive_response_code: rbac.permissive.response_code | "none" 
-    permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: response.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
@@ -511,28 +519,30 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: connection.sent.bytes | 0
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    response_flags: context.proxy_error_code | "-"
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: connection.sent.bytes | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
@@ -542,77 +552,83 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  value: connection.received.bytes | 0
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.host | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    response_flags: context.proxy_error_code | "-"
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: connection.received.bytes | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: tcpconnectionsopened
   namespace: {{ .Release.Namespace }}
 spec:
-  value: "1"
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    response_flags: context.proxy_error_code | "-"
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.name | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: tcpconnectionsclosed
   namespace: {{ .Release.Namespace }}
 spec:
-  value: "1"
-  dimensions:
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    source_workload: source.workload.name | "unknown"
-    source_workload_namespace: source.workload.namespace | "unknown"
-    source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
-    destination_workload: destination.workload.name | "unknown"
-    destination_workload_namespace: destination.workload.namespace | "unknown"
-    destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
-    destination_service_name: destination.service.name | "unknown"
-    destination_service_namespace: destination.service.namespace | "unknown"
-    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    response_flags: context.proxy_error_code | "-"
-  monitored_resource_type: '"UNSPECIFIED"'
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.name | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
@@ -631,7 +647,7 @@ spec:
       metricsExpiryDuration: "{{ .Values.adapters.prometheus.metricsExpiryDuration }}"
     metrics:
     - name: requests_total
-      instance_name: requestcount.metric.{{ .Release.Namespace }}
+      instance_name: requestcount.instance.{{ .Release.Namespace }}
       kind: COUNTER
       label_names:
       - reporter
@@ -655,7 +671,7 @@ spec:
       - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
-      instance_name: requestduration.metric.{{ .Release.Namespace }}
+      instance_name: requestduration.instance.{{ .Release.Namespace }}
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -682,7 +698,7 @@ spec:
         explicit_buckets:
           bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
     - name: request_bytes
-      instance_name: requestsize.metric.{{ .Release.Namespace }}
+      instance_name: requestsize.instance.{{ .Release.Namespace }}
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -711,7 +727,7 @@ spec:
           scale: 1
           growthFactor: 10
     - name: response_bytes
-      instance_name: responsesize.metric.{{ .Release.Namespace }}
+      instance_name: responsesize.instance.{{ .Release.Namespace }}
       kind: DISTRIBUTION
       label_names:
       - reporter
@@ -740,7 +756,7 @@ spec:
           scale: 1
           growthFactor: 10
     - name: tcp_sent_bytes_total
-      instance_name: tcpbytesent.metric.{{ .Release.Namespace }}
+      instance_name: tcpbytesent.instance.{{ .Release.Namespace }}
       kind: COUNTER
       label_names:
       - reporter
@@ -760,7 +776,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_received_bytes_total
-      instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
+      instance_name: tcpbytereceived.instance.{{ .Release.Namespace }}
       kind: COUNTER
       label_names:
       - reporter
@@ -780,7 +796,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_connections_opened_total
-      instance_name: tcpconnectionsopened.metric.{{ .Release.Namespace }}
+      instance_name: tcpconnectionsopened.instance.{{ .Release.Namespace }}
       kind: COUNTER
       label_names:
       - reporter
@@ -800,7 +816,7 @@ spec:
       - connection_security_policy
       - response_flags
     - name: tcp_connections_closed_total
-      instance_name: tcpconnectionsclosed.metric.{{ .Release.Namespace }}
+      instance_name: tcpconnectionsclosed.instance.{{ .Release.Namespace }}
       kind: COUNTER
       label_names:
       - reporter
@@ -835,10 +851,10 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - requestcount.metric
-    - requestduration.metric
-    - requestsize.metric
-    - responsesize.metric
+    - requestcount.instance
+    - requestduration.instance
+    - requestsize.instance
+    - responsesize.instance
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -855,8 +871,8 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpbytesent.metric
-    - tcpbytereceived.metric
+    - tcpbytesent.instance
+    - tcpbytereceived.instance
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -868,7 +884,7 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpconnectionsopened.metric
+    - tcpconnectionsopened.instance
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -880,7 +896,7 @@ spec:
   actions:
   - handler: prometheus
     instances:
-    - tcpconnectionsclosed.metric
+    - tcpconnectionsclosed.instance
 {{- end }}
 ---
 {{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
@@ -919,7 +935,7 @@ spec:
   actions:
   - handler: kubernetesenv
     instances:
-    - attributes.kubernetes
+    - attributes.instance
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -936,10 +952,10 @@ spec:
   actions:
   - handler: kubernetesenv
     instances:
-    - attributes.kubernetes
+    - attributes.instance
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: kubernetes
+kind: instance
 metadata:
   name: attributes
   namespace: {{ .Release.Namespace }}
@@ -949,12 +965,14 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  # Pass the required attribute data to the adapter
-  source_uid: source.uid | ""
-  source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
-  destination_uid: destination.uid | ""
-  destination_port: destination.port | 0
-  attribute_bindings:
+  compiledTemplate: kubernetes
+  params:
+    # Pass the required attribute data to the adapter
+    source_uid: source.uid | ""
+    source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
+    destination_uid: destination.uid | ""
+    destination_port: destination.port | 0
+  attributeBindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
     source.ip: $out.source_pod_ip | ip("0.0.0.0")

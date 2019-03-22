@@ -2987,6 +2987,7 @@ Attributes:
 						"extra_field": &types.Value{},
 					},
 				},
+				AttributeBindings: map[string]string{"test": "test"},
 			}),
 		},
 		E: `
@@ -4323,10 +4324,8 @@ func TestConfigs(t *testing.T) {
 	// enable debug logging and run again to ensure debug logging won't cause a crash.
 	o := log.DefaultOptions()
 	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
-	/*
-		_ = log.Configure(o)
-		runTests(t)
-	*/
+	_ = log.Configure(o)
+	runTests(t)
 }
 
 func runTests(t *testing.T) {

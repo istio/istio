@@ -506,6 +506,17 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 			// cast from struct to template specific proto
 			params = proto.Clone(info.CtrCfg)
 			buf := &bytes.Buffer{}
+
+			// populate attribute bindings
+			if len(inst.AttributeBindings) > 0 {
+				bindings := &types.Struct{Fields: make(map[string]*types.Value)}
+				for k, v := range inst.AttributeBindings {
+					bindings.Fields[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
+				}
+				inst.Params.Fields["attribute_bindings"] = &types.Value{
+					Kind: &types.Value_StructValue{StructValue: bindings},
+				}
+			}
 			if err := (&jsonpb.Marshaler{}).Marshal(buf, inst.Params); err != nil {
 				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
 				continue

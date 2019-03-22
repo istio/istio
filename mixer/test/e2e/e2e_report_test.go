@@ -88,7 +88,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  match: match(target.name, "*")
+  selector: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.handler
     instances:
