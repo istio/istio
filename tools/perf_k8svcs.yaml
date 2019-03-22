@@ -13,12 +13,15 @@ spec:
   selector:
     app: echosrv1
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-svc-deployment1
 spec:
   replicas: 1 # tells deployment to run 1 pods matching the template
+  selector:
+    matchLabels:
+      app: echosrv1
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -45,12 +48,15 @@ spec:
   selector:
     app: echosrv2
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-svc-deployment2
 spec:
   replicas: 1 # tells deployment to run 1 pods matching the template
+  selector:
+    matchLabels:
+      app: echosrv2
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name

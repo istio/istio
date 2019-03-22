@@ -41,7 +41,7 @@ data:
         - "-d"
         - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
         {{ "[[ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces`) -]]" }}
-        - "-r"
+        - "-k"
         {{ "- \"[[ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` ]]\"" }}
         {{ "[[ end -]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -133,6 +133,10 @@ data:
         - --statsdUdpAddress
         - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
       {{- end }}
+      {{- if .Values.global.proxy.envoyMetricsService.enabled }}
+        - --envoyMetricsServiceAddress
+        - {{ "[[ .ProxyConfig.EnvoyMetricsServiceAddress ]]" }}
+      {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
@@ -171,11 +175,6 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-{{- if .Values.global.podDNSSearchNamespaces }}
-        - name: ISTIO_META_DNS_DOMAINS
-{{- $local := dict "first" true }}
-          value: {{ range $k, $v := .Values.global.podDNSSearchNamespaces }}{{- if not $local.first }},{{ end }}{{- $v }}{{- $_ := set $local "first" false }}{{- end }}
-{{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         {{- if .Values.global.network }}
@@ -225,10 +224,14 @@ data:
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
-          {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
+          {{ "[[ if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -]]" }}
           requests:
+            {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
             cpu: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` ]]\"" }}
+            {{ "[[ end ]]" }}
+            {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -]]" }}
             memory: {{ "\"[[ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` ]]\"" }}
+            {{ "[[ end ]]" }}
         {{ "[[ else -]]" }}
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}

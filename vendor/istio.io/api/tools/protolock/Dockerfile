@@ -1,19 +1,13 @@
-FROM alpine:3.7 as builder
-RUN apk update
-RUN apk add --no-cache go>1.10 git build-base
-ENV GOPATH=/go \
-    PATH=/go/bin/:$PATH \
-    OUTDIR=/out
-RUN mkdir -p ${OUTDIR}/usr/bin/
-RUN go get -u -v -ldflags '-w -s' \
-        github.com/nilslice/protolock/... \
-        && install ${GOPATH}/bin/protolock ${OUTDIR}/usr/bin/
-
-FROM znly/upx as packer
-COPY --from=builder /out/ /out/
-RUN upx --lzma \
-        /out/usr/bin/protolock
+FROM alpine:3.7 as downloader
+RUN apk update && \
+        apk add curl && \
+        curl -L https://github.com/nilslice/protolock/releases/download/v0.10.1/protolock.20190211T154117Z.linux-amd64.tgz \ 
+        -o protolock.tgz && \
+        tar -zxvf protolock.tgz && \
+        chmod +x protolock && \
+        mkdir -p /out/usr/bin && \
+        cp protolock /out/usr/bin/protolock
 
 FROM alpine:3.7
-COPY --from=packer /out/ /
+COPY --from=downloader /out/ /
 ENTRYPOINT ["/usr/bin/protolock"]

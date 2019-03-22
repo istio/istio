@@ -3,45 +3,99 @@
 
 package client
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-
-import strings "strings"
-import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
-
-import io "io"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+	io "io"
+	math "math"
+	reflect "reflect"
+	strings "strings"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Determines the quotas used for individual requests.
 type QuotaSpec struct {
 	// A list of Quota rules.
-	Rules []*QuotaRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
+	Rules []*QuotaRule `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 }
 
-func (m *QuotaSpec) Reset()                    { *m = QuotaSpec{} }
-func (*QuotaSpec) ProtoMessage()               {}
-func (*QuotaSpec) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{0} }
+func (m *QuotaSpec) Reset()      { *m = QuotaSpec{} }
+func (*QuotaSpec) ProtoMessage() {}
+func (*QuotaSpec) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{0}
+}
+func (m *QuotaSpec) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *QuotaSpec) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaSpec.Merge(m, src)
+}
+func (m *QuotaSpec) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaSpec) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaSpec.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaSpec proto.InternalMessageInfo
 
 // Specifies a rule with list of matches and list of quotas.
 // If any clause matched, the list of quotas will be used.
 type QuotaRule struct {
 	// If empty, match all request.
 	// If any of match is true, it is matched.
-	Match []*AttributeMatch `protobuf:"bytes,1,rep,name=match" json:"match,omitempty"`
+	Match []*AttributeMatch `protobuf:"bytes,1,rep,name=match,proto3" json:"match,omitempty"`
 	// The list of quotas to charge.
-	Quotas []*Quota `protobuf:"bytes,2,rep,name=quotas" json:"quotas,omitempty"`
+	Quotas []*Quota `protobuf:"bytes,2,rep,name=quotas,proto3" json:"quotas,omitempty"`
 }
 
-func (m *QuotaRule) Reset()                    { *m = QuotaRule{} }
-func (*QuotaRule) ProtoMessage()               {}
-func (*QuotaRule) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{1} }
+func (m *QuotaRule) Reset()      { *m = QuotaRule{} }
+func (*QuotaRule) ProtoMessage() {}
+func (*QuotaRule) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{1}
+}
+func (m *QuotaRule) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *QuotaRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaRule.Merge(m, src)
+}
+func (m *QuotaRule) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaRule) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaRule.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaRule proto.InternalMessageInfo
 
 // Describes how to match a given string in HTTP headers. Match is
 // case-sensitive.
@@ -53,9 +107,33 @@ type StringMatch struct {
 	MatchType isStringMatch_MatchType `protobuf_oneof:"match_type"`
 }
 
-func (m *StringMatch) Reset()                    { *m = StringMatch{} }
-func (*StringMatch) ProtoMessage()               {}
-func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{2} }
+func (m *StringMatch) Reset()      { *m = StringMatch{} }
+func (*StringMatch) ProtoMessage() {}
+func (*StringMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{2}
+}
+func (m *StringMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *StringMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *StringMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StringMatch.Merge(m, src)
+}
+func (m *StringMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *StringMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_StringMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StringMatch proto.InternalMessageInfo
 
 type isStringMatch_MatchType interface {
 	isStringMatch_MatchType()
@@ -168,15 +246,15 @@ func _StringMatch_OneofSizer(msg proto.Message) (n int) {
 	// match_type
 	switch x := m.MatchType.(type) {
 	case *StringMatch_Exact:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Exact)))
 		n += len(x.Exact)
 	case *StringMatch_Prefix:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Prefix)))
 		n += len(x.Prefix)
 	case *StringMatch_Regex:
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Regex)))
 		n += len(x.Regex)
 	case nil:
@@ -198,12 +276,36 @@ type AttributeMatch struct {
 	//       exact: SOURCE_UID
 	//     request.http_method:
 	//       exact: POST
-	Clause map[string]*StringMatch `protobuf:"bytes,1,rep,name=clause" json:"clause,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Clause map[string]*StringMatch `protobuf:"bytes,1,rep,name=clause,proto3" json:"clause,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
-func (m *AttributeMatch) Reset()                    { *m = AttributeMatch{} }
-func (*AttributeMatch) ProtoMessage()               {}
-func (*AttributeMatch) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{3} }
+func (m *AttributeMatch) Reset()      { *m = AttributeMatch{} }
+func (*AttributeMatch) ProtoMessage() {}
+func (*AttributeMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{3}
+}
+func (m *AttributeMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AttributeMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *AttributeMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AttributeMatch.Merge(m, src)
+}
+func (m *AttributeMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *AttributeMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_AttributeMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AttributeMatch proto.InternalMessageInfo
 
 // Specifies a quota to use with quota name and amount.
 type Quota struct {
@@ -213,24 +315,72 @@ type Quota struct {
 	Charge int64 `protobuf:"varint,2,opt,name=charge,proto3" json:"charge,omitempty"`
 }
 
-func (m *Quota) Reset()                    { *m = Quota{} }
-func (*Quota) ProtoMessage()               {}
-func (*Quota) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{4} }
+func (m *Quota) Reset()      { *m = Quota{} }
+func (*Quota) ProtoMessage() {}
+func (*Quota) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{4}
+}
+func (m *Quota) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Quota) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *Quota) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Quota.Merge(m, src)
+}
+func (m *Quota) XXX_Size() int {
+	return m.Size()
+}
+func (m *Quota) XXX_DiscardUnknown() {
+	xxx_messageInfo_Quota.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Quota proto.InternalMessageInfo
 
 // QuotaSpecBinding defines the binding between QuotaSpecs and one or more
 // IstioService.
 type QuotaSpecBinding struct {
 	// REQUIRED. One or more services to map the listed QuotaSpec onto.
-	Services []*IstioService `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	Services []*IstioService `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// REQUIRED. One or more QuotaSpec references that should be mapped to
 	// the specified service(s). The aggregate collection of match
 	// conditions defined in the QuotaSpecs should not overlap.
-	QuotaSpecs []*QuotaSpecBinding_QuotaSpecReference `protobuf:"bytes,2,rep,name=quota_specs,json=quotaSpecs" json:"quota_specs,omitempty"`
+	QuotaSpecs []*QuotaSpecBinding_QuotaSpecReference `protobuf:"bytes,2,rep,name=quota_specs,json=quotaSpecs,proto3" json:"quota_specs,omitempty"`
 }
 
-func (m *QuotaSpecBinding) Reset()                    { *m = QuotaSpecBinding{} }
-func (*QuotaSpecBinding) ProtoMessage()               {}
-func (*QuotaSpecBinding) Descriptor() ([]byte, []int) { return fileDescriptorQuota, []int{5} }
+func (m *QuotaSpecBinding) Reset()      { *m = QuotaSpecBinding{} }
+func (*QuotaSpecBinding) ProtoMessage() {}
+func (*QuotaSpecBinding) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81777b5d047af315, []int{5}
+}
+func (m *QuotaSpecBinding) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaSpecBinding) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *QuotaSpecBinding) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaSpecBinding.Merge(m, src)
+}
+func (m *QuotaSpecBinding) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaSpecBinding) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaSpecBinding.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaSpecBinding proto.InternalMessageInfo
 
 // QuotaSpecReference uniquely identifies the QuotaSpec used in the
 // Binding.
@@ -246,18 +396,82 @@ type QuotaSpecBinding_QuotaSpecReference struct {
 func (m *QuotaSpecBinding_QuotaSpecReference) Reset()      { *m = QuotaSpecBinding_QuotaSpecReference{} }
 func (*QuotaSpecBinding_QuotaSpecReference) ProtoMessage() {}
 func (*QuotaSpecBinding_QuotaSpecReference) Descriptor() ([]byte, []int) {
-	return fileDescriptorQuota, []int{5, 0}
+	return fileDescriptor_81777b5d047af315, []int{5, 0}
 }
+func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	b = b[:cap(b)]
+	n, err := m.MarshalTo(b)
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
+}
+func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QuotaSpecBinding_QuotaSpecReference.Merge(m, src)
+}
+func (m *QuotaSpecBinding_QuotaSpecReference) XXX_Size() int {
+	return m.Size()
+}
+func (m *QuotaSpecBinding_QuotaSpecReference) XXX_DiscardUnknown() {
+	xxx_messageInfo_QuotaSpecBinding_QuotaSpecReference.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QuotaSpecBinding_QuotaSpecReference proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*QuotaSpec)(nil), "istio.mixer.v1.config.client.QuotaSpec")
 	proto.RegisterType((*QuotaRule)(nil), "istio.mixer.v1.config.client.QuotaRule")
 	proto.RegisterType((*StringMatch)(nil), "istio.mixer.v1.config.client.StringMatch")
 	proto.RegisterType((*AttributeMatch)(nil), "istio.mixer.v1.config.client.AttributeMatch")
+	proto.RegisterMapType((map[string]*StringMatch)(nil), "istio.mixer.v1.config.client.AttributeMatch.ClauseEntry")
 	proto.RegisterType((*Quota)(nil), "istio.mixer.v1.config.client.Quota")
 	proto.RegisterType((*QuotaSpecBinding)(nil), "istio.mixer.v1.config.client.QuotaSpecBinding")
 	proto.RegisterType((*QuotaSpecBinding_QuotaSpecReference)(nil), "istio.mixer.v1.config.client.QuotaSpecBinding.QuotaSpecReference")
 }
+
+func init() { proto.RegisterFile("mixer/v1/config/client/quota.proto", fileDescriptor_81777b5d047af315) }
+
+var fileDescriptor_81777b5d047af315 = []byte{
+	// 540 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xcf, 0x6b, 0x13, 0x41,
+	0x14, 0xc7, 0x77, 0x12, 0x37, 0x98, 0x17, 0x91, 0x32, 0x94, 0xb2, 0x84, 0x32, 0x94, 0xad, 0x60,
+	0x15, 0xd9, 0xa5, 0x15, 0xa1, 0x28, 0x22, 0x8d, 0x58, 0x54, 0x10, 0x74, 0x7a, 0xf3, 0x52, 0x36,
+	0xdb, 0x97, 0xed, 0x60, 0xb2, 0xbb, 0xdd, 0x9d, 0x0d, 0xc9, 0xcd, 0x93, 0x27, 0x0f, 0xfe, 0x19,
+	0xfe, 0x29, 0x39, 0xe6, 0x98, 0xa3, 0xd9, 0x5c, 0x3c, 0xf6, 0x4f, 0x90, 0x9d, 0x99, 0xb4, 0x11,
+	0x35, 0xd4, 0xd3, 0xbe, 0xf7, 0xf6, 0x7d, 0xbe, 0xef, 0x07, 0x6f, 0xc0, 0x1d, 0x88, 0x11, 0x66,
+	0xfe, 0x70, 0xdf, 0x0f, 0x93, 0xb8, 0x27, 0x22, 0x3f, 0xec, 0x0b, 0x8c, 0xa5, 0x7f, 0x51, 0x24,
+	0x32, 0xf0, 0xd2, 0x2c, 0x91, 0x09, 0xdd, 0x16, 0xb9, 0x14, 0x89, 0xa7, 0x32, 0xbd, 0xe1, 0xbe,
+	0xa7, 0x33, 0x3d, 0x9d, 0xd9, 0xde, 0x8c, 0x92, 0x28, 0x51, 0x89, 0x7e, 0x65, 0x69, 0xa6, 0x7d,
+	0xef, 0x1f, 0xba, 0x39, 0x66, 0x43, 0x11, 0xa2, 0xce, 0x72, 0xdf, 0x42, 0xf3, 0x43, 0x55, 0xe8,
+	0x24, 0xc5, 0x90, 0x3e, 0x07, 0x3b, 0x2b, 0xfa, 0x98, 0x3b, 0x64, 0xa7, 0xbe, 0xd7, 0x3a, 0xb8,
+	0xef, 0xad, 0x2b, 0xeb, 0x29, 0x8e, 0x17, 0x7d, 0xe4, 0x9a, 0x72, 0xbf, 0x12, 0x23, 0x56, 0x05,
+	0x69, 0x07, 0xec, 0x41, 0x20, 0xc3, 0x73, 0x23, 0xf6, 0x68, 0xbd, 0xd8, 0x91, 0x94, 0x99, 0xe8,
+	0x16, 0x12, 0xdf, 0x55, 0x0c, 0xd7, 0x28, 0x7d, 0x06, 0x0d, 0xb5, 0x86, 0xdc, 0xa9, 0x29, 0x91,
+	0xdd, 0x9b, 0x74, 0x64, 0x10, 0x17, 0xa1, 0x75, 0x22, 0x33, 0x11, 0x47, 0x4a, 0x92, 0x6e, 0x81,
+	0x8d, 0xa3, 0x20, 0x94, 0x0e, 0xd9, 0x21, 0x7b, 0xcd, 0xd7, 0x16, 0xd7, 0x2e, 0x75, 0xa0, 0x91,
+	0x66, 0xd8, 0x13, 0x23, 0xa7, 0x66, 0x7e, 0x18, 0xbf, 0x22, 0x32, 0x8c, 0x70, 0xe4, 0xd4, 0x97,
+	0x84, 0x72, 0x3b, 0x77, 0x00, 0x54, 0x7b, 0xa7, 0x72, 0x9c, 0xa2, 0x3b, 0x21, 0x70, 0xf7, 0xf7,
+	0xee, 0xe9, 0x7b, 0x68, 0x84, 0xfd, 0xa0, 0xc8, 0xd1, 0xcc, 0x7e, 0xf8, 0x3f, 0xb3, 0x7b, 0x2f,
+	0x15, 0xfa, 0x2a, 0x96, 0xd9, 0x98, 0x1b, 0x9d, 0xf6, 0x19, 0xb4, 0x56, 0xc2, 0x74, 0x03, 0xea,
+	0x9f, 0x70, 0xac, 0x27, 0xe1, 0x95, 0x49, 0x5f, 0x80, 0x3d, 0x0c, 0xfa, 0x05, 0xaa, 0x21, 0x5a,
+	0x07, 0x0f, 0xd6, 0x57, 0x5c, 0xd9, 0x0b, 0xd7, 0xdc, 0xd3, 0xda, 0x21, 0x71, 0x9f, 0x80, 0xad,
+	0x56, 0x48, 0x37, 0xc1, 0x56, 0x4b, 0x34, 0x15, 0xb4, 0x43, 0xb7, 0xa0, 0x11, 0x9e, 0x07, 0x59,
+	0xa4, 0x8b, 0xd4, 0xb9, 0xf1, 0xdc, 0x2f, 0x35, 0xd8, 0xb8, 0x3a, 0xa2, 0x8e, 0x88, 0xcf, 0x44,
+	0x1c, 0xd1, 0x63, 0xb8, 0x6d, 0x2e, 0x6d, 0x79, 0x4e, 0x0f, 0xd7, 0xf7, 0xf4, 0xa6, 0xfa, 0x79,
+	0xa2, 0x11, 0x7e, 0xc5, 0xd2, 0x2e, 0xb4, 0x54, 0xf5, 0xd3, 0x3c, 0xc5, 0x70, 0x79, 0x07, 0x47,
+	0x37, 0xb8, 0x83, 0x95, 0x66, 0xae, 0x03, 0x1c, 0x7b, 0x98, 0x61, 0x1c, 0x22, 0x87, 0x8b, 0x65,
+	0x2c, 0x6f, 0x1f, 0x03, 0xfd, 0x33, 0x83, 0x52, 0xb8, 0x15, 0x07, 0x03, 0x34, 0x3b, 0x50, 0x36,
+	0xdd, 0x86, 0x66, 0xf5, 0xcd, 0xd3, 0x20, 0xd4, 0x5b, 0x68, 0xf2, 0xeb, 0x40, 0x27, 0x98, 0xcc,
+	0x99, 0x35, 0x9d, 0x33, 0x6b, 0x36, 0x67, 0xd6, 0xe5, 0x9c, 0x59, 0x9f, 0x4b, 0x46, 0xbe, 0x97,
+	0xcc, 0x9a, 0x94, 0x8c, 0x4c, 0x4b, 0x46, 0x66, 0x25, 0x23, 0x3f, 0x4a, 0x46, 0x7e, 0x96, 0xcc,
+	0xba, 0x2c, 0x19, 0xf9, 0xb6, 0x60, 0xd6, 0x74, 0xc1, 0xac, 0xd9, 0x82, 0x59, 0x1f, 0x77, 0xf5,
+	0x4c, 0x22, 0xf1, 0x83, 0x54, 0xf8, 0x7f, 0x7f, 0xbd, 0xdd, 0x86, 0x7a, 0xb6, 0x8f, 0x7f, 0x05,
+	0x00, 0x00, 0xff, 0xff, 0xb5, 0x3a, 0x59, 0xa6, 0x36, 0x04, 0x00, 0x00,
+}
+
 func (m *QuotaSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -395,10 +609,15 @@ func (m *AttributeMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if len(m.Clause) > 0 {
+		keysForClause := make([]string, 0, len(m.Clause))
 		for k, _ := range m.Clause {
+			keysForClause = append(keysForClause, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForClause)
+		for _, k := range keysForClause {
 			dAtA[i] = 0xa
 			i++
-			v := m.Clause[k]
+			v := m.Clause[string(k)]
 			msgSize := 0
 			if v != nil {
 				msgSize = v.Size()
@@ -536,6 +755,9 @@ func encodeVarintQuota(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *QuotaSpec) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Rules) > 0 {
@@ -548,6 +770,9 @@ func (m *QuotaSpec) Size() (n int) {
 }
 
 func (m *QuotaRule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Match) > 0 {
@@ -566,6 +791,9 @@ func (m *QuotaRule) Size() (n int) {
 }
 
 func (m *StringMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchType != nil {
@@ -575,6 +803,9 @@ func (m *StringMatch) Size() (n int) {
 }
 
 func (m *StringMatch_Exact) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Exact)
@@ -582,6 +813,9 @@ func (m *StringMatch_Exact) Size() (n int) {
 	return n
 }
 func (m *StringMatch_Prefix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Prefix)
@@ -589,6 +823,9 @@ func (m *StringMatch_Prefix) Size() (n int) {
 	return n
 }
 func (m *StringMatch_Regex) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Regex)
@@ -596,6 +833,9 @@ func (m *StringMatch_Regex) Size() (n int) {
 	return n
 }
 func (m *AttributeMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Clause) > 0 {
@@ -615,6 +855,9 @@ func (m *AttributeMatch) Size() (n int) {
 }
 
 func (m *Quota) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Quota)
@@ -628,6 +871,9 @@ func (m *Quota) Size() (n int) {
 }
 
 func (m *QuotaSpecBinding) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Services) > 0 {
@@ -646,6 +892,9 @@ func (m *QuotaSpecBinding) Size() (n int) {
 }
 
 func (m *QuotaSpecBinding_QuotaSpecReference) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -741,7 +990,7 @@ func (this *AttributeMatch) String() string {
 	for k, _ := range this.Clause {
 		keysForClause = append(keysForClause, k)
 	}
-	sortkeys.Strings(keysForClause)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForClause)
 	mapStringForClause := "map[string]*StringMatch{"
 	for _, k := range keysForClause {
 		mapStringForClause += fmt.Sprintf("%v: %v,", k, this.Clause[k])
@@ -809,7 +1058,7 @@ func (m *QuotaSpec) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -837,7 +1086,7 @@ func (m *QuotaSpec) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -846,6 +1095,9 @@ func (m *QuotaSpec) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -861,6 +1113,9 @@ func (m *QuotaSpec) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -890,7 +1145,7 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -918,7 +1173,7 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -927,6 +1182,9 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -949,7 +1207,7 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -958,6 +1216,9 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -973,6 +1234,9 @@ func (m *QuotaRule) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -1002,7 +1266,7 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1030,7 +1294,7 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1040,6 +1304,9 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1059,7 +1326,7 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1069,6 +1336,9 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1088,7 +1358,7 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1098,6 +1368,9 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1110,6 +1383,9 @@ func (m *StringMatch) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -1139,7 +1415,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1167,7 +1443,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1176,6 +1452,9 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1196,7 +1475,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1213,7 +1492,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1223,6 +1502,9 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthQuota
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1239,7 +1521,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1248,7 +1530,7 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthQuota
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthQuota
 					}
 					if postmsgIndex > l {
@@ -1285,6 +1567,9 @@ func (m *AttributeMatch) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthQuota
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1312,7 +1597,7 @@ func (m *Quota) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1340,7 +1625,7 @@ func (m *Quota) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1350,6 +1635,9 @@ func (m *Quota) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1369,7 +1657,7 @@ func (m *Quota) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Charge |= (int64(b) & 0x7F) << shift
+				m.Charge |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1381,6 +1669,9 @@ func (m *Quota) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -1410,7 +1701,7 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1438,7 +1729,7 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1447,6 +1738,9 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1469,7 +1763,7 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1478,6 +1772,9 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1493,6 +1790,9 @@ func (m *QuotaSpecBinding) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -1522,7 +1822,7 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1550,7 +1850,7 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1560,6 +1860,9 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1579,7 +1882,7 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1589,6 +1892,9 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthQuota
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuota
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1601,6 +1907,9 @@ func (m *QuotaSpecBinding_QuotaSpecReference) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthQuota
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthQuota
 			}
 			if (iNdEx + skippy) > l {
@@ -1669,8 +1978,11 @@ func skipQuota(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthQuota
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthQuota
 			}
 			return iNdEx, nil
@@ -1701,6 +2013,9 @@ func skipQuota(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthQuota
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1719,43 +2034,3 @@ var (
 	ErrInvalidLengthQuota = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowQuota   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("mixer/v1/config/client/quota.proto", fileDescriptorQuota) }
-
-var fileDescriptorQuota = []byte{
-	// 533 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0x4f, 0x6b, 0x13, 0x4f,
-	0x18, 0xc7, 0x77, 0x93, 0xdf, 0x86, 0x5f, 0x9e, 0x88, 0x94, 0xa1, 0x94, 0x25, 0x94, 0xa1, 0x6c,
-	0x05, 0xab, 0xc8, 0x2e, 0xad, 0x08, 0x45, 0x11, 0x69, 0xc4, 0xa2, 0x82, 0xa0, 0x53, 0xbc, 0x78,
-	0x29, 0x9b, 0xe9, 0x93, 0xed, 0x60, 0xb2, 0xbb, 0x9d, 0x9d, 0x0d, 0xc9, 0xcd, 0x93, 0x27, 0x0f,
-	0xbe, 0x0c, 0x5f, 0x4a, 0x8e, 0x3d, 0x7a, 0x34, 0xeb, 0xc5, 0x63, 0x5f, 0x82, 0xec, 0xcc, 0xa4,
-	0x8d, 0xa8, 0xa1, 0x9e, 0xf6, 0x79, 0x9e, 0x7d, 0x3e, 0xdf, 0xe7, 0x0f, 0xcf, 0x40, 0x30, 0x12,
-	0x13, 0x94, 0xd1, 0x78, 0x37, 0xe2, 0x59, 0x3a, 0x10, 0x49, 0xc4, 0x87, 0x02, 0x53, 0x15, 0x9d,
-	0x95, 0x99, 0x8a, 0xc3, 0x5c, 0x66, 0x2a, 0x23, 0x9b, 0xa2, 0x50, 0x22, 0x0b, 0x75, 0x66, 0x38,
-	0xde, 0x0d, 0x4d, 0x66, 0x68, 0x32, 0xbb, 0xeb, 0x49, 0x96, 0x64, 0x3a, 0x31, 0xaa, 0x2d, 0xc3,
-	0x74, 0x6f, 0xfd, 0x45, 0xb7, 0x40, 0x39, 0x16, 0x1c, 0x4d, 0x56, 0xf0, 0x12, 0xda, 0x6f, 0xea,
-	0x42, 0x47, 0x39, 0x72, 0xf2, 0x18, 0x3c, 0x59, 0x0e, 0xb1, 0xf0, 0xdd, 0xad, 0xe6, 0x4e, 0x67,
-	0xef, 0x76, 0xb8, 0xaa, 0x6c, 0xa8, 0x39, 0x56, 0x0e, 0x91, 0x19, 0x2a, 0xf8, 0xe4, 0x5a, 0xb1,
-	0x3a, 0x48, 0x7a, 0xe0, 0x8d, 0x62, 0xc5, 0x4f, 0xad, 0xd8, 0xbd, 0xd5, 0x62, 0x07, 0x4a, 0x49,
-	0xd1, 0x2f, 0x15, 0xbe, 0xaa, 0x19, 0x66, 0x50, 0xf2, 0x08, 0x5a, 0x7a, 0x0d, 0x85, 0xdf, 0xd0,
-	0x22, 0xdb, 0xd7, 0xe9, 0xc8, 0x22, 0x01, 0x42, 0xe7, 0x48, 0x49, 0x91, 0x26, 0x5a, 0x92, 0x6c,
-	0x80, 0x87, 0x93, 0x98, 0x2b, 0xdf, 0xdd, 0x72, 0x77, 0xda, 0xcf, 0x1d, 0x66, 0x5c, 0xe2, 0x43,
-	0x2b, 0x97, 0x38, 0x10, 0x13, 0xbf, 0x61, 0x7f, 0x58, 0xbf, 0x26, 0x24, 0x26, 0x38, 0xf1, 0x9b,
-	0x0b, 0x42, 0xbb, 0xbd, 0x1b, 0x00, 0xba, 0xbd, 0x63, 0x35, 0xcd, 0x31, 0x98, 0xb9, 0x70, 0xf3,
-	0xd7, 0xee, 0xc9, 0x6b, 0x68, 0xf1, 0x61, 0x5c, 0x16, 0x68, 0x67, 0xdf, 0xff, 0x97, 0xd9, 0xc3,
-	0xa7, 0x1a, 0x7d, 0x96, 0x2a, 0x39, 0x65, 0x56, 0xa7, 0x7b, 0x02, 0x9d, 0xa5, 0x30, 0x59, 0x83,
-	0xe6, 0x7b, 0x9c, 0x9a, 0x49, 0x58, 0x6d, 0x92, 0x27, 0xe0, 0x8d, 0xe3, 0x61, 0x89, 0x7a, 0x88,
-	0xce, 0xde, 0x9d, 0xd5, 0x15, 0x97, 0xf6, 0xc2, 0x0c, 0xf7, 0xb0, 0xb1, 0xef, 0x06, 0x0f, 0xc0,
-	0xd3, 0x2b, 0x24, 0xeb, 0xe0, 0xe9, 0x25, 0xda, 0x0a, 0xc6, 0x21, 0x1b, 0xd0, 0xe2, 0xa7, 0xb1,
-	0x4c, 0x4c, 0x91, 0x26, 0xb3, 0x5e, 0xf0, 0xb1, 0x01, 0x6b, 0x97, 0x47, 0xd4, 0x13, 0xe9, 0x89,
-	0x48, 0x13, 0x72, 0x08, 0xff, 0xdb, 0x4b, 0x5b, 0x9c, 0xd3, 0xdd, 0xd5, 0x3d, 0xbd, 0xa8, 0x7f,
-	0x1e, 0x19, 0x84, 0x5d, 0xb2, 0xa4, 0x0f, 0x1d, 0x5d, 0xfd, 0xb8, 0xc8, 0x91, 0x2f, 0xee, 0xe0,
-	0xe0, 0x1a, 0x77, 0xb0, 0xd4, 0xcc, 0x55, 0x80, 0xe1, 0x00, 0x25, 0xa6, 0x1c, 0x19, 0x9c, 0x2d,
-	0x62, 0x45, 0xf7, 0x10, 0xc8, 0xef, 0x19, 0x84, 0xc0, 0x7f, 0x69, 0x3c, 0x42, 0xbb, 0x03, 0x6d,
-	0x93, 0x4d, 0x68, 0xd7, 0xdf, 0x22, 0x8f, 0xb9, 0xd9, 0x42, 0x9b, 0x5d, 0x05, 0x7a, 0x6f, 0x67,
-	0x73, 0xea, 0x9c, 0xcf, 0xa9, 0xf3, 0x75, 0x4e, 0x9d, 0x8b, 0x39, 0x75, 0x3e, 0x54, 0xd4, 0xfd,
-	0x52, 0x51, 0x67, 0x56, 0x51, 0xf7, 0xbc, 0xa2, 0xee, 0xb7, 0x8a, 0xba, 0x3f, 0x2a, 0xea, 0x5c,
-	0x54, 0xd4, 0xfd, 0xfc, 0x9d, 0x3a, 0xef, 0xb6, 0xcd, 0x1c, 0x22, 0x8b, 0xe2, 0x5c, 0x44, 0x7f,
-	0x7e, 0xb1, 0xfd, 0x96, 0x7e, 0xaa, 0xf7, 0x7f, 0x06, 0x00, 0x00, 0xff, 0xff, 0x84, 0xe2, 0xec,
-	0x62, 0x2a, 0x04, 0x00, 0x00,
-}

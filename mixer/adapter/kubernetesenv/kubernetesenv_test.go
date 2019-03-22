@@ -496,12 +496,17 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
+func mockValidateClientConfig(config clientcmdapi.Config) error {
+	return nil
+}
+
 func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
+	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()

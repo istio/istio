@@ -9,7 +9,6 @@ This chart bootstraps all istio [components](https://istio.io/docs/concepts/what
 ## Chart Details
 
 This chart can install multiple istio components as subcharts:
-- ingress
 - ingressgateway
 - egressgateway
 - sidecarInjectorWebhook

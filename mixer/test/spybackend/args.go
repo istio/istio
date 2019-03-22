@@ -85,6 +85,16 @@ type (
 		HandleSampleApaResult *apaTmpl.OutputMsg
 		HandleSampleApaError  error
 		HandleSampleApaSleep  time.Duration
+
+		// Auth
+		RequireTLS               bool
+		RequireMTls              bool
+		HeaderKey                string
+		HeaderToken              string
+		CredsPath                string
+		KeyPath                  string
+		CertPath                 string
+		InsecureSkipVerification bool
 	}
 
 	// Requests record captured requests by the spy

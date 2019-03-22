@@ -54,11 +54,17 @@ install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-sidecar-injector.yaml
 install/kubernetes/istio.yaml
+install/kubernetes/istio-init.yaml
 install/kubernetes/istio-all.yaml
 install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml
 install/kubernetes/istio-mcp.yaml
 install/kubernetes/istio-auth-mcp.yaml
+install/kubernetes/istio-auth-non-mcp.yaml
+install/kubernetes/istio-auth-sds.yaml
+install/kubernetes/istio-init.yaml
+install/kubernetes/istio-non-mcp.yaml
+install/kubernetes/istio-minimal.yaml
 install/kubernetes/helm/istio/requirements.lock
 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig

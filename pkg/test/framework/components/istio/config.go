@@ -37,7 +37,7 @@ const (
 	DefaultSystemNamespace = "istio-system"
 
 	// ValuesMcpFile for Istio Helm deployment.
-	E2EValuesFile = "values-e2e.yaml"
+	E2EValuesFile = "test-values/values-e2e.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300

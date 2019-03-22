@@ -11,6 +11,10 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
+      - name: policy-adapter-secret
+        secret:
+          secretName: policy-adapter-secret
+          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
@@ -59,7 +63,9 @@
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
+{{- if .Values.policy.resources }}
+{{ toYaml .Values.policy.resources | indent 10 }}
+{{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
@@ -137,6 +143,9 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        - name: policy-adapter-secret
+          mountPath: /var/run/secrets/istio.io/policy/adapter
+          readOnly: true
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -149,6 +158,10 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
+      - name: telemetry-adapter-secret
+        secret:
+          secretName: telemetry-adapter-secret
+          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
@@ -204,7 +217,9 @@
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
+{{- if .Values.telemetry.resources }}
+{{ toYaml .Values.telemetry.resources | indent 10 }}
+{{- else if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
@@ -215,6 +230,9 @@
           mountPath: /etc/certs
           readOnly: true
 {{- end }}
+        - name: telemetry-adapter-secret
+          mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          readOnly: true
         - name: uds-socket
           mountPath: /sock
         livenessProbe:
@@ -310,10 +328,6 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ $key }}
-      chart: {{ template "mixer.chart" $ }}
-      heritage: {{ $.Release.Service }}
-      release: {{ $.Release.Name }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:

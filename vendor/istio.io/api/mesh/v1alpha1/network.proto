@@ -31,11 +31,11 @@ message Network {
   // 1. Implicitly: If the registry explicitly provides information about
   // the network to which the endpoint belongs to. In some cases, its
   // possible to indicate the network associated with the endpoint by
-  // adding ISTIO_META_NETWORK environment variable to the sidecar.
+  // adding the `ISTIO_META_NETWORK` environment variable to the sidecar.
   //
   // 2. Explicitly:
   //
-  //    a. By matching the registry name with one of the "from_registries"
+  //    a. By matching the registry name with one of the "fromRegistry"
   //    in the mesh config. A "from_registry" can only be assigned to a
   //    single network.
   //
@@ -52,7 +52,7 @@ message Network {
 
     // Add all endpoints from the specified registry into this network.
     // The names of the registries should correspond to the secret name
-    // that was used to configure the registry (kubernetes multicluster) or
+    // that was used to configure the registry (Kubernetes multicluster) or
     // supplied by MCP server.
     string from_registry = 2;
     }
@@ -97,12 +97,15 @@ message Network {
 //
 // MeshNetworks(file/config map):
 // networks:
-// - network1:
+//   network1:
 //   - endpoints:
-//     - fromRegistry: registry1 #must match secret name in kubernetes
+//     - fromRegistry: registry1 #must match secret name in Kubernetes
 //     - fromCidr: 192.168.100.0/22 #a VM network for example
 //     gateways:
 //     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+//       port: 15443
+//       locality: us-east-1a
+//     - address: 192.168.100.1
 //       port: 15443
 //       locality: us-east-1a
 message MeshNetworks {
