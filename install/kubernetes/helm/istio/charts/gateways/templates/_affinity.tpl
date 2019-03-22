@@ -64,7 +64,7 @@
           operator: {{ $item.operator }}
           {{- if $item.value }}
           values:
-          {{- $vals := split "," $item.value }}
+          {{- $vals := split "," $item.values }}
           {{- range $i, $v := $vals }}
           - {{ $v }}
           {{- end }}
@@ -82,14 +82,12 @@
             operator: {{ $item.operator }}
             {{- if .value }}
             values:
-            {{- $vals := split "," $item.value }}
+            {{- $vals := split "," $item.values }}
             {{- range $i, $v := $vals }}
             - {{ $v }}
             {{- end }}
             {{- end }}
         topologyKey: {{ $item.topologyKey }}
-      {{- if $item.weight }}
-      weight: {{ $item.weight }}
-      {{- end }}
+      weight: 100
     {{- end }}
 {{- end }}
