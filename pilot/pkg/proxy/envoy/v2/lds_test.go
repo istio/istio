@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -394,6 +396,94 @@ func TestLDS(t *testing.T) {
 	// check that each mocked service and destination rule has a corresponding resource
 
 	// TODO: dynamic checks ( see EDS )
+}
+
+// TestLDS using default sidecar in root namespace
+func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
+		args.Mesh.MixerAddress = ""
+		args.Mesh.RdsRefreshDelay = nil
+		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
+		args.Service.Registries = []string{}
+	})
+	registry := memServiceDiscovery(server, t)
+	registry.AddWorkload("98.1.1.1", model.Labels{"app": "consumeronly"}) // These labels must match the sidecars workload selector
+
+	testEnv = testenv.NewTestSetup(testenv.SidecarConsumerOnlyTest, t)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
+
+	server.EnvoyXdsServer.ConfigUpdate(true)
+	defer tearDown()
+
+	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+		Meta: map[string]string{
+			model.NodeMetadataConfigNamespace:   "consumerns",
+			model.NodeMetadataInstanceIPs:       "98.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioProxyVersion: "1.1.0",
+		},
+		IP:        "98.1.1.1",
+		Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
+		NodeType:  "sidecar",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adsResponse.Close()
+
+	adsResponse.DumpCfg = true
+	adsResponse.Watch()
+
+	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	if err != nil {
+		t.Fatal("Failed to receive LDS response", err)
+		return
+	}
+	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	if err != nil {
+		t.Fatal("Failed to receive LDS response", err)
+		return
+	}
+
+	// Expect 1 HTTP listeners for 8081
+	if len(adsResponse.HTTPListeners) != 1 {
+		t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.HTTPListeners))
+	}
+
+	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
+	// instead of looking at it as a listener with multiple filter chains
+	l := adsResponse.HTTPListeners["0.0.0.0_8081"]
+
+	if l != nil {
+		if len(l.FilterChains) != 1 {
+			t.Fatalf("Expected 1 filter chains, got %d", len(l.FilterChains))
+		}
+	}
+
+	// Expect only one EDS cluster for http1.ns1.svc.cluster.local
+	if len(adsResponse.EDSClusters) != 1 {
+		t.Fatalf("Expected 1 eds cluster, got %d", len(adsResponse.EDSClusters))
+	}
+	if cluster, ok := adsResponse.EDSClusters["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
+		t.Fatalf("Expected EDS cluster outbound|8081||http1.ns1.svc.cluster.local, got %v", cluster.Name)
+	}
+}
+
+func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceDiscovery {
+	index, found := server.ServiceController.GetRegistryIndex("v2-debug")
+	if !found {
+		t.Fatal("Could not find Mock ServiceRegistry")
+	}
+	registry, ok := server.ServiceController.GetRegistries()[index].ServiceDiscovery.(*v2.MemServiceDiscovery)
+	if !ok {
+		t.Fatal("Unexpected type of Mock ServiceRegistry")
+	}
+	return registry
 }
 
 // TODO: helper to test the http listener content

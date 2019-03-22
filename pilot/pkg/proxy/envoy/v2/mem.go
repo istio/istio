@@ -73,6 +73,9 @@ type MemServiceDiscovery struct {
 	controller                    model.Controller
 	ClusterID                     string
 
+	// Used by GetProxyWorkloadLabels
+	ip2workloadLabels map[string]*model.Labels
+
 	// XDSUpdater will push EDS changes to the ADS model.
 	EDSUpdater model.XDSUpdater
 
@@ -89,6 +92,7 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
+		ip2workloadLabels:   map[string]*model.Labels{},
 	}
 }
 
@@ -98,6 +102,10 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
 	sd.GetProxyServiceInstancesError = nil
+}
+
+func (sd *MemServiceDiscovery) AddWorkload(ip string, labels model.Labels) {
+	sd.ip2workloadLabels[ip] = &labels
 }
 
 // AddHTTPService is a helper to add a service of type http, named 'http-main', with the
@@ -326,10 +334,8 @@ func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (model
 	out := make(model.LabelsCollection, 0)
 
 	for _, ip := range proxy.IPAddresses {
-		if sis, found := sd.ip2instance[ip]; found {
-			for _, si := range sis {
-				out = append(out, si.Labels)
-			}
+		if labels, found := sd.ip2workloadLabels[ip]; found {
+			out = append(out, *labels)
 		}
 	}
 	return out, nil
