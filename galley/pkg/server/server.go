@@ -157,7 +157,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	s.stopCh = make(chan struct{})
 
-	var checker server.AuthChecker
+	var checker source.AuthChecker
 	checker = server.NewAllowAllChecker()
 
 	if !a.Insecure {
