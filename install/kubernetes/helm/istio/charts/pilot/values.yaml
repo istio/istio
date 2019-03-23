@@ -61,3 +61,8 @@ keepaliveMaxServerConnectionAge: 30m
 # which describes the source is only forwarding synthetic service entries
 configSource:
   subscribedResources:
+
+# Whether to use the proxy protocol, useful for capturing the real client's IP address when a load balancer
+# is in front of envoy, like an ELB.
+# See https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/listener_filters/proxy_protocol
+enableProxyClientOriginalAddress: false

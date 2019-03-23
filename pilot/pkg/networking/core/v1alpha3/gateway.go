@@ -65,11 +65,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
-			env:        env,
-			proxy:      node,
-			bind:       actualWildcard,
-			port:       int(portNumber),
-			bindToPort: true,
+			env:           env,
+			proxy:         node,
+			bind:          actualWildcard,
+			port:          int(portNumber),
+			bindToPort:    true,
+			proxyProtocol: features.EnableProxyClientOriginalAddress.Get(),
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)

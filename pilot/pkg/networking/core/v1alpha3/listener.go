@@ -79,6 +79,11 @@ const (
 )
 
 const (
+	// HTTP inspector listener filter
+	envoyListenerHTTPInspector = "envoy.listener.http_inspector"
+
+	envoyListenerProxyProtocol = "envoy.listener.proxy_protocol"
+
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -1764,6 +1769,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
+	proxyProtocol     bool
 }
 
 func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Environment, httpOpts *httpListenerOpts,
@@ -2004,6 +2010,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 
+	if opts.proxyProtocol {
+		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: envoyListenerProxyProtocol})
+	}
 	listener := &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like

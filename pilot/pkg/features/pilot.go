@@ -212,6 +212,7 @@ var (
 			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
 
+<<<<<<< HEAD
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
@@ -252,6 +253,11 @@ var (
 		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
 			"but the older, deprecated regex field. This should only be enabled to support "+
 			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
+
+	EnableProxyClientOriginalAddress = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROXY_CLIENT_ORIGINAL_ADDRESS",
+		false,
+		"If enabled, use the 'proxy protocol' to forward a client's real source address to the upstream service",
 	)
 )
 
