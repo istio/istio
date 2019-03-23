@@ -585,7 +585,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
-
 	env := newTestEnvironment(serviceDiscovery, testMesh)
 
 	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
