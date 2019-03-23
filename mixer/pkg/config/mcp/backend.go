@@ -241,13 +241,15 @@ func (b *backend) WaitForSynced(timeout time.Duration) error {
 			return fmt.Errorf("exceeded timeout %v", timeout)
 		case <-tick.C:
 			ready := true
-
+			b.state.RLock()
 			for _, synced := range b.state.synced {
 				if !synced {
 					ready = false
 					break
 				}
 			}
+			b.state.RUnlock()
+
 			if ready {
 				return nil
 			}
