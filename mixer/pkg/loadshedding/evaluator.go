@@ -20,9 +20,9 @@ type LoadEvaluator interface {
 	// Name returns a canonical name for the LoadEvaluator.
 	Name() string
 
-	// EvaluateAgainst compares the current request and known load against the supplied
-	// threshold to determine if the threshold is/will be exceeded.
-	EvaluateAgainst(ri RequestInfo, threshold float64) LoadEvaluation
+	// EvaluateAgainst compares the current request and the load
+	// to determine if the threshold is/will be exceeded.
+	EvaluateAgainst(ri RequestInfo) LoadEvaluation
 }
 
 // LoadEvaluation holds the result of the evaluation of a current request against a threshold.

@@ -26,8 +26,6 @@ import (
 var (
 	pc1  = loadshedding.RequestInfo{PredictedCost: 1}
 	pc11 = loadshedding.RequestInfo{PredictedCost: 11}
-
-	rateLimitThreshold = 0.1 // this value is not used by the evaluator
 )
 
 // this test is not meant to exercise fully the underlying
@@ -36,21 +34,21 @@ var (
 func TestEvaluateAgainst_RateLimit(t *testing.T) {
 	// with no limit (rate.Inf), everything should be allowed.
 	e := loadshedding.NewRateLimitEvaluator(rate.Inf, 0)
-	le := e.EvaluateAgainst(pc1, rateLimitThreshold)
+	le := e.EvaluateAgainst(pc1)
 	if loadshedding.ThresholdExceeded(le) {
 		t.Errorf("rate.Inf: EvaluateAgainst() => %#v; wanted a status of: %v", le, loadshedding.BelowThreshold)
 	}
 
 	// with limit, but burst size == 0, nothing should be allowed.
 	e = loadshedding.NewRateLimitEvaluator(rate.Every(1*time.Millisecond), 0)
-	le = e.EvaluateAgainst(pc1, rateLimitThreshold)
+	le = e.EvaluateAgainst(pc1)
 	if !loadshedding.ThresholdExceeded(le) {
 		t.Errorf("no burst: EvaluateAgainst() => %#v; wanted a status of: %v", le, loadshedding.ExceedsThreshold)
 	}
 
 	// allow 10 events per second, try with 11, should fail
 	e = loadshedding.NewRateLimitEvaluator(rate.Every(100*time.Millisecond), 1)
-	le = e.EvaluateAgainst(pc11, rateLimitThreshold)
+	le = e.EvaluateAgainst(pc11)
 	if !loadshedding.ThresholdExceeded(le) {
 		t.Errorf("every 100ms: EvaluateAgainst() => %#v; wanted a status of: %v", le, loadshedding.ExceedsThreshold)
 	}

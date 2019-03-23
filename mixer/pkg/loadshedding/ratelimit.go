@@ -48,7 +48,7 @@ func (r RateLimitEvaluator) Name() string {
 }
 
 // EvaluateAgainst implements the LoadEvaluator interface.
-func (r *RateLimitEvaluator) EvaluateAgainst(ri RequestInfo, threshold float64) LoadEvaluation {
+func (r *RateLimitEvaluator) EvaluateAgainst(ri RequestInfo) LoadEvaluation {
 	if r.limiter.AllowN(time.Now(), int(ri.PredictedCost)) {
 		return LoadEvaluation{Status: BelowThreshold}
 	}

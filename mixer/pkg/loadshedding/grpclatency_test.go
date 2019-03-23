@@ -50,7 +50,9 @@ func TestEvaluateAgainst_GRPCLatency(t *testing.T) {
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			e := loadshedding.NewGRPCLatencyEvaluator(v.samplingRate, v.halfLife)
+			passingThreshold := 2.0 // simulates a threshold of 2 secs (which we should be well-below)
+			failingThreshold := 0.5 // simulates a threshold of 0.5 secs (which we should be above)
+			e := loadshedding.NewGRPCLatencyEvaluator(v.samplingRate, v.halfLife, passingThreshold)
 			stop := make(chan bool)
 			for i := 0; i < 10; i++ {
 				go func(ch chan bool) {
@@ -71,16 +73,15 @@ func TestEvaluateAgainst_GRPCLatency(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 
 			pc := loadshedding.RequestInfo{PredictedCost: 1.0}
-			passingThreshold := 2.0 // simulates a threshold of 2 secs (which we should be well-below)
-			failingThreshold := 0.5 // simulates a threshold of 0.5 secs (which we should be above)
 
-			le := e.EvaluateAgainst(pc, passingThreshold)
+			le := e.EvaluateAgainst(pc)
 			if loadshedding.ThresholdExceeded(le) {
 				tt.Logf("Got: %#v", le)
 				tt.Errorf("EvaluateAgainst(%#v, %f) => Status: %v; wanted %v", pc, passingThreshold, le.Status, loadshedding.BelowThreshold)
 			}
 
-			le = e.EvaluateAgainst(pc, failingThreshold)
+			e.SetThreshold(failingThreshold)
+			le = e.EvaluateAgainst(pc)
 			if !loadshedding.ThresholdExceeded(le) {
 				tt.Logf("Got: %#v", le)
 				tt.Errorf("EvaluateAgainst(%#v, %f) => Status: %v; wanted %v", pc, failingThreshold, le.Status, loadshedding.ExceedsThreshold)

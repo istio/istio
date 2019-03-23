@@ -52,7 +52,6 @@ type (
 	Throttler struct {
 		mode       ThrottlerMode
 		evaluators map[string]LoadEvaluator
-		thresholds map[string]float64
 	}
 )
 
@@ -94,7 +93,6 @@ func NewThrottler(opts Options) *Throttler {
 	t := &Throttler{
 		mode:       opts.Mode,
 		evaluators: make(map[string]LoadEvaluator),
-		thresholds: make(map[string]float64),
 	}
 
 	if t.mode == Disabled {
@@ -104,15 +102,13 @@ func NewThrottler(opts Options) *Throttler {
 	}
 
 	if opts.AverageLatencyThreshold > 0 {
-		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife)
+		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife, opts.AverageLatencyThreshold.Seconds())
 		t.evaluators[e.Name()] = e
-		t.thresholds[e.Name()] = opts.AverageLatencyThreshold.Seconds()
 	}
 
 	if opts.MaxRequestsPerSecond > 0 {
 		e := NewRateLimitEvaluator(opts.MaxRequestsPerSecond, opts.BurstSize)
 		t.evaluators[e.Name()] = e
-		t.thresholds[e.Name()] = float64(opts.MaxRequestsPerSecond)
 	}
 
 	scope.Debugf("Built Throttler(%#v) from opts(%#v)", t, opts)
@@ -133,12 +129,8 @@ func (t *Throttler) Throttle(ri RequestInfo) bool {
 		return false
 	}
 	for _, e := range t.evaluators {
-		thres, found := t.thresholds[e.Name()]
-		if !found {
-			continue
-		}
-		scope.Debugf("Evaluating load with %s against threshold %f", e.Name(), thres)
-		eval := e.EvaluateAgainst(ri, thres)
+		scope.Debugf("Evaluating load against %s", e.Name())
+		eval := e.EvaluateAgainst(ri)
 		if ThresholdExceeded(eval) {
 			msg := fmt.Sprintf("Throttled (%s): '%s'", e.Name(), eval.Message)
 			if t.mode == LogOnly {

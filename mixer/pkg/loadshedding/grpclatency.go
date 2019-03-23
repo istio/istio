@@ -43,10 +43,11 @@ var (
 type GRPCLatencyEvaluator struct {
 	sampler     *rate.Limiter
 	loadAverage *exponentialMovingAverage
+	threshold   float64
 }
 
 // NewGRPCLatencyEvaluator creates a new LoadEvaluator that uses an average of gRPC Response Latency.
-func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Duration) *GRPCLatencyEvaluator {
+func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Duration, threshold float64) *GRPCLatencyEvaluator {
 
 	sf := sampleFrequency
 	if sf == 0 {
@@ -61,6 +62,7 @@ func NewGRPCLatencyEvaluator(sampleFrequency rate.Limit, averageHalfLife time.Du
 	return &GRPCLatencyEvaluator{
 		sampler:     rate.NewLimiter(sf, 1), // no need to support burstiness beyond 1 event per Allow()
 		loadAverage: newExponentialMovingAverage(hl, 0, time.Now()),
+		threshold:   threshold,
 	}
 }
 
@@ -70,14 +72,14 @@ func (g GRPCLatencyEvaluator) Name() string {
 }
 
 // EvaluateAgainst implements the LoadEvaluator interface.
-func (g *GRPCLatencyEvaluator) EvaluateAgainst(ri RequestInfo, threshold float64) LoadEvaluation {
+func (g *GRPCLatencyEvaluator) EvaluateAgainst(ri RequestInfo) LoadEvaluation {
 	load := g.currentLoad()
-	if load < threshold {
+	if load < g.threshold {
 		return LoadEvaluation{Status: BelowThreshold}
 	}
 	return LoadEvaluation{
 		Status:  ExceedsThreshold,
-		Message: fmt.Sprintf("Current observed average latency (%f) exceeds specified threshold (%f). Please retry request.", load, threshold),
+		Message: fmt.Sprintf("Current observed average latency (%f) exceeds specified threshold (%f). Please retry request.", load, g.threshold),
 	}
 }
 
@@ -105,6 +107,11 @@ func (g *GRPCLatencyEvaluator) TagConn(ctx context.Context, cti *stats.ConnTagIn
 
 // HandleConn processes the Conn stats.
 func (g *GRPCLatencyEvaluator) HandleConn(context.Context, stats.ConnStats) {}
+
+// Do not use it, just for test.
+func (g *GRPCLatencyEvaluator) SetThreshold(threshold float64) {
+	g.threshold = threshold
+}
 
 func (g *GRPCLatencyEvaluator) currentLoad() float64 {
 	return g.loadAverage.currentValue(time.Now())
