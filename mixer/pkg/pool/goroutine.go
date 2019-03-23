@@ -36,13 +36,10 @@ type work struct {
 
 // NewGoroutinePool creates a new pool of goroutines to schedule async work.
 func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
-	gp := &GoroutinePool{
+	return &GoroutinePool{
 		queue:          make(chan work, queueDepth),
 		singleThreaded: singleThreaded,
 	}
-
-	gp.AddWorkers(1)
-	return gp
 }
 
 // Close waits for all goroutines to terminate (and implements io.Closer).
