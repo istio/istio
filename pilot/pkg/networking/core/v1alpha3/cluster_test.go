@@ -532,3 +532,69 @@ func TestLocalityLB(t *testing.T) {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
 }
+
+func TestBuildLocalityLbEndpoints(t *testing.T) {
+	g := NewGomegaWithT(t)
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: model.ProtocolHTTP,
+	}
+	service := &model.Service{
+		Hostname:    model.Hostname("*.example.org"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.DNSLB,
+	}
+	instances := []*model.ServiceInstance{
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.1",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    30,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.2",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    30,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.3",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region2/zone1/subzone1",
+				LbWeight:    40,
+			},
+		},
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery.InstancesByPortReturns(instances, nil)
+
+
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
+	g.Expect(len(localityLbEndpoints)).To(Equal(2))
+	for _, ep := range localityLbEndpoints {
+		if ep.Locality.Region == "region1" {
+			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(60)))
+		} else if ep.Locality.Region == "region2" {
+			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		}
+	}
+}
