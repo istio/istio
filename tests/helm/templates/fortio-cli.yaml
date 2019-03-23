@@ -1,12 +1,16 @@
 ## Fortio clients generating traffic on different components.
 # Generally use the ingress gateway - to capture non-istio service as well.
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-tls
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app:  cli-fortio-tls
+      version: v1-tls
   template:
     metadata:
       labels:
@@ -36,12 +40,16 @@ spec:
             cpu: 1000m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-cli-raw
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: fortio-cli-raw
+      version: v1
   template:
     metadata:
       labels:
@@ -71,12 +79,16 @@ spec:
             cpu: 1000m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-cli-notls
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+      app: fortio-cli1
+      version: v1 
   template:
     metadata:
       labels:
@@ -107,12 +119,16 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio10rc1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio10rc1
+      version: cli-fortio10rc1
   template:
     metadata:
       labels:
@@ -143,12 +159,16 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio080
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio080
+      version: cli-fortio080
   template:
     metadata:
       labels:
@@ -178,12 +198,16 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-tproxy-direct
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio-tproxy-direct
+      version: cli-fortio-tproxy-direct
   template:
     metadata:
       labels:
@@ -211,12 +235,17 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-v1-direct
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      name: ncli-fortio-v1-direct
+      app: cli-fortio-v1-direct
+      version: cli-fortio-v1-direct
   template:
     metadata:
       labels:
@@ -245,12 +274,17 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-noistio1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      name: cli-fortio-noistio1
+      app: acli-fortio-noistio1
+      version: cli-fortio-noistio1
   template:
     metadata:
       labels:

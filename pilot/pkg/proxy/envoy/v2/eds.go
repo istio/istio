@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -76,35 +78,11 @@ type EdsCluster struct {
 	// cluster will get this response.
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
-	// FirstUse is the time the cluster was first used, for debugging
-	FirstUse time.Time
-
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*XdsConnection `json:"-"`
-
-	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
-	NonEmptyTime time.Time
 }
 
 // TODO: add prom metrics !
-
-// endpoints packs the final DiscoveryResponse, based on the resources.
-func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
-		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: EndpointType,
-
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-		Resources:   outRes,
-	}
-
-	return out
-}
 
 // Return the load assignment with mutex. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
@@ -293,9 +271,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
-	}
 	return nil
 }
 
@@ -369,8 +344,17 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	s.mutex.Lock()
 	for k, v := range svc2account {
-		ep := s.EndpointShardsByService[k]
-		ep.ServiceAccounts = v
+		if ep := s.EndpointShardsByService[k]; ep != nil {
+			ep.ServiceAccounts = v
+			continue
+		}
+		// we have not seen this service before.
+		// We will let edsUpdate() add endpoints to the list.
+		// Just record service accounts here.
+		s.EndpointShardsByService[k] = &EndpointShards{
+			Shards:          map[string][]*model.IstioEndpoint{},
+			ServiceAccounts: v,
+		}
 	}
 	s.mutex.Unlock()
 
@@ -420,9 +404,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
-	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
 	}
 	return nil
 }
@@ -694,7 +675,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 
 	// The service was never updated - do the full update
+	s.mutex.RLock()
 	se, f := s.EndpointShardsByService[string(hostname)]
+	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
@@ -761,7 +744,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 	emptyClusters := 0
 	endpoints := 0
-	empty := []string{}
 	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
@@ -803,10 +785,17 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			l = filteredCLA
 		}
 
+		// If location prioritized load balancing is enabled, prioritize endpoints.
+		if pilot.EnableLocalityLoadBalancing() {
+			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+			clonedCLA := util.CloneClusterLoadAssignment(l)
+			l = &clonedCLA
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
+		}
+
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
-			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -868,7 +857,6 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	if c == nil {
 		c = &EdsCluster{
 			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}

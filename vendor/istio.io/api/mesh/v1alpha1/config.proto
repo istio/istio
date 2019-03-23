@@ -39,8 +39,8 @@ option go_package="istio.io/api/mesh/v1alpha1";
 message MeshConfig {
   // Address of the server that will be used by the proxies for policy
   // check calls. By using different names for mixerCheckServer and
-  // mixerReportServer, it is possible to have one set of mixer servers handle
-  // policy check calls while another set of mixer servers handle telemetry
+  // mixerReportServer, it is possible to have one set of Mixer servers handle
+  // policy check calls while another set of Mixer servers handle telemetry
   // calls.
   //
   // NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
@@ -51,17 +51,17 @@ message MeshConfig {
   // calls.
   string mixer_report_server = 2;
 
-  // Disable policy checks by the mixer service. Default
-  // is false, i.e. mixer policy check is enabled by default.
+  // Disable policy checks by the Mixer service. Default
+  // is false, i.e. Mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
 
-  // Allow all traffic in cases when the mixer policy service cannot be reached.
+  // Allow all traffic in cases when the Mixer policy service cannot be reached.
   // Default is false which means the traffic is denied when the client is unable
   // to connect to Mixer.
   bool policy_check_fail_open = 25;
 
-  // Enable session affinity for envoy mixer reports so that calls from a proxy will
-  // always target the same mixer instance.
+  // Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+  // always target the same Mixer instance.
   bool sidecar_to_telemetry_session_affinity = 30;
 
   // Port on which Envoy should listen for incoming connections from
@@ -82,7 +82,7 @@ message MeshConfig {
   // "kubernetes.io/ingress.class" annotation.
   string ingress_class = 7;
 
-  // Name of the kubernetes service used for the istio ingress controller.
+  // Name of theKubernetes service used for the istio ingress controller.
   string ingress_service = 8;
 
   enum IngressControllerMode {
@@ -93,7 +93,7 @@ message MeshConfig {
     // contain any annotation or whose annotations match the value
     // specified in the ingress_class parameter described earlier. Use this
     // mode if Istio ingress controller will be the default ingress
-    // controller for the entire kubernetes cluster.
+    // controller for the entireKubernetes cluster.
     DEFAULT = 1;
 
     // Istio ingress controller will only act on ingress resources whose
@@ -182,7 +182,7 @@ message MeshConfig {
   // Enables clide side policy checks.
   bool enable_client_side_policy_check = 19;
 
-  // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+  // Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
 
@@ -196,15 +196,15 @@ message MeshConfig {
 
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS).
-  // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
-  // for k8s service account trustworthy JWT(which is avaialbe for k8s 1.12 or higher), so that K8s API server
-  // mounts k8s service account trustworthy JWT to envoy container, which will be used to request key/cert eventually.
-  // This isn't supported for non-k8s case.
+  // If set to true ([prerequisite](https://kubernetes.io/docs/concepts/storage/volumes/#projected)), Istio will inject volumes mount
+  // for Kubernetes service account trustworthy JWT(which is available with Kubernetes 1.12 or higher), so that the Kubernetes API server
+  // mounts Kubernetes service account trustworthy JWT to the Envoy container, which will be used to request key/cert eventually.
+  // This isn't supported for non-Kubernetes cases.
   bool enable_sds_token_mount = 23;
 
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS).
-  // If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+  // If set to true, Envoy will fetch a normal Kubernetes service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
   // (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
   // and pass to sds server, which will be used to request key/cert eventually.
   // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
@@ -212,7 +212,7 @@ message MeshConfig {
   bool sds_use_k8s_sa_jwt = 29;
 
   // The trust domain corresponds to the trust root of a system.
-  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  // Refer to [SPIFEE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
@@ -261,7 +261,7 @@ message MeshConfig {
 
   // $hide_from_docs
   // The namespace to treat as the administrative root namespace for
-  // istio configuration. When processing a leaf namespace Istio will search for
+  // Istio configuration. When processing a leaf namespace Istio will search for
   // declarations in that namespace first and if none are found it will
   // search in the root namespace. Any matching declaration found in the root
   // namespace is processed as if it were declared in the leaf namespace.
@@ -270,8 +270,8 @@ message MeshConfig {
   // type.
   //
   // There is no default value for this flag in 1.1 but in later releases it
-  // is expected to default to a new namespace, "istio-config", which is
-  // maintained separately from the "istio-system" namespace where an instance
+  // is expected to default to a new namespace, `istio-config`, which is
+  // maintained separately from the `istio-system` namespace where an instance
   // of the control plane runtime is deployed. This separates the concerns of
   // configuring the control-plane runtime from configuration of the mesh.
   string root_namespace = 34;
@@ -279,9 +279,11 @@ message MeshConfig {
   // Locality based load balancing distribution or failover settings.
   LocalityLoadBalancerSetting locality_lb_setting = 35;
 
+  // Configures DNS refresh rate for Envoy clusters of type STRICT_DNS
+  google.protobuf.Duration dns_refresh_rate = 36;
 
   // $hide_from_docs
-  // Next available field number: 36
+  // Next available field number: 37
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -294,8 +296,8 @@ message ConfigSource {
   string address = 1;
 
   // Use the tls_settings to specify the tls mode to use. If the MCP server
-  // uses Istio MTLS and shares the root CA with Pilot, specify the TLS
-  // mode as ISTIO_MUTUAL.
+  // uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+  // mode as `ISTIO_MUTUAL`.
   istio.networking.v1alpha3.TLSSettings tls_settings = 2;
 }
 
@@ -305,7 +307,7 @@ message ConfigSource {
 // traffic originates and where it will terminate. These localities are
 // specified using arbitrary labels that designate a hierarchy of localities in
 // {region}/{zone}/{sub-zone} form. For additional detail refer to
-// https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
 // The following example shows how to setup locality weights mesh-wide.
 //
 // Given a mesh with workloads and their service deployed to "us-west/zone1/*"
@@ -383,7 +385,7 @@ message LocalityLoadBalancerSetting{
 
   // Optional: only one of distribute or failover can be set.
   // Explicitly specify loadbalancing weight across different zones and geographical locations.
-  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing)
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
   // If empty, the locality weight is set according to the endpoints number within it.
   repeated Distribute distribute = 1;
 

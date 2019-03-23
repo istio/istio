@@ -182,6 +182,19 @@
           }
         ]
       }
+
+      ,
+      {
+        "name": "envoy_metrics_service",
+        "type": "STRICT_DNS",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {"address": "metrics-service", "port_value": 15000}
+          }
+        ]
+      }
       
     ],
     "listeners":[
@@ -249,6 +262,18 @@
   
   ,
   "stats_sinks": [
+
+    {
+      "name": "envoy.metrics_service",
+      "config": {
+        "grpc_service": {
+          "envoy_grpc": {
+            "cluster_name": "envoy_metrics_service"
+          }
+        }
+      }
+    },
+
     {
       "name": "envoy.statsd",
       "config": {
@@ -257,6 +282,7 @@
         }
       }
     }
+
   ]
   
 }

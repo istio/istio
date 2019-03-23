@@ -562,17 +562,18 @@ func TestValidateMeshConfig(t *testing.T) {
 
 func TestValidateProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
-		ConfigPath:             "/etc/istio/proxy",
-		BinaryPath:             "/usr/local/bin/envoy",
-		DiscoveryAddress:       "istio-pilot.istio-system:15010",
-		ProxyAdminPort:         15000,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
-		ServiceCluster:         "istio-proxy",
-		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
-		ControlPlaneAuthPolicy: 1,
-		Tracing:                nil,
+		ConfigPath:                 "/etc/istio/proxy",
+		BinaryPath:                 "/usr/local/bin/envoy",
+		DiscoveryAddress:           "istio-pilot.istio-system:15010",
+		ProxyAdminPort:             15000,
+		DrainDuration:              types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(60 * time.Second),
+		ConnectTimeout:             types.DurationProto(10 * time.Second),
+		ServiceCluster:             "istio-proxy",
+		StatsdUdpAddress:           "istio-statsd-prom-bridge.istio-system:9125",
+		EnvoyMetricsServiceAddress: "metrics-service.istio-system:15000",
+		ControlPlaneAuthPolicy:     1,
+		Tracing:                    nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -644,6 +645,11 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "statsd udp address invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatsdUdpAddress = "10.0.0.100" }),
+			isValid: false,
+		},
+		{
+			name:    "envoy metrics service address invalid",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.EnvoyMetricsServiceAddress = "metrics-service.istio-system" }),
 			isValid: false,
 		},
 		{
@@ -821,16 +827,17 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.ProxyConfig{
-		ConfigPath:             "",
-		BinaryPath:             "",
-		DiscoveryAddress:       "10.0.0.100",
-		ProxyAdminPort:         0,
-		DrainDuration:          types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ConnectTimeout:         types.DurationProto(-1 * time.Second),
-		ServiceCluster:         "",
-		StatsdUdpAddress:       "10.0.0.100",
-		ControlPlaneAuthPolicy: -1,
+		ConfigPath:                 "",
+		BinaryPath:                 "",
+		DiscoveryAddress:           "10.0.0.100",
+		ProxyAdminPort:             0,
+		DrainDuration:              types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration:     types.DurationProto(-1 * time.Second),
+		ConnectTimeout:             types.DurationProto(-1 * time.Second),
+		ServiceCluster:             "",
+		StatsdUdpAddress:           "10.0.0.100",
+		EnvoyMetricsServiceAddress: "metrics-service",
+		ControlPlaneAuthPolicy:     -1,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -847,7 +854,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 11 {
+			if len(err.(*multierror.Error).Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1532,7 +1539,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
-			"server certificate"},
+			""},
 		{"simple sds no private key",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_SIMPLE,
@@ -1540,7 +1547,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
-			"private key"},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -1571,7 +1578,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
-			"server certificate"},
+			""},
 		{"mutual no client CA bundle",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -3576,6 +3583,19 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least one port is not in the range of [0, 65535]",
 		},
 		{
+			name: "has both first-class field and constraints",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Ports:    []int32{9080},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "destination.port", Values: []string{"80"}},
+					},
+				},
+			}},
+			expectErrMsg: "cannot define destination.port for rule 0 because a similar first-class field has been defined",
+		},
+		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
@@ -3681,7 +3701,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "empty subjects are not allowed. Found an empty subject at index 1",
 		},
 		{
 			name: "no roleRef",
@@ -3714,6 +3734,26 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
 			expectErrMsg: "name cannot be empty",
+		},
+		{
+			name: "first-class field already exists",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Namespaces: []string{"default"}, Properties: map[string]string{"source.namespace": "istio-system"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
+		},
+		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
 		},
 		{
 			name: "success proto",
@@ -3979,6 +4019,19 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"Port without name", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, true},
 		{"UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{

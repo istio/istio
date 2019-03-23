@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package keyval;
+
+// Adapter parameters
+message Params {
+  // Lookup table
+  map<string, string> table = 1;
+}

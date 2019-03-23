@@ -230,22 +230,81 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	// plus 2 extra due to the mem registry
-	// TODO: change to 6 once the mem registry thing is fixed
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 8 {
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
 		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
 	}
 
 	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	// and 2 subsets of http1), 1 blackhole, 1 passthrough
 	// plus 2 extra due to the mem registry
-	// TODO: change to 10 once the mem registry thing is fixed
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 12 {
+	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
 		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
 	if len(adsResponse.Routes["8080"].VirtualHosts) != 2 {
 		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
+	}
+}
+
+// TestLDS using gateways
+func TestLDSWithIngressGateway(t *testing.T) {
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
+		args.Mesh.MixerAddress = ""
+		args.Mesh.RdsRefreshDelay = nil
+		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
+		args.Service.Registries = []string{}
+	})
+	testEnv = testenv.NewTestSetup(testenv.GatewayTest, t)
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = env.IstioSrc
+	testEnv.IstioOut = env.IstioOut
+
+	server.EnvoyXdsServer.ConfigUpdate(true)
+	defer tearDown()
+
+	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+		Meta: map[string]string{
+			model.NodeMetadataConfigNamespace:   "istio-system",
+			model.NodeMetadataInstanceIPs:       "99.1.1.1", // as service instance of ingress gateway
+			model.NodeMetadataIstioProxyVersion: "1.1.0",
+		},
+		IP:        "99.1.1.1",
+		Namespace: "istio-system",
+		NodeType:  "router",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adsResponse.Close()
+
+	adsResponse.DumpCfg = true
+	adsResponse.Watch()
+
+	_, err = adsResponse.Wait("lds", 10000*time.Second)
+	if err != nil {
+		t.Fatal("Failed to receive LDS response", err)
+		return
+	}
+
+	// Expect 2 listeners : 1 for 80, 1 for 443
+	// where 443 listener has 3 filter chains
+	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 2 {
+		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	}
+
+	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
+	// instead of looking at it as a listener with multiple filter chains
+	l := adsResponse.HTTPListeners["0.0.0.0_443"]
+
+	if l != nil {
+		if len(l.FilterChains) != 3 {
+			t.Fatalf("Expected 3 filter chains, got %d\n", len(l.FilterChains))
+		}
 	}
 }
 

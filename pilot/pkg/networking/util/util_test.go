@@ -21,6 +21,9 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+
 	"github.com/gogo/protobuf/types"
 	messagediff "gopkg.in/d4l3k/messagediff.v1"
 
@@ -501,5 +504,31 @@ func buildFakeCluster() *v2.Cluster {
 				},
 			},
 		},
+	}
+}
+
+func TestIsHTTPFilterChain(t *testing.T) {
+	httpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.HTTPConnectionManager,
+			},
+		},
+	}
+
+	tcpFilterChain := listener.FilterChain{
+		Filters: []listener.Filter{
+			{
+				Name: xdsutil.TCPProxy,
+			},
+		},
+	}
+
+	if !IsHTTPFilterChain(httpFilterChain) {
+		t.Errorf("http Filter chain not detected properly")
+	}
+
+	if IsHTTPFilterChain(tcpFilterChain) {
+		t.Errorf("tcp filter chain detected as http filter chain")
 	}
 }

@@ -4,7 +4,7 @@
 enabled: false
 replicaCount: 1
 hub: docker.io/kiali
-tag: v0.14
+tag: v0.16
 contextPath: /kiali
 nodeSelector: {}
 ingress:
@@ -20,12 +20,9 @@ ingress:
     # - secretName: kiali-tls
     #   hosts:
     #     - kiali.local
-gateway:
-  enabled: false
+
 dashboard:
   secretName: kiali
-  usernameKey: username
-  passphraseKey: passphrase
 
   # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
   # grafanaURL:
