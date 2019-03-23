@@ -313,7 +313,7 @@ global:
   defaultNodeSelector: {}
 
   # Whether to perform server-side validation of configuration.
-  configValidation: false
+  configValidation: true
 
   # Custom DNS config for the pod to resolve names of services in other
   # clusters. Use this to add additional search domains, and other settings.
@@ -370,7 +370,7 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
-  useMCP: false
+  useMCP: true
 
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain

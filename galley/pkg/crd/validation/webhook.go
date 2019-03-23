@@ -251,13 +251,13 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
-		keyCertWatcher:                certKeyWatcher,
-		configWatcher:                 configWatcher,
-		certFile:                      p.CertFile,
-		keyFile:                       p.KeyFile,
-		cert:                          &pair,
-		descriptor:                    p.PilotDescriptor,
-		validator:                     p.MixerValidator,
+		keyCertWatcher: certKeyWatcher,
+		configWatcher:  configWatcher,
+		certFile:       p.CertFile,
+		keyFile:        p.KeyFile,
+		cert:           &pair,
+		descriptor:     p.PilotDescriptor,
+		//validator:                     p.MixerValidator,
 		caFile:                        p.CACertFile,
 		webhookConfigFile:             p.WebhookConfigFile,
 		clientset:                     p.Clientset,
@@ -521,9 +521,11 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	if err := wh.validator.Validate(ev); err != nil {
-		reportValidationFailed(request, reasonInvalidConfig)
-		return toAdmissionResponse(err)
+	if wh.validator != nil {
+		if err := wh.validator.Validate(ev); err != nil {
+			reportValidationFailed(request, reasonInvalidConfig)
+			return toAdmissionResponse(err)
+		}
 	}
 
 	reportValidationPass(request)
