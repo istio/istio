@@ -35,7 +35,7 @@
 //       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
-//       name: https
+//       name: https-443
 //       protocol: HTTPS
 //     hosts:
 //     - uk.bookinfo.com
@@ -46,7 +46,7 @@
 //       privateKey: /etc/certs/privatekey.pem
 //   - port:
 //       number: 9443
-//       name: https
+//       name: https-9443
 //       protocol: HTTPS
 //     hosts:
 //     - "bookinfo-namespace/*.bookinfo.com"
@@ -100,19 +100,19 @@
 //   - match:
 //     - headers:
 //         cookie:
-//           user: dev-123
+//           exact: "user=dev-123"
 //     route:
 //     - destination:
 //         port:
 //           number: 7777
 //         host: reviews.qa.svc.cluster.local
 //   - match:
-//       uri:
+//     - uri:
 //         prefix: /reviews/
 //     route:
 //     - destination:
 //         port:
-//           number: 9080 # can be omitted if its the only port for reviews
+//           number: 9080 # can be omitted if it's the only port for reviews
 //         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
@@ -284,11 +284,11 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers,proto3" json:"servers,omitempty"`
-	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
-	// on which this gateway configuration should be applied. The scope of
-	// label search is restricted to the configuration namespace in which the
-	// the resource is present. In other words, the Gateway resource must
-	// reside in the same namespace as the gateway workload.
+	// REQUIRED: One or more labels used to select the specific gateway workload
+	// to which this configuration should be applied.
+	// It is recommended that the Gateway resource reside in the same namespace
+	// as the gateway workload.
+	// This may become a requirement in the future.
 	Selector             map[string]string `protobuf:"bytes,2,rep,name=selector,proto3" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`

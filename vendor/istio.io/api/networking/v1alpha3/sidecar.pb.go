@@ -239,8 +239,7 @@ func (CaptureMode) EnumDescriptor() ([]byte, []int) {
 type Sidecar struct {
 	// Criteria used to select the specific set of pods/VMs on which this
 	// sidecar configuration should be applied. If omitted, the sidecar
-	// configuration will be applied to all workloads in the same config
-	// namespace.
+	// configuration will be applied to all workloads in the same namespace.
 	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector,proto3" json:"workload_selector,omitempty"`
 	// Ingress specifies the configuration of the sidecar for processing
 	// inbound traffic to the attached workload. If omitted, Istio will

@@ -247,8 +247,9 @@ data:
           readOnly: true
         {{- end }}
         {{- if .Values.global.sds.enabled }}
-        - mountPath: /var/run/sds
+        - mountPath: /var/run/sds/uds_path
           name: sds-uds-path
+          readOnly: true
         {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
@@ -277,7 +278,8 @@ data:
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
-          path: /var/run/sds
+          path: /var/run/sds/uds_path
+          type: Socket
       {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:

@@ -353,7 +353,7 @@ spec:
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: productpage_mTLS_disable
+  name: productpage-mTLS-disable
   namespace: frod
 spec:
   targets:
@@ -366,7 +366,7 @@ for productpage:9000 except the path &lsquo;/health_check&rsquo; . Principal is 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: productpage_mTLS_with_JWT
+  name: productpage-mTLS-with-JWT
   namespace: frod
 spec:
   target:

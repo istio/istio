@@ -21,8 +21,11 @@ configurations will be processed sequentially in order of creation time.
 The behavior is undefined if multiple EnvoyFilter configurations conflict
 with each other.</p>
 
+<p>NOTE 3: For filters of <code>filterType: HTTP</code> you must include a <code>listenerMatch</code> section
+with a <code>listenerProtocol: HTTP</code> or the filter have no effect.</p>
+
 <p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
-inbound calls arriving at service port 8080 of the reviews service pod with
+inbound HTTP calls arriving at service port 8080 of the reviews service pod with
 labels &ldquo;app: reviews&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
@@ -36,6 +39,7 @@ spec:
   - listenerMatch:
       portNumber: 8080
       listenerType: SIDECAR_INBOUND # will match with the inbound listener for reviews:8080
+      listenerProtocol: HTTP
     filterName: envoy.lua
     filterType: HTTP
     filterConfig:
@@ -58,15 +62,12 @@ spec:
 <td><code>workloadLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>One or more labels that indicate a specific set of pods/VMs whose
+<p>Zero or more labels that indicate a specific set of pods/VMs whose
 proxies should be configured to use these additional filters.  The
 scope of label search is platform dependent. On Kubernetes, for
 example, the scope includes pods running in all reachable
 namespaces. Omitting the selector applies the filter to all proxies in
-the mesh.
-NOTE: There can be only one EnvoyFilter bound to a specific workload.
-The behavior is undefined if multiple EnvoyFilter configurations are
-specified for the same workload.</p>
+the mesh.</p>
 
 </td>
 </tr>
@@ -101,8 +102,11 @@ envoy.http<em>connection</em>manager.</p>
 <td><code>listenerMatch</code></td>
 <td><code><a href="#EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</a></code></td>
 <td>
-<p>Filter will be added to the listener only if the match conditions are true.
-If not specified, the filters will be applied to all listeners.</p>
+<p>Filter will be added to the listener only if the match
+conditions are true.  If not specified, the filters will be
+applied to all listeners where possible, potentially resulting
+in invalid configurations. It is recommended to specify the
+listener match criteria for all filter insertions.</p>
 
 </td>
 </tr>
@@ -303,11 +307,11 @@ matches all listeners.</p>
 <td><code>listenerProtocol</code></td>
 <td><code><a href="#EnvoyFilter-ListenerMatch-ListenerProtocol">EnvoyFilter.ListenerMatch.ListenerProtocol</a></code></td>
 <td>
-<p>Selects a class of listeners for the same protocol. If not
-specified, applies to listeners on all protocols. Use the protocol
+<p>Selects a class of listeners for the same protocol. Use the protocol
 selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
 where Envoy terminates TLS) or all TCP listeners (includes HTTPS
-passthrough using SNI).</p>
+passthrough using SNI). When adding a HTTP filter, the listenerProtocol
+should be set to HTTP.</p>
 
 </td>
 </tr>

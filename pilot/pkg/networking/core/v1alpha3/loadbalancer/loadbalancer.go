@@ -73,7 +73,11 @@ func applyLocalityWeight(
 					if _, exist := misMatched[i]; exist {
 						if util.LocalityMatch(ep.Locality, locality) {
 							delete(misMatched, i)
-							destLocMap[i] = ep.LoadBalancingWeight.Value
+							if ep.LoadBalancingWeight != nil {
+								destLocMap[i] = ep.LoadBalancingWeight.Value
+							} else {
+								destLocMap[i] = 1
+							}
 							totalWeight += destLocMap[i]
 						}
 					}
