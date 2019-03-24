@@ -40,6 +40,12 @@ spec:
         - "/kiali-configuration/config.yaml"
         - "-v"
         - "4"
+        ports:
+        - containerPort: 20001
+        readinessProbe:
+          httpGet:
+            path: /kiali/console
+            port: 20001
         env:
         - name: ACTIVE_NAMESPACE
           valueFrom:
