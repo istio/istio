@@ -21,13 +21,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -146,7 +146,6 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(UID, network)
 
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep
 }
 
@@ -168,7 +167,6 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(e.UID, e.Network)
 
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }
 
@@ -280,7 +278,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	if cnt == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 
@@ -406,7 +404,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 		if len(instances) == 0 {
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			adsLog.Debugf("EDS: cluster %q (host=%s ports=%v labels=%v) has no instances", clusterName, hostname, port, labels)
+			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
@@ -459,8 +457,8 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}) {
-	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
-		"ConnectedEndpoints: %d", version, edsUpdates, adsClientCount())
+	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
+		version, edsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -483,7 +481,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
 		if err := s.updateClusterInc(push, clusterName, edsCluster); err != nil {
-			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
+			adsLog.Errorf("updateCluster failed with clusterName:%s", clusterName)
 		}
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
@@ -619,7 +617,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	for _, instance := range instances {
 		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
 		if err != nil {
-			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Add(1)
 			continue
 		}
@@ -758,7 +756,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	if cnt == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 
@@ -772,7 +770,6 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, edsUpdatedServices map[string]struct{}) error {
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
-	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
 	sidecarScope := con.modelNode.SidecarScope
@@ -826,7 +823,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
-			emptyClusters++
 			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
@@ -842,11 +838,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if edsUpdatedServices == nil {
-		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
-			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
+			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	} else {
-		adsLog.Debugf("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
-			con.ConID, len(con.Clusters), endpoints, emptyClusters)
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
+			con.modelNode.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil
 }
@@ -901,7 +897,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
-		adsLog.Warnf("EDS: missing cluster %s", clusterName)
+		adsLog.Warnf("EDS: Missing cluster: %s", clusterName)
 		return
 	}
 
@@ -910,11 +906,11 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 
 	oldcon := c.EdsClients[node]
 	if oldcon == nil {
-		adsLog.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
+		adsLog.Warnf("EDS: Envoy restart node:%s addr:%v, cleanup old connection missing clients:%v", node, connection.PeerAddr, c.EdsClients)
 		return
 	}
 	if oldcon != connection {
-		adsLog.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
+		adsLog.Infof("EDS: Envoy restart node:%s addr:%v, cleanup old connection addr:%v", node, connection.PeerAddr, oldcon.PeerAddr)
 		return
 	}
 	delete(c.EdsClients, node)
@@ -924,7 +920,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
-		adsLog.Debugf("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
+		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
 	}
 }

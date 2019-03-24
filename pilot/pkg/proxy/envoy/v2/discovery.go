@@ -274,7 +274,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
+		adsLog.Infof("ADS: Periodic push of envoy configs version:%s", versionInfo())
 		s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 	}
 }
@@ -300,7 +300,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	if !full {
-		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
@@ -315,7 +314,7 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]struct{}) {
 	push := model.NewPushContext()
 	err := push.InitContext(s.Env)
 	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Inc()
 		return
