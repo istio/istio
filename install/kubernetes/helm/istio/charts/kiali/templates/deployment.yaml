@@ -46,6 +46,10 @@ spec:
           httpGet:
             path: /kiali/console
             port: 20001
+        livenessProbe:
+          httpGet:
+            path: /kiali/console
+            port: 20001
         env:
         - name: ACTIVE_NAMESPACE
           valueFrom:
