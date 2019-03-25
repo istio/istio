@@ -47,6 +47,8 @@ func setupConfig(cfg *istio.Config) {
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
 func TestMtlsHealthCheck(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/12754")
+
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
