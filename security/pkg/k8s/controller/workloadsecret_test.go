@@ -396,7 +396,7 @@ func TestSecretOptIn(t *testing.T) {
 			ns:           createNS("disabled-ns", map[string]string{"istio-managed": "disabled"}),
 			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
-				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-injection": "disabled"})),
+				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-managed": "disabled"})),
 				ktesting.NewGetAction(nsSchema, "", "disabled-ns"),
 			},
 		},
@@ -405,7 +405,7 @@ func TestSecretOptIn(t *testing.T) {
 			ns:           createNS("enabled-ns", map[string]string{"istio-managed": "enabled"}),
 			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
-				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-injection": "enabled"})),
+				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-managed": "enabled"})),
 				ktesting.NewGetAction(nsSchema, "", "enabled-ns"),
 				ktesting.NewCreateAction(secretSchema, "enabled-ns", ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
