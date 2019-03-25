@@ -21,13 +21,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -206,9 +206,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster *EdsCluster) error {
 
 	var hostname model.Hostname
-	var port int
+	var clusterPort int
 	var subsetName string
-	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
+	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -226,7 +226,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	// Check that there is a matching port
 	// We don't use the port though, as there could be multiple matches
-	_, found := ports.GetByPort(port)
+	_, found := ports.GetByPort(clusterPort)
 	if !found {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -248,7 +248,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	for _, endpoints := range se.Shards {
 		for _, ep := range endpoints {
 			for _, port := range ports {
-				if port.Name != ep.ServicePortName {
+				if port.Port != clusterPort || port.Name != ep.ServicePortName {
 					continue
 				}
 				// Port labels
