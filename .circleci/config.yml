@@ -11,11 +11,13 @@ integrationDefaults: &integrationDefaults
 #  ID is circleci(3434)
 
 jobs:
+
   # TODO: add encrypted creds for real clusters, push to real clusters
   # TODO: add a Makefile to automate
   build:
     docker:
-      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+      - #image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+        image: costinm/istio-installer:latest
         environment:
           GOPATH: /home/circleci/project/go
           KUBECONFIG: /home/circleci/project/.circleci/config
@@ -24,11 +26,13 @@ jobs:
     #resource_class: xlarge
     steps:
       - checkout
-      - setup_remote_docker:
+      - setup_remote_docker: {}
+      # Only on paid version
       #    docker_layer_caching: true
       - run:
           name: main
           command: |
+            set -x
             pwd
             id
             env
@@ -40,6 +44,7 @@ jobs:
             # Option 1: use the kind docker to install stuff.
             # We can copy our installer in the kind cluster
             docker cp $HOME/project kind-control-plane:/
+
             cat  $HOME/.kube/kind-config-kind | sed s/localhost:.*/localhost:6443/ > $HOME/.kube/config
             docker cp $HOME/.kube/config kind-control-plane:/
 
@@ -56,6 +61,8 @@ jobs:
       - store_artifacts:
           path: out/tests
 
+  # Uses machine and minikube --root.
+  # Mostly works, but the goal is to get the one above working.
   install-minikube:
     <<: *integrationDefaults
     environment:
@@ -70,6 +77,8 @@ jobs:
             source bin/env.sh
             kubectl apply -f crds.yaml
             iop_istio
+
+            # TODO: add tests.
       - run: docker images
 
 
@@ -90,4 +99,5 @@ workflows:
 
   all:
     jobs:
+      - build
       - install-minikube
