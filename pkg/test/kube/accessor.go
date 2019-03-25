@@ -251,7 +251,7 @@ func (a *Accessor) WaitUntilServiceIsReady(ns string, name string, opts ...retry
 	err := retry.UntilSuccess(func() error {
 
 		s, err := a.GetService(ns, name)
-		if err == nil {
+		if err != nil {
 			return err
 		}
 
