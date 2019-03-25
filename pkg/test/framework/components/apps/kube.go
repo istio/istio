@@ -318,7 +318,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return c, nil
 	}
 
-	// Only deploys specified apps.
+	// Only deploy specified apps.
 	dfs := make([]deploymentFactory, len(params))
 	for i, param := range params {
 		dfs[i] = deploymentFactory{
