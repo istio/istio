@@ -244,9 +244,9 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 	return err
 }
 
-// WaitUntilServiceIsReady will wait until the service with the given name/namespace is present, and have at least
+// WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
-func (a *Accessor) WaitUntilServiceIsReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
 	var service *kubeApiCore.Service
 	err := retry.UntilSuccess(func() error {
 

@@ -102,7 +102,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Wait for Galley to come online before applying Istio configurations.
-	if _, err = env.WaitUntilServiceIsReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+	if _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
 		err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
 		scopes.CI.Info(err.Error())
 		return nil, err
