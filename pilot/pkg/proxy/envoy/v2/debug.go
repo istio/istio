@@ -112,8 +112,8 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
 	w.WriteHeader(http.StatusOK)
+	w.Write(out)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
