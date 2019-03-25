@@ -18,7 +18,6 @@ package ingress
 
 import (
 	"errors"
-	"os"
 	"reflect"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
@@ -72,7 +72,7 @@ type controller struct {
 
 var (
 	// TODO: move to features ( and remove in 1.2 )
-	ingressNamespace = os.Getenv("K8S_INGRESS_NS")
+	ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 )
 
 var (

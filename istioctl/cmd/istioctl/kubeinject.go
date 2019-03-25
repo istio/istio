@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -155,6 +155,8 @@ var (
 )
 
 var (
+	useBuiltinDefaultsVar = env.RegisterBoolVar("ISTIOCTL_USE_BUILTIN_DEFAULTS", false, "")
+
 	injectCmd = &cobra.Command{
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
@@ -265,8 +267,9 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
 			// so must be specified together. hub and tag no longer have defaults.
 			if hub != "" || tag != "" {
+
 				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
-				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
+				if !useBuiltinDefaultsVar.Get() {
 					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
 						"use the following command to get the current injector file\n" +
 						"kubectl -n istio-system get configmap istio-sidecar-injector " +
@@ -333,13 +336,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 		},
 	}
 )
-
-func getBoolEnv(key string, defaultVal bool) bool {
-	if svalue, ok := os.LookupEnv(key); ok {
-		return strings.ToLower(svalue) == "true" || svalue == "1"
-	}
-	return defaultVal
-}
 
 const (
 	defaultMeshConfigMapName   = "istio"

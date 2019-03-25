@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"os"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -31,6 +30,7 @@ import (
 	"google.golang.org/grpc/credentials/oauth"
 
 	policypb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
@@ -99,6 +99,8 @@ func getWhitelistSAN(cert []byte) []*url.URL {
 	return whitelistSAN
 }
 
+var bypassVerificationVar = env.RegisterBoolVar("BYPASS_OOP_MTLS_SAN_VERIFICATION", false, "")
+
 func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	// load peer cert/key.
 	pk := mtlsCfg.GetPrivateKey()
@@ -145,7 +147,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		if _, err = certs[0].Verify(opts); err != nil {
 			return err
 		}
-		if os.Getenv("BYPASS_OOP_MTLS_SAN_VERIFICATION") == "true" {
+		if bypassVerificationVar.Get() {
 			log.Infof("BYPASS_OOP_MTLS_SAN_VERIFICATION=true - bypassing mtls custom SAN verification")
 			return nil
 		}
