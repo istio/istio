@@ -33,7 +33,10 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 )
 
-func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
+	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+	crdCount := 0
+	istioDeploymentCount := 0
 	if len(options.Filenames) == 0 {
 		return errors.New("--filename must be set")
 	}
@@ -79,6 +82,9 @@ func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.
 			if err != nil {
 				return err
 			}
+			if namespace == *istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+				istioDeploymentCount++
+			}
 		case "Job":
 			job := &v1batch.Job{}
 			err = info.Client.
@@ -115,18 +121,26 @@ func verifyInstall(restClientGetter resource.RESTClientGetter, options resource.
 					return fmt.Errorf("istio installation fails or have not been completed - the required %s:%s is not ready due to: %v", kind, name, result.Error())
 				}
 			}
+			if kind == "CustomResourceDefinition" {
+				crdCount++
+			}
+		}
+		if enableVerbose {
+			fmt.Fprintf(writer, "%s: %s.%s checked successfully\n", kind, name, namespace)
 		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(writer, "istio is installed successfully\n")
+	fmt.Fprintf(writer, "Checked %v crds\n", crdCount)
+	fmt.Fprintf(writer, "Checked %v Istio Deployments\n", istioDeploymentCount)
+	fmt.Fprintf(writer, "Istio is installed successfully\n")
 	return nil
 }
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
-func NewVerifyCommand() *cobra.Command {
+func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 	var (
 		kubeConfigFlags = &genericclioptions.ConfigFlags{
 			Context:    strPtr(""),
@@ -138,25 +152,33 @@ func NewVerifyCommand() *cobra.Command {
 		fileNameFlags = &genericclioptions.FileNameFlags{
 			Filenames: &filenames,
 			Recursive: boolPtr(true),
+			Usage:     "Istio YAML installation file.",
 		}
+		enableVerbose bool
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install",
 		Short: "Verifies Istio Installation Status",
 		Long: `
-		verify-install Verifies Istio Installation Status
+		verify-install verifies Istio installation status against the installation file
+		you specified when you installed Istio. It loops through all the installation
+		resources defined in your installation file and reports whether all of them are
+		in ready status. It will report failure when any of them are not ready.
 `,
 		Example: `
 istioctl verify-install -f istio-demo.yaml
 `,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return verifyInstall(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags,
+				fileNameFlags.ToOptions(), c.OutOrStderr())
 		},
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
+	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", false,
+		"Enable verbose output")
 	return verifyInstallCmd
 }
 

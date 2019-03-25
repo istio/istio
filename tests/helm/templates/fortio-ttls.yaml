@@ -43,12 +43,16 @@ spec:
   selector:
     app: fortiottls
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiottls
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortiottls
+      version: ttls
   template:
     metadata:
       annotations:
@@ -93,12 +97,16 @@ spec:
         port:
           number: 8080
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls-notls
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio-ttls
+      version: v1-ttls
   template:
     metadata:
       labels:
@@ -128,12 +136,16 @@ spec:
             cpu: 10m
             memory: "100M"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls-tls
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio-ttls
+      version: v1-ttls 
   template:
     metadata:
       labels:
@@ -161,12 +173,16 @@ spec:
             cpu: 10m
             memory: "100M"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cli-fortio-ttls
+      version: v1-ttls
   template:
     metadata:
       labels:

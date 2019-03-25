@@ -130,10 +130,10 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}()
 
 	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
-	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
+	s.gp.AddWorkers(a.APIWorkerPoolSize)
 
 	s.adapterGP = pool.NewGoroutinePool(a.AdapterWorkerPoolSize, a.SingleThreaded)
-	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize - 1)
+	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize)
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
@@ -183,7 +183,6 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		}
 	}
 
-	var rt *runtime.Runtime
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
 		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
@@ -208,7 +207,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}
 	s.configStore = st
 	log.Info("Starting runtime config watch...")
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {

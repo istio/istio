@@ -47,7 +47,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "someID",
-		DNSDomains:  []string{"foo.com"},
+		DNSDomain:   "foo.com",
 		Metadata:    map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
@@ -64,7 +64,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Nanosecond * 100
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -119,7 +124,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -159,7 +169,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			{
 
@@ -209,7 +225,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
@@ -231,7 +253,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		push := &model.PushContext{}
+		meshConfig := model.DefaultMeshConfig()
+		push := &model.PushContext{
+			Env: &model.Environment{
+				Mesh: &meshConfig,
+			},
+		}
+
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{

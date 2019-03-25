@@ -114,9 +114,7 @@ func TestConfigZ(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Run("configz with 2 request", func(tt *testing.T) { testConfigZWithOneRequest(tt, baseURL) })
-
-	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
+	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithTwoLatestRequests(tt, baseURL) })
 }
 
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
@@ -131,28 +129,14 @@ func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	if !strings.Contains(data, testEmptyCollection) {
 		t.Fatalf("Collections should have been displayed: %q", data)
 	}
-	want := 2
+	want := 1
 	if got := strings.Count(data, testEmptyCollection); got != want {
-		t.Fatalf("Only the collection and initial ACK request should have been displayed: got %v want %v: %q",
+		t.Fatalf("Only the collection should have been displayed: got %v want %v: %q",
 			got, want, data)
 	}
 }
 
-func testConfigZWithOneRequest(t *testing.T, baseURL string) {
-	t.Helper()
-
-	for i := 0; i < 10; i++ {
-		data := request(t, baseURL+"/configz")
-		if strings.Count(data, testEmptyCollection) != 3 {
-			time.Sleep(time.Millisecond * 100)
-			continue
-		}
-		return
-	}
-	t.Fatal("Both collections, the initial request, and a recent ACK request should have been displayed")
-}
-
-func testConfigJWithOneRequest(t *testing.T, baseURL string) {
+func testConfigJWithTwoLatestRequests(t *testing.T, baseURL string) {
 	t.Helper()
 
 	data := request(t, baseURL+"/configj/")

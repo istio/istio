@@ -113,7 +113,6 @@ function clone_cni() {
   fi
 }
 
-
 function check_and_install_kind() {
   echo "Checking KinD is installed..."
   if ! kind --help > /dev/null; then
@@ -140,4 +139,22 @@ function setup_kind_cluster() {
 
   export GIT_SHA="${GIT_SHA:-$TAG}"
   export KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+}
+
+function cni_run_daemon() {
+
+  echo 'Run the CNI daemon set'
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+
+  chartdir=$(pwd)/charts
+  mkdir "${chartdir}"
+  helm init --client-only
+  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/
+  helm fetch --untar --untardir "${chartdir}" istio.io/istio-cni
+ 
+  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set cniBinDir=/home/kubernetes/bin --set hub="${ISTIO_CNI_HUB}" --set tag="${ISTIO_CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni > istio-cni_install.yaml
+
+  kubectl apply -f istio-cni_install.yaml
+
 }
