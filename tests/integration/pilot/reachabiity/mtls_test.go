@@ -147,6 +147,7 @@ func TestMutualTlsReachability(t *testing.T) {
 
 	testCases := []struct {
 		configFile  string
+		namespace   string
 		connections []connection
 	}{
 		{
@@ -167,13 +168,6 @@ func TestMutualTlsReachability(t *testing.T) {
 					expectedSuccess: true,
 				},
 				{
-					from:            aApp,
-					to:              bApp,
-					port:            7070,
-					protocol:        apps.AppProtocolGRPC,
-					expectedSuccess: true,
-				},
-				{
 					from:            nakedApp,
 					to:              bApp,
 					port:            80,
@@ -190,13 +184,6 @@ func TestMutualTlsReachability(t *testing.T) {
 					to:              bApp,
 					port:            80,
 					protocol:        apps.AppProtocolHTTP,
-					expectedSuccess: true,
-				},
-				{
-					from:            aApp,
-					to:              bApp,
-					port:            7070,
-					protocol:        apps.AppProtocolGRPC,
 					expectedSuccess: true,
 				},
 				{
@@ -227,10 +214,49 @@ func TestMutualTlsReachability(t *testing.T) {
 				},
 			},
 		},
+		{
+			configFile: "single-port-mtls-on.yaml",
+			namespace:  appsInstance.Namespace().Name(),
+			connections: []connection{
+				{
+					from:            aApp,
+					to:              bApp,
+					port:            80,
+					protocol:        apps.AppProtocolHTTP,
+					expectedSuccess: false,
+				},
+				{
+					from:            nakedApp,
+					to:              bApp,
+					port:            80,
+					protocol:        apps.AppProtocolHTTP,
+					expectedSuccess: false,
+				},
+				{
+					from:            aApp,
+					to:              bApp,
+					port:            90,
+					protocol:        apps.AppProtocolHTTP,
+					expectedSuccess: true,
+				},
+				{
+					from:            nakedApp,
+					to:              bApp,
+					port:            90,
+					protocol:        apps.AppProtocolHTTP,
+					expectedSuccess: true,
+				},
+			},
+		},
 	}
 
 	for _, c := range testCases {
-		policy := setupPolicy(t, env, istioCfg.SystemNamespace, c.configFile)
+		namespace := c.namespace
+		if len(namespace) == 0 {
+			namespace = istioCfg.SystemNamespace
+		}
+
+		policy := setupPolicy(t, env, namespace, c.configFile)
 		// Give some time for the policy propagate.
 		// TODO: query pilot or app to know instead of sleep.
 		time.Sleep(time.Second)
