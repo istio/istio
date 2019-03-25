@@ -204,7 +204,7 @@ func TestProcessor_Publishing(t *testing.T) {
 }
 
 func awaitFullSync(t *testing.T, p *Processor) {
-	if err := p.AwaitFullSync(timeout); err != nil {
+	if err := p.awaitFullSync(timeout); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -62,7 +62,7 @@ type Processor struct {
 	// worker handles the lifecycle of the processing worker thread.
 	worker *util.Worker
 
-	// Condition used to notify callers of AwaitFullSync that the full sync has occurred.
+	// Condition used to notify callers of awaitFullSync that the full sync has occurred.
 	fullSyncCond *sync.Cond
 }
 
@@ -160,8 +160,8 @@ func (p *Processor) Stop() {
 	p.worker.Stop()
 }
 
-// AwaitFullSync waits until the full sync event is received from the source. For testing purposes only.
-func (p *Processor) AwaitFullSync(timeout time.Duration) error {
+// awaitFullSync waits until the full sync event is received from the source. For testing purposes only.
+func (p *Processor) awaitFullSync(timeout time.Duration) error {
 	return wait.WithTimeout(func() {
 		p.fullSyncCond.L.Lock()
 		defer p.fullSyncCond.L.Unlock()
