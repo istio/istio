@@ -59,6 +59,7 @@ var listeningTestProbe func()
 
 // Server represents a running ControlZ instance.
 type Server struct {
+	listener   net.Listener
 	shutdown   sync.WaitGroup
 	httpServer http.Server
 }
@@ -163,11 +164,11 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		log.Errorf("Unable to start ControlZ: %v", err)
 		return nil, err
 	}
-	listener.Close()
 
 	s := &Server{
+		listener: listener,
 		httpServer: http.Server{
-			Addr:           listener.Addr().String(),
+			Addr:           listener.Addr().(*net.TCPAddr).String(),
 			ReadTimeout:    10 * time.Second,
 			WriteTimeout:   10 * time.Second,
 			MaxHeaderBytes: 1 << 20,
@@ -186,7 +187,7 @@ func (s *Server) listen() {
 	if listeningTestProbe != nil {
 		go listeningTestProbe()
 	}
-	err := s.httpServer.ListenAndServe()
+	err := s.httpServer.Serve(s.listener)
 	log.Infof("ControlZ terminated: %v", err)
 	s.shutdown.Done()
 }
@@ -196,10 +197,13 @@ func (s *Server) listen() {
 // Close is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func (s *Server) Close() {
-	if err := s.httpServer.Close(); err != nil {
-		log.Warnf("Error closing ControlZ: %v", err)
+	log.Info("Closing closing ControlZ")
+	if s.listener != nil {
+		if err := s.listener.Close(); err != nil {
+			log.Warnf("Error closing ControlZ: %v", err)
+		}
+		s.shutdown.Wait()
 	}
-	s.shutdown.Wait()
 }
 
 func (s *Server) Address() string {
