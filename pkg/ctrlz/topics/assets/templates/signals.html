@@ -1,0 +1,34 @@
+{{ define "content" }}
+
+<p>
+    Send signals to the running process.
+</p>
+
+<br>
+<button class="btn btn-istio" onclick="sendSIGUSR1()">SIGUSR1 (Reload Config)</button>
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function sendSIGUSR1() {
+        var url = window.location.protocol + "//" + window.location.host + "/signalj/SIGUSR1";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("PUT", url, true);
+        ajax.send();
+
+        function onload() {
+            console.log(url + " -> " + ajax.status)
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+</script>
+
+{{ end }}
