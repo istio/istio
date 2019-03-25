@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -70,6 +69,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/filewatcher"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -211,11 +211,13 @@ type Server struct {
 	fileWatcher      filewatcher.FileWatcher
 }
 
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = os.Getenv("POD_NAMESPACE")
+		args.Namespace = podNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
@@ -494,6 +496,8 @@ func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *mockController) Run(<-chan struct{}) {}
 
+var useMCPLegacyVar = env.RegisterBoolVar("USE_MCP_LEGACY", false, "")
+
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
 	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
@@ -518,9 +522,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	// TODO - temporarily support both the new and old stack during transition
 	var useLegacyMCPStack bool
-	if os.Getenv("USE_MCP_LEGACY") == "1" {
+	if useMCPLegacyVar.Get() {
 		useLegacyMCPStack = true
-		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+		log.Infof("USE_MCP_LEGACY=true - using legacy MCP client stack")
 	} else {
 		log.Infof("Using new MCP client sink stack")
 	}
@@ -1198,14 +1202,7 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
-	var maxStreams int
-	maxStreamsEnv := pilot.MaxConcurrentStreams
-	if len(maxStreamsEnv) > 0 {
-		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
-	}
-	if maxStreams == 0 {
-		maxStreams = 100000
-	}
+	maxStreams := pilot.MaxConcurrentStreams
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
