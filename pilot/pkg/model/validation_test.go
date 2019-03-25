@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
+			if len(err.Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -851,10 +851,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 12 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

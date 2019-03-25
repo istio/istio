@@ -98,7 +98,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
-					ValidDuration:        value.Expiration.Sub(time.Now()),
+					ValidDuration:        time.Until(value.Expiration),
 					ValidUseCount:        value.ValidUseCount,
 					ReferencedAttributes: &value.ReferencedAttributes,
 					RouteDirective:       value.RouteDirective,
@@ -276,14 +276,12 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 				protoBag = attribute.GetProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
 				accumBag = attribute.GetMutableBag(protoBag)
 				reportBag = attribute.GetMutableBag(accumBag)
-			} else {
-				if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
-					err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
-					span.LogFields(otlog.String("error", err.Error()))
-					span.Finish()
-					errors = multierror.Append(errors, err)
-					break
-				}
+			} else if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
+				err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
+				span.LogFields(otlog.String("error", err.Error()))
+				span.Finish()
+				errors = multierror.Append(errors, err)
+				break
 			}
 			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, accumBag, reportBag); err != nil {
 				span.LogFields(otlog.String("error", err.Error()))

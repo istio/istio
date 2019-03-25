@@ -419,7 +419,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
-		if instances == nil || len(instances) == 0 {
+		if len(instances) == 0 {
 			return clusters
 		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -581,7 +581,7 @@ func conditionallyConvertToIstioMtls(
 			sniToUse = sni
 		}
 		subjectAltNamesToUse := tls.SubjectAltNames
-		if subjectAltNamesToUse == nil || len(subjectAltNamesToUse) == 0 {
+		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy)

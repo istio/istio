@@ -244,7 +244,7 @@ func main() {
 	var missing []string
 
 	// TODO: detect multiple licenses.
-	licensePath := make(map[string]string, 0)
+	licensePath := make(map[string]string)
 	for _, p := range outv {
 		lf, err := findLicenseFile(p)
 		if err != nil || lf == nil {
@@ -256,9 +256,9 @@ func main() {
 		licensePath[p] = lf[0]
 	}
 
-	licenseTypes := make(map[string][]string, 0)
+	licenseTypes := make(map[string][]string)
 	var reciprocalList, restrictedList, missingList []string
-	unknownMap := make(map[string]string, 0)
+	unknownMap := make(map[string]string)
 	var licenses, exact, inexact LicenseInfos
 	for p, lp := range licensePath {
 		linfo := &LicenseInfo{}

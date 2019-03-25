@@ -120,9 +120,7 @@ func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 	reqHeaders[":authority"] = []string{r.Host}
 	reqHeaders[":path"] = []string{r.URL.String()}
 	for name, headers := range r.Header {
-		for _, h := range headers {
-			reqHeaders[name] = append(reqHeaders[name], h)
-		}
+		reqHeaders[name] = append(reqHeaders[name], headers...)
 	}
 
 	s.mu.Lock()

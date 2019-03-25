@@ -135,13 +135,6 @@ func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) {
 func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeQuotaHandler) SetAdapterConfig(cfg adapter.Config) {}
 
-type fakeBag struct{}
-
-func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
-func (f fakeBag) Names() []string                                 { return []string{} }
-func (f fakeBag) Done()                                           {}
-func (f fakeBag) String() string                                  { return "" }
-
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {
 		tmpl      string
@@ -1051,17 +1044,6 @@ attribute_bindings:
 			}
 		})
 	}
-}
-
-func InterfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-
-	ret := make([]interface{}, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
 }
 
 // nolint: unparam

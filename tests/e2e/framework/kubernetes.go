@@ -999,28 +999,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	return err
 }
 
-func (k *KubeInfo) generateGalleyConfigValidator(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		log.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	if !*clusterWide {
-		content = replacePattern(content, istioSystem, k.Namespace)
-	}
-
-	if *galleyHub != "" && *galleyTag != "" {
-		content = updateImage("galley", *galleyHub, *galleyTag, content)
-	}
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		log.Errorf("Cannot write into generate galley config validator %s", dst)
-	}
-	return err
-}
-
 func replacePattern(content []byte, src, dest string) []byte {
 	r := []byte(dest)
 	p := regexp.MustCompile(src)

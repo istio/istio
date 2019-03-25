@@ -93,10 +93,7 @@ func getWhitelistSAN(cert []byte) []*url.URL {
 	if err != nil {
 		return whitelistSAN
 	}
-	for _, uri := range c.URIs {
-		whitelistSAN = append(whitelistSAN, uri)
-	}
-	return whitelistSAN
+	return append(whitelistSAN, c.URIs...)
 }
 
 var bypassVerificationVar = env.RegisterBoolVar("BYPASS_OOP_MTLS_SAN_VERIFICATION", false, "")
@@ -271,7 +268,6 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
 	// TODO(bianpengyuan) pass in grpc connection context so that oauth client would share the same context.
 	if a.authCfg == nil {
-		opts = append(opts)
 		return []grpc.DialOption{grpc.WithInsecure()}, nil
 	}
 	switch t := a.authCfg.AuthType.(type) {

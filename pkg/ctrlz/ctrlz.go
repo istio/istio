@@ -134,15 +134,8 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	}
 
 	topicMutex.Lock()
-
-	for _, t := range coreTopics {
-		allTopics = append(allTopics, t)
-	}
-
-	for _, t := range customTopics {
-		allTopics = append(allTopics, t)
-	}
-
+	allTopics = append(allTopics, coreTopics...)
+	allTopics = append(allTopics, customTopics...)
 	topicMutex.Unlock()
 
 	exec, _ := os.Executable()

@@ -116,10 +116,12 @@ linters:
     - gosimple
     - interfacer
     - lll
+    - maligned
     - misspell
     - staticcheck
     - structcheck
     - ineffassign
+    - typecheck
     - unconvert
     - unparam
     - unused
@@ -128,7 +130,6 @@ linters:
   disable:
     - gocritic
     - prealloc
-    - typecheck
     - megacheck
     - nakedret
     - scopelint
@@ -138,7 +139,6 @@ linters:
       # start here to enable back all gometalinter linters
     - errcheck
     - goconst
-    - maligned
   disable-all: false
   presets:
     - bugs

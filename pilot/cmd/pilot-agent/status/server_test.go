@@ -121,7 +121,6 @@ func TestAppProbe(t *testing.T) {
 	testCases := []struct {
 		probePath  string
 		statusCode int
-		err        string
 	}{
 		{
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
