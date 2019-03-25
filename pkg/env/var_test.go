@@ -43,6 +43,11 @@ func TestString(t *testing.T) {
 		t.Errorf("Expected not present")
 	}
 
+	v = ev.Get()
+	if v != "123" {
+		t.Errorf("Expected 123, got %s", v)
+	}
+
 	_ = os.Setenv(testVar, "ABC")
 
 	ev = RegisterStringVar(testVar, "123", "")
@@ -52,6 +57,11 @@ func TestString(t *testing.T) {
 	}
 	if !present {
 		t.Errorf("Expected present")
+	}
+
+	v = ev.Get()
+	if v != "ABC" {
+		t.Errorf("Expected ABC, got %s", v)
 	}
 }
 
@@ -67,6 +77,11 @@ func TestInt(t *testing.T) {
 		t.Errorf("Expected not present")
 	}
 
+	v = ev.Get()
+	if v != 123 {
+		t.Errorf("Expected 123, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "XXX")
 
 	ev = RegisterIntVar(testVar, 123, "")
@@ -78,6 +93,11 @@ func TestInt(t *testing.T) {
 		t.Errorf("Expected present")
 	}
 
+	v = ev.Get()
+	if v != 123 {
+		t.Errorf("Expected 123, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "789")
 
 	ev = RegisterIntVar(testVar, 123, "")
@@ -87,6 +107,11 @@ func TestInt(t *testing.T) {
 	}
 	if !present {
 		t.Errorf("Expected present")
+	}
+
+	v = ev.Get()
+	if v != 789 {
+		t.Errorf("Expected 789, got %v", v)
 	}
 }
 
@@ -102,6 +127,11 @@ func TestBool(t *testing.T) {
 		t.Errorf("Expected not present")
 	}
 
+	v = ev.Get()
+	if v != true {
+		t.Errorf("Expected true, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "XXX")
 
 	ev = RegisterBoolVar(testVar, true, "")
@@ -113,6 +143,11 @@ func TestBool(t *testing.T) {
 		t.Errorf("Expected present")
 	}
 
+	v = ev.Get()
+	if v != true {
+		t.Errorf("Expected true, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "true")
 
 	ev = RegisterBoolVar(testVar, false, "")
@@ -122,6 +157,11 @@ func TestBool(t *testing.T) {
 	}
 	if !present {
 		t.Errorf("Expected present")
+	}
+
+	v = ev.Get()
+	if v != true {
+		t.Errorf("Expected true, got %v", v)
 	}
 }
 
@@ -137,6 +177,11 @@ func TestFloat(t *testing.T) {
 		t.Errorf("Expected not present")
 	}
 
+	v = ev.Get()
+	if v != 123.0 {
+		t.Errorf("Expected 123.0, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "XXX")
 
 	ev = RegisterFloatVar(testVar, 123.0, "")
@@ -148,6 +193,11 @@ func TestFloat(t *testing.T) {
 		t.Errorf("Expected present")
 	}
 
+	v = ev.Get()
+	if v != 123.0 {
+		t.Errorf("Expected 123.0, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "789")
 
 	ev = RegisterFloatVar(testVar, 123.0, "")
@@ -157,6 +207,11 @@ func TestFloat(t *testing.T) {
 	}
 	if !present {
 		t.Errorf("Expected present")
+	}
+
+	v = ev.Get()
+	if v != 789 {
+		t.Errorf("Expected 789.0, got %v", v)
 	}
 }
 
@@ -172,6 +227,11 @@ func TestDuration(t *testing.T) {
 		t.Errorf("Expected not present")
 	}
 
+	v = ev.Get()
+	if v != 123*time.Second {
+		t.Errorf("Expected 123 seconds, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "XXX")
 
 	ev = RegisterDurationVar(testVar, 123*time.Second, "")
@@ -183,6 +243,11 @@ func TestDuration(t *testing.T) {
 		t.Errorf("Expected present")
 	}
 
+	v = ev.Get()
+	if v != 123*time.Second {
+		t.Errorf("Expected 123 seconds, got %v", v)
+	}
+
 	_ = os.Setenv(testVar, "789s")
 
 	ev = RegisterDurationVar(testVar, 123*time.Second, "")
@@ -192,6 +257,11 @@ func TestDuration(t *testing.T) {
 	}
 	if !present {
 		t.Errorf("Expected present")
+	}
+
+	v = ev.Get()
+	if v != 789*time.Second {
+		t.Errorf("Expected 789 seconds, got %v", v)
 	}
 }
 

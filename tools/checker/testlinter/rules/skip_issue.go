@@ -18,7 +18,7 @@ import (
 	"go/ast"
 	"go/token"
 
-	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tools/checker"
 )
 
 // SkipIssue requires that a `t.Skip()` call in test function should contain url to a issue.

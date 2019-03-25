@@ -18,7 +18,7 @@ import (
 	"go/ast"
 	"go/token"
 
-	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tools/checker"
 )
 
 // NoGoroutine requires that go f(x, y, z) is not allowed.

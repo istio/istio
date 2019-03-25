@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2019 Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,21 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package flakytestfinder
+package main
 
-import (
-	"istio.io/istio/tests/util/checker"
-)
-
-// ReportFlakyTests reports names of tests that have annotation.IsFlaky() call.
-func ReportFlakyTests(args []string) ([]string, error) {
-	matcher := RulesMatcher{}
-	whitelist := checker.NewWhitelist(map[string][]string{})
-	report := checker.NewLintReport()
-
-	err := checker.Check(args, &matcher, whitelist, report)
-	if err != nil {
-		return []string{}, err
-	}
-	return report.Items(), nil
-}
+// Whitelist contains pairs of file and rule IDs. Each file maps to an array of rules which
+// should not apply to that file. Each rule is represented by its unique rule ID, which is the
+// file name of that rule without ".go" extension in the rules package.
+var Whitelist = map[string][]string{}
