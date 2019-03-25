@@ -27,13 +27,13 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -101,9 +101,7 @@ func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, c
 		"--allow-unknown-fields",
 	}
 
-	for _, v := range cliarg {
-		startupArgs = append(startupArgs, v)
-	}
+	startupArgs = append(startupArgs, cliarg...)
 
 	if config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(config.Concurrency))
@@ -197,6 +195,8 @@ func getNodeMetaData(envs []string) map[string]string {
 	return meta
 }
 
+var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
@@ -218,7 +218,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		cfg = DefaultCfgDir
 	}
 
-	override := os.Getenv("ISTIO_BOOTSTRAP")
+	override := overrideVar.Get()
 	if len(override) > 0 {
 		cfg = override
 	}

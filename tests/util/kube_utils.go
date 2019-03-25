@@ -736,14 +736,10 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		if yaml, err0 := ShellMuteOutput(
 			fmt.Sprintf("kubectl get %s -n %s -o yaml --kubeconfig=%s", resrc, namespace, kubeconfig)); err0 != nil {
 			multiErr = multierror.Append(multiErr, err0)
-		} else {
-			if f, err1 := os.Create(filePath); err1 != nil {
-				multiErr = multierror.Append(multiErr, err1)
-			} else {
-				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
-					multiErr = multierror.Append(multiErr, err2)
-				}
-			}
+		} else if f, err1 := os.Create(filePath); err1 != nil {
+			multiErr = multierror.Append(multiErr, err1)
+		} else if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+			multiErr = multierror.Append(multiErr, err2)
 		}
 	}
 	return multiErr
@@ -845,14 +841,14 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 }
 
 // CreateMultiClusterSecret will create the secret associated with the remote cluster
-func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
+func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretLabel = "istio/multiCluster"
 		labelValue  = "true"
 	)
-	secretName := filepath.Base(RemoteKubeConfig)
+	secretName := filepath.Base(remoteKubeConfig)
 
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, remoteKubeConfig, namespace, localKubeConfig)
 	if err != nil {
 		log.Infof("Failed to create secret %s\n", secretName)
 		return err
@@ -871,8 +867,8 @@ func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKu
 }
 
 // DeleteMultiClusterSecret delete the remote cluster secret
-func DeleteMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
-	secretName := filepath.Base(RemoteKubeConfig)
+func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
+	secretName := filepath.Base(remoteKubeConfig)
 	_, err := ShellMuteOutput("kubectl delete secret %s -n %s --kubeconfig=%s", secretName, namespace, localKubeConfig)
 	if err != nil {
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)

@@ -708,7 +708,6 @@ func TestDestinationRuleExportTo(t *testing.T) {
 
 	cases := []struct {
 		testName        string
-		description     string
 		rules           map[string][]string
 		src             string
 		dst             string

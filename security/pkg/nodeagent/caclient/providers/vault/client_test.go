@@ -258,8 +258,7 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		var vaultAddr string
-		vaultAddr = tc.cliConfig.vaultAddr
+		vaultAddr := tc.cliConfig.vaultAddr
 		cli, err := NewVaultClient(false, []byte{}, vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
@@ -289,8 +288,7 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		var vaultAddr string
-		vaultAddr = tc.cliConfig.vaultAddr
+		vaultAddr := tc.cliConfig.vaultAddr
 		cli, err := NewVaultClient(true, []byte(vaultServerTLSCert), vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
@@ -348,7 +346,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 			}
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.vaultLoginResp))
-			break
+
 		case "/v1/sign":
 			t.Logf("%v", req.URL)
 			if req.Header.Get(vaultAuthHeaderName) != "fake-vault-token" {
@@ -381,7 +379,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 			}
 			resp.Header().Set("Content-Type", "application/json")
 			resp.Write([]byte(vaultServer.vaultSignResp))
-			break
+
 		default:
 			t.Logf("The request contains invalid path: %v", req.URL)
 			resp.WriteHeader(http.StatusNotFound)

@@ -90,7 +90,7 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := forwarder.Start(); err != nil {
+		if err = forwarder.Start(); err != nil {
 			return nil, err
 		}
 		c.client.forwarders = append(c.client.forwarders, forwarder)

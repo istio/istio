@@ -47,7 +47,7 @@ func verifyMCMeshConfig(primaryPodNames, remotePodNames []string, appEPs map[str
 		return nil
 	}
 
-	_, err := retry.Retry(nil, retryFn)
+	_, err := retry.Retry(context.TODO(), retryFn)
 
 	return err
 }

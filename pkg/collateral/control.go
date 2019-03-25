@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
+
+	"istio.io/istio/pkg/env"
 )
 
 // Control determines the behavior of the EmitCollateral function
@@ -137,7 +139,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 		count++
 	}
 
-	g.genFileHeader(cmd, count)
+	g.genFrontMatter(cmd, count)
 	for _, n := range names {
 		if commands[n].Name() == help {
 			continue
@@ -145,6 +147,8 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 
 		g.genCommand(commands[n])
 	}
+
+	g.genVars(cmd)
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -156,7 +160,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 	return err
 }
 
-func (g *generator) genFileHeader(root *cobra.Command, numEntries int) {
+func (g *generator) genFrontMatter(root *cobra.Command, numEntries int) {
 	g.emit("---")
 	g.emit("title: ", root.Name())
 	g.emit("description: ", root.Short)
@@ -348,4 +352,64 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 func normalizeID(id string) string {
 	id = strings.Replace(id, " ", "-", -1)
 	return strings.Replace(id, ".", "-", -1)
+}
+
+func (g *generator) genVars(root *cobra.Command) {
+	envVars := env.VarDescriptions()
+
+	count := 0
+	for _, v := range envVars {
+		if v.Hidden || v.Deprecated {
+			continue
+		}
+		count++
+	}
+
+	if count == 0 {
+		return
+	}
+
+	g.emit("<h2 id=\"envvars\">Environment Variables</h2>")
+
+	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command.")
+
+	g.emit("<table class=\"envvars\">")
+	g.emit("<thead>")
+	g.emit("<tr>")
+	g.emit("<th>Variable Name</th>")
+	g.emit("<th>Type</th>")
+	g.emit("<th>Default Value</th>")
+	g.emit("<th>Description</th>")
+	g.emit("</tr>")
+	g.emit("</thead>")
+	g.emit("<tbody>")
+
+	for _, v := range envVars {
+		if v.Hidden || v.Deprecated {
+			continue
+		}
+
+		g.emit("<tr>")
+		g.emit("<td><code>", html.EscapeString(v.Name), "</code></td>")
+
+		switch v.Type {
+		case env.STRING:
+			g.emit("<td>String</td>")
+		case env.BOOL:
+			g.emit("<td>Boolean</td>")
+		case env.INT:
+			g.emit("<td>Integer</td>")
+		case env.FLOAT:
+			g.emit("<td>Floating-Point</td>")
+		case env.DURATION:
+			g.emit("<td>Time Duration</td>")
+		}
+
+		g.emit("<td><code>", html.EscapeString(v.DefaultValue), "</code></td>")
+		g.emit("<td>", html.EscapeString(v.Description), "</td>")
+		g.emit("</tr>")
+	}
+
+	g.emit("</tbody>")
+	g.emit("</table>")
 }

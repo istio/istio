@@ -101,9 +101,9 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 func TestPersistBatches(t *testing.T) {
 	tests := []struct {
 		name           string
-		expectedCount  int32
 		response       *http.Response
 		error          error
+		expectedCount  int32
 		sendOnStopChan bool
 	}{
 		{

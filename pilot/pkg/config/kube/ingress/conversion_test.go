@@ -181,8 +181,8 @@ func TestEncoding(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
+		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
 		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},

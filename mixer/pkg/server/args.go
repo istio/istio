@@ -80,14 +80,17 @@ type Args struct {
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
 
-	// Port to use for Mixer's gRPC API
-	APIPort uint16
-
 	// Address to use for Mixer's gRPC API. This setting supercedes the API port setting.
 	APIAddress string
 
+	// Port to use for Mixer's gRPC API
+	APIPort uint16
+
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
+
+	// Maximum number of entries in the check cache
+	NumCheckCacheEntries int32
 
 	// Enable profiling via web interface host:port/debug/pprof
 	EnableProfiling bool
@@ -97,9 +100,6 @@ type Args struct {
 
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
-
-	// Maximum number of entries in the check cache
-	NumCheckCacheEntries int32
 
 	// Whether or not to establish watches for adapter-specific CRDs
 	UseAdapterCRDs bool
@@ -131,11 +131,11 @@ func DefaultArgs() *Args {
 }
 
 func (a *Args) validate() error {
-	if a.MaxMessageSize <= 0 {
+	if a.MaxMessageSize == 0 {
 		return fmt.Errorf("max message size must be > 0, got %d", a.MaxMessageSize)
 	}
 
-	if a.MaxConcurrentStreams <= 0 {
+	if a.MaxConcurrentStreams == 0 {
 		return fmt.Errorf("max concurrent streams must be > 0, got %d", a.MaxConcurrentStreams)
 	}
 

@@ -185,8 +185,8 @@ func TestSecretContent(t *testing.T) {
 	}
 	controller.saAdded(createServiceAccount(saName, saNamespace))
 
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
-	secret, err = client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
+	_ = ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
 	}
@@ -261,9 +261,9 @@ func TestUpdateSecret(t *testing.T) {
 	testCases := map[string]struct {
 		expectedActions  []ktesting.Action
 		ttl              time.Duration
-		gracePeriodRatio float32
 		minGracePeriod   time.Duration
 		rootCert         []byte
+		gracePeriodRatio float32
 		certIsInvalid    bool
 	}{
 		"Does not update non-expiring secret": {
