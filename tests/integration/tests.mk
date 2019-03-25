@@ -13,6 +13,12 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_PULL_POLICY = IfNotPresent      # Using Always in CircleCI causes pull issues as images are local.
 endif
 
+# In Prow, ARTIFACTS_DIR points to the location where Prow captures the artifacts from the tests
+_INTEGRATION_TEST_WORK_DIR_FLAG =
+ifneq ($(ARTIFACTS_DIR),)
+	_INTEGRATION_TEST_WORK_DIR_FLAG = --istio.test.work_dir ${ARTIFACTS_DIR}
+endif
+
 _INTEGRATION_TEST_INGRESS_FLAG =
 ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
@@ -80,5 +86,6 @@ test.integration.kube: | $(JUNIT_REPORT)
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
