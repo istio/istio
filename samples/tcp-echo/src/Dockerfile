@@ -19,7 +19,7 @@ COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tcp-echo main.go
 
 # copy the tcp-echo binary to a separate container based on scratch
-FROM scratch
+FROM gcr.io/distroless/static
 WORKDIR /bin/
 COPY --from=builder /go/src/istio.io/tcp-echo-server/tcp-echo .
 ENTRYPOINT [ "/bin/tcp-echo" ]

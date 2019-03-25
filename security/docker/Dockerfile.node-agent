@@ -1,4 +1,4 @@
-FROM scratch
+FROM gcr.io/distroless/static
 
 # All containers need a /tmp directory
 WORKDIR /tmp/
