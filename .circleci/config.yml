@@ -37,9 +37,8 @@ jobs:
             id
             env
             mkdir -p out/tests
-            echo "Hello" > out/tests/hello
-            go get -u sigs.k8s.io/kind
-            $GOPATH/bin/kind create cluster
+
+            /go/bin/kind create cluster
 
             # Option 1: use the kind docker to install stuff.
             # We can copy our installer in the kind cluster
@@ -100,4 +99,4 @@ workflows:
   all:
     jobs:
       - build
-      - install-minikube
+      #- install-minikube
