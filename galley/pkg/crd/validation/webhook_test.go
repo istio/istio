@@ -537,9 +537,9 @@ func TestServe(t *testing.T) {
 		name            string
 		body            []byte
 		contentType     string
-		wantAllowed     bool
 		wantStatusCode  int
-		allowedResponse bool //
+		wantAllowed     bool
+		allowedResponse bool
 	}{
 		{
 			name:            "valid",

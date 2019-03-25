@@ -119,19 +119,15 @@ func TestWatchChanges(t *testing.T) {
 }
 
 type mockStore struct {
-	// Init method related fields
-	initCalled        bool
-	initKinds         map[string]proto.Message
-	initErrorToReturn error
-
-	// Watch method related fields
-	watchCalled          bool
+	initKinds            map[string]proto.Message
+	initErrorToReturn    error
 	watchChannelToReturn chan Event
 	watchErrorToReturn   error
+	listResultToReturn   map[Key]*Resource
 
-	// List method related fields
-	listCalled         bool
-	listResultToReturn map[Key]*Resource
+	initCalled  bool
+	watchCalled bool
+	listCalled  bool
 }
 
 var _ Store = &mockStore{}

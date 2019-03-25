@@ -101,9 +101,7 @@ func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, c
 		"--allow-unknown-fields",
 	}
 
-	for _, v := range cliarg {
-		startupArgs = append(startupArgs, v)
-	}
+	startupArgs = append(startupArgs, cliarg...)
 
 	if config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(config.Concurrency))

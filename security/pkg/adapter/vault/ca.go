@@ -182,7 +182,7 @@ func RunProtoTypeSignCsrFlow() error {
 		log.Errorf("ReadFile() failed (error %v)", err)
 		return err
 	}
-	_, err = setCaKeyCert(client, configCaKeyCertPath, string(keyCert[:]))
+	_, err = setCaKeyCert(client, configCaKeyCertPath, string(keyCert))
 	if err != nil {
 		log.Errorf("setCaKeyCert() failed (error %v)", err)
 		return err
@@ -199,7 +199,7 @@ func RunProtoTypeSignCsrFlow() error {
 		log.Errorf("ReadFile() failed (error %v)", err)
 		return err
 	}
-	res, err := signCsr(client, signCsrPath, string(testCsr[:]))
+	res, err := signCsr(client, signCsrPath, string(testCsr))
 	if err != nil {
 		log.Errorf("signCsr() failed (error %v)", err)
 		return err
