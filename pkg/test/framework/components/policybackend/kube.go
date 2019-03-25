@@ -156,8 +156,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 	pod := pods[0]
 
-	svc, err := env.WaitUntilServiceIsReady(c.namespace.Name(), "policy-backend")
-	if err != nil {
+	var svc *kubeApiCore.Service
+	if svc, err = env.WaitUntilServiceIsReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
