@@ -79,7 +79,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 	}
 
 	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
-		// If SDS_TOKEN_PATh is in the node metadata, make a copy of rawClusters so that
+		// If SDS_TOKEN_PATH is in the node metadata, make a copy of rawClusters so that
 		// the path of SDS token will be applied to the copied clusters.
 		rawClusters = CopyClusters(rawClusters)
 	}
