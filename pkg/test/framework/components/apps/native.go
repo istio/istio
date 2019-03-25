@@ -329,6 +329,15 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint 
 	return eps
 }
 
+func (a *nativeApp) EndpointForPort(port int) AppEndpoint {
+	for _, ep := range a.endpoints {
+		if ep.(*nativeEndpoint).port.ProxyPort == port {
+			return ep
+		}
+	}
+	return nil
+}
+
 func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := e.(*nativeEndpoint)
 	if !ok {

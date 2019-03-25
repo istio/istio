@@ -53,6 +53,7 @@ type App interface {
 	Name() string
 	Endpoints() []AppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
+	EndpointForPort(port int) AppEndpoint
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 }

@@ -558,6 +558,15 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 	return out
 }
 
+func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
+	for _, e := range a.endpoints {
+		if e.port.Port == port {
+			return e
+		}
+	}
+	return nil
+}
+
 // Call implements the environment.DeployedApp interface
 func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := e.(*endpoint)
