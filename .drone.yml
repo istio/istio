@@ -33,14 +33,13 @@ services:
   # Seems to not require priv, allowed in cloud.drone.io
   - name: docker-p
     image: plugins/docker
-    privileged: true
     commands:
       - /usr/local/bin/dockerd --data-root /var/lib/docker --host=tcp://0.0.0.0:2375
 
-  - name: docker
-    image: plugins/docker
-    commands:
-      - /usr/local/bin/dockerd --data-root /var/lib/docker  --host=tcp://0.0.0.0:2376
+#  - name: docker
+#    image: plugins/docker
+#    commands:
+#      - /usr/local/bin/dockerd --data-root /var/lib/docker  --host=tcp://0.0.0.0:2376
 
 #services:
 ##  Doesn't work - require priv or trusted
