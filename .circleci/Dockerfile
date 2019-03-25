@@ -18,5 +18,9 @@ RUN cd /tmp && mkdir /install && \
     mv linux-amd64/helm /usr/local/bin && \
     rm -rf helm.tgz linux-amd64
 
+RUN curl -s https://get.docker.io/ | sh
+
+RUN go get -u sigs.k8s.io/kind
+
 
 ADD . /install
