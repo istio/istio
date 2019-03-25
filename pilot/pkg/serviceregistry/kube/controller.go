@@ -715,6 +715,10 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		portsByNum := map[uint32]string{}
 
 		for _, port := range svc.Spec.Ports {
+			// Ignore udp svc port
+			if port.Protocol == v1.ProtocolUDP {
+				continue
+			}
 			ports[port.Name] = uint32(port.Port)
 			portsByNum[uint32(port.Port)] = port.Name
 		}
