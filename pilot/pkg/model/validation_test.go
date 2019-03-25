@@ -352,6 +352,8 @@ func TestValidateWildcardDomain(t *testing.T) {
 		{"bad wildcard", "foo.*.com", "invalid"},
 		{"bad wildcard", "foo*.bar.com", "invalid"},
 		{"IP address", "1.1.1.1", "invalid"},
+		{"bad character", "a/b/c", "invalid"},
+		{"bad character", "foo.Bar.com", "invalid"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

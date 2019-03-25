@@ -39,9 +39,9 @@ import (
 
 const (
 	dns1123LabelMaxLength int    = 63
-	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
+	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
-	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
+	wildcardPrefix string = `(\*|(\*|\*-))?(` + dns1123LabelFmt + `)`
 
 	// TODO: there is a stricter regex for the labels from validation.go in k8s
 	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
@@ -259,16 +259,20 @@ func ValidateWildcardDomain(domain string) error {
 	parts := strings.SplitN(domain, ".", 2)
 	if !IsWildcardDNS1123Label(parts[0]) {
 		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
-	} else if len(parts) > 1 {
+	}
+	if len(parts) > 1 {
 		return validateDNS1123Labels(parts[1])
 	}
 	return nil
 }
 
+// DNS1123SubdomainMaxLength is a subdomain's max length in DNS (RFC 1123)
+const DNS1123SubdomainMaxLength int = 253
+
 // encapsulates DNS 1123 checks common to both wildcarded hosts and FQDNs
 func checkDNS1123Preconditions(name string) error {
-	if len(name) > 255 {
-		return fmt.Errorf("domain name %q too long (max 255)", name)
+	if len(name) > DNS1123SubdomainMaxLength {
+		return fmt.Errorf("domain name %q too long (max %d)", name, DNS1123SubdomainMaxLength)
 	}
 	if len(name) == 0 {
 		return fmt.Errorf("empty domain name not allowed")
@@ -299,6 +303,9 @@ func IsDNS1123Label(value string) bool {
 // IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows
 // the wildcard label (`*`), and typical labels with a leading astrisk instead of alphabetic character (e.g. "*-foo")
 func IsWildcardDNS1123Label(value string) bool {
+	if value == "*" {
+		return true
+	}
 	return len(value) <= dns1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
 }
 
