@@ -38,22 +38,21 @@ jobs:
             env
             mkdir -p out/tests
 
-            /go/bin/kind create cluster
+            # Create the cluster
+            /go/bin/kind create cluster --name test
 
-            # Option 1: use the kind docker to install stuff.
-            # We can copy our installer in the kind cluster
-            docker cp $HOME/project kind-control-plane:/
+            docker cp $HOME/project test-control-plane:/
 
-            cat  $HOME/.kube/kind-config-kind | sed s/localhost:.*/localhost:6443/ > $HOME/.kube/config
-            docker cp $HOME/.kube/config kind-control-plane:/
 
-            # TODO: we can exec into the kind cluster and run 'stuff', but we don't have helm.
-            # Will need to run a pod - so need to create a pod with the installer and helm and kubectl
 
-            # TODO: for multi-cluster, we can create a second kind
-            # docker run --volumes-from configs --network container:kind-control-plane istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25 make control
+            cat  $HOME/.kube/kind-config-test | sed s/localhost:.*/localhost:6443/ > $HOME/.kube/config
+            docker cp $HOME/.kube/config test-control-plane:/
 
-            # TODO: option 3 is to run DIND as the main image - this is likely the fastest
+            # ???
+            docker build -t costinm/istio-install -f .circleci/Dockerfile .
+            /go/bin/kind load docker-image costin/istio-install:latest
+
+            docker exec -e KUBECONFIG=/config test-control-plane kubectl apply -f /project/.circleci/test-pod.yaml
 
       - store_test_results:
           path: out/tests
