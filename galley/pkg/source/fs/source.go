@@ -90,7 +90,7 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 			return err
 		}
 		result := s.readFile(path, info, true)
-		if result != nil && len(result) != 0 {
+		if len(result) != 0 {
 			for _, r := range result {
 				results[r.newKey()] = r
 			}
@@ -303,32 +303,25 @@ func (s *source) Start(handler resource.EventHandler) error {
 					fi, err := os.Stat(ev.Name)
 					if err != nil {
 						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							log.Scope.Debugf("add watcher for new folder %s", ev.Name)
-							_ = s.watcher.Watch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, true)
-							if newData != nil && len(newData) != 0 {
-								s.processAddOrUpdate(ev.Name, newData)
-							}
-						}
+					} else if fi.Mode().IsDir() {
+						log.Scope.Debugf("add watcher for new folder %s", ev.Name)
+						_ = s.watcher.Watch(ev.Name)
+					} else if newData := s.readFile(ev.Name, fi, true); len(newData) != 0 {
+						s.processAddOrUpdate(ev.Name, newData)
 					}
 				} else if ev.IsModify() {
 					fi, err := os.Stat(ev.Name)
 					if err != nil {
 						log.Scope.Warnf("error occurs for watching %s", ev.Name)
+					} else if fi.Mode().IsDir() {
+						_ = s.watcher.RemoveWatch(ev.Name)
 					} else {
-						if fi.Mode().IsDir() {
-							_ = s.watcher.RemoveWatch(ev.Name)
+						newData := s.readFile(ev.Name, fi, false)
+						if len(newData) != 0 {
+							s.processPartialDelete(ev.Name, newData)
+							s.processAddOrUpdate(ev.Name, newData)
 						} else {
-							newData := s.readFile(ev.Name, fi, false)
-							if newData != nil && len(newData) != 0 {
-								s.processPartialDelete(ev.Name, newData)
-								s.processAddOrUpdate(ev.Name, newData)
-							} else {
-								s.processDelete(ev.Name)
-							}
+							s.processDelete(ev.Name)
 						}
 					}
 				}

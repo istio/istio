@@ -134,10 +134,6 @@ func (s *suiteContext) Skipf(reasonfmt string, args ...interface{}) {
 	s.skipAll = true
 }
 
-func (s *suiteContext) done() error {
-	return s.globalScope.done(s.settings.NoCleanup)
-}
-
 // CreateDirectory creates a new subdirectory within this context.
 func (s *suiteContext) CreateDirectory(name string) (string, error) {
 	dir, err := ioutil.TempDir(s.settings.RunDir(), name)

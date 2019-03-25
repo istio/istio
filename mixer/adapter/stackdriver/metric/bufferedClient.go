@@ -182,7 +182,7 @@ func (b *buffered) Close() error {
 // handleError extract out timeseries that fails to create from response status.
 // If no sepecific timeseries listed in error response, retry all time series in batch.
 func handleError(err error, tsSent []*monitoringpb.TimeSeries) []*monitoringpb.TimeSeries {
-	errorTS := make([]*monitoringpb.TimeSeries, 0, 0)
+	errorTS := make([]*monitoringpb.TimeSeries, 0)
 	retryAll := true
 	s, ok := status.FromError(err)
 	if !ok {
@@ -199,9 +199,7 @@ func handleError(err error, tsSent []*monitoringpb.TimeSeries) []*monitoringpb.T
 		}
 	}
 	if isRetryable(status.Code(err)) && retryAll {
-		for _, ts := range tsSent {
-			errorTS = append(errorTS, ts)
-		}
+		errorTS = append(errorTS, tsSent...)
 	}
 	return errorTS
 }

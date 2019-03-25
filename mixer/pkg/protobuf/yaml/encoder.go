@@ -51,7 +51,7 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 	}
 
 	original := buf.Bytes()
-	result := make([]byte, len(original), len(original))
+	result := make([]byte, len(original))
 	copy(result, original)
 	return result, nil
 }

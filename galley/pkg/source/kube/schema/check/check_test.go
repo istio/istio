@@ -119,7 +119,6 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 	cases := []struct {
 		name    string
 		missing map[int]bool
-		want    map[int]bool
 	}{
 		{
 			name: "all present",

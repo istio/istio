@@ -428,7 +428,7 @@ func (sc *SecretCache) rotate() {
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
-	if sc.fetcher.UseCaClient == false {
+	if !sc.fetcher.UseCaClient {
 		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
 		if !exist {
 			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
@@ -489,7 +489,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	retry := 0
 	backOffInMilliSec := initialBackOffIntervalInMilliSec
 	var certChainPEM []string
-	for true {
+	for {
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		if err == nil {
 			break
@@ -523,7 +523,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 	len := len(certChainPEM)
 	// Leaf cert is element '0'. Root cert is element 'n'.
-	if sc.rootCert == nil || bytes.Compare(sc.rootCert, []byte(certChainPEM[len-1])) != 0 {
+	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[len-1])) {
 		sc.rootCertMutex.Lock()
 		sc.rootCert = []byte(certChainPEM[len-1])
 		sc.rootCertMutex.Unlock()

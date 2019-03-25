@@ -875,11 +875,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 	}
 
 	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
-	if proxyProcessUID == "0" {
-		return true
-	}
-
-	return false
+	return proxyProcessUID == "0"
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1320,19 +1316,18 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
-	//nolint: maligned
-	routeConfig      *xdsapi.RouteConfiguration
-	rds              string
-	useRemoteAddress bool
-	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	routeConfig *xdsapi.RouteConfiguration
+	rds         string
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
+	direction  http_conn.HttpConnectionManager_Tracing_OperationName
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
+	useRemoteAddress bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1356,8 +1351,8 @@ type buildListenerOpts struct {
 	proxyLabels     model.LabelsCollection
 	bind            string
 	port            int
-	bindToPort      bool
 	filterChainOpts []*filterChainOpts
+	bindToPort      bool
 	skipUserFilters bool
 }
 

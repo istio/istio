@@ -527,8 +527,8 @@ func TestKubeIngressResource(t *testing.T) {
 func TestShouldProcessIngress(t *testing.T) {
 	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   meshcfg.MeshConfig_IngressControllerMode
 		ingressClass  string
+		ingressMode   meshcfg.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
 		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
