@@ -18,8 +18,14 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
         istio: nodeagent
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-nodeagent-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
       - name: nodeagent
 {{- if contains "/" .Values.image }}
