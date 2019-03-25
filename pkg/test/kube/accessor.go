@@ -264,7 +264,7 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 		}
 
 		for _, subset := range endpoints.Subsets {
-			if len(subset.Addresses) > 0 {
+			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 				service = s
 				return nil
 			}
