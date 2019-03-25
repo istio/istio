@@ -27,17 +27,15 @@
 package ctrlz
 
 import (
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
-
-	"sync"
-
-	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"
@@ -52,6 +50,7 @@ var coreTopics = []fw.Topic{
 	topics.ArgsTopic(),
 	topics.VersionTopic(),
 	topics.MetricsTopic(),
+	topics.SignalsTopic(),
 }
 
 var allTopics []fw.Topic
@@ -60,9 +59,9 @@ var listeningTestProbe func()
 
 // Server represents a running ControlZ instance.
 type Server struct {
+	listener   net.Listener
 	shutdown   sync.WaitGroup
 	httpServer http.Server
-	listener   net.Listener
 }
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
@@ -127,12 +126,6 @@ func RegisterTopic(t fw.Topic) {
 // supplied custom topics, as well as any topics registered
 // via the RegisterTopic function.
 func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
-	if o.Port == 0 {
-		// disabled
-		s := &Server{}
-		return s, nil
-	}
-
 	topicMutex.Lock()
 	allTopics = append(allTopics, coreTopics...)
 	allTopics = append(allTopics, customTopics...)
@@ -165,20 +158,22 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		addr = ""
 	}
 
+	// Canonicalize the address and resolve a dynamic port if necessary
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port))
+	if err != nil {
+		log.Errorf("Unable to start ControlZ: %v", err)
+		return nil, err
+	}
+
 	s := &Server{
+		listener: listener,
 		httpServer: http.Server{
+			Addr:           listener.Addr().(*net.TCPAddr).String(),
 			ReadTimeout:    10 * time.Second,
 			WriteTimeout:   10 * time.Second,
 			MaxHeaderBytes: 1 << 20,
-			Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
 			Handler:        router,
 		},
-	}
-
-	var err error
-	if s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
-		log.Errorf("Unable to start ControlZ: %v", err)
-		return nil, err
 	}
 
 	s.shutdown.Add(1)
@@ -188,14 +183,12 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 }
 
 func (s *Server) listen() {
-	log.Infof("ControlZ available at %s", s.listener.Addr().String())
-
+	log.Infof("ControlZ available at %s", s.httpServer.Addr)
 	if listeningTestProbe != nil {
-		listeningTestProbe()
+		go listeningTestProbe()
 	}
-
-	_ = s.httpServer.Serve(s.listener)
-	log.Infof("ControlZ terminated")
+	err := s.httpServer.Serve(s.listener)
+	log.Infof("ControlZ terminated: %v", err)
 	s.shutdown.Done()
 }
 
@@ -204,8 +197,15 @@ func (s *Server) listen() {
 // Close is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func (s *Server) Close() {
+	log.Info("Closing closing ControlZ")
 	if s.listener != nil {
-		_ = s.listener.Close()
+		if err := s.listener.Close(); err != nil {
+			log.Warnf("Error closing ControlZ: %v", err)
+		}
 		s.shutdown.Wait()
 	}
+}
+
+func (s *Server) Address() string {
+	return s.httpServer.Addr
 }
