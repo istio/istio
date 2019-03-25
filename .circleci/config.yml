@@ -17,7 +17,7 @@ jobs:
   build:
     docker:
       - #image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-        image: costinm/istio-installer:latest
+        image: costinm/istio-install:latest
         environment:
           GOPATH: /home/circleci/project/go
           KUBECONFIG: /home/circleci/project/.circleci/config
