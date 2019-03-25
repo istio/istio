@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/wait"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -61,7 +62,7 @@ type Processor struct {
 	// worker handles the lifecycle of the processing worker thread.
 	worker *util.Worker
 
-	// Condition used to notify callers of AwaitFullSync that the full sync has occurred.
+	// Condition used to notify callers of awaitFullSync that the full sync has occurred.
 	fullSyncCond *sync.Cond
 }
 
@@ -159,14 +160,18 @@ func (p *Processor) Stop() {
 	p.worker.Stop()
 }
 
-// AwaitFullSync waits until the full sync event is received from the source. For testing purposes only.
-func (p *Processor) AwaitFullSync() {
-	p.fullSyncCond.L.Lock()
-	defer p.fullSyncCond.L.Unlock()
+// awaitFullSync waits until the full sync event is received from the source. For testing purposes only.
+func (p *Processor) awaitFullSync(timeout time.Duration) error {
+	return wait.WithTimeout(func() {
+		p.fullSyncCond.L.Lock()
+		defer p.fullSyncCond.L.Unlock()
+		if p.distribute {
+			// Already synced. Nothing to do.
+			return
+		}
 
-	if !p.distribute {
 		p.fullSyncCond.Wait()
-	}
+	}, timeout)
 }
 
 func (p *Processor) processEvent(e resource.Event) {
