@@ -182,6 +182,8 @@ func TestValidation(t *testing.T) {
 		{"networking-v1alpha3-DestinationRule-valid", true},
 		{"networking-v1alpha3-ServiceEntry-invalid", false},
 		{"networking-v1alpha3-ServiceEntry-valid", true},
+		{"networking-v1alpha3-Sidecar-invalid", false},
+		{"networking-v1alpha3-Sidecar-valid", true},
 		{"networking-v1alpha3-VirtualService-invalid", false},
 		{"networking-v1alpha3-VirtualService-valid", true},
 		{"networking-v1alpha3-Gateway-invalid", false},
