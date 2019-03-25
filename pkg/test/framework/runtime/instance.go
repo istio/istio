@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 // Instance for the test environment.
@@ -48,12 +49,12 @@ func (i *Instance) SuiteContext() *suiteContext { // nolint:golint
 }
 
 // NewTestContext creates and returns a new testContext
-func (i *Instance) NewTestContext(parentContext *testContext, t *testing.T) *testContext { // nolint:golint
+func (i *Instance) NewTestContext(t *testing.T, parentContext *testContext, labels label.Set) *testContext { // nolint:golint
 	var parentScope *scope
 	if parentContext != nil {
 		parentScope = parentContext.scope
 	}
-	return newTestContext(i.context, parentScope, t)
+	return newTestContext(t, i.context, parentScope, labels)
 }
 
 // Close implements io.Closer

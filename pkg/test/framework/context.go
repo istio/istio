@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
-
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -31,6 +31,8 @@ type SuiteContext interface {
 
 	// Skip indicates that all of the tests in this suite should be skipped.
 	Skipf(reasonfmt string, args ...interface{})
+
+	Label(labels ...label.Instance)
 }
 
 // TestContext is a test-level context that can be created as part of test executing tests.

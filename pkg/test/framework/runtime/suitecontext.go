@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -41,6 +43,8 @@ type suiteContext struct {
 
 	skipAll    bool
 	skipReason string
+
+	suiteLabels label.Set
 }
 
 func newSuiteContext(s *core.Settings, envFn api.FactoryFn) (*suiteContext, error) {
@@ -132,6 +136,11 @@ func (s *suiteContext) Skipf(reasonfmt string, args ...interface{}) {
 		s.skipReason = fmt.Sprintf(reasonfmt, args...)
 	}
 	s.skipAll = true
+}
+
+// Skip indicates that all of the tests in this suite should be skipped.
+func (s *suiteContext) Label(labels ...label.Instance) {
+	s.suiteLabels = append(s.suiteLabels, labels...)
 }
 
 // CreateDirectory creates a new subdirectory within this context.

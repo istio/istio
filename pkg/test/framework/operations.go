@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -96,17 +98,17 @@ func runSuite(testID string, mRun mRunFn, setupFn ...SetupFn) (errLevel int) {
 
 // NewContext creates a new test context and returns. It is upto the caller to close to context by calling
 // .Done() at the end of the test run.
-func NewContext(t *testing.T) TestContext {
+func NewContext(t *testing.T, labels ...label.Instance) TestContext {
 	if rt == nil {
 		panic("call to scope without running the test framework")
 	}
 	r := rt
 
-	return r.NewTestContext(nil, t)
+	return r.NewTestContext(t, nil, labels)
 }
 
 // Run is a wrapper for wrapping around *testing.T in a test function.
-func Run(t *testing.T, fn func(ctx TestContext)) {
+func Run(t *testing.T, fn func(ctx TestContext), labels ...label.Instance) {
 	start := time.Now()
 
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.SuiteContext().Settings().TestID, t.Name())
@@ -115,7 +117,7 @@ func Run(t *testing.T, fn func(ctx TestContext)) {
 		scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===", rt.SuiteContext().Settings().TestID, t.Name(), end.Sub(start))
 	}()
 
-	ctx := NewContext(t)
+	ctx := NewContext(t, labels...)
 	defer ctx.Done(t)
 	fn(ctx)
 }
@@ -130,7 +132,10 @@ func doInit(testID string) error {
 		flag.Parse()
 	}
 
-	s := core.SettingsFromCommandLine(testID)
+	s, err := core.SettingsFromCommandLine(testID)
+	if err != nil {
+		return err
+	}
 
 	if err := configureLogging(s.CIMode); err != nil {
 		return err
@@ -146,7 +151,6 @@ func doInit(testID string) error {
 	}
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
-	var err error
 	rt, err = runtime.New(s, newEnvironment)
 	return err
 }
