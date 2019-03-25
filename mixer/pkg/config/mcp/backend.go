@@ -30,6 +30,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
@@ -131,6 +132,8 @@ type state struct {
 	synced map[string]bool // by collection
 }
 
+var useMCPLegacyVar = env.RegisterBoolVar("USE_MCP_LEGACY", false, "")
+
 // Init implements store.Backend.Init.
 func (b *backend) Init(kinds []string) error {
 	m, err := constructMapping(kinds, kube.Types)
@@ -201,8 +204,8 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	// TODO - temporarily support both the new and old stack during transition
-	if os.Getenv("USE_MCP_LEGACY") == "1" {
-		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+	if useMCPLegacyVar.Get() {
+		log.Infof("USE_MCP_LEGACY=true - using legacy MCP client stack")
 
 		cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 		c := client.New(cl, options)
