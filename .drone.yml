@@ -6,40 +6,32 @@ workspace:
   path: src/github.com/costinm/istio-install
 
 steps:
-#  - name: docker
-#    image: plugins/docker
-
-  # Any image with docker binary installed.
   - name: run
     image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-    #detach: true
     environment:
       GOPATH: /home/circleci
       DOCKER_HOST: tcp://docker-p:2375
     commands:
       - go get -u sigs.k8s.io/kind
       - /home/circleci/bin/kind create cluster
+      - export PATH=$PATH:$GOPATH/bin
+      - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
       - kubectl apply -f crds.yaml
       - bin/iop istio-control discovery istio-control/istio-discovery
-    #detach: true
+
 
 
 services:
-  # Priv option
-#  - name: docker
-#    image: docker:dind
-#    privileged: true
-
-  # Seems to not require priv, allowed in cloud.drone.io
   - name: docker-p
     image: plugins/docker
+    privileged: true
     commands:
       - /usr/local/bin/dockerd --data-root /var/lib/docker --host=tcp://0.0.0.0:2375
 
 #  - name: docker
 #    image: plugins/docker
 #    commands:
-#      - /usr/local/bin/dockerd --data-root /var/lib/docker  --host=tcp://0.0.0.0:2376
+#      - /usr/local/bin/dockerd --data-root /var/lib/docker
 
 #services:
 ##  Doesn't work - require priv or trusted
