@@ -572,6 +572,9 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 	}
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(host, ".") {
+		// RFC, the Host: header of HTTP can be the plain <host> or <host>:<port> see issue #6469
+		hostAndPort := strings.SplitN(out, ":", 2)
+		out = hostAndPort[0]
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -581,6 +584,11 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 		// rules.
 		if meta.Domain != "" {
 			out = out + ".svc." + meta.Domain
+		}
+
+		// re-add trailing port if provided in the original host
+		if len(hostAndPort) > 1 {
+			out = out + hostAndPort[1]
 		}
 	}
 

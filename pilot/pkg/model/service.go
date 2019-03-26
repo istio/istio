@@ -568,8 +568,11 @@ func (h Hostname) Matches(o Hostname) bool {
 		return strings.HasSuffix(string(h), string(o[1:]))
 	}
 
+	// RFC, the Host: header of HTTP can be the plain <host> or <host>:<port> see issue #6469
+	hostAndPort := strings.SplitN(string(o), ":", 2)
+
 	// both are non-wildcards, so do normal string comparison
-	return h == o
+	return h == Hostname(hostAndPort[0])
 }
 
 // SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
