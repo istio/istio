@@ -1,4 +1,4 @@
-FROM istionightly/base_debug
+FROM gcr.io/distroless/static
 
 ADD mixer-test-policybackend /usr/local/bin/policybackend
 ENTRYPOINT ["/usr/local/bin/policybackend", "server"]

@@ -1,4 +1,4 @@
-FROM istionightly/base_debug
+FROM gcr.io/distroless/static
 
 ADD pilot-discovery /usr/local/bin/
 ADD cacert.pem /cacert.pem
