@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/util"
@@ -51,6 +52,9 @@ type Processor struct {
 	state         *State
 	stateStrategy *publish.Strategy
 
+	// Handler that generates synthetic ServiceEntry projections.
+	serviceEntryHandler *serviceentry.Handler
+
 	distributor Distributor
 
 	// hook that gets called after each event processing. Useful for testing.
@@ -62,7 +66,7 @@ type Processor struct {
 	// worker handles the lifecycle of the processing worker thread.
 	worker *util.Worker
 
-	// Condition used to notify callers of awaitFullSync that the full sync has occurred.
+	// Condition used to notify callers of AwaitFullSync that the full sync has occurred.
 	fullSyncCond *sync.Cond
 }
 
@@ -102,7 +106,14 @@ func newProcessor(
 	})
 	p.state = newState(schema, cfg, stateListener)
 
-	p.handler = buildDispatcher(p.state)
+	// Publish ServiceEntry events as soon as they occur.
+	p.serviceEntryHandler = serviceentry.NewHandler(cfg.DomainSuffix, processing.ListenerFromFn(func(_ resource.Collection) {
+		scope.Debug("Processor.process: publish serviceEntry")
+		s := p.serviceEntryHandler.BuildSnapshot()
+		p.distributor.SetSnapshot(groups.SyntheticServiceEntry, s)
+	}))
+
+	p.handler = buildDispatcher(p.state, p.serviceEntryHandler)
 	return p
 }
 
@@ -160,8 +171,8 @@ func (p *Processor) Stop() {
 	p.worker.Stop()
 }
 
-// awaitFullSync waits until the full sync event is received from the source. For testing purposes only.
-func (p *Processor) awaitFullSync(timeout time.Duration) error {
+// AwaitFullSync waits until the full sync event is received from the source. For testing purposes only.
+func (p *Processor) AwaitFullSync(timeout time.Duration) error {
 	return wait.WithTimeout(func() {
 		p.fullSyncCond.L.Lock()
 		defer p.fullSyncCond.L.Unlock()
@@ -201,11 +212,18 @@ func (p *Processor) recordEvent() {
 	p.lastEventTime = now
 }
 
-func buildDispatcher(state *State) *processing.Dispatcher {
+func buildDispatcher(state *State, serviceEntryHandler processing.Handler) *processing.Dispatcher {
 	b := processing.NewDispatcherBuilder()
 
-	for _, spec := range state.schema.All() {
+	// Route all types to the state, except for those required by the serviceEntryHandler.
+	stateSchema := resource.NewSchemaBuilder().RegisterSchema(state.schema).UnregisterSchema(serviceentry.Schema).Build()
+	for _, spec := range stateSchema.All() {
 		b.Add(spec.Collection, state)
+	}
+
+	// Route all other types to the serviceEntryHandler
+	for _, spec := range serviceentry.Schema.All() {
+		b.Add(spec.Collection, serviceEntryHandler)
 	}
 
 	return b.Build()
