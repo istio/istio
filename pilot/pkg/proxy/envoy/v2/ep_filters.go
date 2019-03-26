@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
+const LocalNetworkName = "local"
+
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
 type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints
 
@@ -36,7 +38,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 	network, found := conn.modelNode.Metadata[model.NodeMetadataNetwork]
 	if !found {
 		// Couldn't find the sidecar network, using default/local
-		network = ""
+		network = LocalNetworkName
 	}
 
 	// calculate the multiples of weight.
@@ -154,7 +156,7 @@ func istioMetadata(ep endpoint.LbEndpoint, key string) string {
 		ep.Metadata.FilterMetadata["istio"].Fields[key] != nil {
 		return ep.Metadata.FilterMetadata["istio"].Fields[key].GetStringValue()
 	}
-	return ""
+	return LocalNetworkName
 }
 
 func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints []endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
