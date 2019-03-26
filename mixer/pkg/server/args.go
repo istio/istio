@@ -181,6 +181,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
 	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", a.LoadSheddingOptions)
+	fmt.Fprintf(buf, "UseAdapterCRDs: %#t\n", a.UseAdapterCRDs)
 
 	return buf.String()
 }
