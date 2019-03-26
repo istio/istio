@@ -41,7 +41,7 @@ const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
-	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
+	wildcardPrefix string = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
 
 	// TODO: there is a stricter regex for the labels from validation.go in k8s
 	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
