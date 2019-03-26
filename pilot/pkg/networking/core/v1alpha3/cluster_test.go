@@ -155,7 +155,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 				Port:        10001,
 				ServicePort: servicePort,
 				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+				LbWeight:    40,
 			},
 		},
 		{
@@ -164,8 +164,8 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolutio
 				Address:     "192.168.1.2",
 				Port:        10001,
 				ServicePort: servicePort,
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+				Locality:    "region1/zone1/subzone2",
+				LbWeight:    20,
 			},
 		},
 		{
@@ -582,16 +582,16 @@ func TestLocalityLB(t *testing.T) {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
 
-	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(2))
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
-		if localityLbEndpoint.Locality.Region == "region1" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
-			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(2))
-			for _, lbEp := range localityLbEndpoint.LbEndpoints {
-				g.Expect(lbEp.LoadBalancingWeight.GetValue()).To(Equal(uint32(30)))
-			}
+		if localityLbEndpoint.Locality.Region == "region1" && localityLbEndpoint.Locality.SubZone == "subzone1"{
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(2000)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if localityLbEndpoint.Locality.Region == "region1" && localityLbEndpoint.Locality.SubZone == "subzone2"{
+                        g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(1000)))
+                        g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
 		} else if localityLbEndpoint.Locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(2000)))
 			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
 			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
