@@ -15,7 +15,6 @@
 package install
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -35,11 +34,18 @@ import (
 
 func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+	if len(options.Filenames) == 0 {
+		return installPreCheck(istioNamespaceFlag, restClientGetter, writer)
+	}
+	return verifyPostInstall(enableVerbose, istioNamespaceFlag, restClientGetter,
+		options, writer)
+
+}
+
+func verifyPostInstall(enableVerbose bool, istioNamespaceFlag *string,
+	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	crdCount := 0
 	istioDeploymentCount := 0
-	if len(options.Filenames) == 0 {
-		return errors.New("--filename must be set")
-	}
 	r := resource.NewBuilder(restClientGetter).
 		Unstructured().
 		FilenameParam(false, &options).
@@ -158,15 +164,18 @@ func NewVerifyCommand(istioNamespaceFlag *string) *cobra.Command {
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install",
-		Short: "Verifies Istio Installation Status",
+		Short: "Verifies Istio Installation Status Or Perform Pre-Check For The Cluster Before Istio Installation",
 		Long: `
 		verify-install verifies Istio installation status against the installation file
 		you specified when you installed Istio. It loops through all the installation
 		resources defined in your installation file and reports whether all of them are
 		in ready status. It will report failure when any of them are not ready.
+
+		If you do not specify installation file it will perform pre-check for your cluster
+		and report whether the cluster is ready for Istio installation.
 `,
 		Example: `
-istioctl verify-install -f istio-demo.yaml
+istioctl verify-install [-f istio-demo.yaml]
 `,
 		RunE: func(c *cobra.Command, _ []string) error {
 			return verifyInstall(enableVerbose, istioNamespaceFlag, kubeConfigFlags,
@@ -177,7 +186,7 @@ istioctl verify-install -f istio-demo.yaml
 	flags := verifyInstallCmd.PersistentFlags()
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
-	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", false,
+	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
 		"Enable verbose output")
 	return verifyInstallCmd
 }
