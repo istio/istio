@@ -44,7 +44,7 @@ func TestCreateGW(t *testing.T) {
 	configGw1 := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway")
 	configGw2 := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
 	configGw3 := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway")
-	configGw4 := makeConfig("foo4", "not-default", "*", "name4", "tcp", 8, "ingressgateway")
+	configGw4 := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway")
 
 	tests := []struct {
 		name        string
