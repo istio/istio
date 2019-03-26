@@ -193,7 +193,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
-			configuredServices := 0
 			if tt.services != nil {
 				for _, s := range tt.services {
 					ps.publicServices = append(ps.publicServices, s)
