@@ -244,6 +244,41 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 	return err
 }
 
+// WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
+// one usable endpoint.
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+	var service *kubeApiCore.Service
+	err := retry.UntilSuccess(func() error {
+
+		s, err := a.GetService(ns, name)
+		if err != nil {
+			return err
+		}
+
+		endpoints, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(endpoints.Subsets) == 0 {
+			return fmt.Errorf("%s/%v endpoint not ready: no subsets", ns, name)
+		}
+
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
+				service = s
+				return nil
+			}
+		}
+		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
+	}, opts...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
 func (a *Accessor) DeleteValidatingWebhook(name string) error {
 	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())

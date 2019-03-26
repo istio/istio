@@ -48,7 +48,7 @@ type Instance interface {
 	GetAppOrFail(name string, t testing.TB) App
 }
 
-// App represents a deployed fake App within the mesh.
+// App represents a deployed App within the mesh.
 type App interface {
 	Name() string
 	Endpoints() []AppEndpoint
@@ -57,27 +57,35 @@ type App interface {
 	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
+// AppParam specifies the parameter for a single app.
+type AppParam struct {
+	Name string
+}
+
 // Config for Apps
 type Config struct {
 	Pilot pilot.Instance
+	// AppParams specifies the apps needed for the test. If unspecified, a default suite of test apps
+	// will be deployed.
+	AppParams []AppParam
 }
 
 // AppCallOptions defines options for calling a DeployedAppEndpoint.
 type AppCallOptions struct {
-	// Secure indicates whether a secure connection should be established to the endpoint.
-	Secure bool
-
 	// Protocol indicates the protocol to be used.
 	Protocol AppProtocol
-
-	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
-	UseShortHostname bool
 
 	// Count indicates the number of exchanges that should be made with the service endpoint. If not set (i.e. 0), defaults to 1.
 	Count int
 
 	// Headers indicates headers that should be sent in the request. Ingnored for WebSocket calls.
 	Headers http.Header
+
+	// Secure indicates whether a secure connection should be established to the endpoint.
+	Secure bool
+
+	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
+	UseShortHostname bool
 }
 
 // AppEndpoint represents a single endpoint in a DeployedApp.

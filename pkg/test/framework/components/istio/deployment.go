@@ -80,10 +80,7 @@ func splitIstioYaml(istioYaml string) (string, string) {
 
 	parts := strings.Split(istioYaml, yamlSeparator)
 
-	r, err := regexp.Compile("^apiVersion: *.*istio\\.io.*")
-	if err != nil {
-		panic(err)
-	}
+	r := regexp.MustCompile(`^apiVersion: *.*istio\.io.*`)
 
 	for _, p := range parts {
 		if r.Match([]byte(p)) {

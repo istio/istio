@@ -146,10 +146,6 @@ func (c *testContext) RequireOrSkip(t *testing.T, envName environment.Name) {
 	}
 }
 
-func (c *testContext) newChild(t *testing.T) *testContext {
-	return newTestContext(c.suite, c.scope, t)
-}
-
 // Done should be called when this scope is cleaned up.
 func (c *testContext) Done(t *testing.T) {
 	if t.Failed() {

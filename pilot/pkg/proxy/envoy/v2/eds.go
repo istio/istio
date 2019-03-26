@@ -78,35 +78,11 @@ type EdsCluster struct {
 	// cluster will get this response.
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
-	// FirstUse is the time the cluster was first used, for debugging
-	FirstUse time.Time
-
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*XdsConnection `json:"-"`
-
-	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
-	NonEmptyTime time.Time
 }
 
 // TODO: add prom metrics !
-
-// endpoints packs the final DiscoveryResponse, based on the resources.
-func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
-		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: EndpointType,
-
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-		Resources:   outRes,
-	}
-
-	return out
-}
 
 // Return the load assignment with mutex. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
@@ -295,9 +271,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
-	}
 	return nil
 }
 
@@ -431,9 +404,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
-	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
 	}
 	return nil
 }
@@ -774,7 +744,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 	emptyClusters := 0
 	endpoints := 0
-	empty := []string{}
 	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
@@ -827,7 +796,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
-			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -889,7 +857,6 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	if c == nil {
 		c = &EdsCluster{
 			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}

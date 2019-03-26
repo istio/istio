@@ -16,13 +16,12 @@
 package lang
 
 import (
-	"os"
-
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/pkg/env"
 )
 
 type (
@@ -53,9 +52,11 @@ const (
 	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
 
+var langVar = env.RegisterStringVar("ISTIO_LANG", "", "")
+
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
-	if override, has := os.LookupEnv("ISTIO_LANG"); has {
+	if override, has := langVar.Lookup(); has {
 		return fromString(override)
 	}
 	return fromString(annotations[LanguageRuntimeAnnotation])

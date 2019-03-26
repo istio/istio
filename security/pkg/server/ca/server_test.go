@@ -64,28 +64,6 @@ gCojNs0xyJ77JA80HLY7iR4J6BRYsZQ/5UB/pYR55e4TGFDbI+C/6NBqLkzEfyX0
 1sT/u25qExkefck=
 -----END CERTIFICATE REQUEST-----`
 
-type mockCA struct {
-	cert      string
-	root      string
-	certChain string
-	errMsg    string
-}
-
-func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
-	if ca.errMsg != "" {
-		return nil, fmt.Errorf(ca.errMsg)
-	}
-	return []byte(ca.cert), nil
-}
-
-func (ca *mockCA) GetRootCertificate() []byte {
-	return []byte(ca.root)
-}
-
-func (ca *mockCA) GetCertChain() []byte {
-	return []byte(ca.certChain)
-}
-
 type mockAuthenticator struct {
 	authSource authenticate.AuthSource
 	identities []string

@@ -27,7 +27,6 @@ import (
 	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -217,14 +216,6 @@ func TestMultipleRequests(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatalf("got no response")
 	}
-}
-
-type fakeAuthChecker struct {
-	err error
-}
-
-func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
-	return f.err
 }
 
 func TestAuthCheck_Failure(t *testing.T) {
@@ -670,7 +661,6 @@ func TestNACK(t *testing.T) {
 	nonces := make(map[string]bool)
 	var prevNonce string
 	pushedVersion := "1"
-	numResponses := 0
 	first := true
 	finish := time.Now().Add(1 * time.Second)
 	for i := 0; ; i++ {
@@ -700,7 +690,7 @@ func TestNACK(t *testing.T) {
 			prevNonce = response.Nonce
 		} else {
 			select {
-			case response = <-stream.sent:
+			case <-stream.sent:
 				t.Fatal("received unexpected response after NACK")
 			case <-time.After(50 * time.Millisecond):
 			}
@@ -716,10 +706,5 @@ func TestNACK(t *testing.T) {
 		if time.Now().After(finish) {
 			break
 		}
-	}
-	wantResponses := 0
-	if numResponses != wantResponses {
-		t.Fatalf("wrong number of responses: got %v want %v",
-			numResponses, wantResponses)
 	}
 }

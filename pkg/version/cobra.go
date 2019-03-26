@@ -77,30 +77,32 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 			case "":
 				if short {
 					if remoteVersion != nil {
-						fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.Version)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.Version)
 						for _, remote := range *remoteVersion {
-							fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.Version)
+							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.Version)
 						}
 
 					} else {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.Version)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.Version)
 					}
 				} else {
 					if remoteVersion != nil {
-						fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.LongForm())
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.LongForm())
 						for _, remote := range *remoteVersion {
-							fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.LongForm())
+							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.LongForm())
 						}
 					} else {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.LongForm())
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.LongForm())
 					}
 				}
 			case "yaml":
-				marshalled, _ := yaml.Marshal(&version)
-				fmt.Fprintln(cmd.OutOrStdout(), string(marshalled))
+				if marshalled, err := yaml.Marshal(&version); err == nil {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(marshalled))
+				}
 			case "json":
-				marshalled, _ := json.MarshalIndent(&version, "", "  ")
-				fmt.Fprintln(cmd.OutOrStdout(), string(marshalled))
+				if marshalled, err := json.MarshalIndent(&version, "", "  "); err == nil {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(marshalled))
+				}
 			}
 
 			return serverErr
