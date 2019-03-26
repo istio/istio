@@ -231,7 +231,7 @@ func getPilotInfos() (pilotInfos, error) {
 	statuses := make(pilotInfos, len(podIPs))
 	for i, podIP := range podIPs {
 		var err error
-		statuses[i], err = getPilotInfo(podIP,appPod)
+		statuses[i], err = getPilotInfo(podIP, appPod)
 		if err != nil {
 			return nil, err
 		}
@@ -239,8 +239,8 @@ func getPilotInfos() (pilotInfos, error) {
 	return statuses, nil
 }
 
-func getPilotInfo(podIP string,pod string) (*pilotInfo, error) {
-	command := fmt.Sprintf("curl http://%s:8080/debug/push_status",podIP)
+func getPilotInfo(podIP string, pod string) (*pilotInfo, error) {
+	command := fmt.Sprintf("curl http://%s:8080/debug/push_status", podIP)
 	result, err := util.PodExec(tc.Kube.Namespace, pod, "app", command, true, tc.Kube.KubeConfig)
 	if err != nil {
 		return nil, err
@@ -290,4 +290,3 @@ func getAppPod() (string, error) {
 	pods := strings.Split(res, " ")
 	return pods[0], nil
 }
-
