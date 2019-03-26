@@ -117,6 +117,10 @@ defaultConfig:
 func TestApplyMeshNetworksDefaults(t *testing.T) {
 	yml := fmt.Sprintf(`
 networks:
+  local:
+    gateways:
+    - address: 1.1.1.2
+      port: 80
   network1:
     endpoints:
     - fromCidr: "192.168.0.1/24"
@@ -133,6 +137,16 @@ networks:
 
 	want := model.EmptyMeshNetworks()
 	want.Networks = map[string]*meshconfig.Network{
+		"local": {
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{
+				{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: "1.1.1.2",
+					},
+					Port: 80,
+				},
+			},
+		},
 		"network1": {
 			Endpoints: []*meshconfig.Network_NetworkEndpoints{
 				{
