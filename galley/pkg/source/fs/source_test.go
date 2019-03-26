@@ -47,22 +47,19 @@ import (
 var (
 	mixerYAML = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: handler
+kind: denier
 metadata:
-  name: h1
+  name: some.mixer.denier
 spec:
-  compiledAdapter: denier
-  params:
-    status:
-      code: 7
-      message: Not allowed
+  status:
+    code: 7
+    message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: instance
+kind: checknothing
 metadata:
-  name: i1
+  name: some.mixer.checknothing
 spec:
-  compiledTemplate: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -71,28 +68,25 @@ metadata:
 spec:
   match: destination.labels["app"] == "someapp"
   actions:
-  - handler: h1
-    instances: [ i1 ]
+  - handler: some.denier
+    instances: [ some.checknothing ]
 `
 
 	mixerPartYAML = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: handler
+kind: denier
 metadata:
-  name: h1
+  name: some.mixer.denier
 spec:
-  compiledAdapter: denier
-  params:
-    status:
-      code: 7
-      message: Not allowed
+  status:
+    code: 7
+    message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: instance
+kind: checknothing
 metadata:
-  name: i1
+  name: some.mixer.checknothing
 spec:
-  compiledTemplate: checknothing
 `
 
 	virtualServiceYAML = `

@@ -73,6 +73,347 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "apikey",
+		ListKind:  "apikeyList",
+		Singular:  "apikey",
+		Plural:    "apikeys",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/apikeys"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "authorization",
+		ListKind:  "authorizationList",
+		Singular:  "authorization",
+		Plural:    "authorizations",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/authorizations"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "bypass",
+		ListKind:  "bypassList",
+		Singular:  "bypass",
+		Plural:    "bypasses",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/bypasses"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "checknothing",
+		ListKind:  "checknothingList",
+		Singular:  "checknothing",
+		Plural:    "checknothings",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/checknothings"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "circonus",
+		ListKind:  "circonusList",
+		Singular:  "circonus",
+		Plural:    "circonuses",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/circonuses"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "cloudwatch",
+		ListKind:  "cloudwatchList",
+		Singular:  "cloudwatch",
+		Plural:    "cloudwatches",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/cloudwatches"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "denier",
+		ListKind:  "denierList",
+		Singular:  "denier",
+		Plural:    "deniers",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/deniers"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "dogstatsd",
+		ListKind:  "dogstatsdList",
+		Singular:  "dogstatsd",
+		Plural:    "dogstatsds",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/dogstatsds"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "edge",
+		ListKind:  "edgeList",
+		Singular:  "edge",
+		Plural:    "edges",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/edges"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "fluentd",
+		ListKind:  "fluentdList",
+		Singular:  "fluentd",
+		Plural:    "fluentds",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/fluentds"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "kubernetesenv",
+		ListKind:  "kubernetesenvList",
+		Singular:  "kubernetesenv",
+		Plural:    "kubernetesenvs",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/kubernetesenvs"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "kubernetes",
+		ListKind:  "kubernetesList",
+		Singular:  "kubernetes",
+		Plural:    "kuberneteses",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/kuberneteses"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "listchecker",
+		ListKind:  "listcheckerList",
+		Singular:  "listchecker",
+		Plural:    "listcheckers",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/listcheckers"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "listentry",
+		ListKind:  "listentryList",
+		Singular:  "listentry",
+		Plural:    "listentries",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/listentries"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "logentry",
+		ListKind:  "logentryList",
+		Singular:  "logentry",
+		Plural:    "logentries",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/logentries"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "memquota",
+		ListKind:  "memquotaList",
+		Singular:  "memquota",
+		Plural:    "memquotas",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/memquotas"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "metric",
+		ListKind:  "metricList",
+		Singular:  "metric",
+		Plural:    "metrics",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/metrics"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "noop",
+		ListKind:  "noopList",
+		Singular:  "noop",
+		Plural:    "noops",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/noops"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "opa",
+		ListKind:  "opaList",
+		Singular:  "opa",
+		Plural:    "opas",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/opas"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "prometheus",
+		ListKind:  "prometheusList",
+		Singular:  "prometheus",
+		Plural:    "prometheuses",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/prometheuses"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "quota",
+		ListKind:  "quotaList",
+		Singular:  "quota",
+		Plural:    "quotas",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/quotas"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "rbac",
+		ListKind:  "rbacList",
+		Singular:  "rbac",
+		Plural:    "rbacs",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/rbacs"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "redisquota",
+		ListKind:  "redisquotaList",
+		Singular:  "redisquota",
+		Plural:    "redisquotas",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/redisquotas"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "reportnothing",
+		ListKind:  "reportnothingList",
+		Singular:  "reportnothing",
+		Plural:    "reportnothings",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/reportnothings"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "signalfx",
+		ListKind:  "signalfxList",
+		Singular:  "signalfx",
+		Plural:    "signalfxs",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/signalfxs"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "solarwinds",
+		ListKind:  "solarwindsList",
+		Singular:  "solarwinds",
+		Plural:    "solarwindses",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/solarwindses"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "stackdriver",
+		ListKind:  "stackdriverList",
+		Singular:  "stackdriver",
+		Plural:    "stackdrivers",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/stackdrivers"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "statsd",
+		ListKind:  "statsdList",
+		Singular:  "statsd",
+		Plural:    "statsds",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/statsds"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "stdio",
+		ListKind:  "stdioList",
+		Singular:  "stdio",
+		Plural:    "stdios",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/stdios"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "tracespan",
+		ListKind:  "tracespanList",
+		Singular:  "tracespan",
+		Plural:    "tracespans",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/tracespans"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "zipkin",
+		ListKind:  "zipkinList",
+		Singular:  "zipkin",
+		Plural:    "zipkins",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/zipkins"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "template",
 		ListKind:  "templateList",
 		Singular:  "template",
