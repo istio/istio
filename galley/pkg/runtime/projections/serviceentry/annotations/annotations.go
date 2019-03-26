@@ -12,25 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package groups_test
+package annotations
 
-import (
-	"testing"
+const (
+	// ServiceVersion provides the raw resource version from the most recent k8s Service update. This will always
+	// be available for synthetic service entries.
+	ServiceVersion = "networking.istio.io/serviceVersion"
 
-	. "github.com/onsi/gomega"
-
-	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	// EndpointsVersion provides the raw resource version of the most recent k8s Endpoints update (if available).
+	EndpointsVersion = "networking.istio.io/endpointsVersion"
 )
-
-func TestDefault(t *testing.T) {
-	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction("bogus", nil)
-	g.Expect(actual).To(Equal(groups.Default))
-}
-
-func TestSyntheticServiceEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String(), nil)
-	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
-}

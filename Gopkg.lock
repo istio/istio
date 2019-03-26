@@ -1715,7 +1715,7 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:c23aaeb5fd34af7a630c2e8bfd98c4e2833cb0598594ec55e8e56107cf245852"
+  digest = "1:8f056844c24e352ab3ca334083109523d5c7c33e11a1fbd827392c115eda4a2d"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1725,6 +1725,7 @@
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake",
+    "pkg/features",
   ]
   pruneopts = "NUT"
   revision = "16750353bf974758fbed9f44c39b81dfe6decb71"
@@ -1784,6 +1785,17 @@
   ]
   pruneopts = "NUT"
   revision = "def12e63c512da17043b4f0293f52d1006603d9f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:710802a843bee12a00a168d119e0d6afea3ca723fb67cd6ee073a902e943f669"
+  name = "k8s.io/apiserver"
+  packages = [
+    "pkg/features",
+    "pkg/util/feature",
+  ]
+  pruneopts = "NUT"
+  revision = "7ec69625ace05fbf94f1d12c51a69774cca2ecb3"
 
 [[projects]]
   branch = "release-8.0"
@@ -1985,6 +1997,14 @@
   version = "v2.9.1"
 
 [[projects]]
+  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
+  version = "v0.2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:e0d6dcb28c42a53c7243bb6380badd17f92fbd8488a075a07e984f91a07c0d23"
   name = "k8s.io/kube-openapi"
@@ -1994,13 +2014,15 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:b36344c3021ca4d8865e674270ff5505746b4800b64fc76aaf2cb2f736af817d"
+  digest = "1:b4062d7c0692d570a12532a247c01712536006b4f7c1a310038c5d023233930a"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
+    "pkg/features",
     "pkg/kubectl/genericclioptions",
     "pkg/kubectl/genericclioptions/printers",
     "pkg/kubectl/genericclioptions/resource",
+    "pkg/kubelet/apis",
   ]
   pruneopts = "NUT"
   revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
@@ -2312,6 +2334,7 @@
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubectl/genericclioptions",
     "k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
