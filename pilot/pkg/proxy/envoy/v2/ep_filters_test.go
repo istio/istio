@@ -45,6 +45,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	//  - 1 gateway for network2
 	//  - 1 gateway for network3
 	//  - 0 gateways for network4
+	//  - 1 gateway for the local network
 	env := environment()
 
 	// Test endpoints creates:
@@ -52,6 +53,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	//  - 1 endpoints in network2
 	//  - 0 endpoints in network3
 	//  - 1 endpoints in network4
+	//  - 1 endpoints in the local network
 	testEndpoints := testEndpoints()
 
 	// The tests below are calling the endpoints filter from each one of the
@@ -74,11 +76,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 2 local endpoints
 						{address: "10.0.0.1", weight: 2},
 						{address: "10.0.0.2", weight: 2},
-						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						// 2 endpoints to gateways of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						// 1 endpoint to gateway of local with weight 2 because it has 1 endpoint
+						{address: "5.5.5.5", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -94,8 +98,10 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						{address: "20.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 4},
+						// 1 endpoint to gateway of local with weight 2 because it has 1 endpoint
+						{address: "5.5.5.5", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -112,8 +118,10 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						// 1 endpoint to gateway of local with weight 2 because it has 1 endpoint
+						{address: "5.5.5.5", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -127,6 +135,28 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 					lbEps: []LbEpInfo{
 						// 1 local endpoint
 						{address: "40.0.0.1", weight: 2},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 4},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
+						// 1 endpoint to gateway of local with weight 2 because it has 1 endpoint
+						{address: "5.5.5.5", weight: 2},
+					},
+					weight: 10,
+				},
+			},
+		},
+		{
+			name:      "from_local",
+			conn:      xdsConnection(""),
+			env:       env,
+			endpoints: testEndpoints,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "50.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 4},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
@@ -196,6 +226,7 @@ func xdsConnection(network string) *XdsConnection {
 //  - 1 gateway for network2
 //  - 1 gateway for network3
 //  - 0 gateways for network4
+//  - 1 gateway for the local network
 func environment() *model.Environment {
 	return &model.Environment{
 		MeshNetworks: &meshconfig.MeshNetworks{
@@ -239,13 +270,23 @@ func environment() *model.Environment {
 				"network4": &meshconfig.Network{
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{},
 				},
+				"local": &meshconfig.Network{
+					Gateways: []*meshconfig.Network_IstioNetworkGateway{
+						{
+							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+								Address: "5.5.5.5",
+							},
+							Port: 443,
+						},
+					},
+				},
 			},
 		},
 	}
 }
 
 // testEndpoints creates endpoints to be handed to the filter. It creates
-// 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
+// 2 endpoints on network1, 1 endpoint on network2, 1 endpoint on network4 and 1 endpoint on local
 func testEndpoints() []endpoint.LocalityLbEndpoints {
 	lbEndpoints := createLbEndpoints(
 		[]LbEpInfo{
@@ -253,6 +294,7 @@ func testEndpoints() []endpoint.LocalityLbEndpoints {
 			{network: "network1", address: "10.0.0.2"},
 			{network: "network2", address: "20.0.0.1"},
 			{network: "network4", address: "40.0.0.1"},
+			{network: "", address: "50.0.0.1"},
 		},
 	)
 
@@ -282,7 +324,10 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 					},
 				},
 			},
-			Metadata: &core.Metadata{
+		}
+
+		if len(lbEpInfo.network) > 0 {
+			lbEp.Metadata = &core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
 					"istio": &types.Struct{
 						Fields: map[string]*types.Value{
@@ -299,8 +344,9 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 						},
 					},
 				},
-			},
+			}
 		}
+
 		lbEndpoints[j] = lbEp
 	}
 
