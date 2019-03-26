@@ -58,8 +58,8 @@ func setupPolicy(t *testing.T, env *kube.Environment, namespace string, name str
 }
 
 type connection struct {
-	from            apps.App
-	to              apps.App
+	from            apps.KubeApp
+	to              apps.KubeApp
 	protocol        apps.AppProtocol
 	port            int
 	expectedSuccess bool
@@ -68,7 +68,7 @@ type connection struct {
 func checkConnection(conn connection) error {
 	ep := conn.to.EndpointForPort(conn.port)
 	if ep == nil {
-		return fmt.Errorf("Cannot get upstream endpoint for connection test %v", conn)
+		return fmt.Errorf("cannot get upstream endpoint for connection test %v", conn)
 	}
 
 	results, err := conn.from.Call(ep, apps.AppCallOptions{Protocol: conn.protocol})
@@ -138,12 +138,12 @@ func TestMutualTlsReachability(t *testing.T) {
 	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
 	appsInstance := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
 
-	aApp := appsInstance.GetAppOrFail("a", t)
-	bApp := appsInstance.GetAppOrFail("b", t)
+	aApp, _ := appsInstance.GetAppOrFail("a", t).(apps.KubeApp)
+	bApp, _ := appsInstance.GetAppOrFail("b", t).(apps.KubeApp)
 
-	headlessApp := appsInstance.GetAppOrFail("headless", t)
+	headlessApp, _ := appsInstance.GetAppOrFail("headless", t).(apps.KubeApp)
 	// App without sidecar.
-	nakedApp := appsInstance.GetAppOrFail("t", t)
+	nakedApp, _ := appsInstance.GetAppOrFail("t", t).(apps.KubeApp)
 
 	testCases := []struct {
 		configFile  string

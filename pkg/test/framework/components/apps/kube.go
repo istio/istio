@@ -444,6 +444,11 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 }
 
+// Represents a deployed App in k8s environment.
+type KubeApp interface {
+	App
+	EndpointForPort(port int) AppEndpoint
+}
 type kubeApp struct {
 	namespace   string
 	serviceName string
