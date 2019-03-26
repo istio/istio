@@ -31,11 +31,15 @@ func determineLocalHostIPString(t *testing.T) string {
 	if err != nil || len(ips) == 0 {
 		t.Fatalf("Test setup failure - unable to determine IP of localhost: %v", err)
 	}
-	ip := ips[0]
-	if ip.To4() == nil {
-		return fmt.Sprintf("[%s]", ip.String())
+	var ret string
+	for _, ip := range ips {
+		if ip.To4() == nil {
+			ret = fmt.Sprintf("[%s]", ip.String())
+		} else {
+			return ip.String()
+		}
 	}
-	return ip.String()
+	return ret
 }
 
 func MockLookupIPAddr(ctx context.Context, addr string) ([]net.IPAddr, error) {
