@@ -35,8 +35,6 @@ import (
 //)
 
 func TestSidecarListeners(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/12601")
-
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
@@ -46,7 +44,7 @@ func TestSidecarListeners(t *testing.T) {
 	ctx.RequireOrSkip(t, environment.Native)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	pilotInst := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	// Simulate proxy identity of a sidecar ...
 	nodeID := &model.Proxy{
@@ -65,13 +63,13 @@ func TestSidecarListeners(t *testing.T) {
 		TypeUrl: "type.googleapis.com/envoy.api.v2.Listener",
 	}
 	// Start the xDS stream
-	err := pilotInst.StartDiscovery(req)
+	err := p.StartDiscovery(req)
 	if err != nil {
 		t.Fatalf("Failed to test as no resource accepted: %v", err)
 	}
 
 	// Test the empty case where no config is loaded
-	err = pilotInst.WatchDiscovery(time.Second*30,
+	err = p.WatchDiscovery(time.Second*10,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.ForProto(response)
 			if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
@@ -96,7 +94,7 @@ func TestSidecarListeners(t *testing.T) {
 	}
 
 	// Now continue to watch on the same stream
-	err = pilotInst.WatchDiscovery(time.Second*30,
+	err = p.WatchDiscovery(time.Second*10,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.ForProto(response)
 			if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
