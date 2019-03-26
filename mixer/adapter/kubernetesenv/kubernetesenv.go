@@ -40,6 +40,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
+	"istio.io/istio/mixer/adapter/kubernetesenv/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/mixer/adapter/kubernetesenv/pkg/client/clientset/versioned"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -66,8 +68,9 @@ var (
 
 type (
 	builder struct {
-		adapterConfig *config.Params
-		newClientFn   clientFactoryFn
+		adapterConfig           *config.Params
+		newClientFn             clientFactoryFn
+		newServiceEntryClientFn seClientFactoryFn
 
 		sync.Mutex
 		controllers map[string]cacheController
@@ -85,7 +88,8 @@ type (
 	}
 
 	// used strictly for testing purposes
-	clientFactoryFn func(kubeconfigPath string, env adapter.Env) (k8s.Interface, error)
+	clientFactoryFn   func(kubeconfigPath string, env adapter.Env) (k8s.Interface, error)
+	seClientFactoryFn func(kubeconfigPath string, env adapter.Env) (versioned.Interface, error)
 )
 
 // compile-time validation
@@ -103,7 +107,7 @@ func GetInfo() adapter.Info {
 		},
 		DefaultConfig: conf,
 
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
+		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient, newServiceEntriesClient) },
 	}
 }
 
@@ -139,7 +143,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		if err != nil {
 			return nil, fmt.Errorf("could not build kubernetes client: %v", err)
 		}
-		controller, err = runNewController(b, clientset, env)
+		seClientset, err := b.newServiceEntryClientFn(path, env)
+		if err != nil {
+			return nil, fmt.Errorf("could not build service entries client: %v", err)
+		}
+		controller, err = runNewController(b, clientset, seClientset, env)
 		if err != nil {
 			return nil, fmt.Errorf("could not create new cache controller: %v", err)
 		}
@@ -169,12 +177,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	return &kubeHandler, nil
 }
 
-func runNewController(b *builder, clientset k8s.Interface, env adapter.Env) (cacheController, error) {
+func runNewController(b *builder, clientset k8s.Interface, serviceEntries versioned.Interface, env adapter.Env) (cacheController, error) {
 	paramsProto := b.adapterConfig
 	stopChan := make(chan struct{})
 	refresh := paramsProto.CacheRefreshDuration
 
-	controller := newCacheController(clientset, refresh, env, stopChan)
+	controller := newCacheController(clientset, serviceEntries, refresh, env, stopChan)
 	env.ScheduleDaemon(func() { controller.Run(stopChan) })
 
 	// ensure that any request is only handled after
@@ -189,34 +197,63 @@ func runNewController(b *builder, clientset k8s.Interface, env adapter.Env) (cac
 	return controller, nil
 }
 
-func newBuilder(clientFactory clientFactoryFn) *builder {
+func newBuilder(clientFactory clientFactoryFn, serviceEntriesFactory seClientFactoryFn) *builder {
 	return &builder{
-		newClientFn:   clientFactory,
-		controllers:   make(map[string]cacheController),
-		adapterConfig: conf,
+		newClientFn:             clientFactory,
+		newServiceEntryClientFn: serviceEntriesFactory,
+		controllers:             make(map[string]cacheController),
+		adapterConfig:           conf,
 	}
 }
 
 func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
 	out := ktmpl.NewOutput()
 
+	destinationFound := false
+
 	if inst.DestinationUid != "" {
 		if c, p, found := h.findPod(inst.DestinationUid); found {
 			h.fillDestinationAttrs(c, p, inst.DestinationPort, out)
+			destinationFound = true
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
 		if c, p, found := h.findPod(inst.DestinationIp.String()); found {
 			h.fillDestinationAttrs(c, p, inst.DestinationPort, out)
+			destinationFound = true
 		}
 	}
+
+	if !destinationFound && inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
+		if c, se, found := h.findServiceEntry(inst.DestinationIp.String()); found {
+			for _, endpoint := range se.Spec.Endpoints {
+				if endpoint.Address == inst.DestinationIp.String() {
+					h.fillDestinationAttrsFromServiceEntryAndEndpoint(c, se, endpoint, inst.DestinationPort, out)
+				}
+			}
+		}
+	}
+
+	sourceFound := false
 
 	if inst.SourceUid != "" {
 		if c, p, found := h.findPod(inst.SourceUid); found {
 			h.fillSourceAttrs(c, p, out)
+			sourceFound = true
 		}
 	} else if inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
 		if c, p, found := h.findPod(inst.SourceIp.String()); found {
 			h.fillSourceAttrs(c, p, out)
+			sourceFound = true
+		}
+	}
+
+	if !sourceFound && inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
+		if c, se, found := h.findServiceEntry(inst.SourceIp.String()); found {
+			for _, endpoint := range se.Spec.Endpoints {
+				if endpoint.Address == inst.SourceIp.String() {
+					h.fillSourceAttrsFromServiceEntryAndEndpoint(c, se, endpoint, out)
+				}
+			}
 		}
 	}
 
@@ -254,6 +291,28 @@ func (h *handler) findPod(uid string) (cacheController, *v1.Pod, bool) {
 		h.env.Logger().Debugf("could not find pod for (uid: %s, key: %s)", uid, podKey)
 	}
 	return c, pod, found
+}
+
+func (h *handler) findServiceEntry(ip string) (cacheController, *v1alpha3.ServiceEntry, bool) {
+	var found bool
+	var se *v1alpha3.ServiceEntry
+	var c cacheController
+
+	h.RLock()
+	defer h.RUnlock()
+	for _, controller := range h.k8sCache {
+		se, found = controller.ServiceEntry(ip)
+		if found {
+			c = controller
+			break
+		}
+	}
+
+	if !found {
+		h.env.Logger().Debugf("could not find service entry: %s)", ip)
+	}
+	return c, se, found
+
 }
 
 func keyFromUID(uid string) string {
@@ -320,6 +379,37 @@ func (h *handler) fillDestinationAttrs(c cacheController, p *v1.Pod, port int64,
 	}
 }
 
+func (h *handler) fillDestinationAttrsFromServiceEntryAndEndpoint(c cacheController, se *v1alpha3.ServiceEntry, endpoint *v1alpha3.Endpoint, port int64, o *ktmpl.Output) {
+	if len(endpoint.Labels) > 0 {
+		o.SetDestinationLabels(endpoint.Labels)
+	}
+	if len(se.Name) > 0 {
+		o.SetDestinationPodName(se.Name + "-" + endpoint.Address)
+	}
+	if len(se.Namespace) > 0 {
+		o.SetDestinationNamespace(se.Namespace)
+	}
+	// o.SetDestinationPodIp(net.ParseIP(endpoint.Address))
+	o.SetDestinationWorkloadUid("serviceentry://" + se.Namespace + "/" + se.Name)
+	o.SetDestinationWorkloadName(se.Name)
+	o.SetDestinationWorkloadNamespace(se.Namespace)
+}
+
+func (h *handler) fillSourceAttrsFromServiceEntryAndEndpoint(c cacheController, se *v1alpha3.ServiceEntry, endpoint *v1alpha3.Endpoint, o *ktmpl.Output) {
+	if len(endpoint.Labels) > 0 {
+		o.SetSourceLabels(endpoint.Labels)
+	}
+	if len(se.Name) > 0 {
+		o.SetSourcePodName(se.Name + "-" + endpoint.Address)
+	}
+	if len(se.Namespace) > 0 {
+		o.SetSourceNamespace(se.Namespace)
+	}
+	o.SetSourceWorkloadUid("serviceentry://" + se.Namespace + "/" + se.Name)
+	o.SetSourceWorkloadName(se.Name)
+	o.SetSourceWorkloadNamespace(se.Namespace)
+}
+
 func (h *handler) fillSourceAttrs(c cacheController, p *v1.Pod, o *ktmpl.Output) {
 	if len(p.Labels) > 0 {
 		o.SetSourceLabels(p.Labels)
@@ -361,8 +451,17 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	return k8s.NewForConfig(config)
 }
 
+func newServiceEntriesClient(kubeconfigPath string, env adapter.Env) (versioned.Interface, error) {
+	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil || config == nil {
+		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
+	}
+	return versioned.NewForConfig(config)
+}
+
 func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID string) error {
-	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
+	controller, err := runNewController(b, k8sInterface, nil, b.kubeHandler.env)
 	if err == nil {
 		b.Lock()
 		b.controllers[clusterID] = controller

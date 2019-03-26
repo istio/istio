@@ -27,6 +27,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/mixer/adapter/kubernetesenv/pkg/apis/networking/v1alpha3"
+	versioned "istio.io/istio/mixer/adapter/kubernetesenv/pkg/client/clientset/versioned"
+	externalversions "istio.io/istio/mixer/adapter/kubernetesenv/pkg/client/informers/externalversions"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -36,6 +39,7 @@ type (
 		Run(<-chan struct{})
 		Pod(string) (*v1.Pod, bool)
 		Workload(*v1.Pod) workload
+		ServiceEntry(string) (*v1alpha3.ServiceEntry, bool)
 		HasSynced() bool
 		StopControlChannel()
 	}
@@ -46,6 +50,7 @@ type (
 		pods     cache.SharedIndexInformer
 		rs       cache.SharedIndexInformer
 		rc       cache.SharedIndexInformer
+		se       cache.SharedIndexInformer
 	}
 
 	workload struct {
@@ -66,14 +71,31 @@ func podIP(obj interface{}) ([]string, error) {
 	return []string{ip}, nil
 }
 
+func endpointIP(obj interface{}) ([]string, error) {
+	se, ok := obj.(*v1alpha3.ServiceEntry)
+	if !ok {
+		return nil, errors.New("object is not a service entry")
+	}
+	var ips []string
+	for _, endpoint := range se.Spec.Endpoints {
+		ips = append(ips, endpoint.Address)
+	}
+	return ips, nil
+}
+
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
-func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env, stopChan chan struct{}) cacheController {
+func newCacheController(clientset kubernetes.Interface, serviceEntries versioned.Interface, refreshDuration time.Duration, env adapter.Env, stopChan chan struct{}) cacheController {
 	sharedInformers := informers.NewSharedInformerFactory(clientset, refreshDuration)
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	podInformer.AddIndexers(cache.Indexers{
 		"ip": podIP,
+	})
+	versionedInformers := externalversions.NewSharedInformerFactory(serviceEntries, refreshDuration)
+	seInformer := versionedInformers.Networking().V1alpha3().ServiceEntries().Informer()
+	seInformer.AddIndexers(cache.Indexers{
+		"endpoints": endpointIP,
 	})
 
 	return &controllerImpl{
@@ -82,6 +104,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 		pods:     podInformer,
 		rs:       sharedInformers.Apps().V1().ReplicaSets().Informer(),
 		rc:       sharedInformers.Core().V1().ReplicationControllers().Informer(),
+		se:       seInformer,
 	}
 }
 
@@ -90,17 +113,14 @@ func (c *controllerImpl) StopControlChannel() {
 }
 
 func (c *controllerImpl) HasSynced() bool {
-	if c.pods.HasSynced() && c.rs.HasSynced() && c.rc.HasSynced() {
-		return true
-	}
-	return false
+	return c.pods.HasSynced() && c.rs.HasSynced() && c.rc.HasSynced() && c.se.HasSynced()
 }
 
 func (c *controllerImpl) Run(stop <-chan struct{}) {
-	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.rs.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.rc.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.se.Run(stop) })
 	<-stop
 	// TODO: logging?
 }
@@ -180,4 +200,19 @@ func (c *controllerImpl) objectMeta(keyGetter cache.KeyGetter, key string) (*met
 		return &v.ObjectMeta, true
 	}
 	return nil, false
+}
+
+// ServiceEntry returns an Istio ServiceEntry object that corresponds to the supplied IP, if one
+// exists (and is known to the store).
+func (c *controllerImpl) ServiceEntry(ipAddr string) (*v1alpha3.ServiceEntry, bool) {
+	indexer := c.se.GetIndexer()
+	objs, err := indexer.ByIndex("endpoints", ipAddr)
+	if err != nil || len(objs) == 0 {
+		return nil, false
+	}
+	se, ok := objs[0].(*v1alpha3.ServiceEntry)
+	if !ok {
+		return nil, false
+	}
+	return se, true
 }
