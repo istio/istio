@@ -52,18 +52,32 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// statsPatterns gives the developer control over Envoy stats collection
-	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
-)
+	EnvoyStatsMatcherInclusionPrefixes = "sidecar.istio.io/statsInclusionPrefixes"
+
+	// Options are used in templates
+	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
+	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
+
+
+	// statsPatterns gives the developer control over Envoy stats collection
+	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
+
+	)
 
 var (
 	// default value for EnvoyStatsMatcherInclusionPatterns
-	defaultEnvoyStatsMatcherInclusionPatterns = []string{
+	defaultEnvoyStatsMatcherInclusionPrefixes = []string{
 		"cluster_manager",
 		"listener_manager",
 		"http_mixer_filter",
 		"tcp_mixer_filter",
 		"server",
 		"cluster.xds-grpc",
+	}
+
+	defaultEnvoyStatsMatcherInclusionSuffixes = []string{
+		"upstream_rq_total",
+		"upstream_rq_2xx",
 	}
 )
 
@@ -247,10 +261,16 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
-		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPrefixes]; ok {
+		opts[envoyStatsMatcherInclusionPrefixOption] = strings.Split(inclusionPatterns, ",")
 	} else {
-		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
+		opts[envoyStatsMatcherInclusionPrefixOption] = defaultEnvoyStatsMatcherInclusionPrefixes
+	}
+
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionSuffixes]; ok {
+		opts[envoyStatsMatcherInclusionSuffixOption] = strings.Split(inclusionPatterns, ",")
+	} else {
+		opts[envoyStatsMatcherInclusionSuffixOption] = defaultEnvoyStatsMatcherInclusionSuffixes
 	}
 
 	// Support multiple network interfaces
