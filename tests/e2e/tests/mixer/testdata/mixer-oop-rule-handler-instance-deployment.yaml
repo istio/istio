@@ -1,7 +1,7 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: requestcount
+  name: requestcount-oop
   namespace: istio-system
 spec:
   template: metric
@@ -42,7 +42,7 @@ spec:
   params:
     metrics:
     - name: request_count_oop
-      instance_name: requestcount.instance.istio-system
+      instance_name: requestcount-oop.instance.istio-system
       kind: COUNTER
       label_names:
       - reporter
@@ -74,6 +74,5 @@ metadata:
 spec:
   actions:
   - handler: prometheus-handler
-    instances:
-    - requestcount
+    instances: [ requestcount-oop ]
 ---
