@@ -526,7 +526,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 			params = resource.Spec
 		}
 
-		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
+		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, params)
 		inferredType, err := info.InferType(params, func(s string) (config.ValueType, error) {
 			return e.tc.EvalType(s, attributes)
 		})
