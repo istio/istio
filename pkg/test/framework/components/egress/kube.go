@@ -41,7 +41,7 @@ func NewKubeComponent(ctx resource.Context, cfg Config) (Egress, error) {
 	c.accessor = env.Accessor
 	c.istioSystemNamespace = cfg.Istio.Settings().SystemNamespace
 
-	err := c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), []string{"/etc/certs/cert-chain.pem"}, secretWaitTime)
+	err := c.accessor.WaitForFilesInPod(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), []string{"/etc/certs/cert-chain.pem"}, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *kubeEgress) configureSecretAndWaitForExistence(secret *corev1.Secret) (
 			return nil, err
 		}
 	}
-	secret, err = c.accessor.WaitForSecretExist(secretAPI, secretName, secretWaitTime)
+	secret, err = c.accessor.WaitForSecret(secretAPI, secretName, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (c *kubeEgress) configureSecretAndWaitForExistence(secret *corev1.Secret) (
 	for key := range secret.Data {
 		files = append(files, "/etc/istio/egressgateway-certs/"+key)
 	}
-	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	err = c.accessor.WaitForFilesInPod(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}

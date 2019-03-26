@@ -7,21 +7,19 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/egress"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-
-	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -279,62 +277,62 @@ func TestTunnel(t *testing.T) {
 	}
 
 	clientNamespace := namespace.NewOrFail(t, ctx, "client", true)
-	virtualIP := env.AllocateIPAddressOrFail(virtualPort, serviceName, clientNamespace.Name(), t)
+	virtualIP := env.CreateClusterIPServiceOrFail(virtualPort, serviceName, clientNamespace.Name(), t)
 	serverNamespace := namespace.NewOrFail(t, ctx, "server", true)
 
 	err = env.ApplyContents(cfg.SystemNamespace,
-		dump(tmpl.EvaluateOrFail(t, clientSideEgressConfig, map[string]interface{}{
+		tmpl.EvaluateOrFail(t, clientSideEgressConfig, map[string]interface{}{
 			"ingressAddress":  ingressURL.Hostname(),
 			"ingressPort":     ingressPort,
 			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
 			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": cfg.SystemNamespace,
-		})))
+		}))
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = env.ApplyContents(clientNamespace.Name(),
-		dump(tmpl.EvaluateOrFail(t, clientSideConfig, map[string]interface{}{
+		tmpl.EvaluateOrFail(t, clientSideConfig, map[string]interface{}{
 			"vip":             virtualIP,
 			"serviceName":     serviceName,
 			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": cfg.SystemNamespace,
-		})),
+		}),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = env.ApplyContents(serverNamespace.Name(),
-		dump(tmpl.EvaluateOrFail(t, serverSideConfig, map[string]interface{}{
+		tmpl.EvaluateOrFail(t, serverSideConfig, map[string]interface{}{
 			"address":    b.ClusterIP(),
 			"port":       beURL.Port(),
 			"ingressDNS": "service.istio.test.local", // Must match CN in certs/server.crt
 			"clientSAN":  "client.istio.test.local",  // Must match CN and SAN in certs/client.crt
-		})),
+		}),
 	)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Infof("wait for 10 seconds for config distribution.") // see https://github.com/istio/istio/issues/6170
-	time.Sleep(10 * time.Second)
-
 	be.SetURL(&url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme})
-	log.Infof("Trying to call %s", be.URL().String())
+	t.Logf("Trying to call %s", be.URL().String())
+	_, err = retry.Do(func() (unused interface{}, completed bool, err error) {
 
-	result := a.CallOrFail(be, apps.AppCallOptions{IgnoreWrongPort: true}, t)[0]
+		result := a.CallOrFail(be, apps.AppCallOptions{IgnoreWrongPort: true}, t)[0]
 
-	if !result.IsOK() {
-		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+		if !result.IsOK() {
+			return nil, false, fmt.Errorf("HTTP Request unsuccessful: %s", result.Body)
+		}
+		return nil, true, nil
+	}, retry.Delay(time.Second*5), retry.Timeout(time.Second*30))
+
+	if err != nil {
+		t.Fatal(err)
 	}
-}
 
-func dump(yaml string) string {
-	fmt.Println(yaml)
-	return yaml
 }
 
 func readFileOrFail(filename string, t testing.TB) []byte {

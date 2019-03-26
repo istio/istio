@@ -136,7 +136,7 @@ status:
 `
 )
 
-func (e *Environment) AllocateIPAddress(port int, name string, namespace string) (string, error) {
+func (e *Environment) CreateClusterIPService(port int, name string, namespace string) (string, error) {
 	content, err := tmpl.Evaluate(service,
 		map[string]interface{}{
 			"name":      name,
@@ -156,8 +156,8 @@ func (e *Environment) AllocateIPAddress(port int, name string, namespace string)
 	return service.Spec.ClusterIP, nil
 }
 
-func (e *Environment) AllocateIPAddressOrFail(port int, name string, namespace string, t testing.TB) string {
-	ip, err := e.AllocateIPAddress(port, name, namespace)
+func (e *Environment) CreateClusterIPServiceOrFail(port int, name string, namespace string, t testing.TB) string {
+	ip, err := e.CreateClusterIPService(port, name, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -350,7 +350,7 @@ func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptio
 }
 
 // Wait for a secret
-func (a *Accessor) WaitForSecretExist(secret kubeClientCore.SecretInterface, secretName string, timeout time.Duration) (*kubeApiCore.Secret, error) {
+func (a *Accessor) WaitForSecret(secret kubeClientCore.SecretInterface, secretName string, timeout time.Duration) (*kubeApiCore.Secret, error) {
 	watch, err := secret.Watch(mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
@@ -460,7 +460,8 @@ func (a *Accessor) Exec(namespace, pod, container, command string) (string, erro
 	return a.ctl.exec(namespace, pod, container, command)
 }
 
-func (a *Accessor) WaitForFilesExistence(namespace string, selector string, files []string, duration time.Duration) error {
+// WaitForFilesInPod waits until a file exists in a pod
+func (a *Accessor) WaitForFilesInPod(namespace string, selector string, files []string, duration time.Duration) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 		pods, err := a.GetPods(namespace, selector)
 		if err != nil {

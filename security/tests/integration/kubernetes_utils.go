@@ -309,7 +309,7 @@ func getServiceExternalIPAddress(clientset kubernetes.Interface, namespace strin
 	return "", fmt.Errorf("external ip address for the service %v is not ready", name)
 }
 
-// WaitForSecretExist takes name of a secret and watches the secret. Returns the requested secret
+// WaitForSecret takes name of a secret and watches the secret. Returns the requested secret
 // if it exists, or error on timeouts.
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
 	timeToWait time.Duration) (*v1.Secret, error) {
