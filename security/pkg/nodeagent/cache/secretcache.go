@@ -489,11 +489,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
-	log.Infof("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	log.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 	startTime := time.Now()
-	var retry int64 = 0
+	var retry int64
 	var certChainPEM []string
 	for true {
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(

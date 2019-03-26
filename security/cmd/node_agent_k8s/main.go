@@ -284,7 +284,7 @@ func setWorkloadCacheTimeParams() {
 		secretRotationJobRunInterval, "Secret rotation job running interval")
 
 	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, "initialBackoff",
-		initBackoff, "Secret rotation job running interval")
+		initBackoff, "The initial backoff interval in milliseconds")
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
