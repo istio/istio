@@ -80,7 +80,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			scopes.CI.Infof("Wrote out istio.yaml at: %s", p)
 		}
 	}
-	// split installation & configuration into two distinct steps int
+	// split installation & configuration into two distinct steps, so that we can wait Galley to come online before
+	// applying Istio config.
 	installYaml, configureYaml := splitIstioYaml(generatedYaml)
 
 	installYamlFilePath := path.Join(helmDir, "istio-install.yaml")
@@ -97,6 +98,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, installYamlFilePath)
 
 	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
+		return nil, err
+	}
+
+	// Wait for Galley to come online before applying Istio configurations.
+	if _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
+		err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
+		scopes.CI.Info(err.Error())
 		return nil, err
 	}
 
