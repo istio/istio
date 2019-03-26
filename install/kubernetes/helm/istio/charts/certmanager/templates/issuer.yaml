@@ -16,7 +16,7 @@ spec:
     # Name of a secret used to store the ACME account private key
     privateKeySecretRef:
       name: letsencrypt-staging
-    http01: {}
+{{- template "certmanager.acmeProvider" . }}
 ---
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
@@ -34,4 +34,4 @@ spec:
     email: {{ .Values.email }}
     privateKeySecretRef:
       name: letsencrypt
-    http01: {}
+{{- template "certmanager.acmeProvider" . }}

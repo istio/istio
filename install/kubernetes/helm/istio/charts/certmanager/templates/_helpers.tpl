@@ -30,3 +30,15 @@ Create chart name and version as used by the chart label.
 {{- define "certmanager.chart" -}}
 {{- .Chart.Name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Create ACME provider used by certmanager
+http://docs.cert-manager.io/en/latest/tasks/acme/index.html#
+*/}}
+{{- define "certmanager.acmeProvider" }}
+{{- if .Values.acmeProvider }}
+{{ toYaml .Values.acmeProvider | indent 4 }}
+{{- else }}
+    http01: {}
+{{- end }}
+{{- end }}
