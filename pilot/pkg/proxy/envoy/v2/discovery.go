@@ -36,6 +36,9 @@ var (
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
 
+	// Protect the global periodicRefreshDuration from concurrent writes
+	periodicRefreshDurationMutex sync.Mutex
+
 	versionMutex sync.RWMutex
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -237,6 +240,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
+	periodicRefreshDurationMutex.Lock()
+	defer periodicRefreshDurationMutex.Unlock()
 	periodicRefreshDuration = pilot.RefreshDuration
 	if periodicRefreshDuration == 0 {
 		return
