@@ -46,9 +46,6 @@ import (
 const (
 	asdcLocality  = "region1/zone1/subzone1"
 	asdc2Locality = "region2/zone2/subzone2"
-
-	// Service used to trigger an incremental update for the overlapping port test
-	overlapIncSvc = "eds-overlap-trigger.test.svc.cluster.local"
 )
 
 func TestEds(t *testing.T) {
