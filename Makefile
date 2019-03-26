@@ -27,10 +27,10 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_CNI_DOCKER_HUB ?= docker.io/istio
-export ISTIO_CNI_DOCKER_HUB
-ISTIO_CNI_DOCKER_TAG ?= master-latest-daily
-export ISTIO_CNI_DOCKER_TAG
+ISTIO_CNI_HUB ?= gcr.io/istio-release
+export ISTIO_CNI_HUB
+ISTIO_CNI_TAG ?= master-latest-daily
+export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -85,10 +85,6 @@ export ENABLE_ISTIO_CNI ?= false
 
 # NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
 # EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
-
-
-#ISTIO_HELM_REPO := https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts
-ISTIO_HELM_REPO := https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -188,6 +184,14 @@ endif
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
+endif
+
+PULL_POLICY ?= IfNotPresent
+ifeq ($(TAG),latest)
+  PULL_POLICY = Always
+endif
+ifeq ($(PULL_POLICY),)
+  $(error "PULL_POLICY cannot be empty")
 endif
 
 GEN_CERT := ${ISTIO_BIN}/generate_cert
@@ -626,166 +630,73 @@ $(HELM):
 $(HOME)/.helm:
 	$(HELM) init --client-only
 
-.PHONY: helm-repo-add
-
-helm-repo-add:
-	$(HELM) repo add istio.io ${ISTIO_HELM_REPO}
-
-# create istio-remote.yaml
-istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
-	$(HELM) template --name=istio --namespace=istio-system \
-		--values install/kubernetes/helm/istio/values-istio-remote.yaml \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		install/kubernetes/helm/istio >> install/kubernetes/$@
-
 # create istio-init.yaml
-istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+istio-init.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio-init
 	$(HELM) template --name=istio --namespace=istio-system \
 		--set global.tag=${TAG} \
 		--set global.hub=${HUB} \
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
-# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-one-namespace-trust-domain.yaml
+
+# This is used to @include values-istio-demo-common.yaml file
+istio-demo.yaml istio-demo-auth.yaml: export EXTRA_HELM_SETTINGS+=--values install/kubernetes/helm/istio/values-istio-demo-common.yaml
+
+# creates istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
+istio-demo.yaml istio-demo-auth.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
+		--set global.tag=${TAG} \
 		--set global.hub=${HUB} \
+		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
+e2e_files = istio-auth-non-mcp.yaml \
+			istio-auth-sds.yaml \
+			istio-non-mcp.yaml \
+			istio.yaml \
+			istio-auth.yaml \
+			istio-auth-mcp.yaml \
+			istio-auth-multicluster.yaml \
+			istio-mcp.yaml \
+			istio-one-namespace.yaml \
+			istio-one-namespace-auth.yaml \
+			istio-one-namespace-trust-domain.yaml \
+			istio-multicluster.yaml \
+
+.PHONY: generate_e2e_yaml generate_e2e_yaml_coredump
+generate_e2e_yaml: $(e2e_files)
+
+generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
+generate_e2e_yaml_coredump:
+	$(MAKE) generate_e2e_yaml
+
+# Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
+$(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
+		--set global.tag=${TAG} \
 		--set global.hub=${HUB} \
+		--set global.imagePullPolicy=$(PULL_POLICY) \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+		--values install/kubernetes/helm/istio/test-values/values-e2e.yaml \
+		--values install/kubernetes/helm/istio/test-values/values-$@ \
+		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.mtls.enabled=true \
-		--set global.controlPlaneSecurityEnabled=true \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-generate_yaml_coredump: export ENABLE_COREDUMP=true
-generate_yaml_coredump:
-	$(MAKE) generate_yaml
-
-# TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
-#             isti%.yaml macro with value files per test scenario.  Will handle
-#             as a followup PR.
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.mtls.enabled=true \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
-		--set global.controlPlaneSecurityEnabled=true \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-non-mcp.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-non-mcp.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
-		--set global.useMCP=false \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-non-mcp.yaml
-
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-non-mcp.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth-non-mcp.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.mtls.enabled=true \
-		--set prometheus.scrapeInterval=1s \
-		--set gateways.istio-ingressgateway.autoscaleMax=1 \
-		--set mixer.policy.replicaCount=2 \
-		--set mixer.policy.autoscaleEnabled=false \
-		--set global.controlPlaneSecurityEnabled=true \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set global.proxy.concurrency=1 \
-		--set global.useMCP=false \
-		--values install/kubernetes/helm/istio/values.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-non-mcp.yaml
-
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-sds.yaml
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth-sds.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--name=istio \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--set global.mtls.enabled=true \
-		--set global.proxy.enableCoreDump=true \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values-istio-sds-auth.yaml \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-sds.yaml
-		
 # files generated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/grafana.yaml \

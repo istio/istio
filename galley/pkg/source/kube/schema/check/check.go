@@ -16,15 +16,15 @@ package check
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
-
-	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,12 +37,54 @@ var (
 
 // ResourceTypesPresence verifies that all expected k8s resources types are
 // present in the k8s apiserver.
-func ResourceTypesPresence(k client.Interfaces) error {
+func ResourceTypesPresence(k client.Interfaces, specs []sourceSchema.ResourceSpec) error {
 	cs, err := k.APIExtensionsClientset()
 	if err != nil {
 		return err
 	}
-	return resourceTypesPresence(cs, kubeMeta.Types.All())
+	return resourceTypesPresence(cs, specs)
+}
+
+// FindSupportedResourceSchemas returns the list of supported resource schemas supported by the k8s apiserver.
+func FindSupportedResourceSchemas(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+	cs, err := k.APIExtensionsClientset()
+	if err != nil {
+		return nil, err
+	}
+	return findSupportedResourceSchemas(cs, specs), nil
+}
+
+func findSupportedResourceSchemas(cs clientset.Interface, specs []sourceSchema.ResourceSpec) []sourceSchema.ResourceSpec {
+	var supportedSchemas []sourceSchema.ResourceSpec
+
+	for _, spec := range specs {
+		gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
+		list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
+		if err != nil {
+			log.Scope.Warnf("could not find %v; %v", gv, err)
+			continue
+		}
+
+		found := false
+		for _, r := range list.APIResources {
+			if r.Name == spec.Plural {
+				found = true
+				break
+			}
+		}
+		if found {
+			supportedSchemas = append(supportedSchemas, spec)
+		} else {
+			log.Scope.Infof("kubernetes resource type %q not found (collection %q)",
+				spec.CanonicalResourceName(), spec.Target.Collection)
+		}
+	}
+
+	sort.Slice(supportedSchemas, func(i, j int) bool {
+		return strings.Compare(supportedSchemas[i].CanonicalResourceName(), supportedSchemas[j].CanonicalResourceName()) < 0
+	})
+
+	return supportedSchemas
 }
 
 func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec) error {
@@ -70,7 +112,7 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 				}
 			}
 			if !found {
-				log.Scope.Infof("%s resource type not found", spec.CanonicalResourceName())
+				log.Scope.Warnf("%s resource type not found", spec.CanonicalResourceName())
 			}
 		}
 		if len(search) == 0 {
@@ -86,9 +128,12 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 
 	if err != nil {
 		var notFound []string
-		for plural := range search {
-			notFound = append(notFound, plural)
+		for _, spec := range search {
+			notFound = append(notFound, spec.Kind)
 		}
+		log.Scope.Errorf("Expected resources (CRDs) not found: %v", notFound)
+		log.Scope.Error("To stop Galley from waiting for these resources (CRDs), consider using the --excludedResourceKinds flag")
+
 		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
 	}
 

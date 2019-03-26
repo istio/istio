@@ -100,7 +100,6 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
 
@@ -109,7 +108,6 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.XDSUpdater.ConfigUpdate(true) })
 	go kubectl.Run(stopCh)
-
 	return nil
 }
 

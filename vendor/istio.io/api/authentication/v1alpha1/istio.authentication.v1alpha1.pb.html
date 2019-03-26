@@ -11,7 +11,7 @@ number_of_entries: 11
 <h2 id="Jwt">Jwt</h2>
 <section>
 <p>JSON Web Token (JWT) token format for authentication as defined by
-https://tools.ietf.org/html/rfc7519. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
+<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
 2.0</a> and <a href="http://openid.net/connect">OIDC
 1.0</a> for how this is used in the whole
 authentication flow.</p>
@@ -118,7 +118,7 @@ Discovery</a> of
 the issuer or (b) inferred from the email domain of the issuer (e.g. a
 Google service account).</p>
 
-<p>Example: https://www.googleapis.com/oauth2/v1/certs</p>
+<p>Example: <code>https://www.googleapis.com/oauth2/v1/certs</code></p>
 
 </td>
 </tr>
@@ -335,12 +335,13 @@ or origin) should be used as principal. By default, it uses peer.</p>
 
 <p>Examples:</p>
 
-<p>Policy to enable mTLS for all services in namespace frod</p>
+<p>Policy to enable mTLS for all services in namespace frod. The policy name must be
+<code>default</code>, and it contains no rule for <code>targets</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_enable
+  name: default
   namespace: frod
 spec:
   peers:
@@ -352,7 +353,7 @@ spec:
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_disable
+  name: productpage-mTLS-disable
   namespace: frod
 spec:
   targets:
@@ -365,7 +366,7 @@ for productpage:9000 except the path &lsquo;/health_check&rsquo; . Principal is 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_enable
+  name: productpage-mTLS-with-JWT
   namespace: frod
 spec:
   target:
@@ -615,7 +616,7 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 <p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
 For example, if a service is defined as below, then <code>8000</code> should be used, not <code>9000</code>.</p>
 
-<pre><code>kind: Service
+<pre><code class="language-yaml">kind: Service
 metadata:
   ...
 spec:

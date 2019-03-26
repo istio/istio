@@ -77,7 +77,7 @@ var (
 	EnvoyJSONLogFormat = &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
 			"start_time":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
 			"path":                      &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
 			"protocol":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
 			"response_code":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
@@ -189,41 +189,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		// Do not generate any management port listeners if the user has specified a SidecarScope object
-		// with ingress listeners. Specifying the ingress listener implies that the user wants
-		// to only have those specific listeners and nothing else, in the inbound path.
-		generateManagementListeners := true
-
-		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-			noneMode {
-			generateManagementListeners = false
-		}
-
-		if generateManagementListeners {
-			// Let ServiceDiscovery decide which IP and Port are used for management if
-			// there are multiple IPs
-			mgmtListeners := make([]*xdsapi.Listener, 0)
-			for _, ip := range node.IPAddresses {
-				managementPorts := env.ManagementPorts(ip)
-				management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-				mgmtListeners = append(mgmtListeners, management...)
-			}
-
-			// If management listener port and service port are same, bad things happen
-			// when running in kubernetes, as the probes stop responding. So, append
-			// non overlapping listeners only.
-			for i := range mgmtListeners {
-				m := mgmtListeners[i]
-				l := util.GetByAddress(listeners, m.Address.String())
-				if l != nil {
-					log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-						m.Name, m.Address.String(), l.Name, l.Address.String())
-					continue
-				}
-				listeners = append(listeners, m)
-			}
-		}
+		listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       util.BlackHoleCluster,
@@ -246,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsProxyVersionGE11(node) {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
 			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
@@ -276,6 +242,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
 
+		httpOpts := &core.Http1ProtocolOptions{
+			AllowAbsoluteUrl: proto.BoolTrue,
+		}
+		if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			httpOpts.AcceptHttp_10 = true
+		}
+
 		opts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -288,9 +261,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: proto.BoolTrue,
-						},
+						HttpProtocolOptions: httpOpts,
 					},
 				},
 			}},
@@ -551,13 +522,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 			continue
 		}
 		if len(allChains) != 0 {
-			log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+			log.Warnf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
+				listenerMapKey)
 		}
 		allChains = append(allChains, chains...)
 	}
 	// Construct the default filter chain.
 	if len(allChains) == 0 {
-		log.Infof("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
+		log.Debugf("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
@@ -918,7 +890,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, virtualServices []model.Config) {
 
-	var destinationIPAddress string
+	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
 
@@ -981,12 +953,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		} else {
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
+		httpOpts := &httpListenerOpts{
+			useRemoteAddress: false,
+			direction:        http_conn.EGRESS,
+			rds:              rdsName,
+		}
+
+		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+			httpOpts.connectionManager = &http_conn.HttpConnectionManager{
+				HttpProtocolOptions: &core.Http1ProtocolOptions{
+					AcceptHttp_10: true,
+				},
+			}
+		}
+
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
-			httpOpts: &httpListenerOpts{
-				useRemoteAddress: false,
-				direction:        http_conn.EGRESS,
-				rds:              rdsName,
-			},
+			httpOpts: httpOpts,
 		}}
 
 	case plugin.ListenerProtocolTCP:
@@ -1012,7 +994,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
-					destinationIPAddress = svcListenAddress
+					destinationCIDR = svcListenAddress
 					listenerOpts.bind = WildcardAddress
 				}
 			}
@@ -1080,7 +1062,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 			pluginParams.Push, virtualServices,
-			destinationIPAddress, pluginParams.Service,
+			destinationCIDR, pluginParams.Service,
 			pluginParams.Port, listenerOpts.proxyLabels, meshGateway)
 	default:
 		// UDP or other protocols: no need to log, it's too noisy
@@ -1220,7 +1202,45 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	}
 }
 
-// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
+func (configgen *ConfigGeneratorImpl) generateManagementListeners(node *model.Proxy, noneMode bool,
+	env *model.Environment, listeners []*xdsapi.Listener) []*xdsapi.Listener {
+	// Do not generate any management port listeners if the user has specified a SidecarScope object
+	// with ingress listeners. Specifying the ingress listener implies that the user wants
+	// to only have those specific listeners and nothing else, in the inbound path.
+	generateManagementListeners := true
+	sidecarScope := node.SidecarScope
+	if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+		noneMode {
+		generateManagementListeners = false
+	}
+	if generateManagementListeners {
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		mgmtListeners := make([]*xdsapi.Listener, 0)
+		for _, ip := range node.IPAddresses {
+			managementPorts := env.ManagementPorts(ip)
+			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+			mgmtListeners = append(mgmtListeners, management...)
+		}
+
+		// If management listener port and service port are same, bad things happen
+		// when running in kubernetes, as the probes stop responding. So, append
+		// non overlapping listeners only.
+		for i := range mgmtListeners {
+			m := mgmtListeners[i]
+			l := util.GetByAddress(listeners, m.Address.String())
+			if l != nil {
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+					m.Name, m.Address.String(), l.Name, l.Address.String())
+				continue
+			}
+			listeners = append(listeners, m)
+		}
+	}
+	return listeners
+}
+
+// Deprecated: buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
@@ -1408,6 +1428,9 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
@@ -1536,34 +1559,51 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	}
 
 	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
-	for i, chain := range mutable.FilterChains {
+	for i := range mutable.FilterChains {
+		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
-
-		if len(chain.TCP) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
-		}
-
-		if len(opt.networkFilters) > 0 {
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
-		}
-
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
-		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
-		if opt.httpOpts != nil {
-			opt.httpOpts.statPrefix = mutable.Listener.Name
-			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
-			filter := listener.Filter{
-				Name: xdsutil.HTTPConnectionManager,
+		if opt.httpOpts == nil {
+			// we are building a network filter chain (no http connection manager) for this filter chain
+			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
+			// codec is used by RBAC or mixer later.
+
+			if len(opt.networkFilters) > 0 {
+				// this is the terminating filter
+				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
+
+				for n := 0; n < len(opt.networkFilters)-1; n++ {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters[n])
+				}
+
+				if len(chain.TCP) > 0 {
+					mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, lastNetworkFilter)
 			}
-			if util.IsProxyVersionGE11(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
+		} else {
+			// Add the TCP filters first.. and then the HTTP connection manager
+			if len(chain.TCP) > 0 {
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 			}
-			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
-				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			if opt.httpOpts != nil {
+				opt.httpOpts.statPrefix = mutable.Listener.Name
+				httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+				filter := listener.Filter{
+					Name: xdsutil.HTTPConnectionManager,
+				}
+				if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
+					filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
+				} else {
+					filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				}
+				mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
+					len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
+			}
 		}
 	}
 

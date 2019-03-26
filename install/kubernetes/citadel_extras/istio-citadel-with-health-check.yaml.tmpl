@@ -32,6 +32,10 @@ spec:
   template:
     metadata:
       labels:
+        app: security
+        chart: security
+        heritage: Tiller
+        release: istio
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"

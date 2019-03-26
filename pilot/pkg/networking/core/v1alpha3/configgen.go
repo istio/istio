@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 type ConfigGeneratorImpl struct {
@@ -42,6 +43,9 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
+	if !pilot.EnableCDSPrecomputation() {
+		return nil
+	}
 	namespaceMap := map[string]struct{}{}
 	clustersByNamespaceAndLocality := map[string]map[string][]*xdsapi.Cluster{}
 

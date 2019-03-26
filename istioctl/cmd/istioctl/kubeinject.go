@@ -70,7 +70,12 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	if !exists {
 		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
 	}
-	return model.ApplyMeshConfigDefaults(configYaml)
+	cfg, err := model.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+			version.Info.Version), err)
+	}
+	return cfg, err
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
@@ -155,7 +160,7 @@ var (
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
 		Long: `
 
-kube-inject manually injects envoy sidecar into kubernetes
+kube-inject manually injects the Envoy sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
 run kube-inject over a single file that contains multiple Service,
 ConfigMap, Deployment, etc. definitions for a complex application. Its
@@ -188,7 +193,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
 # Create a persistent version of the deployment with Envoy sidecar
-# injected configuration from kubernetes configmap 'istio-inject'
+# injected configuration from Kubernetes configmap 'istio-inject'
 istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
 		RunE: func(c *cobra.Command, _ []string) (err error) {

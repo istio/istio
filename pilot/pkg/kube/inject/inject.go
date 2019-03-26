@@ -66,6 +66,7 @@ var (
 		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
 		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
 		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
+		{"traffic.sidecar.istio.io/kubevirtInterfaces", alwaysValidFunc},
 	}
 
 	annotationPolicy = annotationRegistry[0]
@@ -136,6 +137,7 @@ const (
 	DefaultReadinessFailureThreshold    = 30
 	DefaultIncludeIPRanges              = "*"
 	DefaultIncludeInboundPorts          = "*"
+	DefaultkubevirtInterfaces           = ""
 )
 
 const (
@@ -215,6 +217,9 @@ type Params struct {
 	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
 	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
 	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound
+	// By default, no interfaces are configured.
+	KubevirtInterfaces string `json:"kubevirtInterfaces"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -510,10 +515,12 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"isset":               isset,
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
+		"kubevirtInterfaces":  kubevirtInterfaces,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
@@ -522,7 +529,11 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var tmpl bytes.Buffer
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
-	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
+	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
+	if err != nil {
+		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
+		return nil, "", err
+	}
 	if err := t.Execute(&tmpl, &data); err != nil {
 		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
@@ -766,6 +777,10 @@ func applicationPorts(containers []corev1.Container) string {
 func includeInboundPorts(containers []corev1.Container) string {
 	// Include the ports from all containers in the deployment.
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
+}
+
+func kubevirtInterfaces(s string) string {
+	return s
 }
 
 func toJSON(m map[string]string) string {

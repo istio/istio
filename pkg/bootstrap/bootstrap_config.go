@@ -50,6 +50,21 @@ const (
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
+
+	// statsPatterns gives the developer control over Envoy stats collection
+	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
+)
+
+var (
+	// default value for EnvoyStatsMatcherInclusionPatterns
+	defaultEnvoyStatsMatcherInclusionPatterns = []string{
+		"cluster_manager",
+		"listener_manager",
+		"http_mixer_filter",
+		"tcp_mixer_filter",
+		"server",
+		"cluster.xds-grpc",
+	}
 )
 
 func defaultPilotSan() []string {
@@ -232,7 +247,13 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	// Suppot multiple network interfaces
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
+		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
+	} else {
+		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
+	}
+
+	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
@@ -250,6 +271,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		return "", err
 	}
 	StoreHostPort(h, p, "pilot_grpc_address", opts)
+
+	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
+	opts["discovery_address"] = config.DiscoveryAddress
 
 	if config.Tracing != nil {
 		switch tracer := config.Tracing.Tracer.(type) {
@@ -287,6 +311,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 			return "", err
 		}
 		StoreHostPort(h, p, "statsd", opts)
+	}
+
+	if config.EnvoyMetricsServiceAddress != "" {
+		h, p, err = GetHostPort("envoy metrics service", config.EnvoyMetricsServiceAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "envoy_metrics_service", opts)
 	}
 
 	fout, err := os.Create(fname)

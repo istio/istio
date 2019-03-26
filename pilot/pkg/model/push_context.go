@@ -92,6 +92,9 @@ type PushContext struct {
 	// the endpoint needs to be re-evaluated later (eventual consistency)
 	ServicePort2Name map[string]PortList `json:"-"`
 
+	// ServiceAccounts contains a map of hostname and port to service accounts.
+	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
+
 	initDone bool
 }
 
@@ -305,6 +308,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
+		ServiceAccounts:   map[Hostname]map[int][]string{},
 		Start:             time.Now(),
 	}
 }
@@ -492,24 +496,27 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		// look for dest rules across all namespaces public/private
-		for _, processedDestRulesForNamespace := range ps.namespaceLocalDestRules {
-			if host, ok := MostSpecificHostMatch(service.Hostname, processedDestRulesForNamespace.hosts); ok {
-				return processedDestRulesForNamespace.destRule[host].config
-			}
-		}
-
 		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
 			return ps.allExportedDestRules.destRule[host].config
 		}
 		return nil
 	}
 
-	// search through the DestinationRules in proxy's namespace first
-	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-		if host, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-			return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+	// If the proxy config namespace is same as the root config namespace
+	// look for dest rules in the service's namespace first. This hack is needed
+	// because sometimes, istio-system tends to become the root config namespace.
+	// Destination rules are defined here for global purposes. We dont want these
+	// catch all destination rules to be the only dest rule, when processing CDS for
+	// proxies like the istio-ingressgateway or istio-egressgateway.
+	// If there are no service specific dest rules, we will end up picking up the same
+	// rules anyway, later in the code
+	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+		// search through the DestinationRules in proxy's namespace first
+		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+			if host, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+			}
 		}
 	}
 
@@ -523,24 +530,26 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	}
 
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
-	// target service's namespace matched, search for any public destination rule across all namespaces
-	if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
-		return ps.allExportedDestRules.destRule[host].config
+	// target service's namespace matched, search for any public destination rule in the config root namespace
+	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
+	if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
+		if host, ok := MostSpecificHostMatch(service.Hostname,
+			ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
+			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[host].config
+		}
 	}
 
 	return nil
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
-	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, &Service{Hostname: hostname})
+	config := ps.DestinationRule(proxy, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
@@ -590,7 +599,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	// Must be initialized in the end
-	if err = ps.InitSidecarScopes(env); err != nil {
+	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -625,6 +634,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
+
+	ps.initServiceAccounts(env, allServices)
+
 	return nil
 }
 
@@ -634,6 +646,19 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
+}
+
+// Caches list of service accounts in the registry
+func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
+	for _, svc := range services {
+		ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		for _, port := range svc.Ports {
+			if port.Protocol == ProtocolUDP {
+				continue
+			}
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc.Hostname, []int{port.Port})
+		}
+	}
 }
 
 // Caches list of virtual services
@@ -765,7 +790,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 }
 
-// InitSidecarScopes synthesizes Sidecar CRDs into objects called
+// initSidecarScopes synthesizes Sidecar CRDs into objects called
 // SidecarScope.  The SidecarScope object is a semi-processed view of the
 // service registry, and config state associated with the sidecar CRD. The
 // scope contains a set of inbound and outbound listeners, services/configs
@@ -777,7 +802,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // When proxies connect to Pilot, we identify the sidecar scope associated
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
-func (ps *PushContext) InitSidecarScopes(env *Environment) error {
+func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -799,7 +824,8 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	var rootNSConfig *Config
 	if env.Mesh.RootNamespace != "" {
 		for _, sidecarConfig := range sidecarConfigs {
-			if sidecarConfig.Namespace == env.Mesh.RootNamespace {
+			if sidecarConfig.Namespace == env.Mesh.RootNamespace &&
+				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 				rootNSConfig = &sidecarConfig
 				break
 			}

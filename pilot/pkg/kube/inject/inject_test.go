@@ -76,6 +76,7 @@ func TestIntoResourceFile(t *testing.T) {
 		excludeIPRanges              string
 		includeInboundPorts          string
 		excludeInboundPorts          string
+		kubevirtInterfaces           string
 		statusPort                   int
 		readinessPath                string
 		readinessInitialDelaySeconds uint32
@@ -401,6 +402,7 @@ func TestIntoResourceFile(t *testing.T) {
 			want:                         "traffic-params-empty-includes.yaml.injected",
 			includeIPRanges:              "",
 			excludeIPRanges:              "",
+			kubevirtInterfaces:           "",
 			statusPort:                   DefaultStatusPort,
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
@@ -446,6 +448,7 @@ func TestIntoResourceFile(t *testing.T) {
 			want:                         "status_params.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
+			kubevirtInterfaces:           DefaultkubevirtInterfaces,
 			statusPort:                   123,
 			readinessInitialDelaySeconds: 100,
 			readinessPeriodSeconds:       200,
@@ -457,6 +460,32 @@ func TestIntoResourceFile(t *testing.T) {
 			want:                         "status_annotations.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
+			in:                           "kubevirtInterfaces.yaml",
+			want:                         "kubevirtInterfaces.yaml.injected",
+			debugMode:                    true,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			kubevirtInterfaces:           "net1",
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
+			in:                           "kubevirtInterfaces_list.yaml",
+			want:                         "kubevirtInterfaces_list.yaml.injected",
+			debugMode:                    true,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			kubevirtInterfaces:           "net1,net2",
 			statusPort:                   DefaultStatusPort,
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
@@ -496,6 +525,7 @@ func TestIntoResourceFile(t *testing.T) {
 				ExcludeIPRanges:              c.excludeIPRanges,
 				IncludeInboundPorts:          c.includeInboundPorts,
 				ExcludeInboundPorts:          c.excludeInboundPorts,
+				KubevirtInterfaces:           c.kubevirtInterfaces,
 				StatusPort:                   c.statusPort,
 				ReadinessInitialDelaySeconds: c.readinessInitialDelaySeconds,
 				ReadinessPeriodSeconds:       c.readinessPeriodSeconds,

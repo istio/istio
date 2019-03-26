@@ -17,11 +17,9 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Traffic Routing
-// $description: Configuration affecting traffic routing.
-// $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
-// $aliases:
-// $  - /docs/reference/config/istio.routing.v1alpha1/
+// $title: Virtual Service
+// $description: Configuration affecting label/content routing, sni routing, etc.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -51,10 +49,7 @@ import "google/protobuf/wrappers.proto";
 // actual choice of the version is determined by the proxy/sidecar, enabling the
 // application code to decouple itself from the evolution of dependent
 // services.
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
-
+//
 // A `VirtualService` defines a set of traffic routing rules to apply when a host is
 // addressed. Each routing rule defines matching criteria for traffic of a specific
 // protocol. If the traffic is matched, then it is sent to a named destination service
@@ -115,6 +110,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       version: v2
 // ```
 //
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message VirtualService {
   // REQUIRED. The destination hosts to which traffic is being sent. Could
   // be a DNS name with wildcard prefix or an IP address.  Depending on the
@@ -122,9 +121,13 @@ message VirtualService {
   // dots in the name). In such a scenario, the FQDN of the host would be
   // derived based on the underlying platform.
   //
-  // **A host name can be defined by only one VirtualService**. A single
-  // VirtualService can be used to describe traffic properties for multiple
-  // HTTP and TCP ports.
+  // A single VirtualService can be used to describe all the traffic
+  // properties of the corresponding hosts, including those for multiple
+  // HTTP and TCP ports. Alternatively, the traffic properties of a host
+  // can be defined using more than one VirtualService, with certain
+  // caveats. Refer to the
+  // [Operations Guide](/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
+  // for details.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
   // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -176,9 +179,8 @@ message VirtualService {
   // matching an incoming request is used.
   repeated TCPRoute tcp = 4;
 
-  // $hide_from_docs
   // A list of namespaces to which this virtual service is exported. Exporting a
-  // virtual service allows it to used by sidecars and gateways defined in
+  // virtual service allows it to be used by sidecars and gateways defined in
   // other namespaces. This feature provides a mechanism for service owners
   // and mesh administrators to control the visibility of virtual services
   // across namespace boundaries.
@@ -187,8 +189,11 @@ message VirtualService {
   // namespaces by default.
   //
   // The value "." is reserved and defines an export to the same namespace that
-  // the virtual service is declared in, similarly the value "*" is reserved and
+  // the virtual service is declared in. Similarly the value "*" is reserved and
   // defines an export to all namespaces.
+  //
+  // NOTE: in the current release, the `exportTo` value is restricted to
+  // "." or "*" (i.e., the current namespace or all namespaces).
   repeated string export_to = 6;
 }
 
@@ -198,7 +203,7 @@ message VirtualService {
 // registry. Istio's service registry is composed of all the services found
 // in the platform's service registry (e.g., Kubernetes services, Consul
 // services), as well as services declared through the
-// [ServiceEntry](#ServiceEntry) resource.
+// [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry) resource.
 //
 // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 // instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -211,7 +216,7 @@ message VirtualService {
 //
 // The following Kubernetes example routes all traffic by default to pods
 // of the reviews service with label "version: v1" (i.e., subset v1), and
-// some to subset v2, in a kubernetes environment.
+// some to subset v2, in a Kubernetes environment.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -323,7 +328,7 @@ message Destination {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ServiceEntry](#ServiceEntry). Traffic forwarded to
+  // declared by [ServiceEntry](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Traffic forwarded to
   // destinations that are not found in either of the two, will be dropped.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
@@ -396,7 +401,7 @@ message HTTPRoute {
   Destination mirror = 9;
 
   // Cross-Origin Resource Sharing policy (CORS). Refer to
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+  // [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 
@@ -813,9 +818,9 @@ message TLSMatchAttributes {
 //   - match:
 //     - uri:
 //         exact: /v1/getProductRatings
-//   redirect:
-//     uri: /v1/bookRatings
-//     authority: newratings.default.svc.cluster.local
+//     redirect:
+//       uri: /v1/bookRatings
+//       authority: newratings.default.svc.cluster.local
 //   ...
 // ```
 message HTTPRedirect {
@@ -915,15 +920,13 @@ message HTTPRetry {
 
   // Specifies the conditions under which retry takes place.
   // One or more policies can be specified using a ‘,’ delimited list.
-  // The supported policies can be found in
-  // <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on>
-  // and <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on>
+  // See the [supported policies](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on)
+  // and [here](https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on) for more details.
   string retry_on = 3;
 }
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
-// service. Refer to
-// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS>
+// service. Refer to [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS)
 // for further details about cross origin resource sharing. For example,
 // the following rule restricts cross origin requests to those originating
 // from example.com domain using HTTP POST/GET, and sets the
@@ -952,7 +955,7 @@ message HTTPRetry {
 //       allowCredentials: false
 //       allowHeaders:
 //       - X-Foo-Bar
-//       maxAge: "1d"
+//       maxAge: "24h"
 // ```
 //
 message CorsPolicy {

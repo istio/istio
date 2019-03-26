@@ -59,7 +59,7 @@ func TestRDS(t *testing.T) {
 		}
 		defer cancel()
 
-		err = sendRDSReq(gatewayID(gatewayIP), []string{"http.80", "https.443.https"}, "", rdsr)
+		err = sendRDSReq(gatewayID(gatewayIP), []string{"http.80", "https.443.https.my-gateway.testns"}, "", rdsr)
 		if err != nil {
 			t.Fatal(err)
 		}

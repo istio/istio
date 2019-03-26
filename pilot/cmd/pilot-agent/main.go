@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -54,28 +55,29 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath               string
-	controlPlaneBootstrap    bool
-	binaryPath               string
-	serviceCluster           string
-	drainDuration            time.Duration
-	parentShutdownDuration   time.Duration
-	discoveryAddress         string
-	zipkinAddress            string
-	lightstepAddress         string
-	lightstepAccessToken     string
-	lightstepSecure          bool
-	lightstepCacertPath      string
-	connectTimeout           time.Duration
-	statsdUDPAddress         string
-	proxyAdminPort           uint16
-	controlPlaneAuthPolicy   string
-	customConfigFile         string
-	proxyLogLevel            string
-	concurrency              int
-	templateFile             string
-	disableInternalTelemetry bool
-	loggingOptions           = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	loggingOptions             = log.DefaultOptions()
 
 	wg sync.WaitGroup
 
@@ -151,6 +153,7 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
+			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -314,7 +317,7 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, proxyConfig.ParentShutdownDuration)
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
 			go waitForCompletion(ctx, agent.Run)
@@ -368,7 +371,7 @@ func getDNSDomain(domain string) string {
 }
 
 func parseApplicationPorts() ([]uint16, error) {
-	parsedPorts := make([]uint16, len(applicationPorts))
+	parsedPorts := make([]uint16, 0, len(applicationPorts))
 	for _, port := range applicationPorts {
 		port := strings.TrimSpace(port)
 		if len(port) > 0 {
@@ -439,6 +442,8 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
+		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",

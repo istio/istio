@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -147,7 +148,7 @@ var (
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
+		Buckets: []float64{1, 3, 5, 10, 20, 30, 50, 100},
 	})
 
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
@@ -622,6 +623,28 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 	nt.Locality = discReq.Node.Locality
 
+	if err := nt.SetServiceInstances(s.Env); err != nil {
+		return err
+	}
+	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
+	// serve any gateway config if we dont know the proxy's service instances
+	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
+		return errors.New("gateway has no associated service instances")
+	}
+
+	if util.IsLocalityEmpty(nt.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(nt.ServiceInstances) > 0 {
+			nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
+		}
+	}
+
+	// Set the sidecarScope associated with this proxy if its a sidecar.
+	if nt.Type == model.SidecarProxy {
+		nt.SetSidecarScope(s.globalPushContext())
+	}
+
 	con.mu.Lock()
 	con.modelNode = nt
 	if con.ConID == "" {
@@ -630,19 +653,11 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
-	if err := con.modelNode.SetServiceInstances(s.Env); err != nil {
-		return err
-	}
-	// Set the sidecarScope associated with this proxy if its a sidecar.
-	if con.modelNode.Type == model.SidecarProxy {
-		con.modelNode.SetSidecarScope(s.globalPushContext())
-	}
-
 	return nil
 }
 
-// IncrementalAggregatedResources is not implemented.
-func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+// DeltaAggregatedResources is not implemented.
+func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -665,8 +680,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
 		return err
 	}
+	if util.IsLocalityEmpty(con.modelNode.Locality) {
+		// Get the locality from the proxy's service instances.
+		// We expect all instances to have the same locality. So its enough to look at the first instance
+		if len(con.modelNode.ServiceInstances) > 0 {
+			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
+		}
+	}
+
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
-	// Saves compute cycles in networking code
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
@@ -735,7 +760,7 @@ func adsClientCount() int {
 	return n
 }
 
-// AdsPushAll is used only by tests (after refactoring)
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
@@ -904,6 +929,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
+			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
+		}
 	}
 }
 

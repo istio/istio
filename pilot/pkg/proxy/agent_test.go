@@ -21,8 +21,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/gogo/protobuf/types"
 )
 
 var (
@@ -87,7 +85,7 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{start, nil, nil}, testRetry, types.DurationProto(-10*time.Second))
+	a := NewAgent(TestProxy{start, nil, nil}, testRetry, -10*time.Second)
 	go a.Run(ctx)
 	a.ConfigCh() <- startConfig
 	<-blockChan
@@ -113,7 +111,7 @@ func TestApplyTwice(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, types.DurationProto(-10*time.Second))
+	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, -10*time.Second)
 	go a.Run(ctx)
 	a.ConfigCh() <- desired
 	applyCount++
@@ -153,7 +151,7 @@ func TestApplyThrice(t *testing.T) {
 	}
 	retry := testRetry
 	retry.MaxRetries = 0
-	a = NewAgent(TestProxy{start, cleanup, nil}, retry, types.DurationProto(-10*time.Second))
+	a = NewAgent(TestProxy{start, cleanup, nil}, retry, -10*time.Second)
 	go a.Run(ctx)
 	a.ConfigCh() <- good
 	a.ConfigCh() <- bad
@@ -200,7 +198,7 @@ func TestAbort(t *testing.T) {
 	}
 	retry := testRetry
 	retry.InitialInterval = 10 * time.Second
-	a := NewAgent(TestProxy{start, cleanup, nil}, retry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, cleanup, nil}, retry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- good1
 	a.ConfigCh() <- good2
@@ -229,7 +227,7 @@ func TestStartFail(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- "test"
 	<-ctx.Done()
@@ -261,7 +259,7 @@ func TestExceedBudget(t *testing.T) {
 	}
 	retryDelay := testRetry
 	retryDelay.MaxRetries = 1
-	a := NewAgent(TestProxy{start, cleanup, func(_ interface{}) { cancel() }}, retryDelay, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, cleanup, func(_ interface{}) { cancel() }}, retryDelay, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- "test"
 	<-ctx.Done()
@@ -314,7 +312,7 @@ func TestStartTwiceStop(t *testing.T) {
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- desired0
 	a.ConfigCh() <- desired1
@@ -338,7 +336,7 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- desired
 
@@ -375,7 +373,7 @@ func TestCascadingAbort(t *testing.T) {
 	}
 	retry := testRetry
 	retry.InitialInterval = 1 * time.Second
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, retry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, retry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- 0
 	a.ConfigCh() <- 1
@@ -418,7 +416,7 @@ func TestLockup(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, types.DurationProto(0))
+	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, 0)
 	go a.Run(ctx)
 	a.ConfigCh() <- 0
 	a.ConfigCh() <- 1

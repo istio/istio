@@ -18,11 +18,11 @@ func TestGenSpiffeURI(t *testing.T) {
 	}{
 		{
 			serviceAccount: "sa",
-			expectedError:  "namespace or service account can't be empty",
+			expectedError:  "namespace or service account empty for SPIFFEE uri",
 		},
 		{
 			namespace:     "ns",
-			expectedError: "namespace or service account can't be empty",
+			expectedError: "namespace or service account empty for SPIFFEE uri",
 		},
 		{
 			namespace:      "namespace-foo",

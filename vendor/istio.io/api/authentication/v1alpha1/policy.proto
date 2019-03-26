@@ -66,7 +66,7 @@ message MutualTls {
 }
 
 // JSON Web Token (JWT) token format for authentication as defined by
-// https://tools.ietf.org/html/rfc7519. See [OAuth
+// [RFC 7519](https://tools.ietf.org/html/rfc7519). See [OAuth
 // 2.0](https://tools.ietf.org/html/rfc6749) and [OIDC
 // 1.0](http://openid.net/connect) for how this is used in the whole
 // authentication flow.
@@ -155,7 +155,7 @@ message Jwt {
   // the issuer or (b) inferred from the email domain of the issuer (e.g. a
   // Google service account).
   //
-  // Example: https://www.googleapis.com/oauth2/v1/certs
+  // Example: `https://www.googleapis.com/oauth2/v1/certs`
   string jwks_uri = 3;
 
   // Two fields below define where to extract the JWT from an HTTP request.
@@ -255,13 +255,14 @@ enum PrincipalBinding {
 //
 // Examples:
 //
-// Policy to enable mTLS for all services in namespace frod
+// Policy to enable mTLS for all services in namespace frod. The policy name must be
+// `default`, and it contains no rule for `targets`.
 //
 // ```yaml
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_enable
+//   name: default
 //   namespace: frod
 // spec:
 //   peers:
@@ -273,7 +274,7 @@ enum PrincipalBinding {
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_disable
+//   name: productpage-mTLS-disable
 //   namespace: frod
 // spec:
 //   targets:
@@ -286,7 +287,7 @@ enum PrincipalBinding {
 // apiVersion: authentication.istio.io/v1alpha1
 // kind: Policy
 // metadata:
-//   name: mTLS_enable
+//   name: productpage-mTLS-with-JWT
 //   namespace: frod
 // spec:
 //   target:
@@ -368,7 +369,7 @@ message TargetSelector {
 
   // Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
   // For example, if a service is defined as below, then `8000` should be used, not `9000`.
-  // ```
+  // ```yaml
   // kind: Service
   // metadata:
   //   ...

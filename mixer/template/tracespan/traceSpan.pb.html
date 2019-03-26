@@ -1,6 +1,6 @@
 ---
 title: Trace Span
-description: A template that represents\ an individual span within a distributed trace.
+description: A template that represents an individual span within a distributed trace.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
@@ -22,7 +22,7 @@ spec:
   spanName: request.path | &quot;/&quot;
   startTime: request.time
   endTime: response.time
-  clientSpan: (context.reporter.local | true) == false
+  clientSpan: (context.reporter.kind | &quot;inbound&quot;) == &quot;inbound&quot;
   rewriteClientSpanId: false
   spanTags:
     http.method: request.method | &quot;&quot;
@@ -30,7 +30,7 @@ spec:
     http.url: request.path | &quot;&quot;
     request.size: request.size | 0
     response.size: response.size | 0
-    source.user: source.user | &quot;&quot;
+    source.principal: source.principal | &quot;&quot;
     source.version: source.labels[&quot;version&quot;] | &quot;&quot;
 </code></pre>
 

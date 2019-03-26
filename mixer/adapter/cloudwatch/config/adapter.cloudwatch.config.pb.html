@@ -13,13 +13,10 @@ number_of_entries: 4
 <p>The CloudWatch adapter enables Istio to deliver metrics to
 <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>.
 <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a> and logs to
-<a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html/">Amazon CloudWatchLogs</a>.</p>
+<a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html">Amazon CloudWatchLogs</a>.</p>
 
 <p>To push metrics and logs to CloudWatch using this adapter you must provide AWS credentials to the AWS SDK.
 (see <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html">AWS docs</a>).</p>
-
-<p>To activate the CloudWatch adapter, operators need to provide configuration for the
-<a href="https://istio.io/docs/reference/config/adapters/cloudwatch.html">cloudwatch adapter</a>.</p>
 
 <p>The handler configuration must contain the same metrics as the instance configuration.
 The metrics specified in both instance and handler configurations will be sent to CloudWatch.</p>

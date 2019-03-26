@@ -432,7 +432,6 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 	env := model.Environment{
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},

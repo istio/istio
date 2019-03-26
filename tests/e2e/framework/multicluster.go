@@ -105,6 +105,12 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 			log.Infof("Endpoint for service %s not found", svc)
 		}
 	}
+	// Setting selfSigned to false because the primary and the remote clusters
+	// are running with a shared root CA
+	helmSetContent += " --set security.selfSigned=false"
+	// Enabling access log because some tests (e.g. TestGrpc) are validating
+	// based on the pods logs
+	helmSetContent += " --set global.proxy.accessLogFile=\"/dev/stdout\""
 	if !useAutoInject {
 		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
 		log.Infof("Remote cluster auto-sidecar injection disabled")
@@ -121,11 +127,6 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		return err
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
-	err = util.HelmDepUpdate(chartDir)
-	if err != nil {
-		log.Errorf("cannot run helm dep update for istio %v", err)
-		return err
-	}
 	helmSetContent += " --values " + filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio/values-istio-remote.yaml")
 	err = util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {

@@ -16,9 +16,9 @@ syntax = "proto3";
 
 import "networking/v1alpha3/gateway.proto";
 
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
+// $title: Sidecar
+// $description: Configuration affecting network reachability of a sidecar.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html
 
 // `Sidecar` describes the configuration of the sidecar proxy that mediates
 // inbound and outbound communication to the workload it is attached to. By
@@ -47,7 +47,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // behavior of the system is undefined if two or more Sidecar resources
 // with a workload selector select the same workload.
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that configures the sidecars in the namespace to allow egress traffic to
 // public services in the prod-us1, prod-apis, and the istio-system
 // namespaces.
@@ -66,9 +66,9 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "istio-system/*"
 // ```
 //
-// The example below delcares a Sidecar resource in the prod-us1 namespace
+// The example below declares a Sidecar resource in the prod-us1 namespace
 // that accepts inbound HTTP traffic on port 9080 and forwards
-// it to the attached workload listening on a unix domain socket. In the
+// it to the attached workload listening on a Unix domain socket. In the
 // egress direction, in addition to the istio-system namespace, the sidecar
 // proxies only HTTP traffic bound for port 9080 for services in the
 // prod-us1 namespace.
@@ -97,23 +97,127 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "prod-us1/*"
 // ```
 //
+// If the workload is deployed without IP tables based traffic capture, the
+// Sidecar resource is the only way to configure the ports on the proxy
+// attached to the workload. The following example declares a Sidecar
+// resource in the prod-us1 namespace for all pods with labels "app:
+// productpage" belonging to the productpage.prod-us1 service. Assuming
+// that these pods are deployed without IPtable rules (i.e. the Istio init
+// container) and the proxy metadata `ISTIO_META_INTERCEPTION_MODE` is set to
+// NONE, the specification below allows such pods to receive HTTP traffic
+// on port 9080 and forward it to the application listening on
+// 127.0.0.1:8080. It also allows the application to communicate with a
+// backing MySQL database on 127.0.0.1:3306, that then gets proxied to the
+// externally hosted MySQL service at mysql.foo.com:3306.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: no-ip-tables
+//   namespace: prod-us1
+// spec:
+//   workloadSelector:
+//     labels:
+//       app: productpage
+//   ingress:
+//   - port:
+//       number: 9080 # binds to 0.0.0.0:9080
+//       protocol: HTTP
+//       name: somename
+//     defaultEndpoint: 127.0.0.1:8080
+//     captureMode: NONE # not needed if metadata is set for entire proxy
+//   egress:
+//   - port:
+//       number: 3306
+//       protocol: MYSQL
+//       name: egressmysql
+//     captureMode: NONE # not needed if metadata is set for entire proxy
+//     bind: 127.0.0.1
+//     hosts:
+//     - "*/mysql.foo.com"
+// ```
+//
+// And the associated service entry for routing to mysql.foo.com:3306
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-mysql
+//   namespace: ns1
+// spec:
+//   hosts:
+//   - mysql.foo.com
+//   ports:
+//   - number: 3306
+//     name: mysql
+//     protocol: MYSQL
+//   location: MESH_EXTERNAL
+//   resolution: DNS
+// ```
+//
+// It is also possible to mix and match traffic capture modes in a single
+// proxy. For example, consider a setup where internal services are on the
+// 192.168.0.0/16 subnet. So, IP tables are setup on the VM to capture all
+// outbound traffic on 192.168.0.0/16 subnet. Assume that the VM has an
+// additional network interface on 172.16.0.0/16 subnet for inbound
+// traffic. The following Sidecar configuration allows the VM to expose a
+// listener on 172.16.1.32:80 (the VM's IP) for traffic arriving from the
+// 172.16.0.0/16 subnet. Note that in this scenario, the
+// `ISTIO_META_INTERCEPTION_MODE` metadata on the proxy in the VM should
+// contain "REDIRECT" or "TPROXY" as its value, implying that IP tables
+// based traffic capture is active.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: partial-ip-tables
+//   namespace: prod-us1
+// spec:
+//   workloadSelector:
+//     labels:
+//       app: productpage
+//   ingress:
+//   - bind: 172.16.1.32
+//     port:
+//       number: 80 # binds to 172.16.1.32:80
+//       protocol: HTTP
+//       name: somename
+//     defaultEndpoint: 127.0.0.1:8080
+//     captureMode: NONE
+//   egress:
+//     # use the system detected defaults
+//     # sets up configuration to handle outbound traffic to services
+//     # in 192.168.0.0/16 subnet, based on information provided by the
+//     # service registry
+//   - captureMode: IPTABLES
+//     hosts:
+//     - "*/*"
+// ```
+//
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message Sidecar {
   // Criteria used to select the specific set of pods/VMs on which this
   // sidecar configuration should be applied. If omitted, the sidecar
-  // configuration will be applied to all workloads in the same config
-  // namespace.
+  // configuration will be applied to all workloads in the same namespace.
   WorkloadSelector workload_selector = 1;
 
   // Ingress specifies the configuration of the sidecar for processing
   // inbound traffic to the attached workload. If omitted, Istio will
-  // autoconfigure the sidecar based on the information about the workload
+  // automatically configure the sidecar based on the information about the workload
   // obtained from the orchestration platform (e.g., exposed ports, services,
-  // etc.).
+  // etc.). If specified, inbound ports are configured if and only if the
+  // workload is associated with a service.
   repeated IstioIngressListener ingress = 2;
 
   // Egress specifies the configuration of the sidecar for processing
   // outbound traffic from the attached workload to other services in the
-  // mesh. If omitted, Istio will autoconfigure the sidecar to be able to
+  // mesh. If omitted, Istio will automatically configure the sidecar to be able to
   // reach every service in the mesh that is visible to this namespace.
   repeated IstioEgressListener egress = 3;
 }
@@ -122,34 +226,34 @@ message Sidecar {
 // traffic listener on the sidecar proxy attached to a workload.
 message IstioIngressListener {
   // REQUIRED. The port associated with the listener. If using
-  // unix domain socket, use 0 as the port number, with a valid
+  // Unix domain socket, use 0 as the port number, with a valid
   // protocol.
   Port port = 1;
 
-  // The ip or the unix domain socket to which the listener should be bound
-  // to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
-  // abstract namespace). If omitted, Istio will autoconfigure the defaults
+  // The ip or the Unix domain socket to which the listener should be bound
+  // to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux
+  // abstract namespace). If omitted, Istio will automatically configure the defaults
   // based on imported services and the workload to which this
   // configuration is applied to.
   string bind = 2;
 
   // When the bind address is an IP, the captureMode option dictates
   // how traffic to the listener is expected to be captured (or not).
-  // captureMode must be DEFAULT or NONE for unix domain socket binds.
+  // captureMode must be DEFAULT or NONE for Unix domain socket binds.
   CaptureMode capture_mode = 3;
 
-  // REQUIRED: The loopback IP endpoint or unix domain socket to which
+  // REQUIRED: The loopback IP endpoint or Unix domain socket to which
   // traffic should be forwarded to. This configuration can be used to
   // redirect traffic arriving at the bind point on the sidecar to a port
-  // or unix domain socket where the application workload is listening for
-  // connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket
+  // or Unix domain socket where the application workload is listening for
+  // connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`
   string default_endpoint = 4;
 }
 
 // IstioEgressListener specifies the properties of an outbound traffic
 // listener on the sidecar proxy attached to a workload.
 message IstioEgressListener {
-  // The port associated with the listener. If using unix domain socket,
+  // The port associated with the listener. If using Unix domain socket,
   // use 0 as the port number, with a valid protocol. The port if
   // specified, will be used as the default destination port associated
   // with the imported hosts. If the port is omitted, Istio will infer the
@@ -160,10 +264,10 @@ message IstioEgressListener {
   // port.
   Port port = 1;
 
-  // The ip or the unix domain socket to which the listener should be bound
-  // to. Port MUST be specified if bind is not empty. Format: x.x.x.x or
-  // unix:///path/to/uds or unix://@foobar (Linux abstract namespace). If
-  // omitted, Istio will autoconfigure the defaults based on imported
+  // The ip or the Unix domain socket to which the listener should be bound
+  // to. Port MUST be specified if bind is not empty. Format: `x.x.x.x` or
+  // `unix:///path/to/uds` or `unix://@foobar` (Linux abstract namespace). If
+  // omitted, Istio will automatically configure the defaults based on imported
   // services, the workload to which this configuration is applied to and
   // the captureMode. If captureMode is NONE, bind will default to
   // 127.0.0.1.
@@ -171,27 +275,28 @@ message IstioEgressListener {
 
   // When the bind address is an IP, the captureMode option dictates
   // how traffic to the listener is expected to be captured (or not).
-  // captureMode must be DEFAULT or NONE for unix domain socket binds.
+  // captureMode must be DEFAULT or NONE for Unix domain socket binds.
   CaptureMode capture_mode = 3;
 
-  // REQUIRED: One or more services/virtualServices exposed by the listener
-  // in namespace/dnsName format.  Publicly scoped services and
-  // VirtualServices from remote namespaces corresponding to the specified
-  // hosts will be imported. The service in a namespace can be a service in
-  // the service registry (e.g., a kubernetes or cloud foundry service) or
-  // a service specified via ServiceEntry configuration. In addition, any
-  // publicly scoped DestinationRule associated with the imported services
-  // will also be imported.
+  // REQUIRED: One or more service hosts exposed by the listener
+  // in `namespace/dnsName` format. Services in the specified namespace
+  // matching `dnsName` will be exposed.
+  // The corresponding service can be a service in the service registry
+  // (e.g., a Kubernetes or cloud foundry service) or a service specified
+  // using a `ServiceEntry` or `VirtualService` configuration. Any
+  // associated `DestinationRule` in the same namespace will also be used.
   //
-  // Set the namespace to * to import a particular service from any
-  // available namespace (e.g., "*/foo.example.com"). Set the dnsName field
-  // to * to import all services from the specified namespace (e.g.,
-  // "prod/*"). The services should be specified using FQDN format.
+  // The `dnsName` should be specified using FQDN format, optionally including
+  // a wildcard character in the left-most component (e.g., `prod/*.example.com`).
+  // Set the `dnsName` to `*` to select all services from the specified namespace
+  // (e.g.,`prod/*`). The `namespace` can also be set to `*` to select a particular
+  // service from any available namespace (e.g., "*/foo.example.com").
   //
-  // NOTE: Only exported services and configuration artifacts from a
-  // namespace can be imported. Private services/configuration will not be
-  // imported. Refer to the scope setting associated with VirtualService,
-  // DestinationRule, ServiceEntry, etc. for details.
+  // NOTE: Only services and configuration artifacts exported to the sidecar's
+  // namespace (e.g., `exportTo` value of `*`) can be referenced.
+  // Private configurations (e.g., `exportTo` set to `.`) will
+  // not be available. Refer to the `exportTo` setting in `VirtualService`,
+  // `DestinationRule`, and `ServiceEntry` configurations for details.
   repeated string hosts = 4;
 }
 
