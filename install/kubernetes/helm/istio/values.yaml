@@ -414,22 +414,30 @@ global:
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
-  # The following example defines two networks with different endpoints association methods.
+  # The following example defines three networks with different endpoints association methods.
+  # The `local` network (`local` is the reserved name for the local network in Istio),
+  # does not specify the endpoints association method, so the local endpoints of this pilot will be
+  # associated with it. The gateway for this network example is specified by its public IP
+  # address and port.
   # For `network1` all endpoints that their IP belongs to the provided CIDR range will be
   # mapped to network1. The gateway for this network example is specified by its public IP
   # address and port.
-  # The second network, `network2`, in this example is defined differently with all endpoints
+  # The third network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
   # cluster. The public IP for the gateway will be determined from that remote service (not
   # supported yet).
   #
   # meshNetworks:
+  #   local:
+  #     gateways:
+  #     - address: 1.1.1.1
+  #       port: 80
   #   network1:
   #     endpoints:
   #     - fromCidr: "192.168.0.1/24"
   #     gateways:
-  #     - address: 1.1.1.1
+  #     - address: 2.2.2.2
   #       port: 80
   #   network2:
   #     endpoints:
