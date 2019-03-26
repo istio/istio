@@ -40,11 +40,11 @@ var (
 			}
 			podName, podNamespace := inferPodInfo(args[0], handleNamespace())
 
-			if analyzer, err := getAnalyzerForPod(podName, podNamespace); err != nil {
+			analyzer, err := getAnalyzerForPod(podName, podNamespace)
+			if err != nil {
 				return err
-			} else {
-				analyzer.PrintTLS(cmd.OutOrStdout(), printAll)
 			}
+			analyzer.PrintTLS(cmd.OutOrStdout(), printAll)
 			return nil
 		},
 	}

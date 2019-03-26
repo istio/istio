@@ -38,7 +38,7 @@ type ParsedCluster struct {
 	tlsContext *auth.UpstreamTlsContext
 }
 
-func (c *ParsedCluster) print(w *tabwriter.Writer, printAll bool) {
+func (c *ParsedCluster) print(w io.Writer, printAll bool) {
 	var hostPort, sni, alpn, cert, validatePeerCert string
 
 	hostPort = fmt.Sprintf("%s:%s", strings.TrimSuffix(c.serviceName, ".svc.cluster.local"), c.port)

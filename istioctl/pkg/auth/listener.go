@@ -83,7 +83,7 @@ func getHTTPConnectionManager(filter listener.Filter) *hcm_filter.HttpConnection
 	return cm
 }
 
-func getHttpFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
+func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *hcm_filter.HttpFilter_Config:
 		if err := util.StructToMessage(c.Config, out); err != nil {
@@ -115,21 +115,21 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 						switch httpFilter.GetName() {
 						case "istio_authn":
 							authN := &authn_filter.FilterConfig{}
-							if err := getHttpFilterConfig(httpFilter, authN); err != nil {
+							if err := getHTTPFilterConfig(httpFilter, authN); err != nil {
 								log.Errorf("found AuthN filter but failed to parse: %s", err)
 							} else {
 								parsedFC.authN = authN
 							}
 						case "jwt-auth":
 							jwt := &jwt_filter.JwtAuthentication{}
-							if err := getHttpFilterConfig(httpFilter, jwt); err != nil {
+							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
 								log.Errorf("found JWT filter but failed to parse: %s", err)
 							} else {
 								parsedFC.jwt = jwt
 							}
 						case "envoy.filters.http.rbac":
 							rbacHTTP := &rbac_http_filter.RBAC{}
-							if err := getHttpFilterConfig(httpFilter, rbacHTTP); err != nil {
+							if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
 								log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
 							} else {
 								parsedFC.rbacHTTP = rbacHTTP
@@ -165,7 +165,7 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 	return parsedListener
 }
 
-func (l *ParsedListener) print(w *tabwriter.Writer, printAll bool) {
+func (l *ParsedListener) print(w io.Writer, printAll bool) {
 	for i, fc := range l.filterChains {
 		listenerName := fmt.Sprintf("%s", l.name)
 		if len(l.filterChains) > 1 {
