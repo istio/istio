@@ -156,16 +156,6 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
-        {{- if $.Values.global.sds.enabled }}
-          - --sdsEnabled=true
-        {{- else }}
-          - --sdsEnabled=false
-        {{- end }}
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
-          - --k8sServiceAccountJWTPath="/var/run/secrets/tokens/istio-token"
-        {{- else }}
-          - --k8sServiceAccountJWTPath="/var/run/secrets/kubernetes.io/serviceaccount/token"
-        {{- end }}
           env:
           - name: POD_NAME
             valueFrom:
