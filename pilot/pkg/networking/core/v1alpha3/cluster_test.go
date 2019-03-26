@@ -585,13 +585,13 @@ func TestLocalityLB(t *testing.T) {
 	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
 	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
 		if localityLbEndpoint.Locality.Region == "region1" && localityLbEndpoint.Locality.SubZone == "subzone1"{
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(2000)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
 			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		} else if localityLbEndpoint.Locality.Region == "region1" && localityLbEndpoint.Locality.SubZone == "subzone2"{
-                        g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(1000)))
+                        g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
                         g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
 		} else if localityLbEndpoint.Locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(2000)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
 			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
 			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
