@@ -156,6 +156,16 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if $.Values.global.sds.enabled }}
+          - --sdsEnabled=true
+        {{- else }}
+          - --sdsEnabled=false
+        {{- end }}
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - --k8sServiceAccountJWTPath="/var/run/secrets/tokens/istio-token"
+        {{- else }}
+          - --k8sServiceAccountJWTPath="/var/run/secrets/kubernetes.io/serviceaccount/token"
+        {{- end }}
           env:
           - name: POD_NAME
             valueFrom:
@@ -182,8 +192,32 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- if $.Values.global.sds.enabled }}
+          - name: sds-uds-path
+            mountPath: /var/run/sds/uds_path
+            readOnly: true
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- end }}
 {{- end }}
       volumes:
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: config-volume
         configMap:
           name: istio
