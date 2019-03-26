@@ -27,31 +27,29 @@ import (
 	"strings"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
 
 // Analyzer that can be used to check authentication and authorization policy status.
 type Analyzer struct {
-	pod          *v1.Pod
+	nodeIP       string
 	nodeType     string
 	listenerDump *envoy_admin_v2alpha.ListenersConfigDump
 	clusterDump  *envoy_admin_v2alpha.ClustersConfigDump
 }
 
 // NewAnalyzer creates a new analyzer for a given pod based on its envoy config.
-func NewAnalyzer(pod *v1.Pod, envoyConfig *configdump.Wrapper) (*Analyzer, error) {
+func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 	bootstrap, err := envoyConfig.GetBootstrapConfigDump()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bootstrap config dump: %s", err)
 	}
 	splits := strings.Split(bootstrap.Bootstrap.Node.Id, "~")
-	if len(splits) < 3 {
-		return nil, fmt.Errorf("unsupported pod %s.%s: cannot decide type from node id %q",
-			pod.Name, pod.Namespace, bootstrap.Bootstrap.Node.Id)
+	if len(splits) != 4 {
+		return nil, fmt.Errorf("invalid node ID(%q), expecting 4 '~' but found: %d",
+			bootstrap.Bootstrap.Node.Id, len(splits))
 	}
-	nodeType := splits[0]
 
 	listeners, err := envoyConfig.GetDynamicListenerDump(true)
 	if err != nil {
@@ -63,13 +61,13 @@ func NewAnalyzer(pod *v1.Pod, envoyConfig *configdump.Wrapper) (*Analyzer, error
 		return nil, fmt.Errorf("failed to get dynamic cluster dump: %s", err)
 	}
 
-	return &Analyzer{pod: pod, nodeType: nodeType, listenerDump: listeners, clusterDump: clusters}, nil
+	return &Analyzer{nodeType: splits[0], nodeIP: splits[1], listenerDump: listeners, clusterDump: clusters}, nil
 }
 
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
 	for _, listener := range a.listenerDump.DynamicActiveListeners {
-		if listener.Listener.Address.GetSocketAddress().Address == a.pod.Status.PodIP {
+		if listener.Listener.Address.GetSocketAddress().Address == a.nodeIP {
 			if ld := ParseListener(listener.Listener); ld != nil {
 				ret = append(ret, ld)
 			}
@@ -117,8 +115,8 @@ func (a *Analyzer) getParsedClusters() []*ParsedCluster {
 // PrintTLS checks the TLS/JWT/RBAC setting for the given envoy config stored in the analyzer.
 func (a *Analyzer) PrintTLS(writer io.Writer, printAll bool) {
 	parsedListeners := a.getParsedListeners()
-	_, _ = fmt.Fprintf(writer, "Checked %d/%d listeners for Pod IP\n",
-		len(parsedListeners), len(a.listenerDump.DynamicActiveListeners))
+	_, _ = fmt.Fprintf(writer, "Checked %d/%d listeners with node IP %s.\n",
+		len(parsedListeners), len(a.listenerDump.DynamicActiveListeners), a.nodeIP)
 	PrintParsedListeners(writer, parsedListeners, printAll)
 
 	parsedClusters := a.getParsedClusters()
