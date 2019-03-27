@@ -32,6 +32,7 @@ import (
 )
 
 var (
+	periodicRefreshDurationMutex sync.RWMutex
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// Disabled by default.
 	periodicRefreshDuration = 0 * time.Second
@@ -237,6 +238,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
+	periodicRefreshDurationMutex.Lock()
+	defer periodicRefreshDurationMutex.Unlock()
 	periodicRefreshDuration = pilot.RefreshDuration
 	if periodicRefreshDuration == 0 {
 		return
