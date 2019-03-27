@@ -241,6 +241,8 @@ istio-ilbgateway:
   # Port 5353 is forwarded to kube-dns
   - port: 5353
     name: tcp-dns
+  - port: 443
+    name: https
   secretVolumes:
   - name: ilbgateway-certs
     secretName: istio-ilbgateway-certs
