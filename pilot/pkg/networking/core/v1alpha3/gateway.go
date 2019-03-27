@@ -627,8 +627,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostnames {
-	matchingHosts := make(map[string]model.Hostnames, 0)
+func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
+	matchingHosts := make(map[string]model.Hostname, 0)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
@@ -647,7 +647,7 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtua
 			if gwHostnameForMatching.Matches(model.Hostname(vsvcHost)) {
 				// assign the actual gateway host because calling code uses it as a key
 				// to locate TLS redirect servers
-				matchingHosts[vsvcHost] = append(matchingHosts[vsvcHost], gatewayHost)
+				matchingHosts[vsvcHost] = gatewayHost
 			}
 		}
 	}
