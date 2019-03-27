@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -55,6 +56,14 @@ type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
+}
+
+// PortForward gathers port forwarding results
+type PortForward struct {
+	Forwarder    *portforward.PortForwarder
+	LocalPort    int
+	StopChannel  chan struct{}
+	ReadyChannel <-chan struct{}
 }
 
 // NewClient is the constructor for the client wrapper
@@ -309,19 +318,19 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 // BuildPortForwarder sets up port forwarding.
 //
 // nolint: lll
-func (client *Client) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*portforward.PortForwarder, <-chan struct{}, int, error) {
+func (client *Client) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
 		localPort, err = availablePort()
 		if err != nil {
-			return nil, nil, 0, fmt.Errorf("failure allocating port: %v", err)
+			return nil, fmt.Errorf("failure allocating port: %v", err)
 		}
 	}
 	req := client.Post().Resource("pods").Namespace(ns).Name(podName).SubResource("portforward")
 
 	transport, upgrader, err := spdy.RoundTripperFor(client.Config)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("failure creating roundtripper: %v", err)
+		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
@@ -330,10 +339,15 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localPort in
 	ready := make(chan struct{})
 	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("failed establishing port-forward: %v", err)
+		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
 
-	return fw, ready, localPort, nil
+	return &PortForward{
+		Forwarder:    fw,
+		ReadyChannel: ready,
+		StopChannel:  stop,
+		LocalPort:    localPort,
+	}, nil
 }
 
 func availablePort() (int, error) {
@@ -357,4 +371,40 @@ func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodL
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)
 	}
 	return obj.(*v1.PodList), nil
+}
+
+func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) error {
+	defer fw.Forwarder.Close()
+
+	errCh := make(chan error)
+	go func() {
+		errCh <- fw.Forwarder.ForwardPorts()
+	}()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+	defer signal.Stop(signals)
+
+	go func() {
+		<-signals
+		if fw.StopChannel != nil {
+			close(fw.StopChannel)
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("failure running port forward process: %v", err)
+	case <-fw.ReadyChannel:
+		err := readyFunc(fw)
+		if err != nil {
+			return err
+		}
+
+		// wait for interrupt (or connection close)
+		select {
+		case <-fw.StopChannel:
+			return nil
+		}
+	}
 }

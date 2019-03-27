@@ -84,28 +84,19 @@ func promDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9090)
+			fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9090)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Prometheus: %v", err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Prometheus pod ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), cmd.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}
@@ -137,28 +128,20 @@ func grafanaDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 3000)
+
+			fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 3000)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Grafana: %v", err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Grafana pod ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), cmd.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}
@@ -190,28 +173,19 @@ func kialiDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 20001)
+			fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 20001)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Kiali: %v", err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Kiali pod ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d/kiali", port), cmd.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d/kiali", fw.LocalPort), cmd.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}
@@ -243,28 +217,19 @@ func jaegerDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 16686)
+			fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 16686)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Jaeger: %v", err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Jaeger pod ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), cmd.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}
@@ -296,27 +261,17 @@ func zipkinDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			promPod := pl.Items[0]
-			fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9411)
+			fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9411)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for Zipkin: %v", err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Jaeger pod ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), cmd.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), cmd.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
 			return nil
 		},
@@ -344,28 +299,19 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			fw, readyCh, port, err := client.BuildPortForwarder(podName, ns, 0, 15000)
+			fw, err := client.BuildPortForwarder(podName, ns, 0, 15000)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for %s: %v", podName, err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to Envoy sidecar ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), c.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), c.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}
@@ -392,28 +338,19 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			fw, readyCh, port, err := client.BuildPortForwarder(podName, ns, 0, controlZport)
+			fw, err := client.BuildPortForwarder(podName, ns, 0, controlZport)
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for %s: %v", podName, err)
 			}
 
-			errCh := make(chan error)
-			go func() {
-				errCh <- fw.ForwardPorts()
-			}()
-
-			select {
-			case err := <-errCh:
-				return fmt.Errorf("failure running port forward process: %v", err)
-			case <-readyCh:
+			if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 				log.Debugf("port-forward to ControlZ port ready")
-				defer fw.Close()
-
-				openBrowser(fmt.Sprintf("http://localhost:%d", port), c.OutOrStdout())
-
-				// Block forever
-				<-(chan int)(nil)
+				openBrowser(fmt.Sprintf("http://localhost:%d", fw.LocalPort), c.OutOrStdout())
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failure running port forward process: %v", err)
 			}
+
 			return nil
 		},
 	}

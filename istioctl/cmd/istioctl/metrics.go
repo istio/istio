@@ -102,22 +102,13 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, readyCh, port, err := client.BuildPortForwarder(promPod.Name, istioNamespace, port, 9090)
+	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, port, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
 
-	errCh := make(chan error)
-	go func() {
-		errCh <- fw.ForwardPorts()
-	}()
-
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("failure running port forward process: %v", err)
-	case <-readyCh:
+	if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 		log.Debugf("port-forward to prometheus pod ready")
-		defer fw.Close()
 
 		promAPI, err := prometheusAPI(port)
 		if err != nil {
@@ -136,7 +127,10 @@ func run(c *cobra.Command, args []string) error {
 			printMetrics(sm)
 		}
 		return nil
+	}); err != nil {
+		return fmt.Errorf("failure running port forward process: %v", err)
 	}
+	return nil
 }
 
 func prometheusAPI(port int) (promv1.API, error) {
