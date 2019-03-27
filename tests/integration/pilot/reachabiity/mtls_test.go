@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	pilot2 "istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type testPolicy struct {
@@ -92,35 +93,6 @@ func checkConnection(conn connection) error {
 		}
 	}
 	return nil
-}
-
-const (
-	defaultRetryBudget = 10
-	retryDelay         = time.Second
-)
-
-// TODO: move this to framework.
-func runRetriableTest(t *testing.T, testName string, f func() error) {
-	t.Run(testName, func(t *testing.T) {
-		remaining := defaultRetryBudget
-		for {
-			// Call the test function.
-			remaining--
-			err := f()
-			if err == nil {
-				// Test succeeded, we're done here.
-				return
-			}
-
-			if remaining == 0 {
-				// We're out of retries - fail the test now.
-				t.Fatal(err)
-			}
-
-			// Wait for a bit before retrying.
-			time.Sleep(retryDelay)
-		}
-	})
 }
 
 func TestMutualTlsReachability(t *testing.T) {
@@ -261,9 +233,9 @@ func TestMutualTlsReachability(t *testing.T) {
 		// TODO: query pilot or app to know instead of sleep.
 		time.Sleep(time.Second)
 		for _, conn := range c.connections {
-			runRetriableTest(t, c.configFile, func() error {
+			retry.UntilSuccess(func() error {
 				return checkConnection(conn)
-			})
+			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		}
 		policy.TearDown()
 	}
