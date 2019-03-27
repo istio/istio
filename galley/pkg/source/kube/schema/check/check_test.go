@@ -107,7 +107,7 @@ func TestCheckCRDPresence(t *testing.T) {
 				cs.Resources = append(cs.Resources, resourceList)
 			}
 
-			found, err := resourceTypesPresence(cs, specs)
+			found, err := resourceTypesPresence(cs, specs, true)
 			if c.wantErr {
 				if err == nil {
 					tt.Fatal("expected error but got success")
@@ -186,7 +186,10 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 				}
 			}
 
-			got := findSupportedResourceSchemas(cs, specs)
+			got, err := resourceTypesPresence(cs, specs, false)
+			if err != nil {
+				tt.Fatalf("unexpected error: %v", err)
+			}
 
 			if len(got) != len(want) {
 				tt.Fatalf("wrong number of resource schemas found: \n got %v\nwant %v", got, want)
