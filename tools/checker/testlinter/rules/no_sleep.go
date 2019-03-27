@@ -18,27 +18,27 @@ import (
 	"go/ast"
 	"go/token"
 
-	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tools/checker"
 )
 
-// NoShort requires that testing.Short() is not allowed.
-type NoShort struct{}
+// NoSleep requires that time.Sleep() is not allowed.
+type NoSleep struct{}
 
-// NewNoShort creates and returns a NoShort object.
-func NewNoShort() *NoShort {
-	return &NoShort{}
+// NewNoSleep creates and returns a NoSleep object.
+func NewNoSleep() *NoSleep {
+	return &NoSleep{}
 }
 
-// GetID returns no_short_rule.
-func (lr *NoShort) GetID() string {
+// GetID returns no_sleep_rule.
+func (lr *NoSleep) GetID() string {
 	return GetCallerFileName()
 }
 
-// Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
-func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
+// Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
+func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if MatchCallExpr(ce, "testing", "Short") {
-			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "testing.Short() is disallowed.")
+		if MatchCallExpr(ce, "time", "Sleep") {
+			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "time.Sleep() is disallowed.")
 		}
 	}
 }
