@@ -22,6 +22,7 @@ package stdio // import "istio.io/istio/mixer/adapter/stdio"
 import (
 	"context"
 	"fmt"
+	"net"
 	"sort"
 	"time"
 
@@ -63,7 +64,7 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, zap.Any(varName, value))
+				fields = append(fields, zap.Any(varName, convertSomeTypestoStringValue(value)))
 			}
 		}
 
@@ -115,6 +116,15 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	}
 
 	return level
+}
+
+func convertSomeTypestoStringValue(value interface{}) interface{} {
+	switch vt := value.(type) {
+	case []byte:
+		return interface{}(net.IP(vt).String())
+	default:
+		return value
+	}
 }
 
 ////////////////// Config //////////////////////////
