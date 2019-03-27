@@ -639,15 +639,15 @@ func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-// Intersection returns the subset of host names that are covered by both hosts and other.
+// Intersection returns the subset of host names that are covered by both h and other.
 // e.g.:
 //  Hostnames(["foo.com","bar.com"]).Intersection(Hostnames(["*.com"]))         = Hostnames(["foo.com","bar.com"])
 //  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.com","bar.net"])) = Hostnames(["foo.com","bar.net"])
 //  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.bar.net"]))       = Hostnames(["*.bar.net"])
 //  Hostnames(["foo.com"]).Intersection(Hostnames(["bar.com"]))                 = Hostnames([])
-func (hosts Hostnames) Intersection(other Hostnames) Hostnames {
-	result := make(Hostnames, 0, len(hosts))
-	for _, hHost := range hosts {
+func (h Hostnames) Intersection(other Hostnames) Hostnames {
+	result := make(Hostnames, 0, len(h))
+	for _, hHost := range h {
 		for _, oHost := range other {
 			if hHost.SubsetOf(oHost) {
 				result = append(result, hHost)
@@ -676,7 +676,7 @@ func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
 	result := make(Hostnames, 0, len(hosts))
 	for _, host := range hosts {
 		if strings.Contains(host, "/") {
-			parts := strings.Split(string(host), "/")
+			parts := strings.Split(host, "/")
 			if parts[0] != namespace {
 				continue
 			}
