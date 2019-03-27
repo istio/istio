@@ -1,13 +1,13 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: jaegers.io.jaegertracing
+  name: jaegers.jaegertracing.io
 spec:
-  group: io.jaegertracing
+  group: jaegertracing.io
   names:
     kind: Jaeger
     listKind: JaegerList
     plural: jaegers
     singular: jaeger
   scope: Namespaced
-  version: v1alpha1
+  version: v1

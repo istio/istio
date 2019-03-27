@@ -17,7 +17,7 @@ spec:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
-        prometheus.io/port: "60000"
+        prometheus.io/port: "8383"
     spec:
       serviceAccountName: jaeger-operator
 {{- if .Values.global.priorityClassName }}
@@ -34,7 +34,7 @@ spec:
           image: "{{ .Values.jaeger.hub }}/jaeger-operator:{{ .Values.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          - containerPort: 60000
+          - containerPort: 8383
             name: metrics
           args: ["start"]
           imagePullPolicy: Always
