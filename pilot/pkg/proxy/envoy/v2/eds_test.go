@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -51,18 +53,20 @@ func TestEds(t *testing.T) {
 	os.Setenv("PILOT_ENABLE_LOCALITY_LOAD_BALANCING", "ON")
 	addLocalityEndpoints(server)
 
-	// Add the test ads client to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoint(server)
+	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
+	addTestClientEndpoints(server)
 
 	adsc := adsConnectAndWait(t, 0x0a0a0a0a)
 	defer adsc.Close()
+	adsc2 := adsConnectAndWait(t, 0x0a0a0a0b)
+	defer adsc2.Close()
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adsc, t)
 		testEdsz(t)
 	})
 	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
-		testLocalityPrioritizedEndpoints(adsc, t)
+		testLocalityPrioritizedEndpoints(adsc, adsc2, t)
 	})
 	t.Run("UDSEndpoints", func(t *testing.T) {
 		testUdsEndpoints(server, adsc, t)
@@ -119,8 +123,9 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 }
 
 var asdcLocality = "region1/zone1/subzone1"
+var asdc2Locality = "region2/zone2/subzone2"
 
-func addTestClientEndpoint(server *bootstrap.Server) {
+func addTestClientEndpoints(server *bootstrap.Server) {
 	server.EnvoyXdsServer.MemRegistry.AddService("test-1.default", &model.Service{
 		Hostname: "test-1.default",
 		Ports: model.PortList{
@@ -141,6 +146,18 @@ func addTestClientEndpoint(server *bootstrap.Server) {
 				Protocol: model.ProtocolHTTP,
 			},
 			Locality: asdcLocality,
+		},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: fmt.Sprintf("10.10.10.11"),
+			Port:    80,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
+			},
+			Locality: asdc2Locality,
 		},
 	})
 	server.EnvoyXdsServer.Push(true, nil)
@@ -168,10 +185,15 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 	}
 }
 
-func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, t *testing.T) {
-	items := strings.SplitN(asdcLocality, "/", 3)
+func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
+	verifyLocalityPriorities(asdcLocality, adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+	verifyLocalityPriorities(asdc2Locality, adsc2.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+}
+
+func verifyLocalityPriorities(proxyLocality string, eps []endpoint.LocalityLbEndpoints, t *testing.T) {
+	items := strings.SplitN(proxyLocality, "/", 3)
 	region, zone, subzone := items[0], items[1], items[2]
-	for _, ep := range adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints() {
+	for _, ep := range eps {
 		if ep.GetLocality().Region == region {
 			if ep.GetLocality().Zone == zone {
 				if ep.GetLocality().SubZone == subzone {
@@ -490,8 +512,11 @@ func addLocalityEndpoints(server *bootstrap.Server) {
 	localities := []string{
 		"region1/zone1/subzone1",
 		"region1/zone1/subzone2",
-		"region1/zone2/subzone2",
+		"region1/zone2/subzone1",
 		"region2/zone1/subzone1",
+		"region2/zone1/subzone2",
+		"region2/zone2/subzone1",
+		"region2/zone2/subzone2",
 	}
 	for i, locality := range localities {
 		server.EnvoyXdsServer.MemRegistry.AddInstance("locality.cluster.local", &model.ServiceInstance{

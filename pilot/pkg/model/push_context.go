@@ -93,7 +93,7 @@ type PushContext struct {
 	ServicePort2Name map[string]PortList `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[Hostname]map[int][]string
+	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
 
 	initDone bool
 }

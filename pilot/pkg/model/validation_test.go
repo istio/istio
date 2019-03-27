@@ -2261,6 +2261,21 @@ func TestValidateRouteDestination(t *testing.T) {
 		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
+		{name: "wildcard dash", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*-foo.baz"},
+		}}, valid: true},
+		{name: "wildcard prefix", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*foo.baz"},
+		}}, valid: true},
+		{name: "wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*"},
+		}}, valid: true},
+		{name: "bad wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.*"},
+		}}, valid: false},
+		{name: "bad fqdn", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "default/baz"},
+		}}, valid: false},
 		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: nil,
 		}}, valid: false},
