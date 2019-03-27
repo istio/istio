@@ -250,6 +250,13 @@ func TestHostnameMatches(t *testing.T) {
 		{"wildcard matches subdomains",
 			"*.foo.com", "bar.foo.com", true},
 
+		{"hostname matches with port", 
+			"foo.bar.com", "foo.bar.com:80", true},
+		{"hostname matches with port, reverse", 
+			"foo.bar.com:80", "foo.bar.com", true},
+		{"hostname matches with port for both hostnames", 
+			"foo.bar.com:80", "foo.bar.com:80", true},
+
 		{"wildcard matches anything", "*", "foo.com", true},
 		{"wildcard matches anything", "*", "*.com", true},
 		{"wildcard matches anything", "*", "com", true},

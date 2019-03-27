@@ -570,6 +570,11 @@ func (h Hostname) Matches(o Hostname) bool {
 
 	// RFC, the Host: header of HTTP can be the plain <host> or <host>:<port> see issue #6469
 	hostAndPort := strings.SplitN(string(o), ":", 2)
+	if strings.Contains(string(h), ":") && len(hostAndPort) > 1 { 
+		return h == o
+	} else if strings.Contains(string(h), ":") && len(hostAndPort) == 1 {
+		return strings.SplitN(string(h), ":", 2)[0] == hostAndPort[0]
+	}
 
 	// both are non-wildcards, so do normal string comparison
 	return h == Hostname(hostAndPort[0])
