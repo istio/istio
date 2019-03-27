@@ -119,7 +119,7 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 		return nil, fmt.Errorf("failed to marshal the raw values for SAN field (err: %s)", err)
 	}
 
-	return &pkix.Extension{Id: oidSubjectAlternativeName, Value: bs}, nil
+	return &pkix.Extension{Id: oidSubjectAlternativeName, Critical: true, Value: bs}, nil
 }
 
 // ExtractIDsFromSAN takes a SAN extension and extracts the identities.
