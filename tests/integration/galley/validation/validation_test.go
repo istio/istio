@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -61,57 +63,60 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-	// Validation tests only works in Kubernetes environment
-	ctx.RequireOrSkip(t, environment.Kube)
+	framework.Run(t, func(ctx framework.TestContext) {
 
-	dataset := loadTestData(t)
+		dataset := loadTestData(t)
 
-	denied := func(err error) bool {
-		if err == nil {
-			return false
+		denied := func(err error) bool {
+			if err == nil {
+				return false
+			}
+			return strings.Contains(err.Error(), "denied the request")
 		}
-		return strings.Contains(err.Error(), "denied the request")
-	}
 
-	for _, d := range dataset {
-		t.Run(string(d), func(t *testing.T) {
-			if d.isSkipped() {
-				t.SkipNow()
-				return
-			}
-
-			ctx := framework.NewContext(t)
-			defer ctx.Done(t)
-
-			yml, err := d.load()
-			if err != nil {
-				t.Fatalf("Unable to load test data: %v", err)
-			}
-
-			env := ctx.Environment().(*kube.Environment)
-			ns := namespace.NewOrFail(t, ctx, "validation", false)
-			err = env.ApplyContents(ns.Name(), yml)
-
-			switch {
-			case err != nil && d.isValid():
-				if denied(err) {
-					t.Fatalf("got unexpected for valid config: %v", err)
-				} else {
-					t.Fatalf("got unexpected unknown error for valid config: %v", err)
+		for _, d := range dataset {
+			t.Run(string(d), func(t *testing.T) {
+				if d.isSkipped() {
+					t.SkipNow()
+					return
 				}
-			case err == nil && !d.isValid():
-				t.Fatalf("got unexpected success for invalid config")
-			case err != nil && !d.isValid():
-				if !denied(err) {
-					t.Fatalf("config request denied for wrong reason: %v", err)
+
+				ctx := framework.NewContext(t, label.Kube, label.Presubmit)
+				defer ctx.Done(t)
+
+				yml, err := d.load()
+				if err != nil {
+					t.Fatalf("Unable to load test data: %v", err)
 				}
-			}
-		})
-	}
+
+				env := ctx.Environment().(*kube.Environment)
+				ns := namespace.NewOrFail(t, ctx, "validation", false)
+				err = env.ApplyContents(ns.Name(), yml)
+
+				switch {
+				case err != nil && d.isValid():
+					if denied(err) {
+						t.Fatalf("got unexpected for valid config: %v", err)
+					} else {
+						t.Fatalf("got unexpected unknown error for valid config: %v", err)
+					}
+				case err == nil && !d.isValid():
+					t.Fatalf("got unexpected success for invalid config")
+				case err != nil && !d.isValid():
+					if !denied(err) {
+						t.Fatalf("config request denied for wrong reason: %v", err)
+					}
+				}
+			})
+		}
+	})
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("galley_validation", m, framework.RequireEnvironment(environment.Kube), istio.SetupOnKube(nil, nil))
+	framework.
+		NewSuite("galley_validation", m).
+		Label(label.Presubmit).
+		RequireEnvironment(environment.Kube).
+		Setup(istio.SetupOnKube(nil, nil)).
+		Run()
 }

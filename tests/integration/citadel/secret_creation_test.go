@@ -66,5 +66,9 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("citadel_test", m, framework.RequireEnvironment(environment.Kube), istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("citadel_test", m).
+		RequireEnvironment(environment.Kube).
+		EnvSetup(environment.Kube, istio.SetupOnKube(&ist, nil)).
+		Run()
 }

@@ -14,17 +14,13 @@
 
 package framework
 
-import (
-	"istio.io/istio/pkg/test/framework/components/environment"
-)
-
-// RequireEnvironment will mark the suite as skipped if the expected environment is not found.
-func RequireEnvironment(n environment.Name) SetupFn { // nolint:interfacer
-	return func(ctx SuiteContext) error {
-		if ctx.Environment().EnvironmentName() != n {
-			ctx.Skipf("RequireEnvironment (%s): Test suite does not support environment: %q",
-				n.String(), ctx.Environment().EnvironmentName())
-		}
-		return nil
-	}
-}
+//// RequireEnvironment will mark the suite as skipped if the expected environment is not found.
+//func RequireEnvironment(n environment.Name) SetupFn { // nolint:interfacer
+//	return func(ctx SuiteContext) error {
+//		if ctx.Environment().EnvironmentName() != n {
+//			ctx.Skipf("RequireEnvironment (%s): Test suite does not support environment: %q",
+//				n.String(), ctx.Environment().EnvironmentName())
+//		}
+//		return nil
+//	}
+//}

@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
@@ -40,37 +42,36 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			ctx := framework.NewContext(t)
-			defer ctx.Done(t)
+			framework.NewTest(t).Label(label.Native, label.Presubmit).Run(func(ctx framework.TestContext) {
+				var gal galley.Instance
+				var cfg galley.Config
 
-			var gal galley.Instance
-			var cfg galley.Config
+				for i, fset := range d.FileSets() {
+					// Do init for the first set. Use Meshconfig file in this set.
+					if i == 0 {
+						if fset.HasMeshConfigFile() {
+							mc, err := fset.LoadMeshConfigFile()
+							if err != nil {
+								t.Fatalf("Error loading Mesh config file: %v", err)
+							}
 
-			for i, fset := range d.FileSets() {
-				// Do init for the first set. Use Meshconfig file in this set.
-				if i == 0 {
-					if fset.HasMeshConfigFile() {
-						mc, err := fset.LoadMeshConfigFile()
-						if err != nil {
-							t.Fatalf("Error loading Mesh config file: %v", err)
+							cfg.MeshConfig = string(mc)
 						}
 
-						cfg.MeshConfig = string(mc)
+						gal = galley.NewOrFail(t, ctx, cfg)
 					}
 
-					gal = galley.NewOrFail(t, ctx, cfg)
-				}
-
-				t.Logf("==== Running iter: %d\n", i)
-				if len(d.FileSets()) == 1 {
-					runTest(t, fset, gal)
-				} else {
-					testName := fmt.Sprintf("%d", i)
-					t.Run(testName, func(t *testing.T) {
+					t.Logf("==== Running iter: %d\n", i)
+					if len(d.FileSets()) == 1 {
 						runTest(t, fset, gal)
-					})
+					} else {
+						testName := fmt.Sprintf("%d", i)
+						t.Run(testName, func(t *testing.T) {
+							runTest(t, fset, gal)
+						})
+					}
 				}
-			}
+			})
 		})
 	}
 }
@@ -200,6 +201,9 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 func TestMain(m *testing.M) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
-
-	framework.Main("galley_conversion", m, framework.RequireEnvironment(environment.Native))
+	framework.
+		NewSuite("galley_conversion", m).
+		Label(label.Presubmit).
+		RequireEnvironment(environment.Native).
+		Run()
 }
