@@ -259,6 +259,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/bypasses"
+    optional:    true
 
   - kind:        "circonus"
     singular:    "circonus"
@@ -268,6 +269,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/circonuses"
+    optional:    true
 
   - kind:        "denier"
     singular:    "denier"
@@ -277,6 +279,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/deniers"
+    optional:    true
 
 
   - kind:        "fluentd"
@@ -287,6 +290,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/fluentds"
+    optional:    true
 
   - kind:        "kubernetesenv"
     singular:    "kubernetesenv"
@@ -296,6 +300,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/kubernetesenvs"
+    optional:    true
 
   - kind:        "listchecker"
     singular:    "listchecker"
@@ -305,6 +310,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/listcheckers"
+    optional:    true
 
   - kind:        "memquota"
     singular:    "memquota"
@@ -314,6 +320,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/memquotas"
+    optional:    true
 
   - kind:        "noop"
     singular:    "noop"
@@ -323,6 +330,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/noops"
+    optional:    true
 
   - kind:        "opa"
     singular:    "opa"
@@ -332,6 +340,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/opas"
+    optional:    true
 
   - kind:        "prometheus"
     singular:    "prometheus"
@@ -341,6 +350,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/prometheuses"
+    optional:    true
 
   - kind:        "redisquota"
     singular:    "redisquota"
@@ -350,6 +360,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/redisquotas"
+    optional:    true
 
   - kind:        "signalfx"
     group:       "config.istio.io"
@@ -359,6 +370,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/signalfxs"
+    optional:    true
 
   - kind:        "solarwinds"
     singular:    "solarwinds"
@@ -368,6 +380,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/solarwindses"
+    optional:    true
 
   - kind:        "stackdriver"
     singular:    "stackdriver"
@@ -377,6 +390,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/stackdrivers"
+    optional:    true
 
   - kind:        "statsd"
     singular:    "statsd"
@@ -386,6 +400,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/statsds"
+    optional:    true
 
   - kind:        "stdio"
     singular:    "stdio"
@@ -395,6 +410,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/stdios"
+    optional:    true
 
   - kind:        "apikey"
     singular:    "apikey"
@@ -404,6 +420,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/apikeys"
+    optional:    true
 
   - kind:        "authorization"
     singular:    "authorization"
@@ -413,6 +430,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/authorizations"
+    optional:    true
 
   - kind:        "checknothing"
     singular:    "checknothing"
@@ -422,6 +440,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/checknothings"
+    optional:    true
 
   - kind:        "kubernetes"
     singular:    "kubernetes"
@@ -431,6 +450,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/kuberneteses"
+    optional:    true
 
   - kind:        "listentry"
     singular:    "listentry"
@@ -440,6 +460,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/listentries"
+    optional:    true
 
   - kind:        "logentry"
     singular:    "logentry"
@@ -449,6 +470,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/logentries"
+    optional:    true
 
   - kind:        "metric"
     singular:    "metric"
@@ -458,6 +480,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/metrics"
+    optional:    true
 
   - kind:        "quota"
     singular:    "quota"
@@ -467,6 +490,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/quotas"
+    optional:    true
 
   - kind:        "reportnothing"
     singular:    "reportnothing"
@@ -476,6 +500,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/reportnothings"
+    optional:    true
 
   - kind:        "tracespan"
     singular:    "tracespan"
@@ -485,6 +510,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/tracespans"
+    optional:    true
 
   - kind:        "rbac"
     singular:    "rbac"
@@ -494,6 +520,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/rbacs"
+    optional:    true
 
   - kind:        "cloudwatch"
     singular:    "cloudwatch"
@@ -503,6 +530,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/cloudwatches"
+    optional:    true
 
   - kind:        "dogstatsd"
     singular:    "dogstatsd"
@@ -512,6 +540,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/dogstatsds"
+    optional:    true
 
   - kind:        "edge"
     singular:    "edge"
@@ -521,6 +550,7 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/edges"
+    optional:    true
 
   - kind:        "zipkin"
     singular:    "zipkin"
@@ -530,3 +560,4 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/zipkins"
+    optional:    true
