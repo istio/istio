@@ -16,11 +16,11 @@ package mixer
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
