@@ -141,8 +141,16 @@ func RegisterDurationVar(name string, defaultValue time.Duration, description st
 func RegisterVar(v Var) {
 	mutex.Lock()
 
-	if old, ok := allVars[v.Name]; !ok || old.Description == "" {
-		allVars[v.Name] = v // last one with a description wins if there are multiple enlistments of the same variable in a single process
+	if old, ok := allVars[v.Name]; ok {
+		if v.Description != "" {
+			allVars[v.Name] = v // last one with a description wins if the same variable name is registered multiple times
+		}
+
+		if old.Description != v.Description || old.DefaultValue != v.DefaultValue || old.Type != v.Type || old.Deprecated != v.Deprecated || old.Hidden != v.Hidden {
+			log.Warnf("The environment variable %s was registered multiple times using different metadata: %v, %v", v.Name, old, v)
+		}
+	} else {
+		allVars[v.Name] = v // last one with a description wins if the same variable name is registered multiple times
 	}
 
 	mutex.Unlock()

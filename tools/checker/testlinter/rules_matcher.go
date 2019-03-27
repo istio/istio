@@ -18,7 +18,7 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tools/checker"
 )
 
 // TestType is type ID of tests
