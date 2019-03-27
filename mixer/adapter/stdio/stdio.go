@@ -121,7 +121,10 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 func convertSomeTypestoStringValue(value interface{}) interface{} {
 	switch vt := value.(type) {
 	case []byte:
-		return interface{}(net.IP(vt).String())
+		if net.IP(vt).To16() != nil {
+			return interface{}(net.IP(vt).String())
+		}
+		return value
 	default:
 		return value
 	}
