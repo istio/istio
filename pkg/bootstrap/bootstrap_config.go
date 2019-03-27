@@ -77,7 +77,11 @@ var (
 
 	defaultEnvoyStatsMatcherInclusionSuffixes = []string{
 		"upstream_rq_total",
+		"upstream_rq_1xx",
 		"upstream_rq_2xx",
+		"upstream_rq_3xx",
+		"upstream_rq_4xx",
+		"upstream_rq_5xx",
 		"upstream_rq_time",
 	}
 )
