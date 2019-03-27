@@ -222,6 +222,7 @@ func TestLogEntry(t *testing.T) {
 						"Time":      tm,
 						"Duration":  1 * time.Second,
 						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"Bytes":     []byte{'b'},
 						"IPAddress": []byte(net.ParseIP("1.0.0.127")),
 						"DNSName":   "foo.bar.com",
 						"URL":       "http://foo.com",
@@ -235,6 +236,7 @@ func TestLogEntry(t *testing.T) {
 					`"time":"0001-01-01T00:00:00.000000Z",` +
 					`"instance":"Foo",` +
 					`"Bool":true,` +
+					`"Bytes":"Yg==",` +
 					`"DNSName":"foo.bar.com",` +
 					`"Double":1.23,` +
 					`"Duration":"1s",` +
@@ -262,6 +264,7 @@ func TestLogEntry(t *testing.T) {
 						"Duration":  1 * time.Second,
 						"StringMap": map[string]string{"A": "B", "C": "D"},
 						"IPAddress": net.IPv4zero,
+						"Bytes":     []byte{'b'},
 						"DNSName":   "foo.bar.com",
 						"URL":       "http://foo.com",
 						"EmailAddr": "foo@bar.com",
@@ -272,6 +275,7 @@ func TestLogEntry(t *testing.T) {
 			[]string{
 				"0001-01-01T00:00:00.000000Z\twarn\tFoo\t" +
 					`{"Bool": true, ` +
+					`"Bytes": "Yg==", ` +
 					`"DNSName": "foo.bar.com", ` +
 					`"Double": 1.23, ` +
 					`"Duration": "1s", ` +
