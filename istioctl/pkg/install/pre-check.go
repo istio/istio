@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package install
 
 import (
@@ -6,7 +20,9 @@ import (
 	"strconv"
 	"strings"
 
+	multierror "github.com/hashicorp/go-multierror"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
@@ -17,77 +33,143 @@ const (
 	minK8SVersion = "1.11"
 )
 
-type targetResource struct {
-	namespace string
-	group     string
-	version   string
-	name      string
+var (
+	clientExecFactory = createKubeClient
+)
+
+type preCheckClient struct {
+	client *kubernetes.Clientset
+}
+type preCheckExecClient interface {
+	getNameSpace(ns string) (*v1.Namespace, error)
+	serverVersion() (*version.Info, error)
+	checkAuthorization(s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error)
+	checkMutatingWebhook() error
 }
 
 func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
 	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "kubernetes-api\n")
+	fmt.Fprintf(writer, "Kubernetes-api\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	kubeClient, err := createKubeClient(restClientGetter)
+	c, err := clientExecFactory(restClientGetter)
 	if err != nil {
-		return fmt.Errorf("failed to initialize the k8s client: %v", err)
+		return fmt.Errorf("failed to initialize the Kubernetes client: %v", err)
 	}
-	fmt.Fprintf(writer, "can initialize the k8s client\n")
-	v, err := kubeClient.Discovery().ServerVersion()
+	fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
+	v, err := c.serverVersion()
 	if err != nil {
 		return fmt.Errorf("failed to query the Kubernetes API Server: %v", err)
 	}
-	fmt.Fprintf(writer, "can query the Kubernetes API Server\n")
+	fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
 
 	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "kubernetes-version\n")
+	fmt.Fprintf(writer, "Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 
 	if !checkKubernetesVersion(v) {
 		return fmt.Errorf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, v)
 	}
-	fmt.Fprintf(writer, "is running the minimum Kubernetes API version\n")
+	fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
 
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Istio-existence\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	ns, _ := kubeClient.CoreV1().Namespaces().Get(*istioNamespaceFlag, meta_v1.GetOptions{})
+	ns, _ := c.getNameSpace(*istioNamespaceFlag)
 	if ns != nil {
-		return fmt.Errorf("control plane namespace: %v already exist", *istioNamespaceFlag)
+		return fmt.Errorf("Istio cannot be installed because the Istio namespace '%v' is already in use", *istioNamespaceFlag)
 	}
-	fmt.Fprintf(writer, "control plane namespace does not already exist\n")
+	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", *istioNamespaceFlag)
 
 	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "kubernetes-setup\n")
+	fmt.Fprintf(writer, "Kubernetes-setup\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	Resources := make([]targetResource, 0)
-	Resources = append(Resources, targetResource{"", "", "v1", "Namespace"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "rbac.authorization.k8s.io", "v1beta1", "ClusterRole"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "rbac.authorization.k8s.io", "v1beta1", "ClusterRoleBinding"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "apiextensions.k8s.io", "v1beta1", "CustomResourceDefinition"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "rbac.authorization.k8s.io", "v1beta1", "Role"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "", "v1", "ServiceAccount"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "", "v1", "Service"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "extensions", "v1beta1", "Deployments"})
-	Resources = append(Resources, targetResource{*istioNamespaceFlag, "", "v1", "ConfigMap"})
-	for _, targetResource := range Resources {
-		err = checkCanCreateResources(kubeClient, targetResource)
+	Resources := []struct {
+		namespace string
+		group     string
+		version   string
+		name      string
+	}{
+		{
+			namespace: "",
+			group:     "",
+			version:   "v1",
+			name:      "Namespace",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1beta1",
+			name:      "ClusterRole",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1beta1",
+			name:      "ClusterRoleBinding",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "apiextensions.k8s.io",
+			version:   "v1beta1",
+			name:      "CustomResourceDefinition",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "rbac.authorization.k8s.io",
+			version:   "v1beta1",
+			name:      "Role",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "",
+			version:   "v1",
+			name:      "ServiceAccount",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "",
+			version:   "v1",
+			name:      "Service",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "extensions",
+			version:   "v1beta1",
+			name:      "Deployments",
+		},
+		{
+			namespace: *istioNamespaceFlag,
+			group:     "",
+			version:   "v1",
+			name:      "ConfigMap",
+		},
+	}
+	var errs error
+	resourceNames := make([]string, 0)
+	for _, r := range Resources {
+		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
 		if err != nil {
-			return err
+			errs = multierror.Append(errs, err)
 		}
-		fmt.Fprintf(writer, "Can create %v \n", targetResource.name)
+		resourceNames = append(resourceNames, r.name)
+	}
+	if errs != nil {
+		return errs
 	}
 
+	fmt.Fprintf(writer, "Can create necessary Kubernetes configurations: "+"%v. \n", strings.Join(resourceNames, ","))
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "SideCar-Injector\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	_, err = kubeClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(meta_v1.ListOptions{})
+	err = c.checkMutatingWebhook()
 	if err != nil {
-		fmt.Fprintf(writer, "The Cluster has not enabled admission webhook. Automatic sidecar injection is not supported.\n")
+		fmt.Fprintf(writer, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
+			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection\n")
 	} else {
-		fmt.Fprintf(writer, "The Cluster has enabled admission webhook. Automatic sidecar injection is supported.\n")
+		fmt.Fprintf(writer, "Istio Configured to use automatic sidecar injection for 'default' namespace."+
+			" To enable injection for other namespaces see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
 	}
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "-----------------------\n")
@@ -120,40 +202,62 @@ func parseVersion(s string, width int) int64 {
 	return result
 }
 
-func checkCanCreateResources(kubeClient *kubernetes.Clientset, r targetResource) error {
-	auth := kubeClient.AuthorizationV1beta1()
-
+func checkCanCreateResources(c preCheckExecClient, namespace, group, version, name string) error {
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
-				Namespace: r.namespace,
+				Namespace: namespace,
 				Verb:      "create",
-				Group:     r.group,
-				Version:   r.version,
-				Resource:  r.name,
+				Group:     group,
+				Version:   version,
+				Resource:  name,
 			},
 		},
 	}
 
-	response, err := auth.SelfSubjectAccessReviews().Create(s)
+	response, err := c.checkAuthorization(s)
 	if err != nil {
 		return err
 	}
 
 	if !response.Status.Allowed {
 		if len(response.Status.Reason) > 0 {
-			return fmt.Errorf("missing permissions to create %s: %v", r.name, response.Status.Reason)
+			return fmt.Errorf("Istio installation will not succeed.Create permission lacking for:%s: %v", name, response.Status.Reason)
 		}
-		return fmt.Errorf("missing permissions to create %s", r.name)
+		return fmt.Errorf("Istio installation will not succeed. Create permission lacking for:%s", name)
 	}
 	return nil
 }
 
-func createKubeClient(restClientGetter resource.RESTClientGetter) (*kubernetes.Clientset, error) {
+func createKubeClient(restClientGetter resource.RESTClientGetter) (preCheckExecClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 
 	if err != nil {
 		return nil, err
 	}
-	return kubernetes.NewForConfig(restConfig)
+	k, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &preCheckClient{client: k}, nil
+}
+
+func (c *preCheckClient) serverVersion() (*version.Info, error) {
+	v, err := c.client.Discovery().ServerVersion()
+	return v, err
+}
+
+func (c *preCheckClient) getNameSpace(ns string) (*v1.Namespace, error) {
+	v, err := c.client.CoreV1().Namespaces().Get(ns, meta_v1.GetOptions{})
+	return v, err
+}
+
+func (c *preCheckClient) checkAuthorization(s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
+	response, err := c.client.AuthorizationV1beta1().SelfSubjectAccessReviews().Create(s)
+	return response, err
+}
+
+func (c *preCheckClient) checkMutatingWebhook() error {
+	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(meta_v1.ListOptions{})
+	return err
 }
