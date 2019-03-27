@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/busybox/bash
 #
 # Copyright 2017, 2018 Istio Authors. All Rights Reserved.
 #
