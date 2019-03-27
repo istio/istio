@@ -224,7 +224,7 @@ func toLabelMap(names []string, variables map[string]interface{}) map[string]str
 		case []byte:
 			if net.IP(vt).To16() != nil {
 				out[name] = net.IP(vt).String()
-			} else{
+			} else {
 				out[name] = fmt.Sprintf("%v", vt)
 			}
 		default:
