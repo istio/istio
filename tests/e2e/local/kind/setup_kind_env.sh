@@ -23,5 +23,6 @@ if ! (kind create cluster --name=e2e) > /dev/null; then
 fi
 
 
-export KUBECONFIG="$(kind get kubeconfig-path --name="e2e")"
+KUBECONFIG="$(kind get kubeconfig-path --name="e2e")"
+export KUBECONFIG
 echo "KinD environment is setup for this shell."

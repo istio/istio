@@ -129,7 +129,9 @@ function setup_kind_cluster() {
 
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=e2e-suite"
-  kind delete cluster --name=e2e-suite
+  if ! (kind delete cluster --name=e2e-suite) > /dev/null; then
+  	echo "No Found existing kind cluster with name e2e-suite. Continue..."
+  fi
 
   # Create KinD cluster
   if ! (kind create cluster --name=e2e-suite); then
@@ -138,7 +140,8 @@ function setup_kind_cluster() {
   fi
 
   export GIT_SHA="${GIT_SHA:-$TAG}"
-  export KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+  KUBECONFIG="$(kind get kubeconfig-path --name="e2e-suite")"
+  export KUBECONFIG
 }
 
 function cni_run_daemon() {
