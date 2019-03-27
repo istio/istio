@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/testlinter/rules"
+	"istio.io/istio/tools/checker"
+	"istio.io/istio/tools/checker/testlinter/rules"
 )
 
 func TestE2eTestSkipByIssueRule(t *testing.T) {

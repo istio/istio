@@ -12,23 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package flakytestfinder
 
 import (
-	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/testlinter/rules"
+	"istio.io/istio/tools/checker"
 )
 
-// LintRulesList is a map that maps test type to list of lint rules. Linter applies corresponding
-// list of lint rules to each type of tests.
-var LintRulesList = map[TestType][]checker.Rule{
-	UnitTest: { // list of rules which should apply to unit test file
-		rules.NewSkipByIssue(),
-	},
-	IntegTest: { // list of rules which should apply to integration test file
-		rules.NewSkipByIssue(),
-	},
-	E2eTest: { // list of rules which should apply to e2e test file
-		rules.NewSkipByIssue(),
-	},
+// ReportFlakyTests reports names of tests that have annotation.IsFlaky() call.
+func ReportFlakyTests(args []string) ([]string, error) {
+	matcher := RulesMatcher{}
+	whitelist := checker.NewWhitelist(map[string][]string{})
+	report := checker.NewLintReport()
+
+	err := checker.Check(args, &matcher, whitelist, report)
+	if err != nil {
+		return []string{}, err
+	}
+	return report.Items(), nil
 }

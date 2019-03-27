@@ -19,8 +19,8 @@ import (
 	"go/token"
 	"strings"
 
-	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/testlinter/rules"
+	"istio.io/istio/tools/checker"
+	"istio.io/istio/tools/checker/testlinter/rules"
 )
 
 // IsFlaky detects if annotation.isFlakyTest() is called.
