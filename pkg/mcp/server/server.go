@@ -28,8 +28,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	envvar "istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/env"
 	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/source"
@@ -40,11 +40,11 @@ var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 var (
 	// For the purposes of rate limiting new connections, this controls how many
 	// new connections are allowed as a burst every NEW_CONNECTION_FREQ.
-	newConnectionBurstSize = env.Integer("NEW_CONNECTION_BURST_SIZE", 10)
+	newConnectionBurstSize = envvar.RegisterIntVar("NEW_CONNECTION_BURST_SIZE", 10, "").Get()
 
 	// For the purposes of rate limiting new connections, this controls how
 	// frequently new bursts of connections are allowed.
-	newConnectionFreq = env.Duration("NEW_CONNECTION_FREQ", 10*time.Millisecond)
+	newConnectionFreq = envvar.RegisterDurationVar("NEW_CONNECTION_FREQ", 10*time.Millisecond, "").Get()
 )
 
 var _ mcp.AggregatedMeshConfigServiceServer = &Server{}

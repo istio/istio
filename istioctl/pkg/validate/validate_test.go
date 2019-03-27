@@ -202,8 +202,6 @@ func TestValidateCommand(t *testing.T) {
 	cases := []struct {
 		name      string
 		args      []string
-		stdin     *bytes.Buffer
-		in        []string
 		wantError bool
 	}{
 		{

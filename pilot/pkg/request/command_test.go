@@ -70,8 +70,8 @@ func Test_command_do(t *testing.T) {
 		method            string
 		path              string
 		body              string
-		pilotNotReachable bool
 		pilotStates       []pilotStubState
+		pilotNotReachable bool
 		wantError         bool
 	}{
 		{

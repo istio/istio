@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
+			if len(err.Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -851,10 +851,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 12 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -3529,32 +3529,9 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 rule must be specified",
 		},
 		{
-			name: "no service",
-			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
-				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-				{
-					Services: []string{},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
-				},
-			}},
-			expectErrMsg: "at least 1 service must be specified for rule 1",
-		},
-		{
 			name: "has both methods and not_methods",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services:   []string{"service0"},
 					Methods:    []string{"GET", "POST"},
 					NotMethods: []string{"DELETE"},
 				},
@@ -3565,7 +3542,6 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "has both ports and not_ports",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
 					Ports:    []int32{9080},
 					NotPorts: []int32{443},
 				},
@@ -3576,8 +3552,7 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "has out of range port",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Ports:    []int32{9080, -80},
+					Ports: []int32{9080, -80},
 				},
 			}},
 			expectErrMsg: "at least one port is not in the range of [0, 65535]",
@@ -3586,8 +3561,7 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "has both first-class field and constraints",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Ports:    []int32{9080},
+					Ports: []int32{9080},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "destination.port", Values: []string{"80"}},
 					},
@@ -3599,16 +3573,14 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Values: []string{"value"}},
@@ -3621,16 +3593,14 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "no value in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{}},
@@ -3643,7 +3613,6 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "success proto",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
 					NotHosts: []string{"finances.google.com"},
 					Constraints: []*rbac.AccessRule_Constraint{
@@ -3652,8 +3621,7 @@ func TestValidateServiceRole(t *testing.T) {
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},

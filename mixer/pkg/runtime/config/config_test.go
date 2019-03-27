@@ -2976,6 +2976,100 @@ Attributes:
 `,
 		wantErr: "instance='i1.instance.default'.template: template 'not.a.template' not found",
 	},
+
+	{
+		Name: "add static instance - missing template",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "checkk",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": &types.Value{},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': missing compiled template",
+	},
+	{
+		Name: "add static instance - bad params",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": &types.Value{},
+					},
+				},
+				AttributeBindings: map[string]string{"test": "test"},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': nil Value",
+	},
+
+	{
+		Name: "add static instance - extra field",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": &types.Value{Kind: &types.Value_StringValue{StringValue: "test"}},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: `instance='i1.instance.default': unknown field "extra_field" in v1beta1.Instance`,
+	},
+
 	{
 		Name: "add instance - bad param type",
 		Events1: []*store.Event{
@@ -4188,6 +4282,7 @@ var stdTemplates = map[string]*template.Info{
 	},
 	"check": {
 		Name:    "check",
+		CtrCfg:  &descriptorpb.Instance{},
 		Variety: adapter_model.TEMPLATE_VARIETY_CHECK,
 		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 			return nil, nil

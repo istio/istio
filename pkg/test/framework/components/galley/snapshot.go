@@ -43,9 +43,20 @@ func (*SnapshotObject) ProtoMessage()    {}
 // SnapshotValidatorFunc validates the given snapshot objects returned from Galley.
 type SnapshotValidatorFunc func(actuals []*SnapshotObject) error
 
-// GoldenValidatorFunc creates a SnapshotValidatorFunc that tests for equivalence against
+// NewSingleObjectSnapshotValidator creates a SnapshotValidatorFunc that ensures only a single object
+// is found in the snapshot.
+func NewSingleObjectSnapshotValidator(fn func(actual *SnapshotObject) error) SnapshotValidatorFunc {
+	return func(actuals []*SnapshotObject) error {
+		if len(actuals) != 1 {
+			return fmt.Errorf("expected 1 resource, found %d", len(actuals))
+		}
+		return fn(actuals[0])
+	}
+}
+
+// NewGoldenSnapshotValidator creates a SnapshotValidatorFunc that tests for equivalence against
 // a set of golden object.
-func GoldenValidatorFunc(goldens []map[string]interface{}) SnapshotValidatorFunc {
+func NewGoldenSnapshotValidator(goldens []map[string]interface{}) SnapshotValidatorFunc {
 	return func(actuals []*SnapshotObject) error {
 		// Convert goldens to a map of JSON objects indexed by name.
 		goldenMap := make(map[string]interface{})

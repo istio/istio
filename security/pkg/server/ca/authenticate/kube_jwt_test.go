@@ -57,7 +57,6 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	testCases := map[string]struct {
 		caCertPath     string
 		jwtPath        string
-		trustDomain    string
 		expectedErrMsg string
 	}{
 		"Invalid CA cert path": {

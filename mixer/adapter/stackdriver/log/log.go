@@ -245,8 +245,7 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 	if variables[mapping.Method] != nil {
 		method = variables[mapping.Method].(string)
 	}
-	var httpHeaders http.Header
-	httpHeaders = make(http.Header)
+	httpHeaders := make(http.Header)
 	if variables[mapping.UserAgent] != nil {
 		httpHeaders.Add("User-Agent", variables[mapping.UserAgent].(string))
 	}

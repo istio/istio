@@ -74,20 +74,8 @@ const (
 )
 
 func init() {
-	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
-	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
-}
-
-func envDuration(envVal string, def time.Duration) time.Duration {
-	if envVal == "" {
-		return def
-	}
-	d, err := time.ParseDuration(envVal)
-	if err != nil {
-		adsLog.Warnf("Invalid value %s %v", envVal, err)
-		return def
-	}
-	return d
+	DebounceAfter = pilot.DebounceAfter
+	DebounceMax = pilot.DebounceMax
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -178,17 +166,6 @@ type Workload struct {
 	Labels map[string]string
 }
 
-func intEnv(envVal string, def int) int {
-	if len(envVal) == 0 {
-		return def
-	}
-	n, err := strconv.Atoi(envVal)
-	if err == nil && n > 0 {
-		return n
-	}
-	return def
-}
-
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(
 	env *model.Environment,
@@ -239,8 +216,8 @@ func NewDiscoveryServer(
 
 	out.DebugConfigs = pilot.DebugConfigs
 
-	pushThrottle := intEnv(pilot.PushThrottle, 10)
-	pushBurst := intEnv(pilot.PushBurst, 100)
+	pushThrottle := pilot.PushThrottle
+	pushBurst := pilot.PushBurst
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
@@ -260,14 +237,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
-	envOverride := pilot.RefreshDuration
-	if len(envOverride) > 0 {
-		var err error
-		periodicRefreshDuration, err = time.ParseDuration(envOverride)
-		if err != nil {
-			adsLog.Warn("Invalid value for V2_REFRESH")
-		}
-	}
+	periodicRefreshDuration = pilot.RefreshDuration
 	if periodicRefreshDuration == 0 {
 		return
 	}

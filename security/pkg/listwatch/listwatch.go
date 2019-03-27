@@ -37,7 +37,7 @@ func MultiNamespaceListerWatcher(namespaces []string, f func(string) cache.Liste
 	if len(namespaces) == 1 {
 		return f(namespaces[0])
 	}
-	var lws []cache.ListerWatcher
+	lws := make([]cache.ListerWatcher, 0, len(namespaces))
 	for _, n := range namespaces {
 		lws = append(lws, f(n))
 	}
@@ -53,7 +53,7 @@ type multiListerWatcher []cache.ListerWatcher
 // a single result.
 func (mlw multiListerWatcher) List(options metav1.ListOptions) (runtime.Object, error) {
 	l := metav1.List{}
-	var resourceVersions []string
+	resourceVersions := make([]string, 0, len(mlw))
 	for _, lw := range mlw {
 		list, err := lw.List(options)
 		if err != nil {
@@ -109,7 +109,7 @@ func newMultiWatch(lws []cache.ListerWatcher, resourceVersions []string, options
 	var (
 		result   = make(chan watch.Event)
 		stopped  = make(chan struct{})
-		stoppers []func()
+		stoppers = make([]func(), 0, len(lws))
 		wg       sync.WaitGroup
 	)
 
@@ -175,5 +175,4 @@ func (mw *multiWatch) Stop() {
 		}
 		close(mw.stopped)
 	}
-	return
 }

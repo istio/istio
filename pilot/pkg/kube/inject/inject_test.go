@@ -64,13 +64,9 @@ func TestImageName(t *testing.T) {
 
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
-		enableAuth                   bool
 		in                           string
 		want                         string
 		imagePullPolicy              string
-		enableCoreDump               bool
-		debugMode                    bool
-		privileged                   bool
 		duration                     time.Duration
 		includeIPRanges              string
 		excludeIPRanges              string
@@ -78,10 +74,13 @@ func TestIntoResourceFile(t *testing.T) {
 		excludeInboundPorts          string
 		kubevirtInterfaces           string
 		statusPort                   int
-		readinessPath                string
 		readinessInitialDelaySeconds uint32
 		readinessPeriodSeconds       uint32
 		readinessFailureThreshold    uint32
+		enableAuth                   bool
+		enableCoreDump               bool
+		debugMode                    bool
+		privileged                   bool
 		tproxy                       bool
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
@@ -570,9 +569,8 @@ func TestIntoResourceFile(t *testing.T) {
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
 	cases := []struct {
-		in       string
-		want     string
-		template string
+		in   string
+		want string
 	}{
 		{
 			in:   "hello-probes.yaml",

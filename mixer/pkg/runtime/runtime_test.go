@@ -301,19 +301,15 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 }
 
 type mockStore struct {
-	// Init method related fields
-	initCalled        bool
-	initKinds         map[string]proto.Message
-	initErrorToReturn error
-
-	// Watch method related fields
-	watchCalled          bool
+	initKinds            map[string]proto.Message
+	initErrorToReturn    error
 	watchChannelToReturn chan store.Event
 	watchErrorToReturn   error
+	listResultToReturn   map[store.Key]*store.Resource
 
-	// List method related fields
-	listCalled         bool
-	listResultToReturn map[store.Key]*store.Resource
+	initCalled  bool
+	watchCalled bool
+	listCalled  bool
 }
 
 var _ store.Store = &mockStore{}

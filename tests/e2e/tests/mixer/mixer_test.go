@@ -1322,12 +1322,6 @@ func logPolicyMetrics(t *testing.T, adapter, app string) {
 	t.Logf("istio-policy stats (all requests): mixer checkcache hits: %f, adapter '%s' dispatches: %f", mixerCacheHits, adapter, dispatches)
 }
 
-// nolint: deadcode
-func mixerCheckCacheHits(promAPI v1.API) (float64, error) {
-	query := "sum(mixer_checkcache_cache_hits_total{job=\"istio-policy\"})"
-	return queryValue(promAPI, query)
-}
-
 func adapterDispatches(promAPI v1.API, adapter string) (float64, error) {
 	query := fmt.Sprintf("sum(mixer_runtime_dispatches_total{adapter=\"%s\"})", adapter)
 	return queryValue(promAPI, query)

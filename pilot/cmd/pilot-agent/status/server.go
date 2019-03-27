@@ -67,11 +67,11 @@ type Config struct {
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
-	statusPort          uint16
 	ready               *ready.Probe
 	mutex               sync.RWMutex
-	lastProbeSuccessful bool
 	appKubeProbers      KubeAppProbers
+	statusPort          uint16
+	lastProbeSuccessful bool
 }
 
 // NewServer creates a new status server.

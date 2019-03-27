@@ -99,7 +99,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
 
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChain1st); bytes.Compare(got, want) != 0 {
+	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChain1st); !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
@@ -114,7 +114,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecretRoot.RootCert, []byte("rootcert"); bytes.Compare(got, want) != 0 {
+	if got, want := gotSecretRoot.RootCert, []byte("rootcert"); !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
@@ -142,7 +142,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); bytes.Compare(got, want) != 0 {
+	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
