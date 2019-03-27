@@ -44,7 +44,10 @@ func Stringify(v interface{}) string {
 		case bool:
 			return strconv.FormatBool(vv)
 		case []byte:
-			return net.IP(vv).String()
+			if net.IP(vv).To16() != nil {
+				return net.IP(vv).String()
+			}
+			return string(vv[:])
 		case time.Time:
 			return string(serializeTime(vv))
 		case time.Duration:
