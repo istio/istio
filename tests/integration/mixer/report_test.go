@@ -16,6 +16,7 @@ package mixer
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"testing"
 	"time"
 
@@ -31,6 +32,10 @@ import (
 func TestMixer_Report_Direct(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
+
+	// TODO(https://github.com/istio/istio/issues/12750): Disabling K8s mode for now, as Mixer is not listening for
+	// legacy CRDs anymore, when using the standard Helm deployment.
+	ctx.RequireOrSkip(t, environment.Native)
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
