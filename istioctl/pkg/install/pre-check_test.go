@@ -143,10 +143,12 @@ func mockPreCheckClient(m *mockClientExecPreCheckConfig) func(restClientGetter r
 	return outfunction
 }
 
+// nolint: unparam
 func (m *mockClientExecPreCheckConfig) serverVersion() (*version.Info, error) {
 	return m.version, nil
 }
 
+// nolint: unparam
 func (m *mockClientExecPreCheckConfig) getNameSpace(ns string) (*v1.Namespace, error) {
 	if m.namespace == ns {
 		n := &v1.Namespace{
