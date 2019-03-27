@@ -216,75 +216,58 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	}
 
 	servers := merged.ServersByRouteName[routeName]
+	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	gatewaysForVSSelection := make(map[string]bool)
-	gatewayHosts := make(map[model.Hostname]bool)
-	tlsRedirect := make(map[model.Hostname]bool)
-
+	vHostDedupMap := make(map[model.Hostname]*route.VirtualHost)
 	for _, server := range servers {
-		// collect all the owning gateway names of these servers
-		// we will only select virtual services pertaining to these gateways
-		gatewaysForVSSelection[merged.GatewayNameForServer[server]] = true
-		for _, host := range server.Hosts {
-			gatewayHosts[model.Hostname(host)] = true
-			if server.Tls != nil && server.Tls.HttpsRedirect {
-				tlsRedirect[model.Hostname(host)] = true
+		gatewayName := merged.GatewayNameForServer[server]
+		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
+		for _, virtualService := range virtualServices {
+			virtualServiceHosts := model.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
+			serverHosts := model.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
+
+			// We have two cases here:
+			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and server hosts are ns/*.foo.com
+			// 2. virtualService hosts are *.foo.com, and server hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+			intersectingHosts := serverHosts.Intersection(virtualServiceHosts)
+			if len(intersectingHosts) == 0 {
+				log.Debugf("%s virtual service %q has no matching hosts for gateways %v server %d", node.ID, virtualService.Name, gatewayName, port)
+				continue
 			}
-		}
-	}
 
-	port := int(servers[0].Port.Number)
-	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := push.VirtualServices(node, gatewaysForVSSelection)
-	vHostDedupMap := make(map[string]*route.VirtualHost)
+			routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, nil, map[string]bool{gatewayName: true})
+			if err != nil {
+				log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, virtualService, err)
+				continue
+			}
 
-	for _, v := range virtualServices {
-		// We have two cases here:
-		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
-		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
-		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, v)
-		if len(matchingHosts) == 0 {
-			log.Debugf("%s omitting virtual service %q because its hosts don't match gateways %v server %d", node.ID, v.Name, gateways, port)
-			continue
-		}
-		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, v, nameToServiceMap, port, nil, gatewaysForVSSelection)
-		if err != nil {
-			log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
-			continue
-		}
-
-		for vsvcHost, gatewayHosts := range matchingHosts {
-			for _, gatewayHost := range gatewayHosts {
-				host := vsvcHost
-				if gatewayHost.SubsetOf(model.Hostname(vsvcHost)) {
-					host = string(gatewayHost)
-				}
-				if currentVhost, exists := vHostDedupMap[host]; exists {
-					currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
+			for _, host := range intersectingHosts {
+				if vHost, exists := vHostDedupMap[host]; exists {
+					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
-					newVhost := &route.VirtualHost{
+					newVHost := &route.VirtualHost{
 						Name:    fmt.Sprintf("%s:%d", host, port),
-						Domains: []string{host, fmt.Sprintf("%s:%d", host, port)},
+						Domains: []string{string(host), fmt.Sprintf("%s:%d", host, port)},
 						Routes:  routes,
 					}
-					if tlsRedirect[gatewayHost] {
-						newVhost.RequireTls = route.VirtualHost_ALL
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						newVHost.RequireTls = route.VirtualHost_ALL
 					}
-					vHostDedupMap[host] = newVhost
+					vHostDedupMap[host] = newVHost
 				}
 			}
 		}
 	}
 
-	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
+	var virtualHosts []route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = append(virtualHosts, route.VirtualHost{
+		virtualHosts = []route.VirtualHost{route.VirtualHost{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
 			Routes: []route.Route{
@@ -299,8 +282,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 					},
 				},
 			},
-		})
+		}}
 	} else {
+		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
 			virtualHosts = append(virtualHosts, *v)
 		}
