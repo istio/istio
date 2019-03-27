@@ -43,8 +43,10 @@ const (
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 
-	// TODO: there is a stricter regex for the labels from validation.go in k8s
-	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
+	// Using kubernetes requirement, a valid tag must be an empty string or consist
+	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
+	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
+	qualifiedNameFmt string = "(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?"
 )
 
 // Constants for duration fields

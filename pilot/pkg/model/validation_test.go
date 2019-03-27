@@ -318,6 +318,14 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name: "bad tag",
+			tags: Labels{"_key": "value"},
+		},
+		{
+			name: "bad tag",
+			tags: Labels{"key": ".value"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
