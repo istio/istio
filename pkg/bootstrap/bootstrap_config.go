@@ -76,7 +76,6 @@ var (
 	}
 
 	defaultEnvoyStatsMatcherInclusionSuffixes = []string{
-		"upstream_rq_total",
 		"upstream_rq_1xx",
 		"upstream_rq_2xx",
 		"upstream_rq_3xx",
@@ -266,11 +265,22 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
+	var inclusionOption []string
 	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPrefixes]; ok {
-		opts[envoyStatsMatcherInclusionPrefixOption] = strings.Split(inclusionPatterns, ",")
+		inclusionOption = strings.Split(inclusionPatterns, ",")
 	} else {
-		opts[envoyStatsMatcherInclusionPrefixOption] = defaultEnvoyStatsMatcherInclusionPrefixes
+		inclusionOption = defaultEnvoyStatsMatcherInclusionPrefixes
 	}
+
+	// add http.my_ip prefix
+	// http.10.16.48.230_8080.downstream_rq_2xx
+	// the metric has http_conn_manager_prefix = 10.16.48.230_8080 as a tag
+	for _, nodeIP := range nodeIPs {
+		inclusionOption = append(inclusionOption,
+			"http."+nodeIP+"_")
+	}
+
+	opts[envoyStatsMatcherInclusionPrefixOption] = inclusionOption
 
 	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionSuffixes]; ok {
 		opts[envoyStatsMatcherInclusionSuffixOption] = strings.Split(inclusionPatterns, ",")
