@@ -2068,7 +2068,9 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	// TODO: additional validation for AllowOrigin?
+	for _, host := range policy.AllowOrigin {
+		errs = appendErrors(errs, ValidateWildcardDomain(host))
+	}
 
 	for _, method := range policy.AllowMethods {
 		errs = appendErrors(errs, validateHTTPMethod(method))
@@ -2088,8 +2090,6 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
 	}
-
-	// TODO: additional validation for AllowCredentials?
 
 	return
 }

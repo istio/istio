@@ -1756,6 +1756,13 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
+		{name: "bad origin", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com", "error$.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
