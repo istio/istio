@@ -147,6 +147,12 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	}
 
 	// Check if the constraints are matched.
+	return service.areConstraintsMatched(rule)
+}
+
+// areConstraintsMatched returns True if the calling service's attributes and/or labels match to
+// the ServiceRole constraints.
+func (service serviceMetadata) areConstraintsMatched(rule *rbacproto.AccessRule) bool {
 	for _, constraint := range rule.Constraints {
 		if !attributesEnforcedInPlugin(constraint.Key) {
 			continue
@@ -171,7 +177,6 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -454,7 +459,14 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, isXDSMarshaling
 	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, option)
+	var config *http_config.RBAC
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for TCP filter")
+		config = convertRbacRulesToFilterConfigV2(service, option)
+	} else {
+		rbacLog.Debugf("used RBAC v1 for TCP filter")
+		config = convertRbacRulesToFilterConfig(service, option)
+	}
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 	}
@@ -478,7 +490,14 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption, isXDSMarshaling
 // service which is co-located with the sidecar proxy.
 func buildHTTPFilter(service *serviceMetadata, option rbacOption, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	option.forTCPFilter = false
-	config := convertRbacRulesToFilterConfig(service, option)
+	var config *http_config.RBAC
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for HTTP filter")
+		config = convertRbacRulesToFilterConfigV2(service, option)
+	} else {
+		rbacLog.Debugf("used RBAC v1 for HTTP filter")
+		config = convertRbacRulesToFilterConfig(service, option)
+	}
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	out := &http_conn.HttpFilter{
 		Name: rbacHTTPFilterName,
