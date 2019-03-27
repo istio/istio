@@ -56,6 +56,7 @@ type entry struct {
 	ProtoGoPackage string `json:"protoPackage"`
 	Collection     string `json:"collection"`
 	Generated      string `json:"generated"`
+	Optional       bool   `json:"optional"`
 }
 
 // collection related metadata
@@ -272,6 +273,9 @@ func init() {
 		Group:      "{{.Group}}",
 		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
+		{{ if .Optional }}
+		Optional:   true,
+		{{end}}
     })
 	{{end}}
 {{end}}
