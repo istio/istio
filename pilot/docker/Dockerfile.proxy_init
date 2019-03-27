@@ -1,8 +1,20 @@
-FROM ubuntu:xenial
+FROM ubuntu:xenial as builder
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     iproute2 \
     iptables \
  && rm -rf /var/lib/apt/lists/*
+
+
+FROM gcr.io/distroless/base:debug
+
+COPY --from=builder /sbin/xtables-multi /sbin/xtables-multi
+COPY --from=builder /lib/xtables /lib/xtables
+COPY --from=builder /sbin/iptables /sbin/iptables
+COPY --from=builder /sbin/ip6tables /sbin/ip6tables
+
+COPY --from=builder /etc/iproute2 /etc/iproute2
+COPY --from=builder /bin/ip /bin/ip
+COPY --from=builder /sbin/ip /sbin/ip
 
 ADD istio-iptables.sh /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
