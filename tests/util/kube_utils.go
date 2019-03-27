@@ -675,7 +675,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			dump, err := ShellMuteOutput(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				log.Warnf("Error gettings logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
+				log.Warnf("Error getting logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
 				// don't stop if we can't get the current log; keep going
 			}
 
@@ -684,10 +684,10 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 				return err
 			}
 
-			dump1, err := ShellMuteOutput(
+			dump1, err := ShellMuteOutputError(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s -p --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				log.Infof("No previous log %v", err)
+				log.Infof("No previous log for %s", pod)
 			} else if len(dump1) > 0 {
 				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.prev.log", pod, container))
 				f1, err := os.Create(filePath)
