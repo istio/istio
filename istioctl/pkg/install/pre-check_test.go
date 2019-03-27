@@ -34,7 +34,6 @@ type mockClientExecPreCheckConfig struct {
 type testcase struct {
 	description       string
 	config            *mockClientExecPreCheckConfig
-	expectedResult    string
 	expectedException bool
 }
 
@@ -161,7 +160,8 @@ func (m *mockClientExecPreCheckConfig) getNameSpace(ns string) (*v1.Namespace, e
 
 }
 
-func (m *mockClientExecPreCheckConfig) checkAuthorization(s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
+func (m *mockClientExecPreCheckConfig) checkAuthorization(
+	s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
 	return m.authConfig, nil
 }
 

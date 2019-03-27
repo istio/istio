@@ -78,7 +78,7 @@ func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTC
 	fmt.Fprintf(writer, "-----------------------\n")
 	ns, _ := c.getNameSpace(*istioNamespaceFlag)
 	if ns != nil {
-		return fmt.Errorf("Istio cannot be installed because the Istio namespace '%v' is already in use", *istioNamespaceFlag)
+		return fmt.Errorf("istio cannot be installed because the Istio namespace '%v' is already in use", *istioNamespaceFlag)
 	}
 	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", *istioNamespaceFlag)
 
@@ -222,9 +222,9 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 
 	if !response.Status.Allowed {
 		if len(response.Status.Reason) > 0 {
-			return fmt.Errorf("Istio installation will not succeed.Create permission lacking for:%s: %v", name, response.Status.Reason)
+			return fmt.Errorf("istio installation will not succeed.Create permission lacking for:%s: %v", name, response.Status.Reason)
 		}
-		return fmt.Errorf("Istio installation will not succeed. Create permission lacking for:%s", name)
+		return fmt.Errorf("istio installation will not succeed. Create permission lacking for:%s", name)
 	}
 	return nil
 }
