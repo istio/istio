@@ -60,6 +60,8 @@ type Suite struct {
 	osExit func(int)
 	labels []label.Instance
 	ctx    SuiteContext
+
+	setupFns []SetupFn
 }
 
 // NewSuite returns a new suite instance.
@@ -109,23 +111,13 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 	return s
 }
 
-// Setup runs the given setup function. It calls os.Exit if it returns an error.
+// Setup runs enqueues the given setup function to run before test execution.
 func (s *Suite) Setup(fn SetupFn) *Suite {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
-
-	err := s.setup(fn)
-	if err != nil {
-		scopes.Framework.Errorf("Test setup error: %v", err)
-		scopes.CI.Infof("=== FAILED: test setup: '%s' ===", rt.SuiteContext().Settings().TestID)
-		s.osExit(exitCodeSetupError)
-		return s
-	}
-
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+	s.setupFns = append(s.setupFns, fn)
 	return s
 }
 
-func (s *Suite) setup(fn SetupFn) (err error) {
+func (s *Suite) runSetupFn(fn SetupFn) (err error) {
 	defer func() {
 		// Dump if the setup function fails
 		if err != nil && rt.SuiteContext().Settings().CIMode {
@@ -154,6 +146,16 @@ func (s *Suite) Run() {
 }
 
 func (s *Suite) run() (errLevel int) {
+	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
+	// if not, simply exit now.
+	if s.ctx.Settings().Selector.Excludes(s.labels) {
+		scopes.Framework.Infof("Skipping suite %q due to label mismatch: labels=%v, selector=%v",
+			s.ctx.Settings().TestID,
+			s.labels,
+			s.ctx.Settings().Selector)
+		return 0
+	}
+
 	start := time.Now()
 
 	defer func() {
@@ -166,6 +168,11 @@ func (s *Suite) run() (errLevel int) {
 		}
 		rt = nil
 	}()
+
+	if err := s.runSetupFns(); err != nil {
+		scopes.Framework.Errorf("Exiting due to setup failure: %v", err)
+		return exitCodeSetupError
+	}
 
 	defer func() {
 		end := time.Now()
@@ -182,6 +189,21 @@ func (s *Suite) run() (errLevel int) {
 	}
 
 	return
+}
+
+func (s *Suite) runSetupFns() (err error) {
+	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+
+	for _, fn := range s.setupFns {
+		err := s.runSetupFn(fn)
+		if err != nil {
+			scopes.Framework.Errorf("Test setup error: %v", err)
+			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", rt.SuiteContext().Settings().TestID, err)
+			return err
+		}
+	}
+	scopes.CI.Infof("=== DONE: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+	return nil
 }
 
 func initRuntime(testID string) error {

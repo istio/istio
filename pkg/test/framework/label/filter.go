@@ -20,24 +20,24 @@ import (
 	"strings"
 )
 
-// Filter is a Set of label filter expressions that get applied together to decide whether tests should be executed
-// or not.
-type Filter struct {
+// Selector is a Set of label filter expressions that get applied together to decide whether tests should be selected
+// for execution or not.
+type Selector struct {
 	// The constraints are and'ed together.
 	present Set
 	absent  Set
 }
 
-var _ fmt.Stringer = Filter{}
+var _ fmt.Stringer = Selector{}
 
-func NewFilter(present []Instance, absent []Instance) Filter {
+func NewSelector(present []Instance, absent []Instance) Selector {
 	p := make([]Instance, len(present))
 	copy(p, present)
 
 	a := make([]Instance, len(absent))
 	copy(a, absent)
 
-	return Filter{
+	return Selector{
 		present: p,
 		absent:  a,
 	}
@@ -45,7 +45,7 @@ func NewFilter(present []Instance, absent []Instance) Filter {
 
 var userLabelRegex = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z0-9]+)*$")
 
-func ParseFilter(s string) (Filter, error) {
+func ParseSelector(s string) (Selector, error) {
 	var present, absent Set
 
 	parts := strings.Split(s, ",")
@@ -64,31 +64,32 @@ func ParseFilter(s string) (Filter, error) {
 		}
 
 		if !userLabelRegex.Match([]byte(p)) {
-			return Filter{}, fmt.Errorf("invalid label name: %q", p)
+			return Selector{}, fmt.Errorf("invalid label name: %q", p)
 		}
 
 		l := Instance(p)
 		if !all.contains(l) {
-			return Filter{}, fmt.Errorf("unknown label name: %q", p)
+			return Selector{}, fmt.Errorf("unknown label name: %q", p)
 		}
 
 		if negative {
 			if present.contains(l) {
-				return Filter{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
+				return Selector{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
 			}
 			absent = append(absent, l)
 		} else {
 			if absent.contains(l) {
-				return Filter{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
+				return Selector{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
 			}
 			present = append(present, l)
 		}
 	}
 
-	return NewFilter(present, absent), nil
+	return NewSelector(present, absent), nil
 }
 
-func (f *Filter) Check(inputs Set) bool {
+// Selects returns true, if the given label set satisfies the Selector.
+func (f *Selector) Selects(inputs Set) bool {
 	if inputs.containsAny(f.absent) {
 		return false
 	}
@@ -100,7 +101,17 @@ func (f *Filter) Check(inputs Set) bool {
 	return true
 }
 
-func (f Filter) String() string {
+// Excludes returns false, if the given set of labels, even combined with new ones, could end up satisfying the Selector.
+// It returns false, if Matches would never return true, even if new labels are added to the input set.
+func (f *Selector) Excludes(inputs Set) bool {
+	if inputs.containsAny(f.absent) {
+		return true
+	}
+
+	return false
+}
+
+func (f Selector) String() string {
 	var result string
 
 	for _, p := range f.present {

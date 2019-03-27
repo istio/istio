@@ -54,8 +54,8 @@ func newTestContext(t *testing.T, s *suiteContext, parentScope *scope, labels la
 	}
 
 	allLabels := s.suiteLabels.With(labels)
-	if !s.settings.Filter.Check(allLabels) {
-		t.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Filter)
+	if !s.settings.Selector.Selects(allLabels) {
+		t.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
 	}
 
 	scopes.Framework.Debugf("Creating New test context")

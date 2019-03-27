@@ -55,7 +55,7 @@ func TestLabels(t *testing.T) {
 
 	for i, te := range tests {
 		t.Run(strconv.FormatInt(int64(i), 10), func(t *testing.T) {
-			f, err := ParseFilter(te.filter)
+			f, err := ParseSelector(te.filter)
 			if err != nil {
 				if te.err {
 					return
@@ -65,7 +65,7 @@ func TestLabels(t *testing.T) {
 				t.Fatalf("Expected error not found: filter:%q, labels:%v", te.filter, te.labels)
 			}
 
-			actual := f.Check(te.labels)
+			actual := f.Selects(te.labels)
 			if actual != te.expected {
 				t.Fatalf("Mismatch: got:%v, wanted: %v, filter:%q, labels:%v", actual, te.expected, te.filter, te.labels)
 			}

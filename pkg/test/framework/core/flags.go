@@ -38,11 +38,11 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	s := settingsFromCommandLine.Clone()
 	s.TestID = testID
 
-	f, err := label.ParseFilter(s.FilterString)
+	f, err := label.ParseSelector(s.SelectorString)
 	if err != nil {
 		return nil, err
 	}
-	s.Filter = f
+	s.Selector = f
 
 	return s, nil
 }
@@ -61,6 +61,6 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.CIMode, "istio.test.ci", settingsFromCommandLine.CIMode,
 		"Enable CI Mode. Additional logging and state dumping will be enabled.")
 
-	flag.StringVar(&settingsFromCommandLine.FilterString, "istio.test.select", settingsFromCommandLine.FilterString,
+	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
 		"Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
 }

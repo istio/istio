@@ -51,11 +51,11 @@ type Settings struct {
 	// os.TempDir() will be used.
 	BaseDir string
 
-	// The label filter that the user has specified.
-	FilterString string
+	// The label selector that the user has specified.
+	SelectorString string
 
-	// The label filter, in parsed form.
-	Filter label.Filter
+	// The label selector, in parsed form.
+	Selector label.Selector
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -95,6 +95,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("RunID:        %s\n", s.RunID.String())
 	result += fmt.Sprintf("NoCleanup:    %v\n", s.NoCleanup)
 	result += fmt.Sprintf("BaseDir:      %s\n", s.BaseDir)
-	result += fmt.Sprintf("Filter:       %v\n", s.Filter)
+	result += fmt.Sprintf("Selector:       %v\n", s.Selector)
 	return result
 }
