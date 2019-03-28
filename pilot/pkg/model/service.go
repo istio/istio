@@ -645,6 +645,7 @@ func (h Hostnames) Swap(i, j int) {
 //  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.com","bar.net"])) = Hostnames(["foo.com","bar.net"])
 //  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.bar.net"]))       = Hostnames(["*.bar.net"])
 //  Hostnames(["foo.com"]).Intersection(Hostnames(["bar.com"]))                 = Hostnames([])
+//  Hostnames([]).Intersection(Hostnames(["bar.com"])                           = Hostnames([])
 func (h Hostnames) Intersection(other Hostnames) Hostnames {
 	result := make(Hostnames, 0, len(h))
 	for _, hHost := range h {
@@ -669,15 +670,21 @@ func StringsToHostnames(hosts []string) Hostnames {
 }
 
 // HostnamesForNamespace returns the subset of hosts that are in the specified namespace.
-// The list of hosts contains host names optionally qualified with namespace/.
-// If not qualified, a host name is considered to be in any namespace.
-// NOTE: only expecting ns/host and no ./* or */host.
+// The list of hosts contains host names optionally qualified with namespace/ or */.
+// If not qualified or qualified with *, the host name is considered to be in every namespace.
+// e.g.:
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns1")   = Hostnames(["foo.com"])
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns3")   = Hostnames([])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns1")     = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns3")     = Hostnames(["bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns2")       = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns3")       = Hostnames(["foo.com"])
 func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
 	result := make(Hostnames, 0, len(hosts))
 	for _, host := range hosts {
 		if strings.Contains(host, "/") {
 			parts := strings.Split(host, "/")
-			if parts[0] != namespace {
+			if parts[0] != namespace && parts[0] != "*" {
 				continue
 			}
 			//strip the namespace

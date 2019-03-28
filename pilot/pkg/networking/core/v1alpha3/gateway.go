@@ -236,7 +236,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			// 2. virtualService hosts are *.foo.com, and server hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
 			intersectingHosts := serverHosts.Intersection(virtualServiceHosts)
 			if len(intersectingHosts) == 0 {
-				log.Debugf("%s virtual service %q has no matching hosts for gateways %v server %d", node.ID, virtualService.Name, gatewayName, port)
 				continue
 			}
 

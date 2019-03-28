@@ -351,6 +351,115 @@ func BenchmarkMatch(b *testing.B) {
 	}
 }
 
+func TestHostnamesIntersection(t *testing.T) {
+	tests := []struct {
+		a, b, intersection Hostnames
+	}{
+		{
+			Hostnames{"foo,com"},
+			Hostnames{"bar.com"},
+			Hostnames{},
+		},
+		{
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"bar.com"},
+			Hostnames{"bar.com"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"*.com"},
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			Hostnames{"*.com"},
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			Hostnames{"foo.com", "*.net"},
+			Hostnames{"*.com", "bar.net"},
+			Hostnames{"foo.com", "bar.net"},
+		},
+		{
+			Hostnames{"foo.com", "*.net"},
+			Hostnames{"*.bar.net"},
+			Hostnames{"*.bar.net"},
+		},
+		{
+			Hostnames{"foo.com", "bar.net"},
+			Hostnames{"*"},
+			Hostnames{"foo.com", "bar.net"},
+		},
+		{
+			Hostnames{"foo.com"},
+			Hostnames{},
+			Hostnames{},
+		},
+		{
+			Hostnames{},
+			Hostnames{"bar.com"},
+			Hostnames{},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			result := tt.a.Intersection(tt.b)
+			if !reflect.DeepEqual(result, tt.intersection) {
+				t.Fatalf("%v.Intersection(%v) = %v, want %v", tt.a, tt.b, result, tt.intersection)
+			}
+		})
+	}
+}
+
+func TestHostnamesForNamespace(t *testing.T) {
+	tests := []struct {
+		strings []string
+		namespace string
+		hosts Hostnames
+	}{
+		{
+			[]string{"ns1/foo.com","ns2/bar.com"},
+			"ns1",
+			Hostnames{"foo.com"},
+		},
+		{
+			[]string{"ns1/foo.com","ns2/bar.com"},
+			"ns3",
+			Hostnames{},
+		},
+		{
+			[]string{"ns1/foo.com","*/bar.com"},
+			"ns1",
+			Hostnames{"foo.com","bar.com"},
+		},
+		{
+			[]string{"ns1/foo.com","*/bar.com"},
+			"ns3",
+			Hostnames{"bar.com"},
+		},
+		{
+			[]string{"foo.com","ns2/bar.com"},
+			"ns2",
+			Hostnames{"foo.com","bar.com"},
+		},
+		{
+			[]string{"foo.com","ns2/bar.com"},
+			"ns3",
+			Hostnames{"foo.com"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			result := HostnamesForNamespace(tt.strings, tt.namespace)
+			if !reflect.DeepEqual(result, tt.hosts) {
+				t.Fatalf("HostnamesForNamespace(%v, %v) = %v, want %v", tt.strings, tt.namespace, result, tt.hosts)
+			}
+		})
+	}
+}
+
 func TestHostnamesSortOrder(t *testing.T) {
 	tests := []struct {
 		in, want Hostnames
