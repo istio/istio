@@ -56,10 +56,10 @@ type mRunFn func() int
 
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
+	testID string
 	mRun   mRunFn
 	osExit func(int)
 	labels []label.Instance
-	ctx    SuiteContext
 
 	setupFns []SetupFn
 }
@@ -71,16 +71,11 @@ func NewSuite(testID string, m *testing.M) *Suite {
 
 func newSuite(testID string, fn mRunFn, osExit func(int)) *Suite {
 	s := &Suite{
+		testID: testID,
 		mRun:   fn,
 		osExit: osExit,
 	}
 
-	if err := initRuntime(testID); err != nil {
-		scopes.Framework.Errorf("Error during test framework init: %v", err)
-		osExit(exitCodeInitError)
-	}
-
-	s.ctx = rt.SuiteContext()
 	return s
 }
 
@@ -93,11 +88,19 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
 // stops test execution. This also applies the appropriate label to the suite implicitly.
 func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	if name != s.ctx.Environment().EnvironmentName() {
-		scopes.Framework.Infof("Skipping suite %q: expected environment not found: %v", s.ctx.Settings().TestID, name)
-		s.osExit(0)
+	setupFn := func(ctx SuiteContext) error {
+		if name != ctx.Environment().EnvironmentName() {
+			scopes.Framework.Infof("Skipping suite %q: Required environment (%v) does not match current: %v",
+				ctx.Settings().TestID, name, ctx.Environment().EnvironmentName())
+			s.osExit(0)
+		}
+		return nil
 	}
 
+	// Prepend the function, so that it runs as the first thing.
+	fns := []SetupFn{setupFn}
+	fns = append(fns, s.setupFns...)
+	s.setupFns = fns
 	return s
 }
 
@@ -107,24 +110,24 @@ func (s *Suite) Setup(fn SetupFn) *Suite {
 	return s
 }
 
-func (s *Suite) runSetupFn(fn SetupFn) (err error) {
+func (s *Suite) runSetupFn(fn SetupFn, ctx SuiteContext) (err error) {
 	defer func() {
 		// Dump if the setup function fails
-		if err != nil && rt.SuiteContext().Settings().CIMode {
+		if err != nil && ctx.Settings().CIMode {
 			rt.Dump()
 		}
 	}()
-	err = fn(rt.SuiteContext())
+	err = fn(ctx)
 	return
 }
 
 // EnvSetup runs the given setup function conditionally, based on the current environment.
 func (s *Suite) EnvSetup(e environment.Name, fn SetupFn) *Suite {
-	s.Setup(func(s SuiteContext) error {
-		if s.Environment().EnvironmentName() != e {
+	s.Setup(func(ctx SuiteContext) error {
+		if ctx.Environment().EnvironmentName() != e {
 			return nil
 		}
-		return fn(s)
+		return fn(ctx)
 	})
 
 	return s
@@ -136,20 +139,27 @@ func (s *Suite) Run() {
 }
 
 func (s *Suite) run() (errLevel int) {
+	if err := initRuntime(s.testID, s.labels); err != nil {
+		scopes.Framework.Errorf("Error during test framework init: %v", err)
+		return exitCodeInitError
+	}
+
+	ctx := rt.SuiteContext()
+
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
-	if s.ctx.Settings().Selector.Excludes(s.labels) {
+	if ctx.Settings().Selector.Excludes(s.labels) {
 		scopes.Framework.Infof("Skipping suite %q due to label mismatch: labels=%v, selector=%v",
-			s.ctx.Settings().TestID,
+			ctx.Settings().TestID,
 			s.labels,
-			s.ctx.Settings().Selector)
+			ctx.Settings().Selector)
 		return 0
 	}
 
 	start := time.Now()
 
 	defer func() {
-		if errLevel != 0 && rt.SuiteContext().Settings().CIMode {
+		if errLevel != 0 && ctx.Settings().CIMode {
 			rt.Dump()
 		}
 
@@ -159,44 +169,44 @@ func (s *Suite) run() (errLevel int) {
 		rt = nil
 	}()
 
-	if err := s.runSetupFns(); err != nil {
+	if err := s.runSetupFns(ctx); err != nil {
 		scopes.Framework.Errorf("Exiting due to setup failure: %v", err)
 		return exitCodeSetupError
 	}
 
 	defer func() {
 		end := time.Now()
-		scopes.CI.Infof("=== Suite %q run time: %v ===", s.ctx.Settings().TestID, end.Sub(start))
+		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
 	}()
 
-	scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", rt.SuiteContext().Settings().TestID)
+	scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
 	errLevel = s.mRun()
 	if errLevel == 0 {
-		scopes.CI.Infof("=== DONE: Test Run: '%s' ===", rt.SuiteContext().Settings().TestID)
+		scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 	} else {
 		scopes.CI.Infof("=== FAILED: Test Run: '%s' (exitCode: %v) ===",
-			rt.SuiteContext().Settings().TestID, errLevel)
+			ctx.Settings().TestID, errLevel)
 	}
 
 	return
 }
 
-func (s *Suite) runSetupFns() (err error) {
-	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
+	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
 	for _, fn := range s.setupFns {
-		err := s.runSetupFn(fn)
+		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
-			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", rt.SuiteContext().Settings().TestID, err)
+			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
 	}
-	scopes.CI.Infof("=== DONE: Setup: '%s' ===", rt.SuiteContext().Settings().TestID)
+	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
-func initRuntime(testID string) error {
+func initRuntime(testID string, labels label.Set) error {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -228,7 +238,7 @@ func initRuntime(testID string) error {
 	}
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
-	rt, err = runtime.New(s, newEnvironment)
+	rt, err = runtime.New(s, newEnvironment, labels)
 	return err
 }
 

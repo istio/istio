@@ -28,8 +28,8 @@ type Instance struct {
 }
 
 // New returns a new runtime instance.
-func New(s *core.Settings, fn api.FactoryFn) (*Instance, error) {
-	ctx, err := newSuiteContext(s, fn)
+func New(s *core.Settings, fn api.FactoryFn, labels label.Set) (*Instance, error) {
+	ctx, err := newSuiteContext(s, fn, labels)
 	if err != nil {
 		return nil, err
 	}

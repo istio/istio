@@ -49,10 +49,6 @@ type testContext struct {
 func newTestContext(t *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
 	id := s.allocateContextID(t.Name())
 
-	if s.skipAll {
-		t.Skipf("Skipping: %s", s.skipReason)
-	}
-
 	allLabels := s.suiteLabels.With(labels)
 	if !s.settings.Selector.Selects(allLabels) {
 		t.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
