@@ -22,6 +22,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -30,9 +32,9 @@ import (
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-//var (
-//	ist istio.Instance
-//)
+var (
+	ist istio.Instance
+)
 
 func TestSidecarListeners(t *testing.T) {
 	// Call Requires to explicitly initialize dependencies that the test needs.
@@ -109,36 +111,14 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
-	t.Run("validate-legacy-port-3333", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.
-			Select("{.resources[?(@.address.socketAddress.portValue==3333)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|3333|http|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}").
-			CheckOrFail(t)
-	})
-	t.Run("validate-legacy-port-9999", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.
-			Select("{.resources[?(@.address.socketAddress.portValue==9999)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|9999|custom|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}").
-			CheckOrFail(t)
-	})
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})
@@ -169,5 +149,5 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	// framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
 }
