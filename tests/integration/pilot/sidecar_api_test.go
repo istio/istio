@@ -22,18 +22,12 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/structpath"
-)
-
-var (
-	ist istio.Instance
 )
 
 func TestSidecarListeners(t *testing.T) {
@@ -149,5 +143,5 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("sidecar_api_test", m)
 }
