@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
 )
 
 type (
