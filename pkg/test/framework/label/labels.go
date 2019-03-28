@@ -20,17 +20,9 @@ const (
 
 	// Postsubmit indicates that the test should be run as part of a postsubmit run.
 	Postsubmit Instance = "postsubmit"
-
-	// Kube indicates that the test can run in Kubernetes environment.
-	Kube Instance = "kube"
-
-	// Native indicates that the test can run in Native environment.
-	Native Instance = "native"
 )
 
 var all = Set{
 	Presubmit,
 	Postsubmit,
-	Kube,
-	Native,
 }

@@ -98,16 +98,6 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 		s.osExit(0)
 	}
 
-	// TODO: Move this to an appropriate abstraction.
-	switch name {
-	case environment.Native:
-		s.Label(label.Native)
-	case environment.Kube:
-		s.Label(label.Kube)
-	default:
-		scopes.Framework.Infof("Unknown environment: %v", name)
-	}
-
 	return s
 }
 

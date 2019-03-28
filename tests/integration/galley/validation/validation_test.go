@@ -81,7 +81,7 @@ func TestValidation(t *testing.T) {
 					return
 				}
 
-				ctx := framework.NewContext(t, label.Kube, label.Presubmit)
+				ctx := framework.NewContext(t)
 				defer ctx.Done(t)
 
 				yml, err := d.load()
