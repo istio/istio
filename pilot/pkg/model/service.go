@@ -213,8 +213,6 @@ const (
 	VisibilityPrivate Visibility = "."
 	// VisibilityPublic implies config is visible to all
 	VisibilityPublic Visibility = "*"
-	// VisibilityNone implies config is visible to none
-	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case

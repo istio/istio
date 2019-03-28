@@ -243,9 +243,6 @@ func (a *ADSC) Run() error {
 			return err
 		}
 	}
-	if err != nil {
-		return err
-	}
 
 	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
@@ -505,7 +502,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				"ISTIO_PROXY_VERSION": {Kind: &types.Value_StringValue{StringValue: "1.0"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}

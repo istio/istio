@@ -23,7 +23,7 @@ import (
 // BatchMeasurements reads slices of Measurement types off a channel populated by the web handler
 // and packages them into batches conforming to the limitations imposed by the API.
 func BatchMeasurements(prepChan <-chan []*Measurement,
-	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int, logger adapter.Logger) {
+	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int) {
 	var currentBatch []*Measurement
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()

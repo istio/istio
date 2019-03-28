@@ -93,7 +93,7 @@ func (scopeTopic) Activate(context fw.TopicContext) {
 	_ = context.JSONRouter().NewRoute().Methods("PUT").Path("/{scope}").HandlerFunc(putScope)
 }
 
-func getAllScopes(w http.ResponseWriter, req *http.Request) {
+func getAllScopes(w http.ResponseWriter, _ *http.Request) {
 	allScopes := log.Scopes()
 
 	scopeInfos := make([]scopeInfo, 0, len(allScopes))
