@@ -54,6 +54,6 @@ func waitForValidationWebhook(accessor *kube.Accessor) error {
 			return nil
 		}
 
-		return fmt.Errorf("Validation webhook not ready yet: %v", err)
+		return fmt.Errorf("validation webhook not ready yet: %v", err)
 	}, retry.Timeout(time.Minute))
 }
