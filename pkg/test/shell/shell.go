@@ -16,9 +16,7 @@ package shell
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/log"
@@ -41,15 +39,6 @@ func Execute(format string, args ...interface{}) (string, error) {
 	return executeArgs(nil, parts[0], p[1:]...)
 }
 
-// ExecuteEnv executes the given command, with the specified environment value overrides.
-func ExecuteEnv(env map[string]string, format string, args ...interface{}) (string, error) {
-	s := fmt.Sprintf(format, args...)
-	// TODO: escape handling
-	parts := strings.Split(s, " ")
-
-	return executeArgs(toEnvironmentList(env), parts[0], parts[1:]...)
-}
-
 func executeArgs(env []string, name string, args ...string) (string, error) {
 
 	if scope.DebugEnabled() {
@@ -69,15 +58,4 @@ func executeArgs(env []string, name string, args ...string) (string, error) {
 	}
 
 	return string(b), err
-}
-
-func toEnvironmentList(m map[string]string) []string {
-	result := os.Environ() // Start with the current environment values and let the caller override.
-
-	for k, v := range m {
-		result = append(result, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	sort.Strings(result)
-	return result
 }
