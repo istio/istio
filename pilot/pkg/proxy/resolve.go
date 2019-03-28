@@ -36,9 +36,9 @@ var ErrResolveNoAddress = stderrors.New("no address specified")
 // addr can be an IP address or hostname. If addr is an IPv6 address, the IP
 // part must be enclosed in square brackets.
 //
-// TODO: LookupIPAddr() may return multiple IP addresses, of which this function
-// returns the first IPv4 entry. To use this function in an IPv6 only environment,
-// either provide an IPv6 address or ensure the hostname resolves to only IPv6 addresses.
+// LookupIPAddr() may return multiple IP addresses, of which this function returns
+// the first IPv4 entry. To use this function in an IPv6 only environment, either
+// provide an IPv6 address or ensure the hostname resolves to only IPv6 addresses.
 func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) {
 	if addr == "" {
 		return "", ErrResolveNoAddress
