@@ -1,15 +1,17 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: kubernetes
+kind: instance
 metadata:
   name: valid-kubernetes
 spec:
-  # Pass the required attribute data to the adapter
-  source_uid: source.uid | ""
-  source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
-  destination_uid: destination.uid | ""
-  destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
-  origin_uid: '""'
-  origin_ip: ip("0.0.0.0") # default to unspecified ip addr
+  compiledTemplate: kubernetes
+  params:
+    # Pass the required attribute data to the adapter
+    source_uid: source.uid | ""
+    source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
+    destination_uid: destination.uid | ""
+    destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
+    origin_uid: '""'
+    origin_ip: ip("0.0.0.0") # default to unspecified ip addr
   attribute_bindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message

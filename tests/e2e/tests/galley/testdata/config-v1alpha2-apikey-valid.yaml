@@ -1,10 +1,12 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: apikey
+kind: instance
 metadata:
   name: valid-apikey
 spec:
-  api: api.service | ""
-  api_version: api.version | ""
-  api_operation : api.operation
-  api_key : request.api_key
-  timestamp : request.time
+  compiledTemplate: apikey
+  params:
+    api: api.service | ""
+    api_version: api.version | ""
+    api_operation : api.operation
+    api_key : request.api_key
+    timestamp : request.time

@@ -1,15 +1,17 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: memquota
+kind: handler
 metadata:
   name: valid-memquota
 spec:
-  quotas:
-  - name: requestcount.quota.istio-system
-    maxAmount: 5000
-    validDuration: 1s
-    overrides:
-    - dimensions:
-        destination: ratings
-        source: reviews
-      maxAmount: 1
+  compiledAdapter: memquota
+  params:
+    quotas:
+    - name: requestcount.quota.istio-system
+      maxAmount: 5000
       validDuration: 1s
+      overrides:
+      - dimensions:
+          destination: ratings
+          source: reviews
+        maxAmount: 1
+        validDuration: 1s

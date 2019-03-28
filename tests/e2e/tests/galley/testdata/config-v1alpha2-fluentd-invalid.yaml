@@ -1,7 +1,9 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: fluentd
+kind: handler
 metadata:
   name: invalid-fluentd
 spec:
-  badField: foo
-  address: "localhost:24224"
+  compiledAdapter: fluentd
+  params:
+    badField: foo
+    address: "localhost:24224"

@@ -1,6 +1,8 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: apikey
+kind: instance
 metadata:
   name: invalid-apikey
 spec:
-  badField: foo
+  compiledTemplate: apikey
+  params:
+    badField: foo

@@ -1,6 +1,8 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: circonus
+kind: handler
 metadata:
   name: invalid-circonus
 spec:
-  badField: foo
+  compiledAdapter: circonus
+  params:
+    badField: foo

@@ -1,6 +1,8 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: logentry
+kind: instance
 metadata:
   name: invalid-logentry
 spec:
-  badField: foo
+  compiledTemplate: logentry
+  params:
+    badField: foo

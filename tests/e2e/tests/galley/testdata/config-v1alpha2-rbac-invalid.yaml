@@ -1,6 +1,8 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: rbac
+kind: handler
 metadata:
  name: invalid-rbac
 spec:
- badField: foo
+  compiledAdapter: rbac
+  params:
+    badField: foo

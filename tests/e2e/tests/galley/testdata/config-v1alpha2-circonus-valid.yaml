@@ -1,7 +1,9 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: circonus
+kind: handler
 metadata:
   name: valid-circonus
 spec:
-  submission_url: "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
-  submission_interval: "10s"
+  compiledAdapter: circonus
+  params:
+    submission_url: "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+    submission_interval: "10s"
