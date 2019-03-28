@@ -111,7 +111,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Deploy Istio.
-	i.deployment = deployment.NewYamlContentDeployment(cfg.SystemNamespace, istioInstallFile)
+	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, istioInstallFile)
 	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
 		return nil, err
 	}
