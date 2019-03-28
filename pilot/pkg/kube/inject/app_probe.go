@@ -183,9 +183,11 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 		}
 		readyz, livez := status.FormatProberURL(c.Name)
 		if hg := convertAppProber(c.ReadinessProbe, readyz, statusPort); hg != nil {
+			hg.Scheme = corev1.URISchemeHTTP
 			*c.ReadinessProbe.HTTPGet = *hg
 		}
 		if hg := convertAppProber(c.LivenessProbe, livez, statusPort); hg != nil {
+			hg.Scheme = corev1.URISchemeHTTP
 			*c.LivenessProbe.HTTPGet = *hg
 		}
 	}

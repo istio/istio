@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -189,8 +190,16 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
 	}
-	url := fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+	var url string
+	if prober.Scheme == corev1.URISchemeHTTPS {
+		url = fmt.Sprintf("https://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+	} else {
+		url = fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
+	}
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("Failed to create request to probe app %v, original url %v", err, path)
