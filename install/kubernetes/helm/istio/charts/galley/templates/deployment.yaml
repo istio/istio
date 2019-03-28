@@ -65,7 +65,6 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
-          - --disableResourceReadyCheck=true
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
