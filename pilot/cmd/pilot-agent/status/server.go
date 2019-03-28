@@ -113,11 +113,13 @@ func FormatProberURL(container string) (string, string) {
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d\n", s.statusPort)
 
-	// Add the handler for ready probes.
-	http.HandleFunc(readyPath, s.handleReadyProbe)
-	http.HandleFunc("/", s.handleAppProbe)
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/app-health", s.handleAppProbe)
+	// Add the handler for ready probes.
+	mux.HandleFunc(readyPath, s.handleReadyProbe)
+	mux.HandleFunc("/", s.handleAppProbe)
+
+	mux.HandleFunc("/app-health", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -135,7 +137,7 @@ func (s *Server) Run(ctx context.Context) {
 	defer l.Close()
 
 	go func() {
-		if err := http.Serve(l, nil); err != nil {
+		if err := http.Serve(l, mux); err != nil {
 			log.Errora(err)
 			// If the server errors then pilot-agent can never pass readiness or liveness probes
 			// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
