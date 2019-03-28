@@ -20,10 +20,10 @@ import (
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
-	"k8s.io/apimachinery/pkg/version"
 )
 
 // ResourceSpec represents a known crd. It is used to drive the K8s-related machinery, and to map to
