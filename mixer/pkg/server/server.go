@@ -210,6 +210,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
+	log.Info("Calling runtime listen...")
 	if err = p.runtimeListen(rt); err != nil {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
@@ -226,17 +227,20 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 
+	log.Info("Calling opencensus exporter...")
 	exporter, err := p.newOpenCensusExporter()
 	if err != nil {
 		return nil, fmt.Errorf("could not build opencensus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 
+	log.Info("Calling opencensus register...")
 	// Register the views to collect server request count.
 	if err := p.registerOpenCensusViews(ocgrpc.DefaultServerViews...); err != nil {
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
+	log.Info("Calling throttler...")
 	throttler := loadshedding.NewThrottler(a.LoadSheddingOptions)
 	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
 		grpcOptions = append(grpcOptions, grpc.StatsHandler(newMultiStatsHandler(&ocgrpc.ServerHandler{}, eval.(*loadshedding.GRPCLatencyEvaluator))))
