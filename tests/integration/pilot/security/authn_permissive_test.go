@@ -18,6 +18,7 @@ package security
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -34,6 +35,11 @@ import (
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
+const (
+	timeout       = 10 * time.Second
+	retryInterval = 500 * time.Millisecond
+)
+
 func TestMain(m *testing.M) {
 	framework.Main("authn_permissive_test", m)
 }
@@ -119,22 +125,26 @@ func TestAuthnPermissive(t *testing.T) {
 	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
 	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
 	a := aps.GetAppOrFail("a", t)
-
-	req := apps.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
-	resp, err := pilot.CallDiscovery(req)
-	if err != nil {
-		t.Errorf("failed to call discovery %v", err)
-	}
-	for _, r := range resp.Resources {
-		foo := &xdsapi.Listener{}
-		if err := proto.UnmarshalAny(&r, foo); err != nil {
-			t.Errorf("failed to unmarshal %v", err)
+	endTime := time.Now().Add(timeout)
+	for {
+		req := apps.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
+		resp, err := pilot.CallDiscovery(req)
+		if err != nil {
+			t.Errorf("failed to call discovery %v", err)
 		}
-		if verifyListener(foo, t) {
-			return
+		for _, r := range resp.Resources {
+			foo := &xdsapi.Listener{}
+			err := proto.UnmarshalAny(&r, foo)
+			result := verifyListener(foo, t)
+			if err == nil && result {
+				return
+			}
 		}
+		if time.Now().After(endTime) {
+			t.Fatalf("failed to find any listeners having multiplexing filter chain")
+		}
+		time.Sleep(retryInterval)
 	}
-	t.Errorf("failed to find any listeners having multiplexing filter chain")
 }
 
 // TestAuthentictionPermissiveE2E these cases are covered end to end
