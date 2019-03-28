@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -163,8 +162,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 func TestMain(m *testing.M) {
 	// TODO: applying the examples folder requires creation of many namespaces. Limit this test to the native environment
 	// until the test can be reconciled.
-	framework.
-		NewSuite("sidecar_api_test", m).
-		RequireEnvironment(environment.Native).
-		Run()
+	//framework.
+	//	NewSuite("sidecar_api_test", m).
+	//	RequireEnvironment(environment.Native).
+	//	Run()
 }
