@@ -26,5 +26,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("mixer_test", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("mixer_test", m, istio.SetupOnKube(&ist, func(cfg *istio.Config) {
+		cfg.Values["adapters.useAdapterCRDs"] = "true"
+	}))
 }
