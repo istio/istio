@@ -169,8 +169,8 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	st := a.ConfigStore
-	if st == nil {
+	configStore := a.ConfigStore
+	if configStore == nil {
 		configStoreURL := a.ConfigStoreURL
 		if configStoreURL == "" {
 			configStoreURL = "k8s://"
@@ -178,15 +178,14 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions, runtimeconfig.CriticalKinds()); err != nil {
+		if configStore, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions, runtimeconfig.CriticalKinds()); err != nil {
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
 	}
 
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
-		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
-		templateMap[k] = &t
+		templateMap[k] = &v
 	}
 
 	var kinds map[string]proto.Message
@@ -196,18 +195,18 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
 	}
 
-	if err := st.Init(kinds); err != nil {
+	if err := configStore.Init(kinds); err != nil {
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
-	if err := st.WaitForSynced(30 * time.Second); err != nil {
+	if err := configStore.WaitForSynced(30 * time.Second); err != nil {
 		return nil, err
 	}
-	s.configStore = st
+	s.configStore = configStore
 	log.Info("Starting runtime config watch...")
-	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+	rt := p.newRuntime(configStore, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
@@ -256,7 +255,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
 		rt.RegisterProbe(s.readinessProbe, "dispatcher")
-		st.RegisterProbe(s.readinessProbe, "store")
+		configStore.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()
 	}
 
