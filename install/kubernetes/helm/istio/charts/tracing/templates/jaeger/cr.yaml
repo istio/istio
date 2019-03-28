@@ -1,5 +1,5 @@
 {{ if eq .Values.provider "jaeger" }}
-apiVersion: io.jaegertracing/v1alpha1
+apiVersion: jaegertracing.io/v1
 kind: Jaeger
 metadata:
   name: jaeger
