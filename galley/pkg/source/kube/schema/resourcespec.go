@@ -16,12 +16,14 @@ package schema
 
 import (
 	"fmt"
+	"sort"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"k8s.io/apimachinery/pkg/version"
 )
 
 // ResourceSpec represents a known crd. It is used to drive the K8s-related machinery, and to map to
@@ -40,6 +42,9 @@ type ResourceSpec struct {
 	// Version of the K8s resource
 	Version string
 
+	// Versions of the K8s resource
+	Versions []CrdVersions
+
 	// Kind of the K8s resource
 	Kind string
 
@@ -56,13 +61,37 @@ type ResourceSpec struct {
 	Optional bool
 }
 
+// CrdVersions defines the multiple versions for a given CRD
+type CrdVersions struct {
+	// Name is the version name, e.g. “v1”, “v2beta1”, etc.
+	Name string
+
+	// Served is a flag enabling/disabling this version from being served via REST APIs
+	Served bool
+
+	// Storage flags the version as storage version. There must be exactly one
+	// flagged as storage version.
+	Storage bool
+}
+
+// GetAPIVersion returns the latest served version for a given CRD.
+func GetAPIVersion(r *ResourceSpec) string {
+	if r.Versions != nil {
+		sort.Slice(r.Versions, func(i, j int) bool {
+			return version.CompareKubeAwareVersionStrings(r.Versions[i].Name, r.Versions[j].Name) > 0
+		})
+		return r.Versions[0].Name
+	}
+	return r.Version
+}
+
 // APIResource generated from this type.
 func (i *ResourceSpec) APIResource() *metaV1.APIResource {
 	return &metaV1.APIResource{
 		Name:         i.Plural,
 		SingularName: i.Singular,
 		Kind:         i.Kind,
-		Version:      i.Version,
+		Version:      GetAPIVersion(i),
 		Group:        i.Group,
 		Namespaced:   true,
 	}
@@ -72,11 +101,11 @@ func (i *ResourceSpec) APIResource() *metaV1.APIResource {
 func (i *ResourceSpec) GroupVersion() sc.GroupVersion {
 	return sc.GroupVersion{
 		Group:   i.Group,
-		Version: i.Version,
+		Version: GetAPIVersion(i),
 	}
 }
 
 // CanonicalResourceName of the resource.
 func (i *ResourceSpec) CanonicalResourceName() string {
-	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, i.Version)
+	return fmt.Sprintf("%s.%s/%s", i.Plural, i.Group, GetAPIVersion(i))
 }
