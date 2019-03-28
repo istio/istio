@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: valid-listentry
-spec:
-  compiledTemplate: listentry
-  params:
-    value: source.labels["version"]

@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: invalid-authorization
-spec:
-  compiledTemplate: authorization
-  params:
-    badField: foo

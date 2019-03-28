@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: valid-fluentd
-spec:
-  compiledAdapter: fluentd
-  params:
-    address: "localhost:24224"

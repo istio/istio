@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: invalid-metric
-spec:
-  compiledTemplate: metric
-  params:
-    badField: foo
