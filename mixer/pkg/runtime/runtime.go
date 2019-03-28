@@ -16,6 +16,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -108,11 +109,13 @@ func (c *Runtime) StartListening() error {
 
 	kinds := config.KindMap(c.snapshot.Adapters, c.snapshot.Templates)
 
+	fmt.Println("store.StartWatch")
 	data, watchChan, err := store.StartWatch(c.store, kinds)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("SetState")
 	c.ephemeral.SetState(data)
 	c.processNewConfig()
 
