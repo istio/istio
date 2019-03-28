@@ -1,0 +1,624 @@
+// TODO:
+// - Add pod (anti)affinity for all components.
+// - Debug level functionality (add to API, comment that it’s binary for now)
+
+syntax = "proto3";
+
+package v1alpha1;
+
+import "k8s.io/api/core/v1/generated.proto";
+import "k8s.io/api/autoscaling/v1/generated.proto";
+import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
+import "google/protobuf/any.proto";
+
+// InstallerSpec defines the desired state of IstioInstaller.
+message InstallerSpec {
+    // URL for the install package. e.g.
+    //   http://github.com/istio/istio/releases/install/1.1.2
+    //   http://github.com/istio/istio/releases/install/lts
+    //   file://tmp/istio-installer/nightly
+    // Uses compiled in install package by default.
+    string install_package_path = 1;
+
+    // Root for docker image paths e.g. docker.io/istio-release.
+    // Releases are published to docker hub under 'istio' project.
+    //  Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+    string hub = 3;
+    // Version tag for docker images e.g. 1.0.6
+    string tag = 4;
+
+    // Prefix added to all namespaces for any installed component.
+    string default_namespace_prefix = 5;
+
+    // Configures the cluster as a remote cluster.
+    RemoteClusterConfig remote_cluster = 10;
+
+    // Monitor port number for all control plane components.
+    uint32 default_monitoring_port = 11;
+
+    // ???
+    repeated string mesh_networks = 13;
+
+    // Mesh expansion settings.
+    MeshExpansionConfig mesh_expansion = 14;
+
+    // Tracer config, as defined in package tracer.
+    google.protobuf.Any tracer_config = 17;
+
+    // Selection and configuration of core Istio features.
+    TrafficManagementConfig traffic_management = 25;
+    PolicyTelemetryConfig policy_telemetry = 26;
+    SecurityConfig security = 28;
+    ConfigManagementConfig config_management = 29;
+
+    // Ingress/egress gateway installation and configuration.
+    repeated IngressGatewayConfig ingress_gateway = 30;
+    repeated EgressGatewayConfig egress_gateway = 31;
+
+    // List of external operators that will be installed (but not managed)
+    // by the IstioInstaller e.g. prometheus, grafana, kiali.
+    repeated OperatorConfig external_operators = 50;
+
+    // k8s specific fields, passed unmodified through to k8s objects.
+
+    // k8s resources. Defaults for all resources unless overridden.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources default_resources = 80;
+    // k8s PodDisruptionBudget. Defaults for all resources unless overridden.
+    // https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work
+    PodDisruptionBudgetSpec default_pod_disruption_budget = 87;
+    // k8s priority_class_name. Default for all resources unless overridden.
+    // https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+    string priority_class_name = 88;
+    // k8s ImagePullPolicy setting for all containers.
+    // https://kubernetes.io/docs/concepts/containers/images/#updating-images
+    string image_pull_policy = 89;
+
+    // k8s nodeSelectors. Defaults for all resources unless overridden.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> default_node_selector = 92;
+    // k8s node affinity settings for all control plane pods.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#node-affinity-beta-feature
+    // Node affinity settings for the cluster.
+    message NodeAffinity {
+        uint32 arch_amd64 = 1;
+        uint32 arch_s390x = 2;
+        uint32 arch_ppc64le = 3;
+    }
+    NodeAffinity node_affinity = 93;
+}
+
+// Observed state of IstioInstaller.
+// TODO: this needs more work. What do we want to observe?
+message InstallerStatus {
+    string traffic_management = 1;
+    string security = 2;
+    // etc.
+}
+
+// Configuration options for remote clusters.
+// Note: this is a placeholder. Manual steps will still be initially required for this to work.
+message RemoteClusterConfig {
+    // Selects whether the cluster is configured as remote.
+    bool enabled = 1;
+
+    string remote_pilot_address = 10;
+    string remote_telemetry_address = 11;
+    string remote_policy_address = 12;
+}
+
+// Configuration options for mesh expansion.
+// ???
+message MeshExpansionConfig {
+    // Selects whether mesh expansion is enabled.
+    bool enabled = 1;
+    // ???
+    bool use_ILB = 2;
+}
+
+// Configuration options for traffic management.
+message TrafficManagementConfig {
+    // Selects whether traffic management is installed.
+    // Must be enabled to enable any sub-component.
+    bool enabled = 1;
+    // Namespace that all traffic management components are installed into.
+    string namespace = 2;
+
+    // Trace sampling percentage.
+    float trace_sampling = 10;
+
+    // SDS settings.
+    SdsConfig sds = 12;
+
+    // Istio egress capture whitelist.
+    // e.g. includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    // would only capture egress traffic on those two IP Ranges,
+    // all other outbound traffic would # be allowed by the sidecar.
+    // https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    string include_ip_ranges = 16;
+    string exclude_ip_ranges = 17;
+    string include_inbound_ports = 18;
+    string exclude_inbound_ports = 19;
+
+    string cluster_domain = 24;
+    string pod_dns_search_namespaces = 25;
+
+    // Selects whether auto-injection is enabled.
+    bool enable_auto_injection = 26;
+    // Selects whether auto-injection is enabled in namespaces by default.
+    bool enable_namespaces_by_default = 27;
+
+    // Component specific config.
+    PilotComponentConfig pilot = 30;
+    ProxyComponentConfig proxy = 31;
+    SidecarInjectorComponentConfig sidecar_injector = 32;
+}
+
+// Configuration options for the policy and telemetry feature.
+message PolicyTelemetryConfig {
+    // Default behavior of the sidecar for handling outbound traffic from the application.
+    enum OutboundPolicy {
+        // Outbound traffic to unknown destinations will be allowed, in case there are no
+        // services or ServiceEntries for the destination port
+        ALLOW_ANY = 0;
+        // Restrict outbound traffic to services defined in the service registry as well
+        // as those defined through ServiceEntries
+        REGISTRY_ONLY = 1;
+    }
+
+    // If set, allows traffic in cases when the mixer policy service cannot be reached.
+    bool policy_check_fail_open = 10;
+    // Selects the outbound traffic policy mode.
+    OutboundPolicy outbound_traffic_policy_mode = 11;
+    // Adapter config defined in adapter package.
+    repeated proto.Any adapters = 13;
+
+    PolicyComponentConfig policy = 50;
+    TelemetryComponentConfig telemetry = 51;
+}
+
+// Configuration options for security feature.
+message SecurityConfig {
+    // Selects whether security feature is installed. Must be set for any sub-component to be installed.
+    bool enabled = 1;
+
+    // Namespace that security components are installed into.
+    string namespace = 2;
+
+    // Enables MTLS for control plane.
+    // Will result in delays starting the pods while secrets are propagated, not recommended for tests.
+    bool control_plane_mtls = 13;
+
+    // Enables MTLS for service to service traffic.
+    bool data_plane_mtls = 14;
+
+    string trust_domain = 15;
+
+    CitadelComponentConfig citadel = 20;
+    CertManagerComponentConfig cert_manager = 21;
+    NodeAgentComponentConfig node_agent = 22;
+}
+
+// Configuration options for the pilot component.
+message PilotComponentConfig {
+    // Selects whether Pilot is installed.
+    bool enabled = 1;
+    // Namespace that all resources for this component are installed into.
+    string namespace = 2;
+    // Enables debug in pilot.
+    bool debug = 3;
+
+    // Enables sidecar in the pilot pod.
+    bool sidecar = 10;
+    // Used to limit how long a sidecar can be connected to a pilot.
+    // It balances out load across pilot instances at the cost of increasing system churn.
+    string keepaliveMaxServerConnectionAge = 12;
+    // Selects use of Mesh Configuration Protocol to configure Pilot.
+    bool use_MCP = 16;
+
+    // Additional arguments passed to pilot discovery.
+    map<string, string> additional_args = 50;
+    // Additional environment variables for the component container.
+    // PILOT_PUSH_THROTTLE
+    // GODEBUG
+    map<string, string> env = 60;
+
+    // k8s resources settings.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources resources = 80;
+    // k8s Deployment replicas setting.
+    // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    uint32 replica_count = 85;
+    // k8s HorizontalPodAutoscaler settings.
+    // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 86;
+    // k8s PodDisruptionBudget settings.
+    // https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work
+    PodDisruptionBudgetSpec pod_disruption_budget = 87;
+    // k8s nodeSelector.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> node_selector = 92;
+
+    // Kustomize style overrides for k8s resources in rendered manifests.
+    repeated k8sObjectOverride k8s_object_override = 100;
+}
+
+// Configuration options for the proxy.
+message ProxyComponentConfig {
+    // Enables debug in the proxy.
+    bool debug = 3;
+
+    // TBD: is privileged ever set in isolation?
+    bool privileged = 10;
+    // Enables coredump in proxy container.
+    bool enable_coredump = 11;
+    // Selects interception mode for the proxy.
+    // The mode used to redirect inbound connections to Envoy. This setting
+    // has no effect on outbound traffic: iptables REDIRECT is always used for
+    // outbound connections.
+    // If "REDIRECT", use iptables REDIRECT to NAT and redirect to Envoy.
+    // The "REDIRECT" mode loses source addresses during redirection.
+    // If "TPROXY", use iptables TPROXY to redirect to Envoy.
+    // The "TPROXY" mode preserves both the source and destination IP
+    // addresses and ports, so that they can be used for advanced filtering
+    // and manipulation.
+    // The "TPROXY" mode also configures the sidecar to run with the
+    // CAP_NET_ADMIN capability, which is required to use TPROXY.
+    enum InterceptionMode {
+        REDIRECT = 0;
+        TPROXY = 1;
+    }
+    InterceptionMode interception_mode = 12;
+
+    // Default port for Pilot agent health checks. A value of 0 will disable health checking.
+    uint32 status_port = 13;
+    // k8s imagePullPolicy.
+    string image_pull_policy = 14;
+
+    // Access log configuration.
+    message AccessLogConfig {
+        enum Encoding {
+            JSON = 0;
+            TEXT = 1;
+        }
+        string file = 1;
+        // Configures how and what fields are displayed in sidecar access log.
+        // Setting to empty string will result in default log format.
+        string format = 2;
+        Encoding encoding = 3;
+    }
+    AccessLogConfig access_log = 15;
+
+    // Envoy specific timer settings.
+    string connect_timeout = 20;
+    string drain_duration = 21;
+    string parent_shutdown_duration = 22;
+
+    // Controls number of Proxy worker threads.
+    // If set to 0 (default), starts worker thread for each CPU thread/core.
+    uint32 concurrency = 23;
+
+    // Additional arguments passed to Envoy.
+    map<string, string> additional_args = 50;
+    // Additional environment variables for the container.
+    map<string, string> env = 60;
+
+    // k8s resources settings.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources resources = 80;
+    k8s.io.api.core.v1.Probe readiness_probe = 81;
+
+    // Kustomize style overrides for k8s resources in rendered manifests.
+    repeated k8sObjectOverride k8s_object_override = 100;
+}
+
+// Configuration options for the sidecar injector component.
+message SidecarInjectorComponentConfig {
+    // When set to true, auto injection is controlled by namespace label and pod annotation.
+    // When set to false, auto injection is completely disabled.
+    bool enabled = 1;
+    // Namespace that all resources for this component are installed into.
+    string namespace = 2;
+    // Enables debug in sidecar injector.
+    bool debug = 3;
+
+    // If true, webhook or istioctl injector will rewrite PodSpec for liveness
+    // health check to redirect request to sidecar. This makes liveness check work
+    // even when mTLS is enabled.
+    bool rewrite_app_hTTPProbe = 11;
+
+    // k8s Deployment replicas setting.
+    // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    uint32 replica_count = 85;
+    // k8s nodeSelector.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> node_selector = 92;
+}
+
+// Configuration options for the policy enforcement component.
+message PolicyComponentConfig {
+    CommonComponentConfig common = 1;
+}
+
+// Configuration options for the telemetry component.
+message TelemetryComponentConfig {
+    CommonComponentConfig common = 1;
+
+    // ???
+    bool session_affinity_enabled = 10;
+    // Load shedding mode defines mixer behavior under load. If response time threshold is exceeded, the chosen
+    // load shedding behavior will occur.
+    enum LoadSheddingMode {
+        ENFORCE = 0;
+        LOGONLY = 1;
+        DISABLED = 2;
+    }
+    LoadSheddingMode load_shedding_mode = 11;
+    // If the response time exceeds the threshold, the chosen load shedding behavior will take effect.
+    string load_shedding_latency_threshold = 12;
+}
+
+// Configuration options for Citadel component.
+message CitadelComponentConfig {
+    CommonComponentConfig common = 1;
+    bool self_signed = 11;
+    bool create_mesh_policy = 12;
+}
+
+// Configuration options for certificate manager component.
+message CertManagerComponentConfig {
+    CommonComponentConfig common = 1;
+}
+
+// Configuration options for node agent component.
+message NodeAgentComponentConfig {
+    CommonComponentConfig common = 1;
+}
+
+// Configuration options for configuration management feature.
+message ConfigManagementConfig {
+    CommonComponentConfig common = 1;
+}
+
+// Configuration common to all components.
+message CommonComponentConfig {
+    // Selects whether policy enforcement is installed.
+    // Q. is this enough to cover both mixer.policy.enabled and disablePolicyChecks?
+    bool enabled = 1;
+    // Namespace that all resources for this feature are installed into.
+    string namespace = 2;
+
+    // hub is the path for docker images e.g. quay.io/jetstack which will override the
+    // top level default if set.
+    string hub = 3;
+    // tag is the version tag for docker images e.g. 1.0.6 which will override the
+    // top level default if set.
+    string tag = 4;
+
+    // Additional environment variables for the container.
+    map<string, string> env = 60;
+
+    // k8s resources settings.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources resources = 80;
+    // k8s Deployment replicas setting.
+    // https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    uint32 replica_count = 85;
+    // k8s HorizontalPodAutoscaler settings.
+    // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 86;
+    // k8s PodDisruptionBudget settings.
+    // https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work
+    PodDisruptionBudgetSpec pod_disruption_budget = 87;
+
+    map<string, string> pod_annotations = 90;
+    // k8s nodeSelector.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> node_selector = 92;
+
+    // Kustomize style overrides for k8s resources in rendered manifests.
+    repeated k8sObjectOverride k8s_object_override = 100;
+}
+
+// Configuration options for ingress gateways.
+message IngressGatewayConfig {
+    // Common gateway configuration.
+    GatewayConfig gateway = 10;
+    // Selects the type of ingress.
+    // Ingress type.
+    enum IngressType {
+        ISTIO = 0;
+        KUBERNETES = 1;
+    }
+    IngressType ingress_type = 11;
+    // enableHttps will add port 443 on the ingress.
+    // It REQUIRES that the certificates are installed  in the
+    // expected secrets - enabling this option without certificates
+    // will result in LDS rejection and the ingress will not work.
+    bool https_enabled = 12;
+    // Sets the IP address for the load balancer.
+    // If unset, IP address will be allocated automatically if the provider
+    // platform supports auto allocation.
+    string load_balancer_iP = 13;
+    // ???
+    repeated string load_balancer_source_ranges = 14;
+    // ???
+    repeated string external_iPs = 15;
+    // If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+    bool sds_enabled = 16;
+
+    // change to Local to preserve source IP or Cluster for default behaviour or leave commented out
+    // ???
+    // External traffic policy.
+    enum ExternalTrafficPolicy {
+        NONE = 0;
+        // Preserves source IP.
+        LOCAL = 1;
+        CLUSTER = 2;
+    }
+    ExternalTrafficPolicy externalTrafficPolicy = 17;
+}
+
+// Configuration options for egress gateways.
+message EgressGatewayConfig {
+    // Common gateway configuration.
+    GatewayConfig gateway = 10;
+}
+
+// Configuration options for internal load balancer gateways.
+message LoadBalancingGatewayConfig {
+    // Common gateway configuration.
+    GatewayConfig gateway = 10;
+    // Sets the IP address for the load balancer.
+    // If unset, IP address will be allocated automatically if the provider
+    // platform supports auto allocation.
+    string load_balancer_iP = 11;
+}
+
+// Common config for all gateway types.
+message GatewayConfig {
+    message Labels {
+        string app = 1;
+        string istio = 2;
+    }
+    // NodePort, ClusterIP or LoadBalancer.
+    string type = 10;
+
+    // Additional environment variables for the container.
+    map<string, string> env = 60;
+
+    // k8s resources settings.
+    // https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+    Resources resources = 80;
+
+    // k8s HorizontalPodAutoscaler settings.
+    // https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 86;
+
+    map<string, string> pod_annotations = 90;
+    map<string, string> service_annotations = 91;
+    // k8s nodeSelector.
+    // https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+    map<string, string> node_selector = 92;
+
+    // Kustomize style overrides for k8s resources in rendered manifests.
+    repeated k8sObjectOverride k8s_object_override = 100;
+}
+
+// OperatorConfig defines a config used to install an external operator.
+message OperatorConfig {
+    // manifest_path is the URL for the operator install manifest.
+    string manifest_path = 1;
+
+    // namespace is the namespace the operator manifest and CR are installed into.
+    string namespace = 2;
+
+    // spec is the initial CR for the operator.
+    k8sObjectOverride spec = 100;
+}
+
+message IstioInstaller {
+    InstallerSpec spec = 3;
+    InstallerStatus status = 4;
+}
+
+// Mirrors k8s.io.api.core.v1.ResourceRequirements for unmarshaling.
+message Resources {
+    map<string, string> limits = 1;
+    map<string, string> requests = 2;
+}
+
+// Mirrors k8s.io.api.policy.v1beta1.PodDisruptionBudget for unmarshaling.
+message PodDisruptionBudgetSpec {
+    uint32 min_available = 1;
+    k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector selector = 2;
+    uint32 max_unavailable = 3;
+}
+
+// Patch for an existing k8s resource.
+message k8sObjectOverride {
+    enum PatchType {
+        STRATEGIC = 0;
+        JSON = 1;
+    }
+    enum Op {
+        ADD = 0;
+        DELETE = 1;
+        PATCH = 2;
+    }
+
+    PatchType patch_type = 1;
+    Op op = 2;
+
+    // From k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta.TypeMeta
+    string kind = 3;
+    string api_version = 4;
+
+    ObjectMeta metadata = 5;
+
+    // Data map[string]interface{} `protobuf:"bytes,6,opt,name=data" json:"data,omitempty"`
+}
+
+message ObjectMeta {
+    // From k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta
+    string name = 5;
+    string namespace = 6;
+}
+
+// Configuration options for Secret Discovery Service.
+message SdsConfig {
+    // If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+    bool enabled = 1;
+    string uds_path = 2;
+    bool use_trustworthy_jwt = 3;
+    bool use_normal_jwt = 4;
+}
+
+// TestKube are for testing that k8s resources unmarshal correctly.
+message TestKube {
+    Resources resources = 80;
+    k8s.io.api.core.v1.Probe readiness_probe = 81;
+
+    k8s.io.api.autoscaling.v1.HorizontalPodAutoscalerSpec hpa_spec = 51;
+    PodDisruptionBudgetSpec pod_disruption_budget = 52;
+
+    // Kustomize style overrides for k8s resources in rendered manifests.
+    repeated k8sObjectOverride k8s_object_override = 100;
+}
+
+
+syntax
+=
+"proto3"
+;
+
+package tracer;
+
+message LightstepConfig {
+    bool enabled = 1;
+    string address = 2;
+    string access_token = 3;
+    string ca_cert_path = 4;
+    bool secure = 5;
+}
+
+message ZipkinConfig {
+    bool enabled = 1;
+    string address = 2;
+}
+
+
+package adapter;
+
+message KubernetesEnvAdapterConfig {
+    bool enabled = 1;
+}
+message StdioAdapterConfig {
+    bool enabled = 1;
+    bool output_as_json = 2;
+}
+message PrometheusAdapterConfig {
+    bool enabled = 1;
+    string metrics_expiry_duration = 2;
+}
+

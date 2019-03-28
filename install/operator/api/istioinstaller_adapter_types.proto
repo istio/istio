@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package adapter;
+
+message KubernetesEnvAdapterConfig {
+    bool enabled = 1;
+}
+message StdioAdapterConfig {
+    bool enabled = 1;
+    bool output_as_json = 2;
+}
+message PrometheusAdapterConfig {
+    bool enabled = 1;
+    string metrics_expiry_duration = 2;
+}
+
+

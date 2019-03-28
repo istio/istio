@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tracer;
+
+message LightstepConfig {
+    bool enabled = 1;
+    string address = 2;
+    string access_token = 3;
+    string ca_cert_path = 4;
+    bool secure = 5;
+}
+
+message ZipkinConfig {
+    bool enabled = 1;
+    string address = 2;
+}
