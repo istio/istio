@@ -104,6 +104,9 @@ type Args struct {
 	// Whether or not to establish watches for adapter-specific CRDs
 	UseAdapterCRDs bool
 
+	// Whether or not to establish watches for template-specific CRDs
+	UseTemplateCRDs bool
+
 	LoadSheddingOptions loadshedding.Options
 }
 
@@ -126,6 +129,7 @@ func DefaultArgs() *Args {
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 		UseAdapterCRDs:         true,
+		UseTemplateCRDs:        true,
 		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}
 }
@@ -180,6 +184,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
+	fmt.Fprintf(buf, "UseTemplateCRDs: %#v\n", a.UseTemplateCRDs)
 	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", a.LoadSheddingOptions)
 
 	return buf.String()
