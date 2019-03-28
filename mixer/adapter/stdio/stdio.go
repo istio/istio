@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stdio/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -48,6 +49,7 @@ type (
 		sync           func() error
 		logEntryVars   map[string][]string
 		metricDims     map[string][]string
+		logEntryTypes  map[string]*logentry.Type
 	}
 )
 
@@ -62,9 +64,13 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 			Time:       instance.Timestamp,
 		}
 
+		var logEntryTypes map[string]istio_policy_v1beta1.ValueType
+		if typeInfo, found := h.logEntryTypes[instance.Name]; found {
+			logEntryTypes = typeInfo.Variables
+		}
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, zap.Any(varName, convertSomeTypestoStringValue(value)))
+				fields = append(fields, zap.Any(varName, convertSomeTypestoStringValue(value, varName, logEntryTypes)))
 			}
 		}
 
@@ -118,16 +124,14 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	return level
 }
 
-func convertSomeTypestoStringValue(value interface{}) interface{} {
-	switch vt := value.(type) {
-	case []byte:
-		if net.IP(vt).To16() != nil {
-			return interface{}(net.IP(vt).String())
+func convertSomeTypestoStringValue(value interface{}, varName string, logEntryTypes map[string]istio_policy_v1beta1.ValueType) interface{} {
+	if logEntryTypes[varName] == istio_policy_v1beta1.IP_ADDRESS {
+		if byteArr, ok := value.([]byte); ok {
+			return interface{}(net.IP(byteArr).String())
 		}
-		return value
-	default:
-		return value
 	}
+
+	return value
 }
 
 ////////////////// Config //////////////////////////
@@ -246,5 +250,6 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		write:          core.Write,
 		logEntryVars:   varLists,
 		metricDims:     dimLists,
+		logEntryTypes:  b.logEntryTypes,
 	}, nil
 }
