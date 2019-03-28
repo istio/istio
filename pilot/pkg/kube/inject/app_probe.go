@@ -109,6 +109,9 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	// Change the application container prober config.
 	c.Port = intstr.FromInt(statusPort)
 	c.Path = newURL
+	if c.Scheme == corev1.URISchemeHTTPS {
+		c.Scheme = corev1.URISchemeHTTP
+	}
 	return c
 }
 
@@ -183,11 +186,9 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 		}
 		readyz, livez := status.FormatProberURL(c.Name)
 		if hg := convertAppProber(c.ReadinessProbe, readyz, statusPort); hg != nil {
-			hg.Scheme = corev1.URISchemeHTTP
 			*c.ReadinessProbe.HTTPGet = *hg
 		}
 		if hg := convertAppProber(c.LivenessProbe, livez, statusPort); hg != nil {
-			hg.Scheme = corev1.URISchemeHTTP
 			*c.LivenessProbe.HTTPGet = *hg
 		}
 	}
