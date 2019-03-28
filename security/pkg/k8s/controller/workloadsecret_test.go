@@ -134,14 +134,14 @@ func TestSecretController(t *testing.T) {
 		}
 
 		webhooks := map[string]*DNSNameEntry{
-			sidecarInjectorSvcAccount: &DNSNameEntry{
+			sidecarInjectorSvcAccount: {
 				ServiceName: sidecarInjectorSvc,
 				Namespace:   "test-ns",
 			},
 		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL,
 			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-			[]string{metav1.NamespaceAll}, webhooks, "")
+			[]string{metav1.NamespaceAll}, webhooks)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed to create secret controller")
@@ -179,7 +179,7 @@ func TestSecretContent(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{}, "")
+		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		[]string{metav1.NamespaceAll}, nil, "")
+		[]string{metav1.NamespaceAll}, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestUpdateSecret(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll},
-			nil, "")
+			nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}

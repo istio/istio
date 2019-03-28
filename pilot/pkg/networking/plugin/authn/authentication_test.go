@@ -743,7 +743,7 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 										},
 									},
 									CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-										&core.GrpcService_GoogleGrpc_CallCredentials{
+										{
 											CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
 												GoogleComputeEngine: &types.Empty{},
 											},

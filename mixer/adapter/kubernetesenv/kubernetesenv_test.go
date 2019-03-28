@@ -55,7 +55,7 @@ func (b *fakeK8sBuilder) build(path string, env adapter.Env) (kubernetes.Interfa
 	return fake.NewSimpleClientset(), nil
 }
 
-func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, error) {
+func errorClientBuilder(_ string, _ adapter.Env) (kubernetes.Interface, error) {
 	return nil, errors.New("can't build k8s client")
 }
 
@@ -492,15 +492,15 @@ func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, ti
 	})
 }
 
-func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
-func mockValidateClientConfig(config clientcmdapi.Config) error {
+func mockValidateClientConfig(_ clientcmdapi.Config) error {
 	return nil
 }
 
-func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 

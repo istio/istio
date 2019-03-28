@@ -295,7 +295,7 @@ func marshaledServiceEntry(servicePort, backendPort int, host string) (*types.An
 func generateGateway() ([]*mcp.Resource, error) {
 	gateway := &networking.Gateway{
 		Servers: []*networking.Server{
-			&networking.Server{
+			{
 				Port: &networking.Port{
 					Name:     "http-8099",
 					Number:   8099,
