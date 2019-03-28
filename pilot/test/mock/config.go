@@ -170,13 +170,6 @@ var (
 		}},
 	}
 
-	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
-	ExampleAuthenticationMeshPolicy = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
-		}},
-	}
-
 	// ExampleServiceRole is an example rbac service role
 	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 		{

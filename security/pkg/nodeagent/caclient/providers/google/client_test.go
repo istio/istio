@@ -57,7 +57,7 @@ func (ca *mockCAServer) CreatePodCertificate(ctx context.Context, in *gcapb.Isti
 
 func TestGoogleCAClient(t *testing.T) {
 	defer func() {
-		usePodDefaultFlag = false
+
 	}()
 
 	testCases := map[string]struct {

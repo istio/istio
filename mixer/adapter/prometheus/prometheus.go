@@ -300,7 +300,7 @@ func key(name, kind string, labels prometheus.Labels, sortedLabelKeys []string) 
 	return h.Sum64()
 }
 
-func deleteOldMetrics(key, value interface{}) {
+func deleteOldMetrics(_, value interface{}) {
 	if entry, ok := value.(*cacheEntry); ok {
 		switch v := entry.vec.(type) {
 		case *prometheus.CounterVec:
