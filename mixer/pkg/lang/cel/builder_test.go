@@ -195,6 +195,7 @@ var attributes = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 }
 
 func BenchmarkAccessLogCEL(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		finder := ast.NewFinder(attributes)
 		builder := NewBuilder(finder, LegacySyntaxCEL)
@@ -208,6 +209,7 @@ func BenchmarkAccessLogCEL(b *testing.B) {
 }
 
 func BenchmarkAccessLogCEXL(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		finder := ast.NewFinder(attributes)
 		builder := compiled.NewBuilder(finder)
