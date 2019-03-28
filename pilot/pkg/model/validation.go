@@ -2069,6 +2069,12 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	for _, host := range policy.AllowOrigin {
+		if strings.HasPrefix(host, "https://") {
+			host = host[8:]
+		}
+		if strings.HasPrefix(host, "http://") {
+			host = host[7:]
+		}
 		errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}
 
