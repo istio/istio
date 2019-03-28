@@ -148,6 +148,7 @@ func (i *kubeComponent) Dump() {
 	}
 
 	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessor)
+	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.Accessor)
 
 	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
 	if err != nil {
