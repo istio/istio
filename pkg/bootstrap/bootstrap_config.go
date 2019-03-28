@@ -58,10 +58,8 @@ const (
 	envoyStatsMatcherInclusionPrefixOption = "inclusionPrefix"
 	envoyStatsMatcherInclusionSuffixOption = "inclusionSuffix"
 
-
 	// statsPatterns gives the developer control over Envoy stats collection
 	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
-
 	)
 
 var (
@@ -75,13 +73,30 @@ var (
 		"cluster.xds-grpc",
 	}
 
-	defaultEnvoyStatsMatcherInclusionSuffixes = []string{
+	upstreamSuffixes = []string{
 		"upstream_rq_1xx",
 		"upstream_rq_2xx",
 		"upstream_rq_3xx",
 		"upstream_rq_4xx",
 		"upstream_rq_5xx",
 		"upstream_rq_time",
+		"upstream_cx_tx_bytes_total",
+		"upstream_cx_rx_bytes_total",
+		"upstream_cx_total",
+	}
+
+	defaultEnvoyStatsMatcherInclusionSuffixes = upstreamSuffixes
+
+	downstreamSuffixes = []string{
+		"downstream_rq_1xx",
+		"downstream_rq_2xx",
+		"downstream_rq_3xx",
+		"downstream_rq_4xx",
+		"downstream_rq_5xx",
+		"downstream_rq_time",
+		"downstream_cx_tx_bytes_total",
+		"downstream_cx_rx_bytes_total",
+		"downstream_cx_total",
 	}
 )
 
@@ -214,10 +229,43 @@ func getNodeMetaData(envs []string) map[string]string {
 	return meta
 }
 
+
+// setStatsOptions configures stats inclusion list based on annotations.
+func setStatsOptions(opts map[string]interface{}, meta map[string]string, sidecar bool, nodeIPs []string) {
+	var inclusionOptionPrefixes []string
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPrefixes]; ok {
+		inclusionOptionPrefixes = strings.Split(inclusionPatterns, ",")
+	} else {
+		inclusionOptionPrefixes = defaultEnvoyStatsMatcherInclusionPrefixes
+	}
+
+	var inclusionOptionSuffixes []string
+	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionSuffixes]; ok {
+		inclusionOptionSuffixes = strings.Split(inclusionPatterns, ",")
+	} else {
+		inclusionOptionSuffixes = defaultEnvoyStatsMatcherInclusionSuffixes
+	}
+
+	if sidecar {
+		// add http.my_ip prefix for sidecar
+		// http.10.16.48.230_8080.downstream_rq_2xx
+		// the metric has http_conn_manager_prefix = 10.16.48.230_8080 as a tag
+		for _, nodeIP := range nodeIPs {
+			inclusionOptionPrefixes = append(inclusionOptionPrefixes,
+				"http."+nodeIP+"_")
+		}
+	} else { // for a router we want all downstream stats from all listeners
+		inclusionOptionSuffixes = append(inclusionOptionSuffixes, downstreamSuffixes...)
+	}
+
+	opts[envoyStatsMatcherInclusionPrefixOption] = inclusionOptionPrefixes
+	opts[envoyStatsMatcherInclusionSuffixOption] = inclusionOptionSuffixes
+}
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
-	opts map[string]interface{}, localEnv []string, nodeIPs []string) (string, error) {
+	opts map[string]interface{}, localEnv []string, nodeIPs []string, sidecar bool) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -265,28 +313,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
 
-	var inclusionOption []string
-	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPrefixes]; ok {
-		inclusionOption = strings.Split(inclusionPatterns, ",")
-	} else {
-		inclusionOption = defaultEnvoyStatsMatcherInclusionPrefixes
-	}
-
-	// add http.my_ip prefix
-	// http.10.16.48.230_8080.downstream_rq_2xx
-	// the metric has http_conn_manager_prefix = 10.16.48.230_8080 as a tag
-	for _, nodeIP := range nodeIPs {
-		inclusionOption = append(inclusionOption,
-			"http."+nodeIP+"_")
-	}
-
-	opts[envoyStatsMatcherInclusionPrefixOption] = inclusionOption
-
-	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionSuffixes]; ok {
-		opts[envoyStatsMatcherInclusionSuffixOption] = strings.Split(inclusionPatterns, ",")
-	} else {
-		opts[envoyStatsMatcherInclusionSuffixOption] = defaultEnvoyStatsMatcherInclusionSuffixes
-	}
+	setStatsOptions(opts, meta, sidecar, nodeIPs)
 
 	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
