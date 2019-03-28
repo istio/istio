@@ -34,7 +34,6 @@ const (
 	FailedRequestTest
 	FaultInjectTest
 	GlobalDictionaryTest
-	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
 	QuotaCacheTest

@@ -404,8 +404,8 @@ func TestClusterMetadata(t *testing.T) {
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
 		Subsets: []*networking.Subset{
-			&networking.Subset{Name: "Subset 1"},
-			&networking.Subset{Name: "Subset 2"},
+			{Name: "Subset 1"},
+			{Name: "Subset 2"},
 		},
 		TrafficPolicy: &networking.TrafficPolicy{
 			ConnectionPool: &networking.ConnectionPoolSettings{

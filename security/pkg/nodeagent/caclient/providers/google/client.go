@@ -30,8 +30,6 @@ import (
 	gcapb "istio.io/istio/security/proto/providers/google"
 )
 
-var usePodDefaultFlag = false
-
 const bearerTokenPrefix = "Bearer "
 
 type googleCAClient struct {
