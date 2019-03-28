@@ -83,8 +83,8 @@ func TestProxyConfig(t *testing.T) {
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config clusters details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
-istio-policy.istio-system.svc.cluster.local     15004     -          outbound      EDS
-xds-grpc                                        -         -          -             STRICT_DNS
+istio-policy.istio-system.svc.cluster.local     15004     -          outbound      &{EDS}
+xds-grpc                                        -         -          -             &{STRICT_DNS}
 `,
 		},
 		{ // case 7 listeners valid
@@ -111,16 +111,16 @@ inbound|9080||productpage.default.svc.cluster.local     1
 		},
 		{ // case 10 endpoint valid
 			execClientConfig: endpointConfig,
-			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=9093", " "),
-			expectedOutput: `ENDPOINT             STATUS        CLUSTER
-172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=15014", " "),
+			expectedOutput: `ENDPOINT              STATUS        CLUSTER
+172.17.0.14:15014     UNHEALTHY     outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
 		{ // case 11 endpoint status filter
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
-			expectedOutput: `ENDPOINT             STATUS        CLUSTER
-172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+			expectedOutput: `ENDPOINT              STATUS        CLUSTER
+172.17.0.14:15014     UNHEALTHY     outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
 	}

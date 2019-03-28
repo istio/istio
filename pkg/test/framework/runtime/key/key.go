@@ -18,13 +18,15 @@ import "istio.io/istio/pkg/test/framework/api/component"
 
 // Instance of a key for component descriptors.
 type Instance struct {
+	Name    string
 	ID      component.ID
 	Variant component.Variant
 }
 
-// For creates a key for the given descriptor.
-func For(d component.Descriptor) Instance {
+// For creates a key for the given named descriptor.
+func For(name string, d component.Descriptor) Instance {
 	return Instance{
+		Name:    name,
 		ID:      d.ID,
 		Variant: d.Variant,
 	}

@@ -29,7 +29,7 @@ import (
 
 const (
 	routeA = "http.80"
-	routeB = "https.443.https"
+	routeB = "https.443.https.my-gateway.testns"
 )
 
 // Regression for envoy restart and overlapping connections
@@ -55,7 +55,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	}
 	defer cancel()
 
-	err = sendEDSReqReconnect([]string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	err = sendEDSReqReconnect([]string{"outbound|1080||service3.default.svc.cluster.local"}, edsstr, res)
 	if err != nil {
 		t.Fatal(err)
 	}

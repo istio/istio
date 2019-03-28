@@ -236,7 +236,7 @@ func (cb *callbacks) OnStreamOpen(_ context.Context, id int64, typ string) error
 func (cb *callbacks) OnStreamClosed(id int64) {
 	log.Debugf("stream %d closed", id)
 }
-func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) {
+func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.requests++
@@ -244,6 +244,7 @@ func (cb *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) {
 		close(cb.signal)
 		cb.signal = nil
 	}
+	return nil
 }
 func (cb *callbacks) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
 func (cb *callbacks) OnFetchRequest(_ context.Context, req *v2.DiscoveryRequest) error {

@@ -228,6 +228,8 @@ func TestHostnameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
 
 		{"non-wildcard domain",
 			"foo.com", "foo.com", true},
@@ -256,14 +258,69 @@ func TestHostnameMatches(t *testing.T) {
 
 		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
 		{"wildcarded sub-domain does not match domain", "foo.com", "*.foo.com", false},
+		{"wildcarded sub-domain does not match domain - order doesn't matter", "*.foo.com", "foo.com", false},
 
-		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
+		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false},
+		{"long wildcard does not match short host - order doesn't matter", "baz", "*.foo.bar.baz", false},
+		{"long wildcard matches short wildcard", "*.foo.bar.baz", "*.baz", true},
+		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			if tt.out != tt.a.Matches(tt.b) {
 				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+		})
+	}
+}
+
+func TestHostnameSubsetOf(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Hostname
+		out  bool
+	}{
+		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
+
+		{"non-wildcard domain",
+			"foo.com", "foo.com", true},
+		{"non-wildcard domain",
+			"bar.com", "foo.com", false},
+		{"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false},
+
+		{"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false},
+		{"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false},
+
+		{"wildcard matches subdomains",
+			"foo.com", "*.com", true},
+		{"wildcard matches subdomains",
+			"bar.com", "*.com", true},
+		{"wildcard matches subdomains",
+			"bar.foo.com", "*.foo.com", true},
+
+		{"wildcard matches anything", "foo.com", "*", true},
+		{"wildcard matches anything", "*.com", "*", true},
+		{"wildcard matches anything", "com", "*", true},
+		{"wildcard matches anything", "*", "*", true},
+		{"wildcard matches anything", "", "*", true},
+
+		{"wildcarded domain matches wildcarded subdomain", "*.foo.com", "*.com", true},
+		{"wildcarded sub-domain does not match domain", "*.foo.com", "foo.com", false},
+
+		{"long wildcard does not match short host", "*.foo.bar.baz", "baz", false},
+		{"long name matches short wildcard", "foo.bar.baz", "*.baz", true},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if tt.out != tt.a.SubsetOf(tt.b) {
+				t.Fatalf("%q.SubsetOf(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
 			}
 		})
 	}
@@ -282,7 +339,7 @@ func BenchmarkMatch(b *testing.B) {
 		{"*", "", true},
 		{"*.com", "*.foo.com", true},
 		{"foo.com", "*.foo.com", false},
-		{"*.foo.bar.baz", "baz", true},
+		{"*.foo.bar.baz", "baz", false},
 	}
 	for n := 0; n < b.N; n++ {
 		for _, test := range tests {
@@ -383,5 +440,59 @@ func TestIsValidSubsetKey(t *testing.T) {
 		if !err != c.expectErr {
 			t.Errorf("got %v but want %v\n", err, c.expectErr)
 		}
+	}
+}
+
+func TestGetLocality(t *testing.T) {
+	cases := []struct {
+		name     string
+		instance ServiceInstance
+		expected string
+	}{
+		{
+			name: "endpoint with locality",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "region/zone/subzone-1",
+				},
+				Labels: Labels{
+					LocalityLabel: "region/zone/subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-1",
+		},
+		{
+			name: "endpoint without locality, parse from labels",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "",
+				},
+				Labels: Labels{
+					LocalityLabel: "region/zone/subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-2",
+		},
+		{
+			name: "istio-locality label with k8s label separator",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "",
+				},
+				Labels: Labels{
+					LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-2",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := testCase.instance.GetLocality()
+			if got != testCase.expected {
+				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
+			}
+		})
 	}
 }

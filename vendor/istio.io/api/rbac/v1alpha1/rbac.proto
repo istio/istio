@@ -48,7 +48,7 @@ syntax = "proto3";
 //     methods: ["GET", "HEAD"]
 //     constraints:
 //     - key: "destination.labels[version]"
-//       value: ["v1", "v2"]
+//       values: ["v1", "v2"]
 // ```
 //
 // A ServiceRoleBinding specification includes two parts:
@@ -235,13 +235,14 @@ message Subject {
   string user = 1;
 
   // $hide_from_docs
-  // Optional. A list of principals that the subject represents. This is matched to the
-  // `source.principal` attribute. If not specified, it applies to any principals.
-  repeated string principals = 4;
+  // Optional. A list of subject names. This is matched to the
+  // `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+  // Prefix and suffix matches are supported.
+  repeated string names = 4;
 
   // $hide_from_docs
-  // Optional. A list of principals that must not be matched.
-  repeated string not_principals = 5;
+  // Optional. A list of subject names that must not be matched.
+  repeated string not_names = 5;
 
   // $hide_from_docs
   // Optional. The group that the subject belongs to.
@@ -293,13 +294,14 @@ message RoleRef {
   string name = 2;
 }
 
-// RbacConfig defines the global config to control Istio RBAC behavior.
+// $hide_from_docs
+// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
 // This Custom Resource is a singleton where only one Custom Resource should be created globally in
-// the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
-// Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
+// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
 // existing one, the user should either delete the existing one or change the existing one directly.
 //
-// Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
+// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
 // services in the default namespace.
 //
 // ```yaml
@@ -354,7 +356,7 @@ message RbacConfig {
 
   // $hide_from_docs
   // Indicates enforcement mode of the RbacConfig, in ENFORCED mode by default.
-  // It's used to verify new RbacConfig work as expected before rolling to production. 
+  // It's used to verify new RbacConfig work as expected before rolling to production.
   // When setting as PERMISSIVE, RBAC isn't enforced and has no impact on users.
   // RBAC engine run RbacConfig in PERMISSIVE mode and logs stats.
   // Invalid to set RbacConfig in PERMISSIVE and ServiceRoleBinding in ENFORCED mode.

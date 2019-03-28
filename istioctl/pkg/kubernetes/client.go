@@ -110,14 +110,17 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
-	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{"labelSelector": "istio=pilot"})
+	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
+		"labelSelector": "istio=pilot",
+		"fieldSelector": "status.phase=Running",
+	})
 	if err != nil {
 		return nil, err
 	}
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
+	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
 		res, err := client.ExtractExecResult(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
@@ -133,14 +136,17 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
-	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{"labelSelector": "istio=pilot"})
+	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
+		"labelSelector": "istio=pilot",
+		"fieldSelector": "status.phase=Running",
+	})
 	if err != nil {
 		return nil, err
 	}
 	if len(pilots) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
-	cmd := []string{pilotDiscoveryPath, "request", method, path, string(body)}
+	cmd := []string{"sh", "-c", fmt.Sprintf("GODEBUG= %s request %s %s %s", pilotDiscoveryPath, method, path, string(body))}
 	return client.ExtractExecResult(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 }
 
@@ -217,7 +223,10 @@ type podDetail struct {
 
 // GetIstioVersions gets the version for each Istio component
 func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
-	pods, err := client.GetIstioPods(namespace, map[string]string{"labelSelector": "istio"})
+	pods, err := client.GetIstioPods(namespace, map[string]string{
+		"labelSelector": "istio",
+		"fieldSelector": "status.phase=Running",
+	})
 	if err != nil {
 		return nil, err
 	}

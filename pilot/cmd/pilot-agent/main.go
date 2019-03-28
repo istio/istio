@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -53,31 +55,31 @@ var (
 	applicationPorts []string
 
 	// proxy config flags (named identically)
-	configPath               string
-	controlPlaneBootstrap    bool
-	binaryPath               string
-	serviceCluster           string
-	drainDuration            time.Duration
-	parentShutdownDuration   time.Duration
-	discoveryAddress         string
-	zipkinAddress            string
-	lightstepAddress         string
-	lightstepAccessToken     string
-	lightstepSecure          bool
-	lightstepCacertPath      string
-	connectTimeout           time.Duration
-	statsdUDPAddress         string
-	proxyAdminPort           uint16
-	controlPlaneAuthPolicy   string
-	customConfigFile         string
-	proxyLogLevel            string
-	concurrency              int
-	templateFile             string
-	disableInternalTelemetry bool
-	loggingOptions           = log.DefaultOptions()
+	configPath                 string
+	controlPlaneBootstrap      bool
+	binaryPath                 string
+	serviceCluster             string
+	drainDuration              time.Duration
+	parentShutdownDuration     time.Duration
+	discoveryAddress           string
+	zipkinAddress              string
+	lightstepAddress           string
+	lightstepAccessToken       string
+	lightstepSecure            bool
+	lightstepCacertPath        string
+	connectTimeout             time.Duration
+	statsdUDPAddress           string
+	envoyMetricsServiceAddress string
+	proxyAdminPort             uint16
+	controlPlaneAuthPolicy     string
+	customConfigFile           string
+	proxyLogLevel              string
+	concurrency                int
+	templateFile               string
+	disableInternalTelemetry   bool
+	loggingOptions             = log.DefaultOptions()
 
-	// pilot agent config
-	kubeAppHTTPProbers string
+	wg sync.WaitGroup
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -151,6 +153,7 @@ var (
 			proxyConfig.DiscoveryAddress = discoveryAddress
 			proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
+			proxyConfig.EnvoyMetricsServiceAddress = envoyMetricsServiceAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
@@ -286,8 +289,11 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
+			defer func() {
+				log.Info("pilot-agent is terminating")
+				cancel()
+				wg.Wait()
+			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
@@ -295,34 +301,39 @@ var (
 					return err
 				}
 
+				prober := os.Getenv(status.KubeAppProberEnvName)
 				statusServer, err := status.NewServer(status.Config{
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: kubeAppHTTPProbers,
+					KubeAppHTTPProbers: prober,
 				})
 				if err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
+				go waitForCompletion(ctx, statusServer.Run)
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
-			go agent.Run(ctx)
-			go watcher.Run(ctx)
+			go waitForCompletion(ctx, agent.Run)
+			go waitForCompletion(ctx, watcher.Run)
 
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
+			cmd.WaitSignal(make(chan struct{}))
 			return nil
 		},
 	}
 )
+
+func waitForCompletion(ctx context.Context, fn func(context.Context)) {
+	wg.Add(1)
+	fn(ctx)
+	wg.Done()
+}
 
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
@@ -360,7 +371,7 @@ func getDNSDomain(domain string) string {
 }
 
 func parseApplicationPorts() ([]uint16, error) {
-	parsedPorts := make([]uint16, len(applicationPorts))
+	parsedPorts := make([]uint16, 0, len(applicationPorts))
 	for _, port := range applicationPorts {
 		port := strings.TrimSpace(port)
 		if len(port) > 0 {
@@ -431,15 +442,12 @@ func init() {
 		"Connection timeout used by Envoy for supporting services")
 	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
+	proxyCmd.PersistentFlags().StringVar(&envoyMetricsServiceAddress, "envoyMetricsServiceAddress", values.EnvoyMetricsServiceAddress,
+		"Host and Port of an Envoy Metrics Service API implementation (e.g. metrics-service:15000)")
 	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
-		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
-			`For example, --kubeAppProberConfig='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}'`+
-			" indicates that httpbin container liveness prober port is 8080 and probing path is /hello. "+
-			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.

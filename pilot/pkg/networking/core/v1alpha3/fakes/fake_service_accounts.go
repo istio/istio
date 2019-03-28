@@ -101,5 +101,3 @@ func (fake *ServiceAccounts) recordInvocation(key string, args []interface{}) {
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
-
-var _ model.ServiceAccounts = new(ServiceAccounts)

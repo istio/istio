@@ -324,15 +324,7 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: model.ProtocolHTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: model.ProtocolTCP,
-	}}
+	return nil
 }
 
 // WorkloadHealthCheckInfo implements discovery interface

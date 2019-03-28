@@ -39,6 +39,7 @@ import (
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
+	initInstallFile                = "istio-init.yaml"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	authSdsInstallFile             = "istio-auth-sds.yaml"
@@ -111,6 +112,8 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
+	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
+	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
@@ -640,16 +643,16 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
-		istioYaml = mcNonAuthInstallFileNamespace
-	}
-	if *clusterWide {
+		if *authEnable {
+			istioYaml = mcAuthInstallFileNamespace
+		} else {
+			istioYaml = mcNonAuthInstallFileNamespace
+		}
+	} else if *clusterWide {
 		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
-			if *multiClusterDir != "" {
-				istioYaml = mcAuthInstallFileNamespace
-			}
 		}
 		if *trustDomainEnable {
 			istioYaml = trustDomainFileNamespace
@@ -659,17 +662,35 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	yamlDir := filepath.Join(istioInstallDir, istioYaml)
+	// Create istio-system namespace
+	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+	// Apply istio-init
+	yamlDir := filepath.Join(istioInstallDir, initInstallFile)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		log.Errorf("Generating yaml %s failed", testIstioYaml)
+		log.Errorf("Generating istio-init.yaml")
 		return err
 	}
 
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+		log.Errorf("istio-init.yaml  %s deployment failed", testIstioYaml)
+		return err
+	}
+
+	// TODO(sdake): need a better synchronization
+	time.Sleep(20 * time.Second)
+
+	// Apply main manifest
+	yamlDir = filepath.Join(istioInstallDir, istioYaml)
+	baseIstioYaml = filepath.Join(k.ReleaseDir, yamlDir)
+	testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
 
@@ -862,6 +883,14 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set galley.enabled=false --set global.useMCP=false"
 	}
 
+	if *outboundTrafficPolicy != "" {
+		setValue += " --set global.outboundTrafficPolicy.mode=" + *outboundTrafficPolicy
+	}
+
+	if *enableEgressGateway {
+		setValue += " --set gateways.istio-egressgateway.enabled=true"
+	}
+
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
@@ -890,13 +919,6 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	valFile := ""
 	if *valueFile != "" {
 		valFile = filepath.Join(workDir, *valueFile)
-	}
-
-	err = util.HelmDepUpdate(workDir)
-	if err != nil {
-		// helm dep upgrade
-		log.Errorf("Helm dep update failed %s", workDir)
-		return err
 	}
 
 	// helm install dry run - dry run seems to have problems

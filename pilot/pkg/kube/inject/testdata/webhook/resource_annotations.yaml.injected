@@ -33,13 +33,13 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - resource.default
+        - resource.$(POD_NAMESPACE)
         - --drainDuration
-        - 2s
+        - 45s
         - --parentShutdownDuration
-        - 3s
+        - 1m0s
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:15010
         - --zipkinAddress
         - ""
         - --connectTimeout
@@ -125,12 +125,13 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
           capabilities:
             add:
             - NET_ADMIN

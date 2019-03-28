@@ -1,0 +1,29 @@
+global:
+  controlPlaneSecurityEnabled: false
+
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+
+  sds:
+    enabled: true
+    udsPath: "unix:/var/run/sds/uds_path"
+    useNormalJwt: true
+
+nodeagent:
+  enabled: true
+  image: node-agent-k8s
+  env:
+    # https://35.233.249.249:8200 is the IP address and the port number
+    # of a testing Vault server.
+    CA_ADDR: "https://35.233.249.249:8200"
+    CA_PROVIDER: "VaultCA"
+    VALID_TOKEN: true
+    # https://35.233.249.249:8200 is the IP address and the port number
+    # of a testing Vault server.
+    VAULT_ADDR: "https://35.233.249.249:8200"
+    VAULT_AUTH_PATH: "auth/kubernetes/login"
+    VAULT_ROLE: "istio-cert"
+    VAULT_SIGN_CSR_PATH: "istio_ca/sign/istio-pki-role"
+    VAULT_TLS_ROOT_CERT: '-----BEGIN CERTIFICATE-----\nMIIC3jCCAcagAwIBAgIRAIcSFH1jneS0XPz5r2QDbigwDQYJKoZIhvcNAQELBQAw\nEDEOMAwGA1UEChMFVmF1bHQwIBcNMTgxMjI2MDkwMDU3WhgPMjExODEyMDIwOTAw\nNTdaMBAxDjAMBgNVBAoTBVZhdWx0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\nCgKCAQEA2q5lfJCLAOTEjX3xV8qMLEX8zUQpd0AjD6zzOMzx51GVM7Plf7CJmaDq\nyloRz3zcrTEltHUrln5fvouvp4TetOlqEU979vvccnFLgXrSpn+Zt/EyjE0rUYY3\n5e2qxy9bP2E7zJSKONIT6zRDd2zUQGH3zUem1ZG0GFY1ZL5qFSOIy+PvuQ4u8HCa\n1CcnHmI613fVDbFbaxuF2G2MIwCZ/Fg6KBd9kgU7uCOvkbR4AtRe0ntwweIjOIas\nFiohPQzVY4obrYZiTV43HT4lGti7ySn2c96UnRSnmHLWyBb7cafd4WZN/t+OmYSd\nooxCVQ2Zqub6NlZ5OySYOz/0BJq6DQIDAQABozEwLzAOBgNVHQ8BAf8EBAMCBaAw\nDAYDVR0TAQH/BAIwADAPBgNVHREECDAGhwQj6fn5MA0GCSqGSIb3DQEBCwUAA4IB\nAQBORvUcW0wgg/Wo1aKFaZQuPPFVLjOZat0QpCJYNDhsSIO4Y0JS+Y1cEIkvXB3S\nQ3D7IfNP0gh1fhtP/d45LQSPqpyJF5vKWAvwa/LSPKpw2+Zys4oDahcH+SEKiQco\nIhkkHNEgC4LEKEaGvY4A8Cw7uWWquUJB16AapSSnkeD2vTcxErfCO59yR7yEWDa6\n8j6QNzmGNj2YXtT86+Mmedhfh65Rrh94mhAPQHBAdCNGCUwZ6zHPQ6Z1rj+x3Wm9\ngqpveVq2olloNbnLNmM3V6F9mqSZACgADmRqf42bixeHczkTfRDKThJcpY5U44vy\nw4Nm32yDWhD6AC68rDkXX68m\n-----END CERTIFICATE-----'

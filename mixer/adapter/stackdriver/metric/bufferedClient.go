@@ -50,6 +50,11 @@ type buffered struct {
 	m      sync.Mutex
 	buffer []*monitoringpb.TimeSeries
 
+	// Guards merged time series
+	tsm          sync.Mutex
+	mergeTrigger int
+	mergedTS     map[uint64]*monitoringpb.TimeSeries
+
 	// retryBuffer holds timeseries that fail in push.
 	retryBuffer []*monitoringpb.TimeSeries
 	// retryCounter maps a timeseries to the attempts that it has been retried.
@@ -59,6 +64,8 @@ type buffered struct {
 	timeSeriesBatchSize int
 	retryLimit          int
 	pushInterval        time.Duration
+
+	env adapter.Env
 }
 
 // batchTimeSeries slices the given time series array with respect to the given batch size limit.
@@ -77,6 +84,7 @@ func batchTimeSeries(series []*monitoringpb.TimeSeries, tsLimit int) [][]*monito
 func (b *buffered) start(env adapter.Env, ticker *time.Ticker) {
 	env.ScheduleDaemon(func() {
 		for range ticker.C {
+			b.mergeTimeSeries()
 			b.Send()
 		}
 	})
@@ -85,24 +93,55 @@ func (b *buffered) start(env adapter.Env, ticker *time.Ticker) {
 func (b *buffered) Record(toSend []*monitoringpb.TimeSeries) {
 	b.m.Lock()
 	b.buffer = append(b.buffer, toSend...)
+	if len(b.buffer) >= b.mergeTrigger {
+		// pull the trigger to merge buffered time series
+		b.env.ScheduleWork(func() {
+			b.mergeTimeSeries()
+		})
+	}
 	// TODO: gauge metric reporting how many bytes/timeseries we're holding right now
 	b.m.Unlock()
 }
 
-func (b *buffered) Send() {
+func (b *buffered) mergeTimeSeries() {
 	b.m.Lock()
-	if len(b.buffer) == 0 && len(b.retryBuffer) == 0 {
-		b.m.Unlock()
+	temp := b.buffer
+	b.buffer = make([]*monitoringpb.TimeSeries, 0, len(temp))
+	b.m.Unlock()
+
+	b.tsm.Lock()
+	for _, ts := range temp {
+		k := toKey(ts.Metric, ts.Resource)
+		if p, ok := b.mergedTS[k]; !ok {
+			b.mergedTS[k] = ts
+		} else {
+			if n, err := mergePoints(p, ts); err != nil {
+				b.l.Warningf("failed to merge time series %v and %v: %v", p, ts, err)
+			} else {
+				b.mergedTS[k] = n
+			}
+		}
+	}
+	b.tsm.Unlock()
+}
+
+func (b *buffered) Send() {
+	b.tsm.Lock()
+	if len(b.mergedTS) == 0 && len(b.retryBuffer) == 0 {
+		b.tsm.Unlock()
 		b.l.Debugf("No data to send to Stackdriver.")
 		return
 	}
 
-	toSend := b.buffer
-	b.buffer = make([]*monitoringpb.TimeSeries, 0, len(toSend))
-	b.m.Unlock()
+	tmpBuffer := b.mergedTS
+	b.mergedTS = make(map[uint64]*monitoringpb.TimeSeries)
+	b.tsm.Unlock()
 
-	mergedToSend := merge(toSend, b.l)
-	merged := append(b.retryBuffer, mergedToSend...)
+	toSend := make([]*monitoringpb.TimeSeries, 0, len(tmpBuffer))
+	for _, v := range tmpBuffer {
+		toSend = append(toSend, v)
+	}
+	merged := append(b.retryBuffer, toSend...)
 	b.retryBuffer = make([]*monitoringpb.TimeSeries, 0, len(b.retryBuffer))
 	batches := batchTimeSeries(merged, b.timeSeriesBatchSize)
 	// Spread monitoring API calls evenly over the push interval.

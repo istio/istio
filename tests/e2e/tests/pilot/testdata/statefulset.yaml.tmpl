@@ -9,7 +9,7 @@ spec:
   clusterIP: None
   ports:
   - port: 19090
-    name: https
+    name: tcp
   selector:
     app: {{.service}}
 ---

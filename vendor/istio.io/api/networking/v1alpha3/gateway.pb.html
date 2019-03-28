@@ -1,0 +1,608 @@
+---
+title: Gateway
+description: Configuration affecting edge load balancer.
+location: https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 6
+---
+<p><code>Gateway</code> describes a load balancer operating at the edge of the mesh
+receiving incoming or outgoing HTTP/TCP connections. The specification
+describes a set of ports that should be exposed, the type of protocol to
+use, SNI configuration for the load balancer, etc.</p>
+
+<p>For example, the following Gateway configuration sets up a proxy to act
+as a load balancer exposing port 80 and 9080 (http), 443 (https),
+9443(https) and port 2379 (TCP) for ingress.  The gateway will be
+applied to the proxy running on a pod with labels <code>app:
+my-gateway-controller</code>. While Istio will configure the proxy to listen
+on these ports, it is the responsibility of the user to ensure that
+external traffic to these ports are allowed into the mesh.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: some-config-namespace
+spec:
+  selector:
+    app: my-gateway-controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - uk.bookinfo.com
+    - eu.bookinfo.com
+    tls:
+      httpsRedirect: true # sends 301 redirect for http requests
+  - port:
+      number: 443
+      name: https-443
+      protocol: HTTPS
+    hosts:
+    - uk.bookinfo.com
+    - eu.bookinfo.com
+    tls:
+      mode: SIMPLE # enables HTTPS on this port
+      serverCertificate: /etc/certs/servercert.pem
+      privateKey: /etc/certs/privatekey.pem
+  - port:
+      number: 9443
+      name: https-9443
+      protocol: HTTPS
+    hosts:
+    - &quot;bookinfo-namespace/*.bookinfo.com&quot;
+    tls:
+      mode: SIMPLE # enables HTTPS on this port
+      credentialName: bookinfo-secret # fetches certs from Kubernetes secret
+  - port:
+      number: 9080
+      name: http-wildcard
+      protocol: HTTP
+    hosts:
+    - &quot;*&quot;
+  - port:
+      number: 2379 # to expose internal service via external port 2379
+      name: mongo
+      protocol: MONGO
+    hosts:
+    - &quot;*&quot;
+</code></pre>
+
+<p>The Gateway specification above describes the L4-L6 properties of a load
+balancer. A <code>VirtualService</code> can then be bound to a gateway to control
+the forwarding of traffic arriving at a particular host or gateway port.</p>
+
+<p>For example, the following VirtualService splits traffic for
+<code>https://uk.bookinfo.com/reviews</code>, <code>https://eu.bookinfo.com/reviews</code>,
+<code>http://uk.bookinfo.com:9080/reviews</code>,
+<code>http://eu.bookinfo.com:9080/reviews</code> into two versions (prod and qa) of
+an internal reviews service on port 9080. In addition, requests
+containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
+in the qa version. The same rule is also applicable inside the mesh for
+requests to the &ldquo;reviews.prod.svc.cluster.local&rdquo; service. This rule is
+applicable across ports 443, 9080. Note that <code>http://uk.bookinfo.com</code>
+gets redirected to <code>https://uk.bookinfo.com</code> (i.e. 80 redirects to 443).</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-rule
+  namespace: bookinfo-namespace
+spec:
+  hosts:
+  - reviews.prod.svc.cluster.local
+  - uk.bookinfo.com
+  - eu.bookinfo.com
+  gateways:
+  - some-config-namespace/my-gateway
+  - mesh # applies to all the sidecars in the mesh
+  http:
+  - match:
+    - headers:
+        cookie:
+          exact: &quot;user=dev-123&quot;
+    route:
+    - destination:
+        port:
+          number: 7777
+        host: reviews.qa.svc.cluster.local
+  - match:
+    - uri:
+        prefix: /reviews/
+    route:
+    - destination:
+        port:
+          number: 9080 # can be omitted if it's the only port for reviews
+        host: reviews.prod.svc.cluster.local
+      weight: 80
+    - destination:
+        host: reviews.qa.svc.cluster.local
+      weight: 20
+</code></pre>
+
+<p>The following VirtualService forwards traffic arriving at (external)
+port 27017 to internal Mongo server on port 5555. This rule is not
+applicable internally in the mesh as the gateway list omits the
+reserved name <code>mesh</code>.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-Mongo
+  namespace: bookinfo-namespace
+spec:
+  hosts:
+  - mongosvr.prod.svc.cluster.local # name of internal Mongo service
+  gateways:
+  - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
+                                       namespace as virtual service.
+  tcp:
+  - match:
+    - port: 27017
+    route:
+    - destination:
+        host: mongo.prod.svc.cluster.local
+        port:
+          number: 5555
+</code></pre>
+
+<p>It is possible to restrict the set of virtual services that can bind to
+a gateway server using the namespace/hostname syntax in the hosts field.
+For example, the following Gateway allows any virtual service in the ns1
+namespace to bind to it, while restricting only the virtual service with
+foo.bar.com host in the ns2 namespace to bind to it.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: some-config-namespace
+spec:
+  selector:
+    app: my-gateway-controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - &quot;ns1/*&quot;
+    - &quot;ns2/foo.bar.com&quot;
+</code></pre>
+
+<h2 id="Gateway">Gateway</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Gateway-servers">
+<td><code>servers</code></td>
+<td><code><a href="#Server">Server[]</a></code></td>
+<td>
+<p>REQUIRED: A list of server specifications.</p>
+
+</td>
+</tr>
+<tr id="Gateway-selector">
+<td><code>selector</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>REQUIRED: One or more labels used to select the specific gateway workload
+to which this configuration should be applied.
+It is recommended that the Gateway resource reside in the same namespace
+as the gateway workload.
+This may become a requirement in the future.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Port">Port</h2>
+<section>
+<p>Port describes the properties of a specific port of a service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Port-number">
+<td><code>number</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>REQUIRED: A valid non-negative integer port number.</p>
+
+</td>
+</tr>
+<tr id="Port-protocol">
+<td><code>protocol</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED: The protocol exposed on the port.
+MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+TLS implies the connection will be routed based on the SNI header to
+the destination without terminating the TLS connection.</p>
+
+</td>
+</tr>
+<tr id="Port-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Label assigned to the port.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Server">Server</h2>
+<section>
+<p><code>Server</code> describes the properties of the proxy on a given load balancer
+port. For example,</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: my-ingress
+spec:
+  selector:
+    app: my-ingress-gateway
+  servers:
+  - port:
+      number: 80
+      name: http2
+      protocol: HTTP2
+    hosts:
+    - &quot;*&quot;
+</code></pre>
+
+<p>Another example</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: my-tcp-ingress
+spec:
+  selector:
+    app: my-tcp-ingress-gateway
+  servers:
+  - port:
+      number: 27018
+      name: mongo
+      protocol: MONGO
+    hosts:
+    - &quot;*&quot;
+</code></pre>
+
+<p>The following is an example of TLS configuration for port 443</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: my-tls-ingress
+spec:
+  selector:
+    app: my-tls-ingress-gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - &quot;*&quot;
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/server.pem
+      privateKey: /etc/certs/privatekey.pem
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server-port">
+<td><code>port</code></td>
+<td><code><a href="#Port">Port</a></code></td>
+<td>
+<p>REQUIRED: The Port on which the proxy should listen for incoming
+connections.</p>
+
+</td>
+</tr>
+<tr id="Server-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. One or more hosts exposed by this gateway.
+While typically applicable to
+HTTP services, it can also be used for TCP services using TLS with SNI.
+A host is specified as a <code>dnsName</code> with an optional <code>namespace/</code> prefix.
+The <code>dnsName</code> should be specified using FQDN format, optionally including
+a wildcard character in the left-most component (e.g., <code>prod/*.example.com</code>).
+Set the <code>dnsName</code> to <code>*</code> to select all <code>VirtualService</code> hosts from the
+specified namespace (e.g.,<code>prod/*</code>). If no <code>namespace/</code> is specified,
+the <code>VirtualService</code> hosts will be selected from any available namespace.
+Any associated <code>DestinationRule</code> in the same namespace will also be used.</p>
+
+<p>A <code>VirtualService</code> must be bound to the gateway and must have one or
+more hosts that match the hosts specified in a server. The match
+could be an exact match or a suffix match with the server&rsquo;s hosts. For
+example, if the server&rsquo;s hosts specifies <code>*.example.com</code>, a
+<code>VirtualService</code> with hosts <code>dev.example.com</code> or <code>prod.example.com</code> will
+match. However, a <code>VirtualService</code> with host <code>example.com</code> or
+<code>newexample.com</code> will not match.</p>
+
+<p>NOTE: Only virtual services exported to the gateway&rsquo;s namespace
+(e.g., <code>exportTo</code> value of <code>*</code>) can be referenced.
+Private configurations (e.g., <code>exportTo</code> set to <code>.</code>) will not be
+available. Refer to the <code>exportTo</code> setting in <code>VirtualService</code>,
+<code>DestinationRule</code>, and <code>ServiceEntry</code> configurations for details.</p>
+
+</td>
+</tr>
+<tr id="Server-tls">
+<td><code>tls</code></td>
+<td><code><a href="#Server-TLSOptions">Server.TLSOptions</a></code></td>
+<td>
+<p>Set of TLS related options that govern the server&rsquo;s behavior. Use
+these options to control if all http requests should be redirected to
+https, and the TLS modes to use.</p>
+
+</td>
+</tr>
+<tr id="Server-default_endpoint">
+<td><code>defaultEndpoint</code></td>
+<td><code>string</code></td>
+<td>
+<p>The loopback IP endpoint or Unix domain socket to which traffic should
+be forwarded to by default. Format should be <code>127.0.0.1:PORT</code> or
+<code>unix:///path/to/socket</code> or <code>unix://@foobar</code> (Linux abstract namespace).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Server-TLSOptions">Server.TLSOptions</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server-TLSOptions-https_redirect">
+<td><code>httpsRedirect</code></td>
+<td><code>bool</code></td>
+<td>
+<p>If set to true, the load balancer will send a 301 redirect for all
+http connections, asking the clients to use HTTPS.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-mode">
+<td><code>mode</code></td>
+<td><code><a href="#Server-TLSOptions-TLSmode">Server.TLSOptions.TLSmode</a></code></td>
+<td>
+<p>Optional: Indicates whether connections to this port should be
+secured using TLS. The value of this field determines how TLS is
+enforced.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-server_certificate">
+<td><code>serverCertificate</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED if mode is <code>SIMPLE</code> or <code>MUTUAL</code>. The path to the file
+holding the server-side TLS certificate to use.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-private_key">
+<td><code>privateKey</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED if mode is <code>SIMPLE</code> or <code>MUTUAL</code>. The path to the file
+holding the server&rsquo;s private key.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-ca_certificates">
+<td><code>caCertificates</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED if mode is <code>MUTUAL</code>. The path to a file containing
+certificate authority certificates to use in verifying a presented
+client side certificate.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-credential_name">
+<td><code>credentialName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The credentialName stands for a unique identifier that can be used
+to identify the serverCertificate and the privateKey. The
+credentialName appended with suffix &ldquo;-cacert&rdquo; is used to identify
+the CaCertificates associated with this server. Gateway workloads
+capable of fetching credentials from a remote credential store such
+as Kubernetes secrets, will be configured to retrieve the
+serverCertificate and the privateKey using credentialName, instead
+of using the file system paths specified above. If using mutual TLS,
+gateway workloads will retrieve the CaCertificates using
+credentialName-cacert. The semantics of the name are platform
+dependent.  In Kubernetes, the default Istio supplied credential
+server expects the credentialName to match the name of the
+Kubernetes secret that holds the server certificate, the private
+key, and the CA certificate (if using mutual TLS). Set the
+ISTIO<em>META</em>USER_SDS metadata variable in the gateway&rsquo;s proxy to
+enable the dynamic credential fetching feature.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-subject_alt_names">
+<td><code>subjectAltNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of alternate names to verify the subject identity in the
+certificate presented by the client.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-min_protocol_version">
+<td><code>minProtocolVersion</code></td>
+<td><code><a href="#Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</a></code></td>
+<td>
+<p>Optional: Minimum TLS protocol version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-max_protocol_version">
+<td><code>maxProtocolVersion</code></td>
+<td><code><a href="#Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</a></code></td>
+<td>
+<p>Optional: Maximum TLS protocol version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-cipher_suites">
+<td><code>cipherSuites</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional: If specified, only support the specified cipher list.
+Otherwise default to the default cipher list supported by Envoy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Server-TLSOptions-TLSProtocol">Server.TLSOptions.TLSProtocol</h2>
+<section>
+<p>TLS protocol versions.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server-TLSOptions-TLSProtocol-TLS_AUTO">
+<td><code>TLS_AUTO</code></td>
+<td>
+<p>Automatically choose the optimal TLS version.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_0">
+<td><code>TLSV1_0</code></td>
+<td>
+<p>TLS version 1.0</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_1">
+<td><code>TLSV1_1</code></td>
+<td>
+<p>TLS version 1.1</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_2">
+<td><code>TLSV1_2</code></td>
+<td>
+<p>TLS version 1.2</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_3">
+<td><code>TLSV1_3</code></td>
+<td>
+<p>TLS version 1.3</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Server-TLSOptions-TLSmode">Server.TLSOptions.TLSmode</h2>
+<section>
+<p>TLS modes enforced by the proxy</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server-TLSOptions-TLSmode-PASSTHROUGH">
+<td><code>PASSTHROUGH</code></td>
+<td>
+<p>The SNI string presented by the client will be used as the match
+criterion in a VirtualService TLS route to determine the
+destination service from the service registry.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSmode-SIMPLE">
+<td><code>SIMPLE</code></td>
+<td>
+<p>Secure connections with standard TLS semantics.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSmode-MUTUAL">
+<td><code>MUTUAL</code></td>
+<td>
+<p>Secure connections to the upstream using mutual TLS by presenting
+client certificates for authentication.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-TLSmode-AUTO_PASSTHROUGH">
+<td><code>AUTO_PASSTHROUGH</code></td>
+<td>
+<p>Similar to the passthrough mode, except servers with this TLS mode
+do not require an associated VirtualService to map from the SNI
+value to service in the registry. The destination details such as
+the service/subset/port are encoded in the SNI value. The proxy
+will forward to the upstream (Envoy) cluster (a group of
+endpoints) specified by the SNI value. This server is typically
+used to provide connectivity between services in disparate L3
+networks that otherwise do not have direct connectivity between
+their respective endpoints. Use of this mode assumes that both the
+source and the destination are using Istio mTLS to secure traffic.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

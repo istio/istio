@@ -14,7 +14,10 @@
 
 package data
 
-import "strings"
+import (
+	"io/ioutil"
+	"strings"
+)
 
 // ServiceConfig is a standard service config.
 var ServiceConfig = `
@@ -676,7 +679,115 @@ spec:
     - iapa1.tapa.istio-system
 `
 
+// ListHandler1 is a dynamic handler of listentry template named as hdynlist1
+var ListHandler1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist1
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    provider_url: google.com
+    overrides:
+    - a
+    - b
+    caching_interval: 5s
+`
+
+// ListHandler2 is a dynamic handler of listentry template named as hdynlist2
+var ListHandler2 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist2
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    refresh_interval: 5s
+    caching_use_count: 50
+`
+
+// ListHandler3 is a dynamic handler of listentry template named as hdynlist3
+var ListHandler3 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist3
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    blacklist: true
+`
+
+// ListHandler3Addr is a dynamic handler that is same as ListHandler3 but has different backend address
+var ListHandler3Addr = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist3
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8081
+  params:
+    blacklist: true
+`
+
+// FqdnListHandler3 is fqdn of ListHandler3
+var FqdnListHandler3 = "hdynlist3.handler.istio-system"
+
+// InstanceDynamic is the instance of the template listentry
+var InstanceDynamic = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: idynlistentry1
+  namespace: istio-system
+spec:
+  template: listentry
+  params:
+`
+
+// RuleDynamic is a testing rule of dynamic instance idynlistentry1 and dynamic handler hdynlist3
+var RuleDynamic = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rdynlist1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hdynlist3.handler
+    instances:
+    - idynlistentry1.istio-system
+`
+
 // JoinConfigs is a utility for joining various pieces of config for consumption by store code.
 func JoinConfigs(configs ...string) string {
 	return strings.Join(configs, "\n---\n")
+}
+
+// ReadConfigs reads config from the given path list and returns them as a string.
+func ReadConfigs(paths ...string) (string, error) {
+	cfg := ""
+	for _, p := range paths {
+		fc, err := ioutil.ReadFile(p)
+		if err != nil {
+			return "", err
+		}
+		cfg = JoinConfigs(cfg, string(fc))
+	}
+
+	return cfg, nil
 }

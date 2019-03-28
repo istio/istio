@@ -17,18 +17,18 @@
 	  namespace: istio-system
 	spec:
 	 subject:
-	   user: source.user | request.auth.token[user] | ""
-	   groups: request.auth.token[groups]
+	   user: source.principal | request.auth.principal | ""
+	   groups: request.auth.claims["groups"] | ""
 	   properties:
-	    iss: request.auth.token["iss"]
+	    iss: request.auth.claims["iss"]
 	 action:
 	   namespace: destination.namespace | "default"
-	   service: destination.service | ""
+	   service: destination.service.host | ""
 	   path: request.path | "/"
 	   method: request.method | "post"
 	   properties:
 	     version: destination.labels[version] | ""
-	 ```
+	```
 
 	The `authorization` template defines parameters for performing policy
 	enforcement within Istio. It is primarily concerned with enabling Mixer

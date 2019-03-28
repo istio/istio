@@ -42,13 +42,14 @@ import (
 
 var (
 	serverAddr               = flag.String("server", "127.0.0.1:9901", "The server address")
-	collectionList           = flag.String("sortedCollections", "", "The collectionList of resources to deploy")
-	useWellKnownTypes        = flag.Bool("use-wkt", false, "use well known collectionList types")
-	useWellKnownPilotTypes   = flag.Bool("use-wkt-pilot", false, "use well known collectionList types for pilot")
-	useWellKnownMixerTypes   = flag.Bool("use-wkt-mixer", false, "use well known collectionList types for mixer")
+	collectionList           = flag.String("collections", "", "Comma separated list of collections to watch")
+	useWellKnownTypes        = flag.Bool("use-wkt", false, "use well known collections types")
+	useWellKnownPilotTypes   = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")
+	useWellKnownMixerTypes   = flag.Bool("use-wkt-mixer", false, "use well known collections for mixer")
 	id                       = flag.String("id", "", "The node id for the client")
 	useResourceSourceService = flag.Bool("use-source-service", true, "use the new resource source service")
 	output                   = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
+	labels                   = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
 )
 
 var (
@@ -312,6 +313,20 @@ func main() {
 		}
 	}
 
+	sinkMetadata := make(map[string]string)
+	if *labels != "" {
+		pairs := strings.Split(*labels, ",")
+		for _, pair := range pairs {
+			s := strings.SplitN(pair, "=", 2)
+			if len(s) != 2 {
+				fmt.Printf("invalid labels: %v %v\n", pair, s)
+				os.Exit(-1)
+			}
+			key, value := s[0], s[1]
+			sinkMetadata[key] = value
+		}
+	}
+
 	collectionsMap := make(map[string]struct{})
 
 	if *collectionList != "" {
@@ -383,6 +398,7 @@ func main() {
 		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
 		Updater:           u,
 		ID:                *id,
+		Metadata:          sinkMetadata,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 

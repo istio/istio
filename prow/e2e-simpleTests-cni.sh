@@ -29,10 +29,9 @@ set -u
 set -x
 
 echo 'Running e2e_simple test with rbac, auth Tests and CNI enabled'
+
 export ENABLE_ISTIO_CNI=true
-# cniBinDir setting is appropriate for GKE environments
-# HUB and TAG for the cni image will be based on the defaults checked in the cni repo
-export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin"
+
 # only gke-e2e-test-latest is enabled for Networkpolicy and Calico
 export RESOURCE_TYPE="gke-e2e-test-latest"
 # TODO - When the inline kube inject code defaults to using the configmap this setting can be removed.
