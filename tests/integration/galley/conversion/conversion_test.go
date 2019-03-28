@@ -42,7 +42,8 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			framework.NewTest(t).Label(label.Native, label.Presubmit).Run(func(ctx framework.TestContext) {
+			framework.Run(t, func(ctx framework.TestContext) {
+
 				var gal galley.Instance
 				var cfg galley.Config
 
