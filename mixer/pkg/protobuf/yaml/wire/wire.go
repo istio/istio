@@ -530,13 +530,3 @@ func EncodeZigZag(x int64) uint64 {
 func DecodeBool(x uint64) bool {
 	return x != 0
 }
-
-// EncodeBool encodes a bool as a uint64.
-//	Input:  {false, true}
-//	Output: {    0,    1}
-func EncodeBool(x bool) uint64 {
-	if x {
-		return 1
-	}
-	return 0
-}

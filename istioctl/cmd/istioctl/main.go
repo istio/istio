@@ -77,7 +77,7 @@ debug and diagnose their Istio mesh.
 	}
 )
 
-func istioPersistentPreRunE(c *cobra.Command, args []string) error {
+func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}

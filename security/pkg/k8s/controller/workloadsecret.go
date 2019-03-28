@@ -111,7 +111,7 @@ type SecretController struct {
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, rootCertFile string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -129,8 +129,9 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
-		dnsNames:         dnsNames,
-		monitoring:       newMonitoringMetrics(),
+
+		dnsNames:   dnsNames,
+		monitoring: newMonitoringMetrics(),
 	}
 
 	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {

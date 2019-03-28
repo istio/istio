@@ -298,7 +298,7 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks, opts.rootCertFile)
+			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}

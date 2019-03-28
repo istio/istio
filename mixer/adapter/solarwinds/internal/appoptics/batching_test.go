@@ -64,7 +64,7 @@ func TestBatchMeasurements(t *testing.T) {
 			}
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize)
 		close(stopChan)
 	})
 
@@ -85,7 +85,7 @@ func TestBatchMeasurements(t *testing.T) {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize)
 	})
 }
 

@@ -31,7 +31,7 @@ func TestInfo(t *testing.T) {
 	}
 }
 
-func mockDC(ctx context.Context, scopes ...string) (*google.Credentials, error) {
+func mockDC(_ context.Context, _ ...string) (*google.Credentials, error) {
 	return &google.Credentials{}, nil
 }
 

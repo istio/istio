@@ -90,7 +90,7 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(c *cobra.Command, args []string) error {
+func run(_ *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
 	client, err := kubernetes.NewClient(kubeconfig, configContext)
