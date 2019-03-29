@@ -110,6 +110,9 @@ webhooks:
         - quotas
         - reportnothings
         - tracespans
+        - handlers
+        - instances
+        - zipkins
     failurePolicy: Fail
     sideEffects: None
 {{- end }}
