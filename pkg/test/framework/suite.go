@@ -59,7 +59,7 @@ type Suite struct {
 	testID string
 	mRun   mRunFn
 	osExit func(int)
-	labels []label.Instance
+	labels label.Set
 
 	setupFns []SetupFn
 }
@@ -74,6 +74,7 @@ func newSuite(testID string, fn mRunFn, osExit func(int)) *Suite {
 		testID: testID,
 		mRun:   fn,
 		osExit: osExit,
+		labels: label.NewSet(),
 	}
 
 	return s
@@ -81,7 +82,7 @@ func newSuite(testID string, fn mRunFn, osExit func(int)) *Suite {
 
 // Label all the tests in suite with the given labels
 func (s *Suite) Label(labels ...label.Instance) *Suite {
-	s.labels = append(s.labels, labels...)
+	s.labels = s.labels.Add(labels...)
 	return s
 }
 

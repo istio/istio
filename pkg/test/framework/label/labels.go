@@ -22,7 +22,6 @@ const (
 	Postsubmit Instance = "postsubmit"
 )
 
-var all = Set{
+var all = NewSet(
 	Presubmit,
-	Postsubmit,
-}
+	Postsubmit)

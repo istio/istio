@@ -32,15 +32,15 @@ var _ fmt.Stringer = Selector{}
 
 func NewSelector(present []Instance, absent []Instance) Selector {
 	return Selector{
-		present: append([]Instance{}, present...),
-		absent:  append([]Instance{}, absent...),
+		present: NewSet(present...),
+		absent:  NewSet(absent...),
 	}
 }
 
 var userLabelRegex = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)*$")
 
 func ParseSelector(s string) (Selector, error) {
-	var present, absent Set
+	var present, absent []Instance
 
 	parts := strings.Split(s, ",")
 	for _, p := range parts {
@@ -67,16 +67,17 @@ func ParseSelector(s string) (Selector, error) {
 		}
 
 		if negative {
-			if present.contains(l) {
-				return Selector{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
-			}
 			absent = append(absent, l)
 		} else {
-			if absent.contains(l) {
-				return Selector{}, fmt.Errorf("duplicate, conflicting label specification: %q", l)
-			}
 			present = append(present, l)
 		}
+	}
+
+	pSet := NewSet(present...)
+	aSet := NewSet(absent...)
+
+	if pSet.containsAny(aSet) || aSet.containsAny(pSet) {
+		return Selector{}, fmt.Errorf("conflicting selector specification: %q", s)
 	}
 
 	return NewSelector(present, absent), nil
@@ -84,38 +85,26 @@ func ParseSelector(s string) (Selector, error) {
 
 // Selects returns true, if the given label set satisfies the Selector.
 func (f *Selector) Selects(inputs Set) bool {
-	if inputs.containsAny(f.absent) {
-		return false
-	}
-
-	if !inputs.containsAll(f.present) {
-		return false
-	}
-
-	return true
+	return !inputs.containsAny(f.absent) && inputs.containsAll(f.present)
 }
 
 // Excludes returns false, if the given set of labels, even combined with new ones, could end up satisfying the Selector.
 // It returns false, if Matches would never return true, even if new labels are added to the input set.
 func (f *Selector) Excludes(inputs Set) bool {
-	if inputs.containsAny(f.absent) {
-		return true
-	}
-
-	return false
+	return inputs.containsAny(f.absent)
 }
 
 func (f Selector) String() string {
 	var result string
 
-	for _, p := range f.present {
+	for _, p := range f.present.All() {
 		if result != "" {
 			result += ","
 		}
 		result += "+" + string(p)
 	}
 
-	for _, p := range f.absent {
+	for _, p := range f.absent.All() {
 		if result != "" {
 			result += ","
 		}

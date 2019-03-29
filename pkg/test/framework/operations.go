@@ -46,5 +46,5 @@ func NewContext(t *testing.T, labels ...label.Instance) TestContext {
 		panic("call to scope without running the test framework")
 	}
 
-	return rt.NewTestContext(t, nil, labels)
+	return rt.NewTestContext(t, nil, label.NewSet(labels...))
 }
