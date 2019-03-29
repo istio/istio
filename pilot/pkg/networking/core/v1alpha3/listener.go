@@ -77,7 +77,7 @@ var (
 	EnvoyJSONLogFormat = &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
 			"start_time":                {Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
 			"path":                      {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
 			"protocol":                  {Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
 			"response_code":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},

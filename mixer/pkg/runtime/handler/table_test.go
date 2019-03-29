@@ -20,9 +20,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 // Create a standard global config with Handler H1, Instance I1 and rule R1 referencing I1 and H1.
@@ -105,6 +107,42 @@ func TestNew_NoReuse_DifferentConfig(t *testing.T) {
 
 	if table2.entries[data.FqnACheck1] == table.entries[data.FqnACheck1] {
 		t.Fail()
+	}
+}
+
+func TestNew_NoReuse_DifferentConnectionConfig(t *testing.T) {
+	templates := map[string]*template.Info{}
+	adapters := map[string]*adapter.Info{}
+
+	// Load base dynamic config, which includes listentry template and listbackend adapter config
+	dynamicConfig, err := data.ReadConfigs("../../../template/listentry/template.yaml", "../../../test/listbackend/nosession.yaml")
+	dynamicConfig = data.JoinConfigs(dynamicConfig, data.InstanceDynamic, data.RuleDynamic)
+
+	// Join base dynamic config with dynamic handler
+	config1 := data.JoinConfigs(dynamicConfig, data.ListHandler3)
+	if err != nil {
+		t.Fatalf("fail to load dynamic config: %v", err)
+	}
+	s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, config1)
+	table := NewTable(Empty(), s, nil)
+
+	if len(table.entries) != 1 {
+		t.Fatalf("got %v entries in route table, want 1", len(table.entries))
+	}
+
+	// Join base dynamic config with dynamic handler which has different connection address
+	config2 := data.JoinConfigs(dynamicConfig, data.ListHandler3Addr)
+	// NewTable again using the slightly different config
+	s, _ = config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, config2)
+
+	table2 := NewTable(table, s, nil)
+
+	if len(table2.entries) != 1 {
+		t.Fatalf("got %v entries in route table, want 1", len(table2.entries))
+	}
+
+	if table2.entries[data.FqdnListHandler3] == table.entries[data.FqdnListHandler3] {
+		t.Fatalf("got same entry %+v in route table after handler config change, want different entries", table2.entries[data.FqdnListHandler3])
 	}
 }
 
