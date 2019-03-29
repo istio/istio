@@ -50,8 +50,12 @@ func Template(homeDir, template, name, namespace string, valuesFile string, valu
 		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
 	}
 
-	out, err := shell.Execute("helm --home %s template %s --name %s --namespace %s %s %s",
+	cmdLine := fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s %s",
 		homeDir, template, name, namespace, valuesFileString, valuesString)
+
+	scopes.CI.Infof("Rendering Istio Yaml: %q", cmdLine)
+
+	out, err := shell.Execute(cmdLine)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)
 	}
