@@ -96,7 +96,7 @@ function dep_guard() {
               -e "^istio\.io/istio/pkg"\
               -e "^istio\.io/istio/mixer"\
               -e "^istio\.io/istio/galley")
-    if [[ ${MIXER_DEPS} ]]; then
+    if [[ -n ${MIXER_DEPS} ]]; then
       echo 'Found extra dependencies:'
       echo "${MIXER_DEPS}"
       exit 1
