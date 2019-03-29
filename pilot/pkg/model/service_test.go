@@ -414,37 +414,37 @@ func TestHostnamesIntersection(t *testing.T) {
 
 func TestHostnamesForNamespace(t *testing.T) {
 	tests := []struct {
-		strings []string
+		strings   []string
 		namespace string
-		hosts Hostnames
+		hosts     Hostnames
 	}{
 		{
-			[]string{"ns1/foo.com","ns2/bar.com"},
+			[]string{"ns1/foo.com", "ns2/bar.com"},
 			"ns1",
 			Hostnames{"foo.com"},
 		},
 		{
-			[]string{"ns1/foo.com","ns2/bar.com"},
+			[]string{"ns1/foo.com", "ns2/bar.com"},
 			"ns3",
 			Hostnames{},
 		},
 		{
-			[]string{"ns1/foo.com","*/bar.com"},
+			[]string{"ns1/foo.com", "*/bar.com"},
 			"ns1",
-			Hostnames{"foo.com","bar.com"},
+			Hostnames{"foo.com", "bar.com"},
 		},
 		{
-			[]string{"ns1/foo.com","*/bar.com"},
+			[]string{"ns1/foo.com", "*/bar.com"},
 			"ns3",
 			Hostnames{"bar.com"},
 		},
 		{
-			[]string{"foo.com","ns2/bar.com"},
+			[]string{"foo.com", "ns2/bar.com"},
 			"ns2",
-			Hostnames{"foo.com","bar.com"},
+			Hostnames{"foo.com", "bar.com"},
 		},
 		{
-			[]string{"foo.com","ns2/bar.com"},
+			[]string{"foo.com", "ns2/bar.com"},
 			"ns3",
 			Hostnames{"foo.com"},
 		},
