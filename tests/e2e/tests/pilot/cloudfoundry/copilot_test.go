@@ -72,7 +72,6 @@ func pilotURL(path string) string {
 	}).String()
 }
 
-var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 type mockController struct{}
@@ -98,7 +97,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("starting mock copilot grpc server...")
 	var err error
-	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
+	_, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	copilotMCPServer, err := startMCPCopilot()
@@ -388,7 +387,7 @@ func curlApp(endpoint, hostRoute url.URL) (string, error) {
 
 var gateway = &networking.Gateway{
 	Servers: []*networking.Server{
-		&networking.Server{
+		{
 			Port: &networking.Port{
 				Name:     "http",
 				Number:   publicPort,

@@ -44,7 +44,7 @@ func TestStartWatch_Basic(t *testing.T) {
 	if err := s.Init(kinds); err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
-	initialResources, _, err := StartWatch(s, kinds)
+	initialResources, _, err := StartWatch(s)
 
 	if !s.initCalled {
 		t.Fatal("Init should have been called")
@@ -76,11 +76,7 @@ func TestStartWatch_WatchFailure(t *testing.T) {
 		watchErrorToReturn: errors.New("cannot watch"),
 	}
 
-	kinds := map[string]proto.Message{
-		"foo": &mockProto{},
-	}
-
-	_, _, err := StartWatch(s, kinds)
+	_, _, err := StartWatch(s)
 	if err != s.watchErrorToReturn {
 		t.Fatalf("Expected error was not returned: %v", err)
 	}

@@ -25,7 +25,7 @@ var (
 	availableDeployment = v1beta1.Deployment{
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -38,10 +38,10 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -55,10 +55,10 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -74,7 +74,7 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentReplicaFailure,
 				},
 			},
@@ -87,7 +87,7 @@ var (
 	deadlineExceededDeployment = v1beta1.Deployment{
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type:   v1beta1.DeploymentProgressing,
 					Reason: "ProgressDeadlineExceeded",
 				},

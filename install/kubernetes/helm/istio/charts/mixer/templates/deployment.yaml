@@ -9,6 +9,21 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: policy-adapter-secret
@@ -50,6 +65,7 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          - --useTemplateCRDs=false
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -141,6 +157,15 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
         - name: policy-adapter-secret
@@ -156,6 +181,21 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: telemetry-adapter-secret
@@ -295,6 +335,15 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}

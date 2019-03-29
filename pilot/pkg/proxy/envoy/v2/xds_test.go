@@ -440,7 +440,7 @@ func getLocalIP() string {
 // nolint: unparam
 func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
 	return []*model.IstioEndpoint{
-		&model.IstioEndpoint{
+		{
 			Address:         ip,
 			ServicePortName: "http-main",
 			EndpointPort:    80,

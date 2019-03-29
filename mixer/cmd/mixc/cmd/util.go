@@ -248,7 +248,7 @@ func decodeStatus(status rpc.Status) string {
 	return result
 }
 
-/*
+/* Useful debugging aid, commented out until needed.
 func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAttributes) {
 	if attrs == nil {
 		return

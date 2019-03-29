@@ -73,7 +73,7 @@ spec:
 	}
 	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
 	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot, AppParams: []apps.AppParam{
-		apps.AppParam{Name: "healthcheck"},
+		{Name: "healthcheck"},
 	}})
 	aps.GetAppOrFail("healthcheck", t)
 	// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
