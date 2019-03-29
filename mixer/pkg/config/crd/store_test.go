@@ -45,7 +45,7 @@ const waitForTimeout = time.Second
 
 const apiGroupVersion = ConfigAPIGroup + "/" + ConfigAPIVersion
 
-func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+func createFakeDiscovery(_ *rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{

@@ -197,7 +197,7 @@ func environment() *model.Environment {
 	return &model.Environment{
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
-				"network1": &meshconfig.Network{
+				"network1": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -207,7 +207,7 @@ func environment() *model.Environment {
 						},
 					},
 				},
-				"network2": &meshconfig.Network{
+				"network2": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -217,7 +217,7 @@ func environment() *model.Environment {
 						},
 					},
 				},
-				"network3": &meshconfig.Network{
+				"network3": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -227,7 +227,7 @@ func environment() *model.Environment {
 						},
 					},
 				},
-				"network4": &meshconfig.Network{
+				"network4": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{},
 				},
 			},
@@ -275,14 +275,14 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 			},
 			Metadata: &core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					"istio": &types.Struct{
+					"istio": {
 						Fields: map[string]*types.Value{
-							"network": &types.Value{
+							"network": {
 								Kind: &types.Value_StringValue{
 									StringValue: lbEpInfo.network,
 								},
 							},
-							"uid": &types.Value{
+							"uid": {
 								Kind: &types.Value_StringValue{
 									StringValue: "kubernetes://dummy",
 								},

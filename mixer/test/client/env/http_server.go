@@ -76,8 +76,8 @@ type HTTPServer struct {
 	mu         sync.Mutex
 }
 
-func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%v", publicKey)
+func pubkeyHandler(w http.ResponseWriter, _ *http.Request) {
+	_, _ = fmt.Fprintf(w, "%v", publicKey)
 }
 
 // handle handles a request and sends response. If ?delay=n is in request URL, then sleeps for
@@ -127,7 +127,7 @@ func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 	s.reqHeaders = reqHeaders
 	s.mu.Unlock()
 
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 // NewHTTPServer creates a new HTTP server.
