@@ -181,7 +181,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	if !exists {
 		log.Errorf("Prober does not exists url %v", path)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
+		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
 

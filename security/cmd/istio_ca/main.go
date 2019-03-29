@@ -145,7 +145,9 @@ func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", "", "deprecated")
-	flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead")
+	if err := flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead"); err != nil {
+		panic(err)
+	}
 
 	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", "",
 		"Select the namespaces for the Citadel to listen to, separated by comma. If unspecified, Citadel tries to use the ${"+
