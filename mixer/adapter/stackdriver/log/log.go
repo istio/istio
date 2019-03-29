@@ -167,13 +167,6 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 			continue
 		}
 
-		defer func() {
-			err := linfo.flush()
-			if err != nil {
-				h.l.Warningf("failed to flush log entry: %v", err)
-			}
-		}()
-
 		buf := pool.GetBuffer()
 		if err := linfo.tmpl.Execute(buf, v.Variables); err != nil {
 			// We'll just continue on with an empty payload for this entry - we could still be populating the HTTP req with valuable info, for example.
@@ -200,6 +193,13 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 			}
 		}
 		linfo.log(e)
+	}
+
+	for name, linfo := range h.info {
+		err := linfo.flush()
+		if err != nil {
+			h.l.Warningf("failed to flush log %s: %v", name, err)
+		}
 	}
 	return nil
 }

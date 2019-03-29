@@ -81,7 +81,7 @@ type SyncStatus struct {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func Syncz(w http.ResponseWriter, req *http.Request) {
+func Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -230,7 +230,7 @@ type authProtocol int
 const (
 	authnHTTP       authProtocol = 1
 	authnMTls       authProtocol = 2
-	authnPermissive authProtocol = authnHTTP | authnMTls
+	authnPermissive              = authnHTTP | authnMTls
 	authnCustomTLS  authProtocol = 4
 	authnCustomMTls authProtocol = 8
 )

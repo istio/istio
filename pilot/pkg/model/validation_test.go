@@ -2258,55 +2258,55 @@ func TestValidateRouteDestination(t *testing.T) {
 		routes []*networking.RouteDestination
 		valid  bool
 	}{
-		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "simple", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
-		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "no destination", routes: []*networking.RouteDestination{{
 			Destination: nil,
 		}}, valid: false},
-		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weighted", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      25,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight < 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      5,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      -1,
 		}}, valid: false},
-		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      55,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight = 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: false},

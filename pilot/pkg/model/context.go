@@ -562,9 +562,6 @@ const (
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 
-	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
-	NodeMetadataDNSDomains = "DNS_DOMAINS"
-
 	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
 	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
 

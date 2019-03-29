@@ -200,7 +200,7 @@ func curlPilot(apiEndpoint string) (string, error) {
 
 var firstGateway = &networking.Gateway{
 	Servers: []*networking.Server{
-		&networking.Server{
+		{
 			Port: &networking.Port{
 				Name:     "http-8099",
 				Number:   8099,
@@ -215,7 +215,7 @@ var firstGateway = &networking.Gateway{
 
 var secondGateway = &networking.Gateway{
 	Servers: []*networking.Server{
-		&networking.Server{
+		{
 			Port: &networking.Port{
 				Name:     "tcp-880",
 				Number:   880,

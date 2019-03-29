@@ -88,9 +88,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	if got, want := opt.AlwaysValidTokenFlag, false; got != want {
-		t.Errorf("opt.AlwaysValidTokenFlag default: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "opt.AlwaysValidTokenFlag default", opt.AlwaysValidTokenFlag, false)
 
 	conID := "proxy1-id"
 	ctx := context.Background()
@@ -103,12 +101,8 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	if got, want := sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(conID, testResourceName, "nonexisttoken", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "nonexisttoken", gotSecret.Version), false)
 
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 	if err != nil {
@@ -118,12 +112,8 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	if got, want := sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false)
 
 	key := ConnKey{
 		ConnectionID: conID,
@@ -297,12 +287,8 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 				if err := verifySecret(gotSecret, es.secret); err != nil {
 					t.Errorf("Secret verification failed: %v", err)
 				}
-				if got, want := sc.SecretExist(c.connID, es.secret.ResourceName, "", gotSecret.Version), true; got != want {
-					t.Errorf("SecretExist: got: %v, want: %v", got, want)
-				}
-				if got, want := sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false; got != want {
-					t.Errorf("SecretExist: got: %v, want: %v", got, want)
-				}
+				checkBool(t, "SecretExist", sc.SecretExist(c.connID, es.secret.ResourceName, "", gotSecret.Version), true)
+				checkBool(t, "SecretExist", sc.SecretExist(c.connID, "nonexistsecret", "", gotSecret.Version), false)
 			}
 			key := ConnKey{
 				ConnectionID: c.connID,
@@ -379,46 +365,32 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true)
 
 	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert", "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true)
 
 	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), true)
 
 	_, err = sc.GenerateSecret(ctx, connID, k8sTLSSecretName+"-cacert", "")
 	if err == nil {
 		t.Fatalf("Get unexpected secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sTLSSecretName+"-cacert", "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName+"-cacert", "", gotSecret.Version), false)
 
 	sc.DeleteK8sSecret(k8sGenericSecretName)
 	sc.DeleteK8sSecret(k8sGenericSecretName + "-cacert")
 	sc.DeleteK8sSecret(k8sTLSSecretName)
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
-	if got, want := sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sTLSSecretName, "", gotSecret.Version), false)
 }
 
 // TestGatewayAgentUpdateSecret verifies that ingress gateway agent updates secret cache correctly.
@@ -438,16 +410,12 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), true)
 	gotSecret, err = sc.GenerateSecret(ctx, connID, k8sGenericSecretName+"-cacert", "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), true)
 	newTime := gotSecret.CreatedTime.Add(time.Duration(10) * time.Second)
 	newK8sTestSecret := model.SecretItem{
 		CertificateChain: []byte("new cert chain"),
@@ -459,13 +427,9 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 		Version:          newTime.String(),
 	}
 	sc.UpdateK8sSecret(k8sGenericSecretName, newK8sTestSecret)
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName, "", gotSecret.Version), false)
 	sc.UpdateK8sSecret(k8sGenericSecretName+"-cacert", newK8sTestSecret)
-	if got, want := sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false; got != want {
-		t.Errorf("SecretExist: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
 }
 
 func TestConstructCSRHostName(t *testing.T) {
@@ -507,13 +471,19 @@ func TestConstructCSRHostName(t *testing.T) {
 			continue
 		}
 
-		if err == nil && c.errFlag == true {
+		if c.errFlag == true {
 			t.Error("constructCSRHostName error")
 		}
 
 		if got != c.expected {
 			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
 		}
+	}
+}
+
+func checkBool(t *testing.T, name string, got bool, want bool) {
+	if got != want {
+		t.Errorf("%s: got: %v, want: %v", name, got, want)
 	}
 }
 
@@ -534,9 +504,7 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 		sc.Close()
 	}()
 
-	if got, want := sc.isTokenExpired(), false; got != want {
-		t.Errorf("isTokenExpired: got: %v, want: %v", got, want)
-	}
+	checkBool(t, "isTokenExpired", sc.isTokenExpired(), false)
 	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -576,7 +544,7 @@ func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem)
 	return nil
 }
 
-func notifyCb(string, string, *model.SecretItem) error {
+func notifyCb(_ string, _ string, _ *model.SecretItem) error {
 	return nil
 }
 

@@ -120,7 +120,6 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for scheduled response")
 	}
-	t.Fatal("unreachable")
 	return nil
 }
 
