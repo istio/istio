@@ -47,6 +47,7 @@ func SetupOnKube(i *Instance, cfn SetupConfigFn) framework.SetupFn {
 			if cfn != nil {
 				cfn(&cfg)
 			}
+			cfg = cfg.Clone()
 			ins, err := Deploy(ctx, &cfg)
 			if err != nil {
 				return err
@@ -68,6 +69,8 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 			return nil, err
 		}
 		cfg = &c
+	} else {
+		*cfg = cfg.Clone()
 	}
 
 	var err error

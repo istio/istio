@@ -227,15 +227,32 @@ func parseHelmValues() (map[string]string, error) {
 	return out, nil
 }
 
+// Clone clones this config object.
+func (c *Config) Clone() Config {
+	n := *c
+	n.Values = make(map[string]string)
+	for k, v := range c.Values {
+		n.Values[k] = v
+	}
+
+	return n
+}
+
+// Log allows dumping the contents of config to a log stream in a readable way.
+func (c *Config) Log(w func(fmt string, params ...interface{})) {
+	w("SystemNamespace: %s", c.SystemNamespace)
+	w("DeployIstio:     %v", c.DeployIstio)
+	w("DeployTimeout:   %s", c.DeployTimeout.String())
+	w("UndeployTimeout: %s", c.UndeployTimeout.String())
+	w("Values:          %v", c.Values)
+}
+
 // String implements fmt.Stringer
 func (c *Config) String() string {
 	result := ""
-
-	result += fmt.Sprintf("SystemNamespace: %s\n", c.SystemNamespace)
-	result += fmt.Sprintf("DeployIstio:     %v\n", c.DeployIstio)
-	result += fmt.Sprintf("DeployTimeout:   %s\n", c.DeployTimeout.String())
-	result += fmt.Sprintf("UndeployTimeout: %s\n", c.UndeployTimeout.String())
-	result += fmt.Sprintf("Values:          %v\n", c.Values)
-
+	c.Log(func(format string, params ...interface{}) {
+		result += fmt.Sprintf(format, params)
+		result += "\n"
+	})
 	return result
 }
