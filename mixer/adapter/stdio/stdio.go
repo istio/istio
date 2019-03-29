@@ -70,7 +70,7 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 		}
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, zap.Any(varName, convertSomeTypestoStringValue(value, varName, logEntryTypes)))
+				fields = append(fields, zap.Any(varName, convertValueTypes(value, varName, logEntryTypes)))
 			}
 		}
 
@@ -124,7 +124,7 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	return level
 }
 
-func convertSomeTypestoStringValue(value interface{}, varName string, logEntryTypes map[string]istio_policy_v1beta1.ValueType) interface{} {
+func convertValueTypes(value interface{}, varName string, logEntryTypes map[string]istio_policy_v1beta1.ValueType) interface{} {
 	if logEntryTypes[varName] == istio_policy_v1beta1.IP_ADDRESS {
 		if byteArr, ok := value.([]byte); ok {
 			return interface{}(net.IP(byteArr).String())
