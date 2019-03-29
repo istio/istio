@@ -209,6 +209,9 @@ func TestParseProtocol(t *testing.T) {
 		{"mysql", ProtocolMySQL},
 		{"MYSQL", ProtocolMySQL},
 		{"MySQL", ProtocolMySQL},
+		{"thrift", ProtocolThrift},
+		{"Thrift", ProtocolThrift},
+		{"THRIFT", ProtocolThrift},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
 	}

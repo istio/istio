@@ -168,6 +168,8 @@ const (
 	ProtocolRedis Protocol = "Redis"
 	// ProtocolMySQL declares that the port carries MySQL traffic.
 	ProtocolMySQL Protocol = "MySQL"
+	// ProtocolThrift declares that the port carries Thrift traffic.
+	ProtocolThrift Protocol = "Thrift"
 	// ProtocolUnsupported - value to signify that the protocol is unsupported.
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
@@ -242,6 +244,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolRedis
 	case "mysql":
 		return ProtocolMySQL
+	case "thrift":
+		return ProtocolThrift
 	}
 
 	return ProtocolUnsupported
