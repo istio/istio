@@ -250,6 +250,8 @@ func setStatsOptions(opts map[string]interface{}, meta map[string]string, sideca
 		// add http.my_ip prefix for sidecar
 		// http.10.16.48.230_8080.downstream_rq_2xx
 		// the metric has http_conn_manager_prefix = 10.16.48.230_8080 as a tag
+		// This ensures that not all downstream stats are added.
+		// Outbound downstream stats are numerous and not very interesting for a sidecar.
 		for _, nodeIP := range nodeIPs {
 			inclusionOptionPrefixes = append(inclusionOptionPrefixes,
 				"http."+nodeIP+"_")
