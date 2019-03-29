@@ -121,7 +121,7 @@ func (c *nativeComponent) Close() (err error) {
 	}
 
 	if c.stopChan != nil {
-		c.stopChan <- struct{}{}
+		close(c.stopChan)
 	}
 	return
 }
