@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"testing"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -45,6 +45,7 @@ func TestGolden(t *testing.T) {
 		labels                     map[string]string
 		annotations                map[string]string
 		expectLightstepAccessToken bool
+		sidecar bool
 	}{
 		{
 			base: "auth",
@@ -82,6 +83,7 @@ func TestGolden(t *testing.T) {
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
 			},
+			sidecar:true,
 		},
 	}
 
@@ -99,7 +101,7 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"})
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"}, c.sidecar)
 			if err != nil {
 				t.Fatal(err)
 			}
