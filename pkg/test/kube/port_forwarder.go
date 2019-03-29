@@ -35,7 +35,7 @@ var (
 	// we'l need an index per type.
 	addressMatchIndex = 1
 	forwardRegexIPv4  = regexp.MustCompile(`Forwarding from (127.0.0.1:[0-9]+) -> ([0-9]+)`)
-	forwardRegexIPv6  = regexp.MustCompile(`Forwarding from (\[::1\]:[0-9]+) -> ([0-9]+)`)
+	forwardRegexIPv6  = regexp.MustCompile(`Forwarding from (\[::1]:[0-9]+) -> ([0-9]+)`)
 )
 
 // PortForwarder manages the forwarding of a single port.

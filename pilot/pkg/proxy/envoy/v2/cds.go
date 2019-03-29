@@ -25,7 +25,7 @@ import (
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
+func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: ClusterType,

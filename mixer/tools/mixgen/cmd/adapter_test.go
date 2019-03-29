@@ -120,10 +120,6 @@ func TestAdapterCmd_NoInputFile(t *testing.T) {
 		func(format string, a ...interface{}) {
 			gotError = fmt.Sprintf(format, a...)
 			t.Fatalf("want no error; got '%s'", gotError)
-
-			if !strings.Contains(gotError, "unable to read") {
-				t.Fatalf("want error 'unable to read'; got '%s'", gotError)
-			}
 		})
 	_ = cmd.Execute()
 }
