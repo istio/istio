@@ -39,12 +39,14 @@ export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 set +e
 n=1
-until [ $n -ge 5 ]
+while true
 do
-    
     RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://${GATEWAY_URL}/productpage)
     if [ $RESULT -eq "200"  ]; then
-    break
+        break
+    fi
+    if [ $n -ge 5 ]; then
+        exit 1
     fi
     n=$((n+1))
     echo "Retrying in 10s..."
