@@ -17,6 +17,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -63,6 +64,9 @@ type Args struct {
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
+
+	// Timeout until the initial set of configurations are received, before declaring as ready.
+	ConfigWaitTimeout time.Duration
 
 	// The logging options to use
 	LoggingOptions *log.Options
@@ -121,6 +125,7 @@ func DefaultArgs() *Args {
 		AdapterWorkerPoolSize:  1024,
 		CredentialOptions:      creds.DefaultOptions(),
 		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
+		ConfigWaitTimeout:      2 * time.Minute,
 		LoggingOptions:         log.DefaultOptions(),
 		TracingOptions:         tracing.DefaultOptions(),
 		LivenessProbeOptions:   &probe.Options{},
@@ -181,6 +186,7 @@ func (a *Args) String() string {
 	fmt.Fprintln(buf, "KeyFile: ", a.CredentialOptions.KeyFile)
 	fmt.Fprintln(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintln(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace)
+	fmt.Fprintln(buf, "ConfigWaitTimeout: ", a.ConfigWaitTimeout)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
