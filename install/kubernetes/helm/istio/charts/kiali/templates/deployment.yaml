@@ -51,6 +51,14 @@ spec:
         - name: SERVER_WEB_ROOT
           value: {{ .Values.contextPath }}
 {{- end }}
+{{- if and .Values.dashboard.grafanaAPIKeySecretName .Values.dashboard.grafanaAPIKeyKey }}
+        - name: GRAFANA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.dashboard.grafanaAPIKeySecretName }}
+              key: {{ .Values.dashboard.grafanaAPIKeyKey }}
+              optional: true
+{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"

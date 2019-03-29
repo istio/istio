@@ -26,6 +26,9 @@ dashboard:
 
   # Override the automatically detected Grafana URL, useful when Grafana service has no ExternalIPs
   # grafanaURL:
+  ## If use Grafana API key to authenticate.
+  # grafanaAPIKeySecretName:
+  # grafanaAPIKeyKey:
 
   # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
   # jaegerURL:
