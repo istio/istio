@@ -158,6 +158,7 @@ issues:
     - path: _test\.go$|^tests/|^samples/
       linters:
         - errcheck
+        - maligned
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
