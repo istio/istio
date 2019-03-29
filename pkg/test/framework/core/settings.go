@@ -95,6 +95,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("RunID:        %s\n", s.RunID.String())
 	result += fmt.Sprintf("NoCleanup:    %v\n", s.NoCleanup)
 	result += fmt.Sprintf("BaseDir:      %s\n", s.BaseDir)
-	result += fmt.Sprintf("Selector:       %v\n", s.Selector)
+	result += fmt.Sprintf("Selector:     %v\n", s.Selector)
 	return result
 }
