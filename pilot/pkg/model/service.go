@@ -639,6 +639,15 @@ func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
+func (h Hostnames) Contains(host Hostname) bool {
+	for _, hHost := range h {
+		if hHost == host {
+			return true
+		}
+	}
+	return false
+}
+
 // Intersection returns the subset of host names that are covered by both h and other.
 // e.g.:
 //  Hostnames(["foo.com","bar.com"]).Intersection(Hostnames(["*.com"]))         = Hostnames(["foo.com","bar.com"])
@@ -651,9 +660,13 @@ func (h Hostnames) Intersection(other Hostnames) Hostnames {
 	for _, hHost := range h {
 		for _, oHost := range other {
 			if hHost.SubsetOf(oHost) {
-				result = append(result, hHost)
+				if !result.Contains(hHost) {
+					result = append(result, hHost)
+				}
 			} else if oHost.SubsetOf(hHost) {
-				result = append(result, oHost)
+				if !result.Contains(oHost) {
+					result = append(result, oHost)
+				}
 			}
 		}
 	}

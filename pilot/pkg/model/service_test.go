@@ -400,6 +400,11 @@ func TestHostnamesIntersection(t *testing.T) {
 			Hostnames{"bar.com"},
 			Hostnames{},
 		},
+		{
+			Hostnames{"*", "foo.com"},
+			Hostnames{"foo.com"},
+			Hostnames{"foo.com"},
+		},
 	}
 
 	for idx, tt := range tests {
@@ -414,9 +419,9 @@ func TestHostnamesIntersection(t *testing.T) {
 
 func TestHostnamesForNamespace(t *testing.T) {
 	tests := []struct {
-		strings   []string
+		hosts     []string
 		namespace string
-		hosts     Hostnames
+		want      Hostnames
 	}{
 		{
 			[]string{"ns1/foo.com", "ns2/bar.com"},
@@ -452,9 +457,9 @@ func TestHostnamesForNamespace(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			result := HostnamesForNamespace(tt.strings, tt.namespace)
-			if !reflect.DeepEqual(result, tt.hosts) {
-				t.Fatalf("HostnamesForNamespace(%v, %v) = %v, want %v", tt.strings, tt.namespace, result, tt.hosts)
+			result := HostnamesForNamespace(tt.hosts, tt.namespace)
+			if !reflect.DeepEqual(result, tt.want) {
+				t.Fatalf("HostnamesForNamespace(%v, %v) = %v, want %v", tt.hosts, tt.namespace, result, tt.want)
 			}
 		})
 	}
