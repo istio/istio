@@ -17,24 +17,6 @@ spec:
     name: https
     protocol: HTTPS
 ---
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: github-https
-spec:
-  hosts:
-  - github.com
-  tls:
-  - match:
-    - port: 443
-      sniHosts:
-      - github.com
-    route:
-    - destination:
-        host: github.com
-        port:
-          number: 443
----
 # For TCP services the IP ranges SHOULD be specified to avoid problems
 # if multiple SEs use the same port number.
 # See https://istio.io/blog/2018/egress-tcp/#mesh-external-service-entry-for-an-external-mysql-instance
@@ -46,27 +28,24 @@ spec:
   hosts:
   - dummy.github.com # not used
   addresses: # from https://help.github.com/articles/about-github-s-ip-addresses/
-  -  "192.30.252.0/22"
-  - "185.199.108.0/22"
-  -  "140.82.112.0/20"
-  -  "192.30.252.0/22"
-  - "185.199.108.0/22"
-  -  "140.82.112.0/20"
   - "13.229.188.59/32"
   - "13.250.177.223/32"
+  - "140.82.112.0/20"
   - "18.194.104.89/32"
   - "18.195.85.27/32"
-  - "35.159.8.160/32"
-  - "52.74.223.119/32"
-  - "192.30.252.153/32"
-  - "192.30.252.154/32"
+  - "185.199.108.0/22"
   - "185.199.108.153/32"
   - "185.199.109.153/32"
   - "185.199.110.153/32"
   - "185.199.111.153/32"
-  - "54.87.5.173/32"
-  - "54.166.52.62/32"
+  - "192.30.252.0/22"
+  - "192.30.252.153/32"
+  - "192.30.252.154/32"
   - "23.20.92.3/32"
+  - "35.159.8.160/32"
+  - "52.74.223.119/32"
+  - "54.166.52.62/32"
+  - "54.87.5.173/32"
   ports:
   - name: tcp
     number: 22

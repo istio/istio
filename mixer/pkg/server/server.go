@@ -21,7 +21,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/exporter/prometheus"
@@ -50,6 +49,7 @@ import (
 )
 
 // Server is an in-memory Mixer service.
+
 type Server struct {
 	shutdown  chan error
 	server    *grpc.Server
@@ -129,10 +129,10 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}()
 
 	s.gp = pool.NewGoroutinePool(a.APIWorkerPoolSize, a.SingleThreaded)
-	s.gp.AddWorkers(a.APIWorkerPoolSize - 1)
+	s.gp.AddWorkers(a.APIWorkerPoolSize)
 
 	s.adapterGP = pool.NewGoroutinePool(a.AdapterWorkerPoolSize, a.SingleThreaded)
-	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize - 1)
+	s.adapterGP.AddWorkers(a.AdapterWorkerPoolSize)
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
@@ -187,19 +187,22 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		}
 	}
 
-	var rt *runtime.Runtime
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
 		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
 		templateMap[k] = &t
 	}
 
-	var kinds map[string]proto.Message
+	var configAdapterMap map[string]*adapter.Info
 	if a.UseAdapterCRDs {
-		kinds = runtimeconfig.KindMap(adapterMap, templateMap)
-	} else {
-		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
+		configAdapterMap = adapterMap
 	}
+	var configTemplateMap map[string]*template.Info
+	if a.UseTemplateCRDs {
+		configTemplateMap = templateMap
+	}
+
+	kinds := runtimeconfig.KindMap(configAdapterMap, configTemplateMap)
 
 	if err := st.Init(kinds); err != nil {
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
@@ -212,7 +215,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	}
 	s.configStore = st
 	log.Info("Starting runtime config watch...")
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
+	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {

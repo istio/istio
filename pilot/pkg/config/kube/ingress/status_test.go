@@ -149,8 +149,8 @@ func setAndRestoreEnv(t *testing.T, inputs map[string]string) map[string]string 
 // representation correctly.
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
-		Mode       meshconfig.MeshConfig_IngressControllerMode
 		Annotation string
+		Mode       meshconfig.MeshConfig_IngressControllerMode
 		Ignore     bool
 	}{
 		{

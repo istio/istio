@@ -142,7 +142,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
 	} else {
 		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
+			{
 				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
 					GoogleComputeEngine: &types.Empty{},
 				},
@@ -242,7 +242,7 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
-		&core.GrpcService_GoogleGrpc_CallCredentials{
+		{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: fileBasedMetadataPlugName,

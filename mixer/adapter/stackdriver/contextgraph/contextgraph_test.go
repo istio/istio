@@ -106,7 +106,7 @@ func TestBuild(t *testing.T) {
 
 	mEnv := env.NewEnv(t)
 
-	han, err := b.Build(nil, mEnv)
+	han, err := b.Build(context.TODO(), mEnv)
 	h := han.(*handler)
 	if err != nil {
 		t.Errorf("Build returned unexpected err: %v", err)
@@ -162,7 +162,7 @@ func TestHandleEdge(t *testing.T) {
 			Timestamp:                    time.Unix(1337, 0),
 		},
 	}
-	if err := h.HandleEdge(nil, i); err != nil {
+	if err := h.HandleEdge(context.TODO(), i); err != nil {
 		t.Errorf("HandleEdge returned unexpected err: %v", err)
 	}
 	ta := <-h.traffics

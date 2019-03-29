@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -69,6 +69,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/filewatcher"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -210,11 +211,13 @@ type Server struct {
 	fileWatcher      filewatcher.FileWatcher
 }
 
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = os.Getenv("POD_NAMESPACE")
+		args.Namespace = podNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
@@ -399,7 +402,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
-			log.Warnf("failed to read mesh configuration: %v", err)
+			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace", err, kube.IstioConfigMap, kube.IstioNamespace)
 			return err
 		}
 
@@ -493,6 +496,8 @@ func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *mockController) Run(<-chan struct{}) {}
 
+var useMCPLegacyVar = env.RegisterBoolVar("USE_MCP_LEGACY", false, "")
+
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
 	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
@@ -517,9 +522,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	// TODO - temporarily support both the new and old stack during transition
 	var useLegacyMCPStack bool
-	if os.Getenv("USE_MCP_LEGACY") == "1" {
+	if useMCPLegacyVar.Get() {
 		useLegacyMCPStack = true
-		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+		log.Infof("USE_MCP_LEGACY=true - using legacy MCP client stack")
 	} else {
 		log.Infof("Using new MCP client sink stack")
 	}
@@ -985,9 +990,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
 		istio_networking.NewConfigGenerator(args.Plugins),
-		s.ServiceController, s.configController)
+		s.ServiceController, s.kubeRegistry, s.configController)
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
-
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
@@ -1018,33 +1022,39 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.GRPCListeningAddr = grpcListener.Addr()
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
-			if err := s.httpServer.Serve(listener); err != nil {
-				log.Warna(err)
+			if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+				return
 			}
-		}()
-		go func() {
-			if err := s.grpcServer.Serve(grpcListener); err != nil {
-				log.Warna(err)
-			}
-		}()
 
-		go func() {
-			<-stop
-			model.JwtKeyResolver.Close()
+			log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
+			go func() {
+				if err := s.httpServer.Serve(listener); err != nil {
+					log.Warna(err)
+				}
+			}()
+			go func() {
+				if err := s.grpcServer.Serve(grpcListener); err != nil {
+					log.Warna(err)
+				}
+			}()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			err := s.httpServer.Shutdown(ctx)
-			if err != nil {
-				log.Warna(err)
-			}
-			if args.ForceStop {
-				s.grpcServer.Stop()
-			} else {
-				s.grpcServer.GracefulStop()
-			}
+			go func() {
+				<-stop
+				model.JwtKeyResolver.Close()
+
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				err := s.httpServer.Shutdown(ctx)
+				if err != nil {
+					log.Warna(err)
+				}
+				if args.ForceStop {
+					s.grpcServer.Stop()
+				} else {
+					s.grpcServer.GracefulStop()
+				}
+			}()
 		}()
 
 		return nil
@@ -1064,30 +1074,36 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			log.Infof("starting discovery service at secure grpc=%s", secureGrpcListener.Addr())
 			go func() {
-				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-				// on a listener
-				err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-				msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
-				select {
-				case <-stop:
-					log.Info(msg)
-				default:
-					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				if pilot.EnableWaitCacheSync && !s.waitForCacheSync(stop) {
+					return
 				}
-			}()
-			go func() {
-				<-stop
-				if args.ForceStop {
-					s.grpcServer.Stop()
-				} else {
-					s.grpcServer.GracefulStop()
-				}
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				s.secureHTTPServer.Shutdown(ctx)
-				s.secureGRPCServer.Stop()
+
+				log.Infof("starting discovery service at secure grpc=%s", secureGrpcListener.Addr())
+				go func() {
+					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+					// on a listener
+					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
+					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+					select {
+					case <-stop:
+						log.Info(msg)
+					default:
+						panic(fmt.Sprintf("%s due to error: %v", msg, err))
+					}
+				}()
+				go func() {
+					<-stop
+					if args.ForceStop {
+						s.grpcServer.Stop()
+					} else {
+						s.grpcServer.GracefulStop()
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					s.secureHTTPServer.Shutdown(ctx)
+					s.secureGRPCServer.Stop()
+				}()
 			}()
 			return nil
 		})
@@ -1186,14 +1202,7 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
-	var maxStreams int
-	maxStreamsEnv := pilot.MaxConcurrentStreams
-	if len(maxStreamsEnv) > 0 {
-		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
-	}
-	if maxStreams == 0 {
-		maxStreams = 100000
-	}
+	maxStreams := pilot.MaxConcurrentStreams
 
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
@@ -1234,4 +1243,24 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 			}
 		}
 	}()
+}
+
+func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
+	// TODO: remove dependency on k8s lib
+	if !cache.WaitForCacheSync(stop, func() bool {
+		if s.kubeRegistry != nil {
+			if !s.kubeRegistry.HasSynced() {
+				return false
+			}
+		}
+		if !s.configController.HasSynced() {
+			return false
+		}
+		return true
+	}) {
+		log.Errorf("Failed waiting for cache sync")
+		return false
+	}
+
+	return true
 }

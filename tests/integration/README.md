@@ -65,35 +65,32 @@ removed**.
 $ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/config
 ```
 
-
-
 ## Adding New Tests
 
 Please follow the general guidance for adding new tests:
 
- * Create a new top-level folder for top-level components (i.e. mixer, pilot galley).
+* Create a new top-level folder for top-level components (i.e. mixer, pilot galley).
 
 ```console 
 $ cd ${ISTIO}/tests/integration2
 $ mkdir mycomponent
 ```
 
- * In that folder, create a new Go test with a TestMain specified:
- 
+* In that folder, create a new Go test with a TestMain specified:
+
  ```go
 func TestMain(m *testing.M) {
-	framework.Run("mycomponent_test", m)
+  framework.Run("mycomponent_test", m)
 }
  ```
- 
-  * Add your folder name to the top-level 
+
+* Add your folder name to the top-level 
   [tests.mk](https://github.com/istio/istio/tree/master/tests/integration2/tests.mk) to file get it included 
   in make targets and check-in gates:
   
 ```make
 _INTEGRATION_TEST_NAMES = galley mixer mycomponent
-``` 
-
+```
 
 ## Diagnosing Failures
 
@@ -118,10 +115,14 @@ In CircleCI, these files can be found in the artifacts section on the test job p
 
 ![CircleCI Artifacts Tab Screenshot](https://circleci.com/docs/assets/img/docs/artifacts.png)
 
-
+You can also enable debugging log via `--log_output_level=CI:debug,tf:debug`.
 
 ## Reference
 
+### Helm Values Overrides
+
+If your tests require special Helm values flags, you can specify your Helm values via additional
+for Kubernetes environments. See [mtls_healthcheck_test.go](tests/integration2/security/healthcheck/mtls_healthcheck_test.go) for example.
 
 ### Command-Line Flags
 
@@ -140,3 +141,9 @@ Kubernetes Environment Flags:
 --istio.test.kube.helm.values <string>         The overrides for helm values. For example, to change Docker image settings:
                                                global.hub=gcr.io/my-hub,global.tag=latest,global.imagePullPolicy=Always
 ```
+
+### Testing Apps
+
+Testing application implementations can be found at [`pkg/test/application`](https://github.com/istio/istio/tree/master/pkg/test/application).
+
+Kubernetes environment `Apps` component allows cutomized [configuration](https://github.com/istio/istio/tree/master/tests/integration2/security/healthcheck/mtls_healthcheck_test.go) to only deploy the apps you need.

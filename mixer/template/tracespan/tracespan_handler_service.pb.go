@@ -21,7 +21,7 @@
 	  spanName: request.path | "/"
 	  startTime: request.time
 	  endTime: response.time
-	  clientSpan: (context.reporter.local | true) == false
+	  clientSpan: (context.reporter.kind | "inbound") == "inbound"
 	  rewriteClientSpanId: false
 	  spanTags:
 	    http.method: request.method | ""
@@ -29,7 +29,7 @@
 	    http.url: request.path | ""
 	    request.size: request.size | 0
 	    response.size: response.size | 0
-	    source.user: source.user | ""
+	    source.principal: source.principal | ""
 	    source.version: source.labels["version"] | ""
 	```
 

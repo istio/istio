@@ -160,7 +160,7 @@ func (ks keyShape) checkPresentAttrs(attrs attribute.Bag) bool {
 // This function assumes that the bag has previously been deemed compatible via isCompatible.
 func (ks keyShape) makeKey(attrs attribute.Bag) string {
 	buf := pool.GetBuffer()
-	b := make([]byte, 8, 8)
+	b := make([]byte, 8)
 
 	for i := 0; i < len(ks.presentAttrs); i++ {
 		name := ks.presentAttrs[i].name

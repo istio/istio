@@ -111,7 +111,11 @@ const (
 
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
 	// registry doesn't provide one.
+	//
+	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
 	LocalityLabel = "istio-locality"
+	// k8s istio-locality label separator
+	k8sSeparator = "."
 )
 
 // Port represents a network port where a service is listening for
@@ -209,8 +213,6 @@ const (
 	VisibilityPrivate Visibility = "."
 	// VisibilityPublic implies config is visible to all
 	VisibilityPublic Visibility = "*"
-	// VisibilityNone implies config is visible to none
-	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -388,7 +390,8 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[LocalityLabel]
+	// replace "." with "/"
+	return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -415,10 +418,6 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// EndpointPort is the port where the workload is listening, can be different
-	// from the service port.
-	EndpointPort uint32
-
 	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
 	// Sometimes the Endpoint is visible before Service - so looking up the port number would
 	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
@@ -441,6 +440,10 @@ type IstioEndpoint struct {
 
 	// The locality where the endpoint is present. / separated string
 	Locality string
+
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32

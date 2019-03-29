@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,8 +58,8 @@ var (
 	}
 )
 
-// GetDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func GetDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
+// getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
+func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
 	if direction == model.TrafficDirectionInbound {
 		thresholds := defaultInboundCircuitBreakerThresholds
 		return &thresholds
@@ -80,12 +81,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// compute the proxy's locality. See if we have a CDS cache for that locality.
 	// If not, compute one.
 	locality := proxy.Locality
-
+	cdsCachingEnabled := pilot.EnableCDSPrecomputation()
 	switch proxy.Type {
 	case model.SidecarProxy:
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
 				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
 				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
@@ -113,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	default: // Gateways
 		recomputeOutboundClusters := true
-		if configgen.CanUsePrecomputedCDS(proxy) {
+		if cdsCachingEnabled && configgen.CanUsePrecomputedCDS(proxy) {
 			if configgen.PrecomputedOutboundClustersForGateways != nil {
 				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)
@@ -343,16 +344,16 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
-	LocalityLbEndpoints := make([]endpoint.LocalityLbEndpoints, len(lbEndpoints))
+	localityLbEndpoints := make([]endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
 
 	for locality, eps := range lbEndpoints {
-		LocalityLbEndpoints = append(LocalityLbEndpoints, endpoint.LocalityLbEndpoints{
+		localityLbEndpoints = append(localityLbEndpoints, endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
 		})
 	}
 
-	return util.LocalityLbWeightNormalize(LocalityLbEndpoints)
+	return util.LocalityLbWeightNormalize(localityLbEndpoints)
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
@@ -418,7 +419,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
-		if instances == nil || len(instances) == 0 {
+		if len(instances) == 0 {
 			return clusters
 		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -580,7 +581,7 @@ func conditionallyConvertToIstioMtls(
 			sniToUse = sni
 		}
 		subjectAltNamesToUse := tls.SubjectAltNames
-		if subjectAltNamesToUse == nil || len(subjectAltNamesToUse) == 0 {
+		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy)
@@ -670,7 +671,7 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		return
 	}
 
-	threshold := GetDefaultCircuitBreakerThresholds(direction)
+	threshold := getDefaultCircuitBreakerThresholds(direction)
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
@@ -790,6 +791,14 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 }
 
 func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
+	if cluster.OutlierDetection != nil {
+		// Locality weighted load balancing
+		cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
+			LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+			},
+		}
+	}
 	if lb == nil {
 		return
 	}
@@ -815,15 +824,6 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		cluster.LbConfig = &apiv2.Cluster_RingHashLbConfig_{
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
 				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
-			},
-		}
-	}
-
-	if cluster.OutlierDetection != nil {
-		// Locality weighted load balancing
-		cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
-			LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 			},
 		}
 	}
@@ -1000,8 +1000,11 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
 	}
 
+	// TODO does Istio use type LOGICAL_DNS anywhere - remove logical DNS logic if not
 	if discoveryType == apiv2.Cluster_STRICT_DNS || discoveryType == apiv2.Cluster_LOGICAL_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
+		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
+		cluster.DnsRefreshRate = &dnsRate
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS ||

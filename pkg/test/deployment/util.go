@@ -22,8 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -55,6 +53,7 @@ func DumpPodState(workDir string, namespace string, accessor *kube.Accessor) {
 	}
 }
 
+/*
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.
 func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 	pods, err := accessor.GetPods(namespace)
@@ -85,7 +84,7 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 	for _, pod := range pods {
 		by, err := yaml.Marshal(pod)
 		if err != nil {
-			scopes.CI.Infof("Error marshalling pod state: %s: %v", pod.Name, err)
+			scopes.CI.Infof("Error marshaling pod state: %s: %v", pod.Name, err)
 			continue
 		}
 
@@ -96,3 +95,4 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 		}
 	}
 }
+*/

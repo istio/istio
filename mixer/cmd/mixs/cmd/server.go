@@ -79,6 +79,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().BoolVar(&sa.UseAdapterCRDs, "useAdapterCRDs", sa.UseAdapterCRDs,
 		"Whether or not to allow configuration of Mixer via adapter-specific CRDs")
+	serverCmd.PersistentFlags().BoolVar(&sa.UseTemplateCRDs, "useTemplateCRDs", sa.UseTemplateCRDs,
+		"Whether or not to allow configuration of Mixer via template-specific CRDs")
 
 	sa.CredentialOptions.AttachCobraFlags(serverCmd)
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)

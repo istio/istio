@@ -33,7 +33,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -154,7 +154,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	}
 	adsc.Metadata = opts.Meta
 
-	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
 	err := adsc.Run()
@@ -243,9 +243,6 @@ func (a *ADSC) Run() error {
 			return err
 		}
 	}
-	if err != nil {
-		return err
-	}
 
 	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
@@ -255,13 +252,6 @@ func (a *ADSC) Run() error {
 	a.stream = edsstr
 	go a.handleRecv()
 	return nil
-}
-
-func (a *ADSC) update(m string) {
-	select {
-	case a.Updates <- m:
-	default:
-	}
 }
 
 func (a *ADSC) handleRecv() {
@@ -326,7 +316,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}
 
-	clusters := []string{}
 	routes := []string{}
 	ldsSize := 0
 
@@ -343,8 +332,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 				config, _ = xdsutil.MessageToStruct(f0.GetTypedConfig())
 			}
 			c := config.Fields["cluster"].GetStringValue()
-			clusters = append(clusters, c)
-			//log.Printf("TCP: %s -> %s", l.Name, c)
+			log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
@@ -357,8 +345,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			}
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
-			// ignore for now
-		} else if f0.Name == "envoy.redis_proxy" {
 			// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
 			// ignore for now
@@ -516,7 +502,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				"ISTIO_PROXY_VERSION": {Kind: &types.Value_StringValue{StringValue: "1.0"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}
@@ -577,7 +563,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	rcount := 0
 	size := 0
 
-	httpClusters := []string{}
 	rds := map[string]*xdsapi.RouteConfiguration{}
 
 	for _, r := range configurations {
@@ -587,7 +572,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 				rcount++
 				// Example: match:<prefix:"/" > route:<cluster:"outbound|9154||load-se-154.local" ...
 				log.Println(h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
-				httpClusters = append(httpClusters, rt.GetRoute().GetCluster())
 			}
 		}
 		rds[r.Name] = r

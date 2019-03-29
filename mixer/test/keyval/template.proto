@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package keyval;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK_WITH_OUTPUT;
+
+// Input template
+message Template {
+  // lookup key
+  string key = 1;
+}
+
+// Output template
+message OutputTemplate {
+  // value to return
+  string value = 2;
+}

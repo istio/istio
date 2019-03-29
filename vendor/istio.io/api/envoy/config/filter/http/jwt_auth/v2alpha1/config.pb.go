@@ -3,17 +3,24 @@
 
 package v2alpha1
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import google_protobuf "github.com/gogo/protobuf/types"
-
-import io "io"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	types "github.com/gogo/protobuf/types"
+	io "io"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Copied from @envoy/api/envoy/api/v2/core/http_uri.proto
 // Envoy external URI descriptor
@@ -36,13 +43,44 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout *google_protobuf.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout              *types.Duration `protobuf:"bytes,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *HttpUri) Reset()                    { *m = HttpUri{} }
-func (m *HttpUri) String() string            { return proto.CompactTextString(m) }
-func (*HttpUri) ProtoMessage()               {}
-func (*HttpUri) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (m *HttpUri) Reset()         { *m = HttpUri{} }
+func (m *HttpUri) String() string { return proto.CompactTextString(m) }
+func (*HttpUri) ProtoMessage()    {}
+func (*HttpUri) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{0}
+}
+func (m *HttpUri) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HttpUri) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HttpUri.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HttpUri) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpUri.Merge(m, src)
+}
+func (m *HttpUri) XXX_Size() int {
+	return m.Size()
+}
+func (m *HttpUri) XXX_DiscardUnknown() {
+	xxx_messageInfo_HttpUri.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HttpUri proto.InternalMessageInfo
 
 type isHttpUri_HttpUpstreamType interface {
 	isHttpUri_HttpUpstreamType()
@@ -77,7 +115,7 @@ func (m *HttpUri) GetCluster() string {
 	return ""
 }
 
-func (m *HttpUri) GetTimeout() *google_protobuf.Duration {
+func (m *HttpUri) GetTimeout() *types.Duration {
 	if m != nil {
 		return m.Timeout
 	}
@@ -125,7 +163,7 @@ func _HttpUri_OneofSizer(msg proto.Message) (n int) {
 	// http_upstream_type
 	switch x := m.HttpUpstreamType.(type) {
 	case *HttpUri_Cluster:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Cluster)))
 		n += len(x.Cluster)
 	case nil:
@@ -142,13 +180,44 @@ type DataSource struct {
 	//	*DataSource_Filename
 	//	*DataSource_InlineBytes
 	//	*DataSource_InlineString
-	Specifier isDataSource_Specifier `protobuf_oneof:"specifier"`
+	Specifier            isDataSource_Specifier `protobuf_oneof:"specifier"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *DataSource) Reset()                    { *m = DataSource{} }
-func (m *DataSource) String() string            { return proto.CompactTextString(m) }
-func (*DataSource) ProtoMessage()               {}
-func (*DataSource) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
+func (m *DataSource) Reset()         { *m = DataSource{} }
+func (m *DataSource) String() string { return proto.CompactTextString(m) }
+func (*DataSource) ProtoMessage()    {}
+func (*DataSource) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{1}
+}
+func (m *DataSource) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DataSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DataSource.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DataSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataSource.Merge(m, src)
+}
+func (m *DataSource) XXX_Size() int {
+	return m.Size()
+}
+func (m *DataSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_DataSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DataSource proto.InternalMessageInfo
 
 type isDataSource_Specifier interface {
 	isDataSource_Specifier()
@@ -261,15 +330,15 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 	// specifier
 	switch x := m.Specifier.(type) {
 	case *DataSource_Filename:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Filename)))
 		n += len(x.Filename)
 	case *DataSource_InlineBytes:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineBytes)))
 		n += len(x.InlineBytes)
 	case *DataSource_InlineString:
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineString)))
 		n += len(x.InlineString)
 	case nil:
@@ -279,15 +348,14 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// This message specifies how a JSON Web Token (JWT) can be verified. JWT format is defined
-// `here <https://tools.ietf.org/html/rfc7519>`_. Please see `OAuth2.0
-//  <https://tools.ietf.org/html/rfc6749>`_ and `OIDC1.0  <http://openid.net/connect>`_ for
+// This message specifies how a JSON Web Token (JWT) can be verified. See the [JWT format definition](https://tools.ietf.org/html/rfc7519)
+// for details. Please see [OAuth2.0](https://tools.ietf.org/html/rfc6749) and
+// [OIDC1.0](http://openid.net/connect) for
 // the authentication flow.
 //
 // Example:
 //
-// .. code-block:: yaml
-//
+// ```yaml
 //     issuer: https://example.com
 //     audiences:
 //     - bookstore_android.apps.googleusercontent.com
@@ -298,8 +366,7 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 //         cluster: example_jwks_cluster
 //       cache_duration:
 //       - seconds: 300
-//
-// [#not-implemented-hide:]
+// ```
 type JwtRule struct {
 	// Identifies the principal that issued the JWT. See `here
 	//  <https://tools.ietf.org/html/rfc7519#section-4.1.1>`_. Usually a URL or an email address.
@@ -320,7 +387,7 @@ type JwtRule struct {
 	//     - bookstore_android.apps.googleusercontent.com
 	//       bookstore_web.apps.googleusercontent.com
 	//
-	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
+	Audiences []string `protobuf:"bytes,2,rep,name=audiences,proto3" json:"audiences,omitempty"`
 	// `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
 	// signature of the JWT. This field specifies where to fetch JWKS.
 	//
@@ -342,7 +409,7 @@ type JwtRule struct {
 	//
 	//   x-goog-iap-jwt-assertion: <JWT>.
 	//
-	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders" json:"from_headers,omitempty"`
+	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders,proto3" json:"from_headers,omitempty"`
 	// JWT is sent in a query parameter. `jwt_params` represents the query parameter names.
 	//
 	// For example, if config is:
@@ -356,7 +423,7 @@ type JwtRule struct {
 	//
 	//    /path?jwt_token=<JWT>
 	//
-	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams" json:"from_params,omitempty"`
+	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams,proto3" json:"from_params,omitempty"`
 	// This field specifies the header name to forward a successfully verified JWT payload to the
 	// backend. The forwarded data is::
 	//
@@ -367,13 +434,44 @@ type JwtRule struct {
 	// same issuer will not be supported. Each issuer can config this `forward_payload_header`. If
 	// multiple JWTs from different issuers want to forward their payloads, their
 	// `forward_payload_header` should be different.
-	ForwardPayloadHeader string `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader,proto3" json:"forward_payload_header,omitempty"`
+	ForwardPayloadHeader string   `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader,proto3" json:"forward_payload_header,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *JwtRule) Reset()                    { *m = JwtRule{} }
-func (m *JwtRule) String() string            { return proto.CompactTextString(m) }
-func (*JwtRule) ProtoMessage()               {}
-func (*JwtRule) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{2} }
+func (m *JwtRule) Reset()         { *m = JwtRule{} }
+func (m *JwtRule) String() string { return proto.CompactTextString(m) }
+func (*JwtRule) ProtoMessage()    {}
+func (*JwtRule) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{2}
+}
+func (m *JwtRule) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JwtRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JwtRule.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JwtRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtRule.Merge(m, src)
+}
+func (m *JwtRule) XXX_Size() int {
+	return m.Size()
+}
+func (m *JwtRule) XXX_DiscardUnknown() {
+	xxx_messageInfo_JwtRule.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JwtRule proto.InternalMessageInfo
 
 type isJwtRule_JwksSourceSpecifier interface {
 	isJwtRule_JwksSourceSpecifier()
@@ -382,10 +480,10 @@ type isJwtRule_JwksSourceSpecifier interface {
 }
 
 type JwtRule_RemoteJwks struct {
-	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,oneof"`
+	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,proto3,oneof"`
 }
 type JwtRule_LocalJwks struct {
-	LocalJwks *DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,oneof"`
+	LocalJwks *DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,proto3,oneof"`
 }
 
 func (*JwtRule_RemoteJwks) isJwtRule_JwksSourceSpecifier() {}
@@ -513,12 +611,12 @@ func _JwtRule_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.JwksSourceSpecifier.(type) {
 	case *JwtRule_RemoteJwks:
 		s := proto.Size(x.RemoteJwks)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *JwtRule_LocalJwks:
 		s := proto.Size(x.LocalJwks)
-		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -538,16 +636,47 @@ type RemoteJwks struct {
 	//    - uri: https://www.googleapis.com/oauth2/v1/certs
 	//      cluster: jwt.www.googleapis.com|443
 	//
-	HttpUri *HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri" json:"http_uri,omitempty"`
+	HttpUri *HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri,proto3" json:"http_uri,omitempty"`
 	// Duration after which the cached JWKS should be expired. If not specified, default cache
 	// duration is 5 minutes.
-	CacheDuration *google_protobuf.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration" json:"cache_duration,omitempty"`
+	CacheDuration        *types.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration,proto3" json:"cache_duration,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *RemoteJwks) Reset()                    { *m = RemoteJwks{} }
-func (m *RemoteJwks) String() string            { return proto.CompactTextString(m) }
-func (*RemoteJwks) ProtoMessage()               {}
-func (*RemoteJwks) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{3} }
+func (m *RemoteJwks) Reset()         { *m = RemoteJwks{} }
+func (m *RemoteJwks) String() string { return proto.CompactTextString(m) }
+func (*RemoteJwks) ProtoMessage()    {}
+func (*RemoteJwks) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{3}
+}
+func (m *RemoteJwks) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RemoteJwks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RemoteJwks.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RemoteJwks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemoteJwks.Merge(m, src)
+}
+func (m *RemoteJwks) XXX_Size() int {
+	return m.Size()
+}
+func (m *RemoteJwks) XXX_DiscardUnknown() {
+	xxx_messageInfo_RemoteJwks.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RemoteJwks proto.InternalMessageInfo
 
 func (m *RemoteJwks) GetHttpUri() *HttpUri {
 	if m != nil {
@@ -556,7 +685,7 @@ func (m *RemoteJwks) GetHttpUri() *HttpUri {
 	return nil
 }
 
-func (m *RemoteJwks) GetCacheDuration() *google_protobuf.Duration {
+func (m *RemoteJwks) GetCacheDuration() *types.Duration {
 	if m != nil {
 		return m.CacheDuration
 	}
@@ -570,13 +699,44 @@ type JwtHeader struct {
 	// The value prefix. The value format is "value_prefix<token>"
 	// For example, for "Authorization: Bearer <token>", value_prefix="Bearer " with a space at the
 	// end.
-	ValuePrefix string `protobuf:"bytes,2,opt,name=value_prefix,json=valuePrefix,proto3" json:"value_prefix,omitempty"`
+	ValuePrefix          string   `protobuf:"bytes,2,opt,name=value_prefix,json=valuePrefix,proto3" json:"value_prefix,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *JwtHeader) Reset()                    { *m = JwtHeader{} }
-func (m *JwtHeader) String() string            { return proto.CompactTextString(m) }
-func (*JwtHeader) ProtoMessage()               {}
-func (*JwtHeader) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{4} }
+func (m *JwtHeader) Reset()         { *m = JwtHeader{} }
+func (m *JwtHeader) String() string { return proto.CompactTextString(m) }
+func (*JwtHeader) ProtoMessage()    {}
+func (*JwtHeader) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{4}
+}
+func (m *JwtHeader) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JwtHeader) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JwtHeader.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JwtHeader) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtHeader.Merge(m, src)
+}
+func (m *JwtHeader) XXX_Size() int {
+	return m.Size()
+}
+func (m *JwtHeader) XXX_DiscardUnknown() {
+	xxx_messageInfo_JwtHeader.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JwtHeader proto.InternalMessageInfo
 
 func (m *JwtHeader) GetName() string {
 	if m != nil {
@@ -596,16 +756,47 @@ func (m *JwtHeader) GetValuePrefix() string {
 // [#not-implemented-hide:]
 type JwtAuthentication struct {
 	// List of JWT rules to valide.
-	Rules []*JwtRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
+	Rules []*JwtRule `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 	// If true, the request is allowed if JWT is missing or JWT verification fails.
 	// Default is false, a request without JWT or failed JWT verification is not allowed.
-	AllowMissingOrFailed bool `protobuf:"varint,2,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,proto3" json:"allow_missing_or_failed,omitempty"`
+	AllowMissingOrFailed bool     `protobuf:"varint,2,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,proto3" json:"allow_missing_or_failed,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *JwtAuthentication) Reset()                    { *m = JwtAuthentication{} }
-func (m *JwtAuthentication) String() string            { return proto.CompactTextString(m) }
-func (*JwtAuthentication) ProtoMessage()               {}
-func (*JwtAuthentication) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{5} }
+func (m *JwtAuthentication) Reset()         { *m = JwtAuthentication{} }
+func (m *JwtAuthentication) String() string { return proto.CompactTextString(m) }
+func (*JwtAuthentication) ProtoMessage()    {}
+func (*JwtAuthentication) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7c36de3e06e3b641, []int{5}
+}
+func (m *JwtAuthentication) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *JwtAuthentication) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_JwtAuthentication.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *JwtAuthentication) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtAuthentication.Merge(m, src)
+}
+func (m *JwtAuthentication) XXX_Size() int {
+	return m.Size()
+}
+func (m *JwtAuthentication) XXX_DiscardUnknown() {
+	xxx_messageInfo_JwtAuthentication.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_JwtAuthentication proto.InternalMessageInfo
 
 func (m *JwtAuthentication) GetRules() []*JwtRule {
 	if m != nil {
@@ -629,6 +820,58 @@ func init() {
 	proto.RegisterType((*JwtHeader)(nil), "istio.envoy.config.filter.http.jwt_auth.v2alpha1.JwtHeader")
 	proto.RegisterType((*JwtAuthentication)(nil), "istio.envoy.config.filter.http.jwt_auth.v2alpha1.JwtAuthentication")
 }
+
+func init() {
+	proto.RegisterFile("envoy/config/filter/http/jwt_auth/v2alpha1/config.proto", fileDescriptor_7c36de3e06e3b641)
+}
+
+var fileDescriptor_7c36de3e06e3b641 = []byte{
+	// 678 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xc1, 0x6e, 0xd3, 0x4a,
+	0x14, 0x8d, 0x5f, 0xda, 0x26, 0xb9, 0x4e, 0x9f, 0xde, 0x1b, 0x95, 0xd6, 0x54, 0x55, 0x08, 0x41,
+	0x48, 0x59, 0xd9, 0x90, 0x82, 0xaa, 0x0a, 0x16, 0x10, 0x15, 0x14, 0x45, 0x42, 0xad, 0xa6, 0xb0,
+	0x41, 0x82, 0xd1, 0xd4, 0x19, 0x27, 0xd3, 0x8e, 0x3d, 0xd6, 0xcc, 0xb8, 0x26, 0x5b, 0xf8, 0x0c,
+	0xb6, 0x7c, 0x0c, 0x4b, 0x3e, 0x01, 0x75, 0xc7, 0x5f, 0x20, 0x8f, 0xed, 0x66, 0x87, 0x68, 0x77,
+	0x73, 0xcf, 0x9d, 0x7b, 0xee, 0xf1, 0xb9, 0x73, 0x0d, 0x07, 0x2c, 0xb9, 0x94, 0xcb, 0x20, 0x94,
+	0x49, 0xc4, 0xe7, 0x41, 0xc4, 0x85, 0x61, 0x2a, 0x58, 0x18, 0x93, 0x06, 0xe7, 0xb9, 0x21, 0x34,
+	0x33, 0x8b, 0xe0, 0x72, 0x44, 0x45, 0xba, 0xa0, 0x8f, 0xab, 0x4b, 0x7e, 0xaa, 0xa4, 0x91, 0xe8,
+	0x11, 0xd7, 0x86, 0x4b, 0xdf, 0x96, 0xfb, 0x55, 0xa6, 0x2c, 0xf7, 0x8b, 0x72, 0xbf, 0x2e, 0xf7,
+	0xeb, 0xf2, 0xdd, 0xde, 0x5c, 0xca, 0xb9, 0x60, 0x81, 0xad, 0x3f, 0xcb, 0xa2, 0x60, 0x96, 0x29,
+	0x6a, 0xb8, 0x4c, 0x4a, 0xc6, 0xc1, 0x67, 0x07, 0x5a, 0x13, 0x63, 0xd2, 0x77, 0x8a, 0xa3, 0xff,
+	0xa0, 0x99, 0x29, 0xee, 0x39, 0x7d, 0x67, 0xd8, 0xc1, 0xc5, 0x11, 0xed, 0x42, 0x2b, 0x14, 0x99,
+	0x36, 0x4c, 0x79, 0xff, 0x14, 0xe8, 0xa4, 0x81, 0x6b, 0x00, 0xed, 0x43, 0xcb, 0xf0, 0x98, 0xc9,
+	0xcc, 0x78, 0xcd, 0xbe, 0x33, 0x74, 0x47, 0x77, 0xfd, 0xb2, 0x97, 0x5f, 0xf7, 0xf2, 0x8f, 0xaa,
+	0x5e, 0xb8, 0xbe, 0x39, 0xde, 0x02, 0x54, 0x08, 0x25, 0x59, 0xaa, 0x8d, 0x62, 0x34, 0x26, 0x66,
+	0x99, 0xb2, 0xc1, 0x17, 0x07, 0xe0, 0x88, 0x1a, 0x7a, 0x2a, 0x33, 0x15, 0x32, 0xb4, 0x07, 0xed,
+	0x88, 0x0b, 0x96, 0xd0, 0x98, 0x95, 0x62, 0x26, 0x0d, 0x7c, 0x8d, 0xa0, 0x07, 0xd0, 0xe5, 0x89,
+	0xe0, 0x09, 0x23, 0x67, 0x4b, 0xc3, 0xb4, 0x15, 0xd6, 0x9d, 0x34, 0xb0, 0x5b, 0xa2, 0xe3, 0x02,
+	0x44, 0x0f, 0x61, 0xb3, 0xba, 0xa4, 0x8d, 0xe2, 0xc9, 0xdc, 0x4a, 0x2c, 0x78, 0xaa, 0xda, 0x53,
+	0x8b, 0x8e, 0x5d, 0xe8, 0xe8, 0x94, 0x85, 0x3c, 0xe2, 0x4c, 0x0d, 0x7e, 0x35, 0xa1, 0x35, 0xcd,
+	0x0d, 0xce, 0x04, 0x43, 0xdb, 0xb0, 0xc1, 0xb5, 0xce, 0x98, 0xaa, 0xdc, 0xa8, 0x22, 0xb4, 0x07,
+	0x1d, 0x9a, 0xcd, 0x38, 0x4b, 0x42, 0xdb, 0xb9, 0x39, 0xec, 0xe0, 0x15, 0x80, 0x08, 0xb8, 0x8a,
+	0xc5, 0xd2, 0x30, 0x72, 0x9e, 0x5f, 0xe8, 0xca, 0x96, 0xe7, 0xfe, 0x4d, 0x87, 0xe6, 0x63, 0x4b,
+	0x32, 0xcd, 0x2f, 0xf4, 0xa4, 0x81, 0x41, 0x5d, 0x47, 0xe8, 0x03, 0x80, 0x90, 0x21, 0x15, 0x25,
+	0xff, 0xda, 0x6d, 0xf9, 0x57, 0x5e, 0x4f, 0x1a, 0xb8, 0x63, 0x19, 0x2d, 0xbd, 0x07, 0xad, 0x48,
+	0xaa, 0x9c, 0xaa, 0x99, 0xb7, 0xde, 0x77, 0x86, 0x6d, 0x5c, 0x87, 0xe8, 0x23, 0x74, 0x23, 0x25,
+	0x63, 0xb2, 0x60, 0x74, 0xc6, 0x94, 0xf6, 0x36, 0xfa, 0xcd, 0xa1, 0x3b, 0x7a, 0x76, 0xf3, 0xd6,
+	0xd3, 0xdc, 0x4c, 0x2c, 0x07, 0x76, 0x0b, 0xc2, 0xf2, 0xac, 0xd1, 0x3d, 0xb0, 0x21, 0x49, 0xa9,
+	0xa2, 0xb1, 0xf6, 0x5a, 0xd6, 0x59, 0x28, 0xa0, 0x13, 0x8b, 0xa0, 0x27, 0xb0, 0x5d, 0x69, 0x21,
+	0x29, 0x5d, 0x0a, 0x49, 0x67, 0x95, 0x16, 0xaf, 0x6d, 0x07, 0xb4, 0x55, 0x65, 0x4f, 0xca, 0x64,
+	0xc9, 0x3b, 0xde, 0x81, 0x3b, 0x85, 0x53, 0x44, 0xdb, 0x8f, 0x25, 0xab, 0x59, 0x7f, 0x73, 0x00,
+	0x56, 0x2e, 0xa3, 0xb7, 0xd0, 0x2e, 0x9f, 0x65, 0xf5, 0xfc, 0xdd, 0xd1, 0xe1, 0xcd, 0x3f, 0xad,
+	0x5a, 0x23, 0xdc, 0x5a, 0x54, 0xfb, 0xf4, 0x02, 0xfe, 0x0d, 0x69, 0xb8, 0x60, 0xa4, 0xde, 0x39,
+	0xfb, 0x56, 0xff, 0xb8, 0x28, 0x9b, 0xb6, 0xa0, 0x0e, 0x07, 0x63, 0xe8, 0x5c, 0x1b, 0x86, 0x10,
+	0xac, 0xad, 0x56, 0x02, 0xdb, 0x33, 0xba, 0x0f, 0xdd, 0x4b, 0x2a, 0x32, 0x46, 0x52, 0xc5, 0x22,
+	0xfe, 0xa9, 0xdc, 0x52, 0xec, 0x5a, 0xec, 0xc4, 0x42, 0x83, 0xaf, 0x0e, 0xfc, 0x3f, 0xcd, 0xcd,
+	0xcb, 0xcc, 0x2c, 0x58, 0x62, 0x78, 0x68, 0x99, 0xd1, 0x31, 0xac, 0xab, 0x4c, 0x30, 0xed, 0x39,
+	0x76, 0x92, 0x87, 0xb7, 0x9a, 0x64, 0xb1, 0x2a, 0xb8, 0xe4, 0x41, 0x4f, 0x61, 0x87, 0x0a, 0x21,
+	0x73, 0x12, 0x73, 0xad, 0x79, 0x32, 0x27, 0x52, 0x91, 0x88, 0x72, 0xc1, 0x66, 0x56, 0x54, 0x1b,
+	0x6f, 0xd9, 0xf4, 0x9b, 0x32, 0x7b, 0xac, 0x5e, 0xdb, 0xdc, 0xf8, 0xd5, 0xf7, 0xab, 0x9e, 0xf3,
+	0xe3, 0xaa, 0xe7, 0xfc, 0xbc, 0xea, 0x39, 0xef, 0x0f, 0x4a, 0x15, 0x5c, 0x06, 0x34, 0xe5, 0xc1,
+	0xdf, 0xff, 0x25, 0xcf, 0x36, 0xac, 0x95, 0xfb, 0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0x1b, 0x4f,
+	0x9e, 0x6b, 0x5a, 0x05, 0x00, 0x00,
+}
+
 func (m *HttpUri) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -667,6 +910,9 @@ func (m *HttpUri) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -699,6 +945,9 @@ func (m *DataSource) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn3
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -815,6 +1064,9 @@ func (m *JwtRule) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.ForwardPayloadHeader)))
 		i += copy(dAtA[i:], m.ForwardPayloadHeader)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -881,6 +1133,9 @@ func (m *RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n8
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -910,6 +1165,9 @@ func (m *JwtHeader) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.ValuePrefix)))
 		i += copy(dAtA[i:], m.ValuePrefix)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -951,6 +1209,9 @@ func (m *JwtAuthentication) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i++
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -964,6 +1225,9 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HttpUri) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Uri)
@@ -977,10 +1241,16 @@ func (m *HttpUri) Size() (n int) {
 		l = m.Timeout.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *HttpUri_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -988,15 +1258,24 @@ func (m *HttpUri_Cluster) Size() (n int) {
 	return n
 }
 func (m *DataSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Specifier != nil {
 		n += m.Specifier.Size()
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *DataSource_Filename) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Filename)
@@ -1004,6 +1283,9 @@ func (m *DataSource_Filename) Size() (n int) {
 	return n
 }
 func (m *DataSource_InlineBytes) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.InlineBytes != nil {
@@ -1013,6 +1295,9 @@ func (m *DataSource_InlineBytes) Size() (n int) {
 	return n
 }
 func (m *DataSource_InlineString) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.InlineString)
@@ -1020,6 +1305,9 @@ func (m *DataSource_InlineString) Size() (n int) {
 	return n
 }
 func (m *JwtRule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Issuer)
@@ -1054,10 +1342,16 @@ func (m *JwtRule) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *JwtRule_RemoteJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RemoteJwks != nil {
@@ -1067,6 +1361,9 @@ func (m *JwtRule_RemoteJwks) Size() (n int) {
 	return n
 }
 func (m *JwtRule_LocalJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.LocalJwks != nil {
@@ -1076,6 +1373,9 @@ func (m *JwtRule_LocalJwks) Size() (n int) {
 	return n
 }
 func (m *RemoteJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HttpUri != nil {
@@ -1086,10 +1386,16 @@ func (m *RemoteJwks) Size() (n int) {
 		l = m.CacheDuration.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *JwtHeader) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1100,10 +1406,16 @@ func (m *JwtHeader) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *JwtAuthentication) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Rules) > 0 {
@@ -1114,6 +1426,9 @@ func (m *JwtAuthentication) Size() (n int) {
 	}
 	if m.AllowMissingOrFailed {
 		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1146,7 +1461,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1174,7 +1489,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1184,6 +1499,9 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1203,7 +1521,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1213,6 +1531,9 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1232,7 +1553,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1241,11 +1562,14 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Timeout == nil {
-				m.Timeout = &google_protobuf.Duration{}
+				m.Timeout = &types.Duration{}
 			}
 			if err := m.Timeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1260,9 +1584,13 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1287,7 +1615,7 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1315,7 +1643,7 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1325,6 +1653,9 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1344,7 +1675,7 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1353,6 +1684,9 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1374,7 +1708,7 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1384,6 +1718,9 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1398,9 +1735,13 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1425,7 +1766,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1453,7 +1794,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1463,6 +1804,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1482,7 +1826,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1492,6 +1836,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1511,7 +1858,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1520,6 +1867,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1543,7 +1893,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1552,6 +1902,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1575,7 +1928,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1595,7 +1948,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1604,6 +1957,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1626,7 +1982,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1636,6 +1992,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1655,7 +2014,7 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1665,6 +2024,9 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1679,9 +2041,13 @@ func (m *JwtRule) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1706,7 +2072,7 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1734,7 +2100,7 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1743,6 +2109,9 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1767,7 +2136,7 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1776,11 +2145,14 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			if m.CacheDuration == nil {
-				m.CacheDuration = &google_protobuf.Duration{}
+				m.CacheDuration = &types.Duration{}
 			}
 			if err := m.CacheDuration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1795,9 +2167,13 @@ func (m *RemoteJwks) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1822,7 +2198,7 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1850,7 +2226,7 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1860,6 +2236,9 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1879,7 +2258,7 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1889,6 +2268,9 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1903,9 +2285,13 @@ func (m *JwtHeader) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1930,7 +2316,7 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1958,7 +2344,7 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1967,6 +2353,9 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthConfig
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1989,7 +2378,7 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2004,9 +2393,13 @@ func (m *JwtAuthentication) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthConfig
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2070,8 +2463,11 @@ func skipConfig(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthConfig
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthConfig
 			}
 			return iNdEx, nil
@@ -2102,6 +2498,9 @@ func skipConfig(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthConfig
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -2120,54 +2519,3 @@ var (
 	ErrInvalidLengthConfig = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowConfig   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() {
-	proto.RegisterFile("envoy/config/filter/http/jwt_auth/v2alpha1/config.proto", fileDescriptorConfig)
-}
-
-var fileDescriptorConfig = []byte{
-	// 678 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xc1, 0x6e, 0xd3, 0x4a,
-	0x14, 0x8d, 0x5f, 0xda, 0x26, 0xb9, 0x4e, 0x9f, 0xde, 0x1b, 0x95, 0xd6, 0x54, 0x55, 0x08, 0x41,
-	0x48, 0x59, 0xd9, 0x90, 0x82, 0xaa, 0x0a, 0x16, 0x10, 0x15, 0x14, 0x45, 0x42, 0xad, 0xa6, 0xb0,
-	0x41, 0x82, 0xd1, 0xd4, 0x19, 0x27, 0xd3, 0x8e, 0x3d, 0xd6, 0xcc, 0xb8, 0x26, 0x5b, 0xf8, 0x0c,
-	0xb6, 0x7c, 0x0c, 0x4b, 0x3e, 0x01, 0x75, 0xc7, 0x5f, 0x20, 0x8f, 0xed, 0x66, 0x87, 0x68, 0x77,
-	0x73, 0xcf, 0x9d, 0x7b, 0xee, 0xf1, 0xb9, 0x73, 0x0d, 0x07, 0x2c, 0xb9, 0x94, 0xcb, 0x20, 0x94,
-	0x49, 0xc4, 0xe7, 0x41, 0xc4, 0x85, 0x61, 0x2a, 0x58, 0x18, 0x93, 0x06, 0xe7, 0xb9, 0x21, 0x34,
-	0x33, 0x8b, 0xe0, 0x72, 0x44, 0x45, 0xba, 0xa0, 0x8f, 0xab, 0x4b, 0x7e, 0xaa, 0xa4, 0x91, 0xe8,
-	0x11, 0xd7, 0x86, 0x4b, 0xdf, 0x96, 0xfb, 0x55, 0xa6, 0x2c, 0xf7, 0x8b, 0x72, 0xbf, 0x2e, 0xf7,
-	0xeb, 0xf2, 0xdd, 0xde, 0x5c, 0xca, 0xb9, 0x60, 0x81, 0xad, 0x3f, 0xcb, 0xa2, 0x60, 0x96, 0x29,
-	0x6a, 0xb8, 0x4c, 0x4a, 0xc6, 0xc1, 0x67, 0x07, 0x5a, 0x13, 0x63, 0xd2, 0x77, 0x8a, 0xa3, 0xff,
-	0xa0, 0x99, 0x29, 0xee, 0x39, 0x7d, 0x67, 0xd8, 0xc1, 0xc5, 0x11, 0xed, 0x42, 0x2b, 0x14, 0x99,
-	0x36, 0x4c, 0x79, 0xff, 0x14, 0xe8, 0xa4, 0x81, 0x6b, 0x00, 0xed, 0x43, 0xcb, 0xf0, 0x98, 0xc9,
-	0xcc, 0x78, 0xcd, 0xbe, 0x33, 0x74, 0x47, 0x77, 0xfd, 0xb2, 0x97, 0x5f, 0xf7, 0xf2, 0x8f, 0xaa,
-	0x5e, 0xb8, 0xbe, 0x39, 0xde, 0x02, 0x54, 0x08, 0x25, 0x59, 0xaa, 0x8d, 0x62, 0x34, 0x26, 0x66,
-	0x99, 0xb2, 0xc1, 0x17, 0x07, 0xe0, 0x88, 0x1a, 0x7a, 0x2a, 0x33, 0x15, 0x32, 0xb4, 0x07, 0xed,
-	0x88, 0x0b, 0x96, 0xd0, 0x98, 0x95, 0x62, 0x26, 0x0d, 0x7c, 0x8d, 0xa0, 0x07, 0xd0, 0xe5, 0x89,
-	0xe0, 0x09, 0x23, 0x67, 0x4b, 0xc3, 0xb4, 0x15, 0xd6, 0x9d, 0x34, 0xb0, 0x5b, 0xa2, 0xe3, 0x02,
-	0x44, 0x0f, 0x61, 0xb3, 0xba, 0xa4, 0x8d, 0xe2, 0xc9, 0xdc, 0x4a, 0x2c, 0x78, 0xaa, 0xda, 0x53,
-	0x8b, 0x8e, 0x5d, 0xe8, 0xe8, 0x94, 0x85, 0x3c, 0xe2, 0x4c, 0x0d, 0x7e, 0x35, 0xa1, 0x35, 0xcd,
-	0x0d, 0xce, 0x04, 0x43, 0xdb, 0xb0, 0xc1, 0xb5, 0xce, 0x98, 0xaa, 0xdc, 0xa8, 0x22, 0xb4, 0x07,
-	0x1d, 0x9a, 0xcd, 0x38, 0x4b, 0x42, 0xdb, 0xb9, 0x39, 0xec, 0xe0, 0x15, 0x80, 0x08, 0xb8, 0x8a,
-	0xc5, 0xd2, 0x30, 0x72, 0x9e, 0x5f, 0xe8, 0xca, 0x96, 0xe7, 0xfe, 0x4d, 0x87, 0xe6, 0x63, 0x4b,
-	0x32, 0xcd, 0x2f, 0xf4, 0xa4, 0x81, 0x41, 0x5d, 0x47, 0xe8, 0x03, 0x80, 0x90, 0x21, 0x15, 0x25,
-	0xff, 0xda, 0x6d, 0xf9, 0x57, 0x5e, 0x4f, 0x1a, 0xb8, 0x63, 0x19, 0x2d, 0xbd, 0x07, 0xad, 0x48,
-	0xaa, 0x9c, 0xaa, 0x99, 0xb7, 0xde, 0x77, 0x86, 0x6d, 0x5c, 0x87, 0xe8, 0x23, 0x74, 0x23, 0x25,
-	0x63, 0xb2, 0x60, 0x74, 0xc6, 0x94, 0xf6, 0x36, 0xfa, 0xcd, 0xa1, 0x3b, 0x7a, 0x76, 0xf3, 0xd6,
-	0xd3, 0xdc, 0x4c, 0x2c, 0x07, 0x76, 0x0b, 0xc2, 0xf2, 0xac, 0xd1, 0x3d, 0xb0, 0x21, 0x49, 0xa9,
-	0xa2, 0xb1, 0xf6, 0x5a, 0xd6, 0x59, 0x28, 0xa0, 0x13, 0x8b, 0xa0, 0x27, 0xb0, 0x5d, 0x69, 0x21,
-	0x29, 0x5d, 0x0a, 0x49, 0x67, 0x95, 0x16, 0xaf, 0x6d, 0x07, 0xb4, 0x55, 0x65, 0x4f, 0xca, 0x64,
-	0xc9, 0x3b, 0xde, 0x81, 0x3b, 0x85, 0x53, 0x44, 0xdb, 0x8f, 0x25, 0xab, 0x59, 0x7f, 0x73, 0x00,
-	0x56, 0x2e, 0xa3, 0xb7, 0xd0, 0x2e, 0x9f, 0x65, 0xf5, 0xfc, 0xdd, 0xd1, 0xe1, 0xcd, 0x3f, 0xad,
-	0x5a, 0x23, 0xdc, 0x5a, 0x54, 0xfb, 0xf4, 0x02, 0xfe, 0x0d, 0x69, 0xb8, 0x60, 0xa4, 0xde, 0x39,
-	0xfb, 0x56, 0xff, 0xb8, 0x28, 0x9b, 0xb6, 0xa0, 0x0e, 0x07, 0x63, 0xe8, 0x5c, 0x1b, 0x86, 0x10,
-	0xac, 0xad, 0x56, 0x02, 0xdb, 0x33, 0xba, 0x0f, 0xdd, 0x4b, 0x2a, 0x32, 0x46, 0x52, 0xc5, 0x22,
-	0xfe, 0xa9, 0xdc, 0x52, 0xec, 0x5a, 0xec, 0xc4, 0x42, 0x83, 0xaf, 0x0e, 0xfc, 0x3f, 0xcd, 0xcd,
-	0xcb, 0xcc, 0x2c, 0x58, 0x62, 0x78, 0x68, 0x99, 0xd1, 0x31, 0xac, 0xab, 0x4c, 0x30, 0xed, 0x39,
-	0x76, 0x92, 0x87, 0xb7, 0x9a, 0x64, 0xb1, 0x2a, 0xb8, 0xe4, 0x41, 0x4f, 0x61, 0x87, 0x0a, 0x21,
-	0x73, 0x12, 0x73, 0xad, 0x79, 0x32, 0x27, 0x52, 0x91, 0x88, 0x72, 0xc1, 0x66, 0x56, 0x54, 0x1b,
-	0x6f, 0xd9, 0xf4, 0x9b, 0x32, 0x7b, 0xac, 0x5e, 0xdb, 0xdc, 0xf8, 0xd5, 0xf7, 0xab, 0x9e, 0xf3,
-	0xe3, 0xaa, 0xe7, 0xfc, 0xbc, 0xea, 0x39, 0xef, 0x0f, 0x4a, 0x15, 0x5c, 0x06, 0x34, 0xe5, 0xc1,
-	0xdf, 0xff, 0x25, 0xcf, 0x36, 0xac, 0x95, 0xfb, 0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0x1b, 0x4f,
-	0x9e, 0x6b, 0x5a, 0x05, 0x00, 0x00,
-}

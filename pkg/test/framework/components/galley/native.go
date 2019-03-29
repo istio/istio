@@ -21,12 +21,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/pkg/appsignals"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -115,7 +117,7 @@ func (c *nativeComponent) ClearConfig() (err error) {
 
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) (err error) {
-
+	defer appsignals.Notify("galley.native.ApplyConfig", syscall.SIGUSR1)
 	for _, y := range yamlText {
 		if ns != nil {
 			y, err = yml.ApplyNamespace(y, ns.Name())
@@ -132,7 +134,6 @@ func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string)
 			return err
 		}
 	}
-
 	return
 }
 
@@ -147,6 +148,7 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance,
 
 // ApplyConfigDir implements Galley.ApplyConfigDir.
 func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
+	defer appsignals.Notify("galley.native.ApplyConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -110,7 +111,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         <table id="recent-requests-table">
             <thead>
             <tr>
-                <th colspan="5">Recent Requests</th>
+                <th colspan="4">Recent Requests</th>
             </tr>
             <tr>
                 <th>Time</th>
@@ -121,14 +122,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
             </thead>
 
             <tbody>
-        {{ range $entry := .LatestRequests }}
-            <tr>
-                <td>{{$entry.Time.Format "2006-01-02T15:04:05Z07:00"}}</td>
-                <td>{{$entry.Request.Collection}}</td>
-                <td>{{$entry.Acked}}</td>
-                <td>{{$entry.Request.ResponseNonce}}</td>
-            </tr>
-        {{ end }}
+
             </tbody>
         </table>
     </div>
@@ -161,24 +155,21 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
                     row.appendChild(c1);
 
                     var c2 = document.createElement("td");
-                    c2.innerText = data.LatestRequests[i].Request.type_url;
+                    c2.innerText = data.LatestRequests[i].Request.Collection;
                     row.appendChild(c2);
 
+
                     var c3 = document.createElement("td");
-                    c3.innerText = data.LatestRequests[i].Request.version_info;
+                    if (data.LatestRequests[i].Request.ErrorDetail === null) {
+                        c3.innerText = "true"
+                    } else {
+                        c3.innerText = "false"
+                    }
                     row.appendChild(c3);
 
                     var c4 = document.createElement("td");
-                    if (data.LatestRequests[i].Request.error_detail === null) {
-                        c4.innerText = "true"
-                    } else {
-                        c4.innerText = "false"
-                    }
+                    c4.innerText = data.LatestRequests[i].Request.ResponseNonce;
                     row.appendChild(c4);
-
-                    var c5 = document.createElement("td");
-                    c5.innerText = data.LatestRequests[i].Request.response_nonce;
-                    row.appendChild(c5);
 
                     tbody.appendChild(row)
                 }
@@ -311,10 +302,11 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
-	"assets": &bintree{nil, map[string]*bintree{
-		"templates": &bintree{nil, map[string]*bintree{
-			"config.html": &bintree{assetsTemplatesConfigHtml, map[string]*bintree{}},
+	"assets": {nil, map[string]*bintree{
+		"templates": {nil, map[string]*bintree{
+			"config.html": {assetsTemplatesConfigHtml, map[string]*bintree{}},
 		}},
 	}},
 }}
@@ -365,4 +357,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

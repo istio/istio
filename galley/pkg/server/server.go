@@ -68,7 +68,7 @@ type Server struct {
 
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
-	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) error
+	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	findSupportedResources      func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
@@ -128,17 +128,17 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
+		var found []schema.ResourceSpec
+
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k, sourceSchema.All()); err != nil {
-				return nil, err
-			}
+			found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
 		} else {
-			found, err := p.findSupportedResources(k, sourceSchema.All())
-			if err != nil {
-				return nil, err
-			}
-			sourceSchema = schema.New(found...)
+			found, err = p.findSupportedResources(k, sourceSchema.All())
 		}
+		if err != nil {
+			return nil, err
+		}
+		sourceSchema = schema.New(found...)
 		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
 			return nil, err
@@ -157,8 +157,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	var checker server.AuthChecker
-	checker = server.NewAllowAllChecker()
+	var checker server.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {

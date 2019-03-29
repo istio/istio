@@ -442,3 +442,57 @@ func TestIsValidSubsetKey(t *testing.T) {
 		}
 	}
 }
+
+func TestGetLocality(t *testing.T) {
+	cases := []struct {
+		name     string
+		instance ServiceInstance
+		expected string
+	}{
+		{
+			name: "endpoint with locality",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "region/zone/subzone-1",
+				},
+				Labels: Labels{
+					LocalityLabel: "region/zone/subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-1",
+		},
+		{
+			name: "endpoint without locality, parse from labels",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "",
+				},
+				Labels: Labels{
+					LocalityLabel: "region/zone/subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-2",
+		},
+		{
+			name: "istio-locality label with k8s label separator",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "",
+				},
+				Labels: Labels{
+					LocalityLabel: "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
+				},
+			},
+			expected: "region/zone/subzone-2",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := testCase.instance.GetLocality()
+			if got != testCase.expected {
+				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
+			}
+		})
+	}
+}

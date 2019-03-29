@@ -134,7 +134,7 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
-	var out []*model.ServiceInstance
+	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{

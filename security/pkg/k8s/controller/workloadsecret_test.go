@@ -134,14 +134,14 @@ func TestSecretController(t *testing.T) {
 		}
 
 		webhooks := map[string]*DNSNameEntry{
-			sidecarInjectorSvcAccount: &DNSNameEntry{
+			sidecarInjectorSvcAccount: {
 				ServiceName: sidecarInjectorSvc,
 				Namespace:   "test-ns",
 			},
 		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL,
 			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-			metav1.NamespaceAll, webhooks, "")
+			[]string{metav1.NamespaceAll}, webhooks)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed to create secret controller")
@@ -179,14 +179,14 @@ func TestSecretContent(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		metav1.NamespaceAll, map[string]*DNSNameEntry{}, "")
+		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
 	controller.saAdded(createServiceAccount(saName, saNamespace))
 
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
-	secret, err = client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
+	_ = ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		metav1.NamespaceAll, nil, "")
+		[]string{metav1.NamespaceAll}, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -261,9 +261,9 @@ func TestUpdateSecret(t *testing.T) {
 	testCases := map[string]struct {
 		expectedActions  []ktesting.Action
 		ttl              time.Duration
-		gracePeriodRatio float32
 		minGracePeriod   time.Duration
 		rootCert         []byte
+		gracePeriodRatio float32
 		certIsInvalid    bool
 	}{
 		"Does not update non-expiring secret": {
@@ -319,8 +319,8 @@ func TestUpdateSecret(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour,
-			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, metav1.NamespaceAll,
-			nil, "")
+			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll},
+			nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}

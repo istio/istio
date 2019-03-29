@@ -102,7 +102,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds(directionInfo.direction)))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
@@ -169,7 +169,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.SidecarProxy,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomains:  []string{"com"},
+			DNSDomain:   "com",
 			Metadata:    meta,
 		}
 	case model.Router:
@@ -177,7 +177,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.Router,
 			IPAddresses: []string{"6.6.6.6"},
-			DNSDomains:  []string{"default.example.org"},
+			DNSDomain:   "default.example.org",
 			Metadata:    meta,
 		}
 	default:
@@ -404,8 +404,8 @@ func TestClusterMetadata(t *testing.T) {
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
 		Subsets: []*networking.Subset{
-			&networking.Subset{Name: "Subset 1"},
-			&networking.Subset{Name: "Subset 2"},
+			{Name: "Subset 1"},
+			{Name: "Subset 2"},
 		},
 		TrafficPolicy: &networking.TrafficPolicy{
 			ConnectionPool: &networking.ConnectionPoolSettings{
@@ -531,5 +531,24 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
 			}
 		})
+	}
+}
+
+func TestLocalityLB(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	if clusters[0].CommonLbConfig == nil {
+		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
 }

@@ -54,12 +54,17 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiov1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+      name: fortiov1
+      version: v1
   template:
     metadata:
       labels:
@@ -83,13 +88,18 @@ spec:
             cpu: 1000m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 # 2 pods for service inside the cluster, will get istio injected
 kind: Deployment
 metadata:
   name: fortiov2
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+      name: fortiov2
+      version: v2
   template:
     metadata:
       labels:
