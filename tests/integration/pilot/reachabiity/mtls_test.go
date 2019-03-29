@@ -233,7 +233,7 @@ func TestMutualTlsReachability(t *testing.T) {
 		// TODO: query pilot or app to know instead of sleep.
 		time.Sleep(time.Second)
 		for _, conn := range c.connections {
-			retry.UntilSuccess(func() error {
+			retry.UntilSuccessOrFail(t, func() error {
 				return checkConnection(conn)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		}
