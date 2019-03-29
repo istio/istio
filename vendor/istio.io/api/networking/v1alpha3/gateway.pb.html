@@ -196,11 +196,11 @@ spec:
 <td><code>selector</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied. The scope of
-label search is restricted to the configuration namespace in which the
-the resource is present. In other words, the Gateway resource must
-reside in the same namespace as the gateway workload.</p>
+<p>REQUIRED: One or more labels used to select the specific gateway workload
+to which this configuration should be applied.
+It is recommended that the Gateway resource reside in the same namespace
+as the gateway workload.
+This may become a requirement in the future.</p>
 
 </td>
 </tr>

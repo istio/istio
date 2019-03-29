@@ -19,7 +19,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       securityContext:
         runAsUser: 472
@@ -97,6 +96,7 @@ spec:
             subPath: dashboardproviders.yaml
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       volumes:
       - name: config
         configMap:
