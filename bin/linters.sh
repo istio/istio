@@ -95,12 +95,14 @@ function dep_guard() {
       grep -v -e "^istio\.io/istio/vendor" \
               -e "^istio\.io/istio/pkg"\
               -e "^istio\.io/istio/mixer"\
-              -e "^istio\.io/istio/galley")
+              -e "^istio\.io/istio/galley" \
+      || true)
     if [[ -n ${MIXER_DEPS} ]]; then
       echo 'Found extra dependencies:'
       echo "${MIXER_DEPS}"
       exit 1
     fi
+    echo 'Dependencies OK'
 }
 
 ensure_pilot_types
