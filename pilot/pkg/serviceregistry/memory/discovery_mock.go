@@ -38,9 +38,6 @@ var (
 	// HelloInstanceV0 is a mock IP address for v0 of HelloService
 	HelloInstanceV0 = MakeIP(HelloService, 0)
 
-	// HelloInstanceV1 is a mock IP address for v1 of HelloService
-	HelloInstanceV1 = MakeIP(HelloService, 1)
-
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
 		Type:        model.SidecarProxy,

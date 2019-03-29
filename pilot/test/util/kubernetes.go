@@ -26,11 +26,6 @@ import (
 
 // Test utilities for kubernetes
 
-const (
-	// PodCheckBudget is the maximum number of retries with 1s delays
-	PodCheckBudget = 200
-)
-
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
 	return CreateNamespaceWithPrefix(cl, "istio-test-", false)
