@@ -991,8 +991,6 @@ func buildDefaultPassthroughCluster() *apiv2.Cluster {
 	return cluster
 }
 
-// TODO: supply LbEndpoints or even better, LocalityLbEndpoints here
-// change all other callsites accordingly
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
 	localityLbEndpoints []endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
@@ -1000,15 +998,13 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
 	}
 
-	// TODO does Istio use type LOGICAL_DNS anywhere - remove logical DNS logic if not
-	if discoveryType == apiv2.Cluster_STRICT_DNS || discoveryType == apiv2.Cluster_LOGICAL_DNS {
+	if discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := util.GogoDurationToDuration(env.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = &dnsRate
 	}
 
-	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS ||
-		discoveryType == apiv2.Cluster_LOGICAL_DNS {
+	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.LoadAssignment = &apiv2.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
