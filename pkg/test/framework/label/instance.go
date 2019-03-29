@@ -25,8 +25,8 @@ func NewSet(labels ...Instance) Set {
 	return Set(labels)
 }
 
-// With returns a set that is concatenation of l and s.
-func (l Set) With(s Set) Set {
+// Join returns a set that is concatenation of l and s.
+func (l Set) Join(s Set) Set {
 	r := make([]Instance, 0, len(s)+len(l))
 	r = append(r, l...)
 	r = append(r, s...)

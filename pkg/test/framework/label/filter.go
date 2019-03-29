@@ -31,19 +31,13 @@ type Selector struct {
 var _ fmt.Stringer = Selector{}
 
 func NewSelector(present []Instance, absent []Instance) Selector {
-	p := make([]Instance, len(present))
-	copy(p, present)
-
-	a := make([]Instance, len(absent))
-	copy(a, absent)
-
 	return Selector{
-		present: p,
-		absent:  a,
+		present: append([]Instance{}, present...),
+		absent:  append([]Instance{}, absent...),
 	}
 }
 
-var userLabelRegex = regexp.MustCompile("^[a-zA-Z]+(\\.[a-zA-Z0-9]+)*$")
+var userLabelRegex = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)*$")
 
 func ParseSelector(s string) (Selector, error) {
 	var present, absent Set
