@@ -19,9 +19,13 @@ import (
 	"testing"
 	"time"
 
+	envoy_apilistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	envoy_tcpproxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -212,6 +216,112 @@ func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Servi
 	}
 }
 
+func TestVirtualListenerConfigWithSidecar(t *testing.T) {
+	tests := []struct {
+		name                    string
+		trafficPolicy           *networking.OutboundTrafficPolicy
+		meshConfigTrafficPolicy *meshconfig.MeshConfig_OutboundTrafficPolicy
+		expected                string
+	}{
+		{
+			name: "Sidecar overrides MeshConfig from Allow Any to Registry Only",
+			trafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+			meshConfigTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
+			},
+			expected: "BlackHoleCluster",
+		},
+		{
+			name: "Sidecar overrides MeshConfig from Registry Only to Allow Any",
+			trafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+			meshConfigTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+			expected: "PassthroughCluster",
+		},
+		{
+			name:          "Sidecar without OutboundTrafficPolicy uses MeshConfig Registry Only",
+			trafficPolicy: nil,
+			meshConfigTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY,
+			},
+			expected: "BlackHoleCluster",
+		},
+		{
+			name:          "Sidecar without OutboundTrafficPolicy uses MeshConfig Allow Any",
+			trafficPolicy: nil,
+			meshConfigTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
+			},
+			expected: "PassthroughCluster",
+		},
+		{
+			name:                    "Sidecar without OutboundTrafficPolicy and no MeshConfig uses Registry Only",
+			trafficPolicy:           nil,
+			meshConfigTrafficPolicy: nil,
+			expected:                "BlackHoleCluster",
+		},
+	}
+	t.Helper()
+	p := &fakePlugin{}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			sidecarConfig := &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "foo",
+					Namespace: "not-default",
+				},
+				Spec: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{
+								Number:   8080,
+								Protocol: "HTTP",
+								Name:     "uds",
+							},
+							Bind:            "1.1.1.1",
+							DefaultEndpoint: "127.0.0.1:80",
+						},
+					},
+					OutboundTrafficPolicy: test.trafficPolicy,
+				},
+			}
+			listener := buildVirtualListener(p, sidecarConfig, test.meshConfigTrafficPolicy)
+			if listener == nil {
+				t.Fatal("expected a listener, found nil")
+			}
+
+			if isHTTPListener(listener) {
+				t.Fatal("expected TCP listener, found HTTP")
+			}
+			if len(listener.FilterChains) != 1 {
+				t.Fatalf("expected 1 filter chain, found %d", len(listener.FilterChains))
+			}
+			if len(listener.FilterChains[0].Filters) != 1 {
+				t.Fatalf("expected 1 filter on filter chain, found %d", len(listener.FilterChains[0].Filters))
+			}
+			filter := listener.FilterChains[0].Filters[0]
+			if filter.Name != "envoy.tcp_proxy" {
+				t.Fatalf("expected filter to be envoy.tcp_proxy, found %q", filter.Name)
+			}
+			any := filter.ConfigType.(*envoy_apilistener.Filter_TypedConfig)
+			cfg := envoy_tcpproxy.TcpProxy{}
+			cfg.Unmarshal(any.TypedConfig.Value)
+			if tcpCluster, ok := cfg.ClusterSpecifier.(*envoy_tcpproxy.TcpProxy_Cluster); !ok {
+				t.Fatalf("Expected single TcpProxy_Cluster specifier, found %T", cfg.ClusterSpecifier)
+			} else if tcpCluster.Cluster != test.expected {
+				t.Fatalf("expected target cluster %q, found %q", test.expected, tcpCluster.Cluster)
+			}
+		})
+
+	}
+}
+
 func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
@@ -357,6 +467,23 @@ func buildInboundListeners(p plugin.Plugin, sidecarConfig *model.Config, service
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	return configgen.buildSidecarInboundListeners(&env, &proxy, env.PushContext, instances)
+}
+
+func buildVirtualListener(p plugin.Plugin, sidecarConfig *model.Config,
+	meshOutboundTrafficPolicy *meshconfig.MeshConfig_OutboundTrafficPolicy) *xdsapi.Listener {
+
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	env := buildListenerEnv(nil)
+	if err := env.PushContext.InitContext(&env); err != nil {
+		return nil
+	}
+	env.Mesh.OutboundTrafficPolicy = meshOutboundTrafficPolicy
+	if sidecarConfig == nil {
+		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	} else {
+		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	}
+	return configgen.buildVirtualListener(&env, &proxy, env.PushContext)
 }
 
 type fakePlugin struct {
