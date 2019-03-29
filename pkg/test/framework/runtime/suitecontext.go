@@ -17,6 +17,8 @@ package runtime
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"reflect"
 	"strings"
 	"sync"
@@ -35,6 +37,8 @@ type suiteContext struct {
 	settings    *core.Settings
 	environment resource.Environment
 
+	workDir string
+
 	// context-level resources
 	globalScope *scope
 
@@ -47,9 +51,14 @@ type suiteContext struct {
 func newSuiteContext(s *core.Settings, envFn api.FactoryFn, labels label.Set) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
+	workDir := path.Join(s.RunDir(), "_suite_context")
+	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
+		return nil, err
+	}
 	c := &suiteContext{
 		settings:     s,
 		globalScope:  newScope(scopeID, nil),
+		workDir:      workDir,
 		suiteLabels:  labels,
 		contextNames: make(map[string]struct{}),
 	}
@@ -121,10 +130,10 @@ func (s *suiteContext) Settings() *core.Settings {
 
 // CreateDirectory creates a new subdirectory within this context.
 func (s *suiteContext) CreateDirectory(name string) (string, error) {
-	dir, err := ioutil.TempDir(s.settings.RunDir(), name)
+	dir, err := ioutil.TempDir(s.workDir, name)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, name, s.settings.RunDir(), err)
+			s.settings.RunID, name, s.workDir, err)
 	} else {
 		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
 	}
@@ -137,10 +146,10 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 		prefix += "-"
 	}
 
-	dir, err := ioutil.TempDir(s.settings.RunDir(), prefix)
+	dir, err := ioutil.TempDir(s.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, prefix, s.settings.RunDir(), err)
+			s.settings.RunID, prefix, s.workDir, err)
 	} else {
 		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
 	}
