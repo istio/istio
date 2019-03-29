@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
-	"istio.io/istio/pilot/test/util"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -280,7 +279,6 @@ func RunTest(
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
 
-		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
 		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
 	}
 }

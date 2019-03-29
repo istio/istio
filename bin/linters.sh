@@ -90,10 +90,15 @@ function check_licenses() {
 
 function dep_guard() {
     echo 'Checking cross component dependencies'
-    MIXER_DEPS=`go list -f '{{ join .Imports "\n"}}' ./mixer/... | grep -e "^istio\.io" | uniq | sort | grep -v -e "^istio\.io/istio/vendor" -e "^istio.io/istio/pkg" -e "^istio.io/istio/mixer"`
+    MIXER_DEPS=$(go list -f '{{ join .Imports "\n"}}' ./mixer/... | grep -e "^istio\.io" |\
+      uniq | sort |\
+      grep -v -e "^istio\.io/istio/vendor" \
+              -e "^istio\.io/istio/pkg"\
+              -e "^istio\.io/istio/mixer"\
+              -e "^istio\.io/istio/galley")
     if [[ ${MIXER_DEPS} ]]; then
       echo 'Found extra dependencies:'
-      echo ${MIXER_DEPS}
+      echo "${MIXER_DEPS}"
       exit 1
     fi
 }
