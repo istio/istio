@@ -521,11 +521,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		certChain = append(certChain, []byte(c)...)
 	}
 
-	len := len(certChainPEM)
+	length := len(certChainPEM)
 	// Leaf cert is element '0'. Root cert is element 'n'.
-	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[len-1])) {
+	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1])) {
 		sc.rootCertMutex.Lock()
-		sc.rootCert = []byte(certChainPEM[len-1])
+		sc.rootCert = []byte(certChainPEM[length-1])
 		sc.rootCertMutex.Unlock()
 
 		// TODO(quanlin): notify proxy about root cert change.

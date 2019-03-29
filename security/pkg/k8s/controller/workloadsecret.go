@@ -274,7 +274,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if _, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
+	if _, err := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
 		sc.upsertSecret(saName, scrt.GetNamespace())
 		sc.monitoring.SecretDeletion.Inc()
