@@ -13,8 +13,7 @@ resources:
   - name: istio-installer
     type: git
     source:
-      uri: "https://github.com/c0d1ngm0nk3y/istio-installer"
-      branch: concourse-ci
+      uri: "https://github.com/istio-ecosystem/istio-installer"
   - name: istio-istio
     type: git
     source:
