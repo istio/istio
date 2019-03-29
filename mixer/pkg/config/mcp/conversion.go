@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/mixer/pkg/config/store"
 )
@@ -102,7 +101,7 @@ func toKey(kind string, resourceName string) store.Key {
 	}
 }
 
-func toBackendResource(key store.Key, labels resource.Labels, annotations resource.Annotations, resource proto.Message,
+func toBackendResource(key store.Key, labels, annotations map[string]string, resource proto.Message,
 	version string) (*store.BackEndResource, error) {
 
 	marshaller := jsonpb.Marshaler{}

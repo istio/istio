@@ -90,18 +90,34 @@ function check_licenses() {
 
 function dep_guard() {
     echo 'Checking cross component dependencies'
+
     MIXER_DEPS=$(go list -f '{{ join .Imports "\n"}}' ./mixer/... | grep -e "^istio\.io" |\
       uniq | sort |\
       grep -v -e "^istio\.io/istio/vendor" \
-              -e "^istio\.io/istio/pkg"\
-              -e "^istio\.io/istio/mixer"\
-              -e "^istio\.io/istio/galley" \
+              -e "^istio\.io/istio/pkg" \
+              -e "^istio\.io/istio/mixer" \
+              -e "^istio\.io/istio/galley/pkg/metadata/kube$" \
+              -e "^istio\.io/istio/galley/pkg/source/kube/schema$" \
       || true)
     if [[ -n ${MIXER_DEPS} ]]; then
-      echo 'Found extra dependencies:'
+      echo 'Found extra Mixer dependencies:'
       echo "${MIXER_DEPS}"
       exit 1
     fi
+
+    PILOT_DEPS=$(go list -f '{{ join .Imports "\n"}}' ./pilot/... | grep -e "^istio\.io" |\
+      uniq | sort |\
+      grep -v -e "^istio\.io/istio/vendor" \
+              -e "^istio\.io/istio/pkg" \
+              -e "^istio\.io/istio/pilot" \
+              -e "^istio\.io/istio/galley/pkg/metadata$" \
+      || true)
+    if [[ -n ${PILOT_DEPS} ]]; then
+      echo 'Found extra Pilot dependencies:'
+      echo "${PILOT_DEPS}"
+      exit 1
+    fi
+
     echo 'Dependencies OK'
 }
 
