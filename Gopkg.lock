@@ -830,7 +830,7 @@
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
   pruneopts = "NUT"
-  revision = "ca7e3cf34b0ed739c37e2ff50b6ae0632da9911e"
+  revision = "5e465c4eda79c4063d08620ba8b09a3ef7fc4181"
 
 [[projects]]
   digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
