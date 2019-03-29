@@ -88,6 +88,16 @@ function check_licenses() {
     echo 'Licenses OK'
 }
 
+function dep_guard() {
+    echo 'Checking cross component dependencies'
+    MIXER_DEPS=`go list -f '{{ join .Imports "\n"}}' ./mixer/... | grep -e "^istio\.io" | uniq | sort | grep -v -e "^istio\.io/istio/vendor" -e "^istio.io/istio/pkg" -e "^istio.io/istio/mixer"`
+    if [[ ${MIXER_DEPS} ]]; then
+      echo 'Found extra dependencies:'
+      echo ${MIXER_DEPS}
+      exit 1
+    fi
+}
+
 ensure_pilot_types
 check_licenses
 install_golangcilint
@@ -96,4 +106,5 @@ run_adapter_lint
 run_test_lint
 run_envvar_lint
 run_helm_lint
+dep_guard
 check_grafana_dashboards
