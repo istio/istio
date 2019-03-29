@@ -32,6 +32,7 @@ spec:
   selector:
     istio: mixer
     istio-mixer-type: {{ $key }}
+    app: {{ template "mixer.name" $ }}
 ---
 {{- end }}
 {{- end }}

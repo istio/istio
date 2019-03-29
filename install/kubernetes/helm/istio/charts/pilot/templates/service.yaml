@@ -21,3 +21,4 @@ spec:
     name: http-monitoring
   selector:
     istio: pilot
+    app: {{ template "pilot.name" . }}
