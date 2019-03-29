@@ -31,7 +31,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
-	helper "istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	metrict "istio.io/istio/mixer/template/metric"
 )
