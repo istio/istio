@@ -16,16 +16,48 @@
 
 set -x
 
-export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
-ISTIO_PATH="$1"
-if [ -z "$ISTIO_PATH" ]; then
-    echo "Usage: test.sh <istio-directory>"
+function print_help() {
+    echo 'Usage: test.sh [--skip-setup] [--skip-cleanup] <istio-directory>'
     exit 1
+}
+
+export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
+SKIP_CLEANUP=0
+SKIP_SETUP=0
+while [ $# -gt 0 ]
+do
+    case $1 in
+        --skip-cleanup)
+            SKIP_CLEANUP=1
+            ;;
+        --skip-setup) 
+            SKIP_SETUP=1
+            ;;
+        *)
+            if [ ! -z "$ISTIO_PATH" ]; then
+                echo "to many arguments"
+                print_help
+            fi
+            ISTIO_PATH=$1
+            if [ ! -d "$ISTIO_PATH" ]; then
+                echo "$ISTIO_PATH is not a directory"
+                exit 2
+            fi
+        ;;
+    esac
+    shift 1
+done
+
+if [ -z "$ISTIO_PATH" ]; then
+    echo "istio-directory not set"
+    print_help
 fi
 
 cd $ISTIO_PATH
 
-kubectl label namespace default istio-env=istio-control --overwrite
+if [ $SKIP_SETUP -eq 0 ]; then
+    kubectl label namespace default istio-env=istio-control --overwrite
+fi
 
 if [ -z $SKIP_CLEANUP ] ; then
 
