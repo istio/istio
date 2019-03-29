@@ -76,7 +76,7 @@
     "path": "/spec/containers/1/readinessProbe/httpGet",
     "value": {
       "path": "/app-health/hello/readyz",
-      "port": 15020
+      "port": 15020,
       "scheme": "HTTP"
     }
   },
