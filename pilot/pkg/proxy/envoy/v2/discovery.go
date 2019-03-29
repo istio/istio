@@ -32,10 +32,6 @@ import (
 )
 
 var (
-	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	// Disabled by default.
-	periodicRefreshDuration = 0 * time.Second
-
 	versionMutex sync.RWMutex
 	// version is the timestamp of the last registry event.
 	version = "0"
@@ -184,8 +180,6 @@ func NewDiscoveryServer(
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
-	env.PushContext = model.NewPushContext()
-	go out.handleUpdates()
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -210,10 +204,6 @@ func NewDiscoveryServer(
 		}
 	}
 
-	go out.periodicRefresh()
-
-	go out.periodicRefreshMetrics()
-
 	out.DebugConfigs = pilot.DebugConfigs
 
 	pushThrottle := pilot.PushThrottle
@@ -233,36 +223,52 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
+func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
+	go s.handleUpdates(stopCh)
+	go s.periodicRefresh(stopCh)
+	go s.periodicRefreshMetrics(stopCh)
+}
+
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
-func (s *DiscoveryServer) periodicRefresh() {
-	periodicRefreshDuration = pilot.RefreshDuration
+func (s *DiscoveryServer) periodicRefresh(stopCh <-chan struct{}) {
+	periodicRefreshDuration := pilot.RefreshDuration
 	if periodicRefreshDuration == 0 {
 		return
 	}
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
-	for range ticker.C {
-		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
+	for {
+		select {
+		case <-ticker.C:
+			adsLog.Debugf("ADS: periodic push of envoy configs %s", versionInfo())
+			s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
+		case <-stopCh:
+			return
+		}
 	}
 }
 
 // Push metrics are updated periodically (10s default)
-func (s *DiscoveryServer) periodicRefreshMetrics() {
+func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
-	for range ticker.C {
-		push := s.globalPushContext()
-		push.Mutex.Lock()
-		if push.End != timeZero {
-			model.LastPushMutex.Lock()
-			model.LastPushStatus = push
-			model.LastPushMutex.Unlock()
+	for {
+		select {
+		case <-ticker.C:
+			push := s.globalPushContext()
+			push.Mutex.Lock()
+			if push.End != timeZero {
+				model.LastPushMutex.Lock()
+				model.LastPushStatus = push
+				model.LastPushMutex.Unlock()
+			}
+			push.UpdateMetrics()
+			push.Mutex.Unlock()
+		case <-stopCh:
+			return
 		}
-		push.UpdateMetrics()
-		push.Mutex.Unlock()
 	}
 }
 
@@ -368,14 +374,10 @@ func (s *DiscoveryServer) ConfigUpdate(full bool) {
 
 // Debouncing and update request happens in a separate thread, it uses locks
 // and we want to avoid complications, ConfigUpdate may already hold other locks.
-func (s *DiscoveryServer) handleUpdates() {
-	handleUpdates(s.updateChannel, DebounceAfter, DebounceMax, s.doPush)
-}
-
 // handleUpdates processes events from updateChannel
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
-func handleUpdates(updateChannel <-chan *updateReq, minQuiet time.Duration, maxDelay time.Duration, processUpdate func(bool)) {
+func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -388,10 +390,10 @@ func handleUpdates(updateChannel <-chan *updateReq, minQuiet time.Duration, maxD
 
 	for {
 		select {
-		case r := <-updateChannel:
+		case r := <-s.updateChannel:
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(minQuiet)
+				timeChan = time.After(DebounceAfter)
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
@@ -407,19 +409,21 @@ func handleUpdates(updateChannel <-chan *updateReq, minQuiet time.Duration, maxD
 			eventDelay := now.Sub(startDebounce)
 			quietTime := now.Sub(lastConfigUpdateTime)
 			// it has been too long or quiet enough
-			if eventDelay >= maxDelay || quietTime >= minQuiet {
+			if eventDelay >= DebounceMax || quietTime >= DebounceAfter {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
 					pushCounter, debouncedEvents,
 					quietTime, eventDelay, fullPush)
 
-				go processUpdate(fullPush)
+				go s.doPush(fullPush)
 				fullPush = false
 				debouncedEvents = 0
 				continue
 			}
 
-			timeChan = time.After(minQuiet - quietTime)
+			timeChan = time.After(DebounceAfter - quietTime)
+		case <-stopCh:
+			return
 		}
 	}
 }
