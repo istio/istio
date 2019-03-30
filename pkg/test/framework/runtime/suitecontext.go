@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -43,11 +45,10 @@ type suiteContext struct {
 	contextMu    sync.Mutex
 	contextNames map[string]struct{}
 
-	skipAll    bool
-	skipReason string
+	suiteLabels label.Set
 }
 
-func newSuiteContext(s *core.Settings, envFn api.FactoryFn) (*suiteContext, error) {
+func newSuiteContext(s *core.Settings, envFn api.FactoryFn, labels label.Set) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
 	workDir := path.Join(s.RunDir(), "_suite_context")
@@ -58,6 +59,7 @@ func newSuiteContext(s *core.Settings, envFn api.FactoryFn) (*suiteContext, erro
 		settings:     s,
 		globalScope:  newScope(scopeID, nil),
 		workDir:      workDir,
+		suiteLabels:  labels,
 		contextNames: make(map[string]struct{}),
 	}
 
@@ -124,22 +126,6 @@ func (s *suiteContext) Environment() resource.Environment {
 // Settings returns the current runtime.Settings.
 func (s *suiteContext) Settings() *core.Settings {
 	return s.settings
-}
-
-// Skip indicates that all of the tests in this suite should be skipped.
-func (s *suiteContext) Skip(reason string) {
-	if !s.skipAll {
-		s.skipReason = reason
-	}
-	s.skipAll = true
-}
-
-// Skip indicates that all of the tests in this suite should be skipped.
-func (s *suiteContext) Skipf(reasonfmt string, args ...interface{}) {
-	if !s.skipAll {
-		s.skipReason = fmt.Sprintf(reasonfmt, args...)
-	}
-	s.skipAll = true
 }
 
 // CreateDirectory creates a new subdirectory within this context.
