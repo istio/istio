@@ -869,7 +869,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connectio
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		adsLog.Warnf("EDS: missing cluster %s", clusterName)
