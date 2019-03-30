@@ -490,7 +490,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotationStatus]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -565,7 +565,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	annotations := map[string]string{annotationStatus.name: status}
+	annotations := map[string]string{annotationStatus: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

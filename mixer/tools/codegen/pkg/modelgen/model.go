@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/api/mixer/adapter/model/v1beta1"

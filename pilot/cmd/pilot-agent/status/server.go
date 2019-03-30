@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^\/]+/(livez|readyz)$`)
+	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.

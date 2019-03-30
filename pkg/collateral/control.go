@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/annotations"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
@@ -149,6 +151,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 	}
 
 	g.genVars(cmd)
+	g.genAnnotations(cmd)
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -240,11 +243,13 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 
 			g.emit("<table class=\"command-flags\">")
 			g.emit("<thead>")
+			g.emit("<tr>")
 			g.emit("<th>Flags</th>")
 			if genShorthand {
 				g.emit("<th>Shorthand</th>")
 			}
 			g.emit("<th>Description</th>")
+			g.emit("</tr>")
 			g.emit("</thead>")
 			g.emit("<tbody>")
 
@@ -359,7 +364,7 @@ func (g *generator) genVars(root *cobra.Command) {
 
 	count := 0
 	for _, v := range envVars {
-		if v.Hidden || v.Deprecated {
+		if v.Hidden {
 			continue
 		}
 		count++
@@ -369,7 +374,7 @@ func (g *generator) genVars(root *cobra.Command) {
 		return
 	}
 
-	g.emit("<h2 id=\"envvars\">Environment Variables</h2>")
+	g.emit("<h2 id=\"envvars\">Environment variables</h2>")
 
 	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command.")
 
@@ -385,11 +390,15 @@ func (g *generator) genVars(root *cobra.Command) {
 	g.emit("<tbody>")
 
 	for _, v := range envVars {
-		if v.Hidden || v.Deprecated {
+		if v.Hidden {
 			continue
 		}
 
-		g.emit("<tr>")
+		if v.Deprecated {
+			g.emit("<tr class='deprecated'>")
+		} else {
+			g.emit("<tr>")
+		}
 		g.emit("<td><code>", html.EscapeString(v.Name), "</code></td>")
 
 		switch v.Type {
@@ -407,6 +416,54 @@ func (g *generator) genVars(root *cobra.Command) {
 
 		g.emit("<td><code>", html.EscapeString(v.DefaultValue), "</code></td>")
 		g.emit("<td>", html.EscapeString(v.Description), "</td>")
+		g.emit("</tr>")
+	}
+
+	g.emit("</tbody>")
+	g.emit("</table>")
+}
+
+func (g *generator) genAnnotations(root *cobra.Command) {
+	anns := annotations.Descriptions()
+
+	count := 0
+	for _, a := range anns {
+		if a.Hidden {
+			continue
+		}
+		count++
+	}
+
+	if count == 0 {
+		return
+	}
+
+	g.emit("<h2 id=\"annotations\">Annotations</h2>")
+
+	g.emit("These resource annotations are used by the <code>", root.Name(), "</code> command.")
+
+	g.emit("<table class=\"annotations\">")
+	g.emit("<thead>")
+	g.emit("<tr>")
+	g.emit("<th>Annotation Name</th>")
+	g.emit("<th>Description</th>")
+	g.emit("</tr>")
+	g.emit("</thead>")
+	g.emit("<tbody>")
+
+	for _, a := range anns {
+		if a.Hidden {
+			continue
+		}
+
+		if a.Deprecated {
+			g.emit("<tr class='deprecated'>")
+		} else {
+			g.emit("<tr>")
+		}
+		g.emit("<td><code>", html.EscapeString(a.Name), "</code></td>")
+
+		g.emit("<td>", html.EscapeString(a.Description), "</td>")
 		g.emit("</tr>")
 	}
 
