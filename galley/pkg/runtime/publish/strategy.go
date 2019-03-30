@@ -59,8 +59,24 @@ type Strategy struct {
 	// nowFn is a testing hook for overriding time.Now()
 	nowFn func() time.Time
 
-	// afterFuncFn is a testing hook for overriding time.AfterFunc()
-	afterFuncFn func(time.Duration, func()) *time.Timer
+	// startTimerFn is a testing hook for overriding the starting of the timer.
+	startTimerFn func()
+
+	// stopChan used to initiate a stop of the timer thread.
+	stopChan chan struct{}
+
+	// stoppedChan is closed when the timer thread exits, to indicate successful
+	// termination of the timer thread.
+	stoppedChan chan struct{}
+
+	// resetChan is used to issue a reset to the timer.
+	resetChan chan struct{}
+
+	// pendingChanges indicates that there are unpublished changes.
+	pendingChanges bool
+
+	// stopped indicates that the timer thread has been stopped.
+	stopped bool
 }
 
 // NewStrategyWithDefaults creates a new strategy with default values.
@@ -74,32 +90,101 @@ func NewStrategy(
 	quiesceDuration time.Duration,
 	timerFrequency time.Duration) *Strategy {
 
-	return &Strategy{
+	s := &Strategy{
 		maxWaitDuration: maxWaitDuration,
 		quiesceDuration: quiesceDuration,
 		timerFrequency:  timerFrequency,
 		Publish:         make(chan struct{}, 1),
 		nowFn:           time.Now,
-		afterFuncFn:     time.AfterFunc,
+		stopChan:        make(chan struct{}),
+		stoppedChan:     make(chan struct{}, 1),
+		resetChan:       make(chan struct{}, 1),
 	}
+	s.startTimerFn = s.startTimer
+	return s
 }
 
 func (s *Strategy) OnChange() {
 	s.stateLock.Lock()
-	monitoring.RecordStrategyOnChange()
 	defer s.stateLock.Unlock()
+
+	monitoring.RecordStrategyOnChange()
 
 	// Capture the latest event time.
 	s.latestEvent = s.nowFn()
-	if s.timer == nil {
-		// If this is the first event after a quiesce, start a timer to periodically check event
+
+	if !s.pendingChanges {
+		// This is the first event after a quiesce, start a timer to periodically check event
 		// frequency and fire the publish event.
+		s.pendingChanges = true
 		s.firstEvent = s.latestEvent
-		s.timer = s.afterFuncFn(s.timerFrequency, s.onTimer)
+
+		// Start or reset the timer.
+		s.startTimerFn()
 	}
 }
 
-func (s *Strategy) onTimer() {
+// startTimer performs a start or reset on the timer. Called with lock on stateLock.
+func (s *Strategy) startTimer() {
+	if s.stopped {
+		panic("asyncTimer attempting to restart stopped timer")
+	}
+
+	if s.timer != nil {
+		// Already started, just perform a reset of the timer.
+		s.resetChan <- struct{}{}
+		return
+	}
+
+	s.timer = time.NewTimer(s.timerFrequency)
+
+	// Start a go routine to listen to the timer.
+	go func() {
+
+		// As soon as the thread exits, signal that the timer has stopped.
+		defer func() {
+			close(s.stoppedChan)
+		}()
+
+		for {
+			select {
+			case <-s.timer.C:
+				if !s.onTimer() {
+					// We did not publish. Reset the timer and try again later.
+					s.timer.Reset(s.timerFrequency)
+				}
+			case <-s.resetChan:
+				s.timer.Reset(s.timerFrequency)
+			case <-s.stopChan:
+				// User requested to stop the timer.
+				s.timer.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// stopTimer stops the timer, if started. Called with lock on stateLock.
+func (s *Strategy) stopTimer() {
+	defer func() {
+		s.stopped = true
+	}()
+
+	if s.timer == nil {
+		// Timer was never started. Nothing to do.
+		return
+	}
+
+	if !s.stopped {
+		// Cancel the timer.
+		close(s.stopChan)
+	}
+
+	// Wait for the timer to be stopped.
+	<-s.stoppedChan
+}
+
+func (s *Strategy) onTimer() bool {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
@@ -112,11 +197,12 @@ func (s *Strategy) onTimer() {
 	maxTimeReached := now.After(s.firstEvent.Add(s.maxWaitDuration))
 	quiesceTimeReached := now.After(s.latestEvent.Add(s.quiesceDuration))
 
-	var published bool
+	published := false
 	if maxTimeReached || quiesceTimeReached {
 		// Try to send to the channel
 		select {
 		case s.Publish <- struct{}{}:
+			s.pendingChanges = false
 			published = true
 		default:
 			// If the calling code is not draining the publish channel, then we can potentially cause
@@ -126,19 +212,12 @@ func (s *Strategy) onTimer() {
 	}
 
 	monitoring.RecordOnTimer(maxTimeReached, quiesceTimeReached, !published)
-	if published {
-		s.timer = nil
-	} else {
-		s.timer.Reset(s.timerFrequency)
-	}
+	return published
 }
 
-func (s *Strategy) Reset() {
+func (s *Strategy) Close() {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
-	}
+	s.stopTimer()
 }

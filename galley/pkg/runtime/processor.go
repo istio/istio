@@ -135,7 +135,7 @@ func (p *Processor) Start() error {
 		defer func() {
 			scope.Debugf("Process.process: Exiting worker thread")
 			close(p.eventCh)
-			p.stateStrategy.Reset()
+			p.stateStrategy.Close()
 		}()
 
 		defer p.source.Stop()
