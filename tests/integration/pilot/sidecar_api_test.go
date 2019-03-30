@@ -35,10 +35,6 @@ func TestSidecarListeners(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	// TODO: applying the examples folder requires creation of many namespaces. Limit this test to the native environment
-	// until the test can be reconciled.
-	ctx.RequireOrSkip(t, environment.Native)
-
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
@@ -143,5 +139,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework.Main("sidecar_api_test", m)
+	framework.
+		NewSuite("sidecar_api_test", m).
+		RequireEnvironment(environment.Native).
+		Run()
 }

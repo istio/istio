@@ -21,6 +21,8 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -44,11 +46,12 @@ type testContext struct {
 	workDir string
 }
 
-func newTestContext(s *suiteContext, parentScope *scope, t *testing.T) *testContext {
+func newTestContext(t *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
 	id := s.allocateContextID(t.Name())
 
-	if s.skipAll {
-		t.Skipf("Skipping: %s", s.skipReason)
+	allLabels := s.suiteLabels.Merge(labels)
+	if !s.settings.Selector.Selects(allLabels) {
+		t.Skipf("Skipping: label mismatch: labels=%v, filter=%v", allLabels, s.settings.Selector)
 	}
 
 	scopes.Framework.Debugf("Creating New test context")
