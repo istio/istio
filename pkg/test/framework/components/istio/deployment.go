@@ -75,7 +75,8 @@ func splitIstioYaml(istioYaml string) (string, string) {
 
 	parts := strings.Split(istioYaml, yamlSeparator)
 
-	r := regexp.MustCompile(`^apiVersion: *.*istio\.io.*`)
+	// Make the regular expression multi-line and anchor to the beginning of the line.
+	r := regexp.MustCompile(`(?m)^apiVersion: *.*istio\.io.*`)
 
 	for _, p := range parts {
 		if r.Match([]byte(p)) {
