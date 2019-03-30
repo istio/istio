@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -155,8 +154,6 @@ var (
 )
 
 var (
-	useBuiltinDefaultsVar = env.RegisterBoolVar("ISTIOCTL_USE_BUILTIN_DEFAULTS", false, "")
-
 	injectCmd = &cobra.Command{
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
@@ -177,10 +174,9 @@ The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
 
-To override the sidecar injection template built into istioctl, the
-parameters --injectConfigFile or --injectConfigMapName can be used.
-Both options override any other template configuration parameters, eg.
---hub and --tag.  These options would typically be used with the
+To override the sidecar injection template from kubernetes configmap
+'istio-inject', the parameters --injectConfigFile or --injectConfigMapName
+can be used. Either of options would typically be used with the
 file/configmap created with a new Istio release.
 `,
 		Example: `
@@ -263,47 +259,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			}
 
 			var sidecarTemplate string
-
-			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
-			// so must be specified together. hub and tag no longer have defaults.
-			if hub != "" || tag != "" {
-
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
-				if !useBuiltinDefaultsVar.Get() {
-					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
-						"use the following command to get the current injector file\n" +
-						"kubectl -n istio-system get configmap istio-sidecar-injector " +
-						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
-				}
-
-				if hub == "" || tag == "" {
-					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
-				}
-
-				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:                    inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
-					RewriteAppHTTPProbe:          rewriteAppHTTPProbe,
-					Verbosity:                    verbosity,
-					SidecarProxyUID:              sidecarProxyUID,
-					Version:                      versionStr,
-					EnableCoreDump:               enableCoreDump,
-					Mesh:                         meshConfig,
-					ImagePullPolicy:              imagePullPolicy,
-					StatusPort:                   statusPort,
-					ReadinessInitialDelaySeconds: readinessInitialDelaySeconds,
-					ReadinessPeriodSeconds:       readinessPeriodSeconds,
-					ReadinessFailureThreshold:    readinessFailureThreshold,
-					IncludeIPRanges:              includeIPRanges,
-					ExcludeIPRanges:              excludeIPRanges,
-					IncludeInboundPorts:          includeInboundPorts,
-					ExcludeInboundPorts:          excludeInboundPorts,
-					DebugMode:                    debugMode,
-				}); err != nil {
-					return err
-				}
-
-			} else if injectConfigFile != "" {
+			if injectConfigFile != "" {
 				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
 				if err != nil {
 					return err
@@ -408,7 +364,9 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
 	deprecatedFlags := []string{"coreDump", "imagePullPolicy", "includeIPRanges", "excludeIPRanges", "hub", "tag",
-		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString"}
+		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString",
+		"readinessFailureThreshold", "readinessInitialDelaySeconds", "readinessPeriodSeconds", "rewriteAppProbe",
+		"statusPort"}
 	for _, opt := range deprecatedFlags {
 		_ = injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
 	}
@@ -416,7 +374,5 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
-			"This option overrides any other sidecar injection config options, eg. --hub",
-			injectConfigMapKey))
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 }
