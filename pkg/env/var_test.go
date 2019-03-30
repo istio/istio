@@ -310,3 +310,22 @@ func TestDesc(t *testing.T) {
 		t.Errorf("Expected 'A duration', got '%s'", vars[0].Description)
 	}
 }
+
+func TestDupes(t *testing.T) {
+
+	// make sure var without a description doesn't overwrite one with
+	reset()
+	_ = RegisterStringVar(testVar, "123", "XYZ")
+	v := RegisterStringVar(testVar, "123", "")
+	if v.Description != "XYZ" {
+		t.Errorf("Expected 'XYZ', got '%s'", v.Description)
+	}
+
+	// make sure var without a description doesn't overwrite one with
+	reset()
+	_ = RegisterStringVar(testVar, "123", "")
+	v = RegisterStringVar(testVar, "123", "XYZ")
+	if v.Description != "XYZ" {
+		t.Errorf("Expected 'XYZ', got '%s'", v.Description)
+	}
+}
