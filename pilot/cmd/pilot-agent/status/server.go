@@ -192,6 +192,8 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
+		// We skip the verification since kubelet skips the verification for HTTPS prober as well
+		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
