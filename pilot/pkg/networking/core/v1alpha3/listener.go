@@ -463,7 +463,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// route config. Endpoint IP is handled below and Service IP is handled
 	// by outbound routes. Traffic sent to our service VIP is redirected by
 	// remote services' kubeproxy to our specific endpoint IP.
-	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, listenerOpts.port)
 
 	if old, exists := listenerMap[listenerMapKey]; exists {
 		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
