@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/annotations"
+
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -53,6 +55,8 @@ const (
 	// statsPatterns gives the developer control over Envoy stats collection
 	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
 )
+
+var _ = annotations.Register(EnvoyStatsMatcherInclusionPatterns, "Control over Envoy stats collection.")
 
 var (
 	// default value for EnvoyStatsMatcherInclusionPatterns
