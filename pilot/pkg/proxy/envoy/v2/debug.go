@@ -112,7 +112,7 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
+	_, _ = w.Write(out)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -147,7 +147,7 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
 	s.mutex.RUnlock()
-	w.Write(out)
+	_, _ = w.Write(out)
 }
 
 // Tracks info about workloads. Currently only K8S serviceregistry populates this, based
@@ -158,7 +158,7 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
 	s.mutex.RUnlock()
-	w.Write(out)
+	_, _ = w.Write(out)
 }
 
 // Endpoint debugging
@@ -404,7 +404,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok || len(connections) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Proxy not connected to this Pilot instance"))
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
@@ -418,19 +418,19 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		dump, err := s.configDump(connections[mostRecent])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		if err := jsonm.Marshal(w, dump); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("You must provide a proxyID in the query string"))
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
 // PushStatusHandler dumps the last PushContext
@@ -445,7 +445,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
+	_, _ = w.Write(out)
 	w.WriteHeader(http.StatusOK)
 }
 
