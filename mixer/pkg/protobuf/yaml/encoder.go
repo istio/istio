@@ -897,7 +897,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 				if err != nil {
 					return fmt.Errorf("/%s: '%v'", name, err)
 				}
-				buffer.EncodeRawBytes(bytes)
+				_ = buffer.EncodeRawBytes(bytes)
 			} else {
 				v, ok := data.(map[string]interface{})
 				if !ok {
