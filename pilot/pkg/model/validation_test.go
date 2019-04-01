@@ -1763,7 +1763,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: true},
-		{name: "good origin star", in: &networking.CorsPolicy{
+		{name: "good origin with star", in: &networking.CorsPolicy{
 			AllowOrigin:   []string{"*"},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
@@ -1793,6 +1793,13 @@ func TestValidateCORSPolicy(t *testing.T) {
 		}, valid: false},
 		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
 			AllowOrigin:   []string{"http://", "https://"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*.example.com"},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
