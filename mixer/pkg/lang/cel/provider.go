@@ -183,7 +183,7 @@ func (ap *attributeProvider) NewValue(typeName string, fields map[string]ref.Val
 	return ap.protos.NewValue(typeName, fields)
 }
 func (ap *attributeProvider) RegisterType(types ...ref.Type) error {
-	return ap.RegisterType(types...)
+	return ap.protos.RegisterType(types...)
 }
 
 // Attribute activation binds attribute values to the expression nodes
