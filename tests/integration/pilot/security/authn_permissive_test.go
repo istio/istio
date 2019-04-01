@@ -35,10 +35,6 @@ import (
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
-const (
-	timeout       = 10 * time.Second
-	retryInterval = 500 * time.Millisecond
-)
 
 func TestMain(m *testing.M) {
 	framework.Main("authn_permissive_test", m)
@@ -125,25 +121,25 @@ func TestAuthnPermissive(t *testing.T) {
 	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
 	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
 	a := aps.GetAppOrFail("a", t)
-	endTime := time.Now().Add(timeout)
-	for {
-		req := apps.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
-		resp, err := pilot.CallDiscovery(req)
-		if err != nil {
-			t.Errorf("failed to call discovery %v", err)
-		}
-		for _, r := range resp.Resources {
-			foo := &xdsapi.Listener{}
-			err := proto.UnmarshalAny(&r, foo)
-			result := verifyListener(foo, t)
-			if err == nil && result {
-				return
+	req := apps.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
+	err = pilot.StartDiscovery(req)
+	if err != nil {
+		t.Fatalf("failed to call discovery %v", err)
+	}
+	err = pilot.WatchDiscovery(time.Second*10,
+		func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
+			for _, r := range resp.Resources {
+				foo := &xdsapi.Listener{}
+				err := proto.UnmarshalAny(&r, foo)
+				result := verifyListener(foo, t)
+				if err == nil && result {
+					return true, nil
+				}
 			}
-		}
-		if time.Now().After(endTime) {
-			t.Fatalf("failed to find any listeners having multiplexing filter chain")
-		}
-		time.Sleep(retryInterval)
+			return false, nil
+		})
+	if err != nil {
+		t.Fatalf("failed to find any listeners having multiplexing filter chain : %v", err)
 	}
 }
 
