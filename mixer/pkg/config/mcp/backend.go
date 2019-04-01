@@ -30,7 +30,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
@@ -130,8 +129,6 @@ type state struct {
 	items  map[string]map[store.Key]*store.BackEndResource
 	synced map[string]bool // by collection
 }
-
-var useMCPLegacyVar = env.RegisterBoolVar("USE_MCP_LEGACY", false, "")
 
 // Init implements store.Backend.Init.
 func (b *backend) Init(kinds []string) error {
