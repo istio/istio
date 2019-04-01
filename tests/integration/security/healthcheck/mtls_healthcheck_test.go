@@ -34,7 +34,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("mtls_healthcheck", m, istio.SetupOnKube(&ist, setupConfig))
+	framework.NewSuite("mtls_healthcheck", m).
+		RequireEnvironment(environment.Kube).
+		Setup(istio.SetupOnKube(&ist, setupConfig)).
+		Run()
 }
 
 func setupConfig(cfg *istio.Config) {

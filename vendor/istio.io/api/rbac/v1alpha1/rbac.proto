@@ -90,10 +90,10 @@ option go_package="istio.io/api/rbac/v1alpha1";
 // TODO: Move the WorkloadSelector to a common place to be shared by other packages.
 // WorkloadSelector specifies the criteria used to determine if the Gateway
 // or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload info such as
+// includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload to be
+// specified, all conditions need to match in order for the workload instance to be
 // selected. Currently, only label based selection mechanism is supported.
 message WorkloadSelector {
   // One or more labels that indicate a specific set of pods/VMs on which
@@ -104,7 +104,7 @@ message WorkloadSelector {
 }
 
 // $hide_from_docs
-// AuthorizationPolicy to enforce access control on a selected workload.
+// AuthorizationPolicy to enforce access control on a selected workload instance.
 message AuthorizationPolicy {
   // $hide_from_docs
   // Optional. One or more labels that indicate a specific set of pods/VMs
@@ -115,7 +115,7 @@ message AuthorizationPolicy {
   WorkloadSelector workload_selector = 1;
 
   // $hide_from_docs
-  // A list of bindings that specify the subjects and permissions to the selected workload.
+  // A list of bindings that specify the subjects and permissions to the selected workload instance.
   repeated ServiceRoleBinding allow = 2;
 }
 
@@ -237,7 +237,7 @@ message ServiceRoleBinding {
   // For example, the following “product-frontend” AuthorizationPolicy allows “frontend”
   // service to view “product” service on “/info” path.
   // ```yaml
-  // apiVersion: “rbac.istio.io/v1alpha1”
+  // apiVersion: "rbac.istio.io/v1alpha1"
   // kind: AuthorizationPolicy
   // metadata:
   //  name: product-frontend
@@ -250,8 +250,8 @@ message ServiceRoleBinding {
   //  - subjects:
   //    - names: ["cluster.local/ns/default/sa/frontend"]
   //    actions:
-  //    - paths: [“/info”]
-  //      methods: [“GET”]
+  //    - paths: ["/info"]
+  //      methods: ["GET"]
   // Required. The set of access rules (permissions) that the role has.
   repeated AccessRule actions = 4;
 }
@@ -367,7 +367,7 @@ message RbacConfig {
     repeated string services = 1;
 
     // $hide_from_docs
-    // A list of workloads.
+    // A list of workload instances.
     repeated WorkloadSelector workload_selectors = 3;
 
     // A list of namespaces.

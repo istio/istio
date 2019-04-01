@@ -12,19 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package label
 
-import (
-	"istio.io/istio/pkg/test/framework/components/environment"
+const (
+	// Presubmit indicates that the test should be run as part of a presubmit run.
+	Presubmit Instance = "presubmit"
+
+	// Postsubmit indicates that the test should be run as part of a postsubmit run.
+	Postsubmit Instance = "postsubmit"
 )
 
-// RequireEnvironment will mark the suite as skipped if the expected environment is not found.
-func RequireEnvironment(n environment.Name) SetupFn { // nolint:interfacer
-	return func(ctx SuiteContext) error {
-		if ctx.Environment().EnvironmentName() != n {
-			ctx.Skipf("RequireEnvironment (%s): Test suite does not support environment: %q",
-				n.String(), ctx.Environment().EnvironmentName())
-		}
-		return nil
-	}
-}
+var all = NewSet(
+	Presubmit,
+	Postsubmit)

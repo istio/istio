@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package env makes it possible to track use of environment variables within procress
+// Package env makes it possible to track use of environment variables within a procress
 // in order to generate documentation for these uses.
 package env
 
@@ -106,21 +106,21 @@ func VarDescriptions() []Var {
 func RegisterStringVar(name string, defaultValue string, description string) StringVar {
 	v := Var{Name: name, DefaultValue: defaultValue, Description: description, Type: STRING}
 	RegisterVar(v)
-	return StringVar{v}
+	return StringVar{getVar(name)}
 }
 
 // RegisterBoolVar registers a new boolean environment variable.
 func RegisterBoolVar(name string, defaultValue bool, description string) BoolVar {
 	v := Var{Name: name, DefaultValue: strconv.FormatBool(defaultValue), Description: description, Type: BOOL}
 	RegisterVar(v)
-	return BoolVar{v}
+	return BoolVar{getVar(name)}
 }
 
 // RegisterIntVar registers a new integer environment variable.
 func RegisterIntVar(name string, defaultValue int, description string) IntVar {
 	v := Var{Name: name, DefaultValue: strconv.FormatInt(int64(defaultValue), 10), Description: description, Type: INT}
 	RegisterVar(v)
-	return IntVar{v}
+	return IntVar{getVar(name)}
 }
 
 // RegisterFloatVar registers a new floating-point environment variable.
@@ -134,7 +134,7 @@ func RegisterFloatVar(name string, defaultValue float64, description string) Flo
 func RegisterDurationVar(name string, defaultValue time.Duration, description string) DurationVar {
 	v := Var{Name: name, DefaultValue: defaultValue.String(), Description: description, Type: DURATION}
 	RegisterVar(v)
-	return DurationVar{v}
+	return DurationVar{getVar(name)}
 }
 
 // RegisterVar registers a generic environment variable.
@@ -150,10 +150,18 @@ func RegisterVar(v Var) {
 			log.Warnf("The environment variable %s was registered multiple times using different metadata: %v, %v", v.Name, old, v)
 		}
 	} else {
-		allVars[v.Name] = v // last one with a description wins if the same variable name is registered multiple times
+		allVars[v.Name] = v
 	}
 
 	mutex.Unlock()
+}
+
+func getVar(name string) Var {
+	mutex.Lock()
+	result := allVars[name]
+	mutex.Unlock()
+
+	return result
 }
 
 func (v StringVar) Get() string {

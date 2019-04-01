@@ -17,22 +17,28 @@ package framework
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("framework_test", m, framework.RequireEnvironment(environment.Kube))
+	framework.
+		NewSuite("framework_test", m).
+		Label(label.Presubmit).
+		RequireEnvironment(environment.Kube).
+		Run()
 }
 
 func TestBasic(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
-	_, err := istio.Deploy(ctx, nil)
-	if err != nil {
-		t.Fatalf("Istio should have deployed: %v", err)
-	}
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			// Ensure that Istio can be deployed. If you're breaking this, you'll break many integration tests.
+			_, err := istio.Deploy(ctx, nil)
+			if err != nil {
+				t.Fatalf("Istio should have deployed: %v", err)
+			}
+		})
 }

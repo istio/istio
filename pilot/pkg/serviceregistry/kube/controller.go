@@ -805,7 +805,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
 
-	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -840,7 +840,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 					name:    n,
 					network: *net,
 				}
-				c.ranger.Insert(rangerEntry)
+				_ = c.ranger.Insert(rangerEntry)
 			}
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
 				c.networkForRegistry = n
