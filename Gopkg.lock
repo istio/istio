@@ -2039,7 +2039,6 @@
     "contrib.go.opencensus.io/exporter/stackdriver",
     "fortio.org/fortio",
     "fortio.org/fortio/fhttp",
-    "fortio.org/fortio/log",
     "fortio.org/fortio/periodic",
     "github.com/DataDog/datadog-go/statsd",
     "github.com/alicebob/miniredis",
