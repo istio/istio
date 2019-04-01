@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v2:1.10.1
+        image: istio/examples-bookinfo-details-v2:1.11.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
