@@ -328,7 +328,7 @@ func TestTunnel(t *testing.T) {
 		}
 
 		if !result[0].IsOK() {
-			return nil, false, fmt.Errorf("HTTP Request unsuccessful: %s", result.Body)
+			return nil, false, fmt.Errorf("HTTP Request unsuccessful: %s", result[0].Body)
 		}
 		return nil, true, nil
 	}, retry.Delay(time.Second*5), retry.Timeout(time.Second*30))
