@@ -976,6 +976,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
+		PushContext:      model.NewPushContext(),
 	}
 
 	// Set up discovery service
@@ -999,6 +1000,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
+
+	// Implement EnvoyXdsServer grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.EnvoyXdsServer.Start(stop)
+		return nil
+	})
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
@@ -1101,7 +1108,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 					}
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					s.secureHTTPServer.Shutdown(ctx)
+					_ = s.secureHTTPServer.Shutdown(ctx)
 					s.secureGRPCServer.Stop()
 				}()
 			}()
@@ -1227,7 +1234,7 @@ func (s *Server) addStartFunc(fn startFunc) {
 // Using a debouncing mechanism to avoid calling the callback multiple times
 // per event.
 func (s *Server) addFileWatcher(file string, callback func()) {
-	s.fileWatcher.Add(file)
+	_ = s.fileWatcher.Add(file)
 	go func() {
 		var timerC <-chan time.Time
 		for {

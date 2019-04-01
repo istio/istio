@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment"
 )
 
@@ -28,7 +30,7 @@ var (
 
 // SettingsFromCommandLine returns settings obtained from command-line flags. flag.Parse must be called before
 // calling this function.
-func SettingsFromCommandLine(testID string) *Settings {
+func SettingsFromCommandLine(testID string) (*Settings, error) {
 	if !flag.Parsed() {
 		panic("flag.Parse must be called before this function")
 	}
@@ -36,7 +38,13 @@ func SettingsFromCommandLine(testID string) *Settings {
 	s := settingsFromCommandLine.Clone()
 	s.TestID = testID
 
-	return s
+	f, err := label.ParseSelector(s.SelectorString)
+	if err != nil {
+		return nil, err
+	}
+	s.Selector = f
+
+	return s, nil
 }
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -52,4 +60,7 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.CIMode, "istio.test.ci", settingsFromCommandLine.CIMode,
 		"Enable CI Mode. Additional logging and state dumping will be enabled.")
+
+	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
+		"Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
 }

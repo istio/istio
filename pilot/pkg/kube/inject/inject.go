@@ -30,6 +30,8 @@ import (
 	"strings"
 	"text/template"
 
+	"istio.io/istio/pkg/annotations"
+
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -46,63 +48,50 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+type annotationValidationFunc func(value string) error
+
+const (
+	annotationPolicy = "sidecar.istio.io/inject"
+	annotationStatus = "sidecar.istio.io/status"
+)
+
 // per-sidecar policy and status
 var (
 	alwaysValidFunc = func(value string) error {
 		return nil
 	}
 
-	annotationRegistry = []*registeredAnnotation{
-		{"sidecar.istio.io/inject", alwaysValidFunc},
-		{"sidecar.istio.io/status", alwaysValidFunc},
-		{"sidecar.istio.io/proxyImage", alwaysValidFunc},
-		{"sidecar.istio.io/interceptionMode", validateInterceptionMode},
-		{"status.sidecar.istio.io/port", validateStatusPort},
-		{"readiness.status.sidecar.istio.io/initialDelaySeconds", validateUInt32},
-		{"readiness.status.sidecar.istio.io/periodSeconds", validateUInt32},
-		{"readiness.status.sidecar.istio.io/failureThreshold", validateUInt32},
-		{"readiness.status.sidecar.istio.io/applicationPorts", validateReadinessApplicationPorts},
-		{"traffic.sidecar.istio.io/includeOutboundIPRanges", ValidateIncludeIPRanges},
-		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
-		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
-		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
-		{"traffic.sidecar.istio.io/kubevirtInterfaces", alwaysValidFunc},
+	annotationRegistry = map[string]annotationValidationFunc{
+		annotations.Register(annotationPolicy, "").Name:                                        alwaysValidFunc,
+		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
+		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
+		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
+		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
+		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
+		annotations.Register("readiness.status.sidecar.istio.io/failureThreshold", "").Name:    validateUInt32,
+		annotations.Register("readiness.status.sidecar.istio.io/applicationPorts", "").Name:    validateReadinessApplicationPorts,
+		annotations.Register("traffic.sidecar.istio.io/includeOutboundIPRanges", "").Name:      ValidateIncludeIPRanges,
+		annotations.Register("traffic.sidecar.istio.io/excludeOutboundIPRanges", "").Name:      ValidateExcludeIPRanges,
+		annotations.Register("traffic.sidecar.istio.io/includeInboundPorts", "").Name:          ValidateIncludeInboundPorts,
+		annotations.Register("traffic.sidecar.istio.io/excludeInboundPorts", "").Name:          ValidateExcludeInboundPorts,
+		annotations.Register("traffic.sidecar.istio.io/kubevirtInterfaces", "").Name:           alwaysValidFunc,
 	}
-
-	annotationPolicy = annotationRegistry[0]
-	annotationStatus = annotationRegistry[1]
 )
 
-type annotationValidationFunc func(value string) error
-
 func validateAnnotations(annotations map[string]string) (err error) {
-	for _, validator := range annotationRegistry {
-		if e := validator.validate(annotations); e != nil {
-			err = multierror.Append(err, e)
+	for name, value := range annotations {
+		if v, ok := annotationRegistry[name]; ok {
+			if e := v(value); e != nil {
+				err = multierror.Append(err, fmt.Errorf("invalid value '%s' for annotation '%s': %v", value, name, e))
+			}
+		} else if strings.Contains(name, "istio") {
+			log.Warnf("Potentially misspelled annotation '%s' with value '%s' encountered", name, value)
+		} else {
+			// unknown annotation, ignore
 		}
 	}
 	return
-}
-
-type registeredAnnotation struct {
-	name      string
-	validator annotationValidationFunc
-}
-
-func (v *registeredAnnotation) getValueOrDefault(annotations map[string]string, defaultValue string) string {
-	if val, ok := annotations[v.name]; ok {
-		return val
-	}
-	return defaultValue
-}
-
-func (v *registeredAnnotation) validate(annotations map[string]string) error {
-	if val, ok := annotations[v.name]; ok {
-		if err := v.validator(val); err != nil {
-			return fmt.Errorf("injection failed. Invalid value for annotation %s: %s. Error: %v", v.name, val, err)
-		}
-	}
-	return nil
 }
 
 // InjectionPolicy determines the policy for injecting the
@@ -392,7 +381,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annotations[annotationPolicy.name]) {
+	switch strings.ToLower(annotations[annotationPolicy]) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
@@ -459,8 +448,12 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	if log.DebugEnabled() {
 		// Build a log message for the annotations.
 		annotationStr := ""
-		for _, a := range annotationRegistry {
-			annotationStr += fmt.Sprintf("%s:%s ", a.name, a.getValueOrDefault(annotations, "(unset)"))
+		for name := range annotationRegistry {
+			value, ok := annotations[name]
+			if !ok {
+				value = "(unset)"
+			}
+			annotationStr += fmt.Sprintf("%s:%s ", name, value)
 		}
 
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
@@ -496,9 +489,9 @@ func directory(filepath string) string {
 
 func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
-	*SidecarInjectionSpec, string, error) { // nolint: lll
+	*SidecarInjectionSpec, string, error) {
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
-		log.Infof("Invalid annotations: %v %v\n", err, metadata.GetAnnotations())
+		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, "", err
 	}
 
@@ -732,7 +725,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[annotationStatus.name] = status
+	metadata.Annotations[annotationStatus] = status
 
 	return out, nil
 }

@@ -162,10 +162,10 @@ func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) {
 // TODO: Move the WorkloadSelector to a common place to be shared by other packages.
 // WorkloadSelector specifies the criteria used to determine if the Gateway
 // or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload info such as
+// includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload to be
+// specified, all conditions need to match in order for the workload instance to be
 // selected. Currently, only label based selection mechanism is supported.
 type WorkloadSelector struct {
 	// One or more labels that indicate a specific set of pods/VMs on which
@@ -219,7 +219,7 @@ func (m *WorkloadSelector) GetLabels() map[string]string {
 }
 
 // $hide_from_docs
-// AuthorizationPolicy to enforce access control on a selected workload.
+// AuthorizationPolicy to enforce access control on a selected workload instance.
 type AuthorizationPolicy struct {
 	// $hide_from_docs
 	// Optional. One or more labels that indicate a specific set of pods/VMs
@@ -229,7 +229,7 @@ type AuthorizationPolicy struct {
 	// the scope includes pods running in the same namespace as the authorization policy itself.
 	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector,proto3" json:"workload_selector,omitempty"`
 	// $hide_from_docs
-	// A list of bindings that specify the subjects and permissions to the selected workload.
+	// A list of bindings that specify the subjects and permissions to the selected workload instance.
 	Allow                []*ServiceRoleBinding `protobuf:"bytes,2,rep,name=allow,proto3" json:"allow,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
@@ -569,7 +569,7 @@ type ServiceRoleBinding struct {
 	// For example, the following “product-frontend” AuthorizationPolicy allows “frontend”
 	// service to view “product” service on “/info” path.
 	// ```yaml
-	// apiVersion: “rbac.istio.io/v1alpha1”
+	// apiVersion: "rbac.istio.io/v1alpha1"
 	// kind: AuthorizationPolicy
 	// metadata:
 	//  name: product-frontend
@@ -582,8 +582,8 @@ type ServiceRoleBinding struct {
 	//  - subjects:
 	//    - names: ["cluster.local/ns/default/sa/frontend"]
 	//    actions:
-	//    - paths: [“/info”]
-	//      methods: [“GET”]
+	//    - paths: ["/info"]
+	//      methods: ["GET"]
 	// Required. The set of access rules (permissions) that the role has.
 	Actions              []*AccessRule `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
@@ -976,7 +976,7 @@ type RbacConfig_Target struct {
 	// A list of services.
 	Services []string `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// $hide_from_docs
-	// A list of workloads.
+	// A list of workload instances.
 	WorkloadSelectors []*WorkloadSelector `protobuf:"bytes,3,rep,name=workload_selectors,json=workloadSelectors,proto3" json:"workload_selectors,omitempty"`
 	// A list of namespaces.
 	Namespaces           []string `protobuf:"bytes,2,rep,name=namespaces,proto3" json:"namespaces,omitempty"`

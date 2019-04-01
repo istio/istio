@@ -29,5 +29,5 @@ func main() {
 	}
 	server := grpc.NewServer()
 	keyval.RegisterHandleKeyvalServiceServer(server, keyval.Keyval{})
-	server.Serve(listener)
+	_ = server.Serve(listener)
 }

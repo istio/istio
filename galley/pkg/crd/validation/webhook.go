@@ -60,7 +60,7 @@ var (
 )
 
 func init() {
-	v1beta1.AddToScheme(runtimeScheme)
+	_ = v1beta1.AddToScheme(runtimeScheme)
 }
 
 const (

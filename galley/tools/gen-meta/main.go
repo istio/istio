@@ -206,7 +206,7 @@ func readMetadata(path string) (*metadata, error) {
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.gen.go
 //
 
 package metadata

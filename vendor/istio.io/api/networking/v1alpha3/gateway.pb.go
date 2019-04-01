@@ -288,7 +288,7 @@ type Gateway struct {
 	// on which this gateway configuration should be applied. The scope of
 	// label search is restricted to the configuration namespace in which the
 	// the resource is present. In other words, the Gateway resource must
-	// reside in the same namespace as the gateway workload.
+	// reside in the same namespace as the gateway workload instance.
 	Selector             map[string]string `protobuf:"bytes,2,rep,name=selector,proto3" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
@@ -545,7 +545,7 @@ type Server_TLSOptions struct {
 	// as Kubernetes secrets, will be configured to retrieve the
 	// serverCertificate and the privateKey using credentialName, instead
 	// of using the file system paths specified above. If using mutual TLS,
-	// gateway workloads will retrieve the CaCertificates using
+	// gateway workload instances will retrieve the CaCertificates using
 	// credentialName-cacert. The semantics of the name are platform
 	// dependent.  In Kubernetes, the default Istio supplied credential
 	// server expects the credentialName to match the name of the

@@ -110,6 +110,7 @@ linters-settings:
 linters:
   enable:
     - deadcode
+    - errcheck
     - goimports
     - golint
     - govet
@@ -137,7 +138,6 @@ linters:
     - gochecknoinits
     - gosec
       # start here to enable back all gometalinter linters
-    - errcheck
     - goconst
   disable-all: false
   presets:
@@ -152,6 +152,13 @@ issues:
   # it can be disabled by `exclude-use-default: false`. To list all
   # excluded by default patterns execute `golangci-lint run --help`
   exclude: []
+
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go$|^tests/|^samples/
+      linters:
+        - errcheck
+        - maligned
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

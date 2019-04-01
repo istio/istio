@@ -235,7 +235,8 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 	*/
 
 	hasher := md5.New()
-	buf.WriteTo(hasher)
+	// do not expect an error here
+	_, _ = buf.WriteTo(hasher)
 	pool.PutBuffer(buf)
 	result := hasher.Sum(nil)
 
