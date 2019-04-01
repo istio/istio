@@ -22,6 +22,7 @@ import (
 	"time"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -87,7 +88,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			}
 			testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
 			t.Run(testName, func(t *testing.T) {
-				clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh,
+				clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
 					&networking.DestinationRule{
 						Host: "*.example.org",
 						TrafficPolicy: &networking.TrafficPolicy{
@@ -119,12 +120,14 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 	}
 }
 
-func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
+func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, nodeType, mesh, destRule, make(map[string]string))
+	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, nodeType, locality, mesh, destRule, make(map[string]string))
 }
 
-func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
+func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution,
+	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, meta map[string]string) ([]*apiv2.Cluster, error) {
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
@@ -140,17 +143,45 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
+		Resolution:  serviceResolution,
 	}
-	instance := &model.ServiceInstance{
-		Service: service,
-		Endpoint: model.NetworkEndpoint{
-			Address:     "192.168.1.1",
-			Port:        10001,
-			ServicePort: servicePort,
+
+	instances := []*model.ServiceInstance{
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.1",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    40,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.2",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone2",
+				LbWeight:    20,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.3",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region2/zone1/subzone1",
+				LbWeight:    40,
+			},
 		},
 	}
+
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.GetProxyServiceInstancesReturns([]*model.ServiceInstance{instance}, nil)
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	serviceDiscovery.InstancesByPortReturns(instances, nil)
 
 	env := newTestEnvironment(serviceDiscovery, mesh)
 	env.PushContext.SetDestinationRules([]model.Config{
@@ -169,6 +200,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.SidecarProxy,
 			IPAddresses: []string{"6.6.6.6"},
+			Locality:    locality,
 			DNSDomain:   "com",
 			Metadata:    meta,
 		}
@@ -177,6 +209,7 @@ func buildTestClustersWithProxyMetadata(serviceHostname string, nodeType model.N
 			ClusterID:   "some-cluster-id",
 			Type:        model.Router,
 			IPAddresses: []string{"6.6.6.6"},
+			Locality:    locality,
 			DNSDomain:   "default.example.org",
 			Metadata:    meta,
 		}
@@ -193,7 +226,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	ttl := time.Nanosecond * 100
-	clusters, err := buildTestClusters("*.example.org", model.Router, testMesh,
+	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -270,7 +303,7 @@ func buildSniDnatTestClusters(sniValue string) ([]*apiv2.Cluster, error) {
 }
 
 func buildSniTestClustersWithMetadata(sniValue string, meta map[string]string) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", model.Router, testMesh,
+	return buildTestClustersWithProxyMetadata("foo.example.org", 0, model.Router, nil, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -372,7 +405,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
 	}
 
-	return buildTestClusters("foo.example.org", model.SidecarProxy, mesh,
+	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, mesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -416,7 +449,7 @@ func TestClusterMetadata(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh, destRule)
+	clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh, destRule)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	clustersWithMetadata := 0
@@ -536,8 +569,25 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 func TestLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
+		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			{
+				From: "region1/zone1/subzone1",
+				To: map[string]uint32{
+					"region1/zone1/*":        50,
+					"region2/zone1/subzone1": 50,
+				},
+			},
+		},
+	}
 
-	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh,
+	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -550,5 +600,87 @@ func TestLocalityLB(t *testing.T) {
 
 	if clusters[0].CommonLbConfig == nil {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		}
+
+	}
+}
+
+func TestBuildLocalityLbEndpoints(t *testing.T) {
+	g := NewGomegaWithT(t)
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: model.ProtocolHTTP,
+	}
+	service := &model.Service{
+		Hostname:    model.Hostname("*.example.org"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.DNSLB,
+	}
+	instances := []*model.ServiceInstance{
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.1",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    30,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.2",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region1/zone1/subzone1",
+				LbWeight:    30,
+			},
+		},
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.3",
+				Port:        10001,
+				ServicePort: servicePort,
+				Locality:    "region2/zone1/subzone1",
+				LbWeight:    40,
+			},
+		},
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery.InstancesByPortReturns(instances, nil)
+
+	env := newTestEnvironment(serviceDiscovery, testMesh)
+
+	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
+	g.Expect(len(localityLbEndpoints)).To(Equal(2))
+	for _, ep := range localityLbEndpoints {
+		if ep.Locality.Region == "region1" {
+			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(60)))
+		} else if ep.Locality.Region == "region2" {
+			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		}
 	}
 }
