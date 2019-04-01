@@ -23,7 +23,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: kiali-service-account
 {{- if .Values.global.priorityClassName }}
@@ -76,3 +75,4 @@ spec:
           name: kiali
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

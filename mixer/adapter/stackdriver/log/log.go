@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -220,6 +221,8 @@ func toLabelMap(names []string, variables map[string]interface{}) map[string]str
 		switch vt := v.(type) {
 		case string:
 			out[name] = vt
+		case []byte:
+			out[name] = net.IP(vt).String()
 		default:
 			out[name] = fmt.Sprintf("%v", vt)
 		}
@@ -275,8 +278,8 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		req.Latency = latency
 	}
 
-	req.LocalIP = fmt.Sprintf("%v", variables[mapping.LocalIp])
-	req.RemoteIP = fmt.Sprintf("%v", variables[mapping.RemoteIp])
+	req.LocalIP = adapter.Stringify(variables[mapping.LocalIp])
+	req.RemoteIP = adapter.Stringify(variables[mapping.RemoteIp])
 	return req
 }
 

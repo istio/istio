@@ -32,7 +32,6 @@ spec:
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if $spec.podAnnotations }}
 {{ toYaml $spec.podAnnotations | indent 8 }}
 {{ end }}
@@ -274,6 +273,7 @@ spec:
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
+      {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}
