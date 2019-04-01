@@ -18,8 +18,10 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -527,6 +529,33 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		certChain = append(certChain, []byte(c)...)
 	}
 
+	/*
+		block, _ := pem.Decode(certChain)
+		if block == nil {
+			log.Info("********failed to parse certificate PEM")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Info("*****failed to parse certificate: " + err.Error())
+		}
+		log.Infof("*****cert.NotAfter %v", cert.NotAfter)
+	*/
+
+	// Cert exipre time by default is createTime.Add(sc.configOptions.SecretTTL)
+	expireTime := t.Add(sc.configOptions.SecretTTL)
+	block, _ := pem.Decode(certChain)
+	if block != nil {
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err == nil {
+			expireTime = cert.NotAfter
+			log.Debugf("Cert expire time is %v", expireTime)
+		} else {
+			log.Debugf("Failed to parse certificate %v, use default cert TTL", err.Error())
+		}
+	} else {
+		log.Debug("Failed to decode certificate, use default cert TTL")
+	}
+
 	length := len(certChainPEM)
 	// Leaf cert is element '0'. Root cert is element 'n'.
 	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1])) {
@@ -543,14 +572,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		ResourceName:     resourceName,
 		Token:            token,
 		CreatedTime:      t,
+		ExpireTime:       expireTime,
 		Version:          t.String(),
 	}, nil
 }
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
-	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
-	return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
+	// return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
+	return time.Now().After(s.ExpireTime.Add(-sc.configOptions.SecretRefreshGraceDuration))
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
