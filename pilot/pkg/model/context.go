@@ -510,11 +510,6 @@ const (
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	NodeMetadataHTTP10 = "HTTP10"
 
-	// NodeMetadataFallthroughRoute provides an option to add a final wildcard match for routes.
-	// When ALLOW_ANY traffic policy is used, a Passthrough cluster is used.
-	// When REGISTRY_ONLY traffic policy is used, a 502 error is returned.
-	NodeMetadataFallthroughRoute = "sidecar.istio.io/enableFallthroughRoute"
-
 	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
 	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
