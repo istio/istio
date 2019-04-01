@@ -133,9 +133,8 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		core:             core,
 		forCA:            forCA,
 		pkcs8Key:         pkcs8Key,
-
-		dnsNames:   dnsNames,
-		monitoring: newMonitoringMetrics(),
+		dnsNames:         dnsNames,
+		monitoring:       newMonitoringMetrics(),
 	}
 
 	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
@@ -308,6 +307,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		Host:       id,
 		RSAKeySize: keySize,
 		IsDualUse:  sc.dualUse,
+		PKCS8Key:   sc.pkcs8Key,
 	}
 
 	csrPEM, keyPEM, err := util.GenCSR(options)

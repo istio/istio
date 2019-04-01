@@ -208,7 +208,7 @@ func init() {
 		"the Kubernetes secrets.")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs.")
-	flags.BoolVar(&opts.pkcs8Keys, "pkcs8-certs", false, "Whether to generate PKCS#8 private keys.")
+	flags.BoolVar(&opts.pkcs8Keys, "pkcs8-keys", false, "Whether to generate PKCS#8 private keys.")
 
 	// Monitoring configuration
 	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
