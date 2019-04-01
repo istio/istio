@@ -543,10 +543,10 @@ type ServiceDiscovery interface {
 //  Hostname("foo.com").Matches("foo.com")   = true
 //  Hostname("foo.com").Matches("bar.com")   = false
 //  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.com").Matches("bar.com")     = true
+//  Hostname("bar.com").Matches("*.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
-//  Hostname("*").Matches("foo.com") = true
-//  Hostname("*").Matches("*.com") = true
+//  Hostname("*").Matches("foo.com")         = true
+//  Hostname("*").Matches("*.com")           = true
 func (h Hostname) Matches(o Hostname) bool {
 	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	oWildcard := len(o) > 0 && string(o[0]) == "*"
@@ -637,6 +637,75 @@ func (h Hostnames) Less(i, j int) bool {
 
 func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
+}
+
+func (h Hostnames) Contains(host Hostname) bool {
+	for _, hHost := range h {
+		if hHost == host {
+			return true
+		}
+	}
+	return false
+}
+
+// Intersection returns the subset of host names that are covered by both h and other.
+// e.g.:
+//  Hostnames(["foo.com","bar.com"]).Intersection(Hostnames(["*.com"]))         = Hostnames(["foo.com","bar.com"])
+//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.com","bar.net"])) = Hostnames(["foo.com","bar.net"])
+//  Hostnames(["foo.com","*.net"]).Intersection(Hostnames(["*.bar.net"]))       = Hostnames(["*.bar.net"])
+//  Hostnames(["foo.com"]).Intersection(Hostnames(["bar.com"]))                 = Hostnames([])
+//  Hostnames([]).Intersection(Hostnames(["bar.com"])                           = Hostnames([])
+func (h Hostnames) Intersection(other Hostnames) Hostnames {
+	result := make(Hostnames, 0, len(h))
+	for _, hHost := range h {
+		for _, oHost := range other {
+			if hHost.SubsetOf(oHost) {
+				if !result.Contains(hHost) {
+					result = append(result, hHost)
+				}
+			} else if oHost.SubsetOf(hHost) {
+				if !result.Contains(oHost) {
+					result = append(result, oHost)
+				}
+			}
+		}
+	}
+	return result
+}
+
+// StringsToHostnames converts a slice of host name strings to type Hostnames.
+func StringsToHostnames(hosts []string) Hostnames {
+	result := make(Hostnames, 0, len(hosts))
+	for _, host := range hosts {
+		result = append(result, Hostname(host))
+	}
+	return result
+}
+
+// HostnamesForNamespace returns the subset of hosts that are in the specified namespace.
+// The list of hosts contains host names optionally qualified with namespace/ or */.
+// If not qualified or qualified with *, the host name is considered to be in every namespace.
+// e.g.:
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns1")   = Hostnames(["foo.com"])
+// HostnamesForNamespace(["ns1/foo.com","ns2/bar.com"], "ns3")   = Hostnames([])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns1")     = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["ns1/foo.com","*/bar.com"], "ns3")     = Hostnames(["bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns2")       = Hostnames(["foo.com","bar.com"])
+// HostnamesForNamespace(["foo.com","ns2/bar.com"], "ns3")       = Hostnames(["foo.com"])
+func HostnamesForNamespace(hosts []string, namespace string) Hostnames {
+	result := make(Hostnames, 0, len(hosts))
+	for _, host := range hosts {
+		if strings.Contains(host, "/") {
+			parts := strings.Split(host, "/")
+			if parts[0] != namespace && parts[0] != "*" {
+				continue
+			}
+			//strip the namespace
+			host = parts[1]
+		}
+		result = append(result, Hostname(host))
+	}
+	return result
 }
 
 // SubsetOf is true if the label has identical values for the keys
