@@ -26,7 +26,7 @@ func TestSchemaBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	spec := schema.ResourceSpec{
 		Kind:     "kind",
-		Version:  "version",
+		Versions: []string{"version"},
 		ListKind: "listkind",
 		Plural:   "plural",
 		Singular: "singular",
@@ -45,7 +45,7 @@ func TestGet(t *testing.T) {
 
 	spec := schema.ResourceSpec{
 		Kind:     "kind",
-		Version:  "version",
+		Versions: []string{"version"},
 		ListKind: "listkind",
 		Plural:   "plural",
 		Singular: "singular",
@@ -63,7 +63,7 @@ func TestGetNotFound(t *testing.T) {
 
 	spec := schema.ResourceSpec{
 		Kind:     "kind",
-		Version:  "version",
+		Versions: []string{"version"},
 		ListKind: "listkind",
 		Plural:   "plural",
 		Singular: "singular",

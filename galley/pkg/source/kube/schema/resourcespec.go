@@ -39,11 +39,8 @@ type ResourceSpec struct {
 	// Group name of the K8s resource
 	Group string
 
-	// Version of the K8s resource
-	Version string
-
 	// Versions of the K8s resource
-	Versions []CrdVersions
+	Versions []string
 
 	// Kind of the K8s resource
 	Kind string
@@ -61,28 +58,17 @@ type ResourceSpec struct {
 	Optional bool
 }
 
-// CrdVersions defines the multiple versions for a given CRD
-type CrdVersions struct {
-	// Name is the version name, e.g. “v1”, “v2beta1”, etc.
-	Name string
-
-	// Served is a flag enabling/disabling this version from being served via REST APIs
-	Served bool
-
-	// Storage flags the version as storage version. There must be exactly one
-	// flagged as storage version.
-	Storage bool
-}
-
 // GetAPIVersion returns the latest served version for a given CRD.
 func GetAPIVersion(r *ResourceSpec) string {
-	if r.Versions != nil {
-		sort.Slice(r.Versions, func(i, j int) bool {
-			return version.CompareKubeAwareVersionStrings(r.Versions[i].Name, r.Versions[j].Name) > 0
-		})
-		return r.Versions[0].Name
+	if len(r.Versions) == 1 {
+		return r.Versions[0]
 	}
-	return r.Version
+	//return the oldest version for now until we implement the discovery function
+	sort.Slice(r.Versions, func(i, j int) bool {
+		return version.CompareKubeAwareVersionStrings(r.Versions[i], r.Versions[j]) < 0
+	})
+	return r.Versions[0]
+
 }
 
 // APIResource generated from this type.
