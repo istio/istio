@@ -73,6 +73,9 @@ type CertOptions struct {
 
 	// Whether this certificate is for dual-use clients (SAN+CN).
 	IsDualUse bool
+
+	// If true, the private key is encoded with PKCS#8.
+	PKCS8Key bool
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -99,8 +102,10 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	pemCert, pemKey = encodePem(false, certBytes, priv)
-	err = nil
+	pemCert, pemKey, err = encodePem(false, certBytes, priv, options.PKCS8Key)
+	if err != nil {
+		return nil, nil, err
+	}
 	return
 }
 
@@ -269,14 +274,24 @@ func genSerialNum() (*big.Int, error) {
 	return serialNum, nil
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey, pkcs8 bool) (
+	csrOrCertPem []byte, privPem []byte, err error) {
 	encodeMsg := "CERTIFICATE"
 	if isCSR {
 		encodeMsg = "CERTIFICATE REQUEST"
 	}
-	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
+	csrOrCertPem = pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
 
-	privDer := x509.MarshalPKCS1PrivateKey(priv)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return csrOrCertPem, privPem
+	var encodedKey []byte
+	if pkcs8 {
+		if encodedKey, err = x509.MarshalPKCS8PrivateKey(priv); err != nil {
+			return nil, nil, err
+		}
+		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypePKCS8PrivateKey, Bytes: encodedKey})
+	} else {
+		encodedKey = x509.MarshalPKCS1PrivateKey(priv)
+		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypeRSAPrivateKey, Bytes: encodedKey})
+	}
+	err = nil
+	return
 }

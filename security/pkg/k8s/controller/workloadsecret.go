@@ -93,6 +93,9 @@ type SecretController struct {
 	// Whether the certificates are for CAs.
 	forCA bool
 
+	// If true, generate a PKCS#8 private key.
+	pkcs8Key bool
+
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*DNSNameEntry
 
@@ -110,7 +113,7 @@ type SecretController struct {
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespaces []string,
+	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -129,6 +132,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
+		pkcs8Key:         pkcs8Key,
 
 		dnsNames:   dnsNames,
 		monitoring: newMonitoringMetrics(),

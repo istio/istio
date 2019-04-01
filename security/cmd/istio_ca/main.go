@@ -75,6 +75,8 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether the CA signs certificates for other CAs.
 	signCACerts bool
+	// Whether to generate PKCS#8 private keys.
+	pkcs8Keys bool
 
 	cAClientConfig caclient.Config
 
@@ -206,6 +208,7 @@ func init() {
 		"the Kubernetes secrets.")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs.")
+	flags.BoolVar(&opts.pkcs8Keys, "pkcs8-certs", false, "Whether to generate PKCS#8 private keys.")
 
 	// Monitoring configuration
 	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
@@ -300,7 +303,7 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks)
+			cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
