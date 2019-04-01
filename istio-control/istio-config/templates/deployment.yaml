@@ -36,9 +36,7 @@ spec:
           - containerPort: 15019
           command:
           - /usr/local/bin/galley
-{{- if and (.Values.global.istioVersion) (semverCompare "<1.2" .Values.global.istioVersion) }}
           - server
-{{- end }}
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
           - --livenessProbePath=/healthliveness
