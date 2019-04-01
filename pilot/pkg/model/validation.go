@@ -41,7 +41,7 @@ const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
-	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
+	wildcardPrefix = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 
 	// TODO: there is a stricter regex for the labels from validation.go in k8s
 	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
@@ -421,7 +421,7 @@ func ValidateUnixAddress(addr string) error {
 }
 
 // ValidateGateway checks gateway specifications
-func ValidateGateway(name, namespace string, msg proto.Message) (errs error) {
+func ValidateGateway(_, _ string, msg proto.Message) (errs error) {
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
@@ -511,6 +511,12 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
+
+	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
+		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+		// remotely. ServerCertificate and CaCertificates fields are not required.
+		return
+	}
 	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
@@ -533,7 +539,7 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 }
 
 // ValidateDestinationRule checks proxy policies
-func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs error) {
+func ValidateDestinationRule(_, _ string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.DestinationRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to destination rule")
@@ -568,7 +574,7 @@ func validateExportTo(exportTo []string) (errs error) {
 }
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
-func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error) {
+func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.EnvoyFilter)
 	if !ok {
 		return fmt.Errorf("cannot cast to envoy filter")
@@ -659,7 +665,7 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 }
 
 // ValidateSidecar checks sidecar config supplied by user
-func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
+func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.Sidecar)
 	if !ok {
 		return fmt.Errorf("cannot cast to Sidecar")
@@ -776,11 +782,15 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
 	// Handle Unix domain sockets
 	if port.Number == 0 {
 		// require bind to be a unix domain socket
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol))
 
 		if !strings.HasPrefix(bind, UnixAddressPrefix) {
@@ -794,7 +804,6 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 		}
 	} else {
 		errs = appendErrors(errs,
-			validatePortName(port.Name),
 			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
 
@@ -1169,6 +1178,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		}
 	}
 
+	if config.EnvoyMetricsServiceAddress != "" {
+		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
+		}
+	}
+
 	if err := ValidatePort(int(config.ProxyAdminPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
@@ -1233,7 +1248,7 @@ func ValidateMixerAttributes(msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpec checks that HTTPAPISpec is well-formed.
-func ValidateHTTPAPISpec(name, namespace string, msg proto.Message) error {
+func ValidateHTTPAPISpec(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpec")
@@ -1286,7 +1301,7 @@ func ValidateHTTPAPISpec(name, namespace string, msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpecBinding checks that HTTPAPISpecBinding is well-formed.
-func ValidateHTTPAPISpecBinding(name, namespace string, msg proto.Message) error {
+func ValidateHTTPAPISpecBinding(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1315,7 +1330,7 @@ func ValidateHTTPAPISpecBinding(name, namespace string, msg proto.Message) error
 }
 
 // ValidateQuotaSpec checks that Quota is well-formed.
-func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
+func ValidateQuotaSpec(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1362,7 +1377,7 @@ func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 }
 
 // ValidateQuotaSpecBinding checks that QuotaSpecBinding is well-formed.
-func ValidateQuotaSpecBinding(name, namespace string, msg proto.Message) error {
+func ValidateQuotaSpecBinding(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1445,7 +1460,7 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
-func ValidateServiceRole(name, namespace string, msg proto.Message) error {
+func ValidateServiceRole(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRole)
 	if !ok {
 		return errors.New("cannot cast to ServiceRole")
@@ -1455,9 +1470,6 @@ func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 		errs = appendErrors(errs, fmt.Errorf("at least 1 rule must be specified"))
 	}
 	for i, rule := range in.Rules {
-		if len(rule.Services) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 service must be specified for rule %d", i))
-		}
 		// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
 		sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
 		if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
@@ -1544,7 +1556,7 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 }
 
 // ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error {
+func ValidateServiceRoleBinding(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRoleBinding)
 	if !ok {
 		return errors.New("cannot cast to ServiceRoleBinding")
@@ -1553,7 +1565,7 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 }
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(name, namespace string, msg proto.Message) error {
+func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.AuthorizationPolicy)
 	if !ok {
 		return errors.New("cannot cast to AuthorizationPolicy")
@@ -1624,12 +1636,12 @@ func checkRbacConfig(name, typ string, msg proto.Message) error {
 }
 
 // ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
-func ValidateClusterRbacConfig(name, namespace string, msg proto.Message) error {
+func ValidateClusterRbacConfig(name, _ string, msg proto.Message) error {
 	return checkRbacConfig(name, "ClusterRbacConfig", msg)
 }
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
-func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
+func ValidateRbacConfig(name, _ string, msg proto.Message) error {
 	log.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
 	return checkRbacConfig(name, "RbacConfig", msg)
 }
@@ -1685,7 +1697,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 }
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
-func ValidateVirtualService(name, namespace string, msg proto.Message) (errs error) {
+func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
 		return errors.New("cannot cast to virtual service")
@@ -1805,7 +1817,8 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
+	return fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
+		sniHost, strings.Join(context.Hosts, ", "))
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
@@ -2212,7 +2225,7 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 }
 
 // ValidateServiceEntry validates a service entry.
-func ValidateServiceEntry(name, namespace string, config proto.Message) (errs error) {
+func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	serviceEntry, ok := config.(*networking.ServiceEntry)
 	if !ok {
 		return fmt.Errorf("cannot cast to service entry")

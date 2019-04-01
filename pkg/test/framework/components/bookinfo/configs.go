@@ -43,15 +43,6 @@ const (
 
 	// NetworkingTcpDbRule uses "networking/virtual-service-ratings-db.yaml"
 	NetworkingTCPDbRule ConfigFile = "networking/virtual-service-ratings-db.yaml"
-
-	// MixerRuleRatingsRatelimit uses "policy/mixer-rule-ratings-ratelimit.yaml"
-	MixerRuleRatingsRatelimit ConfigFile = "policy/mixer-rule-ratings-ratelimit.yaml"
-
-	// MixerRuleRatingsDenial uses "policy/mixer-rule-ratings-denial.yaml"
-	MixerRuleRatingsDenial ConfigFile = "policy/mixer-rule-ratings-denial.yaml"
-
-	// MixerRuleIngressDenial uses "policy/mixer-rule-ingress-denial.yaml"
-	MixerRuleIngressDenial ConfigFile = "policy/mixer-rule-ingress-denial.yaml"
 )
 
 // LoadOrFail loads a Book Info configuration file from the system and returns its contents.

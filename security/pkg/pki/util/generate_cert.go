@@ -56,6 +56,9 @@ type CertOptions struct {
 	// Organization for this certificate.
 	Org string
 
+	// The size of RSA private key to be generated.
+	RSAKeySize int
+
 	// Whether this certificate is used as signing cert for CA.
 	IsCA bool
 
@@ -67,9 +70,6 @@ type CertOptions struct {
 
 	// Whether this certificate is for a server.
 	IsServer bool
-
-	// The size of RSA private key to be generated.
-	RSAKeySize int
 
 	// Whether this certificate is for dual-use clients (SAN+CN).
 	IsDualUse bool
@@ -169,8 +169,7 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	// Dual use mode if common name in CSR is not empty.
 	// In this case, set CN as determined by DualUseCommonName(subjectIDsInString).
 	if len(csr.Subject.CommonName) != 0 {
-		cn, err := DualUseCommonName(subjectIDsInString)
-		if err != nil {
+		if cn, err := DualUseCommonName(subjectIDsInString); err != nil {
 			// log and continue
 			log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
 		} else {

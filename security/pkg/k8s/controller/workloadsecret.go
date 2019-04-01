@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +30,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -110,8 +110,8 @@ type SecretController struct {
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespace string,
-	dnsNames map[string]*DNSNameEntry, rootCertFile string) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -129,18 +129,22 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
-		dnsNames:         dnsNames,
-		monitoring:       newMonitoringMetrics(),
+
+		dnsNames:   dnsNames,
+		monitoring: newMonitoringMetrics(),
 	}
 
-	saLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(namespace).Watch(options)
-		},
-	}
+	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return core.ServiceAccounts(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return core.ServiceAccounts(namespace).Watch(options)
+			},
+		}
+	})
+
 	rehf := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.saAdded,
 		DeleteFunc: c.saDeleted,
@@ -148,16 +152,18 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
 	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioSecretType}).String()
-	scrtLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).Watch(options)
-		},
-	}
+	scrtLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector = istioSecretSelector
+				return core.Secrets(namespace).List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector = istioSecretSelector
+				return core.Secrets(namespace).Watch(options)
+			},
+		}
+	})
 	c.scrtStore, c.scrtController =
 		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
 			DeleteFunc: c.scrtDeleted,
@@ -268,7 +274,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if _, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
+	if _, err := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); err == nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
 		sc.upsertSecret(saName, scrt.GetNamespace())
 		sc.monitoring.SecretDeletion.Inc()

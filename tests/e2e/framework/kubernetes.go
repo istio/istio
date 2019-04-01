@@ -114,6 +114,8 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
+	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
+	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
@@ -643,16 +645,16 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
-		istioYaml = mcNonAuthInstallFileNamespace
-	}
-	if *clusterWide {
+		if *authEnable {
+			istioYaml = mcAuthInstallFileNamespace
+		} else {
+			istioYaml = mcNonAuthInstallFileNamespace
+		}
+	} else if *clusterWide {
 		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
-			if *multiClusterDir != "" {
-				istioYaml = mcAuthInstallFileNamespace
-			}
 		}
 		if *trustDomainEnable {
 			istioYaml = trustDomainFileNamespace
@@ -883,6 +885,14 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set galley.enabled=false --set global.useMCP=false"
 	}
 
+	if *outboundTrafficPolicy != "" {
+		setValue += " --set global.outboundTrafficPolicy.mode=" + *outboundTrafficPolicy
+	}
+
+	if *enableEgressGateway {
+		setValue += " --set gateways.istio-egressgateway.enabled=true"
+	}
+
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
@@ -985,28 +995,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		log.Errorf("Cannot write into generate sidecar injector file %s", dst)
-	}
-	return err
-}
-
-func (k *KubeInfo) generateGalleyConfigValidator(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		log.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	if !*clusterWide {
-		content = replacePattern(content, istioSystem, k.Namespace)
-	}
-
-	if *galleyHub != "" && *galleyTag != "" {
-		content = updateImage("galley", *galleyHub, *galleyTag, content)
-	}
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		log.Errorf("Cannot write into generate galley config validator %s", dst)
 	}
 	return err
 }

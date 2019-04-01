@@ -103,8 +103,7 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 
 	h, err := s.builder.Build(context.Background(), s.env)
 	if err != nil {
-		s.env.Logger().Errorf("could not build: %v", err)
-		return nil, err
+		return nil, s.env.Logger().Errorf("could not build: %v", err)
 	}
 	s.rawcfg = rawcfg
 	s.h = h.(metric.Handler)
@@ -152,8 +151,7 @@ func (s *NoSessionServer) HandleMetric(ctx context.Context, r *metric.HandleMetr
 	}
 
 	if err = h.HandleMetric(ctx, instances(r.Instances)); err != nil {
-		s.env.Logger().Errorf("Could not process: %v", err)
-		return nil, err
+		return nil, s.env.Logger().Errorf("Could not process: %v", err)
 	}
 
 	return &adptModel.ReportResult{}, nil

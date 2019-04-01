@@ -15,7 +15,6 @@ pilot:
 
 security:
   enabled: true
-  omitPostInstall: true
   createMeshPolicy: false
 
 prometheus:
@@ -23,8 +22,6 @@ prometheus:
 
 global:
   istioRemote: true
-
-  defaultPodDisruptionBudget: {}
 
   enableTracing: false
 

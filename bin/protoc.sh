@@ -27,7 +27,7 @@ if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-gen_img=gcr.io/istio-testing/protoc:2018-06-12
+gen_img=gcr.io/istio-testing/protoc:2019-03-29
 
 docker run  -i --volume /var/run/docker.sock:/var/run/docker.sock \
   --rm --entrypoint /usr/bin/protoc -v "$ROOTDIR:$ROOTDIR" -w "$(pwd)" $gen_img "$@"

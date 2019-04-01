@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^\/]+/(livez|readyz)$`)
+	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -67,11 +67,11 @@ type Config struct {
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
-	statusPort          uint16
 	ready               *ready.Probe
 	mutex               sync.RWMutex
-	lastProbeSuccessful bool
 	appKubeProbers      KubeAppProbers
+	statusPort          uint16
+	lastProbeSuccessful bool
 }
 
 // NewServer creates a new status server.
@@ -181,7 +181,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	if !exists {
 		log.Errorf("Prober does not exists url %v", path)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
+		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
 

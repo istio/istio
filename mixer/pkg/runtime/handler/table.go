@@ -108,7 +108,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 					})
 				}
 				h, err = dynamic.BuildHandler(handler.GetName(), handler.Connection,
-					handler.Adapter.SessionBased, handler.AdapterConfig, tmplCfg)
+					handler.Adapter.SessionBased, handler.AdapterConfig, tmplCfg, false)
 				return h, e, err
 			})
 	}

@@ -39,7 +39,7 @@ func ApplyLocalityLBSetting(
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
 		applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
-	} else if localityLB.GetFailover() != nil {
+	} else {
 		applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
 	}
 }
@@ -73,7 +73,11 @@ func applyLocalityWeight(
 					if _, exist := misMatched[i]; exist {
 						if util.LocalityMatch(ep.Locality, locality) {
 							delete(misMatched, i)
-							destLocMap[i] = ep.LoadBalancingWeight.Value
+							if ep.LoadBalancingWeight != nil {
+								destLocMap[i] = ep.LoadBalancingWeight.Value
+							} else {
+								destLocMap[i] = 1
+							}
 							totalWeight += destLocMap[i]
 						}
 					}
@@ -141,7 +145,7 @@ func applyLocalityFailover(
 	for i, priority := range priorities {
 		if i != priority {
 			// the LocalityLbEndpoints index in ClusterLoadAssignment.Endpoints
-			for index := range priorityMap[priority] {
+			for _, index := range priorityMap[priority] {
 				loadAssignment.Endpoints[index].Priority = uint32(i)
 			}
 		}

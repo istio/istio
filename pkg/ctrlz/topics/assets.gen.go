@@ -4,6 +4,7 @@
 // assets/templates/collection/item.html
 // assets/templates/collection/list.html
 // assets/templates/collection/main.html
+// assets/templates/signals.html
 // assets/templates/env.html
 // assets/templates/mem.html
 // assets/templates/metrics.html
@@ -78,7 +79,32 @@ var _assetsTemplatesArgsHtml = []byte(`{{ define "content" }}
     </tbody>
 </table>
 
+<br>
+<button class="btn btn-istio" onclick="configreload()">Force config reload</button>
+
 {{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function configreload() {
+        var url = window.location.protocol + "//" + window.location.host + "/argj/reloadconfig";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("PUT", url, true);
+        ajax.send();
+
+        function onload() {
+            console.log(url + " -> " + ajax.status)
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+</script>
 
 {{ end }}
 `)
@@ -104,7 +130,7 @@ var _assetsTemplatesCollectionItemHtml = []byte(`{{ define "content" }}
     {{ if ne $context.Error "" }}
         <b>{{$context.Error}}</b>
     {{else}}
-        <p> Item {{ $context.TypeURL }}/{{ $context.Key }}</p>
+        <p> Item {{ $context.Collection }}/{{ $context.Key }}</p>
         <div class="language-yaml highlighter-rouge">
             <div class="highlight">
                 <pre class="highlight"><code>{{ $context.Value }}</code></pre>
@@ -139,7 +165,7 @@ var _assetsTemplatesCollectionListHtml = []byte(`{{ define "content" }}
     {{ if ne $context.Error "" }}
         <b>{{$context.Error}}</b>
     {{else}}
-        <p> TypeURL {{ $context.TypeURL }} </p>
+        <p> Collection {{ $context.Collection }} </p>
 
         <table>
             <thead>
@@ -153,7 +179,7 @@ var _assetsTemplatesCollectionListHtml = []byte(`{{ define "content" }}
                  {{ range $index, $key := $context.Keys }}
                 <tr>
                     <td>{{$index}}</td>
-                    <td><a href="{{$context.TypeURL}}/{{$key}}">{{$key}}</a></td>
+                    <td><a href="{{$context.Collection}}/{{$key}}">{{$key}}</a></td>
                 </tr>
                 {{ end }}
             </tbody>
@@ -214,6 +240,57 @@ func assetsTemplatesCollectionMainHtml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "assets/templates/collection/main.html", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _assetsTemplatesCommandsHtml = []byte(`{{ define "content" }}
+
+<p>
+    Send commands to the running process.
+</p>
+
+<br>
+<button class="btn btn-istio" onclick="sendConfigReload()">Reload Config (SIGUSR1)</button>
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function sendConfigReload() {
+        var url = window.location.protocol + "//" + window.location.host + "/commandj/reloadconfig";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("PUT", url, true);
+        ajax.send();
+
+        function onload() {
+            console.log(url + " -> " + ajax.status)
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+</script>
+
+{{ end }}
+`)
+
+func assetsTemplatesCommandsHtmlBytes() ([]byte, error) {
+	return _assetsTemplatesCommandsHtml, nil
+}
+
+func assetsTemplatesCommandsHtml() (*asset, error) {
+	bytes, err := assetsTemplatesCommandsHtmlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "assets/templates/signals.html", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -408,7 +485,7 @@ var _assetsTemplatesMemHtml = []byte(`{{ define "content" }}
 </table>
 
 <br>
-<button class="btn btn-istio" onclick="forceCollection()">Force Garbage TypeURL</button>
+<button class="btn btn-istio" onclick="forceCollection()">Force Garbage Collection</button>
 
 {{ template "last-refresh" .}}
 
@@ -1162,6 +1239,7 @@ var _bindata = map[string]func() (*asset, error){
 	"assets/templates/collection/item.html": assetsTemplatesCollectionItemHtml,
 	"assets/templates/collection/list.html": assetsTemplatesCollectionListHtml,
 	"assets/templates/collection/main.html": assetsTemplatesCollectionMainHtml,
+	"assets/templates/signals.html":         assetsTemplatesCommandsHtml,
 	"assets/templates/env.html":             assetsTemplatesEnvHtml,
 	"assets/templates/mem.html":             assetsTemplatesMemHtml,
 	"assets/templates/metrics.html":         assetsTemplatesMetricsHtml,
@@ -1211,20 +1289,21 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"assets": &bintree{nil, map[string]*bintree{
-		"templates": &bintree{nil, map[string]*bintree{
-			"args.html": &bintree{assetsTemplatesArgsHtml, map[string]*bintree{}},
-			"collection": &bintree{nil, map[string]*bintree{
-				"item.html": &bintree{assetsTemplatesCollectionItemHtml, map[string]*bintree{}},
-				"list.html": &bintree{assetsTemplatesCollectionListHtml, map[string]*bintree{}},
-				"main.html": &bintree{assetsTemplatesCollectionMainHtml, map[string]*bintree{}},
+	"assets": {nil, map[string]*bintree{
+		"templates": {nil, map[string]*bintree{
+			"args.html": {assetsTemplatesArgsHtml, map[string]*bintree{}},
+			"collection": {nil, map[string]*bintree{
+				"item.html": {assetsTemplatesCollectionItemHtml, map[string]*bintree{}},
+				"list.html": {assetsTemplatesCollectionListHtml, map[string]*bintree{}},
+				"main.html": {assetsTemplatesCollectionMainHtml, map[string]*bintree{}},
 			}},
-			"env.html":     &bintree{assetsTemplatesEnvHtml, map[string]*bintree{}},
-			"mem.html":     &bintree{assetsTemplatesMemHtml, map[string]*bintree{}},
-			"metrics.html": &bintree{assetsTemplatesMetricsHtml, map[string]*bintree{}},
-			"proc.html":    &bintree{assetsTemplatesProcHtml, map[string]*bintree{}},
-			"scopes.html":  &bintree{assetsTemplatesScopesHtml, map[string]*bintree{}},
-			"version.html": &bintree{assetsTemplatesVersionHtml, map[string]*bintree{}},
+			"signals.html": {assetsTemplatesCommandsHtml, map[string]*bintree{}},
+			"env.html":     {assetsTemplatesEnvHtml, map[string]*bintree{}},
+			"mem.html":     {assetsTemplatesMemHtml, map[string]*bintree{}},
+			"metrics.html": {assetsTemplatesMetricsHtml, map[string]*bintree{}},
+			"proc.html":    {assetsTemplatesProcHtml, map[string]*bintree{}},
+			"scopes.html":  {assetsTemplatesScopesHtml, map[string]*bintree{}},
+			"version.html": {assetsTemplatesVersionHtml, map[string]*bintree{}},
 		}},
 	}},
 }}

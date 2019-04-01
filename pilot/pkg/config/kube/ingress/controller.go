@@ -18,7 +18,6 @@ package ingress
 
 import (
 	"errors"
-	"os"
 	"reflect"
 	"time"
 
@@ -30,6 +29,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -71,7 +72,7 @@ type controller struct {
 
 var (
 	// TODO: move to features ( and remove in 1.2 )
-	ingressNamespace = os.Getenv("K8S_INGRESS_NS")
+	ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 )
 
 var (
@@ -161,7 +162,12 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	go c.queue.Run(stop)
+	go func() {
+		if pilot.EnableWaitCacheSync {
+			cache.WaitForCacheSync(stop, c.HasSynced)
+		}
+		c.queue.Run(stop)
+	}()
 	go c.informer.Run(stop)
 	<-stop
 }

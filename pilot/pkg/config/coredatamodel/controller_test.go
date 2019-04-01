@@ -77,13 +77,13 @@ var (
 			Name: "service-foo",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
 	authnPolicy1 = &authn.Policy{
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
@@ -448,9 +448,9 @@ func TestEventHandler(t *testing.T) {
 	}
 
 	gotEvents := map[model.Event]map[string]model.Config{
-		model.EventAdd:    map[string]model.Config{},
-		model.EventUpdate: map[string]model.Config{},
-		model.EventDelete: map[string]model.Config{},
+		model.EventAdd:    {},
+		model.EventUpdate: {},
+		model.EventDelete: {},
 	}
 	controller.RegisterEventHandler(model.ServiceEntry.Type, func(m model.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
@@ -514,7 +514,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
 				},
 			},
@@ -528,7 +528,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
 			},
@@ -543,7 +543,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
 				},
 			},
@@ -557,7 +557,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventDelete: map[string]model.Config{
+				model.EventDelete: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
 			},
@@ -573,11 +573,11 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
 					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
 				},
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
 				},
 			},
@@ -594,14 +594,14 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
 					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
 				},
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v1"),
 				},
-				model.EventDelete: map[string]model.Config{
+				model.EventDelete: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
 				},
 			},
@@ -622,9 +622,9 @@ func TestEventHandler(t *testing.T) {
 			}
 			// clear saved events after every step
 			gotEvents = map[model.Event]map[string]model.Config{
-				model.EventAdd:    map[string]model.Config{},
-				model.EventUpdate: map[string]model.Config{},
-				model.EventDelete: map[string]model.Config{},
+				model.EventAdd:    {},
+				model.EventUpdate: {},
+				model.EventDelete: {},
 			}
 		})
 	}

@@ -32,13 +32,9 @@ const maxStreams = 100000
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
-	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableIngressGatewaySDS bool
 	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
 	// ingress gateway proxies.
 	IngressGatewayUDSPath string
@@ -77,6 +73,11 @@ type Options struct {
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
 
+	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
+	EnableWorkloadSDS bool
+
+	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
+	EnableIngressGatewaySDS bool
 	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
 }

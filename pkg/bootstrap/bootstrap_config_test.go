@@ -79,7 +79,7 @@ func TestGolden(t *testing.T) {
 		{
 			base: "stats_inclusion",
 			annotations: map[string]string{
-				"sidecar.istio.io/v1alpha1/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
 			},
 		},
 	}
@@ -103,7 +103,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			real, err := ioutil.ReadFile(fn)
+			read, err := ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -111,13 +111,13 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			err = ioutil.WriteFile(fn, correctForEnvDifference(read), 0700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
 			// re-read generated file with the changes having been made
-			real, err = ioutil.ReadFile(fn)
+			read, err = ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -145,14 +145,14 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golder: %v", err)
 			}
 
-			jreal, err := yaml.YAMLToJSON(real)
+			jreal, err := yaml.YAMLToJSON(read)
 
 			if err != nil {
 				t.Fatalf("unable to convert: %v", err)
 			}
 
 			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
-				t.Fatalf("invalid json %v\n%s", err, string(real))
+				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
 			if !reflect.DeepEqual(realM, goldenM) {

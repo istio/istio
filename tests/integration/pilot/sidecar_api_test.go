@@ -26,28 +26,17 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
-var (
-	ist istio.Instance
-)
-
 func TestSidecarListeners(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/12601")
-
 	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
-	// TODO: applying the examples folder requires creation of many namespaces. Limit this test to the native environment
-	// until the test can be reconciled.
-	ctx.RequireOrSkip(t, environment.Native)
-
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	pilotInst := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	// Simulate proxy identity of a sidecar ...
 	nodeID := &model.Proxy{
@@ -55,7 +44,7 @@ func TestSidecarListeners(t *testing.T) {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"10.2.0.1"},
 		ID:          "app3.testns",
-		DNSDomains:  []string{"testns.cluster.local"},
+		DNSDomain:   "testns.cluster.local",
 	}
 
 	// ... and get listeners from Pilot for that proxy
@@ -66,13 +55,13 @@ func TestSidecarListeners(t *testing.T) {
 		TypeUrl: "type.googleapis.com/envoy.api.v2.Listener",
 	}
 	// Start the xDS stream
-	err := pilotInst.StartDiscovery(req)
+	err := p.StartDiscovery(req)
 	if err != nil {
 		t.Fatalf("Failed to test as no resource accepted: %v", err)
 	}
 
 	// Test the empty case where no config is loaded
-	err = pilotInst.WatchDiscovery(time.Second*30,
+	err = p.WatchDiscovery(time.Second*10,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.ForProto(response)
 			if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
@@ -97,7 +86,7 @@ func TestSidecarListeners(t *testing.T) {
 	}
 
 	// Now continue to watch on the same stream
-	err = pilotInst.WatchDiscovery(time.Second*30,
+	err = p.WatchDiscovery(time.Second*10,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.ForProto(response)
 			if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {
@@ -112,36 +101,14 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
-	t.Run("validate-legacy-port-3333", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.
-			Select("{.resources[?(@.address.socketAddress.portValue==3333)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|3333|http|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}").
-			CheckOrFail(t)
-	})
-	t.Run("validate-legacy-port-9999", func(t *testing.T) {
-		// Deprecated: Should be removed as no longer needed
-		response.
-			Select("{.resources[?(@.address.socketAddress.portValue==9999)]}").
-			Equals("10.2.0.1", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("inbound|9999|custom|mgmtCluster", "{.filterChains[0].filters[*].config.cluster}").
-			Equals(false, "{.deprecatedV1.bindToPort}").
-			NotExists("{.useOriginalDst}").
-			CheckOrFail(t)
-	})
 	t.Run("iptables-forwarding-listener", func(t *testing.T) {
 		response.
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtual", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
 			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[*].name}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.cluster}").
-			Equals("BlackHoleCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].config.stat_prefix}").
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})
@@ -172,5 +139,8 @@ func validateMongoListener(t *testing.T, response *structpath.Instance) {
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	framework.Main("sidecar_api_test", m, istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("sidecar_api_test", m).
+		RequireEnvironment(environment.Native).
+		Run()
 }

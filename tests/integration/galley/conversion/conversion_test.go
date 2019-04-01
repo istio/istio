@@ -19,10 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/label"
+
+	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestConversion(t *testing.T) {
@@ -38,37 +42,37 @@ func TestConversion(t *testing.T) {
 				return
 			}
 
-			ctx := framework.NewContext(t)
-			defer ctx.Done(t)
+			framework.Run(t, func(ctx framework.TestContext) {
 
-			var gal galley.Instance
-			var cfg galley.Config
+				var gal galley.Instance
+				var cfg galley.Config
 
-			for i, fset := range d.FileSets() {
-				// Do init for the first set. Use Meshconfig file in this set.
-				if i == 0 {
-					if fset.HasMeshConfigFile() {
-						mc, err := fset.LoadMeshConfigFile()
-						if err != nil {
-							t.Fatalf("Error loading Mesh config file: %v", err)
+				for i, fset := range d.FileSets() {
+					// Do init for the first set. Use Meshconfig file in this set.
+					if i == 0 {
+						if fset.HasMeshConfigFile() {
+							mc, err := fset.LoadMeshConfigFile()
+							if err != nil {
+								t.Fatalf("Error loading Mesh config file: %v", err)
+							}
+
+							cfg.MeshConfig = string(mc)
 						}
 
-						cfg.MeshConfig = string(mc)
+						gal = galley.NewOrFail(t, ctx, cfg)
 					}
 
-					gal = galley.NewOrFail(t, ctx, cfg)
-				}
-
-				t.Logf("==== Running iter: %d\n", i)
-				if len(d.FileSets()) == 1 {
-					runTest(t, fset, gal)
-				} else {
-					testName := fmt.Sprintf("%d", i)
-					t.Run(testName, func(t *testing.T) {
+					t.Logf("==== Running iter: %d\n", i)
+					if len(d.FileSets()) == 1 {
 						runTest(t, fset, gal)
-					})
+					} else {
+						testName := fmt.Sprintf("%d", i)
+						t.Run(testName, func(t *testing.T) {
+							runTest(t, fset, gal)
+						})
+					}
 				}
-			}
+			})
 		})
 	}
 }
@@ -97,7 +101,19 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	}
 
 	for collection, e := range expected {
-		validator := galley.GoldenValidatorFunc(e)
+		var validator galley.SnapshotValidatorFunc
+
+		switch collection {
+		case metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String():
+			// The synthetic service entry includes the resource versions for service and
+			// endpoints as annotations, which are volatile. This prevents us from using
+			// golden files for validation. Instead, we use the structpath library to
+			// validate the fields manually.
+			validator = syntheticServiceEntryValidator()
+		default:
+			// All other collections use golden files.
+			validator = galley.NewGoldenSnapshotValidator(e)
+		}
 
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
@@ -105,9 +121,90 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	}
 }
 
+func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
+	return galley.NewSingleObjectSnapshotValidator(func(actual *galley.SnapshotObject) error {
+		v := structpath.ForProto(actual)
+		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
+			Equals("kube-dns", "{.Metadata.name}").
+			Check(); err != nil {
+			return err
+		}
+
+		if err := v.Select("{.Metadata.annotations}").
+			Exists("{.['networking.istio.io/serviceVersion']}").
+			Exists("{.['networking.istio.io/endpointsVersion']}").
+			Check(); err != nil {
+			return err
+		}
+
+		// Compare the body
+		if err := v.Select("{.Body}").
+			Equals("10.43.240.10", "{.addresses[0]}").
+			Equals("kube-dns.default.svc.cluster.local", "{.hosts[0]}").
+			Equals(1, "{.location}").
+			Equals(1, "{.resolution}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("spiffe://cluster.local/ns//sa/kube-dns", "{.subject_alt_names[0]}").
+			Check(); err != nil {
+			return err
+		}
+
+		// Compare Ports
+		if err := v.Select("{.Body.ports[0]}").
+			Equals("dns", "{.name}").
+			Equals(53, "{.number}").
+			Equals("UDP", "{.protocol}").
+			Check(); err != nil {
+			return err
+		}
+
+		if err := v.Select("{.Body.ports[1]}").
+			Equals("dns-tcp", "{.name}").
+			Equals(53, "{.number}").
+			Equals("TCP", "{.protocol}").
+			Check(); err != nil {
+			return err
+		}
+
+		// Compare Endpoints
+		if err := v.Select("{.Body.endpoints[0]}").
+			Equals("10.40.0.5", "{.address}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("us-central1/us-central1-a", "{.locality}").
+			Equals(53, "{.ports['dns']}").
+			Equals(53, "{.ports['dns-tcp']}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("kube-dns", "{.labels['k8s-app']}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("123", "{.labels['pod-template-hash']}").
+			Check(); err != nil {
+			return err
+		}
+
+		if err := v.Select("{.Body.endpoints[1]}").
+			Equals("10.40.1.4", "{.address}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("us-central1/us-central1-a", "{.locality}").
+			Equals(53, "{.ports['dns']}").
+			Equals(53, "{.ports['dns-tcp']}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("kube-dns", "{.labels['k8s-app']}").
+			// TODO(https://github.com/istio/istio/issues/12820):
+			//  Equals("456", "{.labels['pod-template-hash']}").
+			Check(); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func TestMain(m *testing.M) {
 	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 	// component
-
-	framework.Main("galley_conversion", m, framework.RequireEnvironment(environment.Native))
+	framework.
+		NewSuite("galley_conversion", m).
+		Label(label.Presubmit).
+		RequireEnvironment(environment.Native).
+		Run()
 }

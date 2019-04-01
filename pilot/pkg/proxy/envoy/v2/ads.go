@@ -148,7 +148,7 @@ var (
 	proxiesConvergeDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "pilot_proxy_convergence_time",
 		Help:    "Delay between config change and all proxies converging.",
-		Buckets: []float64{.01, .1, 1, 3, 5, 10, 30},
+		Buckets: []float64{1, 3, 5, 10, 20, 30, 50, 100},
 	})
 
 	pushContextErrors = prometheus.NewCounter(prometheus.CounterOpts{
@@ -377,7 +377,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	s.initRateLimiter.Wait(context.TODO())
+	_ = s.initRateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -626,6 +626,11 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
+	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
+	// serve any gateway config if we dont know the proxy's service instances
+	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
+		return errors.New("gateway has no associated service instances")
+	}
 
 	if util.IsLocalityEmpty(nt.Locality) {
 		// Get the locality from the proxy's service instances.
@@ -682,15 +687,18 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			con.modelNode.Locality = util.ConvertLocality(con.modelNode.ServiceInstances[0].GetLocality())
 		}
 	}
+
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
-	// Saves compute cycles in networking code
+	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
+	// have to compute this because as part of a config change, a new Sidecar could become
+	// applicable to this proxy
 	if con.modelNode.Type == model.SidecarProxy {
 		con.modelNode.SetSidecarScope(pushEv.push)
 	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
+	_ = s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
 	// Prevent 2 overlapping pushes.
 	con.pushMutex.Lock()
@@ -921,6 +929,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+		if len(adsSidecarIDConnectionsMap[con.modelNode.ID]) == 0 {
+			delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
+		}
 	}
 }
 

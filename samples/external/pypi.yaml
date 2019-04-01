@@ -17,26 +17,7 @@ spec:
     name: https
     protocol: HTTPS
 ---
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: python-https
-spec:
-  hosts:
-  - pypi.python.org
-  tls:
-  - match:
-    - port: 443
-      sniHosts:
-      - pypi.python.org
-    route:
-    - destination:
-        host: pypi.python.org
-        port:
-          number: 443
----
 # pypi.python.org may 301 redirect to pypi.org, so we need this too.
- 
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -49,20 +30,15 @@ spec:
     name: https
     protocol: HTTPS
 ---
+# pip install may fetch files from files.pythonhosted.org
 apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
+kind: ServiceEntry
 metadata:
-  name: pypi-https
+  name: pythonhosted-https
 spec:
   hosts:
-  - pypi.org
-  tls:
-  - match:
-    - port: 443
-      sniHosts:
-      - pypi.org
-    route:
-    - destination:
-        host: pypi.org
-        port:
-          number: 443
+  - files.pythonhosted.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS

@@ -65,6 +65,7 @@ webhooks:
         - sidecars
         - virtualservices
     failurePolicy: Fail
+    sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
       service:
@@ -109,6 +110,12 @@ webhooks:
         - quotas
         - reportnothings
         - tracespans
+        - adapters
+        - handlers
+        - instances
+        - templates
+        - zipkins
     failurePolicy: Fail
+    sideEffects: None
 {{- end }}
 {{- end }}

@@ -17,6 +17,9 @@ package policybackend
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
 
 	kubeApiCore "k8s.io/api/core/v1"
 
@@ -81,6 +84,7 @@ var (
 	_ Instance          = &kubeComponent{}
 	_ resource.Resetter = &kubeComponent{}
 	_ io.Closer         = &kubeComponent{}
+	_ resource.Dumper   = &kubeComponent{}
 )
 
 type kubeComponent struct {
@@ -88,6 +92,7 @@ type kubeComponent struct {
 
 	*client
 
+	ctx       resource.Context
 	kubeEnv   *kube.Environment
 	namespace namespace.Instance
 
@@ -99,6 +104,7 @@ type kubeComponent struct {
 func newKube(ctx resource.Context) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
+		ctx:     ctx,
 		kubeEnv: env,
 		client:  &client{},
 	}
@@ -157,8 +163,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	pod := pods[0]
 
 	var svc *kubeApiCore.Service
-	svc, err = env.GetService(c.namespace.Name(), "policy-backend")
-	if err != nil {
+	if svc, err = env.WaitUntilServiceEndpointsAreReady(c.namespace.Name(), "policy-backend"); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
 		return nil, err
 	}
@@ -219,4 +224,34 @@ func (c *kubeComponent) Close() (err error) {
 	}
 
 	return err
+}
+
+func (c *kubeComponent) Dump() {
+	workDir, err := c.ctx.CreateTmpDirectory("policy-backend-state")
+	if err != nil {
+		scopes.CI.Errorf("Unable to create dump folder for policy-backend-state: %v", err)
+		return
+	}
+	deployment.DumpPodState(workDir, c.namespace.Name(), c.kubeEnv.Accessor)
+
+	pods, err := c.kubeEnv.Accessor.GetPods(c.namespace.Name())
+	if err != nil {
+		scopes.CI.Errorf("Unable to get pods from the system namespace: %v", err)
+		return
+	}
+
+	for _, pod := range pods {
+		for _, container := range pod.Spec.Containers {
+			l, err := c.kubeEnv.Logs(pod.Namespace, pod.Name, container.Name)
+			if err != nil {
+				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				continue
+			}
+
+			fname := path.Join(workDir, fmt.Sprintf("%s-%s.log", pod.Name, container.Name))
+			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+				scopes.CI.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+		}
+	}
 }

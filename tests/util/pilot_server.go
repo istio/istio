@@ -40,9 +40,6 @@ var (
 	// MockPilotSecureAddr is the address to be used for secure grpc connections.
 	MockPilotSecureAddr string
 
-	// MockPilotSecurePort is the secure port
-	MockPilotSecurePort int
-
 	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
 
@@ -149,7 +146,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		return nil, nil, err
 	}
 	MockPilotSecureAddr = "localhost:" + port
-	MockPilotSecurePort, _ = strconv.Atoi(port)
 
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {

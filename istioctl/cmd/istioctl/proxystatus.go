@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -52,12 +51,12 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 				if err != nil {
 					return err
 				}
-				path = fmt.Sprintf("/debug/config_dump?proxyID=%v", args[0])
+				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
 				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewComparator(os.Stdout, pilotDumps, envoyDump)
+				c, err := compare.NewComparator(c.OutOrStdout(), pilotDumps, envoyDump)
 				if err != nil {
 					return err
 				}

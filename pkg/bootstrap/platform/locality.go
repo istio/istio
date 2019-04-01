@@ -32,10 +32,7 @@ type Locality struct {
 // Converts a GCP zone into a region.
 func gcpZoneToRegion(z string) (string, error) {
 	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re, err := regexp.Compile("(.*)-.*")
-	if err != nil {
-		return "", err
-	}
+	re := regexp.MustCompile("(.*)-.*")
 	m := re.FindStringSubmatch(z)
 	if len(m) != 2 {
 		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
