@@ -199,7 +199,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	util.SortVirtualHosts(virtualHosts)
 
-	if pilot.EnableFallthroughRoute {
+	if pilot.EnableFallthroughRoute() {
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
 			virtualHosts = append(virtualHosts, route.VirtualHost{

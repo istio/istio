@@ -135,7 +135,9 @@ var (
 	// EnableFallthroughRoute provides an option to add a final wildcard match for routes.
 	// When ALLOW_ANY traffic policy is used, a Passthrough cluster is used.
 	// When REGISTRY_ONLY traffic policy is used, a 502 error is returned.
-	EnableFallthroughRoute = os.Getenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") == "1"
+	EnableFallthroughRoute = func() bool {
+		return os.Getenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") == "1"
+	}
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
 	DisableXDSMarshalingToAny = func() bool {

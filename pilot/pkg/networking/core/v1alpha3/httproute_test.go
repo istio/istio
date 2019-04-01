@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -305,8 +306,9 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
+	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "")
 	if fallthroughRoute {
-		proxy.Metadata[model.NodeMetadataFallthroughRoute] = "1"
+		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 	if registryOnly {
 		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
