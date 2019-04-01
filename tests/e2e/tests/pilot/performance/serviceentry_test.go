@@ -32,6 +32,7 @@ import (
 	"github.com/onsi/gomega"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -206,7 +207,12 @@ func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string
 
 func addMcpAddrs(mcpPort int) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{fmt.Sprintf("mcp://127.0.0.1:%d", mcpPort)}
+		if arg.MeshConfig == nil {
+			arg.MeshConfig = &meshconfig.MeshConfig{}
+		}
+		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+			&meshconfig.ConfigSource{Address: fmt.Sprintf("mcp://127.0.0.1:%d", mcpPort)},
+		}
 	}
 }
 
