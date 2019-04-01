@@ -787,8 +787,6 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
-	//t.Skip("https://github.com/istio/istio/issues/6309")
-
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
 	t.Logf("block request through ingress if x-user header is john")
@@ -870,19 +868,29 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 		fatalf(t, "%v", err)
 	}
 
-	allowPrometheusSync()
-	t.Log("Query promethus to get new cache hits number...")
-	// Get new check cache hit.
-	got, err := getCheckCacheHits(promAPI, app)
-	if err != nil {
-		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	retry := util.Retrier{
+		BaseDelay: 10 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   4,
 	}
-	t.Logf("New cache hits: %v", got)
 
-	// At least 1 call should be cache hit.
-	want := float64(1)
-	if (got - prior) < want {
-		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
+	retryFn := func(_ context.Context, i int) error {
+		t.Helper()
+		t.Logf("Trying to query new check cache hit (attempt %d)...", i)
+		got, err := getCheckCacheHits(promAPI, app)
+		if err != nil {
+			errorf(t, "unable to retrieve valid cached hit number: %v", err)
+			return err
+		}
+		t.Logf("New cache hits: %v", got)
+		if got == prior {
+			return fmt.Errorf("got new check cache hit %v, want at least %v", got, prior+1)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		errorf(t, "check cache hit does not increase: %v", err)
 	}
 }
 
