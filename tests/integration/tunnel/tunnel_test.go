@@ -321,9 +321,13 @@ func TestTunnel(t *testing.T) {
 	t.Logf("Trying to call %s", be.URL().String())
 	_, err = retry.Do(func() (unused interface{}, completed bool, err error) {
 
-		result := a.CallOrFail(be, apps.AppCallOptions{IgnoreWrongPort: true}, t)[0]
+		result, err := a.Call(be, apps.AppCallOptions{IgnoreWrongPort: true})
 
-		if !result.IsOK() {
+		if err != nil {
+			return nil, false, err
+		}
+
+		if !result[0].IsOK() {
 			return nil, false, fmt.Errorf("HTTP Request unsuccessful: %s", result.Body)
 		}
 		return nil, true, nil
