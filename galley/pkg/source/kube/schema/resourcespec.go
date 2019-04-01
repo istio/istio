@@ -63,6 +63,10 @@ func GetAPIVersion(r *ResourceSpec) string {
 	if len(r.Versions) == 1 {
 		return r.Versions[0]
 	}
+	//For testing purpose only
+	if len(r.Versions) == 0 {
+		return ""
+	}
 	//return the oldest version for now until we implement the discovery function
 	sort.Slice(r.Versions, func(i, j int) bool {
 		return version.CompareKubeAwareVersionStrings(r.Versions[i], r.Versions[j]) < 0
