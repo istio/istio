@@ -20,7 +20,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istiocoredns-service-account
 {{- if .Values.global.priorityClassName }}
@@ -84,3 +83,4 @@ spec:
             path: Corefile
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
