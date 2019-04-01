@@ -560,7 +560,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				for _, cn := range con.Clusters {
-					s.removeEdsCon(cn, con.ConID, con)
+					s.removeEdsCon(cn, con.ConID)
 				}
 
 				for _, cn := range clusters {
@@ -916,7 +916,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	defer adsClientsMutex.Unlock()
 
 	for _, c := range con.Clusters {
-		s.removeEdsCon(c, conID, con)
+		s.removeEdsCon(c, conID)
 	}
 
 	if _, exist := adsClients[conID]; !exist {
