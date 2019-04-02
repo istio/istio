@@ -183,6 +183,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.Mesh.MixerAddress = ""
 		args.Mesh.RdsRefreshDelay = nil
+		args.MeshConfig = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
