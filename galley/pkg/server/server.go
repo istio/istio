@@ -26,7 +26,6 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcprate "istio.io/istio/pkg/mcp/rate"

@@ -33,9 +33,6 @@ import (
 	mcptest "istio.io/istio/pkg/mcp/testing"
 )
 
-type updater struct {
-}
-
 const testK8sCollection = "k8s/core/v1/nodes"
 
 func TestConfigZ(t *testing.T) {
@@ -76,10 +73,11 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 
 	exists := false
 	for _, _type := range m["Types"].([]interface{}) {
-        if _type.(string) == groups.Default {
-            exists = true
-        }
-    }
+		if _type.(string) == groups.Default {
+			exists = true
+			break
+		}
+	}
 	if !exists {
 		t.Fatalf("Should have contained metadata: %v", data)
 	}
@@ -87,9 +85,10 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	exists = false
 	for _, _collection := range m["Snapshots"].([]interface{}) {
 		if _collection.(map[string]interface{})["Collection"].(string) == testK8sCollection {
-            exists = true
-        }
-    }
+			exists = true
+			break
+		}
+	}
 	if !exists {
 		t.Fatalf("Should have contained supported collections: %v", data)
 	}
