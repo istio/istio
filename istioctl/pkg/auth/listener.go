@@ -201,23 +201,23 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 				mTLSMode = strings.Join(modes, ",")
 			}
 		}
-		mTLS := fmt.Sprintf("%s(%s)", mTLSEnabled, mTLSMode)
+		mTLS := fmt.Sprintf("%s (%s)", mTLSEnabled, mTLSMode)
 
-		jwtPolicy := "no"
+		jwtPolicy := "no (none)"
 		if fc.jwt != nil {
-			jwtPolicy = "yes(none)"
+			jwtPolicy = "yes (none)"
 			issuers := make([]string, 0)
 			for _, rule := range fc.jwt.Rules {
 				issuers = append(issuers, rule.Issuer)
 			}
 			if len(issuers) != 0 {
-				jwtPolicy = fmt.Sprintf("yes(%s)", strings.Join(issuers, ","))
+				jwtPolicy = fmt.Sprintf("yes (%s)", strings.Join(issuers, ","))
 			}
 		}
 
-		rbacPolicy := "no"
+		rbacPolicy := "no (none)"
 		if fc.rbacHTTP != nil || fc.rbacTCP != nil {
-			rbacPolicy = "yes(none)"
+			rbacPolicy = "yes (none)"
 			rules := make([]string, 0)
 			for p := range fc.rbacHTTP.GetRules().GetPolicies() {
 				rules = append(rules, p)
@@ -226,7 +226,7 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 				rules = append(rules, p)
 			}
 			if len(rules) != 0 {
-				rbacPolicy = fmt.Sprintf("yes(%s)", strings.Join(rules, ","))
+				rbacPolicy = fmt.Sprintf("yes (%s)", strings.Join(rules, ","))
 			}
 		}
 
@@ -247,9 +247,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 func PrintParsedListeners(writer io.Writer, parsedListeners []*ParsedListener, printAll bool) {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	col := "LISTENER\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS(MODE)\tJWT(ISSUERS)\tRBAC(RULES)"
+	col := "LISTENER\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
 	if !printAll {
-		col = "LISTENER\tCERTIFICATE\tmTLS(MODE)\tJWT(ISSUERS)\tRBAC(RULES)"
+		col = "LISTENER\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
 	}
 
 	if _, err := fmt.Fprintln(w, col); err != nil {

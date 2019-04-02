@@ -55,16 +55,19 @@ func getCertificate(ctx *envoy_auth.CommonTlsContext) string {
 }
 
 func getValidate(ctx *envoy_auth.CommonTlsContext) string {
+	var ret string
 	switch v := ctx.ValidationContextType.(type) {
 	case *envoy_auth.CommonTlsContext_ValidationContext:
-		return strings.Join(v.ValidationContext.VerifySubjectAltName, ",")
+		ret = strings.Join(v.ValidationContext.VerifySubjectAltName, ",")
 	case *envoy_auth.CommonTlsContext_ValidationContextSdsSecretConfig:
-		return fmt.Sprintf("SDS: %s", v.ValidationContextSdsSecretConfig.Name)
+		ret = fmt.Sprintf("SDS: %s", v.ValidationContextSdsSecretConfig.Name)
 	case *envoy_auth.CommonTlsContext_CombinedValidationContext:
 		san := strings.Join(v.CombinedValidationContext.GetDefaultValidationContext().GetVerifySubjectAltName(), ",")
 		sds := fmt.Sprintf("SDS: %s", v.CombinedValidationContext.GetValidationContextSdsSecretConfig().GetName())
-		return fmt.Sprintf("[%s] + [%s]", san, sds)
-	default:
+		ret = fmt.Sprintf("[%s] + [%s]", san, sds)
+	}
+	if ret == "" {
 		return "none"
 	}
+	return ret
 }
