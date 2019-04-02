@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -36,6 +37,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite("mtls_healthcheck", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.Presubmit).
 		Setup(istio.SetupOnKube(&ist, setupConfig)).
 		Run()
 }
