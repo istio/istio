@@ -90,6 +90,12 @@ kiali:
   enabled: false
 
 #
+# addon certmanager configuration
+#
+certmanager:
+  enabled: false
+  
+#
 # Istio CNI plugin enabled
 #   This must be enabled to use the CNI plugin in Istio.  The CNI plugin is installed separately.
 #   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
@@ -454,12 +460,3 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
-
-
-
-
-#
-# addon certmanager configuration
-#
-certmanager:
-  enabled: false
