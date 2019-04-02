@@ -93,7 +93,7 @@ type PushContext struct {
 	ServicePort2Name map[string]PortList `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[Hostname]map[int][]string
+	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
 
 	initDone bool
 }
@@ -264,12 +264,6 @@ var (
 	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
-	)
-
-	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
-	DuplicatedDomains = newPushMetric(
-		"pilot_vservice_dup_domain",
-		"Virtual services with dup domains.",
 	)
 
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
@@ -810,9 +804,24 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sortConfigByCreationTime(sidecarConfigs)
 
-	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	sidecarConfigWithSelector := []Config{}
+	sidecarConfigWithoutSelector := []Config{}
 	for _, sidecarConfig := range sidecarConfigs {
-		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
+		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		if sidecar.WorkloadSelector != nil {
+			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
+		} else {
+			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
+		}
+	}
+
+	sidecarNum := len(sidecarConfigs)
+	sidecarConfigs = make([]Config, 0, sidecarNum)
+	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
+	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
+
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	for _, sidecarConfig := range sidecarConfigs {
 		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))

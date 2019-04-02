@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/test/client/env"
 )

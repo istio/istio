@@ -830,7 +830,7 @@
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
   pruneopts = "NUT"
-  revision = "ca7e3cf34b0ed739c37e2ff50b6ae0632da9911e"
+  revision = "5e465c4eda79c4063d08620ba8b09a3ef7fc4181"
 
 [[projects]]
   digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
@@ -1656,7 +1656,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fa63ebc108dd3e6e80821ad9f6753f28ff97dd4bb198a18ae3386ee92b21eb5d"
+  digest = "1:868e608f0483f3332cbf7568653095750995a96ef0d7ad7e49864952209a9e67"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1672,7 +1672,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "87afa02b7be5b966c0ad93afb684c5968fbd0120"
+  revision = "c443173254761fb969c8222073caa74e9ba5689f"
 
 [[projects]]
   branch = "release-1.11"

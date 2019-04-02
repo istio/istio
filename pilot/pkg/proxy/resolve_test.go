@@ -42,7 +42,7 @@ func determineLocalHostIPString(t *testing.T) string {
 	return ret
 }
 
-func MockLookupIPAddr(ctx context.Context, addr string) ([]net.IPAddr, error) {
+func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
 	var ret = []net.IPAddr{
 		{IP: net.ParseIP("2001:db8::68")},
 		{IP: net.IPv4(1, 2, 3, 4)},
@@ -51,7 +51,7 @@ func MockLookupIPAddr(ctx context.Context, addr string) ([]net.IPAddr, error) {
 	return ret, nil
 }
 
-func MockLookupIPAddrIPv6(ctx context.Context, addr string) ([]net.IPAddr, error) {
+func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]net.IPAddr, error) {
 	var ret = []net.IPAddr{
 		{IP: net.ParseIP("2001:db8::68")},
 	}

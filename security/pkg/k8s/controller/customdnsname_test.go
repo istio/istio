@@ -36,7 +36,7 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			},
 			ns: "istio-system",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
@@ -53,11 +53,11 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			},
 			ns: "istio-system",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
@@ -75,15 +75,15 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			ns:       "istio-system",
 			dnsNames: "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us1.dog",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account.istio-system": &DNSNameEntry{
+				"istio-galley-service-account.istio-system": {
 					ServiceName:   "istio-galley-service-account.istio-system",
 					CustomDomains: []string{"istio-galley-ilb.istio-system.svc.us1.dog"},
 				},
@@ -102,15 +102,15 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			dnsNames: "istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us1," +
 				"istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account.istio-system": &DNSNameEntry{
+				"istio-galley-service-account.istio-system": {
 					ServiceName:   "istio-galley-service-account.istio-system",
 					CustomDomains: []string{"istio-galley-ilb.istio-system.svc.us1", "istio-galley-ilb.istio-system.svc.us2"},
 				},
@@ -129,15 +129,15 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			dnsNames: "istio-galley-service-account.istio-systemistio-galley-ilb.istio-system.svc.us1," +
 				"istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account.istio-system": &DNSNameEntry{
+				"istio-galley-service-account.istio-system": {
 					ServiceName:   "istio-galley-service-account.istio-system",
 					CustomDomains: []string{"istio-galley-ilb.istio-system.svc.us2"},
 				},
@@ -155,11 +155,11 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			ns:       "istio-system",
 			dnsNames: "istio-galley-service-account.istiley-ilb.is,istio-galley-service-account.istio-sysgalley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
@@ -177,19 +177,19 @@ func TestConstructCustomDNSNames(t *testing.T) {
 			ns:       "istio-system",
 			dnsNames: "istio-mixer.istio-system:istio-mixer.istio-system.us1,istio-galley-service-account.istio-system:istio-galley-ilb.istio-system.svc.us2",
 			expected: map[string]*DNSNameEntry{
-				"istio-sidecar-injector-service-account": &DNSNameEntry{
+				"istio-sidecar-injector-service-account": {
 					ServiceName: "istio-sidecar-injector",
 					Namespace:   "istio-system",
 				},
-				"istio-galley-service-account": &DNSNameEntry{
+				"istio-galley-service-account": {
 					ServiceName: "istio-galley",
 					Namespace:   "istio-system",
 				},
-				"istio-mixer.istio-system": &DNSNameEntry{
+				"istio-mixer.istio-system": {
 					ServiceName:   "istio-mixer.istio-system",
 					CustomDomains: []string{"istio-mixer.istio-system.us1"},
 				},
-				"istio-galley-service-account.istio-system": &DNSNameEntry{
+				"istio-galley-service-account.istio-system": {
 					ServiceName:   "istio-galley-service-account.istio-system",
 					CustomDomains: []string{"istio-galley-ilb.istio-system.svc.us2"},
 				},

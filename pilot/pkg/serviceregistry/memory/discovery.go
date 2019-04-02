@@ -127,18 +127,6 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	}
 }
 
-// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
-// a port does not exist (should not happenen if service is create via
-// memory MakeSericve)
-func GetPortHTTP(service *model.Service) *model.Port {
-	for _, port := range service.Ports {
-		if port.Name == PortHTTPName {
-			return port
-		}
-	}
-	return nil
-}
-
 // MakeIP creates a fake IP address for a service and instance version
 func MakeIP(service *model.Service, version int) string {
 	// external services have no instances

@@ -20,9 +20,7 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/gogo/protobuf/proto"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/exporter/prometheus"
@@ -51,6 +49,7 @@ import (
 )
 
 // Server is an in-memory Mixer service.
+
 type Server struct {
 	shutdown  chan error
 	server    *grpc.Server
@@ -139,6 +138,11 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	s.Probe = probe.NewProbe()
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
 
 	// construct the gRPC options
 
@@ -189,12 +193,16 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		templateMap[k] = &t
 	}
 
-	var kinds map[string]proto.Message
+	var configAdapterMap map[string]*adapter.Info
 	if a.UseAdapterCRDs {
-		kinds = runtimeconfig.KindMap(adapterMap, templateMap)
-	} else {
-		kinds = runtimeconfig.KindMap(map[string]*adapter.Info{}, templateMap)
+		configAdapterMap = adapterMap
 	}
+	var configTemplateMap map[string]*template.Info
+	if a.UseTemplateCRDs {
+		configTemplateMap = templateMap
+	}
+
+	kinds := runtimeconfig.KindMap(configAdapterMap, configTemplateMap)
 
 	if err := st.Init(kinds); err != nil {
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
@@ -202,7 +210,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
-	if err := st.WaitForSynced(30 * time.Second); err != nil {
+	if err := st.WaitForSynced(a.ConfigWaitTimeout); err != nil {
 		return nil, err
 	}
 	s.configStore = st
@@ -246,12 +254,6 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
-
-	if a.LivenessProbeOptions.IsValid() {
-		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
-		s.RegisterProbe(s.livenessProbe, "server")
-		s.livenessProbe.Start()
-	}
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

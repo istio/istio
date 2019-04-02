@@ -377,7 +377,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	s.initRateLimiter.Wait(context.TODO())
+	_ = s.initRateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -560,7 +560,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				for _, cn := range con.Clusters {
-					s.removeEdsCon(cn, con.ConID, con)
+					s.removeEdsCon(cn, con.ConID)
 				}
 
 				for _, cn := range clusters {
@@ -698,7 +698,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
+	_ = s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
 	// Prevent 2 overlapping pushes.
 	con.pushMutex.Lock()
@@ -916,7 +916,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	defer adsClientsMutex.Unlock()
 
 	for _, c := range con.Clusters {
-		s.removeEdsCon(c, conID, con)
+		s.removeEdsCon(c, conID)
 	}
 
 	if _, exist := adsClients[conID]; !exist {

@@ -166,19 +166,17 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions     envoy.DiscoveryServiceOptions
-	Namespace            string
-	Mesh                 MeshArgs
-	Config               ConfigArgs
-	Service              ServiceArgs
-	MeshConfig           *meshconfig.MeshConfig
-	NetworksConfigFile   string
-	CtrlZOptions         *ctrlz.Options
-	Plugins              []string
-	MCPServerAddrs       []string
-	MCPCredentialOptions *creds.Options
-	MCPMaxMessageSize    int
-	KeepaliveOptions     *istiokeepalive.Options
+	DiscoveryOptions   envoy.DiscoveryServiceOptions
+	Namespace          string
+	Mesh               MeshArgs
+	Config             ConfigArgs
+	Service            ServiceArgs
+	MeshConfig         *meshconfig.MeshConfig
+	NetworksConfigFile string
+	CtrlZOptions       *ctrlz.Options
+	Plugins            []string
+	MCPMaxMessageSize  int
+	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -385,7 +383,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 				return
 			}
 			if !reflect.DeepEqual(mesh, s.mesh) {
-				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
+				log.Infof("mesh configuration updated to: %s", spew.Sdump(mesh))
 				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
@@ -532,26 +530,28 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
 	for _, configSource := range s.mesh.ConfigSources {
-		url, err := url.Parse(configSource.Address)
-		if err != nil {
-			cancel()
-			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
-		}
-		if url.Scheme == fsScheme {
-			if url.Path == "" {
-				cancel()
-				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
-			}
-			store := memory.Make(model.IstioConfigTypes)
-			configController := memory.NewController(store)
-
-			err := s.makeFileMonitor(url.Path, configController)
+		if strings.Contains(configSource.Address, fsScheme+"://") {
+			url, err := url.Parse(configSource.Address)
 			if err != nil {
 				cancel()
-				return err
+				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 			}
-			configStores = append(configStores, configController)
-			continue
+			if url.Scheme == fsScheme {
+				if url.Path == "" {
+					cancel()
+					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
+				}
+				store := memory.Make(model.IstioConfigTypes)
+				configController := memory.NewController(store)
+
+				err := s.makeFileMonitor(url.Path, configController)
+				if err != nil {
+					cancel()
+					return err
+				}
+				configStores = append(configStores, configController)
+				continue
+			}
 		}
 
 		securityOption := grpc.WithInsecure()
@@ -646,81 +646,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		configStores = append(configStores, mcpController)
 	}
 
-	// TODO: remove the below branch when `--mcpServerAddrs` removed
-	if len(configStores) == 0 {
-		for _, addr := range args.MCPServerAddrs {
-			u, err := url.Parse(addr)
-			if err != nil {
-				cancel()
-				return err
-			}
-
-			securityOption := grpc.WithInsecure()
-			if u.Scheme == "mcps" {
-				requiredFiles := []string{
-					args.MCPCredentialOptions.CertificateFile,
-					args.MCPCredentialOptions.KeyFile,
-					args.MCPCredentialOptions.CACertificateFile,
-				}
-				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
-					requiredFiles)
-				for len(requiredFiles) > 0 {
-					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
-						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
-						select {
-						case <-ctx.Done():
-							cancel()
-							return ctx.Err()
-						case <-time.After(requiredMCPCertCheckFreq):
-							// retry
-						}
-						continue
-					}
-					log.Infof("%v found", requiredFiles[0])
-					requiredFiles = requiredFiles[1:]
-				}
-
-				watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
-				if err != nil {
-					cancel()
-					return err
-				}
-				credentials := creds.CreateForClient(u.Hostname(), watcher)
-				securityOption = grpc.WithTransportCredentials(credentials)
-			}
-			msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-			conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
-			if err != nil {
-				log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
-				cancel()
-				return err
-			}
-
-			mcpController := coredatamodel.NewController(options)
-			sinkOptions := &sink.Options{
-				CollectionOptions: collections,
-				Updater:           mcpController,
-				ID:                clientNodeID,
-				Reporter:          reporter,
-			}
-
-			if useLegacyMCPStack {
-				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-				mcpClient := client.New(cl, sinkOptions)
-				configz.Register(mcpClient)
-				clients = append(clients, mcpClient)
-			} else {
-				cl2 := mcpapi.NewResourceSourceClient(conn)
-				mcpClient2 := sink.NewClient(cl2, sinkOptions)
-				configz.Register(mcpClient2)
-				clients2 = append(clients2, mcpClient2)
-			}
-
-			conns = append(conns, conn)
-			configStores = append(configStores, mcpController)
-		}
-	}
-
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		var wg sync.WaitGroup
 
@@ -774,7 +699,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
+	if len(s.mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -976,6 +901,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
+		PushContext:      model.NewPushContext(),
 	}
 
 	// Set up discovery service
@@ -999,6 +925,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
+
+	// Implement EnvoyXdsServer grace shutdown
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.EnvoyXdsServer.Start(stop)
+		return nil
+	})
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
@@ -1101,7 +1033,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 					}
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					s.secureHTTPServer.Shutdown(ctx)
+					_ = s.secureHTTPServer.Shutdown(ctx)
 					s.secureGRPCServer.Stop()
 				}()
 			}()
@@ -1227,7 +1159,7 @@ func (s *Server) addStartFunc(fn startFunc) {
 // Using a debouncing mechanism to avoid calling the callback multiple times
 // per event.
 func (s *Server) addFileWatcher(file string, callback func()) {
-	s.fileWatcher.Add(file)
+	_ = s.fileWatcher.Add(file)
 	go func() {
 		var timerC <-chan time.Time
 		for {

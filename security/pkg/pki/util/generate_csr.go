@@ -46,7 +46,10 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("CSR creation failed (%v)", err)
 	}
 
-	csr, privKey := encodePem(true, csrBytes, priv)
+	csr, privKey, err := encodePem(true, csrBytes, priv, options.PKCS8Key)
+	if err != nil {
+		return nil, nil, err
+	}
 	return csr, privKey, nil
 }
 

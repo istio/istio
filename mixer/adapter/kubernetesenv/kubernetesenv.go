@@ -227,7 +227,7 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 
 func (h *handler) Close() error {
 	for clusterID := range h.builder.controllers {
-		h.builder.deleteCacheController(clusterID)
+		_ = h.builder.deleteCacheController(clusterID)
 	}
 	h.builder.Lock()
 	h.builder.kubeHandler = nil
@@ -375,11 +375,10 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 		b.kubeHandler.Unlock()
 
 		b.kubeHandler.env.Logger().Infof("created remote controller %s", clusterID)
-	} else {
-		b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
+		return nil
 	}
 
-	return err
+	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {

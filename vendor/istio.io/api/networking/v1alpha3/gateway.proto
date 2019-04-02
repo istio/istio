@@ -201,7 +201,7 @@ message Gateway {
   // on which this gateway configuration should be applied. The scope of
   // label search is restricted to the configuration namespace in which the
   // the resource is present. In other words, the Gateway resource must
-  // reside in the same namespace as the gateway workload.
+  // reside in the same namespace as the gateway workload instance.
   map<string, string> selector = 2;
 }
 
@@ -362,7 +362,7 @@ message Server {
     // as Kubernetes secrets, will be configured to retrieve the
     // serverCertificate and the privateKey using credentialName, instead
     // of using the file system paths specified above. If using mutual TLS,
-    // gateway workloads will retrieve the CaCertificates using
+    // gateway workload instances will retrieve the CaCertificates using
     // credentialName-cacert. The semantics of the name are platform
     // dependent.  In Kubernetes, the default Istio supplied credential
     // server expects the credentialName to match the name of the

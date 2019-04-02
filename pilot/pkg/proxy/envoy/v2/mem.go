@@ -222,7 +222,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 	}
 
-	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
 }
 
 // Services implements discovery interface

@@ -262,7 +262,7 @@ func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alp
 								CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
 								ChannelCredentials:     constructLocalChannelCredConfig(),
 								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									&core.GrpcService_GoogleGrpc_CallCredentials{
+									{
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 												Name: "envoy.grpc_credentials.file_based_metadata",
