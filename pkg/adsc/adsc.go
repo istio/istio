@@ -211,7 +211,7 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 func (a *ADSC) Close() {
 	a.mutex.Lock()
 	if a.stream != nil {
-		a.stream.CloseSend()
+		_ = a.stream.CloseSend()
 	}
 	a.conn.Close()
 	a.mutex.Unlock()
@@ -242,9 +242,6 @@ func (a *ADSC) Run() error {
 		if err != nil {
 			return err
 		}
-	}
-	if err != nil {
-		return err
 	}
 
 	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
@@ -277,19 +274,19 @@ func (a *ADSC) handleRecv() {
 			valBytes := rsc.Value
 			if rsc.TypeUrl == listenerType {
 				ll := &xdsapi.Listener{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
 			} else if rsc.TypeUrl == clusterType {
 				ll := &xdsapi.Cluster{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				clusters = append(clusters, ll)
 			} else if rsc.TypeUrl == endpointType {
 				ll := &xdsapi.ClusterLoadAssignment{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				eds = append(eds, ll)
 			} else if rsc.TypeUrl == routeType {
 				ll := &xdsapi.RouteConfiguration{}
-				proto.Unmarshal(valBytes, ll)
+				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
 			}
 		}
@@ -505,7 +502,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				"ISTIO_PROXY_VERSION": {Kind: &types.Value_StringValue{StringValue: "1.0"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}
@@ -543,7 +540,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
-		a.stream.Send(&xdsapi.DiscoveryRequest{
+		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
 			TypeUrl:       listenerType,
@@ -641,7 +638,7 @@ func (a *ADSC) EndpointsJSON() string {
 // it will start watching RDS and CDS.
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
 		TypeUrl:       clusterType,
@@ -649,7 +646,7 @@ func (a *ADSC) Watch() {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: "",
 		Node:          a.node(),
 		TypeUrl:       typeurl,
@@ -658,7 +655,7 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
-	a.stream.Send(&xdsapi.DiscoveryRequest{
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),

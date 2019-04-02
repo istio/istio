@@ -2984,7 +2984,7 @@ Attributes:
 				CompiledTemplate: "checkk",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{},
+						"extra_field": {},
 					},
 				},
 			}),
@@ -3014,7 +3014,7 @@ Attributes:
 				CompiledTemplate: "check",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{},
+						"extra_field": {},
 					},
 				},
 				AttributeBindings: map[string]string{"test": "test"},
@@ -3046,7 +3046,7 @@ Attributes:
 				CompiledTemplate: "check",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
-						"extra_field": &types.Value{Kind: &types.Value_StringValue{StringValue: "test"}},
+						"extra_field": {Kind: &types.Value_StringValue{StringValue: "test"}},
 					},
 				},
 			}),

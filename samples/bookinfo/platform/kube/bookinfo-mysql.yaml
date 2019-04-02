@@ -51,7 +51,7 @@ spec:
     spec:
       containers:
       - name: mysqldb
-        image: istio/examples-bookinfo-mysqldb:1.10.1
+        image: istio/examples-bookinfo-mysqldb:1.11.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3306

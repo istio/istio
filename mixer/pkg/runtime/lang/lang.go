@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/pkg/annotations"
 	"istio.io/istio/pkg/env"
 )
 
@@ -51,6 +52,8 @@ const (
 	// LanguageRuntimeAnnotation on config resources to select a language runtime
 	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
+
+var _ = annotations.Register(LanguageRuntimeAnnotation, "Select a language runtime")
 
 var langVar = env.RegisterStringVar("ISTIO_LANG", "", "")
 

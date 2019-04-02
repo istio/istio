@@ -32,6 +32,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -65,6 +66,7 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          - --useTemplateCRDs=false
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -203,6 +205,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -390,7 +393,6 @@ spec:
         istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}

@@ -109,6 +109,12 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	// Change the application container prober config.
 	c.Port = intstr.FromInt(statusPort)
 	c.Path = newURL
+	// For HTTPS prober, we change to HTTP,
+	// and pilot agent uses https to request application prober endpoint.
+	// Kubelet -> HTTP -> Pilot Agent -> HTTPS -> Application
+	if c.Scheme == corev1.URISchemeHTTPS {
+		c.Scheme = corev1.URISchemeHTTP
+	}
 	return c
 }
 

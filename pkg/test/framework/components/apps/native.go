@@ -301,15 +301,6 @@ type nativeApp struct {
 	client    *echo.Client
 }
 
-// GetAgent is a utility method for testing that extracts the agent from a local app.
-func GetAgent(a App) agent.Agent {
-	localApp, ok := a.(*nativeApp)
-	if !ok {
-		return nil
-	}
-	return localApp.agent
-}
-
 func (a *nativeApp) Close() (err error) {
 	if a.client != nil {
 		err = a.client.Close()

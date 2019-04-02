@@ -677,7 +677,7 @@ func (e *Ephemeral) processRuleConfigs(
 			if hdl != nil {
 				sahandler = hdl.(*HandlerStatic)
 				processStaticHandler = true
-			} else if hdl == nil {
+			} else {
 				hdl, handlerName = getCanonicalRef(a.Handler, constant.HandlerKind, ruleKey.Namespace, func(n string) interface{} {
 					if a, ok := dHandlers[n]; ok {
 						return a

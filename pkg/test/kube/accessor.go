@@ -105,6 +105,18 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	return list.Items, nil
 }
 
+// GetEvents returns events in the given namespace, based on the involvedObject.
+func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApiCore.Event, error) {
+	s := "involvedObject.name=" + involvedObject
+	list, err := a.set.CoreV1().Events(namespace).List(kubeApiMeta.ListOptions{FieldSelector: s})
+
+	if err != nil {
+		return []kubeApiCore.Event{}, err
+	}
+
+	return list.Items, nil
+}
+
 // GetPod returns the pod with the given namespace and name.
 func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
 	return a.set.CoreV1().

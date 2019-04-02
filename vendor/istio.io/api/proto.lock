@@ -1399,6 +1399,21 @@
             ]
           },
           {
+            "name": "SDS",
+            "fields": [
+              {
+                "id": 1,
+                "name": "enabled",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "k8s_sa_jwt_path",
+                "type": "string"
+              }
+            ]
+          },
+          {
             "name": "ProxyConfig",
             "fields": [
               {
@@ -1518,6 +1533,11 @@
                 "id": 19,
                 "name": "tracing",
                 "type": "Tracing"
+              },
+              {
+                "id": 21,
+                "name": "sds",
+                "type": "SDS"
               }
             ]
           }
