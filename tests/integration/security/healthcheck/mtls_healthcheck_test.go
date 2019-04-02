@@ -35,9 +35,13 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// We only run this test in postsubmit since that runs on prow.
+	// Presubmit runs on CircleCI, using a Minikube environment, which seems
+	// causing healthcheck app deployment timeout.
+	// For more details, see https://github.com/istio/istio/issues/12754.
 	framework.NewSuite("mtls_healthcheck", m).
 		RequireEnvironment(environment.Kube).
-		Label(label.Presubmit).
+		Label(label.Postsubmit).
 		Setup(istio.SetupOnKube(&ist, setupConfig)).
 		Run()
 }
@@ -52,8 +56,6 @@ func setupConfig(cfg *istio.Config) {
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
 func TestMtlsHealthCheck(t *testing.T) {
-	// t.Skip("https://github.com/istio/istio/issues/12754")
-
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
