@@ -37,7 +37,7 @@ When running tests, only one environment can be specified:
 
 ```console
 $ go test ./... -istio.test.env native
-$ go test ./... -istio.test.env kubernetes
+$ go test ./... -istio.test.env kube
 ```
 
 By default, the tests will be executed in the
@@ -62,7 +62,7 @@ file for the cluster you need to use. **Be aware that any existing Istio deploym
 removed**.
 
 ```console
-$ go test ./...  -istio.test.env kubernetes -istio.test.kube.config ~/.kube/config
+$ go test ./...  -istio.test.env kube -istio.test.kube.config ~/.kube/config
 ```
 
 ## Adding New Tests

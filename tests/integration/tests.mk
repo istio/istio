@@ -49,7 +49,7 @@ test.integration.all: test.integration test.integration.kube
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
 	$(GO) test -p 1 ${T} ./tests/integration/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.env kubernetes \
+	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
