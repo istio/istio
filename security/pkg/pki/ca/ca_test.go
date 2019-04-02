@@ -505,11 +505,9 @@ root-cert-3`
 	rootCerts, err := appendRootCerts([]byte(root1), "./root-certs-for-testing.pem")
 	if err != nil {
 		t.Errorf("appendRootCerts() returns an error: %v", err)
-	} else {
-		if expRootCerts != string(rootCerts[:]) {
-			t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
-				expRootCerts, string(rootCerts[:]))
-		}
+	} else if expRootCerts != string(rootCerts) {
+		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+			expRootCerts, string(rootCerts))
 	}
 }
 
@@ -521,11 +519,9 @@ root-cert-3`
 	rootCerts, err := appendRootCerts(root1, "./root-certs-for-testing.pem")
 	if err != nil {
 		t.Errorf("appendRootCerts() returns an error: %v", err)
-	} else {
-		if expRootCerts != string(rootCerts[:]) {
-			t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
-				expRootCerts, string(rootCerts[:]))
-		}
+	} else if expRootCerts != string(rootCerts) {
+		t.Errorf("the root certificates do not match. Expect:%v. Actual:%v.",
+			expRootCerts, string(rootCerts))
 	}
 }
 

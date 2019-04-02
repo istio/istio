@@ -382,11 +382,9 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
-		} else {
-			if err = k.deployIstio(); err != nil {
-				log.Error("Failed to deploy Istio.")
-				return err
-			}
+		} else if err = k.deployIstio(); err != nil {
+			log.Error("Failed to deploy Istio.")
+			return err
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")

@@ -279,7 +279,7 @@ func AppendVarint(b []byte, v uint64) []byte {
 func ConsumeVarint(b []byte) (v uint64, n int) {
 	// TODO: Specialize for sizes 1 and 2 with mid-stack inlining.
 	var y uint64
-	if len(b) <= 0 {
+	if len(b) == 0 {
 		return 0, errCodeTruncated
 	}
 	v = uint64(b[0])

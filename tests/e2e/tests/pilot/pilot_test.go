@@ -591,7 +591,7 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 		// TODO: this can be optimized for many string submatching
 		counts := make(map[string]int)
 		for _, request := range a.logs[cluster][app] {
-			counts[request.id] = counts[request.id] + 1
+			counts[request.id]++
 		}
 
 		// Concat the logs from all pods.

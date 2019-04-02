@@ -913,10 +913,8 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 						continue
 					}
 					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
-				} else {
-					if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
-						continue
-					}
+				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
+					continue
 				}
 				// If destination port is defined, it must match.
 				if len(dest.Ports) > 0 {

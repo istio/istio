@@ -327,7 +327,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			first = false
 			value = []corev1.Container{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -357,7 +357,7 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 			first = false
 			value = []corev1.Volume{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -378,7 +378,7 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 			first = false
 			value = []corev1.LocalObjectReference{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
