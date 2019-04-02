@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 		// to the native environment.
 		RequireEnvironment(environment.Native).
 
-		// You can specify multiple setup functions that will be run as part of suite setup. setupFn will alwaus be called.
+		// You can specify multiple setup functions that will be run as part of suite setup. setupFn will always be called.
 		Setup(mysetup).
 
 		// The following two setup methods will run conditionally, depending on the environment.
