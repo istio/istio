@@ -65,11 +65,11 @@ kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-foun
 kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
 kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
+    kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+    kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
+    kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+    kubectl wait --all --for=condition=Ready pods
 fi
-
-kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
-kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
 kubectl rollout status deployments productpage-v1 --timeout=$WAIT_TIMEOUT
 kubectl get pod
