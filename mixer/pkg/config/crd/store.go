@@ -181,15 +181,15 @@ func (s *Store) Init(kinds []string) error {
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
 	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
 	timeout := time.After(s.retryTimeout)
-	tick := time.Tick(s.retryInterval)
+	ticker := time.NewTicker(s.retryInterval)
+	defer ticker.Stop()
 	stopRetry := false
 	for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
 		select {
 		case <-timeout:
 			stopRetry = true
-		case <-tick:
+		case <-ticker.C:
 			remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
-		default:
 		}
 	}
 	if len(remaining) > 0 {
