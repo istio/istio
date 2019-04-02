@@ -72,11 +72,19 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 		}
 		for i, binding := range authzPolicy.Policy.Allow {
 			permissions := make([]*policyproto.Permission, 0)
-			role := option.authzPolicies.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
+			var role *rbacproto.ServiceRole
+			var serviceRoleName string
+			if binding.RoleRef != nil {
+				role = option.authzPolicies.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
+				serviceRoleName = binding.RoleRef.Name
+			} else if len(binding.Actions) > 0 {
+				role = &rbacproto.ServiceRole{Rules: binding.Actions}
+				serviceRoleName = fmt.Sprintf("%s-inline-role", authzPolicy.Name)
+			}
 			for _, rule := range role.Rules {
 				// Check to make sure that the current service (caller) is the one this rule is applying to.
 				if !service.areConstraintsMatched(rule) {
-					rbacLog.Debugf("rule has constraints but doesn't match with the service (found in %s)", binding.RoleRef.Name)
+					rbacLog.Debugf("rule has constraints but doesn't match with the service (found in %s)", serviceRoleName)
 					continue
 				}
 				if option.forTCPFilter {
@@ -94,13 +102,13 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 				permissions = append(permissions, convertToPermission(rule))
 			}
 			if len(permissions) == 0 {
-				rbacLog.Debugf("role %s skipped for no rule matched", binding.RoleRef.Name)
+				rbacLog.Debugf("role %s skipped for no rule matched", serviceRoleName)
 				continue
 			}
 
 			if option.forTCPFilter {
 				if err := validateBindingsForTCPFilter([]*rbacproto.ServiceRoleBinding{binding}); err != nil {
-					rbacLog.Debugf("role %s skipped, found HTTP only binding for a TCP service: %v", binding.RoleRef.Name, err)
+					rbacLog.Debugf("role %s skipped, found HTTP only binding for a TCP service: %v", serviceRoleName, err)
 					continue
 				}
 			}
@@ -108,7 +116,7 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 			enforcedPrincipals, _ := convertToPrincipals([]*rbacproto.ServiceRoleBinding{binding}, option.forTCPFilter)
 
 			if len(enforcedPrincipals) == 0 {
-				rbacLog.Debugf("role %s skipped for no principals found", binding.RoleRef.Name)
+				rbacLog.Debugf("role %s skipped for no principals found", serviceRoleName)
 				continue
 			}
 

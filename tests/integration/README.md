@@ -60,7 +60,7 @@ against. You can specify the kube config file that should be used to use for con
 command-line: 
 
 ```console
-$ go test ./...  --istio.test.env kubernetes --istio.test.kube.config ~/.kube/config
+$ go test ./...  --istio.test.env kuber --istio.test.kube.config ~/.kube/config
 ```
 
 If not specified, ~/.kube/config will be used by default.
