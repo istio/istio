@@ -53,13 +53,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.useMCP }}
-{{- if .Values.global.controlPlaneSecurityEnabled }}
-          - --mcpServerAddrs=mcp://127.0.0.1:15019
-  {{ else }}
-          - --mcpServerAddrs=mcp://istio-galley
-{{- end }}
-{{- end }}
           - --secureGrpcAddr
           - ""
 {{- if .Values.global.trustDomain }}
