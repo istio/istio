@@ -8,6 +8,7 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Environments](#environments)
         1. [Kubernetes](#kubernetes-environment)
     2. [Test Selection](#test-selection)
+    3. [Test Lifecycle](#test-lifecycle)
 2. [Diagnosing Failures](#diagnosing-failures)
     1. [Working Directory](#working-directory)
     2. [Enabling CI Mode](#enabling-ci-mode)
@@ -15,6 +16,7 @@ This folder contains Istio integration tests that use the test framework checked
     4. [Additional Logging](#additional-logging)
     5. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
 3. [Adding New Tests](#adding-new-tests)
+   1. [Introducing Your Suite](#introducing-your-suite)
 4. [Reference](#reference)
     1. [Commandline Flags](#command-line-flags)
 
@@ -102,6 +104,30 @@ $ go test ./... --istio.test.select +presubmit,-postsubmit
 This will select tests that have ```label.Presubmit``` only. It will **not** select tests that have both ```label.Presubmit```
 and ```label.Postsubmit```.
 
+### Test Lifecycle 
+
+Integration tests are prone to be flaky. Introducing a suite or a test from the get-go can cause sporadic failures in the
+check-in queues. Introducing your tests in a gradual manner allows you to deal with the flakes and sporadic
+failures without disrupting other people's work.
+
+#### Add Your Suite
+As first step, add your test suite and tests **without using any labels**. This will cause these tests to be picked up and
+run as part of all unstable tests automatically
+
+#### Observe, Fix Flakes, Stabilize
+Once checked-in, you can observe what is going on with your tests at the
+[TestGrid](https://testgrid.k8s.io/istio-presubmits) website. It is crucial to follow how your tests are doing and fix any 
+flakes or issues as early as possible.
+
+Once it has run in the check-in queues stably for enough time (i.e. 1 week), then it is ready to be promoted to be a
+presubmit gate.
+
+#### Promotion To Stable/Presubmit
+
+Tag your test or suite with the ```label.Presubmit```. This will cause the presubmit gates to automatically pick-up your
+test and start running as part of a required gate.
+  
+
 ## Diagnosing Failures
 
 
@@ -167,9 +193,12 @@ pass command-line flags to the test while running under the debugger, you can us
 [Run/Debug configurations dialog](https://i.stack.imgur.com/C6y0L.png) to specify these flags as program arguments.
 
 
-## Adding New Tests Suites
+## Adding New Tests
 
-Please follow the general guidance for adding new tests:
+### Introducing Your Suite
+
+This section quickly introduces how you can add your own suite and tests. You can find a more comprehensive example in
+the [examples](https://github.com/istio/istio/tree/master/tests/integration/examples) folder.
 
 * Create a new top-level folder for top-level components (i.e. mixer, pilot, galley). This will automatically add the 
 suite to be added to the list of suites that get executed in various CI gates.
@@ -194,8 +223,6 @@ func TestMain(m *testing.M) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mycomponent_test", m).
-		// Tag the suite with label.Postsubmit
-		Label(label.Postsubmit).
 		// Restrict the test to the K8s environment only, tests will be skipped in native environment.
 		RequireEnvironment(environment.Kube).
 		// Deploy Istio on the cluster
@@ -210,7 +237,6 @@ func mySetup(ctx framework.SuiteContext) error {
 }
  ```
  
-
 ## Reference
 
 ### Helm Values Overrides
