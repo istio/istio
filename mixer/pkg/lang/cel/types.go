@@ -114,7 +114,7 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 func convertValue(typ v1beta1.ValueType, value interface{}) ref.Val {
 	switch typ {
 	case v1beta1.STRING, v1beta1.INT64, v1beta1.DOUBLE, v1beta1.BOOL:
-		return types.NativeToValue(value)
+		return types.DefaultTypeAdapter.NativeToValue(value)
 	case v1beta1.TIMESTAMP:
 		t := value.(time.Time)
 		tproto, err := ptypes.TimestampProto(t)

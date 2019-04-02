@@ -37,7 +37,7 @@ type Interpretable interface {
 }
 
 // InterpretableDecorator is a functional interface for decorating or replacing
-// Interpretable expresssion nodes at construction time.
+// Interpretable expression nodes at construction time.
 type InterpretableDecorator func(Interpretable) (Interpretable, error)
 
 // Interpreter generates a new Interpretable from a checked or unchecked expression.
@@ -89,37 +89,44 @@ func FoldConstants() InterpretableDecorator {
 }
 
 type exprInterpreter struct {
-	dispatcher   Dispatcher
-	packager     packages.Packager
-	typeProvider ref.TypeProvider
+	dispatcher Dispatcher
+	packager   packages.Packager
+	provider   ref.TypeProvider
+	adapter    ref.TypeAdapter
 }
 
-// NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
-// which will be used throughout the Eval of all Interpretable instances
-// gerenated from it.
-func NewInterpreter(dispatcher Dispatcher,
-	packager packages.Packager,
-	typeProvider ref.TypeProvider) Interpreter {
+// NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider which will be used
+// throughout the Eval of all Interpretable instances gerenated from it.
+func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
+	provider ref.TypeProvider,
+	adapter ref.TypeAdapter) Interpreter {
 	return &exprInterpreter{
-		dispatcher:   dispatcher,
-		packager:     packager,
-		typeProvider: typeProvider}
+		dispatcher: dispatcher,
+		packager:   packager,
+		provider:   provider,
+		adapter:    adapter}
 }
 
-// NewStandardInterpreter builds a Dispatcher and TypeProvider with support
-// for all of the CEL builtins defined in the language definition.
-func NewStandardInterpreter(packager packages.Packager,
-	typeProvider ref.TypeProvider) Interpreter {
+// NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
+// builtins defined in the language definition.
+func NewStandardInterpreter(packager packages.Packager, provider ref.TypeProvider,
+	adapter ref.TypeAdapter) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, packager, typeProvider)
+	return NewInterpreter(dispatcher, packager, provider, adapter)
 }
 
 // NewIntepretable implements the Interpreter interface method.
 func (i *exprInterpreter) NewInterpretable(
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
-	p := newPlanner(i.dispatcher, i.typeProvider, i.packager, checked, decorators...)
+	p := newPlanner(
+		i.dispatcher,
+		i.provider,
+		i.adapter,
+		i.packager,
+		checked,
+		decorators...)
 	return p.Plan(checked.GetExpr())
 }
 
@@ -127,6 +134,11 @@ func (i *exprInterpreter) NewInterpretable(
 func (i *exprInterpreter) NewUncheckedInterpretable(
 	expr *exprpb.Expr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
-	p := newUncheckedPlanner(i.dispatcher, i.typeProvider, i.packager, decorators...)
+	p := newUncheckedPlanner(
+		i.dispatcher,
+		i.provider,
+		i.adapter,
+		i.packager,
+		decorators...)
 	return p.Plan(expr)
 }
