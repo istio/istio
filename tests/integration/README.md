@@ -55,12 +55,12 @@ When an environment is not specified, the tests will run against the local envir
 
 #### Kubernetes Environment
 
-When running the tests against the Kubernetes environment, you will need to provide a K8s cluster ot run the tests
+When running the tests against the Kubernetes environment, you will need to provide a K8s cluster to run the tests
 against. You can specify the kube config file that should be used to use for connecting to the cluster, through 
 command-line: 
 
 ```console
-$ go test ./...  --istio.test.env kuber --istio.test.kube.config ~/.kube/config
+$ go test ./...  --istio.test.env kube --istio.test.kube.config ~/.kube/config
 ```
 
 If not specified, ~/.kube/config will be used by default.
