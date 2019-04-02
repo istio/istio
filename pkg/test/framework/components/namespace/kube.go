@@ -17,12 +17,19 @@ package namespace
 import (
 	"fmt"
 	"io"
-
-	"github.com/google/uuid"
+	"math/rand"
+	"sync"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	k "istio.io/istio/pkg/test/kube"
+)
+
+var (
+	idctr int64
+	rnd   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu    sync.Mutex
 )
 
 // kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
@@ -68,8 +75,14 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 
 // NewNamespace allocates a new testing namespace.
 func newKube(ctx resource.Context, prefix string, inject bool) (Instance, error) {
+	mu.Lock()
+	idctr++
+	nsid := idctr
+	r := rnd.Intn(99999)
+	mu.Unlock()
+
 	env := ctx.Environment().(*kube.Environment)
-	ns := fmt.Sprintf("%s-%s", prefix, uuid.New().String())
+	ns := fmt.Sprintf("%s-%d-%d", prefix, nsid, r)
 	if err := env.CreateNamespace(ns, "istio-test", inject); err != nil {
 		return nil, err
 	}
