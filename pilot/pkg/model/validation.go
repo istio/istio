@@ -1540,9 +1540,14 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
-	if in.RoleRef == nil {
-		errs = appendErrors(errs, fmt.Errorf("roleRef must be specified"))
-	} else {
+	if in.RoleRef != nil && len(in.Actions) > 0 {
+		errs = appendErrors(errs, fmt.Errorf("only one of `roleRef` or `actions` can be specified"))
+		return errs
+	}
+	if in.RoleRef == nil && len(in.Actions) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("`roleRef` or `actions` must be specified"))
+	}
+	if in.RoleRef != nil {
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
@@ -1551,6 +1556,10 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 		if len(in.RoleRef.Name) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("name cannot be empty"))
 		}
+	}
+	if len(in.Actions) > 0 {
+		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
+		errs = ValidateServiceRole("", "", inlineServiceRole)
 	}
 	return errs
 }
