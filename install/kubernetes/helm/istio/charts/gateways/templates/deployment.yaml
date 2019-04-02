@@ -41,7 +41,6 @@ spec:
 {{ toYaml $spec.podAnnotations | indent 8 }}
 {{ end }}
     spec:
-      serviceAccountName: {{ $key }}-service-account
 {{- if $.Values.global.priorityClassName }}
       priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
@@ -276,7 +275,7 @@ spec:
       {{- end }}
       - name: istio-certs
         secret:
-          secretName: istio.{{ $key }}-service-account
+          secretName: istio.default
           optional: true
       {{- range $spec.secretVolumes }}
       - name: {{ .name }}
