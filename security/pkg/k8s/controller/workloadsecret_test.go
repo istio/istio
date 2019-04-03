@@ -415,7 +415,7 @@ func TestSecretOptIn(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), tc.requireOptIn, defaultTTL,
-			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
+			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 			[]string{metav1.NamespaceAll}, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
