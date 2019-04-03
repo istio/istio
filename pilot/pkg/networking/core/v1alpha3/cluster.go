@@ -346,9 +346,16 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 	localityLbEndpoints := make([]endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
 
 	for locality, eps := range lbEndpoints {
+		var weight uint32
+		for _, ep := range eps {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
 		localityLbEndpoints = append(localityLbEndpoints, endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
 			LbEndpoints: eps,
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: weight,
+			},
 		})
 	}
 
