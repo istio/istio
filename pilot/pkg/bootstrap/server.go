@@ -75,7 +75,6 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
@@ -494,8 +493,6 @@ func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *mockController) Run(<-chan struct{}) {}
 
-var useMCPLegacyVar = env.RegisterBoolVar("USE_MCP_LEGACY", false, "")
-
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
 	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
@@ -513,19 +510,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var clients []*client.Client
-	var clients2 []*sink.Client
+	var clients []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
-
-	// TODO - temporarily support both the new and old stack during transition
-	var useLegacyMCPStack bool
-	if useMCPLegacyVar.Get() {
-		useLegacyMCPStack = true
-		log.Infof("USE_MCP_LEGACY=true - using legacy MCP client stack")
-	} else {
-		log.Infof("Using new MCP client sink stack")
-	}
 
 	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
@@ -630,17 +617,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			Reporter:          reporter,
 		}
 
-		if useLegacyMCPStack {
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
-			mcpClient := client.New(cl, sinkOptions)
-			configz.Register(mcpClient)
-			clients = append(clients, mcpClient)
-		} else {
-			cl2 := mcpapi.NewResourceSourceClient(conn)
-			mcpClient2 := sink.NewClient(cl2, sinkOptions)
-			configz.Register(mcpClient2)
-			clients2 = append(clients2, mcpClient2)
-		}
+		cl := mcpapi.NewResourceSourceClient(conn)
+		mcpClient := sink.NewClient(cl, sinkOptions)
+		configz.Register(mcpClient)
+		clients = append(clients, mcpClient)
 
 		conns = append(conns, conn)
 		configStores = append(configStores, mcpController)
@@ -649,24 +629,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		var wg sync.WaitGroup
 
-		if useLegacyMCPStack {
-			for i := range clients {
-				client := clients[i]
-				wg.Add(1)
-				go func() {
-					client.Run(ctx)
-					wg.Done()
-				}()
-			}
-		} else {
-			for i := range clients2 {
-				client := clients2[i]
-				wg.Add(1)
-				go func() {
-					client.Run(ctx)
-					wg.Done()
-				}()
-			}
+		for i := range clients {
+			client := clients[i]
+			wg.Add(1)
+			go func() {
+				client.Run(ctx)
+				wg.Done()
+			}()
 		}
 
 		go func() {
