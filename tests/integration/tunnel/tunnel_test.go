@@ -73,10 +73,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: egressgateway-client
-  namespace: {{ .systemNamespace }}
 spec:
   host: {{ .ingressDNS }}
-  exportTo: [ "." ]
   subsets:
   - name: client-2
     trafficPolicy:
@@ -276,17 +274,16 @@ func TestTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clientNamespace := namespace.NewOrFail(t, ctx, "client", true)
+	clientNamespace := applications.Namespace()
 	virtualIP := env.CreateClusterIPServiceOrFail(virtualPort, serviceName, clientNamespace.Name(), t)
 	serverNamespace := namespace.NewOrFail(t, ctx, "server", true)
 
 	err = env.ApplyContents(cfg.SystemNamespace,
 		tmpl.EvaluateOrFail(t, clientSideEgressConfig, map[string]interface{}{
-			"ingressAddress":  ingressURL.Hostname(),
-			"ingressPort":     ingressPort,
-			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
-			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
-			"systemNamespace": cfg.SystemNamespace,
+			"ingressAddress": ingressURL.Hostname(),
+			"ingressPort":    ingressPort,
+			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
+			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
 		}))
 
 	if err != nil {
