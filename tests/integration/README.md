@@ -45,8 +45,11 @@ When running tests, only one environment can be specified:
 
 ```console
 $ go test ./... -istio.test.env native
-$ go test ./... -istio.test.env kube
+$ go test ./... -p 1 -istio.test.env kube
 ```
+
+| WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder, when using ```kube``` environment. |
+| --- |
 
 Most tests will support execution in both modes, however, some tests maybe tagged to run on a specific environment.
 When executed a non-supported environment, these tests will be skipped. 
