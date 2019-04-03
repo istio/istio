@@ -165,9 +165,9 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 	}
 
 	go func() {
+		log.Info("Start SDS grpc server")
 		for {
 			// Retry if Serve() fails
-			log.Info("Start SDS grpc server")
 			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 			}
@@ -193,9 +193,9 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	}
 
 	go func() {
+		log.Info("Start SDS grpc server for ingress gateway proxy")
 		for {
 			// Retry if Serve() fails
-			log.Info("Start SDS grpc server for ingress gateway proxy")
 			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 			}
