@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -11,6 +11,9 @@ metadata:
     istio: sidecar-injector
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: sidecar-injector
   strategy:
     rollingUpdate:
       maxSurge: 1

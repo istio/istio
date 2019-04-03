@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiocoredns
@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: istiocoredns
   template:
     metadata:
       name: istiocoredns
