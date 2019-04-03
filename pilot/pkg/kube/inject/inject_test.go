@@ -596,6 +596,10 @@ func TestRewriteAppProbe(t *testing.T) {
 			in:   "ready_only.yaml",
 			want: "ready_only.yaml.injected",
 		},
+		{
+			in:   "https-probes.yaml",
+			want: "https-probes.yaml.injected",
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}

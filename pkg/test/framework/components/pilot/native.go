@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -80,8 +81,13 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 	}
 
 	if config.Galley != nil {
+		if bootstrapArgs.MeshConfig == nil {
+			bootstrapArgs.MeshConfig = &meshconfig.MeshConfig{}
+		}
 		// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-		bootstrapArgs.MCPServerAddrs = []string{"mcp://" + config.Galley.Address()[6:]}
+		bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+			&meshconfig.ConfigSource{Address: config.Galley.Address()[6:]},
+		}
 		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 	} else {
 		bootstrapArgs.Config = bootstrap.ConfigArgs{

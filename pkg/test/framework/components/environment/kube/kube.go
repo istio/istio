@@ -89,6 +89,21 @@ func (e *Environment) ApplyContents(namespace, yml string) error {
 	return err
 }
 
+// Applies the config in the given filename to the namespace.
+func (e *Environment) Apply(namespace, ymlFile string) error {
+	return e.Accessor.Apply(namespace, ymlFile)
+}
+
+// Deletes the given yaml contents from the namespace.
+func (e *Environment) DeleteContents(namespace, yml string) error {
+	return e.Accessor.DeleteContents(namespace, yml)
+}
+
+// Deletes the config in the given filename from the namespace.
+func (e *Environment) Delete(namespace, ymlFile string) error {
+	return e.Accessor.Delete(namespace, ymlFile)
+}
+
 func (e *Environment) DeployYaml(namespace, yamlFile string) (*deployment.Instance, error) {
 	i := deployment.NewYamlDeployment(namespace, yamlFile)
 

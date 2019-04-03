@@ -270,6 +270,31 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				CommonName:  "a", // only first host used for CN
 			},
 		},
+		{
+			name: "Generate PKCS8 private key",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				PKCS8Key:     true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
 	}
 
 	for _, c := range cases {

@@ -140,7 +140,7 @@ func TestSecretController(t *testing.T) {
 			},
 		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL,
-			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
+			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 			[]string{metav1.NamespaceAll}, webhooks)
 		if tc.shouldFail {
 			if err == nil {
@@ -178,7 +178,7 @@ func TestSecretContent(t *testing.T) {
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
+		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
@@ -200,7 +200,7 @@ func TestSecretContent(t *testing.T) {
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
+		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
@@ -319,7 +319,8 @@ func TestUpdateSecret(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour,
-			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, []string{metav1.NamespaceAll},
+			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, false,
+			[]string{metav1.NamespaceAll},
 			nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)

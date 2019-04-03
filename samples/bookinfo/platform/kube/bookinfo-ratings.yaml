@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v1:1.10.1
+        image: istio/examples-bookinfo-ratings-v1:1.11.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

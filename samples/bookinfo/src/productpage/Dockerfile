@@ -29,4 +29,6 @@ COPY requirements.txt /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
 RUN python -m unittest discover
-CMD python productpage.py 9080
+CMD touch /opt/microservices/microservice.log && \
+    tail -f /opt/microservices/microservice.log & \
+    python productpage.py 9080
