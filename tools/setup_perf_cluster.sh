@@ -208,7 +208,7 @@ function get_fortio_k8s_ip() {
 
 # Doesn't work somehow...
 function setup_non_istio_ingress2() {
-  cat <<_EOF_ | kubectl apply -n fortio -f -
+  cat <<_EOF_ | kubectl apply -n "$FORTIO_NAMESPACE" -f -
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -229,7 +229,7 @@ _EOF_
 }
 
 function setup_non_istio_ingress() {
-  cat <<_EOF_ | kubectl apply -n fortio -f -
+  cat <<_EOF_ | kubectl apply -n "$FORTIO_NAMESPACE" -f -
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -281,7 +281,7 @@ if [ -z "${DUR+x}" ] || [ "$DUR" == "" ]; then
 fi
 
 function get_istio_version() {
-  kubectl describe pods -n istio|grep /proxyv2:|head -1 | awk -F: '{print $3}'
+  kubectl describe pods -n "$ISTIO_NAMESPACE" | grep /proxyv2:|head -1 | awk -F: '{print $3}'
 }
 
 function get_json_file_name() {
