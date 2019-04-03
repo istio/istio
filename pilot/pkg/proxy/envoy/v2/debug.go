@@ -113,7 +113,6 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	}
 	w.Header().Add("Content-Type", "application/json")
 	_, _ = w.Write(out)
-	w.WriteHeader(http.StatusOK)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
@@ -445,8 +444,8 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
+
 	_, _ = w.Write(out)
-	w.WriteHeader(http.StatusOK)
 }
 
 func writeAllADS(w io.Writer) {

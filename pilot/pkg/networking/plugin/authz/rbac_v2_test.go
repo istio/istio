@@ -51,9 +51,10 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 								Names: []string{"allUsers"},
 							},
 						},
-						RoleRef: &rbacproto.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
+						Actions: []*rbacproto.AccessRule{
+							{
+								NotMethods: []string{"DELETE"},
+							},
 						},
 					},
 				},
@@ -85,9 +86,10 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 								Namespaces: []string{"testing"},
 							},
 						},
-						RoleRef: &rbacproto.RoleRef{
-							Kind: "ServiceRole",
-							Name: "service-role-1",
+						Actions: []*rbacproto.AccessRule{
+							{
+								NotMethods: []string{"DELETE"},
+							},
 						},
 					},
 				},
