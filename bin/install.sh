@@ -18,6 +18,12 @@ cd  "$( dirname "${BASH_SOURCE[0]}" )/.."
 export IBASE="$(pwd)"
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 
+export RESOURCES_FLAGS="--set global.defaultResources.requests.cpu=0m \
+--set resources.requests.cpu=0 \
+--set resources.requests.memory=0 \
+--set global.proxy.resources.requests.cpu=0 \
+--set global.proxy.resources.requests.memory=0"
+
 # Install istio crds
 
 function install_crds() {
@@ -32,7 +38,7 @@ function install_crds() {
 function install_system() {
     kubectl delete namespace istio-system --wait --ignore-not-found
     echo "Installing citadel.."
-    bin/iop istio-system istio-system-security $IBASE/security/citadel/
+    bin/iop istio-system istio-system-security $IBASE/security/citadel/ --set global.defaultResources.requests.cpu=0m
     
     kubectl get deployments -n istio-system
     kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=$WAIT_TIMEOUT
@@ -46,16 +52,16 @@ function install_system() {
 function install_control() {
     kubectl delete namespace istio-control --wait --ignore-not-found
     echo "Installing galley.."
-    bin/iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true
+    bin/iop istio-control istio-config $IBASE/istio-control/istio-config --set configValidation=true $RESOURCES_FLAGS
     echo "Installing pilot.."
-    bin/iop istio-control istio-discovery $IBASE/istio-control/istio-discovery
+    bin/iop istio-control istio-discovery $IBASE/istio-control/istio-discovery $RESOURCES_FLAGS
     echo "Installing auto-injector.."
-    bin/iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=istio-control
+    bin/iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=istio-control $RESOURCES_FLAGS
 
     kubectl get deployments -n istio-control
     kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=$WAIT_TIMEOUT
-    kubectl rollout status  deployment istio-galley -n istio-control --timeout=$WAIT_TIMEOUT
-    kubectl rollout status  deployment istio-pilot  -n istio-control --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-galley -n istio-control --timeout=$WAIT_TIMEOUT 
+    kubectl rollout status  deployment istio-pilot  -n istio-control --timeout=$WAIT_TIMEOUT 
     kubectl rollout status  deployment istio-sidecar-injector -n istio-control --timeout=$WAIT_TIMEOUT
 
     kubectl get deployments -n istio-control
@@ -67,9 +73,9 @@ function install_control() {
 function install_ingress() {
     kubectl delete namespace istio-ingress --wait --ignore-not-found
     echo "Installing pilot.."
-    bin/iop istio-ingress istio-discovery $IBASE/istio-control/istio-discovery
+    bin/iop istio-ingress istio-discovery $IBASE/istio-control/istio-discovery $RESOURCES_FLAGS
     echo "Installing ingress.."
-    bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=istio-control
+    bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=istio-control $RESOURCES_FLAGS
 
     kubectl get deployments -n istio-ingress
     kubectl wait deployments ingressgateway  istio-pilot -n istio-ingress --for=condition=available --timeout=$WAIT_TIMEOUT
@@ -84,11 +90,11 @@ function install_ingress() {
 function install_telemetry() {
     kubectl delete namespace istio-telemetry --wait --ignore-not-found
     echo "Installing istio-grafana.."
-    bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-control
+    bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-control $RESOURCES_FLAGS
     echo "Installing istio-mixer.."
-    bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control
+    bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control -$RESOURCES_FLAGS
     echo "Installing istio-prometheus."
-    bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control
+    bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control $RESOURCES_FLAGS
     kubectl get deployments -n istio-telemetry
     kubectl wait deployments grafana istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment grafana -n istio-telemetry --timeout=$WAIT_TIMEOUT
