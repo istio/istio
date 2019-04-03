@@ -199,6 +199,7 @@ jobs:
             .concourse/connection-test.sh &
             PID=$!
 
+            #TODO: Remove this patch (should be merged to master)
             git apply  --ignore-space-change --ignore-whitespace  - <<PATCH
             diff --git a/security/citadel/templates/deployment.yaml b/security/citadel/templates/deployment.yaml
             index 2639959..6a32ed0 100644
