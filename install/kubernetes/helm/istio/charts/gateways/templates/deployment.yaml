@@ -23,7 +23,9 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-        {{ $key }}: {{ $val }}
+      {{- range $key, $val := $spec.labels }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
   template:
     metadata:
       labels:
