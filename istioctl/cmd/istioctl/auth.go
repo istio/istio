@@ -65,7 +65,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if configDumpFile != "" {
 				configDump, err = getConfigDumpFromFile(configDumpFile)
 				if err != nil {
-					return fmt.Errorf("failed to get config dump from file %s", configDumpFile)
+					return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
 				}
 			} else if len(args) == 1 {
 				podName, podNamespace := inferPodInfo(args[0], handleNamespace())
