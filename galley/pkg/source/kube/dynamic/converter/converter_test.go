@@ -22,7 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -540,14 +539,14 @@ func TestShouldProcessIngress(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ing := v1beta1.Ingress{
+		ing := extensions.Ingress{
 			ObjectMeta: metaV1.ObjectMeta{
 				Name:        "test-ingress",
 				Namespace:   "default",
 				Annotations: make(map[string]string),
 			},
-			Spec: v1beta1.IngressSpec{
-				Backend: &v1beta1.IngressBackend{
+			Spec: extensions.IngressSpec{
+				Backend: &extensions.IngressBackend{
 					ServiceName: "default-http-backend",
 					ServicePort: intstr.FromInt(80),
 				},
