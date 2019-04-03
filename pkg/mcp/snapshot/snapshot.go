@@ -35,11 +35,11 @@ type Snapshot interface {
 
 // Info is used for configz
 type Info struct {
-	// Collection is type_url
+	// Collection of mcp resource
 	Collection string
-	// Version of the resources
+	// Version of the resource
 	Version string
-	// Names of the resources.
+	// Names of the resource entries.
 	Names []string
 }
 
@@ -240,24 +240,27 @@ func (c *Cache) Status(group string) *StatusInfo {
 	return nil
 }
 
-// Types return all types of snapshots that the server layer is serving.
-func (c *Cache) Types() []string {
-	types := make([]string, 0, len(c.snapshots))
+// GetGroups returns all groups of snapshots that the server layer is serving.
+func (c *Cache) GetGroups() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	groups := make([]string, 0, len(c.snapshots))
 
 	for t := range c.snapshots {
-		types = append(types, t)
+		groups = append(groups, t)
 	}
-	sort.Strings(types)
+	sort.Strings(groups)
 
-	return types
+	return groups
 }
 
-// Snapshots return the snapshots information
-func (c *Cache) Snapshots(group string) []Info {
+// GetSnapshotInfo return the snapshots information
+func (c *Cache) GetSnapshotInfo(group string) []Info {
 
 	//if the group is empty, then use the default one
 	if group == "" {
-		group = c.Types()[0]
+		group = c.GetGroups()[0]
 	}
 
 	if snapshot, ok := c.snapshots[group]; ok {

@@ -72,8 +72,8 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	}
 
 	exists := false
-	for _, _type := range m["Types"].([]interface{}) {
-		if _type.(string) == groups.Default {
+	for _, group := range m["Groups"].([]interface{}) {
+		if group.(string) == groups.Default {
 			exists = true
 			break
 		}
@@ -83,8 +83,8 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	}
 
 	exists = false
-	for _, _collection := range m["Snapshots"].([]interface{}) {
-		if _collection.(map[string]interface{})["Collection"].(string) == testK8sCollection {
+	for _, collection := range m["Snapshots"].([]interface{}) {
+		if collection.(map[string]interface{})["Collection"].(string) == testK8sCollection {
 			exists = true
 			break
 		}

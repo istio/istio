@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/log"
 	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
@@ -220,8 +221,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
-	configz.Register(distributor)
-	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, []fw.Topic{configz.CreateTopic(distributor)})
 
 	return s, nil
 }

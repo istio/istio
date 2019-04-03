@@ -65,7 +65,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
-                {{ range $value := .Types }}
+                {{ range $value := .Groups }}
                     <li class="nav-item" id="nav-{{$value}}">
                         <a class="nav-link" href="#" onclick="refreshRecentRequests('{{$value}}')">{{$value}}</a>
                     </li>
@@ -92,7 +92,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
 <script>
     "use strict";
 
-    var defaultType = '{{index .Types 0}}';
+    var defaultGroup = '{{index .Groups 0}}';
 
     function resetActiveTab(tabId) {
         var tabs = document.getElementsByClassName("nav-item");
@@ -106,14 +106,14 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         }
     }
 
-    function refreshRecentRequests(type) {
-        //reset the default type to ensure refresh the desired data
-        defaultType = type
+    function refreshRecentRequests(group) {
+        //reset the default group to ensure refresh the desired data
+        defaultGroup = group
 
         //reset the selected tab
-        resetActiveTab(type)
+        resetActiveTab(group)
 
-        var url = window.location.protocol + "//" + window.location.host + "/configj?type="+type;
+        var url = window.location.protocol + "//" + window.location.host + "/configj?group="+group;
 
         var ajax = new XMLHttpRequest();
         ajax.onload = onload;
@@ -166,8 +166,8 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         }
     }
 
-    refreshRecentRequests(defaultType);
-    window.setInterval(refreshRecentRequests(defaultType), 1000);
+    refreshRecentRequests(defaultGroup);
+    window.setInterval(refreshRecentRequests(defaultGroup), 1000);
 
 </script>
 

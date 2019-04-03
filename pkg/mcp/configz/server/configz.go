@@ -34,8 +34,8 @@ var _ fw.Topic = &configzTopic{}
 
 // SnapshotTopic defines the expected interface for producing configz data from MCP snapshots.
 type SnapshotTopic interface {
-	Snapshots(group string) []snapshot.Info
-	Types() []string
+	GetSnapshotInfo(group string) []snapshot.Info
+	GetGroups() []string
 }
 
 // Register the Configz topic for the snapshots.
@@ -62,7 +62,7 @@ func (c *configzTopic) Prefix() string {
 
 type data struct {
 	Snapshots []snapshot.Info
-	Types     []string
+	Groups    []string
 }
 
 // Activate is implementation of Topic.Activate.
@@ -76,19 +76,19 @@ func (c *configzTopic) Activate(context fw.TopicContext) {
 	})
 
 	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("GET").Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		keys, ok := req.URL.Query()["type"]
-		_type := ""
+		keys, ok := req.URL.Query()["group"]
+		group := ""
 		if ok && len(keys[0]) > 1 {
-			_type = keys[0]
+			group = keys[0]
 		}
-		d := c.collectData(_type)
+		d := c.collectData(group)
 		fw.RenderJSON(w, http.StatusOK, d)
 	})
 }
 
 func (c *configzTopic) collectData(group string) *data {
 	return &data{
-		Snapshots: c.topic.Snapshots(group),
-		Types:     c.topic.Types(),
+		Snapshots: c.topic.GetSnapshotInfo(group),
+		Groups:    c.topic.GetGroups(),
 	}
 }
