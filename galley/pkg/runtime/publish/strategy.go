@@ -100,7 +100,6 @@ func NewStrategy(
 
 func (s *Strategy) OnChange() {
 	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
 
 	monitoring.RecordStrategyOnChange()
 
@@ -114,21 +113,22 @@ func (s *Strategy) OnChange() {
 		s.firstEvent = s.latestEvent
 
 		// Start or reset the timer.
+		if s.timer != nil {
+			// Timer has already been started, just reset it now.
+			// NOTE: Unlocking the state lock first, to avoid a potential race with
+			// the timer thread waiting to enter onTimer.
+			s.stateLock.Unlock()
+			s.resetChan <- struct{}{}
+			return
+		}
 		s.startTimerFn()
 	}
+
+	s.stateLock.Unlock()
 }
 
 // startTimer performs a start or reset on the timer. Called with lock on stateLock.
 func (s *Strategy) startTimer() {
-	if s.timer != nil {
-		// Already started, just perform a non-blocking reset of the timer.
-		select {
-		case s.resetChan <- struct{}{}:
-		default:
-		}
-		return
-	}
-
 	s.timer = time.NewTimer(s.timerFrequency)
 
 	eventLoop := func(ctx context.Context) {
