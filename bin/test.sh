@@ -33,6 +33,9 @@ kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
 kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
 kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
+kubectl rollout status deployments productpage-v1 --timeout=$WAIT_TIMEOUT
+kubectl get pod
+
 export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 export INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
 export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
