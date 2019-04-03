@@ -84,7 +84,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: ingressgateway
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   servers:
   - port:
       number: 15011
@@ -146,7 +148,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: ingressgateway
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   servers:
   - hosts:
     - "*.global"
@@ -169,7 +173,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
    workloadLabels:
-     istio: ingressgateway
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
    filters:
    - listenerMatch:
        portNumber: 15443
