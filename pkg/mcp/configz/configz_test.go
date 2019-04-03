@@ -34,7 +34,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
-	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
@@ -62,7 +61,7 @@ func TestConfigZ(t *testing.T) {
 	}
 
 	u := &updater{}
-	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
+	clnt := mcp.NewResourceSourceClient(cc)
 
 	options := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{{Name: testEmptyCollection}},
@@ -71,7 +70,7 @@ func TestConfigZ(t *testing.T) {
 		Metadata:          map[string]string{"foo": "bar"},
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
-	cl := client.New(clnt, options)
+	cl := sink.NewClient(clnt, options)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)
