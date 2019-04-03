@@ -403,6 +403,7 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
+// Represents a deployed Endpoint in k8s environment.
 type KubeEndpoint interface {
 	AppEndpoint
 	URL() *url.URL
