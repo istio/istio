@@ -39,6 +39,8 @@ jaeger:
       options:
         query:
           base-path: /jaeger
+    agent:
+      strategy: Sidecar
     query:
       options:
         query:
