@@ -56,7 +56,6 @@ type Server struct {
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
 	processor     *runtime.Processor
-	mcp           *server.Server
 	mcpSource     *source.Server
 	reporter      monitoring.Reporter
 	listenerMutex sync.Mutex
@@ -157,7 +156,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	var checker server.AuthChecker = server.NewAllowAllChecker()
+	var checker source.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -192,12 +191,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	s.mcp = server.New(options, checker)
-
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
 		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
+
 	s.mcpSource = source.NewServer(options, serverOptions)
 
 	// get the network stuff setup
@@ -215,7 +213,6 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
