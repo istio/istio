@@ -155,7 +155,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 			return lw, nil
 		},
 		Probe:         probe.NewProbe(),
-		retryInterval: 0,
+		retryInterval: 1 * time.Millisecond,
 	}
 	return client, ns, lw
 }
