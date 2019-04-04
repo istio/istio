@@ -15,38 +15,49 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+)
+
+const (
+	ipV4WildcardAddress = "0.0.0.0"
+	ipV6WildcardAddress = "::"
 )
 
 var (
-	ipPrefixes = getLocalIPPrefixes()
+	localAddresses = getLocalAddresses()
+	empty          = struct{}{}
 )
 
-// GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
-func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error) {
+// GetListeners retrieves the list of listeners from the Envoy admin port.
+func GetListeners(adminPort uint16) (*bytes.Buffer, error) {
 	buf, err := doHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/listeners", adminPort))
 	if err != nil {
-		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
+		return nil, multierror.Prefix(err, "failed retrieving Envoy listeners:")
 	}
+	return buf, nil
+}
 
+// ParseInboundListeners parses the given Envoy response (returned from GetListeners) and returns a set of all inbound ports.
+func ParseInboundListeners(fromEnvoy string) (map[uint16]struct{}, error) {
 	// Clean the input string to remove surrounding brackets
-	input := strings.Trim(strings.TrimSpace(buf.String()), "[]")
+	input := strings.Trim(strings.TrimSpace(fromEnvoy), "[]")
 
 	// Get the individual listener strings.
 	listeners := strings.Split(input, ",")
-	ports := make(map[uint16]bool)
+	ports := make(map[uint16]struct{})
 	for _, l := range listeners {
 		// Remove quotes around the string
 		l = strings.Trim(strings.TrimSpace(l), "\"")
 
 		ipAddrParts := strings.Split(l, ":")
 		if len(ipAddrParts) < 2 {
-			return nil, "", fmt.Errorf("failed parsing Envoy listener: %s", l)
+			return nil, fmt.Errorf("failed parsing Envoy listener: %s", l)
 		}
 		// Before checking if listener is local, removing port portion of the address
 		ipAddr := strings.TrimSuffix(l, ":"+ipAddrParts[len(ipAddrParts)-1])
@@ -57,32 +68,41 @@ func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error)
 		portStr := ipAddrParts[len(ipAddrParts)-1]
 		port, err := strconv.ParseUint(portStr, 10, 16)
 		if err != nil {
-			return nil, "", multierror.Prefix(err, fmt.Sprintf("failed parsing port for Envoy listener: %s", l))
+			return nil, multierror.Prefix(err, fmt.Sprintf("failed parsing port for Envoy listener: %s", l))
 		}
 
-		ports[uint16(port)] = true
+		ports[uint16(port)] = empty
 	}
 
-	return ports, input, nil
+	return ports, nil
 }
 
 func isLocalListener(l string) bool {
-	for _, ipPrefix := range ipPrefixes {
-		// In case of IPv6 address, it always comes in "[]", remove them so HasPrefix would work
-		if strings.HasPrefix(strings.Trim(l, "[]"), ipPrefix) {
-			return true
-		}
+	// If it's an IPv6 address, strip off the surrounding brackets.
+	l = strings.Trim(l, "[]")
+
+	ip := net.ParseIP(l)
+	if ip == nil {
+		// Failed parsing the IP.
+		return false
 	}
-	return false
+
+	address := ip.String()
+	_, ok := localAddresses[address]
+	return ok
 }
 
-func getLocalIPPrefixes() []string {
+func getLocalAddresses() map[string]struct{} {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	prefixes := make([]string, 0, len(ifaces))
+	addressSet := make(map[string]struct{})
+
+	// Add wildcard addresses for ipv4 and ipv6.
+	addressSet[net.ParseIP(ipV4WildcardAddress).String()] = empty
+	addressSet[net.ParseIP(ipV6WildcardAddress).String()] = empty
 
 	for _, i := range ifaces {
 		addrs, err := i.Addrs()
@@ -98,8 +118,11 @@ func getLocalIPPrefixes() []string {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			prefixes = append(prefixes, ip.String())
+			if ip != nil {
+				addressSet[ip.String()] = empty
+			}
 		}
 	}
-	return prefixes
+
+	return addressSet
 }

@@ -43,7 +43,11 @@ func (p *Probe) Check() error {
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
 func (p *Probe) checkInboundConfigured() error {
 	if len(p.ApplicationPorts) > 0 {
-		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.AdminPort)
+		buf, err := util.GetListeners(p.AdminPort)
+		if err != nil {
+			return err
+		}
+		listeningPorts, err := util.ParseInboundListeners(buf.String())
 		if err != nil {
 			return err
 		}
@@ -53,14 +57,14 @@ func (p *Probe) checkInboundConfigured() error {
 		// confuration in Envoy. The CDS/LDS updates will contain everything, so just ensuring at least one port has
 		// been configured should be sufficient.
 		for _, appPort := range p.ApplicationPorts {
-			if listeningPorts[appPort] {
+			if _, ok := listeningPorts[appPort]; ok {
 				// Success - Envoy is configured.
 				return nil
 			}
 			err = multierror.Append(err, fmt.Errorf("envoy missing listener for inbound application port: %d", appPort))
 		}
 		if err != nil {
-			return multierror.Append(fmt.Errorf("failed checking application ports. listeners=%s", listeners), err)
+			return multierror.Append(fmt.Errorf("failed checking application ports. listeners=%s", buf), err)
 		}
 	}
 	return nil
