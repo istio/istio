@@ -368,7 +368,9 @@ global:
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
     enabled: true
-    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # PodDisruptionBudget's are deleted and created before helm actions, using helm hooks to work around a PodDisruptionBudget limitation
+    # Hooks are: pre-rollback, pre-upgrade, pre-install and "helm.sh/hook-delete-policy" is "before-hook-creation"
+    # This is to recreate first, and allow actions to use budget changes specified
     # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and

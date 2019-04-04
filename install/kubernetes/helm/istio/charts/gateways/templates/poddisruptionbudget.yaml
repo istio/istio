@@ -7,6 +7,9 @@ kind: PodDisruptionBudget
 metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  annotations:
+    helm.sh/hook:  pre-rollback, pre-upgrade, pre-install
+    "helm.sh/hook-delete-policy": "before-hook-creation"
   labels:
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}

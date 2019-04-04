@@ -7,6 +7,9 @@ kind: PodDisruptionBudget
 metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
+  annotations:
+    helm.sh/hook:  pre-rollback, pre-upgrade, pre-install
+    "helm.sh/hook-delete-policy": "before-hook-creation"
   labels:
     app: {{ $key }}
     chart: {{ template "mixer.chart" $ }}

@@ -4,6 +4,9 @@ kind: PodDisruptionBudget
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook:  pre-rollback, pre-upgrade, pre-install
+    "helm.sh/hook-delete-policy": "before-hook-creation"
   labels:
     app: {{ template "pilot.name" . }}
     chart: {{ template "pilot.chart" . }}
