@@ -3,8 +3,17 @@ kind: DaemonSet
 metadata:
   creationTimestamp: null
   name: hello
+  labels:
+    app: hello
+    tier: backend
+    track: stable
 spec:
   strategy: {}
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   template:
     metadata:
       annotations:

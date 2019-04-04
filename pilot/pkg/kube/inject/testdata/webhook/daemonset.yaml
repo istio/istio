@@ -2,7 +2,16 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: hello
+  labels:
+    app: hello
+    tier: backend
+    track: stable
 spec:
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:
