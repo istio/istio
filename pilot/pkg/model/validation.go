@@ -2036,21 +2036,21 @@ func validateSubsetName(name string) error {
 	return nil
 }
 
-func validatePortSelector(selector *networking.PortSelector) error {
+func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	if selector == nil {
 		return nil
 	}
 
-	// port selector is either a name or a number
+	// port must be a number
 	name := selector.GetName()
 	number := int(selector.GetNumber())
-	if name == "" && number == 0 {
-		// an unset value is indistinguishable from a zero value, so return both errors
-		return appendErrors(validateSubsetName(name), ValidatePort(number))
-	} else if number != 0 {
-		return ValidatePort(number)
+	if name != "" {
+		errs = appendErrors(errs, fmt.Errorf("port.name %s is no longer supported for destination", name))
 	}
-	return validateSubsetName(name)
+	if number != 0 {
+		errs = appendErrors(errs, ValidatePort(number))
+	}
+	return
 }
 
 func validateAuthNPortSelector(selector *authn.PortSelector) error {
