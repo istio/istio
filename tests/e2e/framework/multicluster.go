@@ -134,7 +134,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		return err
 	}
 	if ingressGatewayAddr != "" {
-		k.appendIngressGateway(dst, ingressGatewayAddr)
+		_ = k.appendIngressGateway(dst, ingressGatewayAddr)
 	}
 	return nil
 }

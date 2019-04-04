@@ -93,7 +93,7 @@ func TestPodChurn(t *testing.T) {
 			if code != httpOK {
 				numBadResponses += count
 			}
-			aggregateResults[code] = aggregateResults[code] + count
+			aggregateResults[code] += count
 		}
 	}
 
@@ -245,7 +245,7 @@ func (g *trafficGeneratorImpl) start() {
 				}
 				responseCount += len(responses)
 				for _, resp := range responses {
-					g.results[resp.Code] = g.results[resp.Code] + 1
+					g.results[resp.Code]++
 				}
 			}
 		}

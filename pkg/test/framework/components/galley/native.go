@@ -150,6 +150,10 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance,
 func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
 	defer appsignals.Notify("galley.native.ApplyConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {
 			scopes.Framework.Debugf("Making dir: %v", targetPath)
@@ -163,6 +167,7 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 
 		yamlText := string(contents)
 		if ns != nil {
+			var err error
 			yamlText, err = yml.ApplyNamespace(yamlText, ns.Name())
 			if err != nil {
 				return err

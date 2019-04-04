@@ -176,8 +176,7 @@ const (
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
 	if modestr, found := node.Metadata[NodeMetadataRouterMode]; found {
-		switch RouterMode(modestr) {
-		case SniDnatRouter:
+		if RouterMode(modestr) == SniDnatRouter {
 			return SniDnatRouter
 		}
 	}

@@ -100,11 +100,10 @@ type topic struct {
 }
 
 func getTopics() []topic {
-	var topics []topic
-
 	topicMutex.Lock()
 	defer topicMutex.Unlock()
 
+	topics := make([]topic, 0, len(allTopics))
 	for _, t := range allTopics {
 		topics = append(topics, topic{Name: t.Title(), URL: "/" + t.Prefix() + "z/"})
 	}
