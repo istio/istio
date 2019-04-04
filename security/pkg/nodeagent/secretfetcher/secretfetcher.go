@@ -89,7 +89,7 @@ func fatalf(template string, args ...interface{}) {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string, tlsFlag bool,
 	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
@@ -101,7 +101,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		}
 		ret.Init(cs.CoreV1())
 	} else {
-		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
+		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create caClient: %v", err)

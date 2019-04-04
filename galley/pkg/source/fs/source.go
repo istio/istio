@@ -111,14 +111,12 @@ func (s *source) readFile(path string, info os.FileInfo) []*fileResource {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resourceKeyList := make([]*fileResourceKey, 0, 10)
+
 	for _, r := range s.parseFile(path, data) {
 		if !s.kinds[r.spec.Kind] {
 			continue
 		}
 		result = append(result, r)
-		key := r.newKey()
-		resourceKeyList = append(resourceKeyList, &key)
 	}
 	return result
 }

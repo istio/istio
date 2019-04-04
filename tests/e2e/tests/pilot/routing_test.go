@@ -248,7 +248,7 @@ func TestRoutes(t *testing.T) {
 						resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
 						count := make(map[string]int)
 						for _, elt := range resp.Version {
-							count[elt] = count[elt] + 1
+							count[elt]++
 						}
 						log.Infof("request counts %v", count)
 						epsilon := 10

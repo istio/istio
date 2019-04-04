@@ -187,7 +187,6 @@ func logProgress(duration time.Duration, wg *sync.WaitGroup) {
 		case tnow := <-ticker.C:
 			timeRemaining := end.Sub(tnow)
 			logTimeRemaining(timeRemaining)
-		default:
 		}
 	}
 }

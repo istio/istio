@@ -402,9 +402,7 @@ func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) er
 		}
 
 		// wait for interrupt (or connection close)
-		select {
-		case <-fw.StopChannel:
-			return nil
-		}
+		<-fw.StopChannel
+		return nil
 	}
 }

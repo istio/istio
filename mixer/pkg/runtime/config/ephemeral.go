@@ -278,10 +278,8 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[
 					dict, err := toDictionary(handlerProto.Params)
 					if err != nil {
 						log.Warnf("could not convert handler params; using default config: %v", err)
-					} else {
-						if err := convert(dict, c); err != nil {
-							log.Warnf("could not convert handler params; using default config: %v", err)
-						}
+					} else if err := convert(dict, c); err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
 					}
 				}
 				staticConfig.Params = c

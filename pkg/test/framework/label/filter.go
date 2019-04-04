@@ -37,7 +37,7 @@ func NewSelector(present []Instance, absent []Instance) Selector {
 	}
 }
 
-var userLabelRegex = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)*$")
+var userLabelRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)*$`)
 
 func ParseSelector(s string) (Selector, error) {
 	var present, absent []Instance

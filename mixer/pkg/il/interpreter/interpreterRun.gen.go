@@ -123,7 +123,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
-			sp = sp - 2
+			sp -= 2
 
 		case il.DupS, il.DupB:
 			if sp < 1 {
@@ -163,7 +163,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			ip++
 			registers[t1] = opstack[sp-1]
 			registers[t1+1] = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 
 		case il.ALoadS:
 			t1 = body[ip]
@@ -187,7 +187,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			ip++
 			registers[t1] = body[ip]
 			registers[t1+1] = body[ip+1]
-			ip = ip + 2
+			ip += 2
 
 		case il.RPushS, il.RPushB:
 			t1 = body[ip]
@@ -206,7 +206,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			opstack[sp] = registers[t1+1]
 			opstack[sp+1] = registers[t1]
-			sp = sp + 2
+			sp += 2
 
 		case il.APushS:
 			t1 = body[ip]
@@ -235,13 +235,13 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.APushI, il.APushD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp > opStackSize-2 {
 				goto STACK_OVERFLOW
 			}
 			opstack[sp] = t2
 			opstack[sp+1] = t1
-			sp = sp + 2
+			sp += 2
 
 		case il.EqS:
 			if sp < 2 {
@@ -249,7 +249,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -273,7 +273,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 == t2 {
 				opstack[sp] = 1
 				sp++
@@ -335,16 +335,16 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.AEqI, il.AEqD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			if opstack[sp-1] == t1 && opstack[sp-2] == t2 {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -355,7 +355,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if (t1 == 0 && t2 == 0) || (t1 != 0 && t2 != 0) {
 				opstack[sp] = 0
 				sp++
@@ -370,7 +370,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 != 0 && t2 != 0 {
 				opstack[sp] = 1
 				sp++
@@ -385,7 +385,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 == 0 && t2 == 0 {
 				opstack[sp] = 0
 				sp++
@@ -526,7 +526,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.ResolveD:
 			if sp > opStackSize-2 {
@@ -549,7 +549,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tu64 = math.Float64bits(tf64)
 			opstack[sp] = uint32(tu64 >> 32)
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.ResolveF:
 			if sp > opStackSize-2 {
@@ -652,7 +652,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				}
 				opstack[sp] = uint32(ti64 >> 32)
 				opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-				sp = sp + 2
+				sp += 2
 				opstack[sp] = 1
 				sp++
 			}
@@ -678,7 +678,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				tu64 = math.Float64bits(tf64)
 				opstack[sp] = uint32(tu64 >> 32)
 				opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-				sp = sp + 2
+				sp += 2
 				opstack[sp] = 1
 				sp++
 			}
@@ -713,15 +713,15 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 = int64(t1) + int64(t2)<<32
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 += int64(t1) + int64(t2)<<32
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.AddS:
 			if sp < 2 {
@@ -729,7 +729,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -754,16 +754,16 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 = int64(t1) + int64(t2)<<32
 			ti64 *= -1
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 += int64(t1) + int64(t2)<<32
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.AAddI:
 			if sp < 2 {
@@ -771,15 +771,15 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			ti64 = int64(t1) + int64(t2)<<32
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 += int64(t1) + int64(t2)<<32
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.ASubI:
 			if sp < 2 {
@@ -787,16 +787,16 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			ti64 = int64(t1) + int64(t2)<<32
 			ti64 *= -1
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			ti64 += int64(t1) + int64(t2)<<32
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.AddD:
 			if sp < 4 {
@@ -804,16 +804,16 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tu64 = math.Float64bits(tf64)
 			opstack[sp] = uint32(tu64 >> 32)
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.SubD:
 			if sp < 4 {
@@ -821,17 +821,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tf64 *= -1
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tu64 = math.Float64bits(tf64)
 			opstack[sp] = uint32(tu64 >> 32)
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.AAddD:
 			if sp < 2 {
@@ -839,16 +839,16 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tu64 = math.Float64bits(tf64)
 			opstack[sp] = uint32(tu64 >> 32)
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.ASubD:
 			if sp < 2 {
@@ -856,17 +856,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tf64 *= -1
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
 			tu64 = math.Float64bits(tf64)
 			opstack[sp] = uint32(tu64 >> 32)
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.SizeS:
 			if sp < 1 {
@@ -881,7 +881,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			ti64 = int64(len(tStr))
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
-			sp = sp + 2
+			sp += 2
 
 		case il.Jmp:
 			t1 = body[ip]
@@ -1024,7 +1024,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1043,7 +1043,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				hp++
 				opstack[sp] = t3
 				opstack[sp+1] = 1
-				sp = sp + 2
+				sp += 2
 			} else {
 				opstack[sp] = 0
 				sp++
@@ -1055,7 +1055,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1088,7 +1088,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1169,7 +1169,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1240,17 +1240,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.ALtI:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
 			if int64(t1)+int64(t2)<<32 > ti64 {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1258,18 +1258,18 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.ALtD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
 
 			if tf64 < math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1280,7 +1280,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1351,17 +1351,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.ALeI:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
 			if int64(t1)+int64(t2)<<32 >= ti64 {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1369,17 +1369,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.ALeD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
 			if tf64 <= math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1390,7 +1390,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1461,17 +1461,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.AGtI:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
 			if int64(t1)+int64(t2)<<32 < ti64 {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1479,17 +1479,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.AGtD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
 			if tf64 > math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1500,7 +1500,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			t1 = opstack[sp-1]
 			t2 = opstack[sp-2]
-			sp = sp - 2
+			sp -= 2
 			if t1 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
@@ -1571,17 +1571,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.AGeI:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
 			if (int64(t1) + int64(t2)<<32) <= ti64 {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
@@ -1589,17 +1589,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.AGeD:
 			t1 = body[ip]
 			t2 = body[ip+1]
-			ip = ip + 2
+			ip += 2
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
 			if tf64 >= math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 1
 				sp++
 			} else {
-				sp = sp - 2
+				sp -= 2
 				opstack[sp] = 0
 				sp++
 			}
