@@ -1,10 +1,15 @@
-apiVersion: extensions/v1beta1
-kind: ReplicaSet
+apiVersion: apps/v1
+kind: ReplicaSets
 metadata:
   creationTimestamp: null
   name: hello
+  labels:
+    app: hello
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello
   template:
     metadata:
       annotations:

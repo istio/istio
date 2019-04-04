@@ -1,10 +1,20 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: hello-v1
+  name: hello
+  labels:
+    app: hello
+    tier: backend
+    track: stable-v1
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+      version: v1
   strategy: {}
   template:
     metadata:
@@ -149,11 +159,15 @@ spec:
 status: {}
 
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: hello-v2
+  name: hello
+  labels:
+    app: hello
+    tier: backend
+    track: stable-v2
 spec:
   replicas: 3
   strategy: {}

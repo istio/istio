@@ -1,9 +1,14 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traffic
+  labels:
+    app: traffic
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: traffic
   template:
     metadata:
       annotations:

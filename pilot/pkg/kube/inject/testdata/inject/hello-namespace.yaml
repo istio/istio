@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello
   namespace: test
+  labels:
+    app: hello
+    tier: backend
+    track: stable
 spec:
   replicas: 7
   template:

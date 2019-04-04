@@ -2,9 +2,18 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: hello
+  labels:
+    app: hello
+    tier: backend
+    track: stable
 spec:
   serviceName: hello
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:
