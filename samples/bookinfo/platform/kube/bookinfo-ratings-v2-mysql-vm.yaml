@@ -12,12 +12,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v2-mysql-vm
+  labels:
+    app: ratings
+    version: v2-mysql-vm
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+      version: v2-mysql-vm
   template:
     metadata:
       labels:
