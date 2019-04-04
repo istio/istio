@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/configz"
+	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
