@@ -54,6 +54,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
@@ -259,6 +260,19 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				set.entries = append(defaultSet.entries, set.entries...)
 			}
 		}
+	}
+
+	for variety, vTable := range b.table.entries {
+		totalDests := 0
+		for _, nsTable := range vTable.entries {
+			totalDests += nsTable.Count()
+		}
+		ctx := context.Background()
+		var err error
+		if ctx, err = tag.New(ctx, tag.Insert(monitoring.VarietyTag, variety.String())); err != nil {
+			log.Errorf("error establishing monitoring context for variety type: %v", err)
+		}
+		stats.Record(ctx, monitoring.DestinationsPerVarietyTotal.M(int64(totalDests)))
 	}
 
 	stats.Record(snapshot.MonitoringContext,
