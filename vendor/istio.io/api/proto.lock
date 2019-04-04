@@ -4473,6 +4473,14 @@
                   "name": "source_labels",
                   "type": "string"
                 }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 9,
+                  "name": "query_params",
+                  "type": "StringMatch"
+                }
               }
             ]
           },

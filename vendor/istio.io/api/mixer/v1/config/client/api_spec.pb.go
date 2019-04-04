@@ -625,9 +625,9 @@ func (m *HTTPAPISpec) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintApiSpec(dAtA, i, uint64(m.Attributes.Size()))
-		n1, err := m.Attributes.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Attributes.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -677,9 +677,9 @@ func (m *HTTPAPISpecPattern) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintApiSpec(dAtA, i, uint64(m.Attributes.Size()))
-		n2, err := m.Attributes.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Attributes.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -690,9 +690,9 @@ func (m *HTTPAPISpecPattern) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.HttpMethod)
 	}
 	if m.Pattern != nil {
-		nn3, err := m.Pattern.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn3, err3 := m.Pattern.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += nn3
 	}
@@ -731,9 +731,9 @@ func (m *APIKey) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Key != nil {
-		nn4, err := m.Key.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn4, err4 := m.Key.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += nn4
 	}
@@ -1007,10 +1007,20 @@ func (this *HTTPAPISpec) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForPatterns := "[]*HTTPAPISpecPattern{"
+	for _, f := range this.Patterns {
+		repeatedStringForPatterns += strings.Replace(f.String(), "HTTPAPISpecPattern", "HTTPAPISpecPattern", 1) + ","
+	}
+	repeatedStringForPatterns += "}"
+	repeatedStringForApiKeys := "[]*APIKey{"
+	for _, f := range this.ApiKeys {
+		repeatedStringForApiKeys += strings.Replace(f.String(), "APIKey", "APIKey", 1) + ","
+	}
+	repeatedStringForApiKeys += "}"
 	s := strings.Join([]string{`&HTTPAPISpec{`,
 		`Attributes:` + strings.Replace(fmt.Sprintf("%v", this.Attributes), "Attributes", "v1.Attributes", 1) + `,`,
-		`Patterns:` + strings.Replace(fmt.Sprintf("%v", this.Patterns), "HTTPAPISpecPattern", "HTTPAPISpecPattern", 1) + `,`,
-		`ApiKeys:` + strings.Replace(fmt.Sprintf("%v", this.ApiKeys), "APIKey", "APIKey", 1) + `,`,
+		`Patterns:` + repeatedStringForPatterns + `,`,
+		`ApiKeys:` + repeatedStringForApiKeys + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1102,9 +1112,19 @@ func (this *HTTPAPISpecBinding) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForServices := "[]*IstioService{"
+	for _, f := range this.Services {
+		repeatedStringForServices += strings.Replace(fmt.Sprintf("%v", f), "IstioService", "IstioService", 1) + ","
+	}
+	repeatedStringForServices += "}"
+	repeatedStringForApiSpecs := "[]*HTTPAPISpecReference{"
+	for _, f := range this.ApiSpecs {
+		repeatedStringForApiSpecs += strings.Replace(f.String(), "HTTPAPISpecReference", "HTTPAPISpecReference", 1) + ","
+	}
+	repeatedStringForApiSpecs += "}"
 	s := strings.Join([]string{`&HTTPAPISpecBinding{`,
-		`Services:` + strings.Replace(fmt.Sprintf("%v", this.Services), "IstioService", "IstioService", 1) + `,`,
-		`ApiSpecs:` + strings.Replace(fmt.Sprintf("%v", this.ApiSpecs), "HTTPAPISpecReference", "HTTPAPISpecReference", 1) + `,`,
+		`Services:` + repeatedStringForServices + `,`,
+		`ApiSpecs:` + repeatedStringForApiSpecs + `,`,
 		`}`,
 	}, "")
 	return s
