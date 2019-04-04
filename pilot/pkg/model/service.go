@@ -109,8 +109,8 @@ const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
 
-	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
-	// registry doesn't provide one.
+	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
+	// registry's value.
 	//
 	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
 	LocalityLabel = "istio-locality"
@@ -383,17 +383,22 @@ type ServiceInstance struct {
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
-// GetLocality returns the availability zone from an instance.
-// - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
-// - consul: defaults to 'instance.Datacenter'
+// GetLocality returns the availability zone from an instance. If service instance label for locality
+// is set we use this. Otherwise, we use the one set by the registry:
+//   - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
+// 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	if si.Endpoint.Locality != "" {
-		return si.Endpoint.Locality
+	if si.Labels != nil && si.Labels[LocalityLabel] != "" {
+		// if there are /'s present we don't need to replace
+		if strings.Contains(si.Labels[LocalityLabel], "/") {
+			return si.Labels[LocalityLabel]
+		}
+		// replace "." with "/"
+		return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
-	// replace "." with "/"
-	return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
+	return si.Endpoint.Locality
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
