@@ -813,6 +813,49 @@ func TestValidateProxyConfig(t *testing.T) {
 			),
 			isValid: false,
 		},
+		{
+			name: "datadog without address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog with correct address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "datadog-agent:8126",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "datadog with invalid address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "address-missing-port-number",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
