@@ -14,7 +14,7 @@ items:
           port: 80
           targetPort: 80
       type: LoadBalancer
-  - apiVersion: extensions/v1beta1
+  - apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: frontend
