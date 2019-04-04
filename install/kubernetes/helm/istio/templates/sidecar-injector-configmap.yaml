@@ -124,6 +124,9 @@ data:
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+        - --datadogAgentAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetDatadog.GetAddress ]]" }}
       {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
@@ -165,6 +168,12 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        {{ if eq .Values.global.proxy.tracer "datadog" }}
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        {{ end }}
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
