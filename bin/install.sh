@@ -92,7 +92,7 @@ function install_telemetry() {
     echo "Installing istio-grafana.."
     bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-control $RESOURCES_FLAGS
     echo "Installing istio-mixer.."
-    bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control -$RESOURCES_FLAGS
+    bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control $RESOURCES_FLAGS
     echo "Installing istio-prometheus."
     bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control $RESOURCES_FLAGS
     kubectl get deployments -n istio-telemetry
