@@ -9,9 +9,9 @@ metadata:
 spec:
   selector:
     matchLabels:
-        app: hello
-        tier: backend
-        track: stable
+      app: hello
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:

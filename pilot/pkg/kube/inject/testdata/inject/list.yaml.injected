@@ -14,9 +14,9 @@ items:
     replicas: 3
     selector:
       matchLabels:
-        app: hello
-        tier: backend
-        track: stable
+      app: hello
+      tier: backend
+      track: stable
         version: v1
     strategy: {}
     template:

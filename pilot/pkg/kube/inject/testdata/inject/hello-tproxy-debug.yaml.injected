@@ -9,6 +9,11 @@ metadata:
     track: stable
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:

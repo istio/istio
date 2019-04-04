@@ -8,7 +8,7 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-        app: user-volume 
+      app: user-volume 
   template:
     metadata:
       annotations:

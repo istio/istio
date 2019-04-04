@@ -12,10 +12,10 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-        app: hello
-        tier: backend
-        track: stable
-        version: v1
+      app: hello
+      tier: backend
+      track: stable
+      version: v1
   strategy: {}
   template:
     metadata:
@@ -157,10 +157,10 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-        app: hello
-        tier: backend
-        track: stable
-        version: v2
+      app: hello
+      tier: backend
+      track: stable
+      version: v2
   strategy: {}
   template:
     metadata:

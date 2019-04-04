@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: ReplicaSets
+kind: ReplicaSet
 metadata:
   name: hello
   labels:

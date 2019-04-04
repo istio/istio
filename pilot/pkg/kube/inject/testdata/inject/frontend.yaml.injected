@@ -25,9 +25,9 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-        app: hello
-        tier: backend
-        track: stable
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
