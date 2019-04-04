@@ -539,7 +539,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 			defer adsResponse.Close()
 
-			adsResponse.DumpCfg = true
+			adsResponse.DumpCfg = false
 			adsResponse.Watch()
 			_, err = adsResponse.Wait("lds", 100*time.Second)
 			if err != nil {
