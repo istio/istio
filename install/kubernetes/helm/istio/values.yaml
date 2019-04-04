@@ -329,6 +329,12 @@ global:
   # the desired values.
   defaultNodeSelector: {}
 
+  # Default node tolerations to be applied to all deployments so that all pods can be 
+  # scheduled to a particular nodes. Each component can overwrite these default 
+  # values by adding its tolerations block in the relevant section below and setting 
+  # the desired values.
+  defaultTolerations: []
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
