@@ -25,7 +25,7 @@ import (
 
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -45,7 +45,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
 					dummyDeployment,
-					extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
+					appsv1.SchemeGroupVersion.WithKind("Deployment"),
 				),
 			},
 		},
