@@ -22,8 +22,6 @@ import (
 
 const (
 	// tag names used by runtime packages
-	configID     = "configID"
-	initConfigID = "initConfigID" // the id of the config, at which the adapter was instantiated.
 	handler      = "handler"
 	meshFunction = "meshFunction"
 	adapterName  = "adapter"
@@ -31,11 +29,6 @@ const (
 )
 
 var (
-	// ConfigIDTag holds a config identifier for the context.
-	ConfigIDTag tag.Key
-	// InitConfigIDTag holds the config identifier used when the context was initialized.
-	InitConfigIDTag tag.Key
-	// HandlerTag holds the current handler for the context.
 	HandlerTag tag.Key
 	// MeshFunctionTag holds the current mesh function (logentry, metric, etc) for the context.
 	MeshFunctionTag tag.Key
@@ -205,12 +198,6 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 
 func init() {
 	var err error
-	if ConfigIDTag, err = tag.NewKey(configID); err != nil {
-		panic(err)
-	}
-	if InitConfigIDTag, err = tag.NewKey(initConfigID); err != nil {
-		panic(err)
-	}
 	if MeshFunctionTag, err = tag.NewKey(meshFunction); err != nil {
 		panic(err)
 	}
@@ -224,30 +211,29 @@ func init() {
 		panic(err)
 	}
 
-	configKeys := []tag.Key{ConfigIDTag}
-	envConfigKeys := []tag.Key{InitConfigIDTag, HandlerTag}
+	envConfigKeys := []tag.Key{HandlerTag}
 	dispatchKeys := []tag.Key{MeshFunctionTag, HandlerTag, AdapterTag, ErrorTag}
 
 	runtimeViews := []*view.View{
 		// config views
-		newView(AttributesTotal, configKeys, view.Count()),
-		newView(HandlersTotal, configKeys, view.Count()),
-		newView(InstancesTotal, configKeys, view.Count()),
-		newView(InstanceErrs, configKeys, view.Count()),
-		newView(RulesTotal, configKeys, view.Count()),
-		newView(RuleErrs, configKeys, view.Count()),
-		newView(AdapterInfosTotal, configKeys, view.Count()),
-		newView(AdapterErrs, configKeys, view.Count()),
-		newView(TemplatesTotal, configKeys, view.Count()),
-		newView(TemplateErrs, configKeys, view.Count()),
-		newView(MatchErrors, configKeys, view.Count()),
-		newView(UnsatisfiedActionHandlers, configKeys, view.Count()),
-		newView(HandlerValidationErrors, configKeys, view.Count()),
-		newView(NewHandlersTotal, configKeys, view.Count()),
-		newView(ReusedHandlersTotal, configKeys, view.Count()),
-		newView(ClosedHandlersTotal, configKeys, view.Count()),
-		newView(BuildFailuresTotal, configKeys, view.Count()),
-		newView(CloseFailuresTotal, configKeys, view.Count()),
+		newView(AttributesTotal, []tag.Key{}, view.LastValue()),
+		newView(HandlersTotal, []tag.Key{}, view.LastValue()),
+		newView(InstancesTotal, []tag.Key{}, view.LastValue()),
+		newView(InstanceErrs, []tag.Key{}, view.LastValue()),
+		newView(RulesTotal, []tag.Key{}, view.LastValue()),
+		newView(RuleErrs, []tag.Key{}, view.LastValue()),
+		newView(AdapterInfosTotal, []tag.Key{}, view.LastValue()),
+		newView(AdapterErrs, []tag.Key{}, view.LastValue()),
+		newView(TemplatesTotal, []tag.Key{}, view.LastValue()),
+		newView(TemplateErrs, []tag.Key{}, view.LastValue()),
+		newView(MatchErrors, []tag.Key{}, view.LastValue()),
+		newView(UnsatisfiedActionHandlers, []tag.Key{}, view.LastValue()),
+		newView(HandlerValidationErrors, []tag.Key{}, view.LastValue()),
+		newView(NewHandlersTotal, []tag.Key{}, view.LastValue()),
+		newView(ReusedHandlersTotal, []tag.Key{}, view.LastValue()),
+		newView(ClosedHandlersTotal, []tag.Key{}, view.LastValue()),
+		newView(BuildFailuresTotal, []tag.Key{}, view.LastValue()),
+		newView(CloseFailuresTotal, []tag.Key{}, view.LastValue()),
 
 		// env views
 		newView(WorkersTotal, envConfigKeys, view.LastValue()),

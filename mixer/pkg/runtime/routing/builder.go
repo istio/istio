@@ -154,6 +154,8 @@ func (b *builder) nextID() uint32 {
 
 func (b *builder) build(snapshot *config.Snapshot) {
 
+	var unsatActions, matchErrs int64
+
 	for _, rule := range snapshot.Rules {
 
 		// Create a compiled expression for the rule condition first.
@@ -161,7 +163,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
-			stats.Record(snapshot.MonitoringContext, monitoring.MatchErrors.M(1))
+			matchErrs++
 			// Skip the rule
 			continue
 		}
@@ -177,7 +179,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -207,7 +209,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 
-				stats.Record(snapshot.MonitoringContext, monitoring.UnsatisfiedActionHandlers.M(1))
+				unsatActions++
 				// Skip the rule
 				continue
 			}
@@ -258,6 +260,11 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			}
 		}
 	}
+
+	stats.Record(snapshot.MonitoringContext,
+		monitoring.UnsatisfiedActionHandlers.M(unsatActions),
+		monitoring.MatchErrors.M(matchErrs),
+	)
 }
 
 func (b *builder) compiler(mode lang.LanguageRuntime) lang.Compiler {
