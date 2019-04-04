@@ -4,6 +4,9 @@ metadata:
   name: traffic
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: traffic
   template:
     metadata:
       labels:

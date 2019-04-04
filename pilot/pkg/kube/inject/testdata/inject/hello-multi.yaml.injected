@@ -5,6 +5,12 @@ metadata:
   name: hello-v1
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
+      version: v1
   strategy: {}
   template:
     metadata:
@@ -139,6 +145,12 @@ metadata:
   name: hello-v2
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
+      version: v2
   strategy: {}
   template:
     metadata:

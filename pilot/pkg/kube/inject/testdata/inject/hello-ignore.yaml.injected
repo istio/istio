@@ -5,6 +5,16 @@ metadata:
   name: hello
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:

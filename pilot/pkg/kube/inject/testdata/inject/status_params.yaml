@@ -4,6 +4,9 @@ metadata:
   name: statusPort
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: status
   template:
     metadata:
       labels:

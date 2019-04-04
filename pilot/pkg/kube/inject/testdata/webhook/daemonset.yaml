@@ -3,6 +3,11 @@ kind: DaemonSet
 metadata:
   name: hello
 spec:
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:

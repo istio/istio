@@ -7,6 +7,12 @@ items:
       name: hello-v1
     spec:
       replicas: 3
+      selector:
+        matchLabels:
+          app: hello  
+          tier: frontend
+          track: stable
+          version: v1
       template:
         metadata:
           labels:
@@ -28,6 +34,12 @@ items:
       name: hello-v2
     spec:
       replicas: 3
+      selector:
+        matchLabels:
+          app: hello  
+          tier: frontend
+          track: stable
+          version: v2
       template:
         metadata:
           labels:

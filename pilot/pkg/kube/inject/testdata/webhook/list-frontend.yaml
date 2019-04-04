@@ -20,6 +20,11 @@ items:
       name: frontend
     spec:
       replicas: 1
+      selector:
+        matchLabels:
+          app: hello  
+          tier: frontend
+          track: stable
       template:
         metadata:
           labels:

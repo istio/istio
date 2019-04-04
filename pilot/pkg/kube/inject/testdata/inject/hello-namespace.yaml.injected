@@ -6,6 +6,11 @@ metadata:
   namespace: test
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stabl
   strategy: {}
   template:
     metadata:

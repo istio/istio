@@ -5,6 +5,9 @@ metadata:
   name: traffic
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: traffic
   strategy: {}
   template:
     metadata:

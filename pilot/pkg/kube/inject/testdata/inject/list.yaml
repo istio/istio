@@ -7,6 +7,11 @@ items:
       name: hello-v1
     spec:
       replicas: 3
+      selector:
+        matchLabels:
+          app: hello  
+          tier: backend
+          track: stable
       template:
         metadata:
           labels:
