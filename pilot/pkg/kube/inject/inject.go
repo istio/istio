@@ -87,8 +87,6 @@ func validateAnnotations(annotations map[string]string) (err error) {
 			}
 		} else if strings.Contains(name, "istio") {
 			log.Warnf("Potentially misspelled annotation '%s' with value '%s' encountered", name, value)
-		} else {
-			// unknown annotation, ignore
 		}
 	}
 	return
@@ -395,14 +393,12 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 			selector, err := metav1.LabelSelectorAsSelector(&neverSelector)
 			if err != nil {
 				log.Warnf("Invalid selector for NeverInjectSelector: %v (%v)", neverSelector, err)
-			} else {
-				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
-					log.Debugf("Explicitly disabling injection for pod %s/%s due to pod labels matching NeverInjectSelector config map entry.",
-						metadata.Namespace, potentialPodName(metadata))
-					inject = false
-					useDefault = false
-					break
-				}
+			} else if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+				log.Debugf("Explicitly disabling injection for pod %s/%s due to pod labels matching NeverInjectSelector config map entry.",
+					metadata.Namespace, potentialPodName(metadata))
+				inject = false
+				useDefault = false
+				break
 			}
 		}
 	}
@@ -413,14 +409,12 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 			selector, err := metav1.LabelSelectorAsSelector(&alwaysSelector)
 			if err != nil {
 				log.Warnf("Invalid selector for AlwaysInjectSelector: %v (%v)", alwaysSelector, err)
-			} else {
-				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
-					log.Debugf("Explicitly enabling injection for pod %s/%s due to pod labels matching AlwaysInjectSelector config map entry.",
-						metadata.Namespace, potentialPodName(metadata))
-					inject = true
-					useDefault = false
-					break
-				}
+			} else if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+				log.Debugf("Explicitly enabling injection for pod %s/%s due to pod labels matching AlwaysInjectSelector config map entry.",
+					metadata.Namespace, potentialPodName(metadata))
+				inject = true
+				useDefault = false
+				break
 			}
 		}
 	}

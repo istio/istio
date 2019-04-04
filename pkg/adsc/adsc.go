@@ -312,6 +312,7 @@ func (a *ADSC) handleRecv() {
 
 }
 
+// nolint: staticcheck
 func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}

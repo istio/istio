@@ -109,7 +109,7 @@ func generateDestinationPortRule(destinationPort []uint32) *policy.Permission_Or
 }
 
 // nolint:deadcode
-func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32) *policy.Permission_OrRules {
+func generateDestinationCidrRule(destinationPrefix []string, prefixLen []uint32) *policy.Permission_OrRules {
 	rules := &policy.Permission_OrRules{
 		OrRules: &policy.Permission_Set{},
 	}
@@ -118,7 +118,7 @@ func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32)
 			Rule: &policy.Permission_DestinationIp{
 				DestinationIp: &core.CidrRange{
 					AddressPrefix: destinationPrefix[i],
-					PrefixLen:     &types.UInt32Value{Value: PrefixLen[i]},
+					PrefixLen:     &types.UInt32Value{Value: prefixLen[i]},
 				},
 			}})
 	}

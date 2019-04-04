@@ -157,8 +157,8 @@ static_resources:
 
 var (
 	// The Template object parsed from the template string
-	envoyYamlTemplate                  = getEnvoyYamlTemplate()
-	outboundHTTPListenerNamePattern, _ = regexp.Compile("0.0.0.0_[0-9]+")
+	envoyYamlTemplate               = getEnvoyYamlTemplate()
+	outboundHTTPListenerNamePattern = regexp.MustCompile("0.0.0.0_[0-9]+")
 )
 
 func getEnvoyYamlTemplate() *template.Template {
@@ -483,6 +483,7 @@ func isVirtualListener(l *xdsapi.Listener) bool {
 	return l.Name == "virtual"
 }
 
+// nolint: staticcheck
 func getTCPProxyClusterName(filter *xdsapiListener.Filter) (string, error) {
 	// First, check if it's using the deprecated v1 format.
 	config := filter.GetConfig()
@@ -531,6 +532,7 @@ func getTCPProxyClusterName(filter *xdsapiListener.Filter) (string, error) {
 	return clusterSpec.Cluster, nil
 }
 
+// nolint: staticcheck
 func isInboundListener(l *xdsapi.Listener) (bool, error) {
 	for _, filter := range l.FilterChains[0].Filters {
 		switch filter.Name {

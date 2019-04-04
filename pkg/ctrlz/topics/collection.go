@@ -104,7 +104,7 @@ type mainContext struct {
 
 func (c *collectionTopic) handleMain(w http.ResponseWriter, _ *http.Request) {
 	context := mainContext{}
-	var names []string
+	names := make([]string, 0, len(c.collections))
 	for _, n := range c.collections {
 		names = append(names, n.Name())
 	}
@@ -223,7 +223,7 @@ func (r *staticCollection) Name() string {
 
 // Keys is implementation of ReadableCollection.Keys.
 func (r *staticCollection) Keys() ([]string, error) {
-	var keys []string
+	keys := make([]string, 0, len(r.items))
 	for k := range r.items {
 		keys = append(keys, k)
 	}

@@ -328,9 +328,7 @@ func main() {
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else {
-		if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
-			log.Errorf("Cannot write output to file %q", *outputFile)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

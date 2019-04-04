@@ -102,7 +102,7 @@ func convertExportTo(annotations resource.Annotations) []string {
 	for k := range exportTo {
 		out = append(out, k)
 	}
-	sort.Sort(sort.StringSlice(out))
+	sort.Strings(out)
 	return out
 }
 
@@ -157,7 +157,7 @@ func Endpoints(endpoints *coreV1.Endpoints, pods pod.Cache, nodes node.Cache, ou
 	for k := range subjectAltNameSet {
 		subjectAltNames = append(subjectAltNames, k)
 	}
-	sort.Sort(sort.StringSlice(subjectAltNames))
+	sort.Strings(subjectAltNames)
 
 	out.Endpoints = eps
 	out.SubjectAltNames = subjectAltNames

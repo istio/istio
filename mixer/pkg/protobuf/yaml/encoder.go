@@ -1019,7 +1019,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
 		}
 	default:
-		return fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())
+		return fmt.Errorf("unrecognized field type '%s'", field.Type.String())
 	}
 
 	return nil

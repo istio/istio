@@ -597,7 +597,7 @@ func waitForCerts(fname string, maxWait time.Duration) {
 		}
 		if now.After(nextLog) {
 			log.Infof("waiting for certificates")
-			logDelay = logDelay * 2
+			logDelay *= 2
 			nextLog.Add(logDelay)
 		}
 		time.Sleep(100 * time.Millisecond)

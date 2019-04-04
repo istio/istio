@@ -397,7 +397,7 @@ func TestRun(t *testing.T) {
 	for id, tc := range testCases {
 		if k8sEnv {
 			// K8s JWT authenticator is added in k8s env.
-			tc.expectedAuthenticatorsLen = tc.expectedAuthenticatorsLen + 1
+			tc.expectedAuthenticatorsLen++
 		}
 		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com")
 		if err == nil {

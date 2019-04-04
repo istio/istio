@@ -92,7 +92,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -120,7 +120,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(UID, network)
+	ep.Metadata = endpointMetadata(uid, network)
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep
@@ -149,8 +149,8 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 }
 
 // Create an Istio filter metadata object with the UID and Network fields (if exist).
-func endpointMetadata(UID string, network string) *core.Metadata {
-	if UID == "" && network == "" {
+func endpointMetadata(uid string, network string) *core.Metadata {
+	if uid == "" && network == "" {
 		return nil
 	}
 
@@ -162,8 +162,8 @@ func endpointMetadata(UID string, network string) *core.Metadata {
 		},
 	}
 
-	if UID != "" {
-		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: UID}}
+	if uid != "" {
+		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
 	}
 
 	if network != "" {

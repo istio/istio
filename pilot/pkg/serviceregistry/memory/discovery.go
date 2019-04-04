@@ -112,7 +112,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	// we make port 80 same as endpoint port, otherwise, it's distinct
 	target := port.Port
 	if target != 80 {
-		target = target + 1000
+		target += 1000
 	}
 
 	return &model.ServiceInstance{

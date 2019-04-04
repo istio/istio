@@ -1121,7 +1121,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	// Lenient calculation TODO: tighten/simplify
 	want429s = math.Floor(want429s * .25)
 
-	got429s = got429s - prior429s
+	got429s -= prior429s
 
 	t.Logf("Actual 429s: %f (%f rps)", got429s, got429s/actualDuration)
 
@@ -1136,7 +1136,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		errorf(t, "Could not find successes value: %v", err)
 	}
 
-	got200s = got200s - prior200s
+	got200s -= prior200s
 
 	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got200s, got200s/actualDuration)
 
@@ -1249,7 +1249,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 
 	want429s = math.Floor(want429s * 0.70)
 
-	got429s = got429s - prior429s
+	got429s -= prior429s
 
 	t.Logf("Actual 429s: %f (%f rps)", got429s, got429s/actualDuration)
 
@@ -1268,7 +1268,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		errorf(t, "Could not find successes value: %v", err)
 	}
 
-	got200s = got200s - prior200s
+	got200s -= prior200s
 
 	t.Logf("Actual 200s: %f (%f rps), expecting ~1.666rps", got200s, got200s/actualDuration)
 

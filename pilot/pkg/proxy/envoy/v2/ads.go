@@ -878,14 +878,12 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					client.LastPushFailure = time.Now()
 					adsLog.Warnf("Failed to push, client busy %s", client.ConID)
 					pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
-				} else {
-					if time.Since(client.LastPushFailure) > 10*time.Second {
-						adsLog.Warnf("Repeated failure to push %s", client.ConID)
-						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-						pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
-						pushTimeoutFailures.Add(1)
-						return
-					}
+				} else if time.Since(client.LastPushFailure) > 10*time.Second {
+					adsLog.Warnf("Repeated failure to push %s", client.ConID)
+					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
+					pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
+					pushTimeoutFailures.Add(1)
+					return
 				}
 
 				goto Retry

@@ -31,7 +31,7 @@ import (
 )
 
 // signifies a certain map has to be empty
-const mustBeEmpty = "MUST_BE_EMPTY"
+const mustBeEmpty = "Must-Be-Empty"
 
 // request body
 const requestBody = "HELLO WORLD"

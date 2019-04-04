@@ -566,10 +566,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -653,10 +651,8 @@ res1:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -740,10 +736,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -1037,10 +1031,8 @@ attribute_bindings:
 				if cv != nil {
 					t.Errorf("cv should be nil, there should be no type for apa instances")
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}

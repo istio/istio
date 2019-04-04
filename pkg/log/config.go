@@ -263,6 +263,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 //
 // You typically call this once at process startup.
 // Once this call returns, the logging system is ready to accept data.
+// nolint: staticcheck
 func Configure(options *Options) error {
 	core, captureCore, errSink, err := prepZap(options)
 	if err != nil {
