@@ -21,6 +21,7 @@ import (
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -163,4 +164,17 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
+}
+
+func TestDedupeStrings(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	in := []string{
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+		model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert,
+	}
+	expected := []string{model.DefaultCertChain, model.DefaultKey, model.DefaultRootCert}
+
+	actual := dedupeStrings(in)
+
+	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
