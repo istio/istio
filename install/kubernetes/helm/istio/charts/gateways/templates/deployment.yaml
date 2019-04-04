@@ -288,6 +288,7 @@ spec:
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
       {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
+      {{- include "gatewaytolerations" (dict "root" $ "tolerations" $spec.tolerations) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

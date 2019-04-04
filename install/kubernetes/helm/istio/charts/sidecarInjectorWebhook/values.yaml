@@ -28,6 +28,21 @@ nodeSelector: {}
 podAntiAffinityLabelSelector: {}
 podAntiAffinityTermLabelSelector: {}
 
+# Specify the tolerations that allows Kubernetes to schedule a pod on
+# tainted nodes. For details see
+# https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+# 
+# Example:
+# tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+# 
+# This toleration allows Kubernetes to schedule pods on nodes with the
+# taint key=value having the effect NoSchedule.
+tolerations: {}
+
 # If true, webhook or istioctl injector will rewrite PodSpec for liveness
 # health check to redirect request to sidecar. This makes liveness check work
 # even when mTLS is enabled.

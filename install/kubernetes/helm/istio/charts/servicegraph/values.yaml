@@ -49,3 +49,18 @@ ingress:
     #     - servicegraph.local
 # prometheus address
 prometheusAddr: http://prometheus:9090
+
+# Specify the tolerations that allows Kubernetes to schedule a pod on
+# tainted nodes. For details see
+# https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+# 
+# Example:
+# tolerations:
+# - key: "key"
+#   operator: "Equal"
+#   value: "value"
+#   effect: "NoSchedule"
+# 
+# This toleration allows Kubernetes to schedule pods on nodes with the
+# taint key=value having the effect NoSchedule.
+tolerations: {}

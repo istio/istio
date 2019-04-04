@@ -133,6 +133,21 @@ istio-ingressgateway:
   podAntiAffinityLabelSelector: {}
   podAntiAffinityTermLabelSelector: {}
 
+  # Specify the tolerations that allows Kubernetes to schedule a pod on
+  # tainted nodes. For details see
+  # https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  # 
+  # Example:
+  # tolerations:
+  # - key: "key"
+  #   operator: "Equal"
+  #   value: "value"
+  #   effect: "NoSchedule"
+  # 
+  # This toleration allows Kubernetes to schedule pods on nodes with the
+  # taint key=value having the effect NoSchedule.
+  tolerations: {}
+
 istio-egressgateway:
   enabled: false
   labels:
@@ -200,6 +215,21 @@ istio-egressgateway:
   # “security” and value “S1”.
   podAntiAffinityLabelSelector: {}
   podAntiAffinityTermLabelSelector: {}
+
+  # Specify the tolerations that allows Kubernetes to schedule a pod on
+  # tainted nodes. For details see
+  # https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  # 
+  # Example:
+  # tolerations:
+  # - key: "key"
+  #   operator: "Equal"
+  #   value: "value"
+  #   effect: "NoSchedule"
+  # 
+  # This toleration allows Kubernetes to schedule pods on nodes with the
+  # taint key=value having the effect NoSchedule.
+  tolerations: {}
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well

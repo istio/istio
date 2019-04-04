@@ -33,6 +33,7 @@
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- include "tolerations" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -206,6 +207,7 @@
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- include "tolerations" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}

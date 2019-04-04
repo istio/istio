@@ -73,3 +73,4 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+      {{- include "tolerations" . | indent 6 }}

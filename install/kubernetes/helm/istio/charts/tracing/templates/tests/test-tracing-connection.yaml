@@ -30,4 +30,5 @@ spec:
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
     {{- include "podAntiAffinity" . | indent 4 }}
+  {{- include "tolerations" . | indent 4 }}
 {{- end }}
