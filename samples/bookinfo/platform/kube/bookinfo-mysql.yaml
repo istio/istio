@@ -37,19 +37,12 @@ spec:
   selector:
     app: mysqldb
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: mysqldb-v1
-  labels:
-    app: mysqldb
-    version: v1
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: mysqldb
-      version: v1
   template:
     metadata:
       labels:

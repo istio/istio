@@ -25,19 +25,12 @@ spec:
   selector:
     app: mongodb
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: mongodb-v1
-  labels:
-    app: mongodb
-    version: v1
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: mongodb
-      version: v1
   template:
     metadata:
       labels:

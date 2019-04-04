@@ -15,19 +15,12 @@
 ##################################################################################################
 # Reviews service v2
 ##################################################################################################
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v2
-  labels:
-    app: reviews
-    version: v2
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: reviews
-      version: v2
   template:
     metadata:
       labels:
