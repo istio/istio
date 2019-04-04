@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -40,12 +41,17 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
-	sctl.AddRegistry(aggregate.Registry{
-		ClusterID:        "v2-debug",
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
-		ServiceDiscovery: s.MemRegistry,
-		Controller:       s.MemRegistry.controller,
-	})
+	// Feature flagging the debug registry because this is always going to hit before the remote registry.
+	// This is causing healthchecks to fail in multicluster.
+	debug, ok := os.LookupEnv("ENABLE_DEBUG_REGISTRY")
+	if ok && debug == "true" {
+		sctl.AddRegistry(aggregate.Registry{
+			ClusterID:        "v2-debug",
+			Name:             serviceregistry.ServiceRegistry("memAdapter"),
+			ServiceDiscovery: s.MemRegistry,
+			Controller:       s.MemRegistry.controller,
+		})
+	}
 
 	mux.HandleFunc("/ready", s.ready)
 

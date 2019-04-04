@@ -173,10 +173,12 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
 	for _, r := range c.GetRegistries() {
+		log.Infof("Aggregate - trying to get management ports for pod IP %s cluster: %s, registry type: %s", addr, r.ClusterID, string(r.Name))
 		if portList := r.ManagementPorts(addr); portList != nil {
 			return portList
 		}
 	}
+	log.Infof("Aggregate - didn't find any management port info for %s", addr)
 	return nil
 }
 
@@ -184,10 +186,12 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // Return on the first hit.
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	for _, r := range c.GetRegistries() {
+		log.Infof("Aggregate - trying to get workload health for pod IP %s cluster: %s, registry type: %s", addr, r.ClusterID, string(r.Name))
 		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
 			return probeList
 		}
 	}
+	log.Infof("Aggregate - didn't find any workload health info for %s", addr)
 	return nil
 }
 

@@ -326,11 +326,14 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
+	log.Infof("ManagementPorts: looking for pod IP: %s", addr)
 	pod := c.pods.getPodByIP(addr)
 	if pod == nil {
+		log.Infof("ManagementPorts: pod IP %s does not exist", addr)
 		return nil
 	}
 
+	log.Infof("ManagementPorts: pod IP found for IP %s, pod: %+v", addr, pod)
 	managementPorts, err := convertProbesToPorts(&pod.Spec)
 	if err != nil {
 		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
@@ -338,16 +341,20 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 	// We continue despite the error because healthCheckPorts could return a partial
 	// list of management ports
+	log.Infof("ManagementPorts - list of ports for pod IP %s, %+v", addr, managementPorts)
 	return managementPorts
 }
 
 // WorkloadHealthCheckInfo implements a service catalog operation
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	log.Infof("WorkloadHealthCheckInfo: looking for pod IP: %s", addr)
 	pod := c.pods.getPodByIP(addr)
 	if pod == nil {
+		log.Infof("WorkloadHealthCheckInfo: pod IP %s does not exist", addr)
 		return nil
 	}
 
+	log.Infof("WorkloadHealthCheckInfo: pod found for IP %s, pod: %+v", addr, pod)
 	probes := make([]*model.Probe, 0)
 
 	// Obtain probes from the readiness and liveness probes
@@ -357,6 +364,8 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			if err != nil {
 				log.Infof("Error while parsing readiness probe port =%v", err)
 			}
+			log.Infof("WorkloadHealthCheckInfo: readiness probe found for IP: %s, port: %+v", addr, p)
+
 			probes = append(probes, &model.Probe{
 				Port: p,
 				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
@@ -367,6 +376,8 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 			if err != nil {
 				log.Infof("Error while parsing liveness probe port =%v", err)
 			}
+			log.Infof("WorkloadHealthCheckInfo: liveness probe found for IP: %s, port: %+v", addr, p)
+
 			probes = append(probes, &model.Probe{
 				Port: p,
 				Path: container.LivenessProbe.Handler.HTTPGet.Path,
