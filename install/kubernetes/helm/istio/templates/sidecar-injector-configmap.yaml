@@ -251,11 +251,6 @@ data:
         {{ "[[- end ]]" }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        {{- if ne .Values.global.sds.enabled true }}
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
-        {{- end }}
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds/uds_path
           name: sds-uds-path
@@ -264,6 +259,10 @@ data:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- else }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
