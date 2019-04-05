@@ -76,6 +76,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
+		InitialBackoff:   10,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -170,6 +171,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		SecretTTL:        200 * time.Microsecond,
 		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
+		InitialBackoff:   10,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -357,6 +359,7 @@ func createSecretCache() *SecretCache {
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
+		InitialBackoff:   10,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -523,6 +526,7 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 		SecretTTL:            200 * time.Microsecond,
 		RotationInterval:     200 * time.Microsecond,
 		EvictionDuration:     10 * time.Second,
+		InitialBackoff:       10,
 		AlwaysValidTokenFlag: true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
