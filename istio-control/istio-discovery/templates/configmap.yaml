@@ -76,6 +76,14 @@ data:
     enableSdsTokenMount: true
     {{- end }}
 
+    {{- if .Values.useMCP }}
+    config_sources:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    - address: localhost:15019
+    {{- else }}
+    - address: istio-galley
+    {{- end }}
+    {{- end }}
     #
     defaultConfig:
       #
