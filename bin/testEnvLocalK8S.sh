@@ -38,7 +38,7 @@ export OUT=${GO_TOP}/out
 export ISTIO_OUT=${ISTIO_OUT:-${GO_TOP}/out/${GOOS_LOCAL}_amd64/release}
 
 # components used in the test (starting with circleci for consistency, eventually ci will use this)
-export K8S_VER=${K8S_VER:-v1.9.2}
+export K8S_VER=${K8S_VER:-v1.11.1}
 export ETCD_VER=${ETCD_VER:-v3.2.15}
 
 export MASTER_IP=127.0.0.1
