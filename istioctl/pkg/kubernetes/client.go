@@ -26,6 +26,8 @@ import (
 	"os/signal"
 	"strings"
 
+	multierror "github.com/hashicorp/go-multierror"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -260,6 +262,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
 	}
 
+	var errs error
 	res := version.MeshInfo{}
 	for _, pod := range pods {
 		component := pod.Labels["istio"]
@@ -284,7 +287,8 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 			stdout, stderr, err := client.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
 
 			if err != nil {
-				return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+				errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+				continue
 			}
 
 			// At first try parsing stdout
@@ -296,15 +300,18 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 				if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
 					stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
 					if err != nil {
-						return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err)
+						errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+						continue
 					}
 
 					info, err = version.NewBuildInfoFromOldString(string(stdout))
 					if err != nil {
-						return nil, fmt.Errorf("error converting server info from JSON: %v", err)
+						errs = multierror.Append(errs, fmt.Errorf("error converting server info from JSON: %v", err))
+						continue
 					}
 				} else {
-					return nil, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String())
+					errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String()))
+					continue
 				}
 			}
 
@@ -312,7 +319,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		}
 		res = append(res, server)
 	}
-	return &res, nil
+	return &res, errs
 }
 
 // BuildPortForwarder sets up port forwarding.
