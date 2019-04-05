@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/net/context"
@@ -51,9 +52,16 @@ func (j *jwtAccess) RequireTransportSecurity() bool {
 type GcpClientImpl struct {
 	// Root CA cert file to validate the gRPC service in CA.
 	rootCertFile string
-	// Istio CA grpc server
-	caAddr  string
-	fetcher cred.TokenFetcher
+	fetcher      cred.TokenFetcher
+}
+
+// NewGcpClientImpl returns a GCP client implementation of Client interface or an error.
+// It only supports GoogleCA as the CA provider for now.
+func NewGcpClientImpl(caProvider string, fetcher cred.TokenFetcher) (*GcpClientImpl, error) {
+	if caProvider == caclient.GoogleCAName {
+		return &GcpClientImpl{fetcher: fetcher}, nil
+	}
+	return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled for %s", caProvider)
 }
 
 // IsProperPlatform returns whether the client is on GCE.

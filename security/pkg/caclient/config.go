@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,14 @@ import (
 type Config struct {
 	// Address of the CA which the CA client calls to
 	CAAddress string
+
+	// Name of the CA provider, e.g Citadel or GoogleCA
+	CAProviderName string
+
+	// CAProtocol indicates the type of CA gRPC service to use.
+	// IstioCAService: https://github.com/istio/istio/blob/master/security/proto/ca_service.proto
+	// IstioCertificateService: https://github.com/istio/istio/blob/master/security/proto/istioca.proto
+	CAProtocol string
 
 	// Organization presented in the certificates
 	Org string
