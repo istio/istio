@@ -36,6 +36,7 @@ function install_system() {
     
     kubectl get deployments -n istio-system
     kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-citadel11 -n istio-system --timeout=$WAIT_TIMEOUT
     kubectl get deployments -n istio-system
     kubectl get pod -n istio-system
 }
@@ -53,6 +54,10 @@ function install_control() {
 
     kubectl get deployments -n istio-control
     kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-galley -n istio-control --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-pilot  -n istio-control --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-sidecar-injector -n istio-control --timeout=$WAIT_TIMEOUT
+
     kubectl get deployments -n istio-control
     kubectl get pod -n istio-control 
 }
@@ -67,7 +72,9 @@ function install_ingress() {
     bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=istio-control
 
     kubectl get deployments -n istio-ingress
-    kubectl wait deployments ingressgateway istio-pilot -n istio-ingress --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl wait deployments ingressgateway  istio-pilot -n istio-ingress --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment  istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
     kubectl get deployments -n istio-ingress
     kubectl get pod -n istio-ingress
 }
@@ -84,6 +91,9 @@ function install_telemetry() {
     bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control
     kubectl get deployments -n istio-telemetry
     kubectl wait deployments grafana istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment grafana -n istio-telemetry --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-telemetry -n istio-telemetry --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment prometheus -n istio-telemetry --timeout=$WAIT_TIMEOUT
     kubectl get deployments -n istio-telemetry
     kubectl get pod -n istio-telemetry
 }
