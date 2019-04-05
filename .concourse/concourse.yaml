@@ -1,0 +1,152 @@
+---
+
+# s3, git, time, github-release, registry-image,
+# pool - serialize access to external systems
+# git - can also push
+resources:
+  - name: citadel-image
+    type: docker-image
+    source:
+      repository: gcr.io/istio-release/citadel
+      tag: release-1.1-latest-daily
+
+  - name: istio-installer
+    type: git
+    source:
+      uri: "https://github.com/istio-ecosystem/istio-installer"
+  - name: istio-istio
+    type: git
+    source:
+      uri: "https://github.com/istio/istio"
+      branch: release-1.1
+      
+jobs:
+  - name: install
+    plan:
+    - get: citadel-image
+      trigger: true
+    - get: istio-installer
+      trigger: true
+    - task: install-crds
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_crds
+    - task: install-system
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_system
+    
+    - task: install-control
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_control
+
+    - task: install-ingress
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_ingress
+
+    - task: install-telemetry
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_telemetry
+
+  - name: test
+    plan:
+    - get: istio-installer
+      passed: [ install ]
+      trigger: true
+    - get: istio-istio
+      trigger: false
+    - task: install-bookinfo
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-istio
+            path: src/github.com/istio/istio
+          - name: istio-installer
+            path: src/github.com/istio-ecosystem/istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/bin/test.sh src/github.com/istio/istio/
+
+
