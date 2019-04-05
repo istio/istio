@@ -159,13 +159,13 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	af := ast.NewFinder(attributes)
 	e.attributes = af
-	instances, instErrs := e.processInstanceConfigs(monitoringCtx, errs)
+	instances, instErrs := e.processInstanceConfigs(errs)
 
 	// New dynamic configurations
 	dTemplates := e.processDynamicTemplateConfigs(monitoringCtx, errs)
 	dAdapters := e.processDynamicAdapterConfigs(monitoringCtx, dTemplates, errs)
 	dhandlers := e.processDynamicHandlerConfigs(monitoringCtx, dAdapters, errs)
-	dInstances, dInstErrs := e.processDynamicInstanceConfigs(monitoringCtx, dTemplates, errs)
+	dInstances, dInstErrs := e.processDynamicInstanceConfigs(dTemplates, errs)
 
 	rules := e.processRuleConfigs(monitoringCtx, shandlers, instances, dhandlers, dInstances, errs)
 
@@ -387,8 +387,7 @@ func asAny(msgFQN string, bytes []byte) *types.Any {
 	}
 }
 
-func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates map[string]*Template,
-	errs *multierror.Error) (map[string]*InstanceDynamic, int64) {
+func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template, errs *multierror.Error) (map[string]*InstanceDynamic, int64) {
 	instances := make(map[string]*InstanceDynamic, len(e.templates))
 	var instErrs int64
 
@@ -485,7 +484,7 @@ func validateEncodeBytes(params *types.Struct, fds *descriptor.FileDescriptorSet
 	return yaml.NewEncoder(fds).EncodeBytes(d, msgName, false)
 }
 
-func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror.Error) (map[string]*InstanceStatic, int64) {
+func (e *Ephemeral) processInstanceConfigs(errs *multierror.Error) (map[string]*InstanceStatic, int64) {
 	instances := make(map[string]*InstanceStatic, len(e.templates))
 	var instErrs int64
 
