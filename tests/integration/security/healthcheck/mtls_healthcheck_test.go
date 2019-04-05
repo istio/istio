@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -52,13 +53,15 @@ func setupConfig(cfg *istio.Config) {
 // Currently this test can only pass on Prow with a real GKE cluster, and fail
 // on CircleCI with a Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-	ctx.RequireOrSkip(t, environment.Kube)
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Label(label.Presubmit).
+		Run(func(ctx framework.TestContext) {
 
-	ns := namespace.ClaimOrFail(t, ctx, "default")
-	_, err := deployment.New(ctx, deployment.Config{
-		Yaml: `apiVersion: "authentication.istio.io/v1alpha1"
+			ns := namespace.ClaimOrFail(t, ctx, "default")
+			_, err := deployment.New(ctx, deployment.Config{
+				Yaml: `apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
   name: "mtls-strict-for-healthcheck"
@@ -69,15 +72,16 @@ spec:
     - mtls:
         mode: STRICT
 `,
-		Namespace: ns,
-	})
-	if err != nil {
-		t.Error(err)
-	}
-	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
-	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot, AppParams: []apps.AppParam{
-		{Name: "healthcheck"},
-	}})
-	aps.GetAppOrFail("healthcheck", t)
-	// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
+				Namespace: ns,
+			})
+			if err != nil {
+				t.Error(err)
+			}
+			pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
+			aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot, AppParams: []apps.AppParam{
+				{Name: "healthcheck"},
+			}})
+			aps.GetAppOrFail("healthcheck", t)
+			// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
+		})
 }
