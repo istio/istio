@@ -66,6 +66,7 @@ var (
 		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
+		annotations.Register("sidecar.istio.io/rewriteAppProbers", "").Name:                    validateBool,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
 		annotations.Register("readiness.status.sidecar.istio.io/initialDelaySeconds", "").Name: validateUInt32,
 		annotations.Register("readiness.status.sidecar.istio.io/periodSeconds", "").Name:       validateUInt32,
@@ -351,6 +352,12 @@ func validateStatusPort(port string) error {
 // validateUInt32 validates that the given annotation value is a positive integer.
 func validateUInt32(value string) error {
 	_, err := strconv.ParseUint(value, 10, 32)
+	return err
+}
+
+// validateBool validates that the given annotation value is a boolean.
+func validateBool(value string) error {
+	_, err := strconv.ParseBool(value)
 	return err
 }
 
