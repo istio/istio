@@ -59,7 +59,8 @@ type App interface {
 
 // AppParam specifies the parameter for a single app.
 type AppParam struct {
-	Name string
+	Name     string
+	Locality string
 }
 
 // Config for Apps

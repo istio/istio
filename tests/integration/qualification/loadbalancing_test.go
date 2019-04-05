@@ -76,9 +76,9 @@ func TestIngressLoadBalancing(t *testing.T) {
 	// Send traffic to ingress for the test duration.
 	wg := &sync.WaitGroup{}
 	wg.Add(numSendTasks + 1)
-	go logProgress(testDuration, wg)
+	go logProgress(testDuration, wg, "ingress")
 	for i := 0; i < numSendTasks; i++ {
-		go sendTraffic(testDuration, ing, wg)
+		go sendIngressTraffic(testDuration, ing, wg)
 	}
 	wg.Wait()
 
@@ -156,7 +156,7 @@ func getCPUSamples(v model.Value, t *testing.T) []float64 {
 	return totals
 }
 
-func sendTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGroup) {
+func sendIngressTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGroup) {
 	timeout := time.After(duration)
 	for {
 		select {
@@ -172,28 +172,28 @@ func sendTraffic(duration time.Duration, ing ingress.Instance, wg *sync.WaitGrou
 	}
 }
 
-func logProgress(duration time.Duration, wg *sync.WaitGroup) {
-	logTimeRemaining(duration)
+func logProgress(duration time.Duration, wg *sync.WaitGroup, trafficType string) {
+	logTimeRemaining(duration, trafficType)
 	end := time.Now().Add(duration)
 	timeout := time.After(duration)
 	ticker := time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case <-timeout:
-			log.Info("Finished sending traffic to ingress")
+			log.Infof("Finished sending traffic to %v", trafficType)
 			ticker.Stop()
 			wg.Done()
 			return
 		case tnow := <-ticker.C:
 			timeRemaining := end.Sub(tnow)
-			logTimeRemaining(timeRemaining)
+			logTimeRemaining(timeRemaining, trafficType)
 		}
 	}
 }
 
-func logTimeRemaining(d time.Duration) {
+func logTimeRemaining(d time.Duration, trafficType string) {
 	if d > 0 {
-		log.Infof("Sending traffic to ingress. Time remaining: %s ...", formatDuration(d))
+		log.Infof("Sending traffic to %v. Time remaining: %s ...", trafficType, formatDuration(d))
 	}
 }
 

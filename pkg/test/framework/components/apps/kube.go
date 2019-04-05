@@ -97,11 +97,13 @@ spec:
     matchLabels:
       app: {{ .service }}
       version: {{ .version }}
+      istio-locality: {{ .locality }}
   template:
     metadata:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+        istio-locality: {{ .locality }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -185,6 +187,7 @@ var (
 			injectProxy:    false,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "a",
@@ -199,6 +202,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "b",
@@ -213,6 +217,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v1",
@@ -227,6 +232,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v2",
@@ -241,6 +247,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "d",
@@ -255,6 +262,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "headless",
@@ -269,6 +277,7 @@ var (
 			injectProxy:    true,
 			headless:       true,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 	}
 )
@@ -324,6 +333,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		dfs[i] = deploymentFactory{
 			deployment:     param.Name,
 			service:        param.Name,
+			locality:       param.Locality,
 			version:        "v1",
 			port1:          8080,
 			port2:          80,
@@ -593,6 +603,12 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
+
+	// If host header is set, override the destination with it
+	if opts.Headers.Get("Host") != "" {
+		dstServiceName = opts.Headers.Get("Host")
+	}
+
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
 		Url:   dstURL.String(),
 		Count: int32(opts.Count),
@@ -644,6 +660,7 @@ type deploymentFactory struct {
 	injectProxy    bool
 	headless       bool
 	serviceAccount bool
+	locality       string
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
@@ -671,6 +688,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 		"injectProxy":     strconv.FormatBool(d.injectProxy),
 		"headless":        strconv.FormatBool(d.headless),
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+		"locality":        d.locality,
 	})
 	if err != nil {
 		return nil, err

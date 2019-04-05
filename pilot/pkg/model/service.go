@@ -387,11 +387,15 @@ type ServiceInstance struct {
 //
 // This is used by CDS/EDS to group the endpoints by locality.
 func (si *ServiceInstance) GetLocality() string {
-	if si.Endpoint.Locality != "" {
-		return si.Endpoint.Locality
+	if si.Labels != nil && si.Labels[LocalityLabel] != "" {
+		// if there are /'s present we don't need to replace
+		if strings.Contains(si.Labels[LocalityLabel], "/") {
+			return si.Labels[LocalityLabel]
+		}
+		// replace "." with "/"
+		return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
 	}
-	// replace "." with "/"
-	return strings.Replace(si.Labels[LocalityLabel], k8sSeparator, "/", -1)
+	return si.Endpoint.Locality
 }
 
 // IstioEndpoint has the information about a single address+port for a specific

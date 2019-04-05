@@ -26,5 +26,12 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("qualification", m, istio.SetupOnKube(&ist, nil))
+	framework.Main("qualification", m, istio.SetupOnKube(&ist, setupConfig))
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
 }

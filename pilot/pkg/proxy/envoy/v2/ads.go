@@ -621,7 +621,12 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-	nt.Locality = discReq.Node.Locality
+
+	// Get the locality from the proxy's service instances.
+	// We expect all instances to have the same IP and therefore the same locality. So its enough to look at the first instance
+	if len(nt.ServiceInstances) > 0 {
+		nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
+	}
 
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
@@ -630,14 +635,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// serve any gateway config if we dont know the proxy's service instances
 	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
 		return errors.New("gateway has no associated service instances")
-	}
-
-	if util.IsLocalityEmpty(nt.Locality) {
-		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
-		if len(nt.ServiceInstances) > 0 {
-			nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
-		}
 	}
 
 	// Set the sidecarScope associated with this proxy if its a sidecar.
