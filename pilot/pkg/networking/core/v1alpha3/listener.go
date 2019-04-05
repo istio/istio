@@ -76,27 +76,27 @@ var (
 	// EnvoyJSONLogFormat map of values for envoy json based access logs
 	EnvoyJSONLogFormat = &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
-			"start_time":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"path":                      &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":            &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":            &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":           &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                 &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":          &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address": &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":       &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
+			"start_time":                {Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+			"path":                      {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+			"protocol":                  {Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"response_code":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+			"response_flags":            {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+			"bytes_received":            {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+			"bytes_sent":                {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+			"duration":                  {Kind: &google_protobuf.Value_StringValue{StringValue: "%DURATION%"}},
+			"upstream_service_time":     {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+			"x_forwarded_for":           {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+			"user_agent":                {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+			"request_id":                {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+			"authority":                 {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+			"upstream_host":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+			"upstream_cluster":          {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_local_address":    {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_local_address":  {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_remote_address": {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+			"requested_server_name":     {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"istio_policy_status":       {Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 		},
 	}
 )
@@ -238,7 +238,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	if httpProxyPort > 0 {
-		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
 
@@ -258,7 +257,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
-					useRemoteAddress: useRemoteAddress,
+					useRemoteAddress: false,
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
 						HttpProtocolOptions: httpOpts,
@@ -327,7 +326,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// to the service address.
 		for _, instance := range proxyInstances {
 			endpoint := instance.Endpoint
-			bindToPort := false
 			bind := endpoint.Address
 
 			// Local service instances can be accessed through one of three
@@ -344,7 +342,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				proxyLabels:    proxyLabels,
 				bind:           bind,
 				port:           endpoint.Port,
-				bindToPort:     bindToPort,
+				bindToPort:     false,
 			}
 
 			pluginParams := &plugin.InputParams{
@@ -372,16 +370,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
-			} else {
+			} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
 				// proxy uses iptables redirect or tproxy. IF mode is not set
 				// for older proxies, it defaults to iptables redirect.  If the
 				// listener's capture mode specifies NONE, then the proxy wants
 				// this listener alone to be on a physical port. If the
 				// listener's capture mode is default, then its same as
 				// iptables i.e. bindToPort is false.
-				if ingressListener.CaptureMode == networking.CaptureMode_NONE {
-					bindToPort = true
-				}
+				bindToPort = true
 			}
 
 			listenPort := &model.Port{
@@ -708,17 +704,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
-			} else {
+			} else if egressListener.IstioListener != nil &&
 				// proxy uses iptables redirect or tproxy. IF mode is not set
 				// for older proxies, it defaults to iptables redirect.  If the
 				// listener's capture mode specifies NONE, then the proxy wants
 				// this listener alone to be on a physical port. If the
 				// listener's capture mode is default, then its same as
 				// iptables i.e. bindToPort is false.
-				if egressListener.IstioListener != nil &&
-					egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
-					bindToPort = true
-				}
+				egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
+				bindToPort = true
 			}
 
 			if egressListener.IstioListener != nil &&
@@ -875,11 +869,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 	}
 
 	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
-	if proxyProcessUID == "0" {
-		return true
-	}
-
-	return false
+	return proxyProcessUID == "0"
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1320,19 +1310,18 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
-	//nolint: maligned
-	routeConfig      *xdsapi.RouteConfiguration
-	rds              string
-	useRemoteAddress bool
-	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	routeConfig *xdsapi.RouteConfiguration
+	rds         string
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
+	direction  http_conn.HttpConnectionManager_Tracing_OperationName
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
+	useRemoteAddress bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1356,8 +1345,8 @@ type buildListenerOpts struct {
 	proxyLabels     model.LabelsCollection
 	bind            string
 	port            int
-	bindToPort      bool
 	filterChainOpts []*filterChainOpts
+	bindToPort      bool
 	skipUserFilters bool
 }
 
@@ -1612,7 +1601,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
 		// more filters to the HTTP filter chain. In the latter case, the insertUserFilters function will
 		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
-		insertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
+		return insertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
 	}
 
 	return nil

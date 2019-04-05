@@ -66,7 +66,6 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			// nolint: goimports
 			base:                       "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
@@ -104,7 +103,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			real, err := ioutil.ReadFile(fn)
+			read, err := ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -112,13 +111,13 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(real), 0700)
+			err = ioutil.WriteFile(fn, correctForEnvDifference(read), 0700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
 			// re-read generated file with the changes having been made
-			real, err = ioutil.ReadFile(fn)
+			read, err = ioutil.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -146,14 +145,14 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golder: %v", err)
 			}
 
-			jreal, err := yaml.YAMLToJSON(real)
+			jreal, err := yaml.YAMLToJSON(read)
 
 			if err != nil {
 				t.Fatalf("unable to convert: %v", err)
 			}
 
 			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {
-				t.Fatalf("invalid json %v\n%s", err, string(real))
+				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
 			if !reflect.DeepEqual(realM, goldenM) {
@@ -196,6 +195,15 @@ func correctForEnvDifference(in []byte) []byte {
 		{
 			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
+		},
+		// Zone and region can vary based on the environment, so it shouldn't be considered in the diff.
+		{
+			pattern:     regexp.MustCompile(`"zone": ".+"`),
+			replacement: []byte("\"zone\": \"\""),
+		},
+		{
+			pattern:     regexp.MustCompile(`"region": ".+"`),
+			replacement: []byte("\"region\": \"\""),
 		},
 	}
 

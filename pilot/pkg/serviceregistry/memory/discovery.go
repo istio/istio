@@ -112,7 +112,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	// we make port 80 same as endpoint port, otherwise, it's distinct
 	target := port.Port
 	if target != 80 {
-		target = target + 1000
+		target += 1000
 	}
 
 	return &model.ServiceInstance{
@@ -125,18 +125,6 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 		Service: service,
 		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
 	}
-}
-
-// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
-// a port does not exist (should not happenen if service is create via
-// memory MakeSericve)
-func GetPortHTTP(service *model.Service) *model.Port {
-	for _, port := range service.Ports {
-		if port.Name == PortHTTPName {
-			return port
-		}
-	}
-	return nil
 }
 
 // MakeIP creates a fake IP address for a service and instance version

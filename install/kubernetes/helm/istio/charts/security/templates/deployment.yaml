@@ -1,5 +1,5 @@
 # istio CA watching all namespaces
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -12,6 +12,9 @@ metadata:
     istio: citadel
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: citadel
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -26,7 +29,6 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-citadel-service-account
 {{- if .Values.global.priorityClassName }}
@@ -34,12 +36,15 @@ spec:
 {{- end }}
       containers:
         - name: citadel
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - --append-dns-names=true
             - --grpc-port=8060
-            - --grpc-hostname=citadel
             - --citadel-storage-namespace={{ .Release.Namespace }}
             - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
             - --monitoring-port={{ .Values.global.monitoringPort }}
@@ -74,3 +79,4 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

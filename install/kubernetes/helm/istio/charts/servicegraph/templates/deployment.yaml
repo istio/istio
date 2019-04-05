@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: servicegraph
@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: servicegraph
   template:
     metadata:
       labels:
@@ -19,7 +22,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -32,7 +34,11 @@ spec:
 {{- end }}
       containers:
         - name: servicegraph
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 8088
@@ -54,3 +60,4 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

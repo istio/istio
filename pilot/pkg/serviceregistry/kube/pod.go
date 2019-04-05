@@ -45,9 +45,7 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 		keys:         make(map[string]string),
 	}
 
-	ch.handler.Append(func(obj interface{}, ev model.Event) error {
-		return out.event(obj, ev)
-	})
+	ch.handler.Append(out.event)
 	return out
 }
 

@@ -167,7 +167,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 			},
 			want: true,
 		},
@@ -179,7 +179,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 			},
 			want: false,
 		},
@@ -214,7 +214,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 			},
 			want: true,
 		},
@@ -226,7 +226,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 			},
 			want: false,
 		},
@@ -431,7 +431,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -445,7 +445,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -459,7 +459,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -499,7 +499,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -605,12 +605,14 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_http_probe_nosidecar_rewrite.patch",
 			templateFile: "TestWebhookInject_http_probe_nosidecar_rewrite_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_https_probe_rewrite.yaml",
+			wantFile:     "TestWebhookInject_https_probe_rewrite.patch",
+			templateFile: "TestWebhookInject_https_probe_rewrite_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
-		if c.inputFile != "TestWebhookInject_http_probe_nosidecar_rewrite.yaml" {
-			continue
-		}
 		input := filepath.Join("testdata/webhook", c.inputFile)
 		want := filepath.Join("testdata/webhook", c.wantFile)
 		templateFile := "TestWebhookInject_template.yaml"
@@ -1027,7 +1029,7 @@ func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
-	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
+	getAnnotations(got)[annotationStatus] = getAnnotations(want)[annotationStatus]
 	gotIstioCerts := istioCerts(got)
 	wantIstioCerts := istioCerts(want)
 	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
@@ -1077,7 +1079,7 @@ func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing
 	return util.Compare([]byte(gotString), []byte(wantString))
 }
 
-func annotations(d *extv1beta1.Deployment) map[string]string {
+func getAnnotations(d *extv1beta1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
 }
 
@@ -1132,7 +1134,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[annotationPolicy.name] = "false"
+		pod.ObjectMeta.Annotations[annotationPolicy] = "false"
 	}
 
 	raw, err := json.Marshal(&pod)

@@ -79,9 +79,7 @@ func main() {
 	// Output
 	if outputFile == nil || *outputFile == "" {
 		fmt.Println(string(out))
-	} else {
-		if err := ioutil.WriteFile(*outputFile, out, 0644); err != nil {
-			panic(err)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, out, 0644); err != nil {
+		panic(err)
 	}
 }

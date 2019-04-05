@@ -6,10 +6,12 @@ kind: ClusterRole
 metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
   labels:
-    app: {{ $spec.labels.istio }}
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
 rules:
 - apiGroups: ["networking.istio.io"]
   resources: ["virtualservices", "destinationrules", "gateways"]

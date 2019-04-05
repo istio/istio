@@ -106,7 +106,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 			defer wg.Done()
 			for i := 0; i < rootArgs.repeat; i++ {
 				if rl != nil {
-					rl.Wait(context.Background())
+					_ = rl.Wait(context.Background())
 				}
 				dedup := strconv.Itoa(salt + i)
 

@@ -15,11 +15,13 @@
 package publish
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/util"
 )
 
 const (
@@ -59,8 +61,17 @@ type Strategy struct {
 	// nowFn is a testing hook for overriding time.Now()
 	nowFn func() time.Time
 
-	// afterFuncFn is a testing hook for overriding time.AfterFunc()
-	afterFuncFn func(time.Duration, func()) *time.Timer
+	// startTimerFn is a testing hook for overriding the starting of the timer.
+	startTimerFn func()
+
+	// worker manages the lifecycle of the timer worker thread.
+	worker *util.Worker
+
+	// resetChan is used to issue a reset to the timer.
+	resetChan chan struct{}
+
+	// pendingChanges indicates that there are unpublished changes.
+	pendingChanges bool
 }
 
 // NewStrategyWithDefaults creates a new strategy with default values.
@@ -74,32 +85,75 @@ func NewStrategy(
 	quiesceDuration time.Duration,
 	timerFrequency time.Duration) *Strategy {
 
-	return &Strategy{
+	s := &Strategy{
 		maxWaitDuration: maxWaitDuration,
 		quiesceDuration: quiesceDuration,
 		timerFrequency:  timerFrequency,
 		Publish:         make(chan struct{}, 1),
 		nowFn:           time.Now,
-		afterFuncFn:     time.AfterFunc,
+		worker:          util.NewWorker("runtime publishing strategy", log.Scope),
+		resetChan:       make(chan struct{}, 1),
 	}
+	s.startTimerFn = s.startTimer
+	return s
 }
 
 func (s *Strategy) OnChange() {
 	s.stateLock.Lock()
+
 	monitoring.RecordStrategyOnChange()
-	defer s.stateLock.Unlock()
 
 	// Capture the latest event time.
 	s.latestEvent = s.nowFn()
-	if s.timer == nil {
-		// If this is the first event after a quiesce, start a timer to periodically check event
+
+	if !s.pendingChanges {
+		// This is the first event after a quiesce, start a timer to periodically check event
 		// frequency and fire the publish event.
+		s.pendingChanges = true
 		s.firstEvent = s.latestEvent
-		s.timer = s.afterFuncFn(s.timerFrequency, s.onTimer)
+
+		// Start or reset the timer.
+		if s.timer != nil {
+			// Timer has already been started, just reset it now.
+			// NOTE: Unlocking the state lock first, to avoid a potential race with
+			// the timer thread waiting to enter onTimer.
+			s.stateLock.Unlock()
+			s.resetChan <- struct{}{}
+			return
+		}
+		s.startTimerFn()
 	}
+
+	s.stateLock.Unlock()
 }
 
-func (s *Strategy) onTimer() {
+// startTimer performs a start or reset on the timer. Called with lock on stateLock.
+func (s *Strategy) startTimer() {
+	s.timer = time.NewTimer(s.timerFrequency)
+
+	eventLoop := func(ctx context.Context) {
+		for {
+			select {
+			case <-s.timer.C:
+				if !s.onTimer() {
+					// We did not publish. Reset the timer and try again later.
+					s.timer.Reset(s.timerFrequency)
+				}
+			case <-s.resetChan:
+				s.timer.Reset(s.timerFrequency)
+			case <-ctx.Done():
+				// User requested to stop the timer.
+				s.timer.Stop()
+				return
+			}
+		}
+	}
+
+	// Start a go routine to listen to the timer.
+	_ = s.worker.Start(nil, eventLoop)
+}
+
+func (s *Strategy) onTimer() bool {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
@@ -112,11 +166,12 @@ func (s *Strategy) onTimer() {
 	maxTimeReached := now.After(s.firstEvent.Add(s.maxWaitDuration))
 	quiesceTimeReached := now.After(s.latestEvent.Add(s.quiesceDuration))
 
-	var published bool
+	published := false
 	if maxTimeReached || quiesceTimeReached {
 		// Try to send to the channel
 		select {
 		case s.Publish <- struct{}{}:
+			s.pendingChanges = false
 			published = true
 		default:
 			// If the calling code is not draining the publish channel, then we can potentially cause
@@ -126,19 +181,9 @@ func (s *Strategy) onTimer() {
 	}
 
 	monitoring.RecordOnTimer(maxTimeReached, quiesceTimeReached, !published)
-	if published {
-		s.timer = nil
-	} else {
-		s.timer.Reset(s.timerFrequency)
-	}
+	return published
 }
 
-func (s *Strategy) Reset() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
-	}
+func (s *Strategy) Close() {
+	s.worker.Stop()
 }

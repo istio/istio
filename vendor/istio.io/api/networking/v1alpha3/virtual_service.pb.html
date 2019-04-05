@@ -123,7 +123,7 @@ spec:
       allowCredentials: false
       allowHeaders:
       - X-Foo-Bar
-      maxAge: &quot;1d&quot;
+      maxAge: &quot;24h&quot;
 </code></pre>
 
 <table class="message-fields">
@@ -734,9 +734,9 @@ spec:
   - match:
     - uri:
         exact: /v1/getProductRatings
-  redirect:
-    uri: /v1/bookRatings
-    authority: newratings.default.svc.cluster.local
+    redirect:
+      uri: /v1/bookRatings
+      authority: newratings.default.svc.cluster.local
   ...
 </code></pre>
 

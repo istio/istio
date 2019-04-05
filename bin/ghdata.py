@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 import requests
 import os
 import sys
@@ -37,8 +38,8 @@ GITHUB_TOKEN = "GITHUB_TOKEN"
 
 
 def usage():
-    print "Visit https://github.com/settings/tokens to generate a token"
-    print "You must have admin access on the repository get download counts"
+    print("Visit https://github.com/settings/tokens to generate a token")
+    print("You must have admin access on the repository get download counts")
 
 
 def main(args):
@@ -50,24 +51,24 @@ def main(args):
             token = open(token).read()
 
     if token is None:
-        print "Unable to get GITHUB_TOKEN as env var, first argument or @file"
+        print("Unable to get GITHUB_TOKEN as env var, first argument or @file")
         usage()
         return -1
 
     try:
         data = get_rawdata(token)
     except Exception as ex:
-        print ex
+        print(ex)
         usage()
         return -1
 
-    print "# Report created at UTC:", str(datetime.datetime.utcnow())
+    print("# Report created at UTC:", str(datetime.datetime.utcnow()))
     for d in ["{}, {}, {}".format(
             q['created_at'],
             q['download_count'],
             q['browser_download_url'].split('/')[-1])
             for j in data for q in j['assets']]:
-        print d
+        print(d)
 
     return 0
 

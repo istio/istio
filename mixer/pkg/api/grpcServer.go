@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-	multierror "github.com/hashicorp/go-multierror"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/hashicorp/go-multierror"
+	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
@@ -88,7 +88,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 	}
 
 	// bag around the input proto that keeps track of reference attributes
-	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+	protoBag := attribute.GetProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
 	if s.cache != nil {
 		if value, ok := s.cache.Get(protoBag); ok {
@@ -98,7 +98,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
-					ValidDuration:        value.Expiration.Sub(time.Now()),
+					ValidDuration:        time.Until(value.Expiration),
 					ValidUseCount:        value.ValidUseCount,
 					ReferencedAttributes: &value.ReferencedAttributes,
 					RouteDirective:       value.RouteDirective,
@@ -273,17 +273,15 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 		switch req.RepeatedAttributesSemantics {
 		case mixerpb.DELTA_ENCODING:
 			if i == 0 {
-				protoBag = attribute.NewProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
+				protoBag = attribute.GetProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
 				accumBag = attribute.GetMutableBag(protoBag)
 				reportBag = attribute.GetMutableBag(accumBag)
-			} else {
-				if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
-					err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
-					span.LogFields(otlog.String("error", err.Error()))
-					span.Finish()
-					errors = multierror.Append(errors, err)
-					break
-				}
+			} else if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
+				err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
+				span.LogFields(otlog.String("error", err.Error()))
+				span.Finish()
+				errors = multierror.Append(errors, err)
+				break
 			}
 			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, accumBag, reportBag); err != nil {
 				span.LogFields(otlog.String("error", err.Error()))
@@ -292,7 +290,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 				continue
 			}
 		case mixerpb.INDEPENDENT_ENCODING:
-			protoBag = attribute.NewProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
+			protoBag = attribute.GetProtoBag(&req.Attributes[i], s.globalDict, s.globalWordList)
 			reportBag = attribute.GetMutableBag(protoBag)
 			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
 				span.LogFields(otlog.String("error", err.Error()))

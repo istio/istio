@@ -71,9 +71,10 @@ const (
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
-	zeroCRDInstallFile = "crd-10.yaml"
-	oneCRDInstallFile  = "crd-11.yaml"
-	twoCRDInstallFile  = "crd-certmanager-10.yaml"
+	zeroCRDInstallFile        = "crd-10.yaml"
+	oneCRDInstallFile         = "crd-11.yaml"
+	twoCRDInstallFile         = "crd-12.yaml"
+	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -85,6 +86,7 @@ const (
 
 var (
 	namespace          = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	istioNamespace     = flag.String("istio_namespace", "istio-system", "Istio system namespace (default `istio-system`)")
 	mixerHub           = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
 	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
 	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
@@ -223,7 +225,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +273,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err = NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
+		remoteI, err = NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -380,11 +382,9 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
-		} else {
-			if err = k.deployIstio(); err != nil {
-				log.Error("Failed to deploy Istio.")
-				return err
-			}
+		} else if err = k.deployIstio(); err != nil {
+			log.Error("Failed to deploy Istio.")
+			return err
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
@@ -463,10 +463,10 @@ func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.L
 	}
 	if k.localCluster {
 		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
-			k.Namespace, k.KubeConfig, util.NodePortServiceType)
+			k.Istioctl.istioNamespace, k.KubeConfig, util.NodePortServiceType)
 	} else {
 		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
-			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType)
+			k.Istioctl.istioNamespace, k.KubeConfig, util.LoadBalancerServiceType)
 	}
 
 	// So far we only do http ingress
@@ -541,8 +541,10 @@ func (k *KubeInfo) Teardown() error {
 		}
 	}
 
-	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 600
+	// NB: Increasing maxAttempts much past 230 seconds causes the CI infrastructure
+	// to terminate the test run not reporting what actually failed in the deletion.
+	maxAttempts := 180
+
 	namespaceDeleted := false
 	validatingWebhookConfigurationExists := false
 	log.Infof("Deleting namespace %v", k.Namespace)
@@ -852,7 +854,7 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 func (k *KubeInfo) deployIstioWithHelm() error {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile, certManagerCRDInstallFile}
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {
@@ -993,28 +995,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		log.Errorf("Cannot write into generate sidecar injector file %s", dst)
-	}
-	return err
-}
-
-func (k *KubeInfo) generateGalleyConfigValidator(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		log.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	if !*clusterWide {
-		content = replacePattern(content, istioSystem, k.Namespace)
-	}
-
-	if *galleyHub != "" && *galleyTag != "" {
-		content = updateImage("galley", *galleyHub, *galleyTag, content)
-	}
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		log.Errorf("Cannot write into generate galley config validator %s", dst)
 	}
 	return err
 }

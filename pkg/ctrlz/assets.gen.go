@@ -1162,7 +1162,7 @@ figcaption {
 
 .notfound .error {
     padding: 2rem 0 0 0;
-    font-weight: 70%;
+    font-weight: 700;
     font-size: 200%
 }
 
@@ -3074,51 +3074,51 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"assets": &bintree{nil, map[string]*bintree{
-		"static": &bintree{nil, map[string]*bintree{
-			"css": &bintree{nil, map[string]*bintree{
-				"all.css":         &bintree{assetsStaticCssAllCss, map[string]*bintree{}},
-				"dark_syntax.css": &bintree{assetsStaticCssDark_syntaxCss, map[string]*bintree{}},
+	"assets": {nil, map[string]*bintree{
+		"static": {nil, map[string]*bintree{
+			"css": {nil, map[string]*bintree{
+				"all.css":         {assetsStaticCssAllCss, map[string]*bintree{}},
+				"dark_syntax.css": {assetsStaticCssDark_syntaxCss, map[string]*bintree{}},
 			}},
-			"favicons": &bintree{nil, map[string]*bintree{
-				"android-144x144.png":          &bintree{assetsStaticFaviconsAndroid144x144Png, map[string]*bintree{}},
-				"android-192x192.png":          &bintree{assetsStaticFaviconsAndroid192x192Png, map[string]*bintree{}},
-				"android-36x36.png":            &bintree{assetsStaticFaviconsAndroid36x36Png, map[string]*bintree{}},
-				"android-48x48.png":            &bintree{assetsStaticFaviconsAndroid48x48Png, map[string]*bintree{}},
-				"android-72x72.png":            &bintree{assetsStaticFaviconsAndroid72x72Png, map[string]*bintree{}},
-				"android-96x196.png":           &bintree{assetsStaticFaviconsAndroid96x196Png, map[string]*bintree{}},
-				"apple-touch-icon-180x180.png": &bintree{assetsStaticFaviconsAppleTouchIcon180x180Png, map[string]*bintree{}},
-				"favicon-16x16.png":            &bintree{assetsStaticFaviconsFavicon16x16Png, map[string]*bintree{}},
-				"favicon-32x32.png":            &bintree{assetsStaticFaviconsFavicon32x32Png, map[string]*bintree{}},
-				"favicon.ico":                  &bintree{assetsStaticFaviconsFaviconIco, map[string]*bintree{}},
-				"pwa-192x192.png":              &bintree{assetsStaticFaviconsPwa192x192Png, map[string]*bintree{}},
-				"pwa-512x512.png":              &bintree{assetsStaticFaviconsPwa512x512Png, map[string]*bintree{}},
-				"tile150x150.png":              &bintree{assetsStaticFaviconsTile150x150Png, map[string]*bintree{}},
-				"tile310x150.png":              &bintree{assetsStaticFaviconsTile310x150Png, map[string]*bintree{}},
-				"tile310x310.png":              &bintree{assetsStaticFaviconsTile310x310Png, map[string]*bintree{}},
-				"tile70x70.png":                &bintree{assetsStaticFaviconsTile70x70Png, map[string]*bintree{}},
+			"favicons": {nil, map[string]*bintree{
+				"android-144x144.png":          {assetsStaticFaviconsAndroid144x144Png, map[string]*bintree{}},
+				"android-192x192.png":          {assetsStaticFaviconsAndroid192x192Png, map[string]*bintree{}},
+				"android-36x36.png":            {assetsStaticFaviconsAndroid36x36Png, map[string]*bintree{}},
+				"android-48x48.png":            {assetsStaticFaviconsAndroid48x48Png, map[string]*bintree{}},
+				"android-72x72.png":            {assetsStaticFaviconsAndroid72x72Png, map[string]*bintree{}},
+				"android-96x196.png":           {assetsStaticFaviconsAndroid96x196Png, map[string]*bintree{}},
+				"apple-touch-icon-180x180.png": {assetsStaticFaviconsAppleTouchIcon180x180Png, map[string]*bintree{}},
+				"favicon-16x16.png":            {assetsStaticFaviconsFavicon16x16Png, map[string]*bintree{}},
+				"favicon-32x32.png":            {assetsStaticFaviconsFavicon32x32Png, map[string]*bintree{}},
+				"favicon.ico":                  {assetsStaticFaviconsFaviconIco, map[string]*bintree{}},
+				"pwa-192x192.png":              {assetsStaticFaviconsPwa192x192Png, map[string]*bintree{}},
+				"pwa-512x512.png":              {assetsStaticFaviconsPwa512x512Png, map[string]*bintree{}},
+				"tile150x150.png":              {assetsStaticFaviconsTile150x150Png, map[string]*bintree{}},
+				"tile310x150.png":              {assetsStaticFaviconsTile310x150Png, map[string]*bintree{}},
+				"tile310x310.png":              {assetsStaticFaviconsTile310x310Png, map[string]*bintree{}},
+				"tile70x70.png":                {assetsStaticFaviconsTile70x70Png, map[string]*bintree{}},
 			}},
-			"img": &bintree{nil, map[string]*bintree{
-				"exclamation-mark.svg": &bintree{assetsStaticImgExclamationMarkSvg, map[string]*bintree{}},
+			"img": {nil, map[string]*bintree{
+				"exclamation-mark.svg": {assetsStaticImgExclamationMarkSvg, map[string]*bintree{}},
 			}},
-			"js": &bintree{nil, map[string]*bintree{
-				"misc.js":      &bintree{assetsStaticJsMiscJs, map[string]*bintree{}},
-				"prism.js":     &bintree{assetsStaticJsPrismJs, map[string]*bintree{}},
-				"prism.min.js": &bintree{assetsStaticJsPrismMinJs, map[string]*bintree{}},
+			"js": {nil, map[string]*bintree{
+				"misc.js":      {assetsStaticJsMiscJs, map[string]*bintree{}},
+				"prism.js":     {assetsStaticJsPrismJs, map[string]*bintree{}},
+				"prism.min.js": {assetsStaticJsPrismMinJs, map[string]*bintree{}},
 			}},
-			"manifest.json": &bintree{assetsStaticManifestJson, map[string]*bintree{}},
+			"manifest.json": {assetsStaticManifestJson, map[string]*bintree{}},
 		}},
-		"templates": &bintree{nil, map[string]*bintree{
-			"404.html":  &bintree{assetsTemplates404Html, map[string]*bintree{}},
-			"home.html": &bintree{assetsTemplatesHomeHtml, map[string]*bintree{}},
-			"layouts": &bintree{nil, map[string]*bintree{
-				"base.html": &bintree{assetsTemplatesLayoutsBaseHtml, map[string]*bintree{}},
-				"main.html": &bintree{assetsTemplatesLayoutsMainHtml, map[string]*bintree{}},
+		"templates": {nil, map[string]*bintree{
+			"404.html":  {assetsTemplates404Html, map[string]*bintree{}},
+			"home.html": {assetsTemplatesHomeHtml, map[string]*bintree{}},
+			"layouts": {nil, map[string]*bintree{
+				"base.html": {assetsTemplatesLayoutsBaseHtml, map[string]*bintree{}},
+				"main.html": {assetsTemplatesLayoutsMainHtml, map[string]*bintree{}},
 			}},
-			"modules": &bintree{nil, map[string]*bintree{
-				"header.html":       &bintree{assetsTemplatesModulesHeaderHtml, map[string]*bintree{}},
-				"last-refresh.html": &bintree{assetsTemplatesModulesLastRefreshHtml, map[string]*bintree{}},
-				"sidebar.html":      &bintree{assetsTemplatesModulesSidebarHtml, map[string]*bintree{}},
+			"modules": {nil, map[string]*bintree{
+				"header.html":       {assetsTemplatesModulesHeaderHtml, map[string]*bintree{}},
+				"last-refresh.html": {assetsTemplatesModulesLastRefreshHtml, map[string]*bintree{}},
+				"sidebar.html":      {assetsTemplatesModulesSidebarHtml, map[string]*bintree{}},
 			}},
 		}},
 	}},

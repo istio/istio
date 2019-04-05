@@ -73,6 +73,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
@@ -230,8 +231,10 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	return res
 }
 
+var homeVar = env.RegisterStringVar("HOME", "", "")
+
 func resolveKubeConfigPath(kubeConfig string) string {
-	path := strings.Replace(kubeConfig, "~", os.Getenv("HOME"), 1)
+	path := strings.Replace(kubeConfig, "~", homeVar.Get(), 1)
 	ret, err := filepath.Abs(path)
 	if err != nil {
 		panic(err.Error())
@@ -325,9 +328,7 @@ func main() {
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else {
-		if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
-			log.Errorf("Cannot write output to file %q", *outputFile)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

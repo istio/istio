@@ -11,19 +11,22 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 docker_lock = protolock
+docker_lock_release = ./scripts/check-release-locks.sh
 docker_tool = prototool
 else
 gen_img := gcr.io/istio-testing/protoc:2019-02-25
-lock_img := gcr.io/istio-testing/protolock:2018-10-23
-all_img := gcr.io/istio-testing/api-build-tools:2019-02-25
+lock_img := gcr.io/istio-testing/protolock:2019-03-11
+all_img := gcr.io/istio-testing/api-build-tools:2019-03-11
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
 repo_mount := $(mount_dir)/istio.io/api
-docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
+uid := $(shell id -u)
+docker_gen := docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
 out_path = .
-docker_lock = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
-docker_tool = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
+docker_lock = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
+docker_lock_release = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) --entrypoint=/bin/ash $(lock_img) $(repo_mount)/scripts/check-release-locks.sh
+docker_tool = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
 endif
 
 ########################
@@ -354,6 +357,12 @@ proto-commit:
 
 proto-commit-force:
 	@$(docker_lock) commit --force
+
+proto-status:
+	@$(docker_lock) status
+
+release-lock-status:
+	@$(docker_lock_release)
 
 #####################
 # Lint

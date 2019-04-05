@@ -77,7 +77,7 @@ func registerHome(router *mux.Router, layout *template.Template) {
 			if mime, ok := mimeTypes[ext]; ok {
 				w.Header().Set("Content-Type", mime)
 			}
-			w.Write(a)
+			_, _ = w.Write(a)
 		} else {
 			// 'not found' page
 			w.WriteHeader(http.StatusNotFound)

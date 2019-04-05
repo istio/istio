@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
+			if len(err.Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -851,10 +851,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 12 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -2258,55 +2258,70 @@ func TestValidateRouteDestination(t *testing.T) {
 		routes []*networking.RouteDestination
 		valid  bool
 	}{
-		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "simple", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
-		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "wildcard dash", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*-foo.baz"},
+		}}, valid: true},
+		{name: "wildcard prefix", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*foo.baz"},
+		}}, valid: true},
+		{name: "wildcard", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "*"},
+		}}, valid: true},
+		{name: "bad wildcard", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "foo.*"},
+		}}, valid: false},
+		{name: "bad fqdn", routes: []*networking.RouteDestination{{
+			Destination: &networking.Destination{Host: "default/baz"},
+		}}, valid: false},
+		{name: "no destination", routes: []*networking.RouteDestination{{
 			Destination: nil,
 		}}, valid: false},
-		{name: "weighted", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weighted", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      25,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight < 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      5,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      -1,
 		}}, valid: false},
-		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      55,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight = 0", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      0,
-		}, &networking.RouteDestination{
+		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: false},
@@ -3529,41 +3544,58 @@ func TestValidateServiceRole(t *testing.T) {
 			expectErrMsg: "at least 1 rule must be specified",
 		},
 		{
-			name: "no service",
+			name: "has both methods and not_methods",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
-					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
-					},
+					Methods:    []string{"GET", "POST"},
+					NotMethods: []string{"DELETE"},
 				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. methods and not_methods) for rule 0",
+		},
+		{
+			name: "has both ports and not_ports",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{},
-					Methods:  []string{"GET", "POST"},
+					Ports:    []int32{9080},
+					NotPorts: []int32{443},
+				},
+			}},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "has out of range port",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080, -80},
+				},
+			}},
+			expectErrMsg: "at least one port is not in the range of [0, 65535]",
+		},
+		{
+			name: "has both first-class field and constraints",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Ports: []int32{9080},
 					Constraints: []*rbac.AccessRule_Constraint{
-						{Key: "key", Values: []string{"value"}},
-						{Key: "key", Values: []string{"value"}},
+						{Key: "destination.port", Values: []string{"80"}},
 					},
 				},
 			}},
-			expectErrMsg: "at least 1 service must be specified for rule 1",
+			expectErrMsg: "cannot define destination.port for rule 0 because a similar first-class field has been defined",
 		},
 		{
 			name: "no key in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Values: []string{"value"}},
@@ -3576,16 +3608,14 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "no value in constraint",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{}},
@@ -3598,16 +3628,15 @@ func TestValidateServiceRole(t *testing.T) {
 			name: "success proto",
 			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 				{
-					Services: []string{"service0"},
 					Methods:  []string{"GET", "POST"},
+					NotHosts: []string{"finances.google.com"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
 					},
 				},
 				{
-					Services: []string{"service0"},
-					Methods:  []string{"GET", "POST"},
+					Methods: []string{"GET", "POST"},
 					Constraints: []*rbac.AccessRule_Constraint{
 						{Key: "key", Values: []string{"value"}},
 						{Key: "key", Values: []string{"value"}},
@@ -3655,7 +3684,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 			},
-			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+			expectErrMsg: "empty subjects are not allowed. Found an empty subject at index 1",
 		},
 		{
 			name: "no roleRef",
@@ -3665,7 +3694,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "roleRef must be specified",
+			expectErrMsg: "`roleRef` or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3690,6 +3719,26 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			expectErrMsg: "name cannot be empty",
 		},
 		{
+			name: "first-class field already exists",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Namespaces: []string{"default"}, Properties: map[string]string{"source.namespace": "istio-system"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "cannot define source.namespace for binding 0 because a similar first-class field has been defined",
+		},
+		{
+			name: "use * for names",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{Names: []string{"*"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "do not use * for names or not_names (in rule 0)",
+		},
+		{
 			name: "success proto",
 			in: &rbac.ServiceRoleBinding{
 				Subjects: []*rbac.Subject{
@@ -3708,6 +3757,126 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			}
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to AuthorizationPolicy",
+		},
+		{
+			name: "proto with no roleRef or inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "`roleRef` or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "only one of `roleRef` or `actions` can be specified",
+		},
+		{
+			name: "success proto with roleRef",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "proto with inline but invalid role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports:    []int32{3000},
+								NotPorts: []int32{8080},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "success proto with inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Methods: []string{"GET"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateAuthorizationPolicy(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

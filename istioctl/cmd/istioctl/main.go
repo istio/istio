@@ -77,7 +77,7 @@ debug and diagnose their Istio mesh.
 	}
 )
 
-func istioPersistentPreRunE(c *cobra.Command, args []string) error {
+func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
@@ -103,13 +103,18 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+	hiddenFlags := []string{"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
+		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller"}
+	for _, opt := range hiddenFlags {
+		_ = rootCmd.PersistentFlags().MarkHidden(opt)
+	}
 
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
-	experimentalCmd.AddCommand(install.NewVerifyCommand())
+	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
 	rootCmd.AddCommand(experimentalCmd)
 

@@ -152,7 +152,7 @@ spec:
 kind: Gateway
 metadata:
  name: istio-egressgateway
- namespace: egress
+ namespace: istio-system
 spec:
  selector:
    istio: egressgateway
@@ -195,7 +195,7 @@ spec:
         host: istio-egressgateway.istio-system.svc.cluster.local
   - match:
     - port: 80
-      gateway:
+      gateways:
       - istio-egressgateway
     route:
     - destination:
@@ -421,7 +421,7 @@ of namespace names.</p>
 <td><code>subjectAltNames</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>The list of subject alternate names allowed for workloads that
+<p>The list of subject alternate names allowed for workload instances that
 implement this service. This information is used to enforce
 <a href="/docs/concepts/security/#secure-naming">secure-naming</a>.
 If specified, the proxy will verify that the server

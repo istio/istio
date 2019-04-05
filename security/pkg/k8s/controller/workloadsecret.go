@@ -17,7 +17,6 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -94,6 +93,18 @@ type SecretController struct {
 	// Whether the certificates are for CAs.
 	forCA bool
 
+	// If true, generate a PKCS#8 private key.
+	pkcs8Key bool
+
+	// whether ServiceAccount objects must explicitly opt-in for secrets.
+	// Object explicit opt-in is based on "istio-inject" NS label value.
+	// The default value should be read from a configmap and applied consistently
+	// to all control plane operations
+	explicitOptIn bool
+
+	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
+	namespaces map[string]struct{}
+
 	// DNS-enabled serviceAccount.namespace to service pair
 	dnsNames map[string]*DNSNameEntry
 
@@ -109,9 +120,9 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
+func NewSecretController(ca ca.CertificateAuthority, requireOptIn bool, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespaces []string,
+	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
 	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -130,8 +141,15 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
+		pkcs8Key:         pkcs8Key,
+		explicitOptIn:    requireOptIn,
+		namespaces:       make(map[string]struct{}),
 		dnsNames:         dnsNames,
 		monitoring:       newMonitoringMetrics(),
+	}
+
+	for _, ns := range namespaces {
+		c.namespaces[ns] = struct{}{}
 	}
 
 	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
@@ -148,7 +166,6 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	rehf := cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.saAdded,
 		DeleteFunc: c.saDeleted,
-		UpdateFunc: c.saUpdated,
 	}
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
@@ -190,10 +207,44 @@ func GetSecretName(saName string) string {
 	return secretNamePrefix + saName
 }
 
+// Determine if the object is "enabled" for Istio.
+// Currently this looks at the list of watched namespaces and the object's namespace annotation
+func (sc *SecretController) istioEnabledObject(obj metav1.Object) bool {
+	if _, watched := sc.namespaces[obj.GetNamespace()]; watched || !sc.explicitOptIn {
+		return true
+	}
+
+	const label = "istio-managed"
+	enabled := !sc.explicitOptIn // for backward compatibility, Citadel always creates secrets
+	// @todo this should be changed to false once we communicate behavior change and ensure customers
+	// correctly mark their namespaces. Currently controlled via command line
+
+	ns, err := sc.core.Namespaces().Get(obj.GetNamespace(), metav1.GetOptions{})
+	if err != nil || ns == nil { // @todo handle errors? Unit tests mocks don't create NS, only secrets
+		return enabled
+	}
+
+	if ns.Labels != nil {
+		if v, ok := ns.Labels[label]; ok {
+			switch strings.ToLower(v) {
+			case "enabled", "enable", "true", "yes", "y":
+				enabled = true
+			case "disabled", "disable", "false", "no", "n":
+				enabled = false
+			default: // leave default unchanged
+				break
+			}
+		}
+	}
+	return enabled
+}
+
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	if sc.istioEnabledObject(acct.GetObjectMeta()) {
+		sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	}
 	sc.monitoring.ServiceAccountCreation.Inc()
 }
 
@@ -202,30 +253,6 @@ func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
 	sc.monitoring.ServiceAccountDeletion.Inc()
-}
-
-// Handles the event where a service account is updated.
-func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
-	if reflect.DeepEqual(oldObj, curObj) {
-		// Nothing is changed. The method is invoked by periodical re-sync with the apiserver.
-		return
-	}
-	oldSa := oldObj.(*v1.ServiceAccount)
-	curSa := curObj.(*v1.ServiceAccount)
-
-	curName := curSa.GetName()
-	curNamespace := curSa.GetNamespace()
-	oldName := oldSa.GetName()
-	oldNamespace := oldSa.GetNamespace()
-
-	// We only care the name and namespace of a service account.
-	if curName != oldName || curNamespace != oldNamespace {
-		sc.deleteSecret(oldName, oldNamespace)
-		sc.upsertSecret(curName, curNamespace)
-
-		log.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
-			oldName, oldNamespace, curName, curNamespace)
-	}
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
@@ -299,9 +326,11 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if _, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
+	if sa, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
-		sc.upsertSecret(saName, scrt.GetNamespace())
+		if sc.istioEnabledObject(sa.GetObjectMeta()) {
+			sc.upsertSecret(saName, scrt.GetNamespace())
+		}
 		sc.monitoring.SecretDeletion.Inc()
 	}
 }
@@ -329,6 +358,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		Host:       id,
 		RSAKeySize: keySize,
 		IsDualUse:  sc.dualUse,
+		PKCS8Key:   sc.pkcs8Key,
 	}
 
 	csrPEM, keyPEM, err := util.GenCSR(options)

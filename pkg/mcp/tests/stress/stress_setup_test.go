@@ -41,6 +41,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
+	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -282,12 +283,13 @@ func newDriver(o options) (*driver, error) {
 
 func (d *driver) initOptions() {
 	d.serverOpts = &source.Options{
-		Reporter:          monitoring.NewInMemoryStatsContext(),
-		Watcher:           snapshot.New(groups.DefaultIndexFn),
-		CollectionOptions: source.CollectionOptionsFromSlice(defaultCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:            snapshot.New(groups.DefaultIndexFn),
+		CollectionsOptions: source.CollectionOptionsFromSlice(defaultCollections),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second*10, 10),
 	}
-	for i := range d.serverOpts.CollectionOptions {
-		co := &d.serverOpts.CollectionOptions[i]
+	for i := range d.serverOpts.CollectionsOptions {
+		co := &d.serverOpts.CollectionsOptions[i]
 		co.Incremental = d.options.serverIncSupported
 	}
 
@@ -359,6 +361,7 @@ func (d *driver) initServer() error {
 
 	s := source.NewServer(d.serverOpts, &source.ServerOptions{
 		AuthChecker: server.NewAllowAllChecker(),
+		RateLimiter: d.serverOpts.ConnRateLimiter.Create(),
 	})
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")

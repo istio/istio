@@ -40,7 +40,7 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 # Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
+# Customer should add similar destination rules for other services that don't have sidecar.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:

@@ -154,7 +154,7 @@
 // kind: Gateway
 // metadata:
 //  name: istio-egressgateway
-//  namespace: egress
+//  namespace: istio-system
 // spec:
 //  selector:
 //    istio: egressgateway
@@ -198,7 +198,7 @@
 //         host: istio-egressgateway.istio-system.svc.cluster.local
 //   - match:
 //     - port: 80
-//       gateway:
+//       gateways:
 //       - istio-egressgateway
 //     route:
 //     - destination:
@@ -482,7 +482,7 @@ type ServiceEntry struct {
 	// NOTE: in the current release, the `exportTo` value is restricted to
 	// "." or "*" (i.e., the current namespace or all namespaces).
 	ExportTo []string `protobuf:"bytes,7,rep,name=export_to,json=exportTo,proto3" json:"export_to,omitempty"`
-	// The list of subject alternate names allowed for workloads that
+	// The list of subject alternate names allowed for workload instances that
 	// implement this service. This information is used to enforce
 	// [secure-naming](/docs/concepts/security/#secure-naming).
 	// If specified, the proxy will verify that the server

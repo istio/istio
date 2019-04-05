@@ -756,7 +756,7 @@ include tests/istio.mk
 #-----------------------------------------------------------------------------
 # Target: integration tests
 #-----------------------------------------------------------------------------
-include tests/integration2/tests.mk
+include tests/integration/tests.mk
 
 #-----------------------------------------------------------------------------
 # Target: bench check

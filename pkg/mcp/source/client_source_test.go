@@ -19,10 +19,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -45,46 +42,18 @@ func (h *sourceHarness) Context() context.Context {
 	return h.sourceTestHarness.Context()
 }
 
-func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
-	t.Helper()
-
-	gotResources := make(map[string]*mcp.Resources)
-	for {
-		select {
-		case got := <-h.resourcesChan:
-			if _, ok := gotResources[got.Collection]; ok {
-				t.Fatalf("gotResources duplicate response for type %v: %v", got.Collection, got)
-			}
-			gotResources[got.Collection] = got
-
-			want, ok := wantResources[got.Collection]
-			if !ok {
-				t.Fatalf("gotResources unexpected response for type %v: %v", got.Collection, got)
-			}
-
-			if diff := cmp.Diff(*got, *want, cmpopts.IgnoreFields(mcp.Resources{}, "Nonce")); diff != "" {
-				t.Fatalf("wrong responses for %v: \n got %+v \nwant %+v \n diff %v", got.Collection, got, want, diff)
-			}
-
-			if len(gotResources) == len(wantResources) {
-				return gotResources
-			}
-		case <-time.After(time.Second):
-			t.Fatalf("timeout waiting for all responses: gotResources %v", gotResources)
-		}
-	}
-}
-
 func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
 	h.client = true
-
+	fakeLimiter := test.NewFakePerConnLimiter()
+	close(fakeLimiter.ErrCh)
 	options := &Options{
-		Watcher:           h,
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    fakeLimiter,
 	}
 	c := NewClient(h, options)
 

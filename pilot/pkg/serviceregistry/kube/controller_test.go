@@ -212,7 +212,7 @@ func TestServices(t *testing.T) {
 	ctl.Env = &model.Environment{
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
-				"network1": &meshconfig.Network{
+				"network1": {
 					Endpoints: []*meshconfig.Network_NetworkEndpoints{
 						{
 							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
@@ -221,7 +221,7 @@ func TestServices(t *testing.T) {
 						},
 					},
 				},
-				"network2": &meshconfig.Network{
+				"network2": {
 					Endpoints: []*meshconfig.Network_NetworkEndpoints{
 						{
 							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
@@ -513,7 +513,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
 	sa := controller.GetIstioServiceAccounts(hostname, []int{8080})
-	sort.Sort(sort.StringSlice(sa))
+	sort.Strings(sa)
 	expected := []string{
 		canonicalSaOnVM,
 		"spiffe://company.com/ns/nsA/sa/" + sa2,
@@ -1033,7 +1033,7 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			AutomountServiceAccountToken: &automount,
 			// Validation requires this
 			Containers: []v1.Container{
-				v1.Container{
+				{
 					Name:  "test",
 					Image: "ununtu",
 				},

@@ -49,7 +49,7 @@ const (
 
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
@@ -61,10 +61,15 @@ const (
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-// GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(service, port)
+// GetConsolidateAuthenticationPolicy returns the authentication policy for workload specified by
+// hostname (or label selector if specified) and port, if defined.
+// It also tries to resolve JWKS URI if necessary.
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance *ServiceInstance) *authn.Policy {
+	service := serviceInstance.Service
+	port := serviceInstance.Endpoint.ServicePort
+	labels := serviceInstance.Labels
+
+	config := store.AuthenticationPolicyForWorkload(service, labels, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -137,7 +142,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
 	} else {
 		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
+			{
 				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
 					GoogleComputeEngine: &types.Empty{},
 				},
@@ -237,7 +242,7 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
 
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
-		&core.GrpcService_GoogleGrpc_CallCredentials{
+		{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: fileBasedMetadataPlugName,

@@ -1,0 +1,21 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: "b-80-mtls"
+spec:
+  targets:
+  - name: "b"
+    ports:
+    - number: 80
+  peers:
+  - mtls: {}
+---
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "default"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

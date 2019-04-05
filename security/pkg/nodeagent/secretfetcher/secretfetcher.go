@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
@@ -88,7 +89,7 @@ func fatalf(template string, args ...interface{}) {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string, tlsFlag bool,
 	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
@@ -100,7 +101,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		}
 		ret.Init(cs.CoreV1())
 	} else {
-		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
+		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create caClient: %v", err)
@@ -119,9 +120,11 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 	go sf.scrtController.Run(ch)
 }
 
+var namespaceVar = env.RegisterStringVar(ingressSecretNameSpace, "", "")
+
 // Init initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
-	namespace := os.Getenv(ingressSecretNameSpace)
+	namespace := namespaceVar.Get()
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {

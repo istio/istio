@@ -1,4 +1,4 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   creationTimestamp: null
@@ -91,6 +91,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+            memory: 30Mi
         securityContext:
           readOnlyRootFilesystem: true
         volumeMounts:

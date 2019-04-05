@@ -43,18 +43,9 @@ type LogLevel string
 const (
 	// LogLevelTrace level
 	LogLevelTrace LogLevel = "trace"
-	// LogLevelDebug level
-	LogLevelDebug LogLevel = "debug"
-	// LogLevelInfo level
-	LogLevelInfo LogLevel = "info"
+
 	// LogLevelWarning level
 	LogLevelWarning LogLevel = "warning"
-	// LogLevelError level
-	LogLevelError LogLevel = "error"
-	// LogLevelCritical level
-	LogLevelCritical LogLevel = "critical"
-	// LogLevelOff level
-	LogLevelOff = "off"
 )
 
 var (

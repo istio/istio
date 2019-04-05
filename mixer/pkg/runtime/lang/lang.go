@@ -18,7 +18,11 @@ package lang
 import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/cel"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/pkg/annotations"
+	"istio.io/istio/pkg/env"
 )
 
 type (
@@ -30,21 +34,45 @@ type (
 
 	// LanguageRuntime enumerates the expression languages supported by istio
 	LanguageRuntime int
+
+	// TypeChecker interface (bound to legacy one)
+	TypeChecker = checker.TypeChecker
 )
 
 const (
 	// CEXL is legacy istio expression language
 	CEXL LanguageRuntime = iota
 
+	// CEL is Common Expression Language (https://github.com/google/cel-spec)
+	CEL
+
+	// COMPAT is a hybrid with CEXL syntax but CEL semantics
+	COMPAT
+
 	// LanguageRuntimeAnnotation on config resources to select a language runtime
 	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
 
+var _ = annotations.Register(LanguageRuntimeAnnotation, "Select a language runtime")
+
+var langVar = env.RegisterStringVar("ISTIO_LANG", "", "")
+
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
-	switch annotations[LanguageRuntimeAnnotation] {
+	if override, has := langVar.Lookup(); has {
+		return fromString(override)
+	}
+	return fromString(annotations[LanguageRuntimeAnnotation])
+}
+
+func fromString(value string) LanguageRuntime {
+	switch value {
+	case "CEL":
+		return CEL
+	case "COMPAT":
+		return COMPAT
 	case "CEXL":
-		fallthrough
+		return CEXL
 	default:
 		return CEXL
 	}
@@ -53,6 +81,10 @@ func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
 // NewBuilder returns an expression builder
 func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
 	switch mode {
+	case CEL:
+		return cel.NewBuilder(finder, cel.CEL)
+	case COMPAT:
+		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
 	case CEXL:
 		fallthrough
 	default:
@@ -60,8 +92,26 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 	}
 }
 
+// NewTypeChecker returns a type checker
+func NewTypeChecker(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
+	switch mode {
+	case CEL:
+		return cel.NewBuilder(finder, cel.CEL)
+	case COMPAT:
+		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
+	case CEXL:
+		fallthrough
+	default:
+		return checker.NewTypeChecker(finder)
+	}
+}
+
 func (mode LanguageRuntime) String() string {
 	switch mode {
+	case CEL:
+		return "CEL"
+	case COMPAT:
+		return "COMPAT"
 	case CEXL:
 		return "CEXL"
 	default:

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"

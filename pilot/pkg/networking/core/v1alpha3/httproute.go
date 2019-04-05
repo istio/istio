@@ -139,15 +139,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			nameToServiceMap[svc.Hostname] = svc
-		} else {
-			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-
-				nameToServiceMap[svc.Hostname] = &model.Service{
-					Hostname:     svc.Hostname,
-					Address:      svc.Address,
-					MeshExternal: svc.MeshExternal,
-					Ports:        []*model.Port{svcPort},
-				}
+		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
+			nameToServiceMap[svc.Hostname] = &model.Service{
+				Hostname:     svc.Hostname,
+				Address:      svc.Address,
+				MeshExternal: svc.MeshExternal,
+				Ports:        []*model.Port{svcPort},
 			}
 		}
 	}

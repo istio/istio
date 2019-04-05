@@ -1,3 +1,5 @@
+service:
+  golangci-lint-version: 1.15.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # default concurrency is a available CPU number
   concurrency: 4
@@ -96,53 +98,52 @@ linters-settings:
     # make an issue if func has more lines of code than this setting and it has naked returns; default is 30
     max-func-lines: 30
   prealloc:
-    # XXX: we don't recommend using this linter before doing performance profiling.
-    # For most programs usage of prealloc will be a premature optimization.
-
     # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them.
     # True by default.
     simple: true
     range-loops: true # Report preallocation suggestions on range loops, true by default
-    for-loops: false # Report preallocation suggestions on for loops, false by default
-
+    for-loops: true # Report preallocation suggestions on for loops, false by default
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+      - singleCaseSwitch
+      - appendAssign
 linters:
   enable:
     - deadcode
+    - errcheck
+    - gocritic
     - goimports
     - golint
     - govet
     - gosimple
     - interfacer
     - lll
+    - maligned
     - misspell
     - staticcheck
     - structcheck
     - ineffassign
+    - megacheck
+    - typecheck
     - unconvert
     - unparam
     - unused
     - varcheck
   enable-all: false
   disable:
-    - gocritic
-    - prealloc
-    - typecheck
-    - megacheck
-    - nakedret
-    - scopelint
     - gochecknoglobals
     - gochecknoinits
-    - gosec
-      # start here to enable back all gometalinter linters
-    - errcheck
     - goconst
-    - maligned
+    - gosec
+    - nakedret
+    - prealloc
+    - scopelint
   disable-all: false
   presets:
     - bugs
     - unused
   fast: false
-
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
@@ -150,6 +151,15 @@ issues:
   # it can be disabled by `exclude-use-default: false`. To list all
   # excluded by default patterns execute `golangci-lint run --help`
   exclude: []
+
+  exclude-rules:
+    # Exclude some linters from running on test files.
+    - path: _test\.go$|^tests/|^samples/
+      linters:
+        - goconst
+        - errcheck
+        - maligned
+        - prealloc
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

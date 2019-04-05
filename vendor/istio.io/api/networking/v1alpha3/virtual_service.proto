@@ -814,9 +814,9 @@ message TLSMatchAttributes {
 //   - match:
 //     - uri:
 //         exact: /v1/getProductRatings
-//   redirect:
-//     uri: /v1/bookRatings
-//     authority: newratings.default.svc.cluster.local
+//     redirect:
+//       uri: /v1/bookRatings
+//       authority: newratings.default.svc.cluster.local
 //   ...
 // ```
 message HTTPRedirect {
@@ -951,7 +951,7 @@ message HTTPRetry {
 //       allowCredentials: false
 //       allowHeaders:
 //       - X-Foo-Bar
-//       maxAge: "1d"
+//       maxAge: "24h"
 // ```
 //
 message CorsPolicy {
