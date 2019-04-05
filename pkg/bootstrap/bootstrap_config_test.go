@@ -32,13 +32,19 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-// Generate configs for the default configs used by istio.
+// Generate configs for the default configs used by Istio.
 // If the template is updated, copy the new golden files from out:
+// export ISTIO_OUT=$TOP/out/linux_amd64/release
+// <run tests>
 // cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/stats_inclusion/envoy-rev0.json pkg/bootstrap/testdata/stats_inclusion_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/stats_suffixes/envoy-rev0.json pkg/bootstrap/testdata/stats_suffixes_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/stats_regexps/envoy-rev0.json pkg/bootstrap/testdata/stats_regexps_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/inclusion_all_three/envoy-rev0.json pkg/bootstrap/testdata/inclusion_all_three_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
 		base                       string
@@ -79,7 +85,27 @@ func TestGolden(t *testing.T) {
 		{
 			base: "stats_inclusion",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsInclusionPrefixes": "cluster_manager,cluster.xds-grpc,listener.",
+				EnvoyStatsMatcherInclusionPatterns: "cluster_manager,cluster.xds-grpc,listener.",
+			},
+		},
+		{
+			base: "stats_suffixes",
+			annotations: map[string]string{
+				EnvoyStatsMatcherInclusionSuffixes: ".downstream_rq_time",
+			},
+		},
+		{
+			base: "stats_regexps",
+			annotations: map[string]string{
+				EnvoyStatsMatcherInclusionRegexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+			},
+		},
+		{
+			base: "inclusion_all_three",
+			annotations: map[string]string{
+				EnvoyStatsMatcherInclusionPatterns: "cluster_manager,cluster.xds-grpc,listener.",
+				EnvoyStatsMatcherInclusionSuffixes: ".downstream_rq_time",
+				EnvoyStatsMatcherInclusionRegexps:  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
 			},
 		},
 	}
@@ -148,7 +174,7 @@ func TestGolden(t *testing.T) {
 			jreal, err := yaml.YAMLToJSON(read)
 
 			if err != nil {
-				t.Fatalf("unable to convert: %v", err)
+				t.Fatalf("unable to convert %s: %v", read, err)
 			}
 
 			if err = jsonpb.UnmarshalString(string(jreal), &realM); err != nil {

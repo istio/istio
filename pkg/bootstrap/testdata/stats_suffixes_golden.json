@@ -7,7 +7,7 @@
       
       
     },
-    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","sidecar.istio.io/statsInclusionPrefixes":"cluster_manager,cluster.xds-grpc,listener."}
+    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","sidecar.istio.io/statsInclusionSuffixes":".downstream_rq_time"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -52,10 +52,22 @@
               "prefix": "cluster_manager"
             },
             {
+              "prefix": "listener_manager"
+            },
+            {
+              "prefix": "http_mixer_filter"
+            },
+            {
+              "prefix": "tcp_mixer_filter"
+            },
+            {
+              "prefix": "server"
+            },
+            {
               "prefix": "cluster.xds-grpc"
             },
             {
-              "prefix": "listener."
+              "suffix": ".downstream_rq_time"
             },
         ]
       }

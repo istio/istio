@@ -7,7 +7,7 @@
       
       
     },
-    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","sidecar.istio.io/statsInclusionPrefixes":"cluster_manager,cluster.xds-grpc,listener."}
+    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","sidecar.istio.io/statsInclusionPrefixes":"cluster_manager,cluster.xds-grpc,listener.","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time","sidecar.istio.io/statsInclusionSuffixes":".downstream_rq_time"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -56,6 +56,12 @@
             },
             {
               "prefix": "listener."
+            },
+            {
+              "suffix": ".downstream_rq_time"
+            },
+            {
+              "regex": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"
             },
         ]
       }

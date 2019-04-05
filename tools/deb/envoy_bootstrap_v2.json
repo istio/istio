@@ -56,7 +56,17 @@
         "patterns": [
           {{- range $a, $s := .inclusionPatterns }}
             {
-              "prefix": "{{$s}}"
+              "prefix": "{{js $s}}"
+            },
+          {{- end }}
+          {{- range $a, $s := .inclusionSuffixes }}
+            {
+              "suffix": "{{js $s}}"
+            },
+          {{- end }}
+          {{- range $a, $s := .inclusionRegexps }}
+            {
+              "regex": "{{js $s}}"
             },
           {{- end }}
         ]

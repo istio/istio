@@ -52,8 +52,20 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
-	// statsPatterns gives the developer control over Envoy stats collection
+	// EnvoyStatsMatcherInclusionPatterns manifests in Envoy's
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/stats.proto#config-metrics-v2-statsmatcher
+	// as inclusion_list prefixes
 	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
+
+	// EnvoyStatsMatcherInclusionSuffixes manifests in Envoy's
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/stats.proto#config-metrics-v2-statsmatcher
+	// as inclusion_list suffixes
+	EnvoyStatsMatcherInclusionSuffixes = "sidecar.istio.io/statsInclusionSuffixes"
+
+	// EnvoyStatsMatcherInclusionRegexps manifests in Envoy's
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/stats.proto#config-metrics-v2-statsmatcher
+	// as inclusion_list regexps
+	EnvoyStatsMatcherInclusionRegexps = "sidecar.istio.io/statsInclusionRegexps"
 )
 
 var _ = annotations.Register(EnvoyStatsMatcherInclusionPatterns, "Control over Envoy stats collection.")
@@ -263,6 +275,14 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
 	} else {
 		opts["inclusionPatterns"] = defaultEnvoyStatsMatcherInclusionPatterns
+	}
+
+	if inclusionSuffixes, ok := meta[EnvoyStatsMatcherInclusionSuffixes]; ok {
+		opts["inclusionSuffixes"] = strings.Split(inclusionSuffixes, ",")
+	}
+
+	if inclusionRegexps, ok := meta[EnvoyStatsMatcherInclusionRegexps]; ok {
+		opts["inclusionRegexps"] = strings.Split(inclusionRegexps, ",")
 	}
 
 	// Support multiple network interfaces
