@@ -262,7 +262,7 @@ func setWorkloadCacheTimeParams() {
 	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
 	// Default to 10, a valid range is [10, 120000].
 	var initBackoff int64 = 10
-	env := os.Getenv("INITIAL_BACKOFF")
+	env := os.Getenv("INITIAL_BACKOFF_MSEC")
 	if len(env) > 0 {
 		initialBackoff, err := strconv.ParseInt(env, 0, 32)
 		if err != nil {

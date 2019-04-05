@@ -70,7 +70,7 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
-	// The initial backoff time to avoid the thundering herd problem.
+	// The initial backoff time in millisecond to avoid the thundering herd problem.
 	InitialBackoff int64
 
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
