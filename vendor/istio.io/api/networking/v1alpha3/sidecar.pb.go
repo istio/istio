@@ -634,9 +634,9 @@ func (m *Sidecar) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.WorkloadSelector.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -689,9 +689,9 @@ func (m *IstioIngressListener) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n2, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Port.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -737,9 +737,9 @@ func (m *IstioEgressListener) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n3, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Port.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}

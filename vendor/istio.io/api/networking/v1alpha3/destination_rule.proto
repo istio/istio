@@ -425,6 +425,11 @@ message ConnectionPoolSettings {
     // Maximum number of retries that can be outstanding to all hosts in a
     // cluster at a given time. Defaults to 3.
     int32 max_retries = 4;
+
+    // The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
+    // If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed. 
+    // Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.
+    google.protobuf.Duration idle_timeout = 5;
   };
 
   // Settings common to both HTTP and TCP upstream connections.
