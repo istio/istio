@@ -29,18 +29,24 @@ import (
 	"testing"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+
+	"istio.io/istio/pkg/test/env"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
 // StreamEndpoints is not used in 1.0+
+
+const (
+	asdcLocality  = "region1/zone1/subzone1"
+	asdc2Locality = "region2/zone2/subzone2"
+)
 
 func TestEds(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
@@ -103,6 +109,19 @@ func TestEds(t *testing.T) {
 	})
 }
 
+func TestEDSOverlapping(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add endpoints with multiple ports with the same port number
+	addOverlappingEndpoints(server)
+
+	adsc := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adsc.Close()
+	testOverlappingPorts(server, adsc, t)
+}
+
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	adsc, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		IP: testIP(uint32(ip)),
@@ -121,9 +140,6 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	}
 	return adsc
 }
-
-var asdcLocality = "region1/zone1/subzone1"
-var asdc2Locality = "region2/zone2/subzone2"
 
 func addTestClientEndpoints(server *bootstrap.Server) {
 	server.EnvoyXdsServer.MemRegistry.AddService("test-1.default", &model.Service{
@@ -166,28 +182,50 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 // Verify server sends the endpoint. This check for a single endpoint with the given
 // address.
 func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
-	lbe, f := adsc.EDS["outbound|8080||eds.test.svc.cluster.local"]
+	testEndpoints(expected, "outbound|8080||eds.test.svc.cluster.local", adsc, t)
+}
+
+// Verify server sends the endpoint. This check for a single endpoint with the given
+// address.
+func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.T) {
+	lbe, f := adsc.EDS[cluster]
 	if !f || len(lbe.Endpoints) == 0 {
-		t.Fatal("No lb endpoints ", adsc.EndpointsJSON())
+		t.Fatalf("No lb endpoints for %v, %v", cluster, adsc.EndpointsJSON())
 	}
-	total := 0
+	var found []string
 	for _, lbe := range lbe.Endpoints {
 		for _, e := range lbe.LbEndpoints {
-			total++
-			if expected == e.GetEndpoint().Address.GetSocketAddress().Address {
+			addr := e.GetEndpoint().Address.GetSocketAddress().Address
+			found = append(found, addr)
+			if expected == addr {
 				return
 			}
 		}
 	}
-	t.Errorf("Expecting %s got %v", expected, lbe.Endpoints[0].LbEndpoints)
-	if total != 1 {
-		t.Error("Expecting 1, got ", total)
+	t.Errorf("Expecting %s got %v", expected, found)
+	if len(found) != 1 {
+		t.Error("Expecting 1, got ", len(found))
 	}
 }
 
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
 	verifyLocalityPriorities(asdcLocality, adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
 	verifyLocalityPriorities(asdc2Locality, adsc2.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+}
+
+// Tests that Services with multiple ports sharing the same port number are properly sent endpoints.
+// Real world use case for this is kube-dns, which uses port 53 for TCP and UDP.
+func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
+	// Test initial state
+	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
+
+	server.EnvoyXdsServer.Push(false, map[string]struct{}{
+		"overlapping.cluster.local": {},
+	})
+	_, _ = adsc.Wait("", 5*time.Second)
+
+	// After the incremental push, we should still see the endpoint
+	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 }
 
 func verifyLocalityPriorities(proxyLocality string, eps []endpoint.LocalityLbEndpoints, t *testing.T) {
@@ -532,6 +570,36 @@ func addLocalityEndpoints(server *bootstrap.Server) {
 			},
 		})
 	}
+	server.EnvoyXdsServer.Push(true, nil)
+}
+
+func addOverlappingEndpoints(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
+		Hostname: "overlapping.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "dns",
+				Port:     53,
+				Protocol: model.ProtocolUDP,
+			},
+			{
+				Name:     "tcp-dns",
+				Port:     53,
+				Protocol: model.ProtocolTCP,
+			},
+		},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("overlapping.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "10.0.0.53",
+			Port:    53,
+			ServicePort: &model.Port{
+				Name:     "tcp-dns",
+				Port:     53,
+				Protocol: model.ProtocolTCP,
+			},
+		},
+	})
 	server.EnvoyXdsServer.Push(true, nil)
 }
 
