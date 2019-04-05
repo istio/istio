@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
@@ -53,9 +54,14 @@ istioctl authn tls-check 656bd7df7c-5zp4s.default bar
 			}
 			tcw := pilot.TLSCheckWriter{Writer: cmd.OutOrStdout()}
 			if len(args) >= 2 {
-				return tcw.PrintSingle(debug, args[1])
+				err = tcw.PrintSingle(debug, args[1])
+			} else {
+				err = tcw.PrintAll(debug)
 			}
-			return tcw.PrintAll(debug)
+			if err != nil {
+				return multierror.Prefix(err, fmt.Sprintf("cannot check pod %q:", podName))
+			}
+			return nil
 		},
 	}
 	return cmd

@@ -35,7 +35,7 @@ func (t *TLSCheckWriter) setupTLSCheckPrint(authDebug []byte) (*tabwriter.Writer
 		return nil, nil, err
 	}
 	if len(dat) < 1 {
-		return nil, nil, fmt.Errorf("nothing to output")
+		return nil, nil, fmt.Errorf("no auth debug information")
 	}
 	sort.Slice(dat, func(i, j int) bool {
 		if dat[i].Host == dat[j].Host {
