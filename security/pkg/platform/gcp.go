@@ -16,8 +16,10 @@ package platform
 
 import (
 	"fmt"
+	"os"
 
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/net/context"
@@ -51,9 +53,17 @@ func (j *jwtAccess) RequireTransportSecurity() bool {
 type GcpClientImpl struct {
 	// Root CA cert file to validate the gRPC service in CA.
 	rootCertFile string
-	// Istio CA grpc server
-	caAddr  string
-	fetcher cred.TokenFetcher
+	fetcher      cred.TokenFetcher
+}
+
+func NewGcpClientImpl(rootCertFile, caProvider string, fetcher cred.TokenFetcher) (*GcpClientImpl, error) {
+	if caProvider == caclient.GoogleCAName {
+		if _, err := os.Stat(rootCertFile); err != nil {
+			return nil, fmt.Errorf("failed to create onprem client root cert file %v error %v", rootCertFile, err)
+		}
+		return &GcpClientImpl{rootCertFile, fetcher}, nil
+	}
+	return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled for %s", caProvider)
 }
 
 // IsProperPlatform returns whether the client is on GCE.

@@ -23,6 +23,14 @@ type Config struct {
 	// Address of the CA which the CA client calls to
 	CAAddress string
 
+	// Name of the CA provider, e.g Citadel or GoogleCA
+	CAProviderName string
+
+	// IsUsingNewCAProtocol indicates if the node agent is using the old or new CA protocol.
+	// Old protocol: https://github.com/istio/istio/blob/master/security/proto/ca_service.proto
+	// New protocol: https://github.com/istio/istio/blob/master/security/proto/istioca.proto
+	IsUsingNewCAProtocol bool
+
 	// Organization presented in the certificates
 	Org string
 

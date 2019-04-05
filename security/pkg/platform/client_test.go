@@ -44,7 +44,7 @@ func TestNewClient(t *testing.T) {
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "GCP credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
+			expectedErr:   "GCP credential authentication in CSR API is disabled for ", // No error when ID token auth is enabled.
 		},
 		"aws test": {
 			platform:      "aws",
@@ -70,7 +70,7 @@ func TestNewClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		client, err := NewClient(
-			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile)
+			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile, "")
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

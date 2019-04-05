@@ -17,9 +17,11 @@ package vm
 import (
 	"fmt"
 
-	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
+
+	"istio.io/istio/security/pkg/caclient/protocol"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 )
 
 // NodeAgent interface that should be implemented by
@@ -33,13 +35,49 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
+	if cfg.CAClientConfig.IsUsingNewCAProtocol {
+		return initNodeAgentForNewCAProtocol(cfg)
+	} else {
+		return initNodeAgentForOldCAProtocol(cfg)
+	}
+}
+
+func initNodeAgentForNewCAProtocol(cfg *Config) (*nodeAgentInternalV2, error) {
+	na := &nodeAgentInternalV2{
+		config:   cfg,
+		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
+	}
+
+	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName)
+	if err != nil {
+		return nil, err
+	}
+	na.pc = pc
+
+	// For VM, only support GoogleCA with the new CA protocol.
+	// TODO(pitlv2109): Support Citadel, Vault, etc.
+	if cfg.CAClientConfig.CAProviderName == caclient.GoogleCAName {
+		googleCA, err := caclient.NewCAClient(cfg.CAClientConfig.CAAddress, cfg.CAClientConfig.CAProviderName,
+			true, nil, "", "", "", "")
+		if err != nil {
+			return nil, err
+		}
+		na.caClient = googleCA
+		return na, nil
+	} else {
+		return nil, fmt.Errorf("CAs other than GoogleCA is not supported using new CA protocol in VM")
+	}
+}
+
+func initNodeAgentForOldCAProtocol(cfg *Config) (*nodeAgentInternal, error) {
 	na := &nodeAgentInternal{
 		config:   cfg,
 		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
 	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile)
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +86,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	grpcConn, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
 	if err != nil {
 		return nil, err

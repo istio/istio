@@ -18,14 +18,37 @@ import (
 	"os"
 	"time"
 
+	"istio.io/istio/security/pkg/cmd"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"istio.io/istio/security/pkg/cmd"
 	nvm "istio.io/istio/security/pkg/nodeagent/vm"
+)
+
+// Set of environment variables
+const (
+	// Name of the CA, e.g. Citadel.
+	caProvider = "CA_PROVIDER"
+	// CA endpoint.
+	caAddress = "CA_ADDR"
+	// Whether this is a new or old protocol
+	caProtocol = "CA_PROTOCOL"
+	// The environment in which the node agent run, e.g. GCP, on premise, etc.
+	nodeEnv = "NODE_ENV"
+	// The platform in which the node agent run, e.g. vm or k8s.
+	nodePlatform = "NODE_PLATFORM"
+)
+
+const (
+	vmPlatform  = "vm"
+	k8sPlatform = "k8s"
+
+	oldCAProtocolIndicator = "OLD_CA_PROTOCOL"
+	newCAProtocolIndicator = "NEW_CA_PROTOCOL"
 )
 
 var (
@@ -57,11 +80,18 @@ func init() {
 		"The requested TTL for the workload")
 	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&cAClientConfig.CAAddress,
-		"ca-address", "istio-citadel:8060", "Istio CA address")
-
-	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
+		"ca-address", os.Getenv(caAddress), "Istio CA address")
+	flags.StringVar(&cAClientConfig.CAProviderName, "CAProviderName", os.Getenv(caProvider), "Name of the CA")
+	userCaProtocol := oldCAProtocolIndicator
+	flags.StringVar(&userCaProtocol, "CAProtocol", os.Getenv(caProtocol), "CA protocol")
+	if userCaProtocol == newCAProtocolIndicator {
+		cAClientConfig.IsUsingNewCAProtocol = true
+	} else {
+		cAClientConfig.IsUsingNewCAProtocol = false
+	}
+	flags.StringVar(&cAClientConfig.Env, "env", os.Getenv(nodeEnv),
 		"Node Environment : unspecified | onprem | gcp | aws")
-	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
+	flags.StringVar(&cAClientConfig.Platform, "platform", os.Getenv(nodePlatform), "The platform istio runs on: vm | k8s")
 
 	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
@@ -78,12 +108,12 @@ func init() {
 }
 
 func main() {
-	if naConfig.CAClientConfig.Platform == "vm" {
+	if naConfig.CAClientConfig.Platform == vmPlatform {
 		if err := rootCmd.Execute(); err != nil {
 			log.Errora(err)
 			os.Exit(-1)
 		}
-	} else if naConfig.CAClientConfig.Platform == "k8s" {
+	} else if naConfig.CAClientConfig.Platform == k8sPlatform {
 		log.Errorf("WIP for support on k8s...")
 		os.Exit(-1)
 	} else {
