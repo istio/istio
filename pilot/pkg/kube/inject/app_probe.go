@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+
 	"istio.io/istio/pkg/log"
 )
 
@@ -44,15 +45,18 @@ var (
 )
 
 // ShouldRewriteAppProbers returns if we should rewrite apps' probers config.
-func ShouldRewriteAppProbers(spec *SidecarInjectionSpec) bool {
+func ShouldRewriteAppProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
+	if annotations != nil {
+		if value, ok := annotations[annotationRewriteAppProbers]; ok {
+			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil && isSetInAnnotation {
+				return true
+			}
+		}
+	}
 	if spec == nil {
 		return false
 	}
-	if !spec.RewriteAppHTTPProbe {
-		return false
-	}
-	// TODO: check statusPort is defined, sidecar exists, per deployment annotation, etc.
-	return true
+	return spec.RewriteAppHTTPProbe
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
@@ -163,8 +167,8 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 }
 
 // rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
-func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
-	if !ShouldRewriteAppProbers(spec) {
+func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
+	if !ShouldRewriteAppProbers(annotations, spec) {
 		return
 	}
 	sidecar := FindSidecar(podSpec.Containers)
@@ -198,8 +202,8 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 }
 
 // createProbeRewritePatch generates the patch for webhook.
-func createProbeRewritePatch(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
-	if !ShouldRewriteAppProbers(spec) {
+func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
+	if !ShouldRewriteAppProbers(annotations, spec) {
 		return []rfc6902PatchOperation{}
 	}
 	patch := []rfc6902PatchOperation{}
