@@ -15,8 +15,6 @@
 package agent
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -27,11 +25,9 @@ import (
 	"net/http"
 	netUrl "net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -43,15 +39,18 @@ import (
 	"github.com/gogo/protobuf/proto"
 	googleProtobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
+	istio_networking_api "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/envoy/discovery"
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 
@@ -63,135 +62,39 @@ const (
 	listenerType         = "type.googleapis.com/envoy.api.v2.Listener"
 	routeType            = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
 	clusterType          = "type.googleapis.com/envoy.api.v2.Cluster"
-
-	envoyYamlTemplateStr = `
-{{- $serviceName := .ServiceName -}}
-stats_config:
-  use_all_default_tags: false
-node:
-  id: {{ .NodeID }}
-  cluster: {{ .Cluster }}
-admin:
-  access_log_path: "/dev/null"
-  address:
-    socket_address:
-      address: 127.0.0.1
-      port_value: {{.AdminPort}}
-dynamic_resources:
-  lds_config:
-    ads: {}
-  cds_config:
-    ads: {}
-  ads_config:
-    api_type: GRPC
-    refresh_delay: 1s
-    grpc_services:
-    - envoy_grpc:
-        cluster_name: xds-grpc
-static_resources:
-  clusters:
-  - name: xds-grpc
-    type: STATIC
-    connect_timeout: 1s
-    lb_policy: ROUND_ROBIN
-    http2_protocol_options: {}
-    hosts:
-    - socket_address:
-        address: {{.DiscoveryIPAddress}}
-        port_value: {{.DiscoveryPort}}
-  {{ range $i, $p := .Ports -}}
-  - name: service_{{$serviceName}}_{{$p.ApplicationPort}}
-    connect_timeout: 0.25s
-    type: STATIC
-    lb_policy: ROUND_ROBIN
-    hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: {{$p.ApplicationPort}}    
-  {{ end -}}
-  listeners:
-  {{- range $i, $p := .Ports }}
-  - address:
-      socket_address:
-        address: 127.0.0.1
-        port_value: {{$p.ProxyPort}}
-    use_original_dst: true
-    filter_chains:
-    - filters:
-      {{- if $p.Protocol.IsHTTP }}
-      - name: envoy.http_connection_manager
-        config:
-          codec_type: auto
-          {{- if $p.Protocol.IsHTTP2 }}
-          http2_protocol_options:
-            max_concurrent_streams: 1073741824
-          {{- end }}
-          stat_prefix: ingress_http
-          route_config:
-            name: service_{{$serviceName}}_{{$p.ProxyPort}}_to_{{$p.ApplicationPort}}
-            virtual_hosts:
-            - name: service_{{$serviceName}}
-              domains:
-              - "*"
-              routes:
-              - match:
-                  prefix: "/"
-                route:
-                  cluster: service_{{$serviceName}}_{{$p.ApplicationPort}}
-          http_filters:
-          - name: envoy.cors
-            config: {}
-          - name: envoy.fault
-            config: {}
-          - name: envoy.router
-            config: {}
-      {{- else }}
-      - name: envoy.tcp_proxy
-        config:
-          stat_prefix: ingress_tcp
-          cluster: service_{{$serviceName}}_{{$p.ApplicationPort}}
-      {{- end }}
-  {{- end -}}
-`
+	localhost            = "127.0.0.1"
 )
 
 var (
-	// The Template object parsed from the template string
-	envoyYamlTemplate               = getEnvoyYamlTemplate()
 	outboundHTTPListenerNamePattern = regexp.MustCompile("0.0.0.0_[0-9]+")
+
+	serviceEntryCollection = metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String()
 )
 
-func getEnvoyYamlTemplate() *template.Template {
-	tmpl := template.New("istio_agent_envoy_config")
-	_, err := tmpl.Parse(envoyYamlTemplateStr)
-	if err != nil {
-		log.Warn("unable to parse Envoy bootstrap config")
-	}
-	return tmpl
-}
-
-// PilotAgentFactory is responsible for manufacturing agent.Agent instances which use Pilot for configuration.
-type PilotAgentFactory struct {
-	DiscoveryAddress *net.TCPAddr
-	TmpDir           string
-	EnvoyLogLevel    envoy.LogLevel
-}
-
-// NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
-func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory,
-	portMgr reserveport.PortManager) (Agent, error) {
+// New creates new agent instance
+func New(cfg Config) (*Instance, error) {
 	var err error
-	if portMgr == nil {
-		portMgr, err = reserveport.NewPortManager()
+	if cfg.PortManager == nil {
+		cfg.PortManager, err = reserveport.NewPortManager()
 		if err != nil {
 			return nil, err
 		}
 	}
-	a := &pilotAgent{
+
+	// Create a temporary output directory if not provided.
+	if cfg.TmpDir == "" {
+		var err error
+		cfg.TmpDir, err = createTempDir()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	a := &Instance{
+		cfg:          cfg,
 		boundPortMap: make(map[uint32]int),
-		portMgr:      portMgr,
 		envoy: &envoy.Envoy{
-			LogLevel: f.EnvoyLogLevel,
+			LogLevel: cfg.EnvoyLogLevel,
 		},
 	}
 	defer func() {
@@ -204,23 +107,20 @@ func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager
 		Websocket: a.dialWebsocket,
 		HTTP:      a.doHTTP,
 	}
-	a.app, err = appFactory(dialer)
+	a.app, err = cfg.AppFactory(dialer)
 
 	if err != nil {
 		return nil, err
 	}
-	if err = a.start(serviceName, version, serviceManager, f); err != nil {
+	if err = a.start(); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func (f *PilotAgentFactory) generateServiceNode(serviceName string) string {
-	id := fmt.Sprintf("%s.%s", serviceName, randomBase64String(10))
-	return strings.Join([]string{proxyType, service.LocalIPAddress, id, service.FullyQualifiedDomainName}, serviceNodeSeparator)
-}
-
-type pilotAgent struct {
+// Instance manages the application and the sidecar proxy.
+type Instance struct {
+	cfg                       Config
 	app                       application.Application
 	envoy                     *envoy.Envoy
 	adminPort                 int
@@ -228,37 +128,53 @@ type pilotAgent struct {
 	nodeID                    string
 	yamlFile                  string
 	ownedDir                  string
-	serviceEntry              model.Config
 	discoveryFilterGrpcServer *grpc.Server
 	discoveryFilter           *discovery.Filter
 	discoveryFilterAddr       *net.TCPAddr
 	boundPortMap              map[uint32]int
-	portMgr                   reserveport.PortManager
+	serviceEntry              model.Config
 }
 
-// GetConfig implements the agent.Agent interface.
-func (a *pilotAgent) GetConfig() model.Config {
+// MappedPort provides a single port mapping between an Envoy proxy and its backend application.
+type MappedPort struct {
+	Name            string
+	Protocol        model.Protocol
+	ProxyPort       int
+	ApplicationPort int
+}
+
+// GetConfig implements the agent.Instance interface.
+func (a *Instance) GetConfig() model.Config {
 	return a.serviceEntry
 }
 
-// GetAdminPort implements the agent.Agent interface.
-func (a *pilotAgent) GetAdminPort() int {
+// GetAdminPort implements the agent.Instance interface.
+func (a *Instance) GetAdminPort() int {
 	return a.adminPort
 }
 
-// GetPorts implements the agent.Agent interface.
-func (a *pilotAgent) GetPorts() []*MappedPort {
+// GetPorts implements the agent.Instance interface.
+func (a *Instance) GetPorts() []*MappedPort {
 	return a.ports
 }
 
-// GetNodeID returns the envoy metadata ResourceID for pilot's service discovery.
-func GetNodeID(agent Agent) string {
-	pa := agent.(*pilotAgent)
-	return pa.nodeID
+// FindFirstPortForProtocol is a utility method to simplify lookup of a port for a given protocol.
+func (a *Instance) FindFirstPortForProtocol(protocol model.Protocol) (*MappedPort, error) {
+	for _, port := range a.GetPorts() {
+		if port.Protocol == protocol {
+			return port, nil
+		}
+	}
+	return nil, fmt.Errorf("no port found matching protocol %v", protocol)
 }
 
-// CheckConfiguredForService implements the agent.Agent interface.
-func (a *pilotAgent) CheckConfiguredForService(target Agent) error {
+// GetNodeID returns the envoy metadata ResourceID for pilot's service discovery.
+func (a *Instance) GetNodeID() string {
+	return a.nodeID
+}
+
+// CheckConfiguredForService implements the agent.Instance interface.
+func (a *Instance) CheckConfiguredForService(target *Instance) error {
 	cfg, err := envoy.GetConfigDump(a.GetAdminPort())
 	if err != nil {
 		return err
@@ -290,8 +206,8 @@ func (a *pilotAgent) CheckConfiguredForService(target Agent) error {
 	return nil
 }
 
-// Close implements the agent.Agent interface.
-func (a *pilotAgent) Close() (err error) {
+// Close implements the agent.Instance interface.
+func (a *Instance) Close() (err error) {
 	if a.app != nil {
 		err = a.app.Close()
 	}
@@ -305,37 +221,37 @@ func (a *pilotAgent) Close() (err error) {
 		_ = os.Remove(a.yamlFile)
 	}
 	// Free any reserved ports.
-	if e := a.portMgr.Close(); e != nil {
+	if e := a.cfg.PortManager.Close(); e != nil {
 		err = multierror.Append(err, e)
 	}
 	return
 }
 
-func (a *pilotAgent) fqd() string {
-	return fmt.Sprintf("%s.%s", a.GetConfig().Namespace, a.GetConfig().Domain)
+func (a *Instance) fqd() string {
+	return fmt.Sprintf("%s.%s", a.cfg.Namespace.Name(), a.cfg.Domain)
 }
 
 // function for establishing GRPC connections from the application.
-func (a *pilotAgent) dialGRPC(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (a *Instance) dialGRPC(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	// Modify the outbound URL being created by the application
 	address = a.modifyClientURLString(address)
 	return grpc.DialContext(ctx, address, opts...)
 }
 
 // function for establishing Websocket connections from the application.
-func (a *pilotAgent) dialWebsocket(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+func (a *Instance) dialWebsocket(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
 	// Modify the outbound URL being created by the application
 	urlStr = a.modifyClientURLString(urlStr)
 	return dialer.Dial(urlStr, requestHeader)
 }
 
 // function for making outbound HTTP requests from the application.
-func (a *pilotAgent) doHTTP(client *http.Client, req *http.Request) (*http.Response, error) {
+func (a *Instance) doHTTP(client *http.Client, req *http.Request) (*http.Response, error) {
 	a.modifyClientURL(req.URL)
 	return client.Do(req)
 }
 
-func (a *pilotAgent) modifyClientURLString(url string) string {
+func (a *Instance) modifyClientURLString(url string) string {
 	parsedURL, err := netUrl.Parse(url)
 	if err != nil {
 		// Failed to parse the URL, just use the original.
@@ -345,7 +261,7 @@ func (a *pilotAgent) modifyClientURLString(url string) string {
 	return parsedURL.String()
 }
 
-func (a *pilotAgent) modifyClientURL(url *netUrl.URL) {
+func (a *Instance) modifyClientURL(url *netUrl.URL) {
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
 		// No port was specified. Nothing to do.
@@ -358,9 +274,9 @@ func (a *pilotAgent) modifyClientURL(url *netUrl.URL) {
 	}
 }
 
-func (a *pilotAgent) start(serviceName, version string, serviceManager *service.Manager, f *PilotAgentFactory) error {
+func (a *Instance) start() error {
 	a.discoveryFilter = &discovery.Filter{
-		DiscoveryAddr: f.DiscoveryAddress.String(),
+		DiscoveryAddr: a.cfg.DiscoveryAddress.String(),
 		FilterFunc:    a.filterDiscoveryResponse,
 	}
 
@@ -390,11 +306,12 @@ func (a *pilotAgent) start(serviceName, version string, serviceManager *service.
 		return err
 	}
 
-	nodeID := f.generateServiceNode(serviceName)
+	nodeID := generateServiceNode(a.cfg.ServiceName, a.cfg.Namespace.Name(), a.cfg.Domain)
 	a.nodeID = nodeID
 
 	// Create the YAML configuration file for Envoy.
-	if err = a.createYamlFile(serviceName, nodeID, f); err != nil {
+	a.yamlFile, err = createEnvoyBootstrapFile(a.cfg.TmpDir, a.cfg.ServiceName, nodeID, a.adminPort, a.getDiscoveryPort(), a.ports)
+	if err != nil {
 		return err
 	}
 
@@ -412,71 +329,53 @@ func (a *pilotAgent) start(serviceName, version string, serviceManager *service.
 	}
 
 	// Now add a service entry for this agent.
-	a.serviceEntry, err = serviceManager.Create(serviceName, version, a.getConfigPorts())
-	return err
-}
-
-func (a *pilotAgent) getConfigPorts() model.PortList {
-	ports := make(model.PortList, len(a.ports))
-	for i, p := range a.ports {
-		ports[i] = &model.Port{
-			Name:     p.Name,
-			Protocol: p.Protocol,
-			Port:     p.ProxyPort,
-		}
-	}
-	return ports
-}
-
-func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *PilotAgentFactory) error {
-	// Create a temporary output directory if not provided.
-	outDir := f.TmpDir
-	if outDir == "" {
-		var err error
-		a.ownedDir, err = createTempDir()
-		if err != nil {
-			return err
-		}
-	}
-
-	// Create an output file to hold the generated configuration.
-	var err error
-	a.yamlFile, err = createTempfile(outDir, "istio_agent_envoy_config", ".yaml")
+	serviceEntryYAML, err := createServiceEntryYAML(a)
 	if err != nil {
 		return err
 	}
 
-	// Apply the template with the current configuration
-	var filled bytes.Buffer
-	w := bufio.NewWriter(&filled)
-	if err := envoyYamlTemplate.Execute(w, map[string]interface{}{
-		"ServiceName":        serviceName,
-		"NodeID":             nodeID,
-		"Cluster":            serviceCluster,
-		"AdminPort":          a.adminPort,
-		"Ports":              a.ports,
-		"DiscoveryIPAddress": service.LocalIPAddress,
-		"DiscoveryPort":      a.getDiscoveryPort(),
-	}); err != nil {
-		return err
-	}
-	if err := w.Flush(); err != nil {
+	// Apply the config to Galley.
+	if err := a.cfg.Galley.ApplyConfig(a.cfg.Namespace, string(serviceEntryYAML)); err != nil {
 		return err
 	}
 
-	// Write the content of the file.
-	configBytes := filled.Bytes()
-	if err := ioutil.WriteFile(a.yamlFile, configBytes, 0644); err != nil {
-		return err
-	}
-	return nil
+	// Wait for the ServiceEntry to be made available by Galley.
+	mcpName := a.cfg.Namespace.Name() + "/" + a.cfg.ServiceName
+	return a.cfg.Galley.WaitForSnapshot(serviceEntryCollection, func(actuals []*galley.SnapshotObject) error {
+		for _, actual := range actuals {
+			if actual.Metadata.Name == mcpName {
+				se, ok := actual.Body.(*istio_networking_api.ServiceEntry)
+				if !ok {
+					return fmt.Errorf("received unexpected type %T for ServiceEntry %s", actual.Body, mcpName)
+				}
+
+				a.serviceEntry = model.Config{
+					ConfigMeta: model.ConfigMeta{
+						Type:      model.ServiceEntry.Type,
+						Name:      a.cfg.ServiceName,
+						Namespace: a.cfg.Namespace.Name(),
+						Domain:    a.cfg.Domain,
+						Labels:    actual.Metadata.Labels,
+					},
+					Spec: se,
+				}
+				return nil
+			}
+		}
+		return fmt.Errorf("never received ServiceEntry %s from Galley", mcpName)
+	})
 }
 
-func (a *pilotAgent) getDiscoveryPort() int {
+func (a *Instance) getDiscoveryPort() int {
 	return a.discoveryFilterAddr.Port
 	// NOTE: uncomment this code to use use Pilot directly, without a filter.
 	//addr, _ := net.ResolveTCPAddr("tcp", a.discoveryFilter.DiscoveryAddr)
 	//return addr.Port
+}
+
+func generateServiceNode(serviceName, namespace, domain string) string {
+	id := fmt.Sprintf("%s.%s", serviceName, randomBase64String(10))
+	return strings.Join([]string{proxyType, localhost, id, namespace + "." + domain}, serviceNodeSeparator)
 }
 
 func isVirtualListener(l *xdsapi.Listener) bool {
@@ -591,7 +490,7 @@ func pb2Json(pb proto.Message) string {
 	return str
 }
 
-func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
+func (a *Instance) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
 	newResponse := xdsapi.DiscoveryResponse{
 		TypeUrl:     resp.TypeUrl,
 		Canary:      resp.Canary,
@@ -700,14 +599,14 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 	return &newResponse, nil
 }
 
-func (a *pilotAgent) bindOutboundPort(any *googleProtobuf6.Any, l *xdsapi.Listener) error {
+func (a *Instance) bindOutboundPort(any *googleProtobuf6.Any, l *xdsapi.Listener) error {
 	portFromPilot := l.Address.GetSocketAddress().GetPortValue()
 	boundPort, ok := a.boundPortMap[portFromPilot]
 
 	// Bind a real port for the outbound listener if we haven't already.
 	if !ok {
 		var err error
-		boundPort, err = a.findFreePort()
+		boundPort, err = findFreePort(a.cfg.PortManager)
 		if err != nil {
 			return err
 		}
@@ -727,15 +626,15 @@ func (a *pilotAgent) bindOutboundPort(any *googleProtobuf6.Any, l *xdsapi.Listen
 	return nil
 }
 
-func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, mappedPorts []*MappedPort, err error) {
-	if adminPort, err = a.findFreePort(); err != nil {
+func (a *Instance) createPorts(servicePorts model.PortList) (adminPort int, mappedPorts []*MappedPort, err error) {
+	if adminPort, err = findFreePort(a.cfg.PortManager); err != nil {
 		return
 	}
 
 	mappedPorts = make([]*MappedPort, len(servicePorts))
 	for i, servicePort := range servicePorts {
 		var envoyPort int
-		envoyPort, err = a.findFreePort()
+		envoyPort, err = findFreePort(a.cfg.PortManager)
 		if err != nil {
 			return
 		}
@@ -750,12 +649,14 @@ func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, ma
 	return
 }
 
-func (a *pilotAgent) findFreePort() (int, error) {
-	reservedPort, err := a.portMgr.ReservePort()
+func findFreePort(portMgr reserveport.PortManager) (int, error) {
+	reservedPort, err := portMgr.ReservePort()
 	if err != nil {
 		return 0, err
 	}
-	defer reservedPort.Close()
+	defer func() {
+		_ = reservedPort.Close()
+	}()
 
 	return int(reservedPort.GetPort()), nil
 }
@@ -773,22 +674,4 @@ func createTempDir() (string, error) {
 		return "", err
 	}
 	return tmpDir, nil
-}
-
-func createTempfile(tmpDir, prefix, suffix string) (string, error) {
-	f, err := ioutil.TempFile(tmpDir, prefix)
-	if err != nil {
-		return "", err
-	}
-	var tmpName string
-	if tmpName, err = filepath.Abs(f.Name()); err != nil {
-		return "", err
-	}
-	if err = f.Close(); err != nil {
-		return "", err
-	}
-	if err = os.Remove(tmpName); err != nil {
-		return "", err
-	}
-	return tmpName + suffix, nil
 }
