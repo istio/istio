@@ -54,7 +54,8 @@ func TestShouldRewriteAppProbers(t *testing.T) {
 		{"RewriteAppHTTPProbe-not-set", SidecarInjectionSpec{RewriteAppHTTPProbe: false}, map[string]string{}, false},
 		{"RewriteAppHTTPProbe-set-in-annotations", SidecarInjectionSpec{RewriteAppHTTPProbe: false}, map[string]string{annotationRewriteAppProbers: "true"}, true},
 		{"RewriteAppHTTPProbe-set-in-sidecar-injection-spec", SidecarInjectionSpec{RewriteAppHTTPProbe: true}, map[string]string{}, true},
-		{"RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations", SidecarInjectionSpec{RewriteAppHTTPProbe: true}, map[string]string{annotationRewriteAppProbers: "true"}, true},
+		{"RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations", SidecarInjectionSpec{RewriteAppHTTPProbe: true},
+			map[string]string{annotationRewriteAppProbers: "true"}, true},
 	} {
 		got := ShouldRewriteAppProbers(tc.annotations, &tc.sidecarInjectionSpec)
 		want := tc.expected
