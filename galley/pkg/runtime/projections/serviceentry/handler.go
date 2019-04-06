@@ -131,7 +131,8 @@ func (h *Handler) Handle(event resource.Event) {
 
 func (h *Handler) podUpdated(p pod.Info) {
 	// Update the endpoints associated with this IP.
-	for name := range h.ipToName[p.IP] {
+	names := h.ipToName[p.IP]
+	for name := range names {
 		h.doUpdate(name)
 	}
 }
