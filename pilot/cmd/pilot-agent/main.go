@@ -136,9 +136,10 @@ var (
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
 			}
 
-			// No IP addresses provided, append 127.0.0.1
+			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 			if len(role.IPAddresses) == 0 {
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
+				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
 
 			if len(role.ID) == 0 {
