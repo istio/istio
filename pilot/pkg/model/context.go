@@ -205,8 +205,8 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 	labels, err := env.GetProxyWorkloadLabels(node)
 	if err != nil {
-		log.Errorf("failed to get service proxy workload labels: %v", err)
-		return err
+		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
+		labels = LabelsCollection{node.Metadata}
 	}
 
 	node.WorkloadLabels = labels

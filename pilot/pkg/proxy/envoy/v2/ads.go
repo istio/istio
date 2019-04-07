@@ -669,10 +669,6 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
 
-	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
-		return err
-	}
-
 	if pushEv.edsUpdatedServices != nil {
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
@@ -682,6 +678,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			}
 		}
 		return nil
+	}
+
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+		return err
 	}
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
