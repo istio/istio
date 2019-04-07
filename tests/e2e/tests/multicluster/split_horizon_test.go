@@ -73,7 +73,7 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func TestRemoteInstanceAcessible(t *testing.T) {
+func TestRemoteInstanceAccessible(t *testing.T) {
 	// Get the sleep pod name
 	podName, err := util.GetPodName("sample", "app=sleep", tc.Kube.KubeConfig)
 	if err != nil {
