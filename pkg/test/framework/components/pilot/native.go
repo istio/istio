@@ -86,7 +86,7 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		}
 		// Set as MCP address, note needs to strip 'tcp://' from the address prefix
 		bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
-			&meshconfig.ConfigSource{Address: config.Galley.Address()[6:]},
+			{Address: config.Galley.Address()[6:]},
 		}
 		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 	} else {
