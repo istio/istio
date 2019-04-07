@@ -289,8 +289,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if isIPv6Addr(nodeIPs[0]) {
 		opts["ipv6_proxy"] = "true"
-	} else {
-		opts["ipv6_proxy"] = "false"
 	}
 
 	if config.Tracing != nil {
