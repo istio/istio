@@ -44,7 +44,7 @@ func (p *Probe) Check() error {
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
 func (p *Probe) checkInboundConfigured() error {
 	if len(p.ApplicationPorts) > 0 {
-		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.AdminPort)
+		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort)
 		if err != nil {
 			return err
 		}
