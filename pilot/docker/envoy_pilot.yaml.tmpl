@@ -3,7 +3,7 @@ admin:
   address:
     socket_address:
 {{- if .IPv6Proxy }}
-      address: ::1
+      address: "::1"
 {{- else }}
       address: 127.0.0.1
 {{- end}}
@@ -20,7 +20,7 @@ static_resources:
     hosts:
     - socket_address:
 {{- if .IPv6Proxy }}
-        address: ::1
+        address: "::1"
 {{- else }}
         address: 127.0.0.1
 {{- end}}
@@ -36,7 +36,7 @@ static_resources:
     hosts:
     - socket_address:
 {{- if .IPv6Proxy }}
-        address: ::1
+        address: "::1"
 {{- else }}
         address: 127.0.0.1
 {{- end}}
@@ -80,7 +80,7 @@ static_resources:
   - address:
       socket_address:
 {{- if .IPv6Proxy }}     
-        address: ::
+        address: "::"
 {{- else }}
         address: 0.0.0.0
 {{- end }}
@@ -161,7 +161,7 @@ static_resources:
   - address:
       socket_address:
 {{- if .IPv6Proxy }} 
-        address: ::
+        address: "::"
 {{- else }}
         address: 0.0.0.0
 {{- end }}
@@ -243,7 +243,7 @@ static_resources:
   - address:
       socket_address:
 {{- if .IPv6Proxy }} 
-        address: ::
+        address: "::"
 {{- else }}
         address: 0.0.0.0
 {{- end }}
@@ -322,7 +322,7 @@ static_resources:
   - address:
       socket_address:
 {{- if .IPv6Proxy }} 
-        address: ::
+        address: "::"
 {{- else }}
         address: 0.0.0.0
 {{- end }}
