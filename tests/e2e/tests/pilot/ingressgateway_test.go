@@ -247,7 +247,6 @@ cleanup:
 	if fatalError {
 		t.Fatal(err)
 	} else {
-		//log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
 		if len(resp.Code) > 0 {
 			count := make(map[string]int)
 			for _, elt := range resp.Code {

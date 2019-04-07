@@ -505,7 +505,7 @@ var (
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
-	// Deprecated, use ClusterRbacConfig instead.
+	// Deprecated: use ClusterRbacConfig instead.
 	// See https://github.com/istio/istio/issues/8825 for more details.
 	RbacConfig = ProtoSchema{
 		Type:        "rbac-config",

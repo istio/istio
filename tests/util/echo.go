@@ -309,13 +309,10 @@ func (ec *EchoClient) makeHTTPRequest(i int, w io.Writer) error {
 		return err
 	}
 
-	//log.Printf("[%d] Url=%s\n", i, ec.url)
 	if ec.headerKey == hostKey {
 		req.Host = ec.headerVal
-		//log.Printf("[%d] Host=%s\n", i, ec.headerVal)
 	} else if ec.headerKey != "" {
 		req.Header.Add(ec.headerKey, ec.headerVal)
-		//log.Printf("[%d] Header=%s:%s\n", i, ec.headerKey, ec.headerVal)
 	}
 
 	resp, err := ec.httpClient.Do(req)
@@ -348,18 +345,11 @@ func (ec *EchoClient) makeHTTPRequest(i int, w io.Writer) error {
 func (ec *EchoClient) makeWebSocketRequest(i int, w io.Writer) error {
 	req := make(http.Header)
 
-	//log.Printf("[%d] Url=%s\n", i, ec.url)
 	if ec.headerKey == hostKey {
 		req.Add("Host", ec.headerVal)
-		//log.Printf("[%d] Host=%s\n", i, ec.headerVal)
 	} else if ec.headerKey != "" {
 		req.Add(ec.headerKey, ec.headerVal)
-		//log.Printf("[%d] Header=%s:%s\n", i, ec.headerKey, ec.headerVal)
 	}
-
-	//if ec.msg != "" {
-	//	log.Printf("[%d] Body=%s\n", i, ec.msg)
-	//}
 
 	conn, _, err := ec.wsClient.Dial(ec.url, req)
 	if err != nil {
@@ -392,7 +382,6 @@ func (ec *EchoClient) makeWebSocketRequest(i int, w io.Writer) error {
 
 func (ec *EchoClient) makeGRPCRequest(i int, w io.Writer) error {
 	req := &echopb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
-	//log.Printf("[%d] grpcecho.Echo(%v)\n", i, req)
 	resp, err := ec.grpcClient.Echo(context.Background(), req)
 	if err != nil {
 		return err
@@ -481,16 +470,7 @@ func (ec *EchoClient) setupDefaultTest() (job, error) {
 
 func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 
-	//flag.IntVar(&count, "count", 1, "Number of times to make the request")
-	//flag.IntVar(&qps, "qps", 0, "Queries per second")
-	//flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
-	//flag.StringVar(&url, "url", "", "Specify URL")
-	//flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
-	//flag.StrinproxyUrlgVar(&headerVal, "val", "", "Header value")
-	//flag.StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
-	//flag.StringVar(&msg, "msg", "HelloWorld", "message to send (for websockets)")
-
-	r.ParseForm()
+	_ = r.ParseForm()
 
 	// ca not yet supported
 
@@ -531,7 +511,6 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 
 		sleepTime := time.Second / time.Duration(ec.qps)
-		//log.Printf("Sleeping %v between requests\n", sleepTime)
 		throttle := time.NewTicker(sleepTime)
 
 		var wg sync.WaitGroup

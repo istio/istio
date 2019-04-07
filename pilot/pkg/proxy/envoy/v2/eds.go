@@ -121,7 +121,6 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(uid, network)
 
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep
 }
 
@@ -143,7 +142,6 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	// Do not remove: mixerfilter depends on this logic.
 	ep.Metadata = endpointMetadata(e.UID, e.Network)
 
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }
 
@@ -260,7 +258,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	if cnt == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 
@@ -732,7 +729,6 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	if cnt == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 

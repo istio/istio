@@ -50,7 +50,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	//cfg.Values["global.mtls.enabled"] = "true"
 	if cfg.IsMtlsEnabled() {
 		successIfAuthEnabled = true
 	} else {
