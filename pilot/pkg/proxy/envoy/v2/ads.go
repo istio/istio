@@ -622,6 +622,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 
+	if err := nt.SetServiceInstances(s.Env); err != nil {
+		return err
+	}
+
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality. So its enough to look at the first instance
 	if len(nt.ServiceInstances) > 0 {
@@ -634,9 +638,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
-	if err := nt.SetServiceInstances(s.Env); err != nil {
-		return err
-	}
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
 	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
