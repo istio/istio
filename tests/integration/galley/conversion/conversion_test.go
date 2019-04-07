@@ -143,8 +143,7 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 			Equals("kube-dns.default.svc.cluster.local", "{.hosts[0]}").
 			Equals(1, "{.location}").
 			Equals(1, "{.resolution}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("spiffe://cluster.local/ns//sa/kube-dns", "{.subject_alt_names[0]}").
+			Equals("spiffe://cluster.local/ns//sa/kube-dns", "{.subject_alt_names[0]}").
 			Check(); err != nil {
 			return err
 		}
@@ -169,28 +168,22 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 		// Compare Endpoints
 		if err := v.Select("{.Body.endpoints[0]}").
 			Equals("10.40.0.5", "{.address}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("us-central1/us-central1-a", "{.locality}").
+			Equals("us-central1/us-central1-a", "{.locality}").
 			Equals(53, "{.ports['dns']}").
 			Equals(53, "{.ports['dns-tcp']}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("kube-dns", "{.labels['k8s-app']}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("123", "{.labels['pod-template-hash']}").
+			Equals("kube-dns", "{.labels['k8s-app']}").
+			Equals("123", "{.labels['pod-template-hash']}").
 			Check(); err != nil {
 			return err
 		}
 
 		if err := v.Select("{.Body.endpoints[1]}").
 			Equals("10.40.1.4", "{.address}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("us-central1/us-central1-a", "{.locality}").
+			Equals("us-central1/us-central1-a", "{.locality}").
 			Equals(53, "{.ports['dns']}").
 			Equals(53, "{.ports['dns-tcp']}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("kube-dns", "{.labels['k8s-app']}").
-			// TODO(https://github.com/istio/istio/issues/12820):
-			//  Equals("456", "{.labels['pod-template-hash']}").
+			Equals("kube-dns", "{.labels['k8s-app']}").
+			Equals("456", "{.labels['pod-template-hash']}").
 			Check(); err != nil {
 			return err
 		}
