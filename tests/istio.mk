@@ -223,7 +223,7 @@ test/local/auth/e2e_bookinfo_trustdomain: out_dir generate_e2e_yaml
 
 test/local/auth/e2e_split_horizon: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/multicluster \
-		--split_horizon \
+		--auth_enable=true --split_horizon \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: export EXTRA_HELM_SETTINGS=--set mixer.adapters.stdio.enabled=false
