@@ -315,8 +315,6 @@ var (
 					opts["PodNamespace"] = podNamespaceVar.Get()
 					if proxyIPv6 {
 						opts["IPv6Proxy"] = "true"
-					} else {
-						opts["IPv6Proxy"] = "false"
 					}
 					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
