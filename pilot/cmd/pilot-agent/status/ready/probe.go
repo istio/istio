@@ -24,6 +24,7 @@ import (
 
 // Probe for readiness.
 type Probe struct {
+	LocalHostAddr    string
 	AdminPort        uint16
 	ApplicationPorts []uint16
 }
@@ -68,7 +69,7 @@ func (p *Probe) checkInboundConfigured() error {
 
 // checkUpdated checks to make sure updates have been received from Pilot
 func (p *Probe) checkUpdated() error {
-	s, err := util.GetStats(p.AdminPort)
+	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
 	}

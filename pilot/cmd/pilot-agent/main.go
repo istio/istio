@@ -366,9 +366,13 @@ var (
 				if err != nil {
 					return err
 				}
-
+				localHostAddr := "127.0.0.1"
+				if proxyIPv6 {
+					localHostAddr = "[::1]"
+				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
+					LocalHostAddr:      localHostAddr,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
