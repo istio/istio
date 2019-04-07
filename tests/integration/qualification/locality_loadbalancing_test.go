@@ -95,7 +95,7 @@ func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 				Headers:  headers,
 			})
 			for _, r := range resp {
-				if match := serviceBHostname.FindString(r.Hostname); len(match) <= 0 {
+				if match := serviceBHostname.FindString(r.Hostname); len(match) == 0 {
 					t.Errorf("Request was made to service %v, all requests should go to the instance of b", r.Hostname)
 				}
 			}
