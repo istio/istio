@@ -286,8 +286,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	// Pass unmodified config.DiscoveryAddress for Google gRPC Envoy client target_uri parameter
 	opts["discovery_address"] = config.DiscoveryAddress
-	log.Infof("><SB> Discovery address: %s", config.DiscoveryAddress)
-	if isIPv6Addr(config.DiscoveryAddress) {
+	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
+	if isIPv6Addr(nodeIPs[0]) {
 		opts["ipv6_proxy"] = "true"
 	} else {
 		opts["ipv6_proxy"] = "false"
