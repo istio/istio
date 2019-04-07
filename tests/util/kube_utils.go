@@ -180,7 +180,7 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
-// KubeCommand will execut a kubectl command withe the specified yaml file
+// KubeCommand executes the given kubectl command with the given yaml file
 func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 	return err
