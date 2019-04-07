@@ -657,6 +657,9 @@ func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
 		if *splitHorizon {
+			if !*authEnable {
+				return errors.New("the split horizon test can only work with auth enabled")
+			}
 			istioYaml = mcSplitHorizonInstallFile
 		} else {
 			if *authEnable {
@@ -735,6 +738,10 @@ func (k *KubeInfo) deployIstio() error {
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", mcRemoteInstallFile)
 		var err error
 		if *splitHorizon {
+			if !*useAutomaticInjection {
+				return errors.New("the split horizon test only works with automatic injection")
+			}
+
 			err = k.generateRemoteIstioForSplitHorizon(testIstioYaml, remoteNetworkName, *proxyHub, *proxyTag)
 		} else {
 			err = k.generateRemoteIstio(testIstioYaml, *useAutomaticInjection, *proxyHub, *proxyTag)
