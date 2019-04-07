@@ -48,8 +48,8 @@ var (
 func ShouldRewriteAppProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
 	if annotations != nil {
 		if value, ok := annotations[annotationRewriteAppProbers]; ok {
-			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil && isSetInAnnotation {
-				return true
+			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
+				return isSetInAnnotation
 			}
 		}
 	}
