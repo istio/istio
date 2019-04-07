@@ -738,8 +738,8 @@ func (k *KubeInfo) deployIstio() error {
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", mcRemoteInstallFile)
 		var err error
 		if *splitHorizon {
-			if !*useAutomaticInjection {
-				return errors.New("the split horizon test only works with automatic injection")
+			if *useAutomaticInjection {
+				return errors.New("the split horizon test does not work with automatic injection")
 			}
 
 			err = k.generateRemoteIstioForSplitHorizon(testIstioYaml, remoteNetworkName, *proxyHub, *proxyTag)
