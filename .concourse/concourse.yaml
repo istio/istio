@@ -37,7 +37,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -45,7 +44,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_crds
+            istio-installer/bin/install.sh install_crds
     - task: install-system
       config:
         platform: linux
@@ -57,7 +56,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -65,7 +63,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_system
+            istio-installer/bin/install.sh install_system
     
     - task: install-control
       config:
@@ -77,7 +75,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -85,7 +82,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_control
+            istio-installer/bin/install.sh install_control
 
     - task: install-ingress
       config:
@@ -97,7 +94,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -105,7 +101,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_ingress
+            istio-installer/bin/install.sh install_ingress
 
     - task: install-telemetry
       config:
@@ -117,7 +113,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -125,7 +120,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_telemetry
+            istio-installer/bin/install.sh install_telemetry
 
   - name: test
     serial_groups: [ cluster ]
@@ -149,7 +144,6 @@ jobs:
           - name: istio-istio
             path: src/github.com/istio/istio
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -157,7 +151,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
+            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
 
   - name: update
     serial_groups: [ cluster ]
@@ -183,7 +177,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -191,14 +184,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            
-            set -x
-            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
-            PID=$!
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_system --update
-            
-            touch stop_connection_test
-            wait $PID
+            istio-installer/.concourse/bookinfo-watch.sh istio-installer/bin/install.sh install_system --update
 
     - task: update-control
       config:
@@ -210,7 +196,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -218,14 +203,8 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            set -x
+            istio-installer/.concourse/bookinfo-watch.sh istio-installer/bin/install.sh install_control --update
 
-            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
-            PID=$!
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_control --update
-
-            touch stop_connection_test
-            wait $PID
     - task: update-ingress
       config:
         platform: linux
@@ -238,7 +217,6 @@ jobs:
           - name: istio-istio
             path: src/github.com/istio/istio
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -246,11 +224,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
-            PID=$!
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_ingress --update
-            touch stop_connection_test
-            wait $PID
+            istio-installer/.concourse/bookinfo-watch.sh istio-installer/bin/install.sh install_ingress --update
 
     - task: update-telemetry
       config:
@@ -262,7 +236,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -270,11 +243,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
-            PID=$!
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_telemetry --update
-            touch stop_connection_test
-            wait $PID
+            istio-installer/.concourse/bookinfo-watch.sh istio-installer/bin/install.sh install_telemetry --update
 
     - task: remove-old-installation
       config:
@@ -286,7 +255,6 @@ jobs:
             repository: gcr.io/peripli/istio-base
         inputs:
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -294,11 +262,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
-            PID=$!
-            src/github.com/istio-ecosystem/istio-installer/bin/install.sh switch_istio_control --update
-            touch stop_connection_test
-            wait $PID
+            istio-installer/.concourse/bookinfo-watch.sh istio-installer/bin/install.sh switch_istio_control --update
   
   - name: test-after-update
     serial_groups: [ cluster ]
@@ -322,7 +286,6 @@ jobs:
           - name: istio-istio
             path: src/github.com/istio/istio
           - name: istio-installer
-            path: src/github.com/istio-ecosystem/istio-installer
         run:
           path: /bin/sh
           args:
@@ -330,7 +293,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            src/github.com/istio-ecosystem/istio-installer/bin/test.sh --skip-setup src/github.com/istio/istio/
+            istio-installer/bin/test.sh --skip-setup src/github.com/istio/istio/
 
 
 
