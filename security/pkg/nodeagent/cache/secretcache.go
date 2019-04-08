@@ -18,8 +18,10 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -92,6 +94,9 @@ type Options struct {
 
 	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
+
+	// set this flag to true if skip validate format for certificate chain returned from CA.
+	SkipValidateCert bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -527,6 +532,24 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		certChain = append(certChain, []byte(c)...)
 	}
 
+	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
+	// Current CAs(Citadel, GoogleCA) respect SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Some customer CA may override TTL param that's passed to it.
+	expireTime := t.Add(sc.configOptions.SecretTTL)
+	if !sc.configOptions.SkipValidateCert {
+		block, _ := pem.Decode(certChain)
+		if block == nil {
+			log.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
+			return nil, errors.New("failed to decode certificate")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
+			return nil, errors.New("failed to parse certificate")
+		}
+		expireTime = cert.NotAfter
+	}
+
 	length := len(certChainPEM)
 	// Leaf cert is element '0'. Root cert is element 'n'.
 	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1])) {
@@ -543,14 +566,14 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		ResourceName:     resourceName,
 		Token:            token,
 		CreatedTime:      t,
+		ExpireTime:       expireTime,
 		Version:          t.String(),
 	}, nil
 }
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
-	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
-	return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
+	return time.Now().After(s.ExpireTime.Add(-sc.configOptions.SecretRefreshGraceDuration))
 }
 
 func (sc *SecretCache) isTokenExpired() bool {

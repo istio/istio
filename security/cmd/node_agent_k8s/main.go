@@ -89,6 +89,10 @@ const (
 	alwaysValidTokenFlag     = "VALID_TOKEN"
 	alwaysValidTokenFlagFlag = "alwaysValidTokenFlag"
 
+	// The environmental variable name for the flag which is used to indicate whether to
+	// validate the certificate's format which is returned by CA.
+	skipValidateCertFlag = "SKIP_CERT_VALIDATION"
+
 	// The environmental variable name for secret TTL, node agent decides whether a secret
 	// is expired if time.now - secret.createtime >= secretTTL.
 	// example value format like "90m"
@@ -202,6 +206,7 @@ var (
 	enableWorkloadSDSEnv          = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
 	enableIngressGatewaySDSEnv    = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
 	alwaysValidTokenFlagEnv       = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
+	skipValidateCertFlagEnv       = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
 	caProviderEnv                 = env.RegisterStringVar(caProvider, "", "").Get()
 	caEndpointEnv                 = env.RegisterStringVar(caEndpoint, "", "").Get()
 	trustDomainEnv                = env.RegisterStringVar(trustDomain, "", "").Get()
@@ -275,6 +280,10 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(secretRotationIntervalFlag).Changed {
 		workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	}
+
+	if !cmd.Flag(skipValidateCertFlag).Changed {
+		workloadSdsCacheOptions.SkipValidateCert = skipValidateCertFlagEnv
+	}
 }
 
 func main() {
@@ -333,6 +342,10 @@ func main() {
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
 		false,
 		"If true, node agent assume token passed from envoy is always valid.")
+
+	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.SkipValidateCert, skipValidateCertFlag,
+		false,
+		"If true, node agent skip validating format of certificate returned from CA.")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, vaultAddressFlag, "",
 		"Vault address")

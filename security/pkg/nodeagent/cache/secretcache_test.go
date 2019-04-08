@@ -36,8 +36,9 @@ import (
 )
 
 var (
+	certchain, _        = ioutil.ReadFile("./testdata/cert-chain.pem")
 	mockCertChain1st    = []string{"foo", "rootcert"}
-	mockCertChainRemain = []string{"bar", "rootcert"}
+	mockCertChainRemain = []string{string(certchain)}
 	testResourceName    = "default"
 
 	k8sKey               = []byte("fake private k8sKey")
@@ -77,6 +78,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 		InitialBackoff:   10,
+		SkipValidateCert: true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -128,6 +130,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
 	}
 
+	sc.configOptions.SkipValidateCert = false
 	// Try to get secret again using different jwt token, verify secret is re-generated.
 	gotSecret, err = sc.GenerateSecret(ctx, conID, testResourceName, "newToken")
 	if err != nil {
@@ -162,6 +165,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 		InitialBackoff:   10,
+		SkipValidateCert: true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -346,6 +350,7 @@ func createSecretCache() *SecretCache {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 		InitialBackoff:   10,
+		SkipValidateCert: true,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -498,6 +503,7 @@ func TestSetAlwaysValidTokenFlag(t *testing.T) {
 		EvictionDuration:     10 * time.Second,
 		InitialBackoff:       10,
 		AlwaysValidTokenFlag: true,
+		SkipValidateCert:     true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
