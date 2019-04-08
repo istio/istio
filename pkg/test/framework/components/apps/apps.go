@@ -94,6 +94,7 @@ type AppEndpoint interface {
 	Name() string
 	Owner() App
 	Protocol() model.Protocol
+	NetworkEndpoint() model.NetworkEndpoint
 }
 
 // New returns a new instance of Apps

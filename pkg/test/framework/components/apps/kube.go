@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -414,12 +415,12 @@ func (c *kubeComponent) Close() (err error) {
 }
 
 type endpoint struct {
-	port  *model.Port
-	owner *kubeApp
+	networkEndpoint model.NetworkEndpoint
+	owner           *kubeApp
 }
 
 func (e *endpoint) Name() string {
-	return e.port.Name
+	return e.networkEndpoint.ServicePort.Name
 }
 
 func (e *endpoint) Owner() App {
@@ -427,7 +428,11 @@ func (e *endpoint) Owner() App {
 }
 
 func (e *endpoint) Protocol() model.Protocol {
-	return e.port.Protocol
+	return e.networkEndpoint.ServicePort.Protocol
+}
+
+func (e *endpoint) NetworkEndpoint() model.NetworkEndpoint {
+	return e.networkEndpoint
 }
 
 func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
@@ -450,7 +455,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 	return &url.URL{
 		Scheme: protocol,
-		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
+		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
 	}
 }
 
@@ -492,8 +497,13 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
-	// Extract the endpoints from the service definition.
-	a.endpoints = getEndpoints(a, service)
+	eps, err := e.GetEndpoints(namespace, serviceName, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the endpoints from the endpoints definition.
+	a.endpoints = getEndpoints(a, eps)
 
 	var grpcPort uint16
 	grpcPort, err = a.getGrpcPort()
@@ -533,23 +543,31 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
+	return uint16(commandEndpoints[0].(*endpoint).networkEndpoint.ServicePort.Port), nil
 }
 
 func (a *kubeApp) Name() string {
 	return a.serviceName
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
-	out := make([]*endpoint, len(service.Spec.Ports))
-	for i, servicePort := range service.Spec.Ports {
-		out[i] = &endpoint{
-			owner: owner,
-			port: &model.Port{
-				Name:     servicePort.Name,
-				Port:     int(servicePort.Port),
-				Protocol: serviceRegistryKube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
-			},
+func getEndpoints(owner *kubeApp, endpoints *kubeApiCore.Endpoints) []*endpoint {
+	out := make([]*endpoint, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, address := range subset.Addresses {
+			for _, port := range subset.Ports {
+				out = append(out, &endpoint{
+					owner: owner,
+					networkEndpoint: model.NetworkEndpoint{
+						Address: address.IP,
+						Port:    int(port.Port),
+						ServicePort: &model.Port{
+							Name:     port.Name,
+							Port:     int(port.Port),
+							Protocol: serviceRegistryKube.ConvertProtocol(port.Name, port.Protocol),
+						},
+					},
+				})
+			}
 		}
 	}
 	return out
@@ -575,7 +593,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 
 func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 	for _, e := range a.endpoints {
-		if e.port.Port == port {
+		if e.networkEndpoint.ServicePort.Port == port {
 			return e
 		}
 	}
@@ -632,7 +650,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+	if resp[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
 		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 

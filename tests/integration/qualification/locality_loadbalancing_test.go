@@ -15,11 +15,14 @@
 package qualification
 
 import (
+	"bytes"
 	"net/http"
 	"regexp"
 	"sync"
 	"testing"
 	"time"
+
+	"text/template"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
@@ -37,6 +40,7 @@ import (
 // as the caller (A) and service C to be in a different locality. We then verify that all request go to
 // service B. For details check the Service Entry configuration at the bottom of the page.
 //
+//  CDS Test
 //
 //                                                       +-> B (region.zone.subzone)
 //                                                       |
@@ -47,10 +51,29 @@ import (
 //                                                    0% |
 //                                                       |
 //                                                       +-> C (notregion.notzone.notsubzone)
+//
+//
+//  EDS Test
+//
+//                                                       +-> 10.28.1.138 (B -> region.zone.subzone)
+//                                                       |
+//                                                  100% |
+//                                                       |
+// A (region.zone.subzone) -> fake-external-service.com -|
+//                                                       |
+//                                                    0% |
+//                                                       |
+//                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
 
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
-func TestLocalityLoadBalancingEDS(t *testing.T) {
+type ServiceConfig struct {
+	Resolution      string
+	ServiceBAddress string
+	ServiceCAddress string
+}
+
+func TestLocalityLoadBalancingCDS(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
@@ -61,7 +84,12 @@ func TestLocalityLoadBalancingEDS(t *testing.T) {
 
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
-	g.ApplyConfigOrFail(t, instance.Namespace(), fakeExternalServiceConfig)
+
+	se := ServiceConfig{"DNS", "b", "c"}
+	tmpl, _ := template.New("ServiceConfig").Parse(fakeExternalServiceConfig)
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, se)
+	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
 
 	// TODO: find a better way to do this!
 	// This sleep allows config to propagate
@@ -75,7 +103,44 @@ func TestLocalityLoadBalancingEDS(t *testing.T) {
 		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
 	}
 	wg.Wait()
+}
 
+func TestLocalityLoadBalancingEDS(t *testing.T) {
+	ctx := framework.NewContext(t)
+	defer ctx.Done(t)
+
+	ctx.RequireOrSkip(t, environment.Kube)
+
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+
+	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
+	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
+	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
+
+	se := ServiceConfig{
+		"STATIC",
+		b.EndpointForPort(80).NetworkEndpoint().Address,
+		c.EndpointForPort(80).NetworkEndpoint().Address,
+	}
+	tmpl, _ := template.New("ServiceConfig").Parse(fakeExternalServiceConfig)
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, se)
+	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
+
+	// TODO: find a better way to do this!
+	// This sleep allows config to propagate
+	time.Sleep(10 * time.Second)
+
+	// Send traffic to service B via a service entry for the test duration.
+	wg := &sync.WaitGroup{}
+	wg.Add(numSendTasks + 1)
+	go logProgress(20*time.Second, wg, "fake-external-service.com")
+	for i := 0; i < numSendTasks; i++ {
+		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
+	}
+	wg.Wait()
 }
 
 func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to string, wg *sync.WaitGroup) {
@@ -118,12 +183,12 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-  resolution: DNS
+  resolution: {{.Resolution}}
   location: MESH_EXTERNAL
   endpoints:
-  - address: b
+  - address: {{.ServiceBAddress}}
     locality: region/zone/subzone
-  - address: c
+  - address: {{.ServiceCAddress}}
     locality: notregion/notzone/notsubzone
 ---
 apiVersion: networking.istio.io/v1alpha3
