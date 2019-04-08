@@ -199,24 +199,6 @@ jobs:
             .concourse/connection-test.sh &
             PID=$!
 
-            #TODO: Remove this patch (should be merged to master)
-            git apply  --ignore-space-change --ignore-whitespace  - <<PATCH
-            diff --git a/security/citadel/templates/deployment.yaml b/security/citadel/templates/deployment.yaml
-            index 2639959..6a32ed0 100644
-            --- a/security/citadel/templates/deployment.yaml
-            +++ b/security/citadel/templates/deployment.yaml
-            @@ -35,5 +35,9 @@ spec:
-                       args:
-                         - --append-dns-names=true
-                         - --grpc-port=8060
-            +          {{- if and (.Values.global.istioVersion) (semverCompare "<1.2" .Values.global.istioVersion) }}
-                         - --grpc-hostname=citadel
-            +          {{- else}}
-            +            - --grpc-host-identities=citadel
-            +          {{- end}}
-                         - --citadel-storage-namespace={{ .Release.Namespace }}
-            PATCH
-
             echo "updateing citadel.."
             bin/iop istio-system istio-system-security $IBASE/security/citadel/ --set global.istioVersion=$ISTIO_VERSION
             
@@ -254,7 +236,7 @@ jobs:
             .concourse/connection-test.sh &
             PID=$!
             echo "updateing galley.."
-            bin/iop istio-control-$SUFFIX istio-config $IBASE/istio-control/istio-config --set configValidation=true --set global.istioNamespace=istio-control-$SUFFIX # TODO: use --set global.istioVersion=$ISTIO_VERSION as soon as https://github.com/istio-ecosystem/istio-installer/pull/17 is merged
+            bin/iop istio-control-$SUFFIX istio-config $IBASE/istio-control/istio-config --set configValidation=true --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
             echo "updateing pilot.."
             bin/iop istio-control-$SUFFIX istio-discovery $IBASE/istio-control/istio-discovery --set global.istioNamespace=istio-control-$SUFFIX --set global.configNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
             echo "updateing auto-injector.."
