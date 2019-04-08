@@ -183,7 +183,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
+		ns, err := sc.generateSecret(ctx, token, connectionID, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
 			return nil, err
@@ -348,7 +348,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 	}
 }
 
-func (sc *SecretCache) rotate() {
+func (sc *SecretCache) rotate(updateRoot bool) {
 	// Skip secret rotation for kubernetes secrets.
 	if !sc.fetcher.UseCaClient {
 		return
@@ -360,13 +360,31 @@ func (sc *SecretCache) rotate() {
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
+		connectionID := key.ConnectionID
+
+		// only refresh root cert if updateRoot is set to true.
+		if updateRoot {
+			if key.ResourceName != RootCertReqResourceName {
+				return true
+			}
+
+			if sc.notifyCallback != nil {
+				// Send the notification to close the stream connection if root cert needs to be updated.
+				if err := sc.notifyCallback(connectionID, key.ResourceName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+					log.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
+				}
+			} else {
+				log.Warnf("secret cache notify callback isn't set")
+			}
+
+			return true
+		}
 
 		// skip the refresh if cached item is root cert.
 		if key.ResourceName == RootCertReqResourceName {
 			return true
 		}
 
-		connectionID := key.ConnectionID
 		now := time.Now()
 
 		e := v.(model.SecretItem)
@@ -552,12 +570,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 	length := len(certChainPEM)
 	// Leaf cert is element '0'. Root cert is element 'n'.
-	if sc.rootCert == nil || !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1])) {
+	rootCertChanged := !bytes.Equal(sc.rootCert, []byte(certChainPEM[length-1]))
+	if sc.rootCert == nil || rootCertChanged {
 		sc.rootCertMutex.Lock()
 		sc.rootCert = []byte(certChainPEM[length-1])
 		sc.rootCertMutex.Unlock()
+	}
 
-		// TODO(quanlin): notify proxy about root cert change.
+	if rootCertChanged {
+		sc.rotate(true /*updateRoot*/)
 	}
 
 	return &model.SecretItem{
