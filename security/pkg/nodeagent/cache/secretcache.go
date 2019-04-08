@@ -495,7 +495,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	startTime := time.Now()
 	var retry int64
 	var certChainPEM []string
-	for true {
+	for {
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
 			ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		if err == nil {
