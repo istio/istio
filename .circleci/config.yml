@@ -75,9 +75,15 @@ jobs:
 
   install-minikube:
     <<: *integrationDefaults
-    environment:
+    environment: &minikubeEnv
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
+            - RESOURCES_FLAGS: >-
+                --set global.defaultResources.requests.cpu=0m
+                --set resources.requests.cpu=0
+                --set resources.requests.memory=0
+                --set global.proxy.resources.requests.cpu=0
+                --set global.proxy.resources.requests.memory=0
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -103,9 +109,7 @@ jobs:
 
   modular-installation:
     <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
+    environment: *minikubeEnv
     steps:
       - <<: *initWorkingDir
       - checkout

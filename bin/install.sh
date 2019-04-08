@@ -18,12 +18,6 @@ cd  "$( dirname "${BASH_SOURCE[0]}" )/.."
 export IBASE="$(pwd)"
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 
-export RESOURCES_FLAGS="--set global.defaultResources.requests.cpu=0m \
---set resources.requests.cpu=0 \
---set resources.requests.memory=0 \
---set global.proxy.resources.requests.cpu=0 \
---set global.proxy.resources.requests.memory=0"
-
 # Install istio crds
 
 function install_crds() {
