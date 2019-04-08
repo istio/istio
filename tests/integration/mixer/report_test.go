@@ -85,10 +85,11 @@ func TestMixer_Report_Direct(t *testing.T) {
 
 var testReportConfig = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: metric1
 spec:
+  compiledTemplate: metric
   value: "2"
   dimensions:
     destination_name: destination.uid | "unknown"
@@ -100,7 +101,7 @@ metadata:
   name: rule1
 spec:
   actions:
-  - handler: handler1.bypass
+  - handler: handler1
     instances:
-    - metric1.metric
+    - metric1
 `
