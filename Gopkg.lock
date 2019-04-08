@@ -245,6 +245,17 @@
   revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
 
 [[projects]]
+  branch = "master"
+  digest = "1:b9fb2e329126b46d1fa47f608491c37b9f43bd5f86b10e45f03d881485112119"
+  name = "github.com/client9/gospell"
+  packages = [
+    ".",
+    "plaintext",
+  ]
+  pruneopts = "NUT"
+  revision = "90dfc71015dfebd3a7274f1ad2756c1dbf09e250"
+
+[[projects]]
   branch = "v2"
   digest = "1:c91a5363a19174cb0181832821a7bb9da0aeefb5e2180724614b1005c2269712"
   name = "github.com/coreos/go-oidc"
@@ -1524,7 +1535,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a523c1e433f7412be0da8b0b6bdbcbdda8288bb2d4d659bda01cc0edaa6feb5e"
+  digest = "1:17b4dad92815a78aaf5d7a05122f781a51528be9245958dad456d23c5bbb646d"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1536,7 +1547,6 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
-    "googleapis/iam/credentials/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1656,7 +1666,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:868e608f0483f3332cbf7568653095750995a96ef0d7ad7e49864952209a9e67"
+  digest = "1:f26e267647e01c727543b37bfa3481303dc78d1def53372dba0edee0f60e21d0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1672,7 +1682,15 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "c443173254761fb969c8222073caa74e9ba5689f"
+  revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:fa55210f71a6277eb328dd4df8779f97d6c337d70fab97f27594126ae27fd09a"
+  name = "istio.io/tools"
+  packages = ["pkg/protocgen"]
+  pruneopts = "NUT"
+  revision = "8d3bf51ec16ac15e542294bc6861f209bf19df0d"
 
 [[projects]]
   branch = "release-1.11"

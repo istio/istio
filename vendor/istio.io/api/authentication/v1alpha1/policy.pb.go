@@ -1330,9 +1330,9 @@ func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.MatchType != nil {
-		nn1, err := m.MatchType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn1, err1 := m.MatchType.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += nn1
 	}
@@ -1567,9 +1567,9 @@ func (m *PeerAuthenticationMethod) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Params != nil {
-		nn2, err := m.Params.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn2, err2 := m.Params.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += nn2
 	}
@@ -1585,9 +1585,9 @@ func (m *PeerAuthenticationMethod_Mtls) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Mtls.Size()))
-		n3, err := m.Mtls.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Mtls.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -1599,9 +1599,9 @@ func (m *PeerAuthenticationMethod_Jwt) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Jwt.Size()))
-		n4, err := m.Jwt.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Jwt.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -1626,9 +1626,9 @@ func (m *OriginAuthenticationMethod) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPolicy(dAtA, i, uint64(m.Jwt.Size()))
-		n5, err := m.Jwt.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.Jwt.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -1792,9 +1792,9 @@ func (m *PortSelector) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Port != nil {
-		nn6, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn6, err6 := m.Port.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += nn6
 	}
