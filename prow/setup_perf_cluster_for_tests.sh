@@ -32,4 +32,5 @@ pushd ${GOPATH}/src/istio.io/tools/perf/istio
 popd
 
 # Run the test script in istio/istio
-exec "$1"
+# TODO: uncomment after we add more steps for postsubmit in .
+# exec "$1"
