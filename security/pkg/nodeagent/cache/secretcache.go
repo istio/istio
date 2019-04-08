@@ -94,6 +94,9 @@ type Options struct {
 
 	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
+
+	// set this flag to true if skip validate format for certificate chain returned from CA.
+	SkipValidateCert bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -531,17 +534,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
-	block, _ := pem.Decode(certChain)
-	if block != nil {
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err == nil {
-			expireTime = cert.NotAfter
-			log.Debugf("Cert expire time is %v", expireTime)
-		} else {
-			log.Debugf("Failed to parse certificate %v, use default cert TTL", err.Error())
+	if !sc.configOptions.SkipValidateCert {
+		block, _ := pem.Decode(certChain)
+		if block == nil {
+			log.Errorf("Failed to decode certificate for %q", resourceName)
+			return nil, errors.New("failed to decode certificate")
 		}
-	} else {
-		log.Debug("Failed to decode certificate, use default cert TTL")
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Errorf("Failed to parse certificate for %q: %v", resourceName, err)
+			return nil, errors.New("failed to parse certificate")
+		}
+		expireTime = cert.NotAfter
 	}
 
 	length := len(certChainPEM)
