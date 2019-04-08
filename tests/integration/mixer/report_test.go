@@ -90,10 +90,11 @@ metadata:
   name: metric1
 spec:
   compiledTemplate: metric
-  value: "2"
-  dimensions:
-    destination_name: destination.uid | "unknown"
-    origin_ip: origin.ip | ip("4.5.6.7")
+  params:
+    value: "2"
+    dimensions:
+      destination_name: destination.uid | "unknown"
+      origin_ip: origin.ip | ip("4.5.6.7")
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
