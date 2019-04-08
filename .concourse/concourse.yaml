@@ -177,7 +177,6 @@ jobs:
           TAG: master-latest-daily
           HUB: gcr.io/istio-release
           SUFFIX: master
-          ISTIO_VERSION: 1.2
         image_resource:
           type: docker-image
           source:
@@ -190,22 +189,14 @@ jobs:
           args:
           - -ec
           - |
-            cd src/github.com/istio-ecosystem/istio-installer
-            export IBASE=$(pwd)
-            echo "((KUBECONFIG))" > kubeconfig.yaml
-            export KUBECONFIG=$IBASE/kubeconfig.yaml
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            
             set -x
-            
-            .concourse/connection-test.sh &
+            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
             PID=$!
-
-            echo "updateing citadel.."
-            bin/iop istio-system istio-system-security $IBASE/security/citadel/ --set global.istioVersion=$ISTIO_VERSION
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_system --update
             
-            kubectl get deployments -n istio-system
-            kubectl rollout status -n istio-system deployment istio-citadel11 --timeout=2m
-            kubectl get deployments -n istio-system
-            kubectl get pod -n istio-system
             touch stop_connection_test
             wait $PID
 
@@ -225,29 +216,16 @@ jobs:
           args:
           - -ec
           - |
-            cd src/github.com/istio-ecosystem/istio-installer/
-            export IBASE=$(pwd)
-            echo "((KUBECONFIG))" > kubeconfig.yaml
-            export KUBECONFIG=$IBASE/kubeconfig.yaml
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
             set -x
 
-            kubectl delete namespace istio-control-$SUFFIX --wait --ignore-not-found
-
-            .concourse/connection-test.sh &
+            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
             PID=$!
-            echo "updateing galley.."
-            bin/iop istio-control-$SUFFIX istio-config $IBASE/istio-control/istio-config --set configValidation=true --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            echo "updateing pilot.."
-            bin/iop istio-control-$SUFFIX istio-discovery $IBASE/istio-control/istio-discovery --set global.istioNamespace=istio-control-$SUFFIX --set global.configNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            echo "updateing auto-injector.."
-            bin/iop istio-control-$SUFFIX istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_control --update
 
-            kubectl get deployments -n istio-control-$SUFFIX
-            kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control-$SUFFIX --for=condition=available --timeout=5m
-            kubectl get deployments -n istio-control-$SUFFIX
-            kubectl get pod -n istio-control-$SUFFIX
             touch stop_connection_test
-            wait $PID 
+            wait $PID
     - task: update-ingress
       config:
         platform: linux
@@ -266,25 +244,13 @@ jobs:
           args:
           - -ec
           - |
-            cd src/github.com/istio-ecosystem/istio-installer/
-            export IBASE=$(pwd)
-            echo "((KUBECONFIG))" > kubeconfig.yaml
-            export KUBECONFIG=$IBASE/kubeconfig.yaml
-            set -x
-
-            kubectl patch deployment -n istio-ingress ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
-
-            echo "updateing ingress-pilot.."
-            bin/iop istio-ingress istio-discovery $IBASE/istio-control/istio-discovery --set global.istioNamespace=istio-control-$SUFFIX --set global.configNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            echo "updateing ingress.."
-            bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-
-            kubectl get deployments -n istio-ingress
-            kubectl rollout status deployment --timeout=5m -n istio-ingress istio-pilot
-            kubectl rollout status deployment --timeout=2m -n istio-ingress ingressgateway
-            kubectl get deployments -n istio-ingress
-            kubectl get pod -n istio-ingress
-            bin/test.sh --skip-setup --skip-cleanup ../../istio/istio/
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
+            PID=$!
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_ingress --update
+            touch stop_connection_test
+            wait $PID
 
     - task: update-telemetry
       config:
@@ -302,26 +268,11 @@ jobs:
           args:
           - -ec
           - |
-            cd src/github.com/istio-ecosystem/istio-installer/
-            export IBASE=$(pwd)
-            echo "((KUBECONFIG))" > kubeconfig.yaml
-            export KUBECONFIG=$IBASE/kubeconfig.yaml
-            set -x
-
-            .concourse/connection-test.sh &
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
             PID=$!
-
-            echo "updateing istio-grafana.."
-            bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            echo "updateing istio-mixer.."
-            bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            echo "updateing istio-prometheus."
-            bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control-$SUFFIX --set global.istioVersion=$ISTIO_VERSION
-            kubectl get deployments -n istio-ingress
-            kubectl rollout status deployment --timeout=2m -n istio-ingress ingressgateway
-            kubectl rollout status deployment --timeout=5m -n istio-ingress istio-pilot
-            kubectl get deployments -n istio-ingress
-            kubectl get pod -n istio-ingress
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh install_telemetry --update
             touch stop_connection_test
             wait $PID
 
@@ -341,22 +292,11 @@ jobs:
           args:
           - -ec
           - |
-            cd src/github.com/istio-ecosystem/istio-installer/
-            export IBASE=$(pwd)
-            echo "((KUBECONFIG))" > kubeconfig.yaml
-            export KUBECONFIG=$IBASE/kubeconfig.yaml
-            set -x
-
-            .concourse/connection-test.sh &
+            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            src/github.com/istio-ecosystem/istio-installer/.concourse/connection-test.sh &
             PID=$!
-
-            kubectl label namespaces default --overwrite istio-env=istio-control-$SUFFIX
-            kubectl patch deployment productpage-v1 --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
-            kubectl set env --all deployment --env="LAST_MANUAL_RESTART=$(date +%s)" --namespace=default
-
-            kubectl delete namespace istio-control --wait --ignore-not-found
-            sleep 10
-
+            src/github.com/istio-ecosystem/istio-installer/bin/install.sh switch_istio_control --update
             touch stop_connection_test
             wait $PID
   
