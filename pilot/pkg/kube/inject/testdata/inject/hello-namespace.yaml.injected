@@ -10,7 +10,7 @@ spec:
     matchLabels:
       app: hello  
       tier: backend
-      track: stabl
+      track: stable
   strategy: {}
   template:
     metadata:

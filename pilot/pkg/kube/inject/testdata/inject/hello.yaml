@@ -5,8 +5,8 @@ metadata:
 spec:
   replicas: 7
   selector:
-    matchLabels:
-      app: hello  
+    matchLabels: 
+      app: hello
       tier: backend
       track: stable
   template:
