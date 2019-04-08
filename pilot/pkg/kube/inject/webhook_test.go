@@ -605,6 +605,11 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_http_probe_nosidecar_rewrite.patch",
 			templateFile: "TestWebhookInject_http_probe_nosidecar_rewrite_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_https_probe_rewrite.yaml",
+			wantFile:     "TestWebhookInject_https_probe_rewrite.patch",
+			templateFile: "TestWebhookInject_https_probe_rewrite_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
