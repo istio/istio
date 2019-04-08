@@ -1,3 +1,4 @@
+rewriteAppHTTPProbe: true
 initContainers:
 - name: istio-init
   image: example.com/init:latest
