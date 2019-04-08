@@ -26,7 +26,7 @@ source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
 echo "Get istio release: $TAG"
-pushd ${GOPATH}/src/istio.io/tools/perf/istio-install
+pushd "${GOPATH}/src/istio.io/tools/perf/istio-install"
   ./setup_istio.sh "${TAG}"
 popd
 
