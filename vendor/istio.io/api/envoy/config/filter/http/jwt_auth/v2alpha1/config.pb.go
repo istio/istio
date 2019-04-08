@@ -894,9 +894,9 @@ func (m *HttpUri) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Uri)
 	}
 	if m.HttpUpstreamType != nil {
-		nn1, err := m.HttpUpstreamType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn1, err1 := m.HttpUpstreamType.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += nn1
 	}
@@ -904,9 +904,9 @@ func (m *HttpUri) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.Timeout.Size()))
-		n2, err := m.Timeout.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Timeout.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -940,9 +940,9 @@ func (m *DataSource) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Specifier != nil {
-		nn3, err := m.Specifier.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn3, err3 := m.Specifier.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += nn3
 	}
@@ -1015,9 +1015,9 @@ func (m *JwtRule) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	if m.JwksSourceSpecifier != nil {
-		nn4, err := m.JwksSourceSpecifier.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn4, err4 := m.JwksSourceSpecifier.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += nn4
 	}
@@ -1076,9 +1076,9 @@ func (m *JwtRule_RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.RemoteJwks.Size()))
-		n5, err := m.RemoteJwks.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.RemoteJwks.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -1090,9 +1090,9 @@ func (m *JwtRule_LocalJwks) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.LocalJwks.Size()))
-		n6, err := m.LocalJwks.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.LocalJwks.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -1117,9 +1117,9 @@ func (m *RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.HttpUri.Size()))
-		n7, err := m.HttpUri.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.HttpUri.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -1127,9 +1127,9 @@ func (m *RemoteJwks) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.CacheDuration.Size()))
-		n8, err := m.CacheDuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.CacheDuration.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}

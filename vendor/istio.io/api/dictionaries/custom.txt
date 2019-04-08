@@ -3,6 +3,7 @@ backend
 balancer
 Bookinfo
 CIDR
+Datadog
 DNS
 FQDN
 Grafana

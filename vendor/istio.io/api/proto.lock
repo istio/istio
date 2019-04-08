@@ -3424,6 +3424,11 @@
                     "id": 4,
                     "name": "max_retries",
                     "type": "int32"
+                  },
+                  {
+                    "id": 5,
+                    "name": "idle_timeout",
+                    "type": "google.protobuf.Duration"
                   }
                 ]
               }
@@ -4472,6 +4477,14 @@
                   "id": 7,
                   "name": "source_labels",
                   "type": "string"
+                }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 9,
+                  "name": "query_params",
+                  "type": "StringMatch"
                 }
               }
             ]
@@ -5993,6 +6006,11 @@
                 "name": "actions",
                 "type": "AccessRule",
                 "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "role",
+                "type": "string"
               }
             ]
           },
