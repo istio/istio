@@ -1555,14 +1555,19 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
-	if in.RoleRef != nil && len(in.Actions) > 0 {
+	if in.RoleRef != nil && in.Role != "" {
+		errs = appendErrors(errs, fmt.Errorf("only one of `roleRef` or `role` can be specified"))
+		return errs
+	}
+	if (in.RoleRef != nil || in.Role != "" ) && len(in.Actions) > 0 {
 		errs = appendErrors(errs, fmt.Errorf("only one of `roleRef` or `actions` can be specified"))
 		return errs
 	}
-	if in.RoleRef == nil && len(in.Actions) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("`roleRef` or `actions` must be specified"))
+	if in.RoleRef == nil && in.Role == "" && len(in.Actions) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("`roleRef`, `role`, or `actions` must be specified"))
 	}
 	if in.RoleRef != nil {
+		rbacLog.Warnf("`roleRef` is deprecated. Please use `role` instead")
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
