@@ -7,7 +7,7 @@ spec:
   replicas: 7
   selector:
     matchLabels:
-      app: hello-host-network  
+      app: hello-host-network
       tier: backend
       track: stable
   strategy: {}
