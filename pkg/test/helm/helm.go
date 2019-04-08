@@ -17,8 +17,6 @@ package helm
 import (
 	"fmt"
 
-	"strings"
-
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
@@ -41,19 +39,10 @@ func Init(homeDir string, clientOnly bool) error {
 }
 
 func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
-	valuesFileString := ""
+	p := []string{"helm", "--home", homeDir, "template", template, "--name", name, "--namespace", namespace}
 	if valuesFile != "" {
-		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
-	}
-
-	str := fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s",
-		homeDir, template, name, namespace, valuesFileString)
-	parts := strings.Split(str, " ")
-	var p []string
-	for i := 0; i < len(parts); i++ {
-		if parts[i] != "" {
-			p = append(p, parts[i])
-		}
+		p = append(p, "--values")
+		p = append(p, valuesFile)
 	}
 
 	// Override the values in the helm value file.
