@@ -202,7 +202,8 @@ kind: handler
 metadata:
   name: %s
 spec:
-  backend_address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    backend_address: policy-backend.%s.svc.cluster.local:1071
   compiledAdapter: bypass
 `, name, c.namespace.Name())
 }
