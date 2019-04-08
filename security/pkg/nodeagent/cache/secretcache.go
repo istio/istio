@@ -70,6 +70,9 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
+	// The initial backoff time in millisecond to avoid the thundering herd problem.
+	InitialBackoff int64
+
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
 	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
 	SecretRefreshGraceDuration time.Duration
@@ -485,12 +488,16 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
+	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
+	log.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	// Add a jitter to initial CSR to avoid thundering herd problem.
+	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 	startTime := time.Now()
-	retry := 0
-	backOffInMilliSec := initialBackOffIntervalInMilliSec
+	var retry int64
 	var certChainPEM []string
 	for {
-		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+			ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		if err == nil {
 			break
 		}
@@ -508,10 +515,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}
 
 		retry++
-		backOffInMilliSec = retry * backOffInMilliSec
-		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
-		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
-		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
+		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
+		log.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
 	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)
