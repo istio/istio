@@ -22,7 +22,7 @@ items:
       replicas: 1
       selector:
         matchLabels:
-          app: hello  
+          app: hello
           tier: frontend
           track: stable
       template:

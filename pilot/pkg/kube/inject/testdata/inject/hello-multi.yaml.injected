@@ -7,7 +7,7 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      app: hello  
+      app: hello
       tier: backend
       track: stable
       version: v1
@@ -147,7 +147,7 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      app: hello  
+      app: hello
       tier: backend
       track: stable
       version: v2
