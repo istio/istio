@@ -403,7 +403,7 @@ func TestLDS(t *testing.T) {
 	// TODO: dynamic checks ( see EDS )
 }
 
-// TestLDS using default sidecar in root namespace
+// TestLDS using sidecar scoped on workload without Service
 func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
@@ -457,12 +457,12 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	l := adsResponse.HTTPListeners["0.0.0.0_8081"]
-
-	if l != nil {
+	if l := adsResponse.HTTPListeners["0.0.0.0_8081"]; l != nil {
 		if len(l.FilterChains) != 1 {
 			t.Fatalf("Expected 1 filter chains, got %d", len(l.FilterChains))
 		}
+	} else {
+		t.Fatal("Expected listener for 0.0.0.0_8081")
 	}
 
 	// Expect only one EDS cluster for http1.ns1.svc.cluster.local

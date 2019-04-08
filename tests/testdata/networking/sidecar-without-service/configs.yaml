@@ -130,6 +130,13 @@ spec:
         - "ns1/*"
         - "istio-system/istio-telemetry.istio-system.svc.cluster.local"
         - "istio-system/istio-policy.istio-system.svc.cluster.local"
+  ingress:
+    - port:
+        number: 9080
+        protocol: HTTP
+        name: http-admin
+      defaultEndpoint: 127.0.0.1:8080
+      captureMode: IPTABLES
   workloadSelector:
     labels:
       app: consumeronly
