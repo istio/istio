@@ -183,7 +183,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connectionID, resourceName, time.Now())
+		ns, err := sc.generateSecret(ctx, token, resourceName, time.Now())
 		if err != nil {
 			log.Errorf("Failed to generate secret for proxy %q: %v", connectionID, err)
 			return nil, err
@@ -339,7 +339,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 	for {
 		select {
 		case <-sc.rotationTicker.C:
-			sc.rotate()
+			sc.rotate(false /*updateRootFlag*/)
 		case <-sc.closing:
 			if sc.rotationTicker != nil {
 				sc.rotationTicker.Stop()
@@ -348,7 +348,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 	}
 }
 
-func (sc *SecretCache) rotate(updateRoot bool) {
+func (sc *SecretCache) rotate(updateRootFlag bool) {
 	// Skip secret rotation for kubernetes secrets.
 	if !sc.fetcher.UseCaClient {
 		return
@@ -362,8 +362,8 @@ func (sc *SecretCache) rotate(updateRoot bool) {
 		key := k.(ConnKey)
 		connectionID := key.ConnectionID
 
-		// only refresh root cert if updateRoot is set to true.
-		if updateRoot {
+		// only refresh root cert if updateRootFlag is set to true.
+		if updateRootFlag {
 			if key.ResourceName != RootCertReqResourceName {
 				return true
 			}
@@ -578,7 +578,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	if rootCertChanged {
-		sc.rotate(true /*updateRoot*/)
+		sc.rotate(true /*updateRootFlag*/)
 	}
 
 	return &model.SecretItem{
