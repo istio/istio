@@ -139,6 +139,8 @@ e2e_pilot: out_dir istioctl generate_e2e_yaml
 
 e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
+e2e_pilotv2_v1alpha3_auth: | istioctl test/local/auth/e2e_pilotv2
+
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
 e2e_bookinfo_trustdomain: | istioctl test/local/auth/e2e_bookinfo_trustdomain
