@@ -19,16 +19,15 @@ export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 # This is config for postsubmit cluster under istio/tools/perf/istio.
 export VALUES="${VALUES:-values-istio-postsubmit.yaml}"
+export DNS_DOMAIN="fake_dns.org"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
-pushd ${GOPATH}/src/istio.io/tools/perf/istio
-  source common.sh
-  setup_admin_binding
-  install_istio "${WD}/tmp" "${TAG}" $*
-  install_gateways
+echo "Get istio release: $TAG"
+pushd ${GOPATH}/src/istio.io/tools/perf/istio-install
+  ./setup_istio.sh "${TAG}"
 popd
 
 # Run the test script in istio/istio
