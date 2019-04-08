@@ -39,10 +39,6 @@ do
                 print_help
             fi
             ISTIO_PATH=$1
-            if [ ! -d "$ISTIO_PATH" ]; then
-                echo "$ISTIO_PATH is not a directory"
-                exit 2
-            fi
         ;;
     esac
     shift 1
@@ -52,10 +48,14 @@ if [ -z "$ISTIO_PATH" ]; then
     echo "istio-directory not set"
     print_help
 fi
+if [ ! -d "$ISTIO_PATH" ]; then
+    echo "$ISTIO_PATH is not a directory"
+    print_help
+fi
 
 cd $ISTIO_PATH
 
-if [ $SKIP_SETUP -eq 0 ]; then
+if [ "$SKIP_SETUP" -eq 0 ]; then
     kubectl label namespace default istio-env=istio-control --overwrite
 fi
 
