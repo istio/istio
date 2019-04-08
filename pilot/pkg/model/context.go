@@ -553,6 +553,10 @@ const (
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 
+	// NodeMetadataOutboundTrafficPolicy the outbound traffic policy for the proxy. Valid values are
+	// ALLOW_ANY and REGISTRY_ONLY. If not set, the mesh wide setting is used.
+	NodeMetadataOutboundTrafficPolicy = "sidecar.istio.io/outboundTrafficPolicy"
+
 	// NodeMetadataPolicyCheckRetries determines the policy for behavior when unable to connect to mixer
 	// If not set, FAIL_CLOSE is set, rejecting requests.
 	NodeMetadataPolicyCheck = "policy.istio.io/check"

@@ -191,45 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		listeners = configgen.generateManagementListeners(node, noneMode, env, listeners)
 
-		tcpProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.BlackHoleCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-		}
-
-		if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
-			// We need a passthrough filter to fill in the filter stack for orig_dst listener
-			tcpProxy = &tcp_proxy.TcpProxy{
-				StatPrefix:       util.PassthroughCluster,
-				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
-			}
-		}
-		var transparent *google_protobuf.BoolValue
-		if node.GetInterceptionMode() == model.InterceptionTproxy {
-			transparent = proto.BoolTrue
-		}
-
-		filter := listener.Filter{
-			Name: xdsutil.TCPProxy,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
-
-		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		listeners = append(listeners, &xdsapi.Listener{
-			Name:           VirtualListenerName,
-			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
-			Transparent:    transparent,
-			UseOriginalDst: proto.BoolTrue,
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{filter},
-				},
-			},
-		})
+		listeners = append(listeners, configgen.buildVirtualListener(env, node))
 	}
 
 	httpProxyPort := mesh.ProxyHttpPort
@@ -292,6 +254,58 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	return listeners, nil
+}
+
+func (configgen *ConfigGeneratorImpl) buildVirtualListener(env *model.Environment, node *model.Proxy) *xdsapi.Listener {
+
+	var trafficPolicy meshconfig.MeshConfig_OutboundTrafficPolicy_Mode
+	nodeTrafficPolicy, found := meshconfig.MeshConfig_OutboundTrafficPolicy_Mode_value[node.Metadata[model.NodeMetadataOutboundTrafficPolicy]]
+	if !found {
+		// default to the mesh wide config
+		trafficPolicy = env.Mesh.OutboundTrafficPolicy.Mode
+	} else {
+		trafficPolicy = meshconfig.MeshConfig_OutboundTrafficPolicy_Mode(nodeTrafficPolicy)
+	}
+
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       util.BlackHoleCluster,
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+	}
+
+	if trafficPolicy == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+		// We need a passthrough filter to fill in the filter stack for orig_dst listener
+		tcpProxy = &tcp_proxy.TcpProxy{
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+		}
+	}
+
+	var transparent *google_protobuf.BoolValue
+	if node.GetInterceptionMode() == model.InterceptionTproxy {
+		transparent = proto.BoolTrue
+	}
+
+	filter := listener.Filter{
+		Name: xdsutil.TCPProxy,
+	}
+
+	if util.IsXDSMarshalingToAnyEnabled(node) {
+		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+	} else {
+		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+	}
+
+	return &xdsapi.Listener{
+		Name:           VirtualListenerName,
+		Address:        util.BuildAddress(WildcardAddress, uint32(env.Mesh.ProxyListenPort)),
+		Transparent:    transparent,
+		UseOriginalDst: proto.BoolTrue,
+		FilterChains: []listener.FilterChain{
+			{
+				Filters: []listener.Filter{filter},
+			},
+		},
+	}
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
