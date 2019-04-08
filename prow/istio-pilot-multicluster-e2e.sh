@@ -26,4 +26,4 @@ export CLUSTERREG_DIR
 ./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_multicluster_split_horizon "$@"
 
 #echo 'Running pilot multi-cluster e2e tests with split horizon (v1alpha1, auth)'
-./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3_auth "$@"
+./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --split_horizon --single_test e2e_pilotv2_v1alpha3_auth "$@"
