@@ -51,9 +51,9 @@ import (
 type annotationValidationFunc func(value string) error
 
 const (
-	annotationPolicy            = "sidecar.istio.io/inject"
-	annotationStatus            = "sidecar.istio.io/status"
-	annotationRewriteAppProbers = "sidecar.istio.io/rewriteAppProbers"
+	annotationPolicy                = "sidecar.istio.io/inject"
+	annotationStatus                = "sidecar.istio.io/status"
+	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
 )
 
 // per-sidecar policy and status
@@ -65,7 +65,7 @@ var (
 	annotationRegistry = map[string]annotationValidationFunc{
 		annotations.Register(annotationPolicy, "").Name:                                        alwaysValidFunc,
 		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
-		annotations.Register(annotationRewriteAppProbers, "").Name:                             validateBool,
+		annotations.Register(annotationRewriteAppHTTPProbers, "").Name:                         validateBool,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,

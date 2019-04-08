@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/rewriteAppProbers: "false"
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
       labels:
         app: hello
         tier: backend

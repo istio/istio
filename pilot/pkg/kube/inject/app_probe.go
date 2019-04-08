@@ -43,10 +43,10 @@ var (
 	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
 )
 
-// ShouldRewriteAppProbers returns if we should rewrite apps' probers config.
-func ShouldRewriteAppProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
+// ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
+func ShouldRewriteAppHTTPProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
 	if annotations != nil {
-		if value, ok := annotations[annotationRewriteAppProbers]; ok {
+		if value, ok := annotations[annotationRewriteAppHTTPProbers]; ok {
 			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
 				return isSetInAnnotation
 			}
@@ -167,7 +167,7 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 
 // rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
 func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
-	if !ShouldRewriteAppProbers(annotations, spec) {
+	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return
 	}
 	sidecar := FindSidecar(podSpec.Containers)
@@ -202,7 +202,7 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 
 // createProbeRewritePatch generates the patch for webhook.
 func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
-	if !ShouldRewriteAppProbers(annotations, spec) {
+	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return []rfc6902PatchOperation{}
 	}
 	patch := []rfc6902PatchOperation{}

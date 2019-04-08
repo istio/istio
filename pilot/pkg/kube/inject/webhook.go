@@ -440,7 +440,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
-	rewrite := ShouldRewriteAppProbers(pod.Annotations, sic)
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
 	addAppProberCmd := func() {
 		if !rewrite {
 			return
