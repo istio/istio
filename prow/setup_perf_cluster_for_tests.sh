@@ -9,8 +9,6 @@ set -e
 set -u
 # Print commands
 set -x
-########???????????????????
-
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
