@@ -46,7 +46,7 @@ type Control struct {
 	// EmitBashCompletion controls whether to produce bash completion files.
 	EmitBashCompletion bool
 
-	// EmitZshCompletion controls whether to produce bash completion files.
+	// EmitZshCompletion controls whether to produce zsh completion files.
 	EmitZshCompletion bool
 
 	// EmitMarkdown controls whether to produce markdown documentation files.
