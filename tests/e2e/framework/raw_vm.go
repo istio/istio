@@ -127,7 +127,7 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
-	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --command \"%s\"",
+	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --ssh-flag=\"-vvv\" --command \"%s\"",
 		vm.ProjectID, vm.Zone, vm.Name, cmd)
 	return u.Shell(ssh)
 }
@@ -163,28 +163,30 @@ func (vm *GCPRawVM) Setup() error {
 	if err := vm.provision(); err != nil {
 		return err
 	}
-	if err := vm.prepareCluster(); err != nil {
-		return err
-	}
-	if err := vm.setupMeshEx("generateClusterEnv", vm.ClusterName); err != nil {
-		return err
-	}
-	if _, err := u.Shell("cat cluster.env"); err != nil {
-		return err
-	}
-	if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
-		return err
-	}
-	if _, err := u.Shell("cat kubedns"); err != nil {
-		return err
-	}
-	if err := buildIstioVersion(); err != nil {
-		return err
-	}
-	if _, err := u.Shell("cat istio.VERSION"); err != nil {
-		return err
-	}
-	return vm.setupMeshEx("machineSetup", vm.Name)
+	fmt.Println("jianfeih debug finished vm provisioning process...")
+	// if err := vm.prepareCluster(); err != nil {
+	// 	return err
+	// }
+	// if err := vm.setupMeshEx("generateClusterEnv", vm.ClusterName); err != nil {
+	// 	return err
+	// }
+	// if _, err := u.Shell("cat cluster.env"); err != nil {
+	// 	return err
+	// }
+	// if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
+	// 	return err
+	// }
+	// if _, err := u.Shell("cat kubedns"); err != nil {
+	// 	return err
+	// }
+	// if err := buildIstioVersion(); err != nil {
+	// 	return err
+	// }
+	// if _, err := u.Shell("cat istio.VERSION"); err != nil {
+	// 	return err
+	// }
+	return nil
+	// return vm.setupMeshEx("machineSetup", vm.Name)
 }
 
 func buildIstioVersion() error {
