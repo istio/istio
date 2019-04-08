@@ -529,19 +529,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		certChain = append(certChain, []byte(c)...)
 	}
 
-	/*
-		block, _ := pem.Decode(certChain)
-		if block == nil {
-			log.Info("********failed to parse certificate PEM")
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Info("*****failed to parse certificate: " + err.Error())
-		}
-		log.Infof("*****cert.NotAfter %v", cert.NotAfter)
-	*/
-
-	// Cert exipre time by default is createTime.Add(sc.configOptions.SecretTTL)
+	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	block, _ := pem.Decode(certChain)
 	if block != nil {
@@ -579,7 +567,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
-	// return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
 	return time.Now().After(s.ExpireTime.Add(-sc.configOptions.SecretRefreshGraceDuration))
 }
 
