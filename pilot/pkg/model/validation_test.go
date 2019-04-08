@@ -318,6 +318,39 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name:  "good tag - empty value",
+			tags:  Labels{"key": ""},
+			valid: true,
+		},
+		{
+			name: "bad tag - empty key",
+			tags: Labels{"": "value"},
+		},
+		{
+			name: "bad tag key 1",
+			tags: Labels{".key": "value"},
+		},
+		{
+			name: "bad tag key 2",
+			tags: Labels{"key_": "value"},
+		},
+		{
+			name: "bad tag key 3",
+			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag value 1",
+			tags: Labels{"key": ".value"},
+		},
+		{
+			name: "bad tag value 2",
+			tags: Labels{"key": "value_"},
+		},
+		{
+			name: "bad tag value 3",
+			tags: Labels{"key": "value$"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
@@ -2724,6 +2757,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2737,6 +2771,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2771,6 +2816,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 

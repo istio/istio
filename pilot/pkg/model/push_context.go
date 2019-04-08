@@ -345,9 +345,7 @@ func (ps *PushContext) UpdateMetrics() {
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
-	// config != nil check
-	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
+	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		return proxy.SidecarScope.Services()
 	}
 
@@ -453,7 +451,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 				defaultSidecar = wrapper
 				continue
 			}
-			// Not sure when this can heppn (Config = nil ?)
+			// Not sure when this can happen (Config = nil ?)
 			if defaultSidecar != nil {
 				return defaultSidecar // still return the valid one
 			}
@@ -480,9 +478,7 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
-	// config != nil check
-	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
+	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
 		return proxy.SidecarScope.DestinationRule(service.Hostname)

@@ -734,9 +734,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerMatch.Size()))
-		n1, err := m.ListenerMatch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.ListenerMatch.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -744,9 +744,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.InsertPosition.Size()))
-		n2, err := m.InsertPosition.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.InsertPosition.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -765,9 +765,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterConfig.Size()))
-		n3, err := m.FilterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.FilterConfig.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}

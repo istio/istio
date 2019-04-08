@@ -19,9 +19,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/node"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
@@ -108,7 +106,7 @@ func convertExportTo(annotations resource.Annotations) []string {
 
 // Endpoints converts k8s Endpoints to networking.ServiceEntry_Endpoint resources and extracts the service accounts for the endpoints.
 // The target ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
-func Endpoints(endpoints *coreV1.Endpoints, pods pod.Cache, nodes node.Cache, out *networking.ServiceEntry) {
+func Endpoints(endpoints *coreV1.Endpoints, pods pod.Cache, out *networking.ServiceEntry) {
 	// Store the subject alternate names in a set to avoid duplicates.
 	subjectAltNameSet := make(map[string]struct{})
 	eps := make([]*networking.ServiceEntry_Endpoint, 0)
@@ -123,21 +121,15 @@ func Endpoints(endpoints *coreV1.Endpoints, pods pod.Cache, nodes node.Cache, ou
 		// Convert the endpoints in this subset.
 		for _, address := range subset.Addresses {
 			locality := ""
+			var labels map[string]string
 
 			ip := address.IP
 			p, hasPod := pods.GetPodByIP(ip)
-			var labels map[string]string
 			if hasPod {
 				labels = p.Labels
+				locality = p.Locality
 				if p.ServiceAccountName != "" {
 					subjectAltNameSet[p.ServiceAccountName] = struct{}{}
-				}
-
-				n, hasNode := nodes.GetNodeByName(p.NodeName)
-				if hasNode {
-					locality = n.Locality
-				} else {
-					log.Scope.Warnf("unable to get node %q for pod %q", p.NodeName, p.FullName)
 				}
 			}
 

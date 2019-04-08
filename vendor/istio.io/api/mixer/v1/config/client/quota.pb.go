@@ -560,9 +560,9 @@ func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.MatchType != nil {
-		nn1, err := m.MatchType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn1, err1 := m.MatchType.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += nn1
 	}
@@ -633,9 +633,9 @@ func (m *AttributeMatch) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintQuota(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n2, err2 := v.MarshalTo(dAtA[i:])
+				if err2 != nil {
+					return 0, err2
 				}
 				i += n2
 			}
@@ -925,8 +925,13 @@ func (this *QuotaSpec) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForRules := "[]*QuotaRule{"
+	for _, f := range this.Rules {
+		repeatedStringForRules += strings.Replace(f.String(), "QuotaRule", "QuotaRule", 1) + ","
+	}
+	repeatedStringForRules += "}"
 	s := strings.Join([]string{`&QuotaSpec{`,
-		`Rules:` + strings.Replace(fmt.Sprintf("%v", this.Rules), "QuotaRule", "QuotaRule", 1) + `,`,
+		`Rules:` + repeatedStringForRules + `,`,
 		`}`,
 	}, "")
 	return s
@@ -935,9 +940,19 @@ func (this *QuotaRule) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForMatch := "[]*AttributeMatch{"
+	for _, f := range this.Match {
+		repeatedStringForMatch += strings.Replace(f.String(), "AttributeMatch", "AttributeMatch", 1) + ","
+	}
+	repeatedStringForMatch += "}"
+	repeatedStringForQuotas := "[]*Quota{"
+	for _, f := range this.Quotas {
+		repeatedStringForQuotas += strings.Replace(f.String(), "Quota", "Quota", 1) + ","
+	}
+	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&QuotaRule{`,
-		`Match:` + strings.Replace(fmt.Sprintf("%v", this.Match), "AttributeMatch", "AttributeMatch", 1) + `,`,
-		`Quotas:` + strings.Replace(fmt.Sprintf("%v", this.Quotas), "Quota", "Quota", 1) + `,`,
+		`Match:` + repeatedStringForMatch + `,`,
+		`Quotas:` + repeatedStringForQuotas + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1017,9 +1032,19 @@ func (this *QuotaSpecBinding) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForServices := "[]*IstioService{"
+	for _, f := range this.Services {
+		repeatedStringForServices += strings.Replace(fmt.Sprintf("%v", f), "IstioService", "IstioService", 1) + ","
+	}
+	repeatedStringForServices += "}"
+	repeatedStringForQuotaSpecs := "[]*QuotaSpecBinding_QuotaSpecReference{"
+	for _, f := range this.QuotaSpecs {
+		repeatedStringForQuotaSpecs += strings.Replace(fmt.Sprintf("%v", f), "QuotaSpecBinding_QuotaSpecReference", "QuotaSpecBinding_QuotaSpecReference", 1) + ","
+	}
+	repeatedStringForQuotaSpecs += "}"
 	s := strings.Join([]string{`&QuotaSpecBinding{`,
-		`Services:` + strings.Replace(fmt.Sprintf("%v", this.Services), "IstioService", "IstioService", 1) + `,`,
-		`QuotaSpecs:` + strings.Replace(fmt.Sprintf("%v", this.QuotaSpecs), "QuotaSpecBinding_QuotaSpecReference", "QuotaSpecBinding_QuotaSpecReference", 1) + `,`,
+		`Services:` + repeatedStringForServices + `,`,
+		`QuotaSpecs:` + repeatedStringForQuotaSpecs + `,`,
 		`}`,
 	}, "")
 	return s
