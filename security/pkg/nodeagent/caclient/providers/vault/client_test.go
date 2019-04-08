@@ -363,7 +363,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				resp.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			if "pem" != signReq.Format {
+			if signReq.Format != "pem" {
 				t.Logf("invalid sign format: %v", signReq.Format)
 				resp.WriteHeader(http.StatusBadRequest)
 				return

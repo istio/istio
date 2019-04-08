@@ -39,6 +39,7 @@ function check_licenses() {
 }
 
 function install_golangcilint() {
+    # if you want to update this version, also change the version number in .golangci.yml
     GOLANGCI_VERSION="v1.15.0"
     curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
     golangci-lint --version

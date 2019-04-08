@@ -71,7 +71,7 @@ var _ metric.HandleMetricServiceServer = &NoSessionServer{}
 
 func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	s.builderLock.RLock()
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		h := s.h
 		s.builderLock.RUnlock()
 		return h, nil
@@ -90,7 +90,7 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	defer s.builderLock.Unlock()
 
 	// check again if someone else beat you to this.
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		return s.h, nil
 	}
 

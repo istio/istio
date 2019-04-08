@@ -203,7 +203,7 @@ func TestBadConfig(t *testing.T) {
 	b.SetAdapterConfig(cfg)
 
 	cfg.MinDeduplicationDuration = 0
-	if err := b.Validate; err == nil {
+	if err := b.Validate(); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 

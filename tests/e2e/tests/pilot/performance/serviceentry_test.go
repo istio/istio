@@ -211,7 +211,7 @@ func addMcpAddrs(mcpPort int) func(*bootstrap.PilotArgs) {
 			arg.MeshConfig = &meshconfig.MeshConfig{}
 		}
 		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
-			&meshconfig.ConfigSource{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
+			{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
 		}
 	}
 }
