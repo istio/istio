@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export K8S_VER=${K8S_VER:-v1.9.2}
-export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}
+export K8S_VER=${K8S_VER:-v1.14.0}
+export MINIKUBE_VER=${MINIKUBE_VER:-v1.0.0}
+export HELM_VER=${HELM_VER:-v2.13.1}
 set -x
 
 if [ ! -f /usr/local/bin/minikube ]; then
@@ -25,7 +26,7 @@ if [ ! -f /usr/local/bin/kubectl ]; then
    time curl -Lo kubectl "https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 if [ ! -f /usr/local/bin/helm ]; then
-   curl -Lo helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-v2.8.0-linux-amd64.tar.gz && tar -zxvf helm.tgz && chmod +x linux-amd64/helm && sudo mv linux-amd64/helm /usr/local/bin/
+   curl -Lo helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && tar -zxvf helm.tgz && chmod +x linux-amd64/helm && sudo mv linux-amd64/helm /usr/local/bin/
 fi
 
 
@@ -87,9 +88,9 @@ function startMinikubeNone() {
     fi
 
     sudo -E minikube start \
-         --kubernetes-version=v1.9.0 \
+         --kubernetes-version=v1.14.0 \
          --vm-driver=none \
-         --extra-config=apiserver.Admission.PluginNames="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
+         --extra-config=apiserver.enable-admission-plugins="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
     sudo -E minikube update-context
     sudo chown -R "$(id -u)" "$KUBECONFIG" "$HOME/.minikube"
 }

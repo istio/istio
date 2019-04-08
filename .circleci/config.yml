@@ -2,7 +2,8 @@ version: 2
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
-  machine: true
+  machine:
+    image: ubuntu-1604:201903-01
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
     - SKIP_CLEANUP: true
