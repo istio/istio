@@ -76,8 +76,20 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Hosts: []string{"foo/bar", "*/*"}, // MBMBMB not valid; one no-port egress
+					Hosts: []string{"foo/bar", "*/*"},
 				},
+			},
+		},
+	}
+
+	configs4 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{},
 			},
 		},
 	}
@@ -182,6 +194,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs3,
 			services4,
 			[]string{"bar", "barprime"},
+		},
+		{
+			"sidecar-with-no-egress",
+			configs4,
+			services4,
+			nil,
 		},
 	}
 
