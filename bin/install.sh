@@ -50,9 +50,9 @@ function install_control() {
     echo "${METHOD}ing galley.."
     bin/iop ${ISTIO_CONTROL_NS} istio-config $IBASE/istio-control/istio-config --set configValidation=true --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
     echo "${METHOD}ing pilot.."
-    bin/iop istio-control istio-discovery $IBASE/istio-control/istio-discovery  --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS 
+    bin/iop ${ISTIO_CONTROL_NS} istio-discovery $IBASE/istio-control/istio-discovery  --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS 
     echo "${METHOD}ing auto-injector.."
-    bin/iop istio-control istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
+    bin/iop ${ISTIO_CONTROL_NS} istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
 
     kubectl get deployments -n ${ISTIO_CONTROL_NS}
     kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=$WAIT_TIMEOUT
@@ -121,7 +121,7 @@ function switch_istio_control() {
 COMMAND="install_all"
 METHOD=Install
 ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
-ISTIO_CONTROL_OLD=${ISTIO_CONTROL_OLD:-istio-control-blue}
+ISTIO_CONTROL_OLD=${ISTIO_CONTROL_OLD:-istio-control}
 
 while [ $# -gt 0 ]
 do
@@ -156,6 +156,5 @@ case "$COMMAND" in
     switch_istio_control) switch_istio_control ;;
     install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry && switch_istio_control;;
 esac
-
 
 echo "Finished"
