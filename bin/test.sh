@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 ISTIO_PATH="$1"
 if [ -z "$ISTIO_PATH"]; then
     echo "Usage: test.sh <istio-directory>"
