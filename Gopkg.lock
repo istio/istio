@@ -318,7 +318,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:837b53240a3ebcc273546e938e8fe29ebdb39c7af1ca185f933f1effcf0f48c7"
+  digest = "1:f07d607f73be36f9323afd3b704178988389510ebb675b956bfab75034db3b46"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -344,7 +344,6 @@
     "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
-    "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
@@ -357,8 +356,16 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "0ad6fa1cf0b9b6ca8f3617a7188a568e81f40b87"
-  version = "v0.6.9"
+  revision = "2026bb63b9164b8a7898931e2fbdf7526224d480"
+  version = "v0.7.0"
+
+[[projects]]
+  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
+  name = "github.com/envoyproxy/protoc-gen-validate"
+  packages = ["validate"]
+  pruneopts = "NUT"
+  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
+  version = "v0.0.6"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -865,14 +872,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
-
-[[projects]]
-  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "NUT"
-  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
-  version = "v0.0.6"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"

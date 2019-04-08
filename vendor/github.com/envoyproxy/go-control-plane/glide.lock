@@ -1,8 +1,12 @@
-hash: 6c16e13ca41a4f49e11f9e8dc9731be609557d51a68b001c8e17923af4e2a0ae
-updated: 2019-03-11T13:32:13.140956548-07:00
+hash: e0f843a95167ce5ee9c8329a280b9f10f31bf8a532c3bd22d458a12940a796dd
+updated: 2019-04-05T16:19:23.104424383-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 4f4ee118c54b7a52393c7d45b94f6bd5040a7118
+  version: 897f5b09bbe3823853c20f610120228ca54ec7a0
+- name: github.com/envoyproxy/protoc-gen-validate
+  version: d6164de4910977d3c3c8dbd9299b5064ea9e7c2b
+  subpackages:
+  - validate
 - name: github.com/gogo/googleapis
   version: 8558fb44d2f1fc223118afc694129d2c2d2924d1
   subpackages:
@@ -19,7 +23,7 @@ imports:
   - sortkeys
   - types
 - name: github.com/golang/protobuf
-  version: 347cf4a86c1cb8d262994d8ef5924d4576c5b331
+  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
   subpackages:
   - proto
   - protoc-gen-go/descriptor
@@ -27,25 +31,21 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
-- name: github.com/lyft/protoc-gen-validate
-  version: f9d2b11e44149635b23a002693b76512b01ae515
-  subpackages:
-  - validate
 - name: github.com/sirupsen/logrus
   version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
 - name: golang.org/x/crypto
-  version: 057139ce5d2bdbe6fe73c53679e24e9cf007f637
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: d26f9f9a57f3fab6a695bec0d84433c2c50f8bbf
+  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
   - context
-  - http/httpguts
   - http2
   - http2/hpack
   - idna
   - internal/timeseries
+  - lex/httplex
   - trace
 - name: golang.org/x/sys
   version: acbc56fc7007d2a01796d5bde54f39e3b3e95945
@@ -53,20 +53,20 @@ imports:
   - unix
   - windows
 - name: golang.org/x/text
-  version: e6919f6577db79269a6443b9dc46d18f2238fb5d
+  version: b19bf474d317b857955b12035d2c5acb57ce8b01
   subpackages:
   - secure/bidirule
   - transform
   - unicode/bidi
   - unicode/norm
 - name: google.golang.org/genproto
-  version: 7cdc0b958d7541690c155bb01fa9a219bbf35296
+  version: 09f6ed296fc66555a25fe4ce95173148778dfa85
   subpackages:
   - googleapis
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: 2fdaae294f38ed9a121193c51ec99fecd3b13eb7
+  version: 3507fb8e1a5ad030303c106fef3a47c9fdad16ad
   subpackages:
   - balancer
   - balancer/base
