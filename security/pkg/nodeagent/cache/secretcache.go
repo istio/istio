@@ -533,16 +533,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
+	// Current CAs(Citadel, GoogleCA) respect SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
 		block, _ := pem.Decode(certChain)
 		if block == nil {
-			log.Errorf("Failed to decode certificate for %q", resourceName)
+			log.Errorf("Failed to decode certificate %+v for %q", certChainPEM, resourceName)
 			return nil, errors.New("failed to decode certificate")
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			log.Errorf("Failed to parse certificate for %q: %v", resourceName, err)
+			log.Errorf("Failed to parse certificate %+v for %q: %v", certChainPEM, resourceName, err)
 			return nil, errors.New("failed to parse certificate")
 		}
 		expireTime = cert.NotAfter
