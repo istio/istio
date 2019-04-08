@@ -53,3 +53,13 @@ prometheusAddr: http://prometheus:9090
 
 # When true, a secret will be created with a default username and password. Useful for demos.
 createDemoSecret: false
+
+istio:
+  # The namespace where Istio is installed. (Default: istio-system)
+  istio_namespace: istio-system
+  # The Service of Istio to check version. (default is http://istio-pilot:8080/version)
+  url_service_version: http://istio-pilot:8080/version
+
+# The Kubernetes namespace that holds the Grafana service. (default is istio-system)
+grafana:
+  service_namespace: istio-system

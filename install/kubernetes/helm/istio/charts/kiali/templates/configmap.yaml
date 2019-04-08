@@ -10,13 +10,24 @@ metadata:
     release: {{ .Release.Name }}
 data:
   config.yaml: |
+    {{- if .Values.istio.istio_namespace }}
+    istio_namespace: {{ .Values.istio.istio_namespace }}
+    {{- else }}
     istio_namespace: {{ .Release.Namespace }}
+    {{- end }}
     server:
       port: 20001
     external_services:
       istio:
+        {{- if .Values.istio.url_service_version }}
+        url_service_version: {{ .Values.istio.url_service_version }}
+        {{- else }}
         url_service_version: http://istio-pilot:8080/version
+        {{- end }}
       jaeger:
         url: {{ .Values.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.dashboard.grafanaURL }}
+        {{- if .Values.grafana.service_namespace }}
+        service_namespace: {{ .Values.grafana.service_namespace }}
+        {{- end }}
