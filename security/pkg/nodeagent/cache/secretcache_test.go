@@ -36,8 +36,9 @@ import (
 )
 
 var (
+	certchain, _        = ioutil.ReadFile("./testdata/cert-chain.pem")
 	mockCertChain1st    = []string{"foo", "rootcert"}
-	mockCertChainRemain = []string{"bar", "rootcert"}
+	mockCertChainRemain = []string{string(certchain)}
 	testResourceName    = "default"
 
 	k8sKey               = []byte("fake private k8sKey")
