@@ -46,6 +46,9 @@ type Control struct {
 	// EmitBashCompletion controls whether to produce bash completion files.
 	EmitBashCompletion bool
 
+	// EmitZshCompletion controls whether to produce bash completion files.
+	EmitZshCompletion bool
+
 	// EmitMarkdown controls whether to produce markdown documentation files.
 	EmitMarkdown bool
 
@@ -87,6 +90,12 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 	if c.EmitBashCompletion {
 		if err := root.GenBashCompletionFile(c.OutputDir + "/" + root.Name() + ".bash"); err != nil {
 			return fmt.Errorf("unable to output bash completion file: %v", err)
+		}
+	}
+
+	if c.EmitZshCompletion {
+		if err := root.GenZshCompletionFile(c.OutputDir + "/" + "_" + root.Name()); err != nil {
+			return fmt.Errorf("unable to output zsh completion file: %v", err)
 		}
 	}
 
