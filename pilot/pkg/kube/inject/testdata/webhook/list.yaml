@@ -10,7 +10,7 @@ items:
       selector:
         matchLabels:
           app: hello  
-          tier: frontend
+          tier: backend
           track: stable
           version: v1
       template:
@@ -37,7 +37,7 @@ items:
       selector:
         matchLabels:
           app: hello  
-          tier: frontend
+          tier: backend
           track: stable
           version: v2
       template:
