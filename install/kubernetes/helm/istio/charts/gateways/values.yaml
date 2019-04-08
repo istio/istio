@@ -110,6 +110,12 @@ istio-ingressgateway:
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
+    # The Envoy HTTP connection manager options below configure
+    # how Envoy determines the trusted client address.
+    # See the following Envoy documentation on X-Forwarded-For for reference.
+    # https://www.envoyproxy.io/docs/envoy/latest/configuration/http_conn_man/headers#x-forwarded-for
+    # ISTIO_META_USE_REMOTE_ADDRESS: "false"
+    # ISTIO_META_XFF_NUM_TRUSTED_HOPS: "2"
   nodeSelector: {}
 
   # Specify the pod anti-affinity that allows you to constrain which nodes

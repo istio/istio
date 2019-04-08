@@ -327,6 +327,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
+	useRemoteAddress := true
+	if useRemoteAddressMeta, found := node.Metadata["USE_REMOTE_ADDRESS"]; found {
+		useRemoteAddress, _ = strconv.ParseBool(useRemoteAddressMeta)
+	}
+
+	xffNumTrustedHops := uint32(0)
+	if xffNumTrustedHopsMeta, found := node.Metadata["NUM_XFF_TRUSTED_HOPS"]; found {
+		xffNumTrustedHops64, _ := strconv.ParseUint(xffNumTrustedHopsMeta, 10, 32)
+		xffNumTrustedHops = uint32(xffNumTrustedHops64)
+	}
+
 	serverProto := model.ParseProtocol(server.Port.Protocol)
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
@@ -338,9 +349,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				rds:              routeName,
-				useRemoteAddress: true,
-				direction:        http_conn.EGRESS, // viewed as from gateway to internal
+				rds:               routeName,
+				useRemoteAddress:  useRemoteAddress,
+				xffNumTrustedHops: xffNumTrustedHops,
+				direction:         http_conn.EGRESS, // viewed as from gateway to internal
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
@@ -372,9 +384,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		sniHosts:   getSNIHostsForServer(server),
 		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
 		httpOpts: &httpListenerOpts{
-			rds:              routeName,
-			useRemoteAddress: true,
-			direction:        http_conn.EGRESS, // viewed as from gateway to internal
+			rds:               routeName,
+			useRemoteAddress:  useRemoteAddress,
+			xffNumTrustedHops: xffNumTrustedHops,
+			direction:         http_conn.EGRESS, // viewed as from gateway to internal
 			connectionManager: &http_conn.HttpConnectionManager{
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: http_conn.SANITIZE_SET,

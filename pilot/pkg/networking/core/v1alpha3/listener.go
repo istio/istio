@@ -1337,8 +1337,9 @@ type httpListenerOpts struct {
 	direction  http_conn.HttpConnectionManager_Tracing_OperationName
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
-	addGRPCWebFilter bool
-	useRemoteAddress bool
+	addGRPCWebFilter  bool
+	useRemoteAddress  bool
+	xffNumTrustedHops uint32
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1397,6 +1398,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	} else {
 		connectionManager.UseRemoteAddress = proto.BoolFalse
 	}
+	connectionManager.XffNumTrustedHops = httpOpts.xffNumTrustedHops
 
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
