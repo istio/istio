@@ -19,6 +19,11 @@ metadata:
   name: frontend
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+      tier: frontend
+      track: stable
   strategy: {}
   template:
     metadata:
