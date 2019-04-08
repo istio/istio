@@ -36,7 +36,7 @@ spec:
             - --append-dns-names=true
             - --grpc-port=8060
           # global.tag may contain something like "release-1.1-latest-daily". Assume >1.2 if we cannot extract semver version.
-          {{- if and (regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" .Values.global.tag) (semverCompare "<1.2" .Values.global.tag) }}
+          {{- if regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" .Values.global.tag | default "1.3.0" | semverCompare "<1.2" }}
             - --grpc-hostname=citadel
           {{- else}}
             - --grpc-host-identities=citadel
