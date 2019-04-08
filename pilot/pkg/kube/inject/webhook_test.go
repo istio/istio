@@ -613,9 +613,6 @@ func TestWebhookInject(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		if c.inputFile != "TestWebhookInject_http_probe_nosidecar_rewrite.yaml" {
-			continue
-		}
 		input := filepath.Join("testdata/webhook", c.inputFile)
 		want := filepath.Join("testdata/webhook", c.wantFile)
 		templateFile := "TestWebhookInject_template.yaml"
