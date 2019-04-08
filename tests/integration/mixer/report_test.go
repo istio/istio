@@ -45,7 +45,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 
 	expected := tmpl.EvaluateOrFail(t, `
 {
-  "name": "metric1.metric.{{.TestNamespace}}",
+  "name": "metric1.instance.{{.TestNamespace}}",
   "value": {
     "int64Value": "2"
   },
