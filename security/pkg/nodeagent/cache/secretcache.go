@@ -386,7 +386,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			secretMap[key] = ns
 
 			if sc.notifyCallback != nil {
-				// Send the notification to close the stream connection if root cert needs to be updated.
+				// Push the updated root cert to client.
 				if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
 					log.Errorf("Failed to notify for proxy %q for resource %q: %v", connectionID, resourceName, err)
 				}
@@ -397,7 +397,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			return true
 		}
 
-		// If updateRootFlag isn't set, skip if cached item is root cert.
+		// If updateRootFlag isn't set, return directly if cached item is root cert.
 		if key.ResourceName == RootCertReqResourceName {
 			return true
 		}
@@ -593,6 +593,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	if rootCertChanged {
+		log.Infof("Root cert has changed")
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
