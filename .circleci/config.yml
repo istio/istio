@@ -2,9 +2,26 @@ version: 2
 
 # VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
-  machine: true
+  machine:
+    image: ubuntu-1604:201903-01
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
+    - SKIP_CLEANUP: true
+    - KUBECONFIG: /go/out/minikube.conf
+    - TEST_ENV: minikube-none
+
+
+# Common procedure to initialize working directory
+initWorkingDir: &initWorkingDir
+  type: shell
+  name: Initialize Working Directory
+  pwd: /
+  command: |
+    sudo mkdir -p /istio/bin
+    sudo chown -R $USER /istio
+    cd /istio/bin
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+    chmod +x ./kubectl
 
 # Environment:
 #  by default runs in /home/circleci/project, and checkout is in current directory
@@ -58,20 +75,76 @@ jobs:
 
   install-minikube:
     <<: *integrationDefaults
-    environment:
+    environment: &minikubeEnv
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
+            - RESOURCES_FLAGS: >-
+                --set global.defaultResources.requests.cpu=0m
+                --set resources.requests.cpu=0
+                --set resources.requests.memory=0
+                --set global.proxy.resources.requests.cpu=0
+                --set global.proxy.resources.requests.memory=0
     steps:
+      - <<: *initWorkingDir
+      - checkout
+      - run: bin/testEnvRootMinikube.sh start
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: 
+          command: |
+            export PATH=/istio/bin:$PATH
+            WAIT_TIMEOUT=10m bin/install.sh
+      - run:
+          command: |
+            mkdir -p $GOPATH/src/istio.io/
+            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
+            bin/test.sh $GOPATH/src/istio.io/istio
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
+
+  modular-installation:
+    <<: *integrationDefaults
+    environment: *minikubeEnv
+    steps:
+      - <<: *initWorkingDir
       - checkout
       - run: bin/testEnvRootMinikube.sh start
       - run: bin/testEnvRootMinikube.sh wait
       - run:
           command: |
-            source bin/env.sh
-            kubectl apply -f crds.yaml
-            iop_istio
-      - run: docker images
-
+            export PATH=/istio/bin:$PATH
+            WAIT_TIMEOUT=10m bin/install.sh install_crds
+      - run: 
+          command: |
+            export PATH=/istio/bin:$PATH
+            WAIT_TIMEOUT=10m bin/install.sh install_system
+      - run:
+          command: |
+            export PATH=/istio/bin:$PATH
+            WAIT_TIMEOUT=10m bin/install.sh install_control
+      - run:
+          command: |
+            export PATH=/istio/bin:$PATH
+            WAIT_TIMEOUT=10m bin/install.sh install_ingress
+      - run:
+          command: |
+            export PATH=/istio/bin:$PATH
+            mkdir -p $GOPATH/src/istio.io/
+            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
+            WAIT_TIMEOUT=5m bin/test.sh $GOPATH/src/istio.io/istio     
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
 
 workflows:
   version: 2
@@ -87,7 +160,9 @@ workflows:
     jobs:
       - build
       - install-minikube
+      - modular-installation
 
   all:
     jobs:
       - install-minikube
+      - modular-installation
