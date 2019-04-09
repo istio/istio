@@ -26,8 +26,8 @@ pushd "${GOPATH}/src/istio.io/tools/perf/load"
 popd
 # Run the test for some time
 echo "Run the test for ${TIME_TO_RUN_PERF_TESTS}"
-
-kubectl -n istio-system port-forward $(kubectl get pod --namespace istio-system --selector="app=prometheus" --output jsonpath='{.items[0].metadata.name}') 8060:9090 > /tmp/forward &
+pod=$(kubectl get pod --namespace istio-system --selector="app=prometheus" --output jsonpath='{.items[0].metadata.name}')
+kubectl -n istio-system port-forward "$pod" 8060:9090 > /tmp/forward &
 
 sleep 5s
 
