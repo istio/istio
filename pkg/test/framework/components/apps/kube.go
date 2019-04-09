@@ -444,6 +444,11 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 }
 
+// Represents a deployed App in k8s environment.
+type KubeApp interface {
+	App
+	EndpointForPort(port int) AppEndpoint
+}
 type kubeApp struct {
 	namespace   string
 	serviceName string
@@ -556,6 +561,15 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 		}
 	}
 	return out
+}
+
+func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
+	for _, e := range a.endpoints {
+		if e.port.Port == port {
+			return e
+		}
+	}
+	return nil
 }
 
 // Call implements the environment.DeployedApp interface

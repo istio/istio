@@ -136,9 +136,10 @@ var (
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
 			}
 
-			// No IP addresses provided, append 127.0.0.1
+			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 			if len(role.IPAddresses) == 0 {
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
+				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
 
 			if len(role.ID) == 0 {
@@ -597,7 +598,7 @@ func waitForCerts(fname string, maxWait time.Duration) {
 		}
 		if now.After(nextLog) {
 			log.Infof("waiting for certificates")
-			logDelay = logDelay * 2
+			logDelay *= 2
 			nextLog.Add(logDelay)
 		}
 		time.Sleep(100 * time.Millisecond)

@@ -457,7 +457,7 @@ func TestProjectMetadata(t *testing.T) {
 			h := &handler{
 				info: infoMap,
 				l:    test.NewEnv(t).Logger(),
-				now:  func() time.Time { return time.Now() },
+				now:  time.Now,
 				md:   helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
 			}
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {

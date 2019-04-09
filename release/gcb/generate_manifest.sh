@@ -64,6 +64,7 @@ istio ${ISTIO_REPO_SHA}
 proxy ${PROXY_REPO_SHA}
 api ${API_REPO_SHA}
 cni ${CNI_REPO_SHA}
+tools ${TOOLS_HEAD_SHA}
 EOF
 
  popd
@@ -87,6 +88,13 @@ function istio_checkout_green_sha() {
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
     # CB_COMMIT now has the sha of branch, or branch name
     git checkout "${CB_COMMIT}"
+  popd
+}
+
+# sets TOOLS_HEAD_SHA variables
+function istio_tools_get_green_sha() {
+  pushd tools
+    TOOLS_HEAD_SHA=$(git rev-parse HEAD)
   popd
 }
 
@@ -124,6 +132,10 @@ pushd "${CLONE_DIR}"
    fi
    gsutil -q cp "${BASE_MASTER_MANIFEST_URL}" "$MANIFEST_FILE"
   fi
+
+  # Tools repo contains performance tests.
+  git clone "https://github.com/${CB_GITHUB_ORG}/tools"
+  istio_tools_get_green_sha
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
 

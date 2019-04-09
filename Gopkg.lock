@@ -318,7 +318,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:837b53240a3ebcc273546e938e8fe29ebdb39c7af1ca185f933f1effcf0f48c7"
+  digest = "1:f07d607f73be36f9323afd3b704178988389510ebb675b956bfab75034db3b46"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -344,7 +344,6 @@
     "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
-    "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
@@ -357,8 +356,16 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "0ad6fa1cf0b9b6ca8f3617a7188a568e81f40b87"
-  version = "v0.6.9"
+  revision = "2026bb63b9164b8a7898931e2fbdf7526224d480"
+  version = "v0.7.0"
+
+[[projects]]
+  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
+  name = "github.com/envoyproxy/protoc-gen-validate"
+  packages = ["validate"]
+  pruneopts = "NUT"
+  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
+  version = "v0.0.6"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -865,14 +872,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
-
-[[projects]]
-  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "NUT"
-  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
-  version = "v0.0.6"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
@@ -1535,7 +1534,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a523c1e433f7412be0da8b0b6bdbcbdda8288bb2d4d659bda01cc0edaa6feb5e"
+  digest = "1:17b4dad92815a78aaf5d7a05122f781a51528be9245958dad456d23c5bbb646d"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1547,7 +1546,6 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
-    "googleapis/iam/credentials/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1667,7 +1665,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:868e608f0483f3332cbf7568653095750995a96ef0d7ad7e49864952209a9e67"
+  digest = "1:f26e267647e01c727543b37bfa3481303dc78d1def53372dba0edee0f60e21d0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1683,7 +1681,15 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "c443173254761fb969c8222073caa74e9ba5689f"
+  revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:fa55210f71a6277eb328dd4df8779f97d6c337d70fab97f27594126ae27fd09a"
+  name = "istio.io/tools"
+  packages = ["pkg/protocgen"]
+  pruneopts = "NUT"
+  revision = "8d3bf51ec16ac15e542294bc6861f209bf19df0d"
 
 [[projects]]
   branch = "master"
@@ -2226,7 +2232,6 @@
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
-    "google.golang.org/genproto/googleapis/iam/credentials/v1",
     "google.golang.org/genproto/googleapis/monitoring/v3",
     "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
@@ -2259,7 +2264,6 @@
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
-    "k8s.io/api/apps/v1beta1",
     "k8s.io/api/authentication/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",

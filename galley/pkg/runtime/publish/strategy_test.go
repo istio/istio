@@ -146,15 +146,13 @@ func TestStrategy_OnTimer_MaxTimeout(t *testing.T) {
 	}
 }
 
-func TestStrategy_Close(t *testing.T) {
+func TestStrategy_CloseTwice(t *testing.T) {
 	s := NewStrategyWithDefaults()
 
 	s.OnChange()
 
 	s.Close()
-	if !s.stopped {
-		t.Fatal("timer should have been stopped")
-	}
+
 	// Should not crash.
 	s.Close()
 }

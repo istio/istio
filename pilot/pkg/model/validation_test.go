@@ -318,6 +318,39 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name:  "good tag - empty value",
+			tags:  Labels{"key": ""},
+			valid: true,
+		},
+		{
+			name: "bad tag - empty key",
+			tags: Labels{"": "value"},
+		},
+		{
+			name: "bad tag key 1",
+			tags: Labels{".key": "value"},
+		},
+		{
+			name: "bad tag key 2",
+			tags: Labels{"key_": "value"},
+		},
+		{
+			name: "bad tag key 3",
+			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag value 1",
+			tags: Labels{"key": ".value"},
+		},
+		{
+			name: "bad tag value 2",
+			tags: Labels{"key": "value_"},
+		},
+		{
+			name: "bad tag value 3",
+			tags: Labels{"key": "value$"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
@@ -2724,6 +2757,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2737,6 +2771,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2771,6 +2816,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 
@@ -3694,7 +3743,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "roleRef must be specified",
+			expectErrMsg: "`roleRef` or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3757,6 +3806,126 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 			}
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to AuthorizationPolicy",
+		},
+		{
+			name: "proto with no roleRef or inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "`roleRef` or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "only one of `roleRef` or `actions` can be specified",
+		},
+		{
+			name: "success proto with roleRef",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "proto with inline but invalid role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Ports:    []int32{3000},
+								NotPorts: []int32{8080},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "cannot have both regular and *not* attributes for the same kind (i.e. ports and not_ports) for rule 0",
+		},
+		{
+			name: "success proto with inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Actions: []*rbac.AccessRule{
+							{
+								Methods: []string{"GET"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateAuthorizationPolicy(someName, someNamespace, c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateAuthorizationPolicy(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

@@ -192,6 +192,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
 	fmt.Fprintf(buf, "UseTemplateCRDs: %#v\n", a.UseTemplateCRDs)
 	fmt.Fprintf(buf, "LoadSheddingOptions: %#v\n", a.LoadSheddingOptions)
+	fmt.Fprintf(buf, "UseAdapterCRDs: %#v\n", a.UseAdapterCRDs)
 
 	return buf.String()
 }

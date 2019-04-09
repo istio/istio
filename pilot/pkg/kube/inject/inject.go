@@ -51,8 +51,9 @@ import (
 type annotationValidationFunc func(value string) error
 
 const (
-	annotationPolicy = "sidecar.istio.io/inject"
-	annotationStatus = "sidecar.istio.io/status"
+	annotationPolicy                = "sidecar.istio.io/inject"
+	annotationStatus                = "sidecar.istio.io/status"
+	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
 )
 
 // per-sidecar policy and status
@@ -62,8 +63,10 @@ var (
 	}
 
 	annotationRegistry = map[string]annotationValidationFunc{
-		annotations.Register(annotationPolicy, "").Name:                                        alwaysValidFunc,
-		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
+		annotations.Register(annotationPolicy, "").Name: alwaysValidFunc,
+		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
+		annotations.Register(annotationRewriteAppHTTPProbers,
+			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
@@ -87,8 +90,6 @@ func validateAnnotations(annotations map[string]string) (err error) {
 			}
 		} else if strings.Contains(name, "istio") {
 			log.Warnf("Potentially misspelled annotation '%s' with value '%s' encountered", name, value)
-		} else {
-			// unknown annotation, ignore
 		}
 	}
 	return
@@ -395,14 +396,12 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 			selector, err := metav1.LabelSelectorAsSelector(&neverSelector)
 			if err != nil {
 				log.Warnf("Invalid selector for NeverInjectSelector: %v (%v)", neverSelector, err)
-			} else {
-				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
-					log.Debugf("Explicitly disabling injection for pod %s/%s due to pod labels matching NeverInjectSelector config map entry.",
-						metadata.Namespace, potentialPodName(metadata))
-					inject = false
-					useDefault = false
-					break
-				}
+			} else if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+				log.Debugf("Explicitly disabling injection for pod %s/%s due to pod labels matching NeverInjectSelector config map entry.",
+					metadata.Namespace, potentialPodName(metadata))
+				inject = false
+				useDefault = false
+				break
 			}
 		}
 	}
@@ -413,14 +412,12 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 			selector, err := metav1.LabelSelectorAsSelector(&alwaysSelector)
 			if err != nil {
 				log.Warnf("Invalid selector for AlwaysInjectSelector: %v (%v)", alwaysSelector, err)
-			} else {
-				if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
-					log.Debugf("Explicitly enabling injection for pod %s/%s due to pod labels matching AlwaysInjectSelector config map entry.",
-						metadata.Namespace, potentialPodName(metadata))
-					inject = true
-					useDefault = false
-					break
-				}
+			} else if !selector.Empty() && selector.Matches(labels.Set(metadata.Labels)) {
+				log.Debugf("Explicitly enabling injection for pod %s/%s due to pod labels matching AlwaysInjectSelector config map entry.",
+					metadata.Namespace, potentialPodName(metadata))
+				inject = true
+				useDefault = false
+				break
 			}
 		}
 	}
@@ -710,7 +707,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(podSpec, spec)
+	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).

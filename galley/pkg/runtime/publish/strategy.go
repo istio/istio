@@ -15,11 +15,13 @@
 package publish
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/util"
 )
 
 const (
@@ -62,21 +64,14 @@ type Strategy struct {
 	// startTimerFn is a testing hook for overriding the starting of the timer.
 	startTimerFn func()
 
-	// stopChan used to initiate a stop of the timer thread.
-	stopChan chan struct{}
-
-	// stoppedChan is closed when the timer thread exits, to indicate successful
-	// termination of the timer thread.
-	stoppedChan chan struct{}
+	// worker manages the lifecycle of the timer worker thread.
+	worker *util.Worker
 
 	// resetChan is used to issue a reset to the timer.
 	resetChan chan struct{}
 
 	// pendingChanges indicates that there are unpublished changes.
 	pendingChanges bool
-
-	// stopped indicates that the timer thread has been stopped.
-	stopped bool
 }
 
 // NewStrategyWithDefaults creates a new strategy with default values.
@@ -96,8 +91,7 @@ func NewStrategy(
 		timerFrequency:  timerFrequency,
 		Publish:         make(chan struct{}, 1),
 		nowFn:           time.Now,
-		stopChan:        make(chan struct{}),
-		stoppedChan:     make(chan struct{}, 1),
+		worker:          util.NewWorker("runtime publishing strategy", log.Scope),
 		resetChan:       make(chan struct{}, 1),
 	}
 	s.startTimerFn = s.startTimer
@@ -106,7 +100,6 @@ func NewStrategy(
 
 func (s *Strategy) OnChange() {
 	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
 
 	monitoring.RecordStrategyOnChange()
 
@@ -120,32 +113,25 @@ func (s *Strategy) OnChange() {
 		s.firstEvent = s.latestEvent
 
 		// Start or reset the timer.
+		if s.timer != nil {
+			// Timer has already been started, just reset it now.
+			// NOTE: Unlocking the state lock first, to avoid a potential race with
+			// the timer thread waiting to enter onTimer.
+			s.stateLock.Unlock()
+			s.resetChan <- struct{}{}
+			return
+		}
 		s.startTimerFn()
 	}
+
+	s.stateLock.Unlock()
 }
 
 // startTimer performs a start or reset on the timer. Called with lock on stateLock.
 func (s *Strategy) startTimer() {
-	if s.stopped {
-		panic("asyncTimer attempting to restart stopped timer")
-	}
-
-	if s.timer != nil {
-		// Already started, just perform a reset of the timer.
-		s.resetChan <- struct{}{}
-		return
-	}
-
 	s.timer = time.NewTimer(s.timerFrequency)
 
-	// Start a go routine to listen to the timer.
-	go func() {
-
-		// As soon as the thread exits, signal that the timer has stopped.
-		defer func() {
-			close(s.stoppedChan)
-		}()
-
+	eventLoop := func(ctx context.Context) {
 		for {
 			select {
 			case <-s.timer.C:
@@ -155,33 +141,16 @@ func (s *Strategy) startTimer() {
 				}
 			case <-s.resetChan:
 				s.timer.Reset(s.timerFrequency)
-			case <-s.stopChan:
+			case <-ctx.Done():
 				// User requested to stop the timer.
 				s.timer.Stop()
 				return
 			}
 		}
-	}()
-}
-
-// stopTimer stops the timer, if started. Called with lock on stateLock.
-func (s *Strategy) stopTimer() {
-	defer func() {
-		s.stopped = true
-	}()
-
-	if s.timer == nil {
-		// Timer was never started. Nothing to do.
-		return
 	}
 
-	if !s.stopped {
-		// Cancel the timer.
-		close(s.stopChan)
-	}
-
-	// Wait for the timer to be stopped.
-	<-s.stoppedChan
+	// Start a go routine to listen to the timer.
+	_ = s.worker.Start(nil, eventLoop)
 }
 
 func (s *Strategy) onTimer() bool {
@@ -216,8 +185,5 @@ func (s *Strategy) onTimer() bool {
 }
 
 func (s *Strategy) Close() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
-
-	s.stopTimer()
+	s.worker.Stop()
 }

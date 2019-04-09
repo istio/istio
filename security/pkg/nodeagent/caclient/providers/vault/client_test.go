@@ -268,10 +268,8 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 		resp, err := cli.CSRSign(context.Background(), tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
 		if err != nil {
 			t.Errorf("Test case [%s]:  error (%v) is not expected", id, err.Error())
-		} else {
-			if len(resp) != 3 {
-				t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
-			}
+		} else if len(resp) != 3 {
+			t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
 		}
 	}
 }
@@ -298,10 +296,8 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 		resp, err := cli.CSRSign(context.Background(), tc.cliConfig.csr, tc.cliConfig.clientToken, 1)
 		if err != nil {
 			t.Errorf("Test case [%s]:  error (%v) is not expected", id, err.Error())
-		} else {
-			if len(resp) != 3 {
-				t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
-			}
+		} else if len(resp) != 3 {
+			t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
 		}
 	}
 }
@@ -367,7 +363,7 @@ func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, sig
 				resp.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			if "pem" != signReq.Format {
+			if signReq.Format != "pem" {
 				t.Logf("invalid sign format: %v", signReq.Format)
 				resp.WriteHeader(http.StatusBadRequest)
 				return

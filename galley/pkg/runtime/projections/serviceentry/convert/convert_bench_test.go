@@ -20,7 +20,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/convert"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/node"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 
@@ -182,21 +181,21 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	var out *networking.ServiceEntry
 	if reuse {
 		out = &networking.ServiceEntry{}
-		convertEndpoints(endpoints, bcache, bcache, out)
+		convertEndpoints(endpoints, bcache, out)
 	}
 
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		convertEndpoints(endpoints, bcache, bcache, out)
+		convertEndpoints(endpoints, bcache, out)
 	}
 }
 
-func convertEndpoints(endpoints *coreV1.Endpoints, pods pod.Cache, nodes node.Cache, entry *networking.ServiceEntry) {
+func convertEndpoints(endpoints *coreV1.Endpoints, pods pod.Cache, entry *networking.ServiceEntry) {
 	if entry == nil {
 		entry = &networking.ServiceEntry{}
 	}
-	convert.Endpoints(endpoints, pods, nodes, entry)
+	convert.Endpoints(endpoints, pods, entry)
 }
 
 func min(a, b int) int {
@@ -206,19 +205,14 @@ func min(a, b int) int {
 	return b
 }
 
-var _ node.Cache = &benchmarkCache{}
 var _ pod.Cache = &benchmarkCache{}
 
 type benchmarkCache struct {
-	nodeInfo node.Info
-	pods     map[string]pod.Info
+	pods map[string]pod.Info
 }
 
 func newBenchmarkCache() *benchmarkCache {
 	return &benchmarkCache{
-		nodeInfo: node.Info{
-			Locality: "locality",
-		},
 		pods: make(map[string]pod.Info),
 	}
 }
@@ -227,12 +221,9 @@ func (c *benchmarkCache) addPod(ip, serviceAccountName string) {
 	c.pods[ip] = pod.Info{
 		FullName:           resource.FullNameFromNamespaceAndName(benchNamespace, "SomePod"),
 		NodeName:           "SomeNode",
+		Locality:           "locality",
 		ServiceAccountName: serviceAccountName,
 	}
-}
-
-func (c *benchmarkCache) GetNodeByName(name string) (node.Info, bool) {
-	return c.nodeInfo, true
 }
 
 func (c *benchmarkCache) GetPodByIP(ip string) (pod.Info, bool) {

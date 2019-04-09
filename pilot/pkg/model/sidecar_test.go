@@ -194,9 +194,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				Mesh: &meshConfig,
 			}
 			if tt.services != nil {
-				for _, s := range tt.services {
-					ps.publicServices = append(ps.publicServices, s)
-				}
+				ps.publicServices = append(ps.publicServices, tt.services...)
 			}
 
 			sidecarConfig := tt.sidecarConfig

@@ -134,7 +134,7 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 				} else if m.MessageName == model.Gateway.MessageName {
 					gw, err := generateGateway()
 					if err != nil {
-						t.Fatal(err)
+						t.Log(err)
 					}
 					b.Set(model.Gateway.Collection, version, gw)
 				} else {
@@ -211,7 +211,7 @@ func addMcpAddrs(mcpPort int) func(*bootstrap.PilotArgs) {
 			arg.MeshConfig = &meshconfig.MeshConfig{}
 		}
 		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
-			&meshconfig.ConfigSource{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
+			{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
 		}
 	}
 }

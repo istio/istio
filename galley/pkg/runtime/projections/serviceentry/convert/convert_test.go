@@ -23,7 +23,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/convert"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/node"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
@@ -323,7 +322,7 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 	expectedEndpoints := make([]*networking.ServiceEntry_Endpoint, 0)
 	expectedSubjectAltNames := make([]string, 0)
 	actual := &networking.ServiceEntry{}
-	convert.Endpoints(&eps, cache, cache, actual)
+	convert.Endpoints(&eps, cache, actual)
 	g.Expect(actual.Endpoints).To(Equal(expectedEndpoints))
 	g.Expect(actual.SubjectAltNames).To(Equal(expectedSubjectAltNames))
 }
@@ -339,29 +338,24 @@ func TestEndpoints(t *testing.T) {
 		pods: map[string]pod.Info{
 			ip1: {
 				NodeName:           "node1",
+				Locality:           l1,
 				FullName:           resource.FullNameFromNamespaceAndName("ns", "pod1"),
 				ServiceAccountName: "sa1",
 				Labels:             podLabels,
 			},
 			ip2: {
 				NodeName:           "node2",
+				Locality:           l2,
 				FullName:           resource.FullNameFromNamespaceAndName("ns", "pod2"),
 				ServiceAccountName: "sa2",
 				Labels:             podLabels,
 			},
 			ip3: {
 				NodeName:           "node1", // Also on node1
+				Locality:           l1,
 				FullName:           resource.FullNameFromNamespaceAndName("ns", "pod3"),
 				ServiceAccountName: "sa1", // Same service account as pod1 to test duplicates.
 				Labels:             podLabels,
-			},
-		},
-		nodes: map[string]node.Info{
-			"node1": {
-				Locality: l1,
-			},
-			"node2": {
-				Locality: l2,
 			},
 		},
 	}
@@ -438,7 +432,7 @@ func TestEndpoints(t *testing.T) {
 		"sa2",
 	}
 	actual := &networking.ServiceEntry{}
-	convert.Endpoints(&eps, cache, cache, actual)
+	convert.Endpoints(&eps, cache, actual)
 
 	g.Expect(actual.Endpoints).To(Equal(expectedEndpoints))
 	g.Expect(actual.SubjectAltNames).To(Equal(expectedSubjectAltNames))
@@ -478,7 +472,7 @@ func TestEndpointsPodNotFound(t *testing.T) {
 	}
 	expectedSubjectAltNames := make([]string, 0)
 	actual := &networking.ServiceEntry{}
-	convert.Endpoints(&eps, cache, cache, actual)
+	convert.Endpoints(&eps, cache, actual)
 	g.Expect(actual.Endpoints).To(Equal(expectedEndpoints))
 	g.Expect(actual.SubjectAltNames).To(Equal(expectedSubjectAltNames))
 }
@@ -527,7 +521,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	}
 	expectedSubjectAltNames := []string{"sa1"}
 	actual := &networking.ServiceEntry{}
-	convert.Endpoints(&eps, cache, cache, actual)
+	convert.Endpoints(&eps, cache, actual)
 	g.Expect(actual.Endpoints).To(Equal(expectedEndpoints))
 	g.Expect(actual.SubjectAltNames).To(Equal(expectedSubjectAltNames))
 }
@@ -536,17 +530,10 @@ func host(namespace, serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, domainSuffix)
 }
 
-var _ node.Cache = &fakeCache{}
 var _ pod.Cache = &fakeCache{}
 
 type fakeCache struct {
-	nodes map[string]node.Info
-	pods  map[string]pod.Info
-}
-
-func (c *fakeCache) GetNodeByName(name string) (node.Info, bool) {
-	n, ok := c.nodes[name]
-	return n, ok
+	pods map[string]pod.Info
 }
 
 func (c *fakeCache) GetPodByIP(ip string) (pod.Info, bool) {

@@ -116,10 +116,10 @@ func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 		if err != nil {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
-		log.Debugf("The root certificates to be appended is: %v", rootCertFile[:])
+		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
 		if len(rootCerts) > 0 {
 			// Append a newline after the last cert
-			rootCerts = []byte(strings.TrimSuffix(string(rootCerts[:]), "\n") + "\n")
+			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
 		}
 		rootCerts = append(rootCerts, certBytes...)
 	}

@@ -116,25 +116,72 @@ func (c *nativeComponent) ClearConfig() (err error) {
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
-func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) (err error) {
+func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
 	defer appsignals.Notify("galley.native.ApplyConfig", syscall.SIGUSR1)
+
+	// Read information for all files in configDir
+	fileInfos, err := readFileInfos(c.configDir)
+	if err != nil {
+		return err
+	}
+
+	// Create a map of the resource descriptors to file resources.
+	// We'll use this map for handling updates.
+	fileResourceMap := newFileResourceMap(fileInfos)
+
 	for _, y := range yamlText {
-		if ns != nil {
-			y, err = yml.ApplyNamespace(y, ns.Name())
-			if err != nil {
-				return
+		y, err = applyNamespace(ns, y)
+		if err != nil {
+			return err
+		}
+
+		// Parse the file to obtain all resources and their descriptors.
+		resources, err := parseResources(y)
+		if err != nil {
+			return err
+		}
+
+		// Look in the existing files for the resources. If found, overwrite the original.
+		for i, r := range resources {
+			if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
+				// Update the file resource.
+				fileResource.update(r.content)
+
+				// Mark this resource as applied so that we don't write it to a new file.
+				resources[i] = nil
 			}
 		}
 
-		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-		fn = path.Join(c.configDir, fn)
+		// Generate the new content, if any.
+		newFileContent := ""
+		for _, r := range resources {
+			if r != nil {
+				newFileContent = yml.JoinString(newFileContent, r.content)
+			}
+		}
 
-		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, y)
-		if err = ioutil.WriteFile(fn, []byte(y), os.ModePerm); err != nil {
-			return err
+		// If there were new resources, write their content to a new file.
+		if len(newFileContent) > 0 {
+			fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
+			fn = path.Join(c.configDir, fn)
+
+			scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, newFileContent)
+			if err = ioutil.WriteFile(fn, []byte(newFileContent), os.ModePerm); err != nil {
+				return err
+			}
 		}
 	}
-	return
+
+	// If any existing files were modified, write their contents back to configDir.
+	for _, fi := range fileInfos {
+		if fi.isUpdated() {
+			if err := fi.writeFile(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // ApplyConfigOrFail applies the given config yaml file via Galley.
@@ -146,10 +193,70 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance,
 	}
 }
 
+// DeleteConfig implements Galley.DeleteConfig.
+func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) error {
+	defer appsignals.Notify("galley.native.DeleteConfig", syscall.SIGUSR1)
+
+	// Read information for all files in configDir
+	fileInfos, err := readFileInfos(c.configDir)
+	if err != nil {
+		return err
+	}
+
+	// Create a map of the resource descriptors to file resources.
+	// We'll use this map for handling updates.
+	fileResourceMap := newFileResourceMap(fileInfos)
+
+	for _, y := range yamlText {
+		y, err = applyNamespace(ns, y)
+		if err != nil {
+			return err
+		}
+
+		// Parse the file to obtain all resources and their descriptors.
+		resources, err := parseResources(y)
+		if err != nil {
+			return err
+		}
+
+		// Look in the existing files for the resources. If found, delete it.
+		for _, r := range resources {
+			if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
+				// Delete it.
+				fileResource.update("")
+			}
+		}
+	}
+
+	// If any existing files were modified, write their contents back to configDir.
+	for _, fi := range fileInfos {
+		if fi.isUpdated() {
+			if err := fi.writeFile(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
+func (c *nativeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+	t.Helper()
+	err := c.DeleteConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("Galley.DeleteConfigOrFail: %v", err)
+	}
+}
+
 // ApplyConfigDir implements Galley.ApplyConfigDir.
 func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
 	defer appsignals.Notify("galley.native.ApplyConfigDir", syscall.SIGUSR1)
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		targetPath := c.configDir + string(os.PathSeparator) + path[len(sourceDir):]
 		if info.IsDir() {
 			scopes.Framework.Debugf("Making dir: %v", targetPath)
@@ -163,6 +270,7 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 
 		yamlText := string(contents)
 		if ns != nil {
+			var err error
 			yamlText, err = yml.ApplyNamespace(yamlText, ns.Name())
 			if err != nil {
 				return err
@@ -282,4 +390,115 @@ func (c *nativeComponent) applyAttributeManifest() error {
 	}
 
 	return c.ApplyConfig(nil, m)
+}
+
+func applyNamespace(ns namespace.Instance, yamlText string) (out string, err error) {
+	out = yamlText
+	if ns != nil {
+		out, err = yml.ApplyNamespace(yamlText, ns.Name())
+	}
+	return
+}
+
+type resourceInfo struct {
+	content    string
+	descriptor yml.Descriptor
+	updated    bool
+}
+
+func (ri *resourceInfo) update(content string) {
+	ri.content = content
+	ri.updated = true
+}
+
+type fileInfo struct {
+	name      string
+	resources []*resourceInfo
+}
+
+func (fi *fileInfo) isUpdated() bool {
+	for _, r := range fi.resources {
+		if r.updated {
+			return true
+		}
+	}
+	return false
+}
+
+func (fi *fileInfo) writeFile() error {
+	// Merge all the resources into a single document.
+	resourceContent := make([]string, 0, len(fi.resources))
+	for _, r := range fi.resources {
+		if len(r.content) > 0 {
+			resourceContent = append(resourceContent, r.content)
+		}
+	}
+
+	if len(resourceContent) > 0 {
+		// Update the file
+		newContent := yml.JoinString(resourceContent...)
+		return ioutil.WriteFile(fi.name, []byte(newContent), os.ModePerm)
+	}
+
+	// The file is now empty - remove it.
+	return os.Remove(fi.name)
+}
+
+func readFileInfos(configDir string) ([]*fileInfo, error) {
+	infos, err := ioutil.ReadDir(configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	fileInfos := make([]*fileInfo, 0)
+	for _, i := range infos {
+		filename := filepath.Join(configDir, i.Name())
+		content, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+
+		resources, err := parseResources(string(content))
+		if err != nil {
+			return nil, err
+		}
+
+		fileInfos = append(fileInfos, &fileInfo{
+			name:      filename,
+			resources: resources,
+		})
+	}
+
+	return fileInfos, nil
+}
+
+func newFileResourceMap(fileInfos []*fileInfo) map[yml.Descriptor]*resourceInfo {
+	// Create a map of the resource descriptors to file resources.
+	// We'll use this map for handling updates.
+	fileResourceMap := make(map[yml.Descriptor]*resourceInfo)
+	for _, fi := range fileInfos {
+		for _, ri := range fi.resources {
+			fileResourceMap[ri.descriptor] = ri
+		}
+	}
+	return fileResourceMap
+}
+
+func parseResources(yamlText string) ([]*resourceInfo, error) {
+	splitContent := yml.SplitString(yamlText)
+	resources := make([]*resourceInfo, 0, len(splitContent))
+	for _, part := range splitContent {
+		if len(part) > 0 {
+			descriptor, err := yml.ParseDescriptor(part)
+			if err != nil {
+				return nil, err
+			}
+
+			resources = append(resources, &resourceInfo{
+				content:    part,
+				descriptor: descriptor,
+			})
+		}
+	}
+	return resources, nil
 }

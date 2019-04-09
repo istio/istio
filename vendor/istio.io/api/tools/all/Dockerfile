@@ -8,7 +8,7 @@ RUN apk update && \
 
 FROM gcr.io/istio-testing/protolock:2019-03-11 as protolock
 
-FROM gcr.io/istio-testing/protoc:2019-02-25
+FROM gcr.io/istio-testing/protoc:2019-03-29
 
 COPY --from=protolock \
         /usr/bin/protolock \

@@ -355,23 +355,23 @@ left of the basename form the directory. Segments moving towards the left
 represent higher positions in the resource hierarchy, similar to reverse
 DNS notation. e.g.</p>
 
-<p>/<org>/<team>/<subteam>/<resource basename></p>
+<p>/&lt;org&gt;/&lt;team&gt;/&lt;subteam&gt;/&lt;resource basename&gt;</p>
 
 <p>An empty directory indicates a resource that is located at the root of the
 hierarchy, e.g.</p>
 
-<p>/<globally scoped resource></p>
+<p>/&lt;globally scoped resource&gt;</p>
 
 <p>On Kubernetes the resource hierarchy is two-levels: namespaces and
 cluster-scoped (i.e. global).</p>
 
 <p>Namespace resources fully qualified name is of the form:</p>
 
-<p>&rdquo;/<k8s namespace>/<k8s resource name>&ldquo;</p>
+<p>&rdquo;/&lt;k8s namespace&gt;/&lt;k8s resource name&gt;&ldquo;</p>
 
 <p>Cluster scoped resources are located at the root of the hierarchy and are of the form:</p>
 
-<p>&rdquo;/<k8s resource name>&ldquo;</p>
+<p>&rdquo;/&lt;k8s resource name&gt;&ldquo;</p>
 
 </td>
 </tr>
@@ -453,7 +453,7 @@ of error</em>detail.</p>
 <p>Type of resource collection that is being requested, e.g.</p>
 
 <p>istio/networking/v1alpha3/VirtualService
-k8s/<apiVersion>/<kind></p>
+k8s/&lt;apiVersion&gt;/&lt;kind&gt;</p>
 
 </td>
 </tr>
@@ -571,7 +571,7 @@ Resources to an RequestResources ACK or NACK.</p>
 <p>Type of resource collection that is being requested, e.g.</p>
 
 <p>istio/networking/v1alpha3/VirtualService
-k8s/<apiVersion>/<kind></p>
+k8s/&lt;apiVersion&gt;/&lt;kind&gt;</p>
 
 </td>
 </tr>

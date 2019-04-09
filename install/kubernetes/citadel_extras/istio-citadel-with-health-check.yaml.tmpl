@@ -22,13 +22,23 @@ spec:
     istio: citadel
 ---
 # Citadel watching all namespaces
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
   namespace: {ISTIO_NAMESPACE}
+  labels:
+    app: security
+    chart: security
+    heritage: Tiller
+    release: istio
+    istio: citadel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: security
+      istio: citadel
   template:
     metadata:
       labels:

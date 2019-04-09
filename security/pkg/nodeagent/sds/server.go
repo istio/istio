@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -29,6 +30,7 @@ import (
 )
 
 const maxStreams = 100000
+const maxRetryTimes = 5
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
@@ -165,9 +167,10 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 	}
 
 	go func() {
-		for {
+		log.Info("Start SDS grpc server")
+		waitTime := time.Second
+		for i := 0; i < maxRetryTimes; i++ {
 			// Retry if Serve() fails
-			log.Info("Start SDS grpc server")
 			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 			}
@@ -175,6 +178,8 @@ func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unpa
 			if err != nil {
 				log.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 			}
+			time.Sleep(waitTime)
+			waitTime *= 2
 		}
 	}()
 
@@ -193,9 +198,10 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	}
 
 	go func() {
-		for {
+		log.Info("Start SDS grpc server for ingress gateway proxy")
+		waitTime := time.Second
+		for i := 0; i < maxRetryTimes; i++ {
 			// Retry if Serve() fails
-			log.Info("Start SDS grpc server for ingress gateway proxy")
 			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 			}
@@ -203,6 +209,8 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 			if err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
 			}
+			time.Sleep(waitTime)
+			waitTime *= 2
 		}
 	}()
 

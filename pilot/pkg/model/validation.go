@@ -43,8 +43,10 @@ const (
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
 
-	// TODO: there is a stricter regex for the labels from validation.go in k8s
-	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
+	// Using kubernetes requirement, a valid key must be a non-empty string consist
+	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
+	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
+	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 )
 
 // Constants for duration fields
@@ -61,8 +63,10 @@ const (
 const UnixAddressPrefix = "unix://"
 
 var (
-	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp            = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
+	tagRegexp          = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	// label value can be an empty string
+	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
@@ -235,7 +239,7 @@ func (l Labels) Validate() error {
 		if !tagRegexp.MatchString(k) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid tag key: %q", k))
 		}
-		if !tagRegexp.MatchString(v) {
+		if !labelValueRegexp.MatchString(v) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid tag value: %q", v))
 		}
 	}
@@ -869,6 +873,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		}
 		if http.MaxRetries < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
+		}
+		if http.IdleTimeout != nil {
+			errs = appendErrors(errs, ValidateDurationGogo(http.IdleTimeout))
 		}
 	}
 
@@ -1540,9 +1547,14 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
-	if in.RoleRef == nil {
-		errs = appendErrors(errs, fmt.Errorf("roleRef must be specified"))
-	} else {
+	if in.RoleRef != nil && len(in.Actions) > 0 {
+		errs = appendErrors(errs, fmt.Errorf("only one of `roleRef` or `actions` can be specified"))
+		return errs
+	}
+	if in.RoleRef == nil && len(in.Actions) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("`roleRef` or `actions` must be specified"))
+	}
+	if in.RoleRef != nil {
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
@@ -1551,6 +1563,10 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 		if len(in.RoleRef.Name) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("name cannot be empty"))
 		}
+	}
+	if len(in.Actions) > 0 {
+		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
+		errs = ValidateServiceRole("", "", inlineServiceRole)
 	}
 	return errs
 }

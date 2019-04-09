@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,6 +88,10 @@ const (
 	// from envoy is always valid(ex, normal 8ks JWT).
 	alwaysValidTokenFlag     = "VALID_TOKEN"
 	alwaysValidTokenFlagFlag = "alwaysValidTokenFlag"
+
+	// The environmental variable name for the flag which is used to indicate whether to
+	// validate the certificate's format which is returned by CA.
+	skipValidateCertFlag = "SKIP_CERT_VALIDATION"
 
 	// The environmental variable name for secret TTL, node agent decides whether a secret
 	// is expired if time.now - secret.createtime >= secretTTL.
@@ -201,6 +206,7 @@ var (
 	enableWorkloadSDSEnv          = env.RegisterBoolVar(enableWorkloadSDS, true, "").Get()
 	enableIngressGatewaySDSEnv    = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
 	alwaysValidTokenFlagEnv       = env.RegisterBoolVar(alwaysValidTokenFlag, false, "").Get()
+	skipValidateCertFlagEnv       = env.RegisterBoolVar(skipValidateCertFlag, false, "").Get()
 	caProviderEnv                 = env.RegisterStringVar(caProvider, "", "").Get()
 	caEndpointEnv                 = env.RegisterStringVar(caEndpoint, "", "").Get()
 	trustDomainEnv                = env.RegisterStringVar(trustDomain, "", "").Get()
@@ -274,6 +280,10 @@ func applyEnvVars(cmd *cobra.Command) {
 	if !cmd.Flag(secretRotationIntervalFlag).Changed {
 		workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	}
+
+	if !cmd.Flag(skipValidateCertFlag).Changed {
+		workloadSdsCacheOptions.SkipValidateCert = skipValidateCertFlagEnv
+	}
 }
 
 func main() {
@@ -307,12 +317,35 @@ func main() {
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, secretRotationIntervalFlag,
 		10*time.Minute, "Secret rotation job running interval")
 
+	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
+	// Default to 10, a valid range is [10, 120000].
+	var initBackoff int64 = 10
+	env := os.Getenv("INITIAL_BACKOFF_MSEC")
+	if len(env) > 0 {
+		initialBackoff, err := strconv.ParseInt(env, 0, 32)
+		if err != nil {
+			log.Errorf("Failed to parse INITIAL_BACKOFF to integer with error: %v", err)
+			os.Exit(1)
+		} else if initialBackoff < 10 || initialBackoff > 120000 {
+			log.Errorf("INITIAL_BACKOFF should be within range 10 to 120000")
+			os.Exit(1)
+		} else {
+			initBackoff = initialBackoff
+		}
+	}
+	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, "initialBackoff",
+		initBackoff, "The initial backoff interval in milliseconds")
+
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
 
 	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, alwaysValidTokenFlagFlag,
 		false,
 		"If true, node agent assume token passed from envoy is always valid.")
+
+	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.SkipValidateCert, skipValidateCertFlag,
+		false,
+		"If true, node agent skip validating format of certificate returned from CA.")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, vaultAddressFlag, "",
 		"Vault address")

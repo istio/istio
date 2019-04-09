@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -57,8 +58,14 @@ const (
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
+	// WildcardIPv6Address binds to all IPv6 addresses
+	WildcardIPv6Address = "::"
+
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+
+	// LocalhostIPv6Address for local binding
+	LocalhostIPv6Address = "::1"
 
 	// EnvoyTextLogFormat format for envoy text based access logs
 	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
@@ -182,6 +189,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 
+	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
+
 	if mesh.ProxyListenPort > 0 {
 		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
 		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
@@ -221,7 +230,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
-			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Address:        util.BuildAddress(actualWildcard, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
 			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
@@ -239,7 +248,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	if httpProxyPort > 0 {
 		traceOperation := http_conn.EGRESS
-		listenAddress := LocalhostAddress
+		listenAddress := actualLocalHostAddress
 
 		httpOpts := &core.Http1ProtocolOptions{
 			AllowAbsoluteUrl: proto.BoolTrue,
@@ -311,6 +320,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
@@ -370,16 +381,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
-			} else {
+			} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
 				// proxy uses iptables redirect or tproxy. IF mode is not set
 				// for older proxies, it defaults to iptables redirect.  If the
 				// listener's capture mode specifies NONE, then the proxy wants
 				// this listener alone to be on a physical port. If the
 				// listener's capture mode is default, then its same as
 				// iptables i.e. bindToPort is false.
-				if ingressListener.CaptureMode == networking.CaptureMode_NONE {
-					bindToPort = true
-				}
+				bindToPort = true
 			}
 
 			listenPort := &model.Port{
@@ -401,7 +410,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			bind := ingressListener.Bind
 			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
 			if len(bind) == 0 && bindToPort {
-				bind = WildcardAddress
+				bind = actualWildcard
 			} else if len(bind) == 0 {
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
@@ -644,6 +653,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
+	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
+
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
 	listenerMap := make(map[string]*outboundListenerEntry)
@@ -679,7 +690,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Service:          service,
 				}
 
-				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams,
+					listenerMap, virtualServices, actualWildcard)
 			}
 		}
 	} else {
@@ -706,17 +718,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
-			} else {
+			} else if egressListener.IstioListener != nil &&
 				// proxy uses iptables redirect or tproxy. IF mode is not set
 				// for older proxies, it defaults to iptables redirect.  If the
 				// listener's capture mode specifies NONE, then the proxy wants
 				// this listener alone to be on a physical port. If the
 				// listener's capture mode is default, then its same as
 				// iptables i.e. bindToPort is false.
-				if egressListener.IstioListener != nil &&
-					egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
-					bindToPort = true
-				}
+				egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
+				bindToPort = true
 			}
 
 			if egressListener.IstioListener != nil &&
@@ -745,11 +755,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// imported Service, mapping from the listenPort to some specific service port
 				bind := ""
 				if bindToPort {
-					bind = LocalhostAddress
+					bind = actualLocalHostAddress
 				} else {
 					bind = egressListener.IstioListener.Bind
 					if len(bind) == 0 {
-						bind = WildcardAddress
+						bind = actualWildcard
 					}
 				}
 
@@ -774,7 +784,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Port:             listenPort,
 				}
 
-				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap,
+					virtualServices, actualWildcard)
 
 			} else {
 				// This is a catch all egress listener with no port. This
@@ -803,7 +814,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				bind := ""
 				if bindToPort {
-					bind = LocalhostAddress
+					bind = actualLocalHostAddress
 				}
 				for _, service := range services {
 					for _, servicePort := range service.Ports {
@@ -835,7 +846,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							Service:          service,
 						}
 
-						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap,
+							virtualServices, actualWildcard)
 					}
 				}
 			}
@@ -882,7 +894,8 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, virtualServices []model.Config) {
+	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
+	virtualServices []model.Config, actualWildcard string) {
 
 	var destinationCIDR string
 	var listenerMapKey string
@@ -893,7 +906,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		// first identify the bind if its not set. Then construct the key
 		// used to lookup the listener in the conflict map.
 		if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
-			listenerOpts.bind = WildcardAddress
+			listenerOpts.bind = actualWildcard
 		}
 		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
 
@@ -989,7 +1002,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
 					destinationCIDR = svcListenAddress
-					listenerOpts.bind = WildcardAddress
+					listenerOpts.bind = actualWildcard
 				}
 			}
 		}
@@ -1609,4 +1622,20 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 	}
 
 	return nil
+}
+
+// getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
+// depending on value of proxy's IPAddresses first element
+func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
+	// Check only first ip address in IPAddresses slice
+	addr := net.ParseIP(node.IPAddresses[0])
+
+	switch {
+	case addr != nil && addr.To4() != nil:
+		return WildcardAddress, LocalhostAddress
+	case addr != nil && addr.To4() == nil:
+		return WildcardIPv6Address, LocalhostIPv6Address
+	default:
+		return WildcardAddress, LocalhostAddress
+	}
 }
