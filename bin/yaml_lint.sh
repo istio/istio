@@ -29,7 +29,9 @@ if [[ -z ${YAML_FILES} ]];then
 fi
 
 for YAML_FILE in ${YAML_FILES}; do
+        # shellcheck disable=SC2086
         echo ${YAML_FILE}
+        # shellcheck disable=SC2086
         yamllint ${YAML_FILE}
 done
 
