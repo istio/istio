@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -30,10 +29,6 @@ import (
 
 func TestCheck_Allow(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		// TODO(https://github.com/istio/istio/issues/12750): Disabling K8s mode for now, as Mixer is not listening for
-		// legacy CRDs anymore, when using the standard Helm deployment.
-		ctx.RequireOrSkip(t, environment.Native)
-
 		gal := galley.NewOrFail(t, ctx, galley.Config{})
 		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,
@@ -75,10 +70,6 @@ func TestCheck_Allow(t *testing.T) {
 
 func TestCheck_Deny(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		// TODO(https://github.com/istio/istio/issues/12750): Disabling K8s mode for now, as Mixer is not listening for
-		// legacy CRDs anymore, when using the standard Helm deployment.
-		ctx.RequireOrSkip(t, environment.Native)
-
 		gal := galley.NewOrFail(t, ctx, galley.Config{})
 		mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 			Galley: gal,
@@ -120,10 +111,11 @@ func TestCheck_Deny(t *testing.T) {
 
 var testCheckConfig = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: checknothing
+kind: instance
 metadata:
   name: checknothing1
 spec:
+  compiledTemplate: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -131,7 +123,7 @@ metadata:
   name: rule1
 spec:
   actions:
-  - handler: handler1.bypass
+  - handler: handler1
     instances:
-    - checknothing1.checknothing
+    - checknothing1
 `
