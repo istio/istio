@@ -35,7 +35,7 @@ do
             ;;
         *)
             if [ ! -z "$ISTIO_PATH" ]; then
-                echo "too many arguments"
+                echo "invalid arguments"
                 print_help
             fi
             ISTIO_PATH=$1
@@ -55,6 +55,8 @@ fi
 
 cd $ISTIO_PATH
 
+BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3"
+
 if [ "$SKIP_SETUP" -ne 1 ]; then
     kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
     kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
@@ -63,13 +65,14 @@ if [ "$SKIP_SETUP" -ne 1 ]; then
     kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
     kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
     kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
-    kubectl wait --all --for=condition=Ready pods --timeout=$WAIT_TIMEOUT
-    for depl in details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3; do
+    for depl in ${BOOKINFO_DEPLOYMENTS}; do
         kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
     done
 fi
 
-kubectl rollout status deployments productpage-v1 --timeout=$WAIT_TIMEOUT
+for depl in ${BOOKINFO_DEPLOYMENTS}; do
+    kubectl rollout status deployments $depl --timeout=$WAIT_TIMEOUT
+done
 kubectl get pod
 
 export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')

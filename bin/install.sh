@@ -36,11 +36,7 @@ function install_system() {
     echo "${METHOD}ing citadel.."
     bin/iop istio-system istio-system-security $IBASE/security/citadel/ $RESOURCES_FLAGS
     
-    kubectl get deployments -n istio-system
-    kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-citadel11 -n istio-system --timeout=$WAIT_TIMEOUT
-    kubectl get deployments -n istio-system
-    kubectl get pod -n istio-system
 }
 
 # Install config, discovery and sidecar-injector into namespace istio-control
@@ -54,14 +50,9 @@ function install_control() {
     echo "${METHOD}ing auto-injector.."
     bin/iop ${ISTIO_CONTROL_NS} istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
 
-    kubectl get deployments -n ${ISTIO_CONTROL_NS}
-    kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n ${ISTIO_CONTROL_NS} --for=condition=available --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-galley -n ${ISTIO_CONTROL_NS} --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-pilot  -n ${ISTIO_CONTROL_NS} --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-sidecar-injector -n ${ISTIO_CONTROL_NS} --timeout=$WAIT_TIMEOUT
-
-    kubectl get deployments -n ${ISTIO_CONTROL_NS}
-    kubectl get pod -n ${ISTIO_CONTROL_NS}
 }
 
 # Install discovery and ingress into namespace istio-ingress
@@ -77,12 +68,8 @@ function install_ingress() {
     echo "${METHOD}ing ingress.."
     bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
 
-    kubectl get deployments -n istio-ingress
-    kubectl wait deployments ingressgateway  istio-pilot -n istio-ingress --for=condition=available --timeout=$WAIT_TIMEOUT
+    kubectl rollout status  deployment istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
-    kubectl rollout status  deployment  istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
-    kubectl get deployments -n istio-ingress
-    kubectl get pod -n istio-ingress
 }
 
 # Install grafana, mixer and prometheus into namespace istio-telemetry
@@ -97,13 +84,10 @@ function install_telemetry() {
     bin/iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
     echo "${METHOD}ling istio-prometheus."
     bin/iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
-    kubectl get deployments -n istio-telemetry
-    kubectl wait deployments grafana istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=$WAIT_TIMEOUT
+
     kubectl rollout status  deployment grafana -n istio-telemetry --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-telemetry -n istio-telemetry --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment prometheus -n istio-telemetry --timeout=$WAIT_TIMEOUT
-    kubectl get deployments -n istio-telemetry
-    kubectl get pod -n istio-telemetry
 }
 
 # Switch to other istio-control-namespace
