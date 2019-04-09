@@ -55,15 +55,10 @@ fi
 
 cd $ISTIO_PATH
 
-if [ "$SKIP_SETUP" -eq 0 ]; then
-    kubectl label namespace default istio-env=istio-control --overwrite
-fi
-
-if [ -z $SKIP_CLEANUP ] ; then
-
-kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+if [ "$SKIP_SETUP" -ne 1 ]; then
+    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
     kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
     kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
@@ -101,9 +96,9 @@ do
 done
 set -e
 
-if [ -z $SKIP_CLEANUP ] ; then
-echo "Cleaning up..."
-kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+if [ "$SKIP_CLEANUP" -ne 1 ]; then
+    echo "Cleaning up..."
+    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 fi
