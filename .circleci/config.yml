@@ -1,6 +1,6 @@
 version: 2
 
-# VM environment. Includes docker.
+# VM environment. Includes docker, can run priv.
 integrationDefaults: &integrationDefaults
   machine:
     image: ubuntu-1604:201903-01
@@ -32,15 +32,15 @@ jobs:
   # TODO: add encrypted creds for real clusters, push to real clusters
   # TODO: add a Makefile to automate
   build:
+    working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
     docker:
-      - #image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-        image: costinm/istio-install:latest
+      # Image with KIND installed, based on Istio Kind node-image
+      # Should have all tools we need, recreated when we rev the tool versions.
+      - image: costinm/istio-builder:latest
         environment:
-          GOPATH: /home/circleci/project/go
-          KUBECONFIG: /home/circleci/project/.circleci/config
+          GOPATH: /workspace/go
 
     # Can run multiple images, first is primary, all use localhost
-    #resource_class: xlarge
     steps:
       - checkout
       - setup_remote_docker: {}
@@ -48,36 +48,13 @@ jobs:
       #    docker_layer_caching: true
       - run:
           name: main
-          command: |
-            set -x
-            pwd
-            id
-            env
-            mkdir -p out/tests
-
-            # Create the cluster
-            /go/bin/kind create cluster --name test
-
-            docker cp $HOME/project test-control-plane:/
-
-
-
-            cat  $HOME/.kube/kind-config-test | sed s/localhost:.*/localhost:6443/ > $HOME/.kube/config
-            docker cp $HOME/.kube/config test-control-plane:/
-
-            # ???
-            docker build -t costinm/istio-install -f .circleci/Dockerfile .
-            /go/bin/kind load docker-image costin/istio-install:latest
-
-            docker exec -e KUBECONFIG=/config test-control-plane kubectl apply -f /project/.circleci/test-pod.yaml
-
+          command: make ci-kind
       - store_test_results:
           path: out/tests
       - store_artifacts:
           path: out/tests
 
   # Uses machine and minikube --root.
-  # Mostly works, but the goal is to get the one above working.
   install-minikube:
     <<: *integrationDefaults
     environment: &minikubeEnv
