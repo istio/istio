@@ -74,7 +74,7 @@ func fromString(value string) LanguageRuntime {
 	case "CEXL":
 		return CEXL
 	default:
-		return CEXL
+		return COMPAT
 	}
 }
 
