@@ -21,6 +21,7 @@ import (
 	"runtime"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type procTopic struct {
@@ -75,7 +76,7 @@ func getProcInfo() *procInfo {
 }
 
 func (procTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/proc.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/proc.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		fw.RenderHTML(w, tmpl, getProcInfo())
