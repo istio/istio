@@ -35,7 +35,7 @@ do
             ;;
         *)
             if [ ! -z "$ISTIO_PATH" ]; then
-                echo "to many arguments"
+                echo "too many arguments"
                 print_help
             fi
             ISTIO_PATH=$1
