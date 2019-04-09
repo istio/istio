@@ -1,4 +1,10 @@
+options:
+  no_parent_owners: true
+
+reviewers:
+  - sig-testing-reviewers
 approvers:
-  - hklai
-  - rkpagadala
-  - utka
+  - sig-testing-approvers
+
+labels:
+  - ci/prow

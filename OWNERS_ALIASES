@@ -1,0 +1,7 @@
+aliases:
+  sig-testing-reviewers:
+    - utka
+    - icygalz
+  sig-testing-approvers:
+    - utka
+    - icygalz
