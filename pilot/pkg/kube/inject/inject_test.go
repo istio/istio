@@ -569,36 +569,54 @@ func TestIntoResourceFile(t *testing.T) {
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
 	cases := []struct {
-		in   string
-		want string
+		in                  string
+		rewriteAppHTTPProbe bool
+		want                string
 	}{
 		{
-			in:   "hello-probes.yaml",
-			want: "hello-probes.yaml.injected",
+			in:                  "hello-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes.yaml.injected",
 		},
 		{
-			in:   "hello-readiness.yaml",
-			want: "hello-readiness.yaml.injected",
+			in:                  "hello-readiness.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-readiness.yaml.injected",
 		},
 		{
-			in:   "named_port.yaml",
-			want: "named_port.yaml.injected",
+			in:                  "named_port.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "named_port.yaml.injected",
 		},
 		{
-			in:   "one_container.yaml",
-			want: "one_container.yaml.injected",
+			in:                  "one_container.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "one_container.yaml.injected",
 		},
 		{
-			in:   "two_container.yaml",
-			want: "two_container.yaml.injected",
+			in:                  "two_container.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "two_container.yaml.injected",
 		},
 		{
-			in:   "ready_only.yaml",
-			want: "ready_only.yaml.injected",
+			in:                  "ready_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "ready_only.yaml.injected",
 		},
 		{
-			in:   "https-probes.yaml",
-			want: "https-probes.yaml.injected",
+			in:                  "https-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "https-probes.yaml.injected",
+		},
+		{
+			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
+			rewriteAppHTTPProbe: false,
+			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
+		},
+		{
+			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
@@ -618,7 +636,7 @@ func TestRewriteAppProbe(t *testing.T) {
 				ReadinessInitialDelaySeconds: DefaultReadinessPeriodSeconds,
 				ReadinessPeriodSeconds:       DefaultReadinessFailureThreshold,
 				ReadinessFailureThreshold:    DefaultReadinessFailureThreshold,
-				RewriteAppHTTPProbe:          true,
+				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
 			}
 			sidecarTemplate, err := GenerateTemplateFromParams(params)
 			if err != nil {
