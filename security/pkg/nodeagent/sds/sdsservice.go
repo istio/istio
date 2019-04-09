@@ -247,12 +247,13 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	secret, err := s.st.GenerateSecret(ctx, discReq.Node.Id, resourceName, token)
+	connID := constructConnectionID(discReq.Node.Id)
+	secret, err := s.st.GenerateSecret(ctx, connID, resourceName, token)
 	if err != nil {
-		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
+		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", connID, err)
 		return nil, err
 	}
-	return sdsDiscoveryResponse(secret, discReq.Node.Id)
+	return sdsDiscoveryResponse(secret, connID)
 }
 
 // NotifyProxy send notification to proxy about secret update,
