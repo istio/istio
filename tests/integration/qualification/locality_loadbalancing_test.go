@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // This test allows for Locality Load Balancing testing without needing Kube nodes in multiple regions.
@@ -73,7 +74,7 @@ type ServiceConfig struct {
 	ServiceCAddress string
 }
 
-func TestLocalityLoadBalancingCDS(t *testing.T) {
+func TestLocalityLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
@@ -82,11 +83,23 @@ func TestLocalityLoadBalancingCDS(t *testing.T) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
+	t.Run("TestCDS", func(t *testing.T) {
+		testLocalityLoadBalancingCDS(t, ctx, g, p)
+	})
+
+	t.Run("TestEDS", func(t *testing.T) {
+		testLocalityLoadBalancingCDS(t, ctx, g, p)
+	})
+
+}
+
+func testLocalityLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	t.Parallel()
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	se := ServiceConfig{"DNS", "b", "c"}
-	tmpl, _ := template.New("ServiceConfig").Parse(fakeExternalServiceConfig)
+	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalServiceConfig)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, se)
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
@@ -105,15 +118,8 @@ func TestLocalityLoadBalancingCDS(t *testing.T) {
 	wg.Wait()
 }
 
-func TestLocalityLoadBalancingEDS(t *testing.T) {
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
-
-	ctx.RequireOrSkip(t, environment.Kube)
-
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
-
+func testLocalityLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	t.Parallel()
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
@@ -124,7 +130,7 @@ func TestLocalityLoadBalancingEDS(t *testing.T) {
 		b.EndpointForPort(80).NetworkEndpoint().Address,
 		c.EndpointForPort(80).NetworkEndpoint().Address,
 	}
-	tmpl, _ := template.New("ServiceConfig").Parse(fakeExternalServiceConfig)
+	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalServiceConfig)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, se)
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
