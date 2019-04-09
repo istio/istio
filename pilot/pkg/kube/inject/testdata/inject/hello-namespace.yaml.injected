@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
@@ -6,6 +6,11 @@ metadata:
   namespace: test
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
