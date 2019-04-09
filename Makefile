@@ -291,7 +291,7 @@ ${GEN_CERT}:
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
-precommit: format lint
+precommit: format lint yamllint
 
 format:
 	bin/fmt.sh
@@ -304,6 +304,9 @@ buildcache:
 # some linters; they need to exist.
 lint: buildcache
 	SKIP_INIT=1 bin/linters.sh
+
+yamllint:
+    bin/yaml_lint.sh
 
 # @todo gometalinter targets?
 
