@@ -297,7 +297,7 @@ format:
 	bin/fmt.sh
 
 yamllint:
-    bin/yaml_lint.sh
+	bin/yaml_lint.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
