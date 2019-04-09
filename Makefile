@@ -296,6 +296,9 @@ precommit: format lint yamllint
 format:
 	bin/fmt.sh
 
+yamllint:
+    bin/yaml_lint.sh
+
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) build
@@ -305,8 +308,6 @@ buildcache:
 lint: buildcache
 	SKIP_INIT=1 bin/linters.sh
 
-yamllint:
-    bin/yaml_lint.sh
 
 # @todo gometalinter targets?
 
