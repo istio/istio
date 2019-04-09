@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
