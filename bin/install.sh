@@ -134,6 +134,7 @@ do
         install_control) COMMAND=$1 ;;
         install_ingress) COMMAND=$1 ;;
         install_telemetry) COMMAND=$1 ;;
+        switch_istio_control) COMMAND=$1 ;;
     esac
     shift 1
 done
