@@ -49,10 +49,8 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	plog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/log"
 )
-
-var log = plog.RegisterScope("runtimeconfig", "Mixer runtime config", 0)
 
 // Ephemeral configuration state that gets updated by incoming config change events. By itself, the data contained
 // is not meaningful. BuildSnapshot must be called to create a new snapshot instance, which contains fully resolved

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/client9/gospell"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
@@ -40,9 +41,11 @@ const (
 )
 
 type htmlGenerator struct {
-	buffer bytes.Buffer
-	model  *model
-	mode   outputMode
+	buffer      bytes.Buffer
+	model       *model
+	mode        outputMode
+	numWarnings int
+	speller     *gospell.GoSpell
 
 	// transient state as individual files are processed
 	currentPackage             *packageDescriptor
@@ -50,6 +53,7 @@ type htmlGenerator struct {
 	grouping                   bool
 
 	genWarnings      bool
+	warningsAsErrors bool
 	emitYAML         bool
 	camelCaseFields  bool
 	customStyleSheet string
@@ -60,11 +64,14 @@ const (
 	deprecated = "deprecated "
 )
 
-func newHTMLGenerator(model *model, mode outputMode, genWarnings bool, emitYAML bool, camelCaseFields bool, customStyleSheet string, perFile bool) *htmlGenerator {
+func newHTMLGenerator(model *model, mode outputMode, genWarnings bool, warningsAsErrors bool, speller *gospell.GoSpell,
+	emitYAML bool, camelCaseFields bool, customStyleSheet string, perFile bool) *htmlGenerator {
 	return &htmlGenerator{
 		model:            model,
 		mode:             mode,
+		speller:          speller,
 		genWarnings:      genWarnings,
+		warningsAsErrors: warningsAsErrors,
 		emitYAML:         emitYAML,
 		camelCaseFields:  camelCaseFields,
 		customStyleSheet: customStyleSheet,
@@ -101,10 +108,12 @@ func (g *htmlGenerator) generatePerFileOutput(filesToGen map[*fileDescriptor]boo
 			messages := make(map[string]*messageDescriptor)
 			enums := make(map[string]*enumDescriptor)
 			services := make(map[string]*serviceDescriptor)
+
 			g.getFileContents(file, messages, enums, services)
 			var filename = path.Base(file.GetName())
 			var extension = path.Ext(filename)
 			var name = filename[0 : len(filename)-len(extension)]
+
 			rf := g.generateFile(name, file, messages, enums, services)
 			response.File = append(response.File, &rf)
 		}
@@ -132,7 +141,7 @@ func (g *htmlGenerator) generatePerPackageOutput(filesToGen map[*fileDescriptor]
 	response.File = append(response.File, &rf)
 }
 
-func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plugin.CodeGeneratorResponse {
+func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) (*plugin.CodeGeneratorResponse, error) {
 	// process each package; we produce one output file per package
 	response := plugin.CodeGeneratorResponse{}
 
@@ -157,7 +166,11 @@ func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plu
 		}
 	}
 
-	return &response
+	if g.warningsAsErrors && g.numWarnings > 0 {
+		return nil, fmt.Errorf("treating %d warnings as errors\n", g.numWarnings)
+	}
+
+	return &response, nil
 }
 
 func (g *htmlGenerator) descLocation(desc coreDesc) string {
@@ -592,14 +605,14 @@ func (g *htmlGenerator) emit(str ...string) {
 	g.buffer.WriteByte('\n')
 }
 
-var typeLinkPattern = regexp.MustCompile(`\[[^\]]*\]\[[^\]]*\]`)
+var typeLinkPattern = regexp.MustCompile(`\[[^]]*]\[[^]]*]`)
 
 func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 	com := loc.GetLeadingComments()
 	if com == "" {
 		com = loc.GetTrailingComments()
 		if com == "" {
-			g.warn(loc, "no comment found for %s", name)
+			g.warn(loc, 0, "no comment found for %s", name)
 			return
 		}
 	}
@@ -608,7 +621,7 @@ func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 	lines := strings.Split(text, "\n")
 	if len(lines) > 0 {
 		// Based on the amount of spacing at the start of the first line,
-		// remove that many bytes at the beginning of every line in the comment.
+		// remove that many characters at the beginning of every line in the comment.
 		// This is so we don't inject extra spaces in any preformatted blocks included
 		// in the comments
 		pad := 0
@@ -623,7 +636,7 @@ func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 			l := lines[i]
 			if len(l) > pad {
 				skip := 0
-				ch := ' '
+				var ch rune
 				for skip, ch = range l {
 					if !unicode.IsSpace(ch) {
 						break
@@ -650,6 +663,12 @@ func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 			}
 		}
 
+		// Replace any < and > in the text with HTML entities to avoid bad HTML output
+		for i := 0; i < len(lines); i++ {
+			lines[i] = strings.Replace(lines[i], "<", "&lt;", -1)
+			lines[i] = strings.Replace(lines[i], ">", "&gt;", -1)
+		}
+
 		// find any type links of the form [name][type] and turn
 		// them into normal HTML links
 		for i := 0; i < len(lines); i++ {
@@ -670,6 +689,8 @@ func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 					return "<a href=\"" + l + "\">" + linkName + "</a>"
 				}
 
+				g.warn(loc, -(len(lines) - i), "unresolved type link [%s][%s]", linkName, typeName)
+
 				return "*" + linkName + "*"
 			})
 		}
@@ -677,14 +698,54 @@ func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 
 	text = strings.Join(lines, "\n")
 
+	if g.speller != nil {
+		preBlock := false
+		for linenum, line := range lines {
+			trimmed := strings.Trim(line, " ")
+			if strings.HasPrefix(trimmed, "```") {
+				preBlock = !preBlock
+				continue
+			}
+
+			if preBlock {
+				continue
+			}
+
+			line := sanitize(line)
+
+			words := g.speller.Split(line)
+			for _, word := range words {
+				if !g.speller.Spell(word) {
+					g.warn(loc, -(len(lines) - linenum), "%s is misspelled", word)
+				}
+			}
+		}
+	}
+
 	// turn the comment from markdown into HTML
 	result := blackfriday.Run([]byte(text), blackfriday.WithExtensions(blackfriday.FencedCode|blackfriday.AutoHeadingIDs))
 
-	// prevent any { contained in the markdown from being interpreted as Liquid tags
+	// compensate for an unexpected Blackfriday bug, where it incorrect converts expands the & in HTML entites to &amp;
+	result = bytes.Replace(result, []byte("&amp;lt;"), []byte("&lt;"), -1)
+	result = bytes.Replace(result, []byte("&amp;gt;"), []byte("&gt;"), -1)
+
+	// prevent any { contained in the markdown from being interpreted as Hugo shortcodes
 	result = bytes.Replace(result, []byte("{"), []byte("&lbrace;"), -1)
 
 	g.buffer.Write(result)
 	g.buffer.WriteByte('\n')
+}
+
+var stripCodeBlocks = regexp.MustCompile("(`.*`)")
+var stripMarkdownURLs = regexp.MustCompile(`\[.*\]\((.*)\)`)
+var stripHTMLURLs = regexp.MustCompile(`(<a href=".*">)`)
+
+func sanitize(line string) string {
+	// strip out any embedded code blocks and URLs
+	line = stripMarkdownURLs.ReplaceAllString(line, "")
+	line = stripHTMLURLs.ReplaceAllString(line, "")
+	line = stripCodeBlocks.ReplaceAllString(line, "")
+	return line
 }
 
 // well-known types whose documentation we can refer to
@@ -723,12 +784,14 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 	}
 
 	if !o.isHidden() {
-		var loc string
-		if g.perFile {
-			loc = o.fileDesc().matter.homeLocation
-		} else if o.packageDesc().file != nil {
+		// is there a file-specific home location?
+		loc := o.fileDesc().matter.homeLocation
+
+		// if there isn't a file-specific home location, see if there's a package-wide location
+		if loc == "" && o.packageDesc().file != nil {
 			loc = o.packageDesc().file.matter.homeLocation
 		}
+
 		if loc != "" && (g.currentFrontMatterProvider == nil || loc != g.currentFrontMatterProvider.matter.homeLocation) {
 			return "<a href=\"" + loc + "#" + normalizeId(dottedName(o)) + "\">" + name + "</a>"
 		}
@@ -737,14 +800,20 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 	return "<a href=\"#" + normalizeId(g.relativeName(o)) + "\">" + name + "</a>"
 }
 
-func (g *htmlGenerator) warn(loc locationDescriptor, format string, args ...interface{}) {
+func (g *htmlGenerator) warn(loc locationDescriptor, lineOffset int, format string, args ...interface{}) {
 	if g.genWarnings {
 		place := ""
 		if loc.SourceCodeInfo_Location != nil && len(loc.Span) >= 2 {
-			place = fmt.Sprintf("%s:%d:%d: ", loc.file.GetName(), loc.Span[0], loc.Span[1])
+
+			if lineOffset < 0 {
+				place = fmt.Sprintf("%s:%d: ", loc.file.GetName(), loc.Span[0]+int32(lineOffset)+1)
+			} else {
+				place = fmt.Sprintf("%s:%d:%d: ", loc.file.GetName(), loc.Span[0]+1, loc.Span[1]+1)
+			}
 		}
 
-		fmt.Fprintf(os.Stderr, place+format+"\n", args...)
+		_, _ = fmt.Fprintf(os.Stderr, place+format+"\n", args...)
+		g.numWarnings++
 	}
 }
 

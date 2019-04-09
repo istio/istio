@@ -19,11 +19,12 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/client9/gospell"
+
+	"istio.io/tools/pkg/protocgen"
+
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 )
 
@@ -46,23 +47,16 @@ func extractParams(parameter string) map[string]string {
 	return m
 }
 
-func main() {
-	data, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		croak("Unable to read input proto: %v\n", err)
-	}
-
-	var request plugin.CodeGeneratorRequest
-	if err = proto.Unmarshal(data, &request); err != nil {
-		croak("Unable to parse input proto: %v\n", err)
-	}
-
+func generate(request plugin.CodeGeneratorRequest) (*plugin.CodeGeneratorResponse, error) {
 	mode := htmlPage
 	genWarnings := true
 	emitYAML := false
 	camelCaseFields := true
 	customStyleSheet := ""
 	perFile := false
+	warningsAsErrors := false
+	dictionary := ""
+	customWordList := ""
 
 	p := extractParams(request.GetParameter())
 	for k, v := range p {
@@ -77,7 +71,7 @@ func main() {
 			case "html_fragment_with_front_matter":
 				mode = htmlFragmentWithFrontMatter
 			default:
-				croak("Unsupported output mode of '%s' specified\n", v)
+				return nil, fmt.Errorf("unsupported output mode of '%s' specified\n", v)
 			}
 		} else if k == "warnings" {
 			switch strings.ToLower(v) {
@@ -86,7 +80,7 @@ func main() {
 			case "false":
 				genWarnings = false
 			default:
-				croak("Unknown value '%s' for warnings\n", v)
+				return nil, fmt.Errorf("unknown value '%s' for warnings\n", v)
 			}
 		} else if k == "emit_yaml" {
 			switch strings.ToLower(v) {
@@ -95,7 +89,7 @@ func main() {
 			case "false":
 				emitYAML = false
 			default:
-				croak("Unknown value '%s' for emit_yaml\n", v)
+				return nil, fmt.Errorf("unknown value '%s' for emit_yaml\n", v)
 			}
 		} else if k == "camel_case_fields" {
 			switch strings.ToLower(v) {
@@ -104,7 +98,7 @@ func main() {
 			case "false":
 				camelCaseFields = false
 			default:
-				croak("Unknown value '%s' for camel_case_fields\n", v)
+				return nil, fmt.Errorf("unknown value '%s' for camel_case_fields\n", v)
 			}
 		} else if k == "custom_style_sheet" {
 			customStyleSheet = v
@@ -115,42 +109,60 @@ func main() {
 			case "false":
 				perFile = false
 			default:
-				croak("Unknown value '%s' for per_file", v)
+				return nil, fmt.Errorf("unknown value '%s' for per_file\n", v)
 			}
+		} else if k == "warnings_as_errors" {
+			switch strings.ToLower(v) {
+			case "true":
+				warningsAsErrors = true
+			case "false":
+				warningsAsErrors = false
+			default:
+				return nil, fmt.Errorf("unknown value '%s' for warnings_as_errors\n", v)
+			}
+		} else if k == "dictionary" {
+			dictionary = v
+		} else if k == "custom_word_list" {
+			customWordList = v
 		} else {
-			croak("Unknown argument '%s' specified\n", k)
+			return nil, fmt.Errorf("unknown argument '%s' specified\n", k)
 		}
 	}
 
 	m, err := newModel(&request, perFile)
 	if err != nil {
-		croak("Unable to create model: %v\n", err)
+		return nil, fmt.Errorf("unable to create model: %v\n", err)
 	}
 
 	filesToGen := make(map[*fileDescriptor]bool)
 	for _, fileName := range request.FileToGenerate {
 		fd := m.allFilesByName[fileName]
 		if fd == nil {
-			croak("Unable to find %s", request.FileToGenerate)
+			return nil, fmt.Errorf("unable to find %s", request.FileToGenerate)
 		}
 		filesToGen[fd] = true
 	}
 
-	g := newHTMLGenerator(m, mode, genWarnings, emitYAML, camelCaseFields, customStyleSheet, perFile)
-	response := g.generateOutput(filesToGen)
+	var s *gospell.GoSpell
 
-	data, err = proto.Marshal(response)
-	if err != nil {
-		croak("Unable to serialize output proto: %v\n", err)
+	if dictionary != "" {
+		s, err = gospell.NewGoSpell(dictionary+".aff", dictionary+".dic")
+		if err != nil {
+			return nil, fmt.Errorf("unable to load dictionary: %v\n", err)
+		}
+
+		if customWordList != "" {
+			_, err = s.AddWordListFile(customWordList)
+			if err != nil {
+				return nil, fmt.Errorf("unable to load custom word list: %v\n", err)
+			}
+		}
 	}
 
-	_, err = os.Stdout.Write(data)
-	if err != nil {
-		croak("Unable to write output proto: %v\n", err)
-	}
+	g := newHTMLGenerator(m, mode, genWarnings, warningsAsErrors, s, emitYAML, camelCaseFields, customStyleSheet, perFile)
+	return g.generateOutput(filesToGen)
 }
 
-func croak(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "ERROR: "+format, args...)
-	os.Exit(1)
+func main() {
+	protocgen.Generate(generate)
 }

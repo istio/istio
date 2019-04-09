@@ -251,7 +251,6 @@
           - {{ $.Values.telemetry.loadshedding.latencyThreshold }}
           - --loadsheddingMode
           - {{ $.Values.telemetry.loadshedding.mode }}
-          - --log_output_level=mcp:debug,runtimeconfig:debug
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}

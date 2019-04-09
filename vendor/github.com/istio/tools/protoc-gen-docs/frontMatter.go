@@ -42,7 +42,7 @@ const (
 func checkSingle(name string, old string, line string, tag string) string {
 	result := line[len(tag):]
 	if old != "" {
-		fmt.Fprint(os.Stderr, "%v has more than one %v: %v\n", name, tag, result)
+		_, _ = fmt.Fprintf(os.Stderr, "%v has more than one %v: %v\n", name, tag, result)
 	}
 	return result
 }

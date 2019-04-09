@@ -72,11 +72,9 @@ func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, e
 	mux.Handle(metricsPath, exporter)
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
-		fmt.Println("received liveness probe")
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
 		}
-		fmt.Println("responded liveness probe")
 	})
 
 	version.Info.RecordComponentBuildTag("mixer")

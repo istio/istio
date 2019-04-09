@@ -24,9 +24,8 @@ import (
 // packageDescriptor describes a package, which is a composition of proto files.
 type packageDescriptor struct {
 	baseDesc
-	files     []*fileDescriptor
-	name      string
-	topMatter *frontMatter
+	files []*fileDescriptor
+	name  string
 }
 
 func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, perFile bool) *packageDescriptor {
@@ -37,9 +36,10 @@ func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, p
 	for _, fd := range desc {
 		f := newFileDescriptor(fd, p)
 		p.files = append(p.files, f)
-		loc := f.find(newPathVector(packagePath))
-		// The package's file is one that documents the pkg statement.
+
+		// The package's file is one that documents the package statement.
 		// The first file to do this "wins".
+		loc := f.find(newPathVector(packagePath))
 		if loc != nil {
 			if p.loc == nil {
 				if loc.GetLeadingComments() != "" || loc.GetTrailingComments() != "" {
@@ -51,9 +51,9 @@ func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, p
 				leading := loc.GetLeadingComments()
 				trailing := loc.GetTrailingComments()
 				if leading != "" || trailing != "" {
-					fmt.Fprintf(os.Stderr, "WARNING: package %v has a conflicting package comment in file %v.\n",
+					_, _ = fmt.Fprintf(os.Stderr, "WARNING: package %v has a conflicting package comment in file %v.\n",
 						name, f.GetName())
-					fmt.Fprintf(os.Stderr, "Previous:\n%v\n%v\nCurrent:\n%v\n%v\n", p.loc.GetLeadingComments(), p.loc.GetTrailingComments(), leading, trailing)
+					_, _ = fmt.Fprintf(os.Stderr, "Previous:\n%v\n%v\nCurrent:\n%v\n%v\n", p.loc.GetLeadingComments(), p.loc.GetTrailingComments(), leading, trailing)
 				}
 			}
 		}

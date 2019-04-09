@@ -844,7 +844,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ea0e9c42fc8bbc0b5d8e88df4550dc6737e1a1ae2074884a6f3a46082ca872d2"
+  digest = "1:2fee1d5e9ad0fc046cf7ebb19cd2a1beb932a77b1299d80239d4338ae07c9edf"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
   pruneopts = "NUT"

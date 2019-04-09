@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -112,7 +111,6 @@ func (c *Runtime) StartListening() error {
 		return err
 	}
 
-	fmt.Println("SetState")
 	c.ephemeral.SetState(data)
 	c.processNewConfig()
 

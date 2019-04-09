@@ -26,6 +26,6 @@ type locationDescriptor struct {
 func newLocationDescriptor(desc *descriptor.SourceCodeInfo_Location, file *fileDescriptor) locationDescriptor {
 	return locationDescriptor{
 		SourceCodeInfo_Location: desc,
-		file: file,
+		file:                    file,
 	}
 }
