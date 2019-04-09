@@ -293,7 +293,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/test.sh --skip-setup --skip-cleanup src/github.com/istio/istio/
+            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
 
 
 
