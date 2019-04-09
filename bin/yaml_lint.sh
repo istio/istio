@@ -23,11 +23,6 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd "$ROOTDIR"
 
-echo "*** Running apt-get update..."
-sudo apt-get update > /dev/null
-echo "*** Running apt-get install yamllint..."
-sudo apt-get --no-install-recommends -y install yamllint > /dev/null
-
 PKGS=${PKGS:-"."}
 if [[ -z ${YAML_FILES} ]];then
   YAML_FILES=$(find "${PKGS}" -type f -name '*.yaml' | grep -v ./vendor)
