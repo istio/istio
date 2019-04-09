@@ -1,9 +1,0 @@
-# Golang, helm, kubectl
-FROM costinm/istio-install:latest
-
-RUN kind create cluster
-
-RUN
-
-ADD . /install
-
