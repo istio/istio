@@ -25,9 +25,6 @@
 #   unused-packages = true
 
 required = [
-  ### BEGIN Mixer codegen deps
-  "github.com/istio/tools/protoc-gen-docs",
-  ### END Mixer codegen deps
   # fortio is built in vendor for the testing framework
   "fortio.org/fortio",
 ]
@@ -363,4 +360,4 @@ ignored = [
 
 [[constraint]]
   name = "github.com/google/cel-go"
-  version = "0.1.0"
+  version = "0.2.0"
