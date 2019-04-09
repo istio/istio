@@ -69,7 +69,9 @@ kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not
     kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
     kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
     kubectl wait --all --for=condition=Ready pods --timeout=$WAIT_TIMEOUT
-    kubectl patch deployment productpage-v1 --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+    for depl in details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3; do
+        kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+    done
 fi
 
 kubectl rollout status deployments productpage-v1 --timeout=$WAIT_TIMEOUT
