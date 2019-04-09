@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 # This script runs the commands passed to it in parallel to a curl against the bookinfo application
 # If either the command or the bookinfo test fails, the script exists with an errorneous code
 
@@ -24,4 +24,6 @@ do
 done
 
 wait $PID
-exit $?
+RTC=$?
+echo "bookinfo-watch exited with $RTC"
+exit $RTC
