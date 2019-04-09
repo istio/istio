@@ -20,7 +20,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
 metadata:
-  name: newhandler
+  name: newloghandler
   namespace: istio-system
 spec:
  severity_levels:
@@ -36,7 +36,7 @@ metadata:
 spec:
   match: "true" # match for all requests
   actions:
-   - handler: newhandler.stdio
+   - handler: newloghandler.stdio
      instances:
      - newlog.logentry
 ---
