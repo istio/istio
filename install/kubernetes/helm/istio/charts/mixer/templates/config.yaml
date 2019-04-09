@@ -231,6 +231,8 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  annotations:
+    policy.istio.io/lang: COMPAT
 spec:
   compiledTemplate: logentry
   params:
@@ -290,6 +292,8 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  annotations:
+    policy.istio.io/lang: COMPAT
 spec:
   compiledTemplate: logentry
   params:

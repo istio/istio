@@ -24,7 +24,7 @@ func TestRuntimes(t *testing.T) {
 	if got := lang.GetLanguageRuntime(map[string]string{lang.LanguageRuntimeAnnotation: lang.CEL.String()}); got != lang.CEL {
 		t.Errorf("GetLanguageRuntime => got %s, want CEL", got)
 	}
-	if got := lang.GetLanguageRuntime(nil); got != lang.COMPAT {
+	if got := lang.GetLanguageRuntime(nil); got != lang.CEXL {
 		t.Errorf("GetLanguageRuntime => got %s, want CEXL", got)
 	}
 	if got := lang.GetLanguageRuntime(map[string]string{lang.LanguageRuntimeAnnotation: lang.CEXL.String()}); got != lang.CEXL {
