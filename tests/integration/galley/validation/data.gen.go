@@ -15,3 +15,4 @@
 package validation
 
 //go:generate go-bindata --nocompress --nometadata --pkg validation -o data.gen_test.go testdata/...
+//go:generate goimports -w data.gen_test.go
