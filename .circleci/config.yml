@@ -693,6 +693,7 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+      - run: make yamllint
 # TODO: https://github.com/istio/istio/issues/7861
 # We can re-enable this after it runs for 1 week straight as a non-required gate, and by consulting with the
 # test-infra team.

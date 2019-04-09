@@ -34,8 +34,8 @@ if [[ -z ${YAML_FILES} ]];then
 fi
 
 for YAML_FILE in ${YAML_FILES}; do
-        echo $YAML_FILE
-        yamllint $YAML_FILE 
+        echo ${YAML_FILE}
+        yamllint ${YAML_FILE}
 done
 
 exit $?
