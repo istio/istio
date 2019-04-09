@@ -63,9 +63,10 @@ var (
 	}
 
 	annotationRegistry = map[string]annotationValidationFunc{
-		annotations.Register(annotationPolicy, "").Name:                                        alwaysValidFunc,
-		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
-		annotations.Register(annotationRewriteAppHTTPProbers, "").Name:                         validateBool,
+		annotations.Register(annotationPolicy, "").Name: alwaysValidFunc,
+		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
+		annotations.Register(annotationRewriteAppHTTPProbers,
+			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: validateBool,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
