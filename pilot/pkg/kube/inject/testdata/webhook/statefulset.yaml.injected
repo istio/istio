@@ -43,8 +43,6 @@ spec:
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
-        - --zipkinAddress
-        - ""
         - --connectTimeout
         - 1s
         - --proxyAdminPort
