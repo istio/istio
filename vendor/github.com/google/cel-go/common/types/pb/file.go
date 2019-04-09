@@ -23,6 +23,7 @@ import (
 // FileDescription holds a map of all types and enums declared within a .proto
 // file.
 type FileDescription struct {
+	pbdb  *Db
 	desc  *descpb.FileDescriptorProto
 	types map[string]*TypeDescription
 	enums map[string]*EnumDescription
@@ -82,7 +83,7 @@ func (fd *FileDescription) indexEnums(pkg string, enumTypes []*descpb.EnumDescri
 				enumName: enumValueName,
 				file:     fd,
 				desc:     enumValue}
-			revFileDescriptorMap[enumValueName] = fd
+			fd.pbdb.revFileDescriptorMap[enumValueName] = fd
 		}
 	}
 }
@@ -99,7 +100,7 @@ func (fd *FileDescription) indexTypes(pkg string, msgTypes []*descpb.DescriptorP
 		fd.types[msgName] = td
 		fd.indexTypes(msgName, msgType.NestedType)
 		fd.indexEnums(msgName, msgType.EnumType)
-		revFileDescriptorMap[msgName] = fd
+		fd.pbdb.revFileDescriptorMap[msgName] = fd
 	}
 }
 
