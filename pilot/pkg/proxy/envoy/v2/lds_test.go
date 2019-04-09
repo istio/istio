@@ -20,15 +20,13 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
