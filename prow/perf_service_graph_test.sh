@@ -19,7 +19,7 @@ TIME_TO_RUN_PERF_TESTS=${TIME_TO_RUN_PERF_TESTS:-1200}
 
 pushd "${GOPATH}/src/istio.io/tools/perf/load"
   WD="${GOPATH}/src/istio.io/tools/perf/load"
-  # shellcheck source=common.sh
+  # shellcheck disable=SC1091
   source common.sh
   # For postsubmit test we use 1 namespace only and use 0 as prefix for namespace.
   start_servicegraphs "1" "0"
