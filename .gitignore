@@ -1,0 +1,15 @@
+# git history files
+.history_rewritten_*
+# Eclipse artifacts
+.project
+.pydevproject
+# Intellij
+*.iml
+.idea/
+# Visual Studio Code
+.vscode/
+# vi backups
+*.bak
+# python artifacts
+*.pyc
+*.orig
