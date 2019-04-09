@@ -36,13 +36,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const (
-	kubePlatform = "kube"
-)
-
 var (
-	platform string
-
 	kubeconfig       string
 	configContext    string
 	namespace        string
@@ -86,9 +80,6 @@ func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
-		"Istio host platform")
-
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
@@ -144,10 +135,6 @@ func getRemoteInfo() (*version.MeshInfo, error) {
 }
 
 func main() {
-	if platform != kubePlatform {
-		log.Warnf("Platform '%s' not supported.", platform)
-	}
-
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
