@@ -874,6 +874,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if http.MaxRetries < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
 		}
+		if http.IdleTimeout != nil {
+			errs = appendErrors(errs, ValidateDurationGogo(http.IdleTimeout))
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {

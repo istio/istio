@@ -254,6 +254,18 @@ message ServiceRoleBinding {
   //      methods: ["GET"]
   // Required. The set of access rules (permissions) that the role has.
   repeated AccessRule actions = 4;
+
+  // $hide_from_docs
+  // A `role` inside a ServiceRoleBinding refers to the ServiceRole that this
+  // ServiceRoleBinding binds to. A ServiceRoleBinding can bind to a ServiceRole
+  // in the same namespace or the root namespace. A ServiceRole in the root namespace
+  // represents a mesh global ServiceRole.
+  // The value of `role` is the name of the ServiceRole, and it can start with or without a forward slash ("/").
+  // When a `role` starts with "/", e.g. "/service-viewer", it means that this ServiceRoleBinding
+  // refers to the ServiceRole in the configurable Istio root namespace.
+  // When a `role` starts without "/", this ServiceRoleBinding refers to the ServiceRole in the
+  // same namespace as the AuthorizationPolicy's, which contains said ServiceRoleBinding.
+  string role = 5;
 }
 
 // Subject defines an identity. The identity is either a user or identified by a set of `properties`.

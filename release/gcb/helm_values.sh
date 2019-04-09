@@ -36,7 +36,7 @@ function fix_values_yaml() {
 
   # Copy helm charts (build by helm_charts.sh) to be packaged in the tarball.
   mkdir -vp ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
-  cp /workspace/modification-tmp/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
+  cp /modification-tmp/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
   
   # replace prerelease with release location for istio.io repo
   if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then

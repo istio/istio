@@ -1541,9 +1541,9 @@ func (m *MeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n1, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.SinkNode.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -1563,9 +1563,9 @@ func (m *MeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n2, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -1645,9 +1645,9 @@ func (m *IncrementalMeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n3, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.SinkNode.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -1684,9 +1684,9 @@ func (m *IncrementalMeshConfigRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n4, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -1775,9 +1775,9 @@ func (m *RequestResources) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.SinkNode.Size()))
-		n5, err := m.SinkNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.SinkNode.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -1814,9 +1814,9 @@ func (m *RequestResources) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintMcp(dAtA, i, uint64(m.ErrorDetail.Size()))
-		n6, err := m.ErrorDetail.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.ErrorDetail.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
