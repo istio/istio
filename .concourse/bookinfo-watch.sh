@@ -15,14 +15,18 @@ trap "set -x; pkill -g $GPID; exit 1" SIGINT
 export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 export INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
 export PRODUCTPAGE_URL=http://${INGRESS_HOST}:${INGRESS_PORT}/productpage
+ERROR_COUNTER=0
 while [ -f command_running ]
 do
     RESULT=$(curl -v -s -o /tmp/out -w "%{http_code}" $PRODUCTPAGE_URL 2> /tmp/err)
     if [ "$RESULT" -ne "200"  ]; then
+        ERROR_COUNTER=$((ERROR_COUNTER+1))
         echo "Got $RESULT when curl-ing $PRODUCTPAGE_URL"
         cat /tmp/err
         cat /tmp/out
-        exit 1
+        if [ "$ERROR_COUNTER" -ge "3"  ]; then
+            exit 1
+        fi
     fi
 done
 
