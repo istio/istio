@@ -1,7 +1,7 @@
 aliases:
-  sig-testing-reviewers:
+  sig-prow-reviewers:
     - utka
     - icygalz
-  sig-testing-approvers:
+  sig-prow-approvers:
     - utka
     - icygalz
