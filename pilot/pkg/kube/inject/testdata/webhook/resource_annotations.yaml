@@ -1,9 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: resource
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: resource
   template:
     metadata:
       annotations:
