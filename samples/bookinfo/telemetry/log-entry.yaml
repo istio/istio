@@ -20,7 +20,7 @@ spec:
 ---
 # Configuration for a stdio handler
 apiVersion: config.istio.io/v1alpha2
-kind: stdio
+kind: handler
 metadata:
   name: newloghandler
   namespace: istio-system
