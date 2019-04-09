@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -349,8 +350,8 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", errors.New("ingress ip not available yet")
 	}
 
@@ -367,8 +368,8 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	ip = strings.Trim(ip, "'")
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	if ri.FindString(ip) == "" {
+	addr := net.ParseIP(ip)
+	if addr == nil {
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
@@ -377,6 +378,9 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", err
 	}
 
+	if addr.To4() == nil {
+		return "[" + ip + "]" + ":" + port, nil
+	}
 	return ip + ":" + port, nil
 }
 
