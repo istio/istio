@@ -65,5 +65,21 @@ kiali:
   createDemoSecret: true
 
 gateways:
+  istio-ingressgateway:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
   istio-egressgateway:
     enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
