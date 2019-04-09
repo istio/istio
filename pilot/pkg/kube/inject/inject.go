@@ -66,7 +66,7 @@ var (
 		annotations.Register(annotationPolicy, "").Name: alwaysValidFunc,
 		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
 		annotations.Register(annotationRewriteAppHTTPProbers,
-			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: validateBool,
+			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
@@ -354,12 +354,6 @@ func validateStatusPort(port string) error {
 // validateUInt32 validates that the given annotation value is a positive integer.
 func validateUInt32(value string) error {
 	_, err := strconv.ParseUint(value, 10, 32)
-	return err
-}
-
-// validateBool validates that the given annotation value is a boolean.
-func validateBool(value string) error {
-	_, err := strconv.ParseBool(value)
 	return err
 }
 
