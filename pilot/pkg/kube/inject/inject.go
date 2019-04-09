@@ -51,8 +51,9 @@ import (
 type annotationValidationFunc func(value string) error
 
 const (
-	annotationPolicy = "sidecar.istio.io/inject"
-	annotationStatus = "sidecar.istio.io/status"
+	annotationPolicy                = "sidecar.istio.io/inject"
+	annotationStatus                = "sidecar.istio.io/status"
+	annotationRewriteAppHTTPProbers = "sidecar.istio.io/rewriteAppHTTPProbers"
 )
 
 // per-sidecar policy and status
@@ -62,8 +63,10 @@ var (
 	}
 
 	annotationRegistry = map[string]annotationValidationFunc{
-		annotations.Register(annotationPolicy, "").Name:                                        alwaysValidFunc,
-		annotations.Register(annotationStatus, "").Name:                                        alwaysValidFunc,
+		annotations.Register(annotationPolicy, "").Name: alwaysValidFunc,
+		annotations.Register(annotationStatus, "").Name: alwaysValidFunc,
+		annotations.Register(annotationRewriteAppHTTPProbers,
+			"Rewrite HTTP readiness and liveness probes to be redirected to istio-proxy sidecar").Name: alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/proxyImage", "").Name:                           alwaysValidFunc,
 		annotations.Register("sidecar.istio.io/interceptionMode", "").Name:                     validateInterceptionMode,
 		annotations.Register("status.sidecar.istio.io/port", "").Name:                          validateStatusPort,
@@ -704,7 +707,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(podSpec, spec)
+	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).

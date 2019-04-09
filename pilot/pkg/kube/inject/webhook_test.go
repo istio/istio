@@ -610,6 +610,16 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_https_probe_rewrite.patch",
 			templateFile: "TestWebhookInject_https_probe_rewrite_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.yaml",
+			wantFile:     "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.patch",
+			templateFile: "TestWebhookInject_http_probe_rewrite_enabled_via_annotation_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.yaml",
+			wantFile:     "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.patch",
+			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
