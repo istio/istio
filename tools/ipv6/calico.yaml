@@ -1,4 +1,3 @@
-[root@kube-7 ~]# cat ./calico/calico.yaml
 ---
 # Source: calico/templates/calico-etcd-secrets.yaml
 # The following contains k8s Secrets for use with a TLS enabled etcd cluster.
