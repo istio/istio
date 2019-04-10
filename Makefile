@@ -75,12 +75,12 @@ run-all-tests: install-crds install-base test-bookinfo
 prepare:
 ifeq ($(SKIP_KIND_SETUP), 0)
 	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
-	time kind create cluster --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
+	kind create cluster --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 endif
 
 clean:
 ifeq ($(SKIP_CLEANUP), 0)
-	time kind delete cluster --name ${KIND_CLUSTER} 2>&1 || /bin/true
+	kind delete cluster --name ${KIND_CLUSTER} 2>&1 || /bin/true
 endif
 
 # Install CRDS
