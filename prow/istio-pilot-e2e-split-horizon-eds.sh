@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017 Istio Authors
+# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# set this to the new multicluster-e2e type
 export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-export OWNER="istio-pilot-multicluster-e2e"
+export OWNER="istio-multicluster-split-horizon-e2e"
 
 export SETUP_CLUSTERREG="True"
 CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 export CLUSTERREG_DIR
 
-#echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
-#./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
 ./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_multicluster_split_horizon "$@"
