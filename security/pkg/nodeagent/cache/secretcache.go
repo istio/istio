@@ -105,6 +105,7 @@ type SecretManager interface {
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
 	// SecretExist checks if secret already existed.
+	// This API is used for sds server to check if coming request is ack request.
 	SecretExist(connectionID, resourceName, token, version string) bool
 
 	// DeleteSecret deletes a secret by its key from cache.
@@ -296,7 +297,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warnf("secret cache notify callback isn't set")
+					log.Warn("secret cache notify callback isn't set")
 				}
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
@@ -336,7 +337,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warnf("secret cache notify callback isn't set")
+					log.Warn("secret cache notify callback isn't set")
 				}
 			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
@@ -391,7 +392,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					log.Errorf("Failed to notify for proxy %q for resource %q: %v", connectionID, resourceName, err)
 				}
 			} else {
-				log.Warnf("secret cache notify callback isn't set")
+				log.Warn("secret cache notify callback isn't set")
 			}
 
 			return true
@@ -423,7 +424,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 						log.Errorf("Failed to notify for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warnf("secret cache notify callback isn't set")
+					log.Warn("secret cache notify callback isn't set")
 				}
 
 				return true
@@ -450,7 +451,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
 					}
 				} else {
-					log.Warnf("secret cache notify callback isn't set")
+					log.Warn("secret cache notify callback isn't set")
 				}
 
 			}()
@@ -566,7 +567,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
-	// Current CAs(Citadel, etc) respect SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Citadel respect SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
@@ -593,7 +594,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	if rootCertChanged {
-		log.Infof("Root cert has changed")
+		log.Info("Root cert has changed")
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
