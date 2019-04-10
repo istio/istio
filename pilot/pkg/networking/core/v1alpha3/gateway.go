@@ -266,7 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	var virtualHosts []route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []route.VirtualHost{route.VirtualHost{
+		virtualHosts = []route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
 			Routes: []route.Route{
