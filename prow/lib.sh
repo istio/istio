@@ -77,10 +77,6 @@ function cleanup() {
 
 # Set up a GKE cluster for testing.
 function setup_e2e_cluster() {
-  if [[ "${SETUP_CLUSTERS}" != "True" ]]; then
-      return 0
-  fi
-
   WD=$(dirname "$0")
   WD=$(cd "$WD" || exit; pwd)
   ROOT=$(dirname "$WD")
@@ -93,18 +89,22 @@ function setup_e2e_cluster() {
   trap cleanup EXIT
 
   if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-    FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-    OWNER=${OWNER:-"e2e"}
-    E2E_ARGS+=("--mason_info=${INFO_PATH}")
-
     setup_and_export_git_sha
-
-    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
   else
     export GIT_SHA="${GIT_SHA:-$TAG}"
   fi
-  setup_cluster
+
+  if [[ "${SETUP_CLUSTERS}" == "True" ]]; then
+    if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
+	INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+	FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+	OWNER=${OWNER:-"e2e"}
+	E2E_ARGS+=("--mason_info=${INFO_PATH}")
+
+	get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+    fi
+    setup_cluster
+  fi
 }
 
 function clone_cni() {
