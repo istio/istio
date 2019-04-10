@@ -33,7 +33,7 @@ control:
 # and additional tools to install istio.
 prepare:
 	cat test/kind/kind.yaml | sed s/GOPATH/$(GOPATH) > ${GOPATH}/kind.yaml
-	kind create cluster --name test --wait 60s ${KIND_CONFIG} --image costinm/kind:latest
+	kind create cluster --name test --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 
 clean:
 	-kind delete cluster --name test
@@ -143,10 +143,10 @@ user-shell-kind:
 
 # Build the Kind+build tools image that will be useed in CI/CD or local testing
 # This replaces the istio-builder.
-docker.istio-builder: test/docker/Dockerfile ${TOP}/bin/kind ${TOP}/bin/helm ${TOP}/bin/go-junit-report ${TOP}/bin/repo
+docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
 	mkdir -p ${GOPATH}/out/istio-builder
 	cp $^ ${GOPATH}/out/istio-builder/
-	docker build -t costinm/kind ${GOPATH}/out/istio-builder
+	docker build -t istionightly/kind ${GOPATH}/out/istio-builder
 
 dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
 
