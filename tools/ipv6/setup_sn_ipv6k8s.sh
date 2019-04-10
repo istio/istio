@@ -40,7 +40,7 @@ sudo kubeadm init --config config-ipv6.yaml | tee /tmp/kubeout
 # Check if client config has been generated
 if [ ! -f "/etc/kubernetes/admin.conf" ]; then
     echo "kubeconfig file not found, exiting..."
-    exit -1
+    exit 1
 fi
 
 sudo cp /etc/kubernetes/admin.conf /tmp/kube.conf
