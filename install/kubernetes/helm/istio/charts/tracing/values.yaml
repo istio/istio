@@ -29,7 +29,7 @@ podAntiAffinityTermLabelSelector: {}
 
 jaeger:
   hub: docker.io/jaegertracing
-  tag: 1.11.0
+  tag: 1.11.1
   # The spec represents the Jaeger operator's custom resource (CR).
   # CR docs can be found here: https://github.com/jaegertracing/jaeger-operator#creating-a-new-jaeger-instance
   # Some example CRs: https://github.com/jaegertracing/jaeger-operator/tree/master/deploy/examples
