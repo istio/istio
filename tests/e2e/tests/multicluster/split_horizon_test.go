@@ -324,9 +324,8 @@ func (t *testConfig) Setup() (err error) {
 	// Wait for all the pods to be in the running state before starting tests.
 	for cluster, kc := range t.Kube.Clusters {
 		log.Infof("Making sure all pods are running on cluster: %s", cluster)
-		if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, kc) {
-			err = fmt.Errorf("can't get all pods running in %s cluster", cluster)
-			break
+		if !util.CheckPodsRunning(t.Kube.Namespace, kc) {
+			return fmt.Errorf("can't get all pods running in %s cluster", cluster)
 		}
 		log.Info("All pods are running")
 	}
