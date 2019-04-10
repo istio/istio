@@ -36,7 +36,7 @@ prepare:
 	kind create cluster --name test --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 
 clean:
-	-kind delete cluster --name test
+	kind delete cluster --name test 2>&1 || /bin/true
 
 # Assumes KUBECONFIG is pointing to a valid cluster.
 # The cluster may be fresh ( hermetic testing ) or not
