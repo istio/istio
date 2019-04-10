@@ -343,7 +343,7 @@ func (t *testConfig) Setup() (err error) {
 
 	// Add the remote cluster into the mesh by adding the secret
 	if err = addRemoteCluster(); err != nil {
-		return err
+		return
 	}
 
 	// Wait until the deployments on remote cluster are all ready
