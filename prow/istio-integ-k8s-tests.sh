@@ -29,6 +29,7 @@ set -x
 # for existing resources types
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER="${OWNER:-integ}"
+SETUP_CLUSTERS="${SETUP_CLUSTERS:-True}"
 USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
