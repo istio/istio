@@ -155,7 +155,7 @@ function unsetup_clusters() {
             CLUSTER_NAME="${CLUSTER_NAME##*_}"
         fi
         KUBECFG_FILE="${CLUSTERREG_DIR}/${CLUSTER_NAME}"
-	echo removing ${KUBECFG_FILE}
+	echo removing "${KUBECFG_FILE}"
         rm "${KUBECFG_FILE}"
      fi
   done
