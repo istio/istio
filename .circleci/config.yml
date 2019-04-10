@@ -36,7 +36,7 @@ jobs:
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
-      - image: costinm/istio-builder:latest
+      - image: istionightly/kind:latest
         environment:
           GOPATH: ${HOME}/go
 
