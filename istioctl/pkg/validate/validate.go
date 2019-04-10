@@ -165,7 +165,7 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		return errs
 	}
 	for _, fname := range options.Filenames {
-		fmt.Fprintf(writer, "Validation against \"%v\" succeed\n", fname)
+		fmt.Fprintf(writer, "%q is valid\n", fname)
 	}
 	return nil
 }
