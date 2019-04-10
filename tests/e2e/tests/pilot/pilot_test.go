@@ -347,7 +347,7 @@ func (t *testConfig) Setup() (err error) {
 	if len(t.Kube.Clusters) > 1 {
 		// For multicluster tests, add the remote cluster into the mesh
 		// and verify the multicluster service mesh before starting tests
-		err = createAndVerifyMCMeshConfig()
+		err = createAndVerifyMCMeshConfig(remoteGwAddr)
 	} else {
 		// Verify the service mesh config for a single cluster
 		err = verifyMeshConfig()

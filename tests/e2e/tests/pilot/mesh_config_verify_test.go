@@ -107,7 +107,7 @@ func undeployApp(cluster string, deploymentName string, app *framework.App) erro
 	return err
 }
 
-func createAndVerifyMCMeshConfig() error {
+func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 	// Collect the pod names and app's endpoints
 	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[primaryCluster], "app")
 	if err != nil {
@@ -132,7 +132,7 @@ func createAndVerifyMCMeshConfig() error {
 
 	// Verify that the mesh contains endpoints from both the primary and the remote clusters
 	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
-	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 
 	if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
 		return err
@@ -165,7 +165,7 @@ func createAndVerifyMCMeshConfig() error {
 	// Get updates on the remote cluster
 	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
 	if err == nil {
-		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 		// Verify that the mesh contains endpoints from both the primary and the remote clusters
 		err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs)
 	}
@@ -184,7 +184,7 @@ func createAndVerifyMCMeshConfig() error {
 	// Verify that proxy config changes back to before adding c-v3
 	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
 	if err == nil {
-		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
+		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 		if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
 			return err
 		}
@@ -291,14 +291,18 @@ func verifyPods(istioctl *framework.Istioctl, podNames []string, appEPs map[stri
 	return
 }
 
-func aggregateAppEPs(firstAppEPs, secondAppEPs map[string][]string) map[string][]string {
+func aggregateAppEPs(primaryAppEPs, remoteAppEPs map[string][]string, remoteGwAddr string) map[string][]string {
 	aaeps := make(map[string][]string)
-	for app, eps := range firstAppEPs {
+	for app, eps := range primaryAppEPs {
 		aaeps[app] = append(aaeps[app], eps...)
 	}
 
-	for app, eps := range secondAppEPs {
-		aaeps[app] = append(aaeps[app], eps...)
+	for app, eps := range remoteAppEPs {
+		if tc.Kube.SplitHorizon {
+			aaeps[app] = append(aaeps[app], remoteGwAddr)
+		} else {
+			aaeps[app] = append(aaeps[app], eps...)
+		}
 	}
 	return aaeps
 }
