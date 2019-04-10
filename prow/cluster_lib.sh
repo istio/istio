@@ -149,6 +149,14 @@ function unsetup_clusters() {
      if [[ "${SETUP_CLUSTERREG}" == "True" && "${PILOT_CLUSTER}" != "$context" ]]; then
         kubectl delete clusterrolebinding istio-multi-test 2>/dev/null
         kubectl delete ns ${SA_NAMESPACE} 2>/dev/null
+	CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
+        if [[ "${CLUSTER_NAME}" =~ .*"_".* ]]; then
+            # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
+            CLUSTER_NAME="${CLUSTER_NAME##*_}"
+        fi
+        KUBECFG_FILE="${CLUSTERREG_DIR}/${CLUSTER_NAME}"
+	echo removing ${KUBECFG_FILE}
+        rm "${KUBECFG_FILE}"
      fi
   done
   kubectl config use-context "${PILOT_CLUSTER}"
