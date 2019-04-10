@@ -38,6 +38,11 @@ SKIP_CLEANUP ?= 0
 # SKIP_KIND_SETUP will skip creating a KIND cluster.
 SKIP_KIND_SETUP ?= 0
 
+# 60s seems to short for telemetry/prom
+WAIT_TIMEOUT ?= 120s
+
+IOP_OPTS="-f test/kind/user-values.yaml"
+
 ifeq ($(MOUNT), 1)
 	KIND_CONFIG ?= --config ${GOPATH}/kind.yaml
 else
@@ -90,10 +95,6 @@ install-crds:
 
 wait-crds:
 	kubectl wait --for=condition=Established -f crds.yaml
-
-WAIT_TIMEOUT ?= 60s
-
-IOP_OPTS="-f test/kind/user-values.yaml"
 
 # Individual step to install or update base istio.
 install-base:
