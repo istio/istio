@@ -15,7 +15,7 @@
 package dispatcher
 
 import (
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
 

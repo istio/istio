@@ -60,23 +60,21 @@ func main() {
 }
 
 func getReport(args []string) reports {
-	var reports reports
+	var reps reports
 	if len(args) == 0 {
-		reports = doDir(".")
+		reps = doDir(".")
 	} else {
-		reports = doAllDirs(args)
+		reps = doAllDirs(args)
 	}
-	return reports
+	return reps
 }
 
 func doAllDirs(args []string) reports {
-	reports := make(reports, 0)
+	reps := make(reports, 0)
 	for _, name := range args {
-		for _, r := range doDir(name) {
-			reports = append(reports, r)
-		}
+		reps = append(reps, doDir(name)...)
 	}
-	return reports
+	return reps
 }
 
 func notests(info os.FileInfo) bool {

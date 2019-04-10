@@ -127,10 +127,8 @@ spec:
           - "{{ .port5 }}"
           - --grpc
           - "{{ .port6 }}"
-{{- if eq .healthPort "true" }}
           - --port
           - "3333"
-{{- end }}
           - --version
           - "{{ .version }}"
         ports:
@@ -140,28 +138,39 @@ spec:
         - containerPort: {{ .port4 }}
         - containerPort: {{ .port5 }}
         - containerPort: {{ .port6 }}
-{{- if eq .healthPort "true" }}
         - name: tcp-health-port
           containerPort: 3333
-        livenessProbe:
+        readinessProbe:
           httpGet:
-            path: /healthz
-            port: 3333
+            path: /
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-        readinessProbe:
+        livenessProbe:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-{{- end }}
 ---
 `
 )
 
+type kubeComponent struct {
+	id resource.ID
+
+	deployments []*deployment.Instance
+	apps        []App
+	env         *kube.Environment
+
+	namespace namespace.Instance
+}
+
 var (
+	_ Instance  = &kubeComponent{}
+	_ io.Closer = &kubeComponent{}
+
 	deploymentFactories = []*deploymentFactory{
 		{
 			deployment:     "t",
@@ -262,30 +271,17 @@ var (
 			serviceAccount: true,
 		},
 	}
-
-	_ Instance  = &kubeComponent{}
-	_ io.Closer = &kubeComponent{}
 )
 
 func appSelector(serviceName string) string {
 	return fmt.Sprintf("%s=%s", appLabel, serviceName)
 }
 
-type kubeComponent struct {
-	id resource.ID
-
-	deployments []*deployment.Instance
-	apps        []App
-	env         *kube.Environment
-
-	namespace namespace.Instance
-}
-
-func newKube(ctx resource.Context, _ Config) (Instance, error) {
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
-		deployments: make([]*deployment.Instance, len(deploymentFactories)),
+		deployments: make([]*deployment.Instance, 0),
 		env:         env,
 	}
 	c.id = ctx.TrackResource(c)
@@ -297,14 +293,55 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 		return nil, err
 	}
 
-	// Apply all the configs for the deployments.
-	for i, factory := range deploymentFactories {
-		if c.deployments[i], err = factory.newDeployment(env, c.namespace); err != nil {
-			return nil, err
+	params := cfg.AppParams
+	if len(params) == 0 {
+		// Apply all the configs for the deployments.
+		for _, factory := range deploymentFactories {
+			d, err := factory.newDeployment(env, c.namespace)
+			if err != nil {
+				return nil, err
+			}
+			c.deployments = append(c.deployments, d)
 		}
+
+		for _, d := range deploymentFactories {
+			pod, err := d.waitUntilPodIsReady(env, c.namespace)
+			if err != nil {
+				return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
+			}
+			client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
+			}
+			c.apps = append(c.apps, client)
+		}
+		return c, nil
 	}
 
-	for _, d := range deploymentFactories {
+	// Only deploys specified apps.
+	dfs := make([]deploymentFactory, len(params))
+	for i, param := range params {
+		dfs[i] = deploymentFactory{
+			deployment:     param.Name,
+			service:        param.Name,
+			version:        "v1",
+			port1:          8080,
+			port2:          80,
+			port3:          9090,
+			port4:          90,
+			port5:          7070,
+			port6:          70,
+			injectProxy:    true,
+			headless:       false,
+			serviceAccount: false,
+		}
+		d, err := dfs[i].newDeployment(env, c.namespace)
+		if err != nil {
+			return nil, err
+		}
+		c.deployments = append(c.deployments, d)
+	}
+	for _, d := range dfs {
 		pod, err := d.waitUntilPodIsReady(env, c.namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
@@ -407,6 +444,11 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 }
 
+// Represents a deployed App in k8s environment.
+type KubeApp interface {
+	App
+	EndpointForPort(port int) AppEndpoint
+}
 type kubeApp struct {
 	namespace   string
 	serviceName string
@@ -519,6 +561,15 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 		}
 	}
 	return out
+}
+
+func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
+	for _, e := range a.endpoints {
+		if e.port.Port == port {
+			return e
+		}
+	}
+	return nil
 }
 
 // Call implements the environment.DeployedApp interface

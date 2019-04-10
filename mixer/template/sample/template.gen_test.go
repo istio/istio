@@ -135,13 +135,6 @@ func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) {
 func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeQuotaHandler) SetAdapterConfig(cfg adapter.Config) {}
 
-type fakeBag struct{}
-
-func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
-func (f fakeBag) Names() []string                                 { return []string{} }
-func (f fakeBag) Done()                                           {}
-func (f fakeBag) String() string                                  { return "" }
-
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {
 		tmpl      string
@@ -573,10 +566,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -660,10 +651,8 @@ res1:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -747,10 +736,8 @@ dimensions:
 				if !reflect.DeepEqual(v, tst.wantType) {
 					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
@@ -1044,24 +1031,11 @@ attribute_bindings:
 				if cv != nil {
 					t.Errorf("cv should be nil, there should be no type for apa instances")
 				}
-			} else {
-				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
-					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
-				}
+			} else if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+				t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
 			}
 		})
 	}
-}
-
-func InterfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-
-	ret := make([]interface{}, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
 }
 
 // nolint: unparam

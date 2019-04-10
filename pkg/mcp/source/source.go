@@ -200,7 +200,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	var collections []string
+	collections := make([]string, 0, len(s.collections))
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
@@ -347,7 +347,7 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 	}
 
 	// increment nonce
-	con.streamNonce = con.streamNonce + 1
+	con.streamNonce++
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
 		con.reporter.RecordSendError(err, status.Code(err))

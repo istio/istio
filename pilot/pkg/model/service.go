@@ -213,8 +213,6 @@ const (
 	VisibilityPrivate Visibility = "."
 	// VisibilityPublic implies config is visible to all
 	VisibilityPublic Visibility = "*"
-	// VisibilityNone implies config is visible to none
-	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -420,10 +418,6 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// EndpointPort is the port where the workload is listening, can be different
-	// from the service port.
-	EndpointPort uint32
-
 	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
 	// Sometimes the Endpoint is visible before Service - so looking up the port number would
 	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
@@ -446,6 +440,10 @@ type IstioEndpoint struct {
 
 	// The locality where the endpoint is present. / separated string
 	Locality string
+
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32

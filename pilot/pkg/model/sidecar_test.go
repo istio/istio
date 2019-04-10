@@ -23,7 +23,21 @@ import (
 )
 
 var (
-	config1 = &Config{
+	port8000 = []*Port{
+		{
+			Name: "port1",
+			Port: 8000,
+		},
+	}
+
+	port9000 = []*Port{
+		{
+			Name: "port1",
+			Port: 9000,
+		},
+	}
+
+	configs1 = &Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "foo",
 			Namespace: "not-default",
@@ -46,7 +60,7 @@ var (
 		},
 	}
 
-	config2 = &Config{
+	configs2 = &Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "foo",
 			Namespace: "not-default",
@@ -54,7 +68,7 @@ var (
 		Spec: &networking.Sidecar{},
 	}
 
-	config3 = &Config{
+	configs3 = &Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "foo",
 			Namespace: "not-default",
@@ -62,18 +76,35 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Bind:  "1.1.1.1",
-					Hosts: []string{"foo/bar"},
-				},
-				{
-					Hosts: []string{"*/*"},
+					Hosts: []string{"foo/bar", "*/*"}, // MBMBMB not valid; one no-port egress
 				},
 			},
 		},
 	}
 
 	services1 = []*Service{
-		{Hostname: "foo"},
+		{Hostname: "bar"},
+	}
+
+	services2 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port8000,
+		},
+		{Hostname: "barprime"},
+	}
+
+	services3 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port9000,
+		},
+		{Hostname: "barprime"},
+	}
+
+	services4 = []*Service{
+		{Hostname: "bar"},
+		{Hostname: "barprime"},
 	}
 )
 
@@ -81,10 +112,14 @@ func TestCreateSidecarScope(t *testing.T) {
 	tests := []struct {
 		name          string
 		sidecarConfig *Config
-		services      []*Service
+		// list of available service for a given proxy
+		services []*Service
+		// list of services expected to be in the listener
+		excpectedServices []string
 	}{
 		{
 			"no-sidecar-config",
+			nil,
 			nil,
 			nil,
 		},
@@ -92,42 +127,74 @@ func TestCreateSidecarScope(t *testing.T) {
 			"no-sidecar-config-with-service",
 			nil,
 			services1,
+			[]string{"bar"},
 		},
 		{
 			"sidecar-with-multiple-egress",
-			config1,
+			configs1,
+			nil,
 			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-service",
-			config1,
+			configs1,
 			services1,
+			[]string{"bar"},
+		},
+		{
+			"sidecar-with-multiple-egress-with-service-on-same-port",
+			configs1,
+			services3,
+			[]string{"bar", "barprime"},
+		},
+		{
+			"sidecar-with-multiple-egress-with-multiple-service",
+			configs1,
+			services4,
+			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-zero-egress",
-			config2,
+			configs2,
+			nil,
 			nil,
 		},
 		{
-			"sidecar-with-multiple-egress_specific",
-			config3,
+			"sidecar-with-zero-egress-multiple-service",
+			configs2,
+			services4,
 			nil,
+		},
+		{
+			"sidecar-with-multiple-egress-noport",
+			configs3,
+			nil,
+			nil,
+		},
+		{
+			"sidecar-with-multiple-egress-noport-with-specific-service",
+			configs3,
+			services2,
+			[]string{"bar", "barprime"},
+		},
+		{
+			"sidecar-with-multiple-egress-noport-with-services",
+			configs3,
+			services4,
+			[]string{"bar", "barprime"},
 		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			var found bool
 			ps := NewPushContext()
 			meshConfig := DefaultMeshConfig()
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
-			configuredServices := 0
 			if tt.services != nil {
-				for _, s := range tt.services {
-					ps.publicServices = append(ps.publicServices, s)
-					configuredServices++
-				}
+				ps.publicServices = append(ps.publicServices, tt.services...)
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -144,7 +211,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			if sidecarConfig != nil {
-				var found bool
 				a := sidecarConfig.Spec.(*networking.Sidecar)
 				for _, egress := range a.Egress {
 					for _, host := range egress.Hosts {
@@ -171,13 +237,29 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 
-			if configuredServices != len(sidecarScope.services) {
-				t.Errorf("Expected %d services, Got: %d", configuredServices, len(sidecarScope.services))
-			} else {
-				for idx, s := range tt.services {
-					if s.Hostname != sidecarScope.services[idx].Hostname {
-						t.Errorf("Services expected: %v Got: %v", s.Hostname, sidecarScope.services[idx].Hostname)
+			for _, s1 := range sidecarScope.services {
+				found = false
+				for _, s2 := range tt.excpectedServices {
+					if string(s1.Hostname) == s2 {
+						found = true
+						break
 					}
+				}
+				if !found {
+					t.Errorf("Unexpected service %v found in SidecarScope", s1.Hostname)
+				}
+			}
+
+			for _, s1 := range tt.excpectedServices {
+				found = false
+				for _, s2 := range sidecarScope.services {
+					if s1 == string(s2.Hostname) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected service %v in SidecarScope, but did not find it", s1)
 				}
 			}
 			// TODO destination rule

@@ -48,7 +48,7 @@ func (h *handler) generateLogEntryData(insts []*logentry.Instance) []*cloudwatch
 
 		message, err := getMessageFromVariables(h, inst)
 		if err != nil {
-			h.env.Logger().Errorf("failed to get message for instance: %s. %v", inst.Name, err)
+			_ = h.env.Logger().Errorf("failed to get message for instance: %s. %v", inst.Name, err)
 			continue
 		}
 
@@ -96,8 +96,7 @@ func (h *handler) sendLogEntriesToCloudWatch(logentryData []*cloudwatchlogs.Inpu
 
 	nextSequenceToken, err := getNextSequenceToken(h)
 	if err != nil {
-		h.env.Logger().Errorf("logentry upload failed as next upload sequence token could not be retrieved: %v", err)
-		return 0, err
+		return 0, h.env.Logger().Errorf("logentry upload failed as next upload sequence token could not be retrieved: %v", err)
 	}
 
 	for i := 0; i < len(logentryData); i += batchcount {
@@ -129,8 +128,7 @@ func (h *handler) putLogEntryData(logentryData []*cloudwatchlogs.InputLogEvent, 
 
 	_, err := h.cloudwatchlogs.PutLogEvents(&input)
 	if err != nil {
-		h.env.Logger().Errorf("could not put logentry data into cloudwatchlogs: %v. %v", input, err)
-		return err
+		return h.env.Logger().Errorf("could not put logentry data into cloudwatchlogs: %v. %v", input, err)
 	}
 	return nil
 }
@@ -143,8 +141,7 @@ func getNextSequenceToken(h *handler) (string, error) {
 
 	output, err := h.cloudwatchlogs.DescribeLogStreams(&input)
 	if err != nil {
-		h.env.Logger().Errorf("could not retrieve Log Stream info from cloudwatch: %v. %v", input, err)
-		return "", err
+		return "", h.env.Logger().Errorf("could not retrieve Log Stream info from cloudwatch: %v. %v", input, err)
 	}
 
 	for _, logStream := range output.LogStreams {

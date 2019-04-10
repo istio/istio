@@ -185,7 +185,7 @@ func TestAbort(t *testing.T) {
 	}
 	cleanup := func(epoch int) {
 		// first 2 with an error, then 0 and 1 with abort
-		active = active - 1
+		active--
 		if active == 0 {
 			if !aborted1 {
 				t.Error("Expected first epoch to be aborted")
@@ -402,7 +402,7 @@ func TestLockup(t *testing.T) {
 			lock.Unlock()
 			return nil
 		}
-		try = try + 1
+		try++
 		lock.Unlock()
 		switch epoch {
 		case 0:

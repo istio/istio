@@ -21,17 +21,17 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/cmd"
@@ -59,6 +59,9 @@ type cliOptions struct { // nolint: maligned
 	selfSignedCA        bool
 	selfSignedCACertTTL time.Duration
 
+	// if set, namespaces require explicit labeling to have Citadel generate secrets.
+	explicitOptInRequired bool
+
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
 	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
@@ -75,6 +78,8 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether the CA signs certificates for other CAs.
 	signCACerts bool
+	// Whether to generate PKCS#8 private keys.
+	pkcs8Keys bool
 
 	cAClientConfig caclient.Config
 
@@ -145,13 +150,18 @@ func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespaces, "listened-namespace", "", "deprecated")
-	flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead")
+	if err := flags.MarkDeprecated("listened-namespace", "please use --listened-namespaces instead"); err != nil {
+		panic(err)
+	}
 
 	flags.StringVar(&opts.listenedNamespaces, "listened-namespaces", "",
 		"Select the namespaces for the Citadel to listen to, separated by comma. If unspecified, Citadel tries to use the ${"+
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
+	flags.BoolVar(&opts.explicitOptInRequired, "explicit-opt-in", false, "Specifies whether Citadel requires "+
+		"explicit opt-in for creating secrets. If set, only namespaces labeled with 'istio-managed=enabled' will "+
+		"have secrets created. This feature is only available in key and certificates delivered through secret volume mount.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -204,6 +214,7 @@ func init() {
 		"the Kubernetes secrets.")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs.")
+	flags.BoolVar(&opts.pkcs8Keys, "pkcs8-keys", false, "Whether to generate PKCS#8 private keys.")
 
 	// Monitoring configuration
 	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
@@ -255,6 +266,10 @@ func fqdn() string {
 	return fmt.Sprintf("istio-citadel.%v.svc.cluster.local", opts.istioCaStorageNamespace)
 }
 
+var (
+	listenedNamespaceKeyVar = env.RegisterStringVar(cmd.ListenedNamespaceKey, "", "")
+)
+
 func runCA() {
 	if err := log.Configure(opts.loggingOptions); err != nil {
 		fatalf("Failed to configure logging (%v)", err)
@@ -262,7 +277,7 @@ func runCA() {
 
 	_, _ = ctrlz.Run(opts.ctrlzOptions, nil)
 
-	if value, exists := os.LookupEnv(cmd.ListenedNamespaceKey); exists {
+	if value, exists := listenedNamespaceKeyVar.Lookup(); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
 		if opts.listenedNamespaces == "" {
 			opts.listenedNamespaces = value
@@ -291,10 +306,10 @@ func runCA() {
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
-		sc, err := controller.NewSecretController(ca,
+		sc, err := controller.NewSecretController(ca, opts.explicitOptInRequired,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks, opts.rootCertFile)
+			cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}

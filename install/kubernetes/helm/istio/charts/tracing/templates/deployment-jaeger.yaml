@@ -1,6 +1,6 @@
 {{ if eq .Values.provider "jaeger" }}
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-tracing
@@ -11,6 +11,9 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
+  selector:
+    matchLabels:
+      app: jaeger
   template:
     metadata:
       labels:
@@ -20,7 +23,6 @@ spec:
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         prometheus.io/scrape: "true"
         prometheus.io/port: "16686"
 {{- if .Values.contextPath }}
@@ -79,5 +81,5 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-
+      {{- include "podAntiAffinity" . | indent 6 }}
 {{ end }}

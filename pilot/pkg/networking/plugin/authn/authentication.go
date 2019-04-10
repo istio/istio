@@ -50,10 +50,6 @@ const (
 
 	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
-	// EnvoyRawBufferMatch is the transport protocol name when tls multiplexed is used.
-	EnvoyRawBufferMatch = "raw_buffer"
-	// EnvoyTLSMatch is the transport protocol name when tls multiplexed is used.
-	EnvoyTLSMatch = "tls"
 )
 
 // Plugin implements Istio mTLS auth

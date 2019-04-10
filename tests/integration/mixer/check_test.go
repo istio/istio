@@ -111,10 +111,11 @@ func TestCheck_Deny(t *testing.T) {
 
 var testCheckConfig = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: checknothing
+kind: instance
 metadata:
   name: checknothing1
 spec:
+  compiledTemplate: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -122,7 +123,7 @@ metadata:
   name: rule1
 spec:
   actions:
-  - handler: handler1.bypass
+  - handler: handler1
     instances:
-    - checknothing1.checknothing
+    - checknothing1
 `

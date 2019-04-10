@@ -112,7 +112,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		return nil
 	}
 
-	ms.Stop()
+	_ = ms.Stop()
 	return errors.New("server failed to start")
 }
 

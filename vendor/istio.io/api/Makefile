@@ -14,7 +14,7 @@ docker_lock = protolock
 docker_lock_release = ./scripts/check-release-locks.sh
 docker_tool = prototool
 else
-gen_img := gcr.io/istio-testing/protoc:2019-02-25
+gen_img := gcr.io/istio-testing/protoc:2019-03-29
 lock_img := gcr.io/istio-testing/protolock:2019-03-11
 all_img := gcr.io/istio-testing/api-build-tools:2019-03-11
 pwd := $(shell pwd)

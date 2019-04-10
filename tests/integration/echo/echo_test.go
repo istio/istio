@@ -30,8 +30,19 @@ func TestEcho(t *testing.T) {
 	// Echo is only supported on native environment right now, skip if we can't load that.
 	ctx.RequireOrSkip(t, environment.Native)
 
-	echoA := echo.NewOrFail(ctx, t, echo.Config{Service: "a.echo", Version: "v1"})
-	echoB := echo.NewOrFail(ctx, t, echo.Config{Service: "b.echo", Version: "v2"})
+	echoA := echo.NewOrFail(ctx, t, echo.Config{
+		Service: "a.echo",
+		Version: "v1",
+	})
+	echoB := echo.NewOrFail(ctx, t, echo.Config{
+		Service: "b.echo",
+		Version: "v2",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Protocol: model.ProtocolHTTP,
+			},
+		}})
 
 	// Verify the configuration was set appropriately.
 	if echoA.Config().Service != "a.echo" {

@@ -57,7 +57,7 @@ func (diag diag) String() string {
 
 	msg := strings.TrimSpace(diag.message)
 	if !strings.HasSuffix(msg, ".") {
-		msg = msg + "."
+		msg += "."
 	}
 
 	if diag.location.line != "" {

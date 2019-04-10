@@ -324,7 +324,7 @@ func (t *testConfig) Setup() (err error) {
 	for cluster, kc := range t.Kube.Clusters {
 		if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, kc) {
 			err = fmt.Errorf("can't get all pods running in %s cluster", cluster)
-			break
+			return
 		}
 	}
 
@@ -336,6 +336,7 @@ func (t *testConfig) Setup() (err error) {
 		// Verify the service mesh config for a single cluster
 		err = verifyMeshConfig()
 	}
+
 	return
 }
 
@@ -590,7 +591,7 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 		// TODO: this can be optimized for many string submatching
 		counts := make(map[string]int)
 		for _, request := range a.logs[cluster][app] {
-			counts[request.id] = counts[request.id] + 1
+			counts[request.id]++
 		}
 
 		// Concat the logs from all pods.

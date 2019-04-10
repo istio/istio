@@ -26,7 +26,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	scheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
@@ -49,6 +49,9 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 		return err
 	}
 	err := r.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
 		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
 			return err
@@ -99,8 +102,7 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag *string,
 				return err
 			}
 			for _, c := range job.Status.Conditions {
-				switch c.Type {
-				case v1batch.JobFailed:
+				if c.Type == v1batch.JobFailed {
 					return fmt.Errorf("istio installation fails - the required Job  %s failed", name)
 				}
 			}

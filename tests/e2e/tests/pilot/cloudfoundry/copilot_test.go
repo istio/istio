@@ -27,6 +27,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -72,7 +73,6 @@ func pilotURL(path string) string {
 	}).String()
 }
 
-var fakeCreateTime *types.Timestamp
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 type mockController struct{}
@@ -98,7 +98,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("starting mock copilot grpc server...")
 	var err error
-	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
+	_, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	copilotMCPServer, err := startMCPCopilot()
@@ -301,7 +301,12 @@ func runFakeApp(port int) {
 
 func addMcpAddrs(mcpServerPort int) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{fmt.Sprintf("mcp://127.0.0.1:%d", mcpServerPort)}
+		if arg.MeshConfig == nil {
+			arg.MeshConfig = &meshconfig.MeshConfig{}
+		}
+		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+			{Address: fmt.Sprintf("127.0.0.1:%d", mcpServerPort)},
+		}
 	}
 }
 
@@ -388,7 +393,7 @@ func curlApp(endpoint, hostRoute url.URL) (string, error) {
 
 var gateway = &networking.Gateway{
 	Servers: []*networking.Server{
-		&networking.Server{
+		{
 			Port: &networking.Port{
 				Name:     "http",
 				Number:   publicPort,

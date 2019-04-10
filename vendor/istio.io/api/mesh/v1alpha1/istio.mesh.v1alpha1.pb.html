@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 20
+number_of_entries: 21
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -987,6 +987,14 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDS">SDS</a></code></td>
+<td>
+<p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1019,6 +1027,40 @@ source IP addresses during redirection.</p>
 source and destination IP addresses and ports, so that they can be used for advanced
 filtering and manipulation. This mode also configures the sidecar to run with the
 CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="SDS">SDS</h2>
+<section>
+<p>SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDS-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if SDS is enabled.</p>
+
+</td>
+</tr>
+<tr id="SDS-k8s_sa_jwt_path">
+<td><code>k8sSaJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of k8s service account JWT path.</p>
 
 </td>
 </tr>
@@ -1091,7 +1133,7 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 </section>
 <h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
 <section>
-<p>Lightstep defines configuration for a LightStep tracer.</p>
+<p>Defines configuration for a LightStep tracer.</p>
 
 <table class="message-fields">
 <thead>
