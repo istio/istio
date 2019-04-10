@@ -19,10 +19,10 @@ OUT ?= ${BASE}/out
 # Target to run by default inside the builder docker image.
 TEST_TARGET ?= test-k8s
 
-ifeq ($(MOUNT), undefined)
-	KIND_CONFIG = ""
+ifeq ($(MOUNT), 1)
+	KIND_CONFIG ?= --config ${GOPATH}/kind.yaml
 else
-	KIND_CONFIG ?= "--config ${GOPATH}/kind.yaml"
+	KIND_CONFIG =
 endif
 
 control:
@@ -32,7 +32,7 @@ control:
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
 prepare:
-	cat test/kind/kind.yaml | sed s/GOPATH/$(GOPATH) > ${GOPATH}/kind.yaml
+	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
 	kind create cluster --name test --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 
 clean:
@@ -114,7 +114,7 @@ info:
 
 # Copy source code from the current machine to the docker.
 sync:
-ifeq ($(MOUNT), undefined)
+ifneq ($(MOUNT), 1)
 	docker exec test-control-plane mkdir -p ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
 		${GOPATH}/src/github.com/istio.io
 	docker cp . test-control-plane:${GOPATH}/go/src/github.com/istio-ecosystem/istio-installer
@@ -124,7 +124,7 @@ endif
 
 # Run an iterative shell in the docker image containing the build
 shell-kind:
-ifeq ($(MOUNT), undefined)
+ifneq ($(MOUNT), 1)
 	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
 		-w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
 		test-control-plane bash
