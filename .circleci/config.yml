@@ -553,7 +553,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-ipv6p:
+  e2e-ipv6:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
