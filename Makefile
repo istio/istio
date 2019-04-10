@@ -117,9 +117,9 @@ sync:
 ifneq ($(MOUNT), 1)
 	docker exec test-control-plane mkdir -p ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
 		${GOPATH}/src/github.com/istio.io
-	docker cp . test-control-plane:${GOPATH}/go/src/github.com/istio-ecosystem/istio-installer
-	docker cp ${GOPATH}/src/istio.io/istio test-control-plane:${GOPATH}/go/src/istio.io
-	docker cp ${GOPATH}/src/istio.io/tools test-control-plane:${GOPATH}/go/src/istio.io
+	docker cp . test-control-plane:${GOPATH}/src/github.com/istio-ecosystem/istio-installer
+	docker cp ${GOPATH}/src/istio.io/istio test-control-plane:${GOPATH}/src/istio.io
+	docker cp ${GOPATH}/src/istio.io/tools test-control-plane:${GOPATH}/src/istio.io
 endif
 
 # Run an iterative shell in the docker image containing the build
