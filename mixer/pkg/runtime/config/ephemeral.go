@@ -278,10 +278,8 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[
 					dict, err := toDictionary(handlerProto.Params)
 					if err != nil {
 						log.Warnf("could not convert handler params; using default config: %v", err)
-					} else {
-						if err := convert(dict, c); err != nil {
-							log.Warnf("could not convert handler params; using default config: %v", err)
-						}
+					} else if err := convert(dict, c); err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
 					}
 				}
 				staticConfig.Params = c
@@ -396,6 +394,12 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		}
 
 		inst := resource.Spec.(*config.Instance)
+
+		// should be processed as static instance
+		if inst.CompiledTemplate != "" {
+			continue
+		}
+
 		instanceName := key.String()
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
@@ -483,16 +487,59 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 	for key, resource := range e.entries {
 		var info *template.Info
 		var found bool
-		if info, found = e.templates[key.Kind]; !found {
-			// This config resource is not for an instance (or at least not for one that Mixer is currently aware of).
-			continue
+		var params proto.Message
+		instanceName := key.String()
+
+		if key.Kind == constant.InstanceKind {
+			inst := resource.Spec.(*config.Instance)
+			if inst.CompiledTemplate == "" {
+				continue
+			}
+			info, found = e.templates[inst.CompiledTemplate]
+			if !found {
+				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, "missing compiled template")
+				continue
+			}
+
+			// cast from struct to template specific proto
+			params = proto.Clone(info.CtrCfg)
+			buf := &bytes.Buffer{}
+
+			if inst.Params == nil {
+				inst.Params = &types.Struct{Fields: make(map[string]*types.Value)}
+			}
+
+			// populate attribute bindings
+			if len(inst.AttributeBindings) > 0 {
+				bindings := &types.Struct{Fields: make(map[string]*types.Value)}
+				for k, v := range inst.AttributeBindings {
+					bindings.Fields[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
+				}
+				inst.Params.Fields["attribute_bindings"] = &types.Value{
+					Kind: &types.Value_StructValue{StructValue: bindings},
+				}
+			}
+			if err := (&jsonpb.Marshaler{}).Marshal(buf, inst.Params); err != nil {
+				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
+				continue
+			}
+			if err := (&jsonpb.Unmarshaler{AllowUnknownFields: false}).Unmarshal(buf, params); err != nil {
+				appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
+				continue
+			}
+		} else {
+			info, found = e.templates[key.Kind]
+			if !found {
+				// This config resource is not for an instance (or at least not for one that Mixer is currently aware of).
+				continue
+			}
+			params = resource.Spec
 		}
 
-		instanceName := key.String()
 		mode := lang.GetLanguageRuntime(resource.Metadata.Annotations)
 
-		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
-		inferredType, err := info.InferType(resource.Spec, func(s string) (config.ValueType, error) {
+		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, params)
+		inferredType, err := info.InferType(params, func(s string) (config.ValueType, error) {
 			return e.checker(mode).EvalType(s)
 		})
 		if err != nil {
@@ -502,7 +549,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 		cfg := &InstanceStatic{
 			Name:         instanceName,
 			Template:     info,
-			Params:       resource.Spec,
+			Params:       params,
 			InferredType: inferredType,
 			Language:     mode,
 		}
@@ -626,7 +673,7 @@ func (e *Ephemeral) processRuleConfigs(
 			if hdl != nil {
 				sahandler = hdl.(*HandlerStatic)
 				processStaticHandler = true
-			} else if hdl == nil {
+			} else {
 				hdl, handlerName = getCanonicalRef(a.Handler, constant.HandlerKind, ruleKey.Namespace, func(n string) interface{} {
 					if a, ok := dHandlers[n]; ok {
 						return a

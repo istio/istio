@@ -136,6 +136,9 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 
 	var errs error
 	_ = r.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
 		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
 			errs = multierror.Append(errs, err)

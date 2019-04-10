@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 	"istio.io/istio/pkg/test/scopes"
@@ -45,14 +44,14 @@ func (c *client) waitForSnapshot(collection string, validator SnapshotValidatorF
 
 	u := sink.NewInMemoryUpdater()
 
-	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
+	cl := mcp.NewResourceSourceClient(conn)
 	options := &sink.Options{
 		CollectionOptions: sink.CollectionOptionsFromSlice([]string{collection}),
 		Updater:           u,
 		ID:                "",
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
-	mcpc := mcpclient.New(cl, options)
+	mcpc := sink.NewClient(cl, options)
 	go mcpc.Run(ctx)
 
 	_, err = retry.Do(func() (interface{}, bool, error) {

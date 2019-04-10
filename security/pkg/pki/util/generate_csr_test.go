@@ -49,7 +49,7 @@ func TestGenCSR(t *testing.T) {
 	if csr.Subject.Organization[0] != "MyOrg" {
 		t.Errorf("csr subject does not match")
 	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value[:]), "test_ca.com") {
+	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
 		t.Errorf("csr host does not match")
 	}
 }

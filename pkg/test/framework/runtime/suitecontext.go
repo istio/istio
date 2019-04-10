@@ -17,9 +17,13 @@ package runtime
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"reflect"
 	"strings"
 	"sync"
+
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -33,23 +37,29 @@ type suiteContext struct {
 	settings    *core.Settings
 	environment resource.Environment
 
+	workDir string
+
 	// context-level resources
 	globalScope *scope
 
 	contextMu    sync.Mutex
 	contextNames map[string]struct{}
 
-	skipAll    bool
-	skipReason string
+	suiteLabels label.Set
 }
 
-func newSuiteContext(s *core.Settings, envFn api.FactoryFn) (*suiteContext, error) {
+func newSuiteContext(s *core.Settings, envFn api.FactoryFn, labels label.Set) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
+	workDir := path.Join(s.RunDir(), "_suite_context")
+	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
+		return nil, err
+	}
 	c := &suiteContext{
-		settings:    s,
-		globalScope: newScope(scopeID, nil),
-
+		settings:     s,
+		globalScope:  newScope(scopeID, nil),
+		workDir:      workDir,
+		suiteLabels:  labels,
 		contextNames: make(map[string]struct{}),
 	}
 
@@ -118,32 +128,12 @@ func (s *suiteContext) Settings() *core.Settings {
 	return s.settings
 }
 
-// Skip indicates that all of the tests in this suite should be skipped.
-func (s *suiteContext) Skip(reason string) {
-	if !s.skipAll {
-		s.skipReason = reason
-	}
-	s.skipAll = true
-}
-
-// Skip indicates that all of the tests in this suite should be skipped.
-func (s *suiteContext) Skipf(reasonfmt string, args ...interface{}) {
-	if !s.skipAll {
-		s.skipReason = fmt.Sprintf(reasonfmt, args...)
-	}
-	s.skipAll = true
-}
-
-func (s *suiteContext) done() error {
-	return s.globalScope.done(s.settings.NoCleanup)
-}
-
 // CreateDirectory creates a new subdirectory within this context.
 func (s *suiteContext) CreateDirectory(name string) (string, error) {
-	dir, err := ioutil.TempDir(s.settings.RunDir(), name)
+	dir, err := ioutil.TempDir(s.workDir, name)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, name, s.settings.RunDir(), err)
+			s.settings.RunID, name, s.workDir, err)
 	} else {
 		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
 	}
@@ -156,10 +146,10 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 		prefix += "-"
 	}
 
-	dir, err := ioutil.TempDir(s.settings.RunDir(), prefix)
+	dir, err := ioutil.TempDir(s.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
-			s.settings.RunID, prefix, s.settings.RunDir(), err)
+			s.settings.RunID, prefix, s.workDir, err)
 	} else {
 		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
 	}

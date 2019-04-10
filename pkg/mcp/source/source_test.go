@@ -60,11 +60,11 @@ type sourceTestHarness struct {
 	recvErr           error
 	ctx               context.Context
 	nonce             int
-	closeWatch        bool
 	watchResponses    map[string]*WatchResponse
 	pushResponseFuncs map[string][]PushResponseFunc
 	watchCreated      map[string]int
 	client            bool
+	closeWatch        bool
 }
 
 func newSourceTestHarness(t *testing.T) *sourceTestHarness {

@@ -45,7 +45,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 
 	expected := tmpl.EvaluateOrFail(t, `
 {
-  "name": "metric1.metric.{{.TestNamespace}}",
+  "name": "metric1.instance.{{.TestNamespace}}",
   "value": {
     "int64Value": "2"
   },
@@ -85,14 +85,16 @@ func TestMixer_Report_Direct(t *testing.T) {
 
 var testReportConfig = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: metric
+kind: instance
 metadata:
   name: metric1
 spec:
-  value: "2"
-  dimensions:
-    destination_name: destination.uid | "unknown"
-    origin_ip: origin.ip | ip("4.5.6.7")
+  compiledTemplate: metric
+  params:
+    value: "2"
+    dimensions:
+      destination_name: destination.uid | "unknown"
+      origin_ip: origin.ip | ip("4.5.6.7")
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -100,7 +102,7 @@ metadata:
   name: rule1
 spec:
   actions:
-  - handler: handler1.bypass
+  - handler: handler1
     instances:
-    - metric1.metric
+    - metric1
 `

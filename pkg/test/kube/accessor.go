@@ -105,6 +105,18 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	return list.Items, nil
 }
 
+// GetEvents returns events in the given namespace, based on the involvedObject.
+func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApiCore.Event, error) {
+	s := "involvedObject.name=" + involvedObject
+	list, err := a.set.CoreV1().Events(namespace).List(kubeApiMeta.ListOptions{FieldSelector: s})
+
+	if err != nil {
+		return []kubeApiCore.Event{}, err
+	}
+
+	return list.Items, nil
+}
+
 // GetPod returns the pod with the given namespace and name.
 func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
 	return a.set.CoreV1().
@@ -242,6 +254,41 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...ret
 	}, newRetryOptions(opts...)...)
 
 	return err
+}
+
+// WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
+// one usable endpoint.
+func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opts ...retry.Option) (*kubeApiCore.Service, error) {
+	var service *kubeApiCore.Service
+	err := retry.UntilSuccess(func() error {
+
+		s, err := a.GetService(ns, name)
+		if err != nil {
+			return err
+		}
+
+		endpoints, err := a.GetEndpoints(ns, name, kubeApiMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(endpoints.Subsets) == 0 {
+			return fmt.Errorf("%s/%v endpoint not ready: no subsets", ns, name)
+		}
+
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
+				service = s
+				return nil
+			}
+		}
+		return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", ns, name)
+	}, opts...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.

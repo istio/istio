@@ -1,6 +1,6 @@
 {{ if eq .Values.provider "zipkin" }}
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-tracing
@@ -11,6 +11,9 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
+  selector:
+    matchLabels:
+      app: zipkin
   template:
     metadata:
       labels:
@@ -24,6 +27,12 @@ spec:
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
 {{- end }}
       containers:
         - name: zipkin
@@ -61,5 +70,5 @@ spec:
               value: "{{ .Values.zipkin.maxSpans }}"
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-
+      {{- include "podAntiAffinity" . | indent 6 }}
 {{ end }}

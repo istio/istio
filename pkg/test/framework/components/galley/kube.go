@@ -111,6 +111,20 @@ func (c *kubeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance, y
 	}
 }
 
+// DeleteConfig implements Galley.DeleteConfig.
+func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) (err error) {
+	panic("NYI: DeleteConfig")
+}
+
+// DeleteConfigOrFail implements Galley.DeleteConfigOrFail.
+func (c *kubeComponent) DeleteConfigOrFail(t *testing.T, ns namespace.Instance, yamlText ...string) {
+	t.Helper()
+	err := c.DeleteConfig(ns, yamlText...)
+	if err != nil {
+		t.Fatalf("Galley.DeleteConfigOrFail: %v", err)
+	}
+}
+
 // ApplyConfigDir implements Galley.ApplyConfigDir.
 func (c *kubeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string) (err error) {
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {

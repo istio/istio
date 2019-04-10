@@ -78,35 +78,11 @@ type EdsCluster struct {
 	// cluster will get this response.
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
-	// FirstUse is the time the cluster was first used, for debugging
-	FirstUse time.Time
-
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*XdsConnection `json:"-"`
-
-	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
-	NonEmptyTime time.Time
 }
 
 // TODO: add prom metrics !
-
-// endpoints packs the final DiscoveryResponse, based on the resources.
-func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
-		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: EndpointType,
-
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-		Resources:   outRes,
-	}
-
-	return out
-}
 
 // Return the load assignment with mutex. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
@@ -116,7 +92,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -144,7 +120,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(UID, network)
+	ep.Metadata = endpointMetadata(uid, network)
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep
@@ -173,8 +149,8 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 }
 
 // Create an Istio filter metadata object with the UID and Network fields (if exist).
-func endpointMetadata(UID string, network string) *core.Metadata {
-	if UID == "" && network == "" {
+func endpointMetadata(uid string, network string) *core.Metadata {
+	if uid == "" && network == "" {
 		return nil
 	}
 
@@ -186,8 +162,8 @@ func endpointMetadata(UID string, network string) *core.Metadata {
 		},
 	}
 
-	if UID != "" {
-		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: UID}}
+	if uid != "" {
+		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
 	}
 
 	if network != "" {
@@ -294,9 +270,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
-	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
 	}
 	return nil
 }
@@ -431,9 +404,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
-	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
 	}
 	return nil
 }
@@ -774,7 +744,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 	emptyClusters := 0
 	endpoints := 0
-	empty := []string{}
 	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
@@ -827,7 +796,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
-			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -854,7 +822,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
-	c := s.getOrAddEdsCluster(clusterName)
+	s.getOrAddEdsCluster(clusterName, node, connection)
 	// TODO: left the code here so we can skip sending the already-sent clusters.
 	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
 	// previous version sent all the clusters from CDS in bulk).
@@ -868,9 +836,6 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 	//if existing != nil {
 	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
 	//}
-	c.mutex.Lock()
-	c.EdsClients[node] = connection
-	c.mutex.Unlock()
 }
 
 // getEdsCluster returns a cluster.
@@ -881,7 +846,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
+func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 
@@ -889,38 +854,34 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	if c == nil {
 		c = &EdsCluster{
 			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}
+
+	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+	// Currently use edsClusterMutex lock
+	c.mutex.Lock()
+	c.EdsClients[node] = connection
+	c.mutex.Unlock()
+
 	return c
 }
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		adsLog.Warnf("EDS: missing cluster %s", clusterName)
 		return
 	}
 
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	oldcon := c.EdsClients[node]
-	if oldcon == nil {
-		adsLog.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
-		return
-	}
-	if oldcon != connection {
-		adsLog.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
-		return
-	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		edsClusterMutex.Lock()
-		defer edsClusterMutex.Unlock()
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.

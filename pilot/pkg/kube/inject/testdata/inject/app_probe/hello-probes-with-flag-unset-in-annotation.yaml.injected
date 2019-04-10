@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
+        sidecar.istio.io/status: '{"version":"76ee4e27aff3af035cd96d78d753d60ad89063d0fc3edbb3b1438a5452ad7b01","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            port: http
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        readinessProbe:
+          httpGet:
+            port: 3333
+        resources: {}
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            port: http
+        name: world
+        ports:
+        - containerPort: 90
+          name: http
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/healthy
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - --configPath
+        - /etc/istio/proxy
+        - --binaryPath
+        - /usr/local/bin/envoy
+        - --serviceCluster
+        - hello.default
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --discoveryAddress
+        - istio-pilot:15010
+        - --connectTimeout
+        - 1s
+        - --statsdUdpAddress
+        - ""
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --statusPort
+        - "15020"
+        - --applicationPorts
+        - 80,90
+        - --concurrency
+        - "1"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        image: docker.io/istio/proxyv2:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 2
+          periodSeconds: 30
+        resources:
+          requests:
+            cpu: 10m
+            memory: 30Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      initContainers:
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - ""
+        - -x
+        - ""
+        - -b
+        - 80,90
+        - -d
+        - "15020"
+        image: docker.io/istio/proxy_init:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
+status: {}
+---

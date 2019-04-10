@@ -16,8 +16,10 @@ package yml
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 )
@@ -26,16 +28,64 @@ const (
 	yamlSeparator = "\n---\n"
 )
 
+// Split the given yaml doc if it's multipart document.
+func Split(yamlText []byte) [][]byte {
+	return bytes.Split(yamlText, []byte(yamlSeparator))
+}
+
+// SplitString splits the given yaml doc if it's multipart document.
+func SplitString(yamlText string) []string {
+	return strings.Split(yamlText, yamlSeparator)
+}
+
+// Join the given yaml parts into a single multipart document.
+func Join(parts ...[]byte) []byte {
+	return bytes.Join(parts, []byte(yamlSeparator))
+}
+
+// JoinString joins the given yaml parts into a single multipart document.
+func JoinString(parts ...string) string {
+	return strings.Join(parts, yamlSeparator)
+}
+
+// Metadata metadata for a kubernetes resource.
+type Metadata struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+// Descriptor a descriptor for a kubernetes resource.
+type Descriptor struct {
+	Kind       string   `json:"kind"`
+	Group      string   `json:"group"`
+	APIVersion string   `json:"apiVersion"`
+	Metadata   Metadata `json:"metadata"`
+}
+
+// ParseDescriptor parses the given single-part yaml and generates the descriptor.
+func ParseDescriptor(yamlText string) (Descriptor, error) {
+	d := Descriptor{}
+	jsonText, err := yaml.YAMLToJSON([]byte(yamlText))
+	if err != nil {
+		return Descriptor{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
+	}
+
+	if err := json.Unmarshal(jsonText, &d); err != nil {
+		return Descriptor{}, fmt.Errorf("failed parsing descriptor: %v", err)
+	}
+	return d, nil
+}
+
 // ApplyNamespace applies the given namespaces to the resources in the yamlText.
 func ApplyNamespace(yamlText, ns string) (string, error) {
-	chunks := bytes.Split([]byte(yamlText), []byte(yamlSeparator))
+	chunks := SplitString(yamlText)
 
 	result := ""
 	for _, chunk := range chunks {
 		if result != "" {
 			result += yamlSeparator
 		}
-		y, err := applyNamespace(string(chunk), ns)
+		y, err := applyNamespace(chunk, ns)
 		if err != nil {
 			return "", err
 		}

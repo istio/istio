@@ -305,19 +305,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return c.servicesMap[hostname], nil
 }
 
-// serviceByKey retrieves a service by name and namespace
-func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
-	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
-	if err != nil {
-		log.Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
-		return nil, false
-	}
-	if !exists {
-		return nil, false
-	}
-	return item.(*v1.Service), true
-}
-
 // GetPodLocality retrieves the locality for a pod.
 func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	// NodeName is set by the scheduler after the pod is created
@@ -818,7 +805,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
 
-	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -853,7 +840,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 					name:    n,
 					network: *net,
 				}
-				c.ranger.Insert(rangerEntry)
+				_ = c.ranger.Insert(rangerEntry)
 			}
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
 				c.networkForRegistry = n

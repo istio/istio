@@ -24,9 +24,7 @@ import (
 
 var (
 	// DefaultGRPCDialFunc just calls grpc.Dial directly, with no alterations to the arguments.
-	DefaultGRPCDialFunc = func(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-		return grpc.DialContext(ctx, address, opts...)
-	}
+	DefaultGRPCDialFunc = grpc.DialContext
 	// DefaultWebsocketDialFunc just calls dialer.Dial, with no alterations to the arguments.
 	DefaultWebsocketDialFunc = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
 		return dialer.Dial(urlStr, requestHeader)

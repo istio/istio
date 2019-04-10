@@ -51,6 +51,9 @@ type ResourceSpec struct {
 
 	// The converter to use
 	Converter converter.Fn
+
+	// Indicates that the resource is not required to be present
+	Optional bool
 }
 
 // APIResource generated from this type.

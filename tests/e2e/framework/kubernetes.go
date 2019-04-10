@@ -70,6 +70,7 @@ const (
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
 	remoteNetworkName              = "network2"
+	istioHelmChartName             = "istio"
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
@@ -393,11 +394,9 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
-		} else {
-			if err = k.deployIstio(); err != nil {
-				log.Error("Failed to deploy Istio.")
-				return err
-			}
+		} else if err = k.deployIstio(); err != nil {
+			log.Error("Failed to deploy Istio.")
+			return err
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
@@ -499,7 +498,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == helmInstallerName {
 		// clean up using helm
-		err := util.HelmDelete(k.Namespace)
+		err := util.HelmDelete(istioHelmChartName)
 		if err != nil {
 			return nil
 		}
@@ -554,8 +553,10 @@ func (k *KubeInfo) Teardown() error {
 		}
 	}
 
-	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 600
+	// NB: Increasing maxAttempts much past 230 seconds causes the CI infrastructure
+	// to terminate the test run not reporting what actually failed in the deletion.
+	maxAttempts := 180
+
 	namespaceDeleted := false
 	validatingWebhookConfigurationExists := false
 	log.Infof("Deleting namespace %v", k.Namespace)
@@ -953,7 +954,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
@@ -962,7 +963,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, "istio", valFile, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
 			istioHelmInstallDir, valFile, setValue, k.Namespace)
@@ -1023,28 +1024,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		log.Errorf("Cannot write into generate sidecar injector file %s", dst)
-	}
-	return err
-}
-
-func (k *KubeInfo) generateGalleyConfigValidator(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		log.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	if !*clusterWide {
-		content = replacePattern(content, istioSystem, k.Namespace)
-	}
-
-	if *galleyHub != "" && *galleyTag != "" {
-		content = updateImage("galley", *galleyHub, *galleyTag, content)
-	}
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		log.Errorf("Cannot write into generate galley config validator %s", dst)
 	}
 	return err
 }

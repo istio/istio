@@ -29,8 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -43,8 +41,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/version"
 )
 
@@ -89,6 +89,12 @@ var (
 
 	wg sync.WaitGroup
 
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",
@@ -118,7 +124,7 @@ var (
 			if len(proxyIP) != 0 {
 				role.IPAddresses = append(role.IPAddresses, proxyIP)
 			} else {
-				envIP := os.Getenv("INSTANCE_IP")
+				envIP := instanceIPVar.Get()
 				if len(envIP) > 0 {
 					role.IPAddresses = append(role.IPAddresses, envIP)
 				}
@@ -130,14 +136,15 @@ var (
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
 			}
 
-			// No IP addresses provided, append 127.0.0.1
+			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 			if len(role.IPAddresses) == 0 {
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
+				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
 
 			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
-					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
+					role.ID = podNameVar.Get() + "." + podNamespaceVar.Get()
 				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
@@ -213,7 +220,7 @@ var (
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
-						ns = os.Getenv("POD_NAMESPACE")
+						ns = podNamespaceVar.Get()
 					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
@@ -221,7 +228,7 @@ var (
 					} else {
 						// discovery address is a remote address. For remote clusters
 						// only support the default config, or env variable
-						ns = os.Getenv("ISTIO_NAMESPACE")
+						ns = istioNamespaceVar.Get()
 						if ns == "" {
 							ns = model.IstioSystemNamespace
 						}
@@ -292,8 +299,8 @@ var (
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 					opts := make(map[string]string)
-					opts["PodName"] = os.Getenv("POD_NAME")
-					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+					opts["PodName"] = podNameVar.Get()
+					opts["PodNamespace"] = podNamespaceVar.Get()
 
 					mixerSAN := getSAN(ns, envoy.MixerSvcAccName, role.MixerIdentity)
 					log.Infof("MixerSAN %#v", mixerSAN)
@@ -302,7 +309,7 @@ var (
 					}
 
 					// protobuf encoding of IP_ADDRESS type
-					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(instanceIPVar.Get()))
 
 					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 						opts["ControlPlaneAuth"] = "enable"
@@ -344,7 +351,7 @@ var (
 					return err
 				}
 
-				prober := os.Getenv(status.KubeAppProberEnvName)
+				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
@@ -398,7 +405,7 @@ func setSpiffeTrustDomain(domain string) {
 		pilotTrustDomain := role.TrustDomain
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
-				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
+				(domain == podNamespaceVar.Get()+".svc.cluster.local" || domain == "") {
 				pilotTrustDomain = "cluster.local"
 			} else if registry == serviceregistry.ConsulRegistry &&
 				(domain == "service.consul" || domain == "") {
@@ -428,7 +435,7 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 func getDNSDomain(domain string) string {
 	if len(domain) == 0 {
 		if registry == serviceregistry.KubernetesRegistry {
-			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			domain = podNamespaceVar.Get() + ".svc.cluster.local"
 		} else if registry == serviceregistry.ConsulRegistry {
 			domain = "service.consul"
 		} else {
@@ -591,7 +598,7 @@ func waitForCerts(fname string, maxWait time.Duration) {
 		}
 		if now.After(nextLog) {
 			log.Infof("waiting for certificates")
-			logDelay = logDelay * 2
+			logDelay *= 2
 			nextLog.Add(logDelay)
 		}
 		time.Sleep(100 * time.Millisecond)

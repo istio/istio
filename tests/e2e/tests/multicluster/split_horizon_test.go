@@ -89,7 +89,7 @@ func TestRemoteInstanceAccessible(t *testing.T) {
 
 		// Check whether the response is from remote cluster (v2). If it is then the
 		// test is successful
-		if strings.Index(output, "Hello version: v2") >= 0 {
+		if strings.Contains(output, "Hello version: v2") {
 			log.Info("got response from the helloworld v2 instance (remote cluster)")
 			return nil
 		}
@@ -333,17 +333,17 @@ func (t *testConfig) Setup() (err error) {
 
 	// Update the meshNetworks within the mesh config with the gateway address of the remote
 	// cluster.
-	remoteGwAddr, err := util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+	remoteGwAddr, ingressErr := util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
 		t.Kube.Namespace, t.Kube.RemoteKubeConfig, util.LoadBalancerServiceType, false)
-	if err != nil {
-		return
+	if ingressErr != nil {
+		return ingressErr
 	}
 	util.ReplaceInConfigMap(tc.Kube.Namespace, istioMeshConfigMapName,
 		fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), tc.Kube.KubeConfig)
 
 	// Add the remote cluster into the mesh by adding the secret
 	if err = addRemoteCluster(); err != nil {
-		return err
+		return
 	}
 
 	// Wait until the deployments on remote cluster are all ready

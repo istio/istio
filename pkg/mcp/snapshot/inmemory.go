@@ -180,7 +180,7 @@ func (s *InMemory) Builder() *InMemoryBuilder {
 func (s *InMemory) String() string {
 	var b bytes.Buffer
 
-	var messages []string
+	messages := make([]string, 0, len(s.resources))
 	for message := range s.resources {
 		messages = append(messages, message)
 	}

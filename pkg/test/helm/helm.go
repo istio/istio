@@ -38,33 +38,6 @@ func Init(homeDir string, clientOnly bool) error {
 	return err
 }
 
-// RepoAdd calls "helm repo add"
-func RepoAdd(homeDir, name, url string) error {
-	out, err := shell.Execute("helm --home %s repo add %s %s", homeDir, name, url)
-	if err != nil {
-		scopes.Framework.Errorf("helm repo add: %v, out:%q", err, out)
-	} else {
-		scopes.CI.Infof("helm repo add:\n%s\n", out)
-	}
-
-	return err
-}
-
-func DepUpdate(homeDir, chart string, skipRefresh bool) error {
-	skipRefreshSuffix := ""
-	if skipRefresh {
-		skipRefreshSuffix = " --skip-refresh"
-	}
-	out, err := shell.Execute("helm --home %s dep update %s %s", homeDir, chart, skipRefreshSuffix)
-	if err != nil {
-		scopes.Framework.Errorf("helm dep update: %v, out:%q", err, out)
-	} else {
-		scopes.CI.Infof("helm dep update:\n%s\n", out)
-	}
-
-	return err
-}
-
 func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
 	// Apply the overrides for the values file.
 	valuesString := ""

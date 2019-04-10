@@ -1,0 +1,30 @@
+spec:
+  initContainers:
+    - name: istio-init
+  containers:
+    - name: istio-proxy
+      args:
+        - --statusPort
+        - "15020"
+    - name: hello
+      image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      ports:
+        - name: http
+          containerPort: 80
+      livenessProbe:
+        httpGet:
+          port: http
+          path: "/live"
+      readinessProbe:
+        httpGet:
+          port: 3333
+          path: "/ready"
+          scheme: HTTPS
+    - name: second
+      image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      ports:
+      livenessProbe:
+        httpGet:
+          port: 9000
+  volumes:
+    - name: v0

@@ -17,6 +17,8 @@ package citadel
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/citadel"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -30,10 +32,8 @@ var (
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
-	//	t.Skip("https://github.com/istio/istio/issues/10989")
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
-	ctx.RequireOrSkip(t, environment.Kube)
 
 	c := citadel.NewOrFail(t, ctx, citadel.Config{Istio: ist})
 
@@ -66,5 +66,10 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("citadel_test", m, framework.RequireEnvironment(environment.Kube), istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("citadel_test", m).
+		Label(label.Presubmit).
+		RequireEnvironment(environment.Kube).
+		EnvSetup(environment.Kube, istio.SetupOnKube(&ist, nil)).
+		Run()
 }

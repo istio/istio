@@ -425,7 +425,7 @@ func TestUpdateFromProtoWithDupes(t *testing.T) {
 		{mixerpb.CompressedAttributes{
 			Words:      messageDict,
 			Strings:    map[int32]int32{4: 5},
-			Timestamps: map[int32]time.Time{4: time.Time{}},
+			Timestamps: map[int32]time.Time{4: {}},
 		}},
 
 		{mixerpb.CompressedAttributes{

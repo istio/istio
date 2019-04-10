@@ -2,7 +2,7 @@
 
 This document introduces the Istio test framework.
 
-For an overview of the architecture as well as how to extend the framework, see the [Developer Guide](DEVELOPER_GUIDE.md).
+For an overview of the architecture as well as how to extend the framework, see the [Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide).
 
 ## Introduction
 
@@ -69,11 +69,15 @@ Every test will follow the pattern in the example above:
 If you need to do suite-level checks, then you can pass additional parameters to `framework.Main`:
 
 ```golang
-func TestMain(m *testing.M) { 
+func TestMain(m *testing.M) {
     framework.Main("my_test", m,
     framework.RequireEnvironment(environment.Kube), // Require Kubernetes environment.
-    istio.SetupOnKube(&ist, nil),            // Deploy Istio, to be used by the whole suite.
+    istio.SetupOnKube(&ist, setupIstioConfig),            // Deploy Istio, to be used by the whole suite.
     setup)                                   // Call your setup function.
+}
+
+func setupIstioConfig(cfg *istio.Config) {
+    cfg.Values["your-feature-enabled"] = "true"
 }
 
 func setup(ctx core.SuiteContext) error {
@@ -81,7 +85,6 @@ func setup(ctx core.SuiteContext) error {
 }
 
 ```
-
 
 ### Supported Platforms
 
