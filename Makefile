@@ -68,7 +68,7 @@ run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base test-bookinfo
+run-all-tests: install-crds install-base install-ingress install-telemetry run-bookinfo
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
@@ -91,7 +91,7 @@ install-crds:
 wait-crds:
 	kubectl wait --for=condition=Established -f crds.yaml
 
-WAIT_TIMEOUT ?= 30s
+WAIT_TIMEOUT ?= 60s
 
 IOP_OPTS="-f test/kind/user-values.yaml"
 
@@ -120,8 +120,12 @@ run-bookinfo:
 	# Bookinfo test
 	SKIP_CLEANUP=1 bin/test.sh ${GOPATH}/src/istio.io/istio
 
-# Individual step to run a micro-test of bookinfo
-test-bookinfo: install-base install-ingress install-telemetry run-bookinfo
+run-stability:
+	 ISTIO_ENV=istio-control bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
+
+run-mysql:
+	 ISTIO_ENV=istio-control bin/iop mysql mysql ${BASE}/test/mysql ${IOP_OPTS}
+	 ISTIO_ENV=istio-control bin/iop mysqlplain mysqlplain ${BASE}/test/mysql ${IOP_OPTS} --set mtls=false --set Name=plain
 
 info:
 	# Get info about env, for debugging

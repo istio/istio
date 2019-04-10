@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: client-{{ .Values.Name }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: client-{{ .Values.Name }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+      # We sleep first and will execute mysql cli later. This ensures the cli command will
+      # send traffic to mysql server after iptable sidecar traffic injection finishes.
+      - args:
+        - bash
+        - -c
+        - |-
+          sleep 10
+          while :
+          do
+            echo "attempt to connect to server, $i"
+            mysql -uroot -proot -h server-{{ .Values.Name}}  -P3306  --connect-timeout 3 -e 'show databases;'
+            sleep 3
+          done
+        image: mysql
+        imagePullPolicy: IfNotPresent
+        name: client

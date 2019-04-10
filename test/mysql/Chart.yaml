@@ -1,0 +1,10 @@
+apiVersion: v1
+name: mysql-istio-testing
+version: 1.0
+description: Helm chart for testing MySQL with Istio.
+keywords:
+  - istio
+  - mysql
+sources:
+  - http://github.com/istio/istio
+engine: gotpl

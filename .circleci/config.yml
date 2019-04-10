@@ -28,9 +28,8 @@ initWorkingDir: &initWorkingDir
 #  ID is circleci(3434)
 
 jobs:
-
   # TODO: add encrypted creds for real clusters, push to real clusters
-  # TODO: add a Makefile to automate
+
   build:
     working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
     docker:
@@ -38,7 +37,8 @@ jobs:
       # Should have all tools we need, recreated when we rev the tool versions.
       - image: istionightly/kind:latest
         environment:
-          GOPATH: ${HOME}/go
+          GOPATH: /workspace/go
+          SKIP_CLEANUP: 1
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -53,10 +53,12 @@ jobs:
             git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
       - run:
           command: make test
+      - run:
+          command: make kind-logs
       - store_test_results:
-          path: out/tests
+          path: /workspace/go/out/tests
       - store_artifacts:
-          path: out/tests
+          path: /workspace/go/out/logs
 
   # Uses machine and minikube --root.
   install-minikube:
