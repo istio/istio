@@ -89,7 +89,7 @@ func TestRemoteInstanceAccessible(t *testing.T) {
 
 		// Check whether the response is from remote cluster (v2). If it is then the
 		// test is successful
-		if strings.Index(output, "Hello version: v2") >= 0 {
+		if strings.Contains(output, "Hello version: v2") {
 			log.Info("got response from the helloworld v2 instance (remote cluster)")
 			return nil
 		}
