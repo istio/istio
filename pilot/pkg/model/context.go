@@ -596,6 +596,24 @@ const (
 	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
 	// In duration format. If not set, this will be 1000ms.
 	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
+
+	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
+	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
+
+	// NodeMetadataTLSServerKey is the absolute path to server private key file
+	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
+
+	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
+	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
+
+	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
+	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
+
+	// NodeMetadataTLSClientKey is the absolute path to client private key file
+	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
+
+	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
+	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
 )
 
 var (
