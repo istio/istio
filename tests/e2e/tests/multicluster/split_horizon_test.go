@@ -333,10 +333,10 @@ func (t *testConfig) Setup() (err error) {
 
 	// Update the meshNetworks within the mesh config with the gateway address of the remote
 	// cluster.
-	remoteGwAddr, err := util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+	remoteGwAddr, ingressErr := util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
 		t.Kube.Namespace, t.Kube.RemoteKubeConfig, util.LoadBalancerServiceType, false)
-	if err != nil {
-		return
+	if ingressErr != nil {
+		return ingressErr
 	}
 	util.ReplaceInConfigMap(tc.Kube.Namespace, istioMeshConfigMapName,
 		fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), tc.Kube.KubeConfig)
