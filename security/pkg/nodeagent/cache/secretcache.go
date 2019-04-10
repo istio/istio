@@ -232,6 +232,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 }
 
 // SecretExist checks if secret already existed.
+// This API is used for sds server to check if coming request is ack request.
 func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version string) bool {
 	key := ConnKey{
 		ConnectionID: connectionID,
@@ -567,7 +568,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	}
 
 	// Cert exipre time by default is createTime + sc.configOptions.SecretTTL.
-	// Citadel respect SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Citadel respects SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
