@@ -29,4 +29,4 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running stackdriver e2e tests'
-./prow/e2e-suite.sh --single_test e2e_stackdriver --skip_cleanup
+./prow/e2e-suite.sh --single_test e2e_stackdriver
