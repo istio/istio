@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -67,6 +69,7 @@ type (
 		client, syncClient io.Closer
 		info               map[string]info
 		md                 helper.Metadata
+		types              map[string]*logentry.Type
 	}
 )
 
@@ -155,7 +158,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			flush:  client.Logger(name).Flush,
 		}
 	}
-	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos, md: md}, nil
+	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos, md: md, types: b.types}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -181,10 +184,14 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 		payload := buf.String()
 		pool.PutBuffer(buf)
 
+		var logEntryTypes map[string]istio_policy_v1beta1.ValueType
+		if typeInfo, found := h.types[v.Name]; found {
+			logEntryTypes = typeInfo.Variables
+		}
 		e := logging.Entry{
 			Timestamp:   h.now(), // TODO: use timestamp on Instance when timestamps work
 			Severity:    logging.ParseSeverity(v.Severity),
-			Labels:      toLabelMap(linfo.labels, v.Variables),
+			Labels:      toLabelMap(linfo.labels, v.Variables, logEntryTypes),
 			Payload:     payload,
 			HTTPRequest: toReq(linfo.req, v.Variables),
 		}
@@ -213,13 +220,19 @@ func (h *handler) Close() error {
 	return h.client.Close()
 }
 
-func toLabelMap(names []string, variables map[string]interface{}) map[string]string {
+func toLabelMap(names []string, variables map[string]interface{}, logEntryTypes map[string]istio_policy_v1beta1.ValueType) map[string]string {
 	out := make(map[string]string, len(names))
 	for _, name := range names {
 		v := variables[name]
 		switch vt := v.(type) {
 		case string:
 			out[name] = vt
+		case []byte:
+			if logEntryTypes[name] == istio_policy_v1beta1.IP_ADDRESS {
+				out[name] = net.IP(vt).String()
+			} else {
+				out[name] = fmt.Sprintf("%v", vt)
+			}
 		default:
 			out[name] = fmt.Sprintf("%v", vt)
 		}
@@ -275,8 +288,8 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		req.Latency = latency
 	}
 
-	req.LocalIP = fmt.Sprintf("%v", variables[mapping.LocalIp])
-	req.RemoteIP = fmt.Sprintf("%v", variables[mapping.RemoteIp])
+	req.LocalIP = adapter.Stringify(variables[mapping.LocalIp])
+	req.RemoteIP = adapter.Stringify(variables[mapping.RemoteIp])
 	return req
 }
 

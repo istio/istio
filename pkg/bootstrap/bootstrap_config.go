@@ -302,6 +302,12 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 			opts["lightstepToken"] = lightstepAccessTokenPath
 			opts["lightstepSecure"] = tracer.Lightstep.Secure
 			opts["lightstepCacertPath"] = tracer.Lightstep.CacertPath
+		case *meshconfig.Tracing_Datadog_:
+			h, p, err = GetHostPort("Datadog", tracer.Datadog.Address)
+			if err != nil {
+				return "", err
+			}
+			StoreHostPort(h, p, "datadog", opts)
 		}
 	}
 

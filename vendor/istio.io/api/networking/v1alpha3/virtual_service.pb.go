@@ -120,9 +120,13 @@ type VirtualService struct {
 	// dots in the name). In such a scenario, the FQDN of the host would be
 	// derived based on the underlying platform.
 	//
-	// **A host name can be defined by only one VirtualService**. A single
-	// VirtualService can be used to describe traffic properties for multiple
-	// HTTP and TCP ports.
+	// A single VirtualService can be used to describe all the traffic
+	// properties of the corresponding hosts, including those for multiple
+	// HTTP and TCP ports. Alternatively, the traffic properties of a host
+	// can be defined using more than one VirtualService, with certain
+	// caveats. Refer to the
+	// [Operations Guide](/help/ops/traffic-management/deploy-guidelines/#multiple-virtual-services-and-destination-rules-for-the-same-host)
+	// for details.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 	// instead of "reviews.default.svc.cluster.local"), Istio will interpret
@@ -1641,9 +1645,9 @@ func (m *TLSMatchAttributes) GetGateways() []string {
 //   - match:
 //     - uri:
 //         exact: /v1/getProductRatings
-//   redirect:
-//     uri: /v1/bookRatings
-//     authority: newratings.default.svc.cluster.local
+//     redirect:
+//       uri: /v1/bookRatings
+//       authority: newratings.default.svc.cluster.local
 //   ...
 // ```
 type HTTPRedirect struct {
@@ -2090,7 +2094,7 @@ func (m *HTTPRetry) GetRetryOn() string {
 //       allowCredentials: false
 //       allowHeaders:
 //       - X-Foo-Bar
-//       maxAge: "1d"
+//       maxAge: "24h"
 // ```
 //
 type CorsPolicy struct {

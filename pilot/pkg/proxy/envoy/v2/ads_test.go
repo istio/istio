@@ -29,7 +29,7 @@ import (
 
 const (
 	routeA = "http.80"
-	routeB = "https.443.https"
+	routeB = "https.443.https.my-gateway.testns"
 )
 
 // Regression for envoy restart and overlapping connections
