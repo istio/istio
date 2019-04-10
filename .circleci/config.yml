@@ -54,6 +54,7 @@ jobs:
       - run:
           command: make test
       - run:
+          when: always
           command: make kind-logs
       - store_test_results:
           path: /workspace/go/out/tests
