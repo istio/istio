@@ -553,6 +553,26 @@ jobs:
       - store_artifacts:
           path: /tmp
 
+  e2e-ipv6p:
+    <<: *integrationDefaults
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: tools/ipv6/setup_sn_ipv6k8s.sh
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_test_results:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+
   # Run nightly, to verify 'dep ensure --update' works
   depupdate:
     <<: *defaults
@@ -835,6 +855,9 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
+      - e2e-ipv6: # istio ipv6 test
+          requires:
+            - build
       - test-integration-local:
           requires:
             - build
@@ -874,6 +897,9 @@ workflows:
           requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
+          requires:
+            - build
+      -  e2e-ipv6: # istio ipv6 test
           requires:
             - build
       - test-integration-local:

@@ -49,6 +49,6 @@ export KUBECONFIG=/tmp/kube.conf
 #
 # Wait for control plane to compe up completely, timeout 180 seconds
 #
-./wait_for_control_plane.sh
+tools/ipv6/wait_for_control_plane.sh
 
 kubectl get pods -n kube-system

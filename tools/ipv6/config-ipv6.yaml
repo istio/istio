@@ -30,5 +30,13 @@ kind: ClusterConfiguration
 kubernetesVersion: v1.14.1
 networking:
   dnsDomain: cluster.local
-  podSubnet: 2001:470:b16e:1051::/64
-  serviceSubnet: 2001:470:b16e:1100::/110
+  podSubnet: 2001:470:b16e:4000::/64
+  serviceSubnet: 2001:470:b16e:4100::/110
+---
+address: '::'
+apiVersion: kubelet.config.k8s.io/v1beta1
+clusterDNS:
+- 2001:470:b16e:4110
+clusterDomain: cluster.local
+healthzBindAddress: '::1'
+kind: KubeletConfiguration
