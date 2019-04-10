@@ -5,7 +5,7 @@
     {
       "type": "calico",
       "log_level": "info",
-      "etcd_endpoints": "https://[2001:470:b16e:81::11]:2379",
+      "etcd_endpoints": "https://[2001:470:b16e:84::11]:2379",
       "etcd_key_file": "/etc/cni/net.d/calico-tls/etcd-key",
       "etcd_cert_file": "/etc/cni/net.d/calico-tls/etcd-cert",
       "etcd_ca_cert_file": "/etc/cni/net.d/calico-tls/etcd-ca",

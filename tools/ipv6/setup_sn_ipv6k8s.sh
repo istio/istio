@@ -44,10 +44,11 @@ if [ ! -f "/etc/kubernetes/admin.conf" ]; then
 fi
 
 sudo cp /etc/kubernetes/admin.conf /tmp/kube.conf
+sudo chmod ugo+r /tmp/kube.conf
 export KUBECONFIG=/tmp/kube.conf
 #
 # Wait for control plane to compe up completely, timeout 180 seconds
 #
-wait_for_control_plane.sh
+./wait_for_control_plane.sh
 
 kubectl get pods -n kube-system
