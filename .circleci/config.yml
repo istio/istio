@@ -582,6 +582,7 @@ jobs:
       - run: make init
       - run: make build test-bins /go/bin/go-junit-report
       - run:
+          no_output_timeout: 20m
           name: Starting Kubernetes API Server standalone and running tests
           command: |
             cd /go/src/istio.io/istio
@@ -610,6 +611,7 @@ jobs:
       - <<: *markJobStartsOnGCS
       - run: make sync
       - run:
+          no_output_timeout: 20m
           command: |
             mkdir -p /go/out/tests
             export PATH=$GOPATH/bin:$PATH

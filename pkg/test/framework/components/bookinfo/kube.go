@@ -33,20 +33,23 @@ const (
 	BookinfoDb        bookInfoConfig = "bookinfo-db.yaml"
 )
 
-func deploy(ctx resource.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
-	ns, err := namespace.Claim(ctx, "default")
-	if err != nil {
-		return nil, err
+func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {
+	ns := cfg.Namespace
+	if ns == nil {
+		ns, err = namespace.Claim(ctx, "default")
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	yamlFile := path.Join(env.BookInfoKube, string(cfg))
+	yamlFile := path.Join(env.BookInfoKube, string(cfg.Cfg))
 	by, err := ioutil.ReadFile(yamlFile)
 	if err != nil {
 		return nil, err
 	}
 
 	depcfg := deployment.Config{
-		Name:      string(cfg),
+		Name:      string(cfg.Cfg),
 		Namespace: ns,
 		Yaml:      string(by),
 	}

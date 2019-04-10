@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/mixer"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -62,7 +63,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Cfg: bookinfo.BookInfo})
 
 	g.ApplyConfigOrFail(t, d.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
@@ -120,46 +121,54 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/11430")
-	ctx := framework.NewContext(t)
-	defer ctx.Done(t)
+	framework.Run(t, func(ctx framework.TestContext) {
+		ctx.RequireOrSkip(t, environment.Kube)
 
-	ctx.RequireOrSkip(t, environment.Kube)
+		bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+		if err != nil {
+			t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+		}
+		d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
+		_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
+		_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDb})
 
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
-	_ = bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoRatingsv2)
-	_ = bookinfo.DeployOrFail(t, ctx, bookinfo.BookinfoDb)
+		g := galley.NewOrFail(t, ctx, galley.Config{})
+		_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	g := galley.NewOrFail(t, ctx, galley.Config{})
-	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
+		g.ApplyConfigOrFail(
+			t,
+			d.Namespace(),
+			bookinfo.NetworkingBookinfoGateway.LoadOrFailGatewayFileWithNamespace(t, bookinfoNs.Name()))
+		g.ApplyConfigOrFail(
+			t,
+			d.Namespace(),
+			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFailWithNamespace(t, bookinfoNs.Name()),
+			bookinfo.NetworkingTCPDbRule.LoadOrFailWithNamespace(t, bookinfoNs.Name()),
+		)
 
-	g.ApplyConfigOrFail(
-		t,
-		d.Namespace(),
-		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
-		bookinfo.NetworkingTCPDbRule.LoadOrFail(t))
+		// Wait for rules to sync.
+		time.Sleep(time.Second * 30)
 
-	prom := prometheus.NewOrFail(t, ctx)
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
+		prom := prometheus.NewOrFail(t, ctx)
+		ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
-	err := visitProductPage(ing, 30*time.Second, 200, t)
-	if err != nil {
-		t.Fatalf("unable to retrieve 200 from product page: %v", err)
-	}
+		err = visitProductPage(ing, 30*time.Second, 200, t)
+		if err != nil {
+			t.Fatalf("unable to retrieve 200 from product page: %v", err)
+		}
 
-	query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
-	validateMetric(t, prom, query, "istio_tcp_sent_bytes_total")
+		query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
+		validateMetric(t, prom, query, "istio_tcp_sent_bytes_total")
 
-	query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
-	validateMetric(t, prom, query, "istio_tcp_received_bytes_total")
+		query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
+		validateMetric(t, prom, query, "istio_tcp_received_bytes_total")
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
-	validateMetric(t, prom, query, "istio_tcp_connections_opened_total")
+		query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
+		validateMetric(t, prom, query, "istio_tcp_connections_opened_total")
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
-	validateMetric(t, prom, query, "istio_tcp_connections_closed_total")
+		query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
+		validateMetric(t, prom, query, "istio_tcp_connections_closed_total")
+	})
 }
 
 func validateMetric(t *testing.T, prom prometheus.Instance, query, metricName string) {

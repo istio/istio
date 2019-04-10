@@ -61,7 +61,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.BookInfo)
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Cfg: bookinfo.BookInfo})
 	g.ApplyConfigOrFail(t,
 		d.Namespace(),
 		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),

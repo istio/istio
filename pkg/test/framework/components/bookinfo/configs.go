@@ -18,6 +18,8 @@ import (
 	"path"
 	"testing"
 
+	"strings"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -45,8 +47,19 @@ const (
 	NetworkingTCPDbRule ConfigFile = "networking/virtual-service-ratings-db.yaml"
 )
 
-// LoadOrFail loads a Book Info configuration file from the system and returns its contents.
-func (l ConfigFile) LoadOrFail(t testing.TB) string {
+// LoadOrFailGatewayFileWithNamespace loads a Book Info Gateway configuration file from the system, changes it to be fit
+// for the namespace provided and returns its contents.
+func (l ConfigFile) LoadOrFailGatewayFileWithNamespace(t testing.TB, namespace string) string {
+	content := l.LoadOrFailWithNamespace(t,namespace)
+	if namespace != "" {
+		content = replaceGatewayAndHostAddressWithNamespace(content, namespace)
+	}
+	return content
+}
+
+// LoadOrFailWithNamespace loads a Book Info configuration file from the systemchanges it to be fit
+// for the namespace provided and returns its contents.
+func (l ConfigFile) LoadOrFailWithNamespace(t testing.TB, namespace string) string {
 	t.Helper()
 	p := path.Join(env.BookInfoRoot, string(l))
 
@@ -56,7 +69,15 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	}
 
 	scopes.Framework.Debugf("Loaded BookInfo file: %s\n%s\n", p, content)
+	if namespace != "" {
+		content = replaceBookinfoAppAddressWithFQDNAddress(content, namespace)
+	}
 	return content
+}
+
+// LoadOrFail loads a Book Info configuration file from the system and returns its contents.
+func (l ConfigFile) LoadOrFail(t testing.TB) string {
+	return l.LoadOrFailWithNamespace(t, "")
 }
 
 func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
@@ -70,4 +91,23 @@ func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile
 		return NetworkingDestinationRuleAllMtls
 	}
 	return NetworkingDestinationRuleAll
+}
+
+func replaceBookinfoAppAddressWithFQDNAddress(fileContent, namespace string) string {
+	content := fileContent
+	content = strings.Replace(content, "host: productpage", "host: productpage."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "host: reviews", "host: reviews."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "host: ratings", "host: ratings."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "host: details", "host: details."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "- productpage", "- productpage."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "- reviews", "- reviews."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "- ratings", "- ratings."+namespace+".svc.cluster.local", -1)
+	content = strings.Replace(content, "- details", "- details."+namespace+".svc.cluster.local", -1)
+	return content
+}
+
+func replaceGatewayAndHostAddressWithNamespace(fileContent, namespace string) string {
+	content := fileContent
+	content = strings.Replace(content, "- bookinfo-gateway", "- "+namespace+"/bookinfo-gateway", -1)
+	return content
 }
