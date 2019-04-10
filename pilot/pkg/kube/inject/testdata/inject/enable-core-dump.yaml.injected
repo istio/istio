@@ -142,6 +142,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsUser: 0
       - args:
         - -c
         - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited

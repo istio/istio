@@ -144,6 +144,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

@@ -134,6 +134,7 @@ spec:
               capabilities:
                 add:
                 - NET_ADMIN
+              runAsUser: 0
           restartPolicy: OnFailure
           volumes:
           - emptyDir:
