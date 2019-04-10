@@ -78,7 +78,7 @@ function cleanup() {
 # Set up a GKE cluster for testing.
 function setup_e2e_cluster() {
   if [[ "${SETUP_CLUSTERS}" != "True" ]]; then
-      return 0
+      exit 0
   fi
 
   WD=$(dirname "$0")
