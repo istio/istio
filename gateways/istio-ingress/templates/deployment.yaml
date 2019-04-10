@@ -8,10 +8,6 @@ metadata:
     istio: ingressgateway
     release: {{ .Release.Name }}
 spec:
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 0
-    type: RollingUpdate
 {{- if not .Values.autoscaleEnabled }}
 {{- if .Values.replicaCount }}
   replicas: {{ .Values.replicaCount }}

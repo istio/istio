@@ -27,12 +27,18 @@ function install_crds() {
     kubectl wait --for=condition=Established -f crds.yaml
 }
 
+# Cleanup all namespaces
+
+function cleanup() {
+    for namespace in istio-system  ${ISTIO_CONTROL_NS} istio-ingress istio-telemetry; do
+        kubectl delete namespace $namespace --wait --ignore-not-found
+    done
+
+}
+
 # Install citadel into namespace istio-system
 
 function install_system() {
-    if [ "$METHOD" = Install ]; then
-        kubectl delete namespace istio-system --wait --ignore-not-found
-    fi
     echo "${METHOD}ing citadel.."
     bin/iop istio-system istio-system-security $IBASE/security/citadel/ $RESOURCES_FLAGS
     
@@ -58,16 +64,12 @@ function install_control() {
 # Install discovery and ingress into namespace istio-ingress
 
 function install_ingress() {
-    if [ "$METHOD" = Install ]; then
-        kubectl delete namespace istio-ingress --wait --ignore-not-found
-    else
-        kubectl patch deployment -n istio-ingress ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
-    fi
     echo "${METHOD}ing pilot.."
     bin/iop istio-ingress istio-discovery $IBASE/istio-control/istio-discovery  --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
     echo "${METHOD}ing ingress.."
     bin/iop istio-ingress istio-ingress $IBASE/gateways/istio-ingress  --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
 
+    kubectl patch deployment -n istio-ingress ingressgateway --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
     kubectl rollout status  deployment istio-pilot -n istio-ingress --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment ingressgateway -n istio-ingress --timeout=$WAIT_TIMEOUT
 }
@@ -75,9 +77,6 @@ function install_ingress() {
 # Install grafana, mixer and prometheus into namespace istio-telemetry
 
 function install_telemetry() {
-    if [ "$METHOD" = Install ]; then
-        kubectl delete namespace istio-telemetry --wait --ignore-not-found
-    fi
     echo "${METHOD}ing istio-grafana.."
     bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
     echo "${METHOD}ing istio-mixer.."
@@ -113,6 +112,7 @@ do
         --update)
             METHOD=Update
             ;;
+        cleanup) COMMAND=$1 ;;
         install_crds) COMMAND=$1 ;;
         install_system) COMMAND=$1 ;;
         install_control) COMMAND=$1 ;;
@@ -133,6 +133,7 @@ else
 fi
 
 case "$COMMAND" in
+    cleanup) cleanup ;;
     install_crds) install_crds ;;
     install_system) install_system ;;
     install_control) install_control ;;
