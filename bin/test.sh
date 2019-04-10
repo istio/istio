@@ -14,21 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -x
+
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 ISTIO_PATH="$1"
-if [ -z "$ISTIO_PATH"]; then
+if [ -z "$ISTIO_PATH" ]; then
     echo "Usage: test.sh <istio-directory>"
     exit 1
 fi
 
-set -x
 cd $ISTIO_PATH
 
 kubectl label namespace default istio-env=istio-control --overwrite
 
+if [ -z $SKIP_CLEANUP ] ; then
+
 kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
 kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
 kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+
+fi
 
 kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
 kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
@@ -61,7 +66,9 @@ do
 done
 set -e
 
+if [ -z $SKIP_CLEANUP ] ; then
 echo "Cleaning up..."
 kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
 kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
 kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+fi
