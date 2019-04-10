@@ -21,9 +21,11 @@ export OWNER="istio-pilot-multicluster-e2e"
 export SETUP_CLUSTERREG="True"
 CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 export CLUSTERREG_DIR
+export CLEAN_CLUSTERS="False"
 
 #echo 'Running pilot multi-cluster split horizon e2e tests'
 ./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_multicluster_split_horizon "$@"
 
+export CLEAN_CLUSTERS="True"
 #echo 'Running pilot multi-cluster e2e tests with split horizon (v1alpha1, auth)'
 ./prow/e2e-suite.sh --timeout 50 --cluster_registry_dir="$CLUSTERREG_DIR" --split_horizon --single_test e2e_pilotv2_v1alpha3_auth "$@"
