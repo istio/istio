@@ -66,6 +66,7 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: istioctl generate_e2e_yaml e2e_simple_run
+e2e_kiali: istioctl generate_e2e_yaml e2e_kiali_run
 
 e2e_simple_cni: istioctl
 e2e_simple_cni: export ENABLE_ISTIO_CNI=true
@@ -94,6 +95,11 @@ e2e_simple_run: out_dir
 	--egress=false --ingress=false \
 	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+e2e_kiali_run: out_dir
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/kiali -args --auth_enable=false \
+	--egress=false --ingress=false \
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
