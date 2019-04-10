@@ -180,7 +180,7 @@ func logProgress(duration time.Duration, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-timeout:
-			log.Infof("Finished sending traffic to ingress")
+			log.Info("Finished sending traffic to ingress")
 			ticker.Stop()
 			wg.Done()
 			return
