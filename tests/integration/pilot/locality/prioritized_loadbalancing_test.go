@@ -24,6 +24,7 @@ import (
 
 	"text/template"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -66,6 +67,11 @@ import (
 //                                                       |
 //                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
 
+const (
+	testDuration = 1 * time.Minute
+	numSendTasks = 16
+)
+
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
 type ServiceConfig struct {
@@ -74,26 +80,27 @@ type ServiceConfig struct {
 	ServiceCAddress string
 }
 
-func TestLocalityLoadBalancing(t *testing.T) {
+func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, environment.Kube)
 
+	// Share Istio Control Plane
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	t.Run("TestCDS", func(t *testing.T) {
-		testLocalityLoadBalancingCDS(t, ctx, g, p)
+		testLocalityPrioritizedLoadBalancingCDS(t, ctx, g, p)
 	})
 
 	t.Run("TestEDS", func(t *testing.T) {
-		testLocalityLoadBalancingCDS(t, ctx, g, p)
+		testLocalityPrioritizedLoadBalancingEDS(t, ctx, g, p)
 	})
 
 }
 
-func testLocalityLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+func testLocalityPrioritizedLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
@@ -106,19 +113,19 @@ func testLocalityLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.I
 
 	// TODO: find a better way to do this!
 	// This sleep allows config to propagate
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
 	wg := &sync.WaitGroup{}
-	wg.Add(numSendTasks + 1)
-	go logProgress(20*time.Second, wg, "fake-external-service.com")
+	wg.Add(numSendTasks)
+	log.Info("Sending traffic to local service (CDS)")
 	for i := 0; i < numSendTasks; i++ {
 		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
 	}
 	wg.Wait()
 }
 
-func testLocalityLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+func testLocalityPrioritizedLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
@@ -137,12 +144,12 @@ func testLocalityLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.I
 
 	// TODO: find a better way to do this!
 	// This sleep allows config to propagate
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
 	wg := &sync.WaitGroup{}
-	wg.Add(numSendTasks + 1)
-	go logProgress(20*time.Second, wg, "fake-external-service.com")
+	wg.Add(numSendTasks)
+	log.Info("Sending traffic to local service (EDS)")
 	for i := 0; i < numSendTasks; i++ {
 		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
 	}
