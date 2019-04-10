@@ -191,6 +191,8 @@ type KubeInfo struct {
 	RemoteKubeAccessor *testKube.Accessor
 	RemoteAppManager   *AppManager
 	RemoteIstioctl     *Istioctl
+
+	SplitHorizon       bool
 }
 
 func getClusterWideInstallFile() string {
@@ -334,6 +336,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		RemoteKubeAccessor: remoteKubeAccessor,
 		appPods:            appPods,
 		Clusters:           clusters,
+		SplitHorizon:       *splitHorizon,
 	}, nil
 }
 
