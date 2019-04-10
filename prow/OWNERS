@@ -2,9 +2,9 @@ options:
   no_parent_owners: true
 
 reviewers:
-  - sig-testing-reviewers
+  - wg-testing
 approvers:
-  - sig-testing-approvers
+  - wg-testing-leads
 
 labels:
   - ci/prow
