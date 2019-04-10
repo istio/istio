@@ -17,4 +17,4 @@
 set -eux
 
 echo 'Running bookinfo test with a different trust domain'
-./prow/e2e-suite.sh --single_test e2e_bookinfo_trustdomain "$@"
+./prow/e2e-suite.sh --single_test e2e_bookinfo_trustdomain --skip_cleanup "$@"

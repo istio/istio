@@ -29,4 +29,4 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running mixer e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --single_test e2e_mixer
+./prow/e2e-suite.sh --single_test e2e_mixer --skip_cleanup

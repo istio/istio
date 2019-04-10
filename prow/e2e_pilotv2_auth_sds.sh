@@ -29,4 +29,4 @@ set -x
 
 # Run tests with auth enabled through SDS
 #echo 'Running pilot e2e tests (v1alpha3, auth through sds)'
-./prow/e2e-suite.sh --single_test e2e_pilotv2_auth_sds
+./prow/e2e-suite.sh --single_test e2e_pilotv2_auth_sds --skip_cleanup
