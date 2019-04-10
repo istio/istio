@@ -42,6 +42,9 @@ const (
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
+	istioMeshConfigMapName         = "istio"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioIngressGatewayLabel       = "ingressgateway"
 	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
 	remoteCluster           = framework.RemoteCluster
@@ -326,6 +329,19 @@ func (t *testConfig) Setup() (err error) {
 			err = fmt.Errorf("can't get all pods running in %s cluster", cluster)
 			return
 		}
+	}
+
+	remoteGwAddr := "0.0.0.0"
+	if t.Kube.SplitHorizon {
+		// Update the meshNetworks within the mesh config with the gateway address of the remote
+		// cluster.
+		remoteGwAddr, err = util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+		t.Kube.Namespace, t.Kube.RemoteKubeConfig, util.LoadBalancerServiceType, false)
+		if err != nil {
+			return
+	        }
+		util.ReplaceInConfigMap(t.Kube.Namespace, istioMeshConfigMapName,
+		fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), t.Kube.KubeConfig)
 	}
 
 	if len(t.Kube.Clusters) > 1 {
