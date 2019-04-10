@@ -1,15 +1,19 @@
 apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
-  name: quotahandler
+  name: redishandler
   namespace: istio-system
 spec:
-  compiledAdapter: memquota
+  compiledAdapter: redisquota
   params:
+    redisServerUrl: redis-release-master:6379
+    connectionPoolSize: 10
     quotas:
     - name: requestcountquota.instance.istio-system
       maxAmount: 500
       validDuration: 1s
+      bucketDuration: 500ms
+      rateLimitAlgorithm: ROLLING_WINDOW
       # The first matching override is applied.
       # A requestcount instance is checked against override dimensions.
       overrides:
@@ -18,20 +22,17 @@ spec:
       - dimensions:
           destination: reviews
         maxAmount: 1
-        validDuration: 5s
       # The following override applies to 'productpage' when
       # the source is a specific ip address.
       - dimensions:
           destination: productpage
           source: "10.28.11.20"
         maxAmount: 500
-        validDuration: 1s
       # The following override applies to 'productpage' regardless
       # of the source.
       - dimensions:
           destination: productpage
         maxAmount: 2
-        validDuration: 5s
 ---
 apiVersion: config.istio.io/v1alpha2
 kind: instance
@@ -43,7 +44,7 @@ spec:
   params:
     dimensions:
       source: request.headers["x-forwarded-for"] | "unknown"
-      destination: destination.labels["app"] | destination.service.name | "unknown"
+      destination: destination.labels["app"] | destination.workload.name | "unknown"
       destinationVersion: destination.labels["version"] | "unknown"
 ---
 apiVersion: config.istio.io/v1alpha2
@@ -78,8 +79,9 @@ metadata:
   namespace: istio-system
 spec:
   # quota only applies if you are not logged in.
-  # match: match(request.headers["cookie"], "user=*") == false
+  # match: match(request.headers["cookie"], "session=*") == false
   actions:
-  - handler: quotahandler
+  - handler: redishandler
     instances:
     - requestcountquota
+---
