@@ -15,7 +15,6 @@
 package sds_citadel_test
 
 import (
-	"fmt"
 	"path"
 	"testing"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -38,14 +38,6 @@ type testPolicy struct {
 	env       *kube.Environment
 	namespace string
 	fileName  string
-}
-
-type connection struct {
-	from            apps.KubeApp
-	to              apps.KubeApp
-	protocol        apps.AppProtocol
-	port            int
-	expectedSuccess bool
 }
 
 func (p testPolicy) tearDown() {
@@ -69,35 +61,6 @@ func applyPolicyFile(t *testing.T, env *kube.Environment, namespace string, file
 	}
 }
 
-func checkConnection(conn connection) error {
-	ep := conn.to.EndpointForPort(conn.port)
-	if ep == nil {
-		return fmt.Errorf("cannot get upstream endpoint for connection test %v", conn)
-	}
-
-	results, err := conn.from.Call(ep, apps.AppCallOptions{Protocol: conn.protocol})
-	if conn.expectedSuccess {
-		if err != nil || len(results) == 0 || results[0].Code != "200" {
-			// Addition log for debugging purpose.
-			if err != nil {
-				fmt.Printf("Error: %#v\n", err)
-			} else if len(results) == 0 {
-				fmt.Printf("No result\n")
-			} else {
-				fmt.Printf("Result: %v\n", results[0])
-			}
-			return fmt.Errorf("%s to %s:%d using %s: expected success, actually failed",
-				conn.from.Name(), conn.to.Name(), conn.port, conn.protocol)
-		}
-	} else {
-		if err == nil && len(results) > 0 && results[0].Code == "200" {
-			return fmt.Errorf("%s to %s:%d using %s: expected failed, actually success",
-				conn.from.Name(), conn.to.Name(), conn.port, conn.protocol)
-		}
-	}
-	return nil
-}
-
 func TestSdsCitadelCaFlow(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
@@ -114,13 +77,13 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 	aApp, _ := appInst.GetAppOrFail("a", t).(apps.KubeApp)
 	bApp, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)
 
-	connections := []connection{
+	connections := []connection.Connection{
 		{
-			from:            aApp,
-			to:              bApp,
-			port:            80,
-			protocol:        apps.AppProtocolHTTP,
-			expectedSuccess: true,
+			From:            aApp,
+			To:              bApp,
+			Port:            80,
+			Protocol:        apps.AppProtocolHTTP,
+			ExpectedSuccess: true,
 		},
 	}
 
@@ -132,7 +95,7 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	for _, conn := range connections {
 		retry.UntilSuccessOrFail(t, func() error {
-			return checkConnection(conn)
+			return connection.CheckConnection(t, conn)
 		}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 	}
 	policy.tearDown()
