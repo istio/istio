@@ -116,7 +116,7 @@ func (c *kubectl) delete(namespace string, filename string) error {
 func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 	for i := len(files) - 1; i >= 0; i-- {
 		scopes.CI.Infof("Deleting YAML file: %s", files[i])
-		s, e := shell.Execute("kubectl delete %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
+		s, e := shell.Execute("kubectl delete --ignore-not-found %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
 		if e != nil {
 			return multierror.Append(err, fmt.Errorf("%v: %s", e, s))
 		}
