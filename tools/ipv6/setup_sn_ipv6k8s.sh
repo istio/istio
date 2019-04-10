@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 sudo curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-sudo bash -c 'echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list'
+sudo bash -c 'echo "deb http://apt.kubernetes.io/ kubernetes-trusty main" > /etc/apt/sources.list.d/kubernetes.list'
 sudo apt-get update
 sudo apt-get install -y docker.io kubeadm kubelet kubectl kubernetes-cni
 
