@@ -1,0 +1,28 @@
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+nodes:
+- role: control-plane
+  extraMounts:
+  - containerPath: GOPATH
+    hostPath: GOPATH
+
+- role: worker
+
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubeadm.k8s.io/v1beta1
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    networking:
+      serviceSubnet: 10.0.0.0/16
+
+# patch it further using a JSON 6902 patch
+kubeadmConfigPatchesJson6902:
+  - group: kubeadm.k8s.io
+    version: v1beta1
+    kind: ClusterConfiguration
+    patch: |
+      - op: add
+        path: /apiServer/certSANs/-
+        value: my-hostname

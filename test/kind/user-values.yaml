@@ -1,0 +1,14 @@
+global:
+  defaultResources:
+    requests:
+      cpu: 0m
+      memory: 1Mi
+
+  proxy:
+    resources:
+      requests:
+        cpu: 0m
+        memory: 1Mi
+
+# Pilot options
+configValidation: true
