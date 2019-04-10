@@ -61,9 +61,9 @@ test: info clean prepare sync run-test clean
 
 # Runs the test
 run-test:
-	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf -w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf \
 		${KIND_CLUSTER}-control-plane \
-		make ${TEST_TARGET}
+		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make ${TEST_TARGET}"
 
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
