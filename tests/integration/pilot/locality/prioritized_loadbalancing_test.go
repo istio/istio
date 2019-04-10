@@ -80,6 +80,7 @@ type ServiceConfig struct {
 	ServiceCAddress string
 }
 
+// WARNING: If these tests are failing with 404s it is likely that you will need to increase the Pilot propagation sleep!
 func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
@@ -113,7 +114,7 @@ func testLocalityPrioritizedLoadBalancingCDS(t *testing.T, ctx resource.Context,
 
 	// TODO: find a better way to do this!
 	// This sleep allows config to propagate
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
 	wg := &sync.WaitGroup{}
