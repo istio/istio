@@ -15,7 +15,6 @@ set -x
 export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-perf-preset}"
 export OWNER="${OWNER:-perf-tests}"
 export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
-export SETUP_CLUSTERS="${SETUP_CLUSTERS:-True}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 # This is config for postsubmit cluster under istio/tools/perf/istio.

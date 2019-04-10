@@ -40,7 +40,6 @@ set -x
 export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 export OWNER="${OWNER:-e2e-suite}"
 export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
-export SETUP_CLUSTERS="${SETUP_CLUSTERS:-True}"
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 

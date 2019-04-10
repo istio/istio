@@ -50,7 +50,6 @@ download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_VERSION}"
 if [ "${UPGRADE_TEST_LOCAL}" = "" ]; then
     export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
     export OWNER='upgrade-tests'
-    export SETUP_CLUSTERS="${SETUP_CLUSTERS:-True}"
     export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
     export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
