@@ -198,11 +198,13 @@ func newKube(ctx resource.Context) (Instance, error) {
 func (c *kubeComponent) CreateConfigSnippet(name string, namespace string) string {
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
-kind: bypass
+kind: handler
 metadata:
   name: %s
 spec:
-  backend_address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    backend_address: policy-backend.%s.svc.cluster.local:1071
+  compiledAdapter: bypass
 `, name, c.namespace.Name())
 }
 

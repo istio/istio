@@ -674,14 +674,15 @@ func testExpression(env celgo.Env, provider *attributeProvider, test testCase, m
 		// expressions must parse
 		mutex.Lock()
 		expr, iss := env.Parse(test.text)
-		mutex.Unlock()
 		if iss != nil && iss.Err() != nil {
+			mutex.Unlock()
 			t.Fatalf("unexpected parsing error: %v", iss.Err())
 		}
 		t.Log(debug.ToDebugString(expr.Expr()))
 
 		// expressions may fail type checking
 		checked, iss := env.Check(expr)
+		mutex.Unlock()
 		if iss != nil {
 			if test.checkErr == "" {
 				t.Fatalf("unexpected check error: %v", iss)
