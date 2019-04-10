@@ -154,8 +154,8 @@ function unsetup_clusters() {
             # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
             CLUSTER_NAME="${CLUSTER_NAME##*_}"
         fi
+
         KUBECFG_FILE="${CLUSTERREG_DIR}/${CLUSTER_NAME}"
-	echo removing "${KUBECFG_FILE}"
         rm "${KUBECFG_FILE}"
      fi
   done
