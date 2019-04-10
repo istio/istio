@@ -13,18 +13,11 @@ ENV     PATH=/go/bin:/go/out/linux_amd64:$PATH
 # Need to have docker installed
 #RUN curl -s -L https://get.docker.io/ | sh -x
 
+
+RUN  apt-get update && apt-get -qqy install make git
+
 ADD kind /usr/local/bin
 ADD helm /usr/local/bin
-
-RUN  apt-get update
-
-# Install fpm tool - for deb/rpm building
-RUN apt-get -qqy install ruby ruby-dev rubygems build-essential autoconf libtool autotools-dev && \
-     gem install --no-ri --no-rdoc fpm
-
-
-RUN apt-get -qqy install make git
-
 ADD repo /usr/local/bin
 
 RUN curl -Lo - https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz | tar -C /usr/local -xzf -

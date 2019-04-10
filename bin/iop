@@ -56,6 +56,10 @@ function iop() {
         # be removed. The release MUST be unique across cluster.
         kubectl create  ns $ns > /dev/null  2>&1
 
+        if [ "$ISTIO_ENV" != "" ]; then
+            kubectl label namespace $ns istio-env=$ISTIO_ENV --overwrite
+        fi
+
         if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
 
             mkdir -p $OUT/$ns/$rel/
@@ -73,12 +77,17 @@ function iop() {
 }
 
 if [ "$1" == "" ] ; then
-    echo "iop NAMESPACE COMPONENT CONFIGDIR [-t|-d]"
+    echo "iop NAMESPACE COMPONENT CONFIGDIR [-t|-d] [HELM_TEMPLATE_OPTIONS]"
+    echo ""
+    echo "-d: delete the component"
+    echo "-t: show the config to be applied"
     echo ""
     echo "Env:"
-    echo "  IOP_MODE=helm to install with tiller"
-    echo "  HUB, TAG to select a specific hub"
-    echo "  $HOME/.istio-values.yaml for user specific settings"
+    echo "  IOP_MODE=helm to install with tiller (not recommended)"
+    echo "  HUB, TAG to select a specific hub and tag for istio images"
+    echo "  ISTIO_ENV if set, the namespace will be labeled with ISTIO_ENV"
+    echo "  $HOME/.istio-values.yaml for user specific settings. You can add more options via --set or -f"
+    echo ""
     exit 1
 fi
 
