@@ -44,6 +44,7 @@ do
     shift 1
 done
 
+#FIXME ISTIO_PATH not needed if skip setup + cleanup 
 if [ -z "$ISTIO_PATH" ]; then
     echo "istio-directory not set"
     print_help
