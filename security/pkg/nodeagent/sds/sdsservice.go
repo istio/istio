@@ -199,7 +199,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
 			// wait for secret before sending SDS response. If a kubernetes secret was deleted by operator, wait
 			// for a new kubernetes secret before sending SDS response.
-			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token, discReq.VersionInfo) {
+			if s.st.ShouldWaitForIngressGatewaySecret(con.conID, resourceName, token) {
 				log.Debugf("Waiting for ingress gateway secret resource %q, connectionID %q, node %q\n", resourceName, con.conID, discReq.Node.Id)
 				continue
 			}

@@ -100,7 +100,7 @@ type SecretManager interface {
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
 	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token, version string) bool
+	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool
 
 	// SecretExist checks if secret already existed.
 	SecretExist(connectionID, resourceName, token, version string) bool
@@ -227,7 +227,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 // IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
-func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token, version string) bool {
+func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
 	if sc.fetcher.UseCaClient == true {
 		return false
