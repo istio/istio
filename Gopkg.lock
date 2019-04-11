@@ -1536,11 +1536,6 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
-<<<<<<< HEAD
-    "googleapis/iam/credentials/v1",
-    "googleapis/iam/v1",
-=======
->>>>>>> e5e88850fabef9113df4a83937529b357575b4d2
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
