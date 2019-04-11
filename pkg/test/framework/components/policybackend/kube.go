@@ -171,13 +171,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 	address := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scopes.Framework.Infof("Policy Backend in-cluster address: %s", address)
 
-	options := &testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}
-
 	if c.forwarder, err = env.NewPortForwarder(
-		options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return nil, err
 	}

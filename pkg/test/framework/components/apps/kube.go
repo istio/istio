@@ -531,10 +531,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	}
 
 	// Create a forwarder to the command port of the app.
-	a.forwarder, err = e.NewPortForwarder(&testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}, 0, grpcPort)
+	a.forwarder, err = e.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
 	}

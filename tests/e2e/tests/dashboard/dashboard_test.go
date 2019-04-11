@@ -451,16 +451,17 @@ func newPromProxy(namespace string) *promProxy {
 
 func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	options := &kube.PodSelectOptions{
-		PodNamespace:  p.namespace,
-		LabelSelector: labelSelector,
-	}
+
 	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
 	}
-	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	pod, err := accessor.FindPodBySelectors(p.namespace, labelSelector)
+	if err != nil {
+		log.Errorf("error finding pod: %v", err)
+	}
+	forwarder, err := accessor.NewPortForwarder(pod, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err
@@ -544,18 +545,17 @@ func waitForMixerProxyReadiness() error {
 		log.Infof("Waiting for Mixer's proxy to be ready to dispatch traffic: %v", duration)
 		time.Sleep(duration)
 
-		for _, pod := range mixerPods {
-			options := &kube.PodSelectOptions{
-				PodNamespace: tc.Kube.Namespace,
-				PodName:      pod,
-			}
-
+		for _, podName := range mixerPods {
 			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 			if err != nil {
 				log.Errorf("Error creating accessor: %v", err)
 				return err
 			}
-			forwarder, err := accessor.NewPortForwarder(options, 16000, 15000)
+			pod, err := accessor.GetPod(tc.Kube.Namespace, podName)
+			if err != nil {
+				log.Errorf("error retrieving pod: %v", err)
+			}
+			forwarder, err := accessor.NewPortForwarder(pod, 16000, 15000)
 			if err != nil {
 				log.Infof("Error creating port forwarder: %v", err)
 				continue
