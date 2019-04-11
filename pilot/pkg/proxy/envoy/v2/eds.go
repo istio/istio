@@ -474,11 +474,12 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	}
 	w, f := s.WorkloadsByID[id]
 	if !f {
-		// First time this workload has been seen. Likely never connected, no need to
-		// push
+		// First time this workload has been seen. Maybe after the first connect, do a full push.
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
 		}
+		adsLog.Infof("First time sidecar instance added, full push %s ", id)
+		s.ConfigUpdate(true)
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
