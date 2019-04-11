@@ -192,7 +192,7 @@ type KubeInfo struct {
 	RemoteAppManager   *AppManager
 	RemoteIstioctl     *Istioctl
 
-	SplitHorizon       bool
+	SplitHorizon bool
 }
 
 func getClusterWideInstallFile() string {
