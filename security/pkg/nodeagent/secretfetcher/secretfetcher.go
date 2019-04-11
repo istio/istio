@@ -72,6 +72,8 @@ type SecretFetcher struct {
 	// secrets maps k8sKey to secrets
 	secrets sync.Map
 
+	// Add all entries containing secretName in SecretCache. Called when K8S secret is added.
+	AddCache func(secretName string, ns model.SecretItem)
 	// Delete all entries containing secretName in SecretCache. Called when K8S secret is deleted.
 	DeleteCache func(secretName string)
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
@@ -141,7 +143,10 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		})
 }
 
-func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte) {
+// extractCertAndKey extracts key, certificate and root certificate, and indicates whether
+// these key and certificate are empty.
+func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte, valid bool) {
+	certAndKeyExist := false
 	if len(scrt.Data[genericScrtCert]) > 0 {
 		cert = scrt.Data[genericScrtCert]
 		key = scrt.Data[genericScrtKey]
@@ -151,7 +156,11 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte) {
 		key = scrt.Data[tlsScrtKey]
 		root = []byte{}
 	}
-	return cert, key, root
+	// root could be empty if ingress gateway only accepts TLS.
+	if len(cert) > 0 && len(key) > 0 {
+		certAndKeyExist = true
+	}
+	return cert, key, root, certAndKeyExist
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -163,7 +172,11 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
-	newCert, newKey, newRoot := extractCertAndKey(scrt)
+	newCert, newKey, newRoot, valid := extractCertAndKey(scrt)
+	if !valid {
+		log.Warnf("Secret object: %v has empty field, skip adding secret", resourceName)
+		return
+	}
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
@@ -175,6 +188,9 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 	sf.secrets.Store(resourceName, *ns)
 	log.Debugf("secret %s is added", resourceName)
+	if sf.AddCache != nil {
+		sf.AddCache(resourceName, *ns)
+	}
 
 	rootCertResourceName := resourceName + IngressGatewaySdsCaSuffix
 	// If there is root cert secret with the same resource name, delete that secret now.
@@ -188,6 +204,9 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		}
 		sf.secrets.Store(rootCertResourceName, *nsRoot)
 		log.Debugf("secret %s is added", rootCertResourceName)
+		if sf.AddCache != nil {
+			sf.AddCache(rootCertResourceName, *nsRoot)
+		}
 	}
 }
 
@@ -234,8 +253,12 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	oldCert, oldKey, oldRoot := extractCertAndKey(oscrt)
-	newCert, newKey, newRoot := extractCertAndKey(nscrt)
+	oldCert, oldKey, oldRoot, _ := extractCertAndKey(oscrt)
+	newCert, newKey, newRoot, valid := extractCertAndKey(nscrt)
+	if !valid {
+		log.Warnf("Secret object: %v has empty field, skip update", newScrtName)
+		return
+	}
 	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot) {
 		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
