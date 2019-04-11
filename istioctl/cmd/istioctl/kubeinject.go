@@ -151,6 +151,7 @@ var (
 	outFilename         string
 	meshConfigFile      string
 	meshConfigMapName   string
+	valuesFile          string
 	injectConfigFile    string
 	injectConfigMapName string
 )
@@ -273,9 +274,17 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 			}
 
-			valuesConfig, err := getValuesFromConfigMap(kubeconfig)
-			if err != nil {
-				return err
+			var valuesConfig string
+			if valuesFile != "" {
+				valuesConfigBytes, err := ioutil.ReadFile(valuesFile) // nolint: vetshadow
+				if err != nil {
+					return err
+				}
+				valuesConfig = string(valuesConfigBytes)
+			} else {
+				if valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
 			}
 
 			if emitTemplate {
@@ -308,6 +317,8 @@ func init() {
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
+	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
+		"injection values configuration filename.")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false,
 		"Emit sidecar template based on parameterized flags")
