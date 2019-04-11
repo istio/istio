@@ -74,7 +74,7 @@ wait_for_control_plane "${network_plane[@]}"
 #
 # Untain the node in order to run workloads
 #
-kubectl taint nodes --all=true node.kubernetes.io/unschedulable || true
+kubectl taint nodes --all=true node-role.kubernetes.io/master:NoSchedule- || true
 
 #
 # Collect info from the cluster
