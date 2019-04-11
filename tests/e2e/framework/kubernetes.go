@@ -506,7 +506,16 @@ func (k *KubeInfo) Teardown() error {
 		}
 
 		if *clusterWide {
-			istioYaml := getClusterWideInstallFile()
+			var istioYaml string
+			if *multiClusterDir != "" {
+				if *authEnable {
+					istioYaml = mcAuthInstallFileNamespace
+				} else {
+					istioYaml = mcNonAuthInstallFileNamespace
+				}
+			} else {
+				istioYaml = getClusterWideInstallFile()
+			}
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -727,6 +736,11 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Remote Istio %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := util.CreateMultiClusterSecret(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+			log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
+			return err
+		}
+		time.Sleep(10 * time.Second)
 	}
 
 	if *useAutomaticInjection {
