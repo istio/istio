@@ -4,7 +4,7 @@ metadata:
   name: istio-init-{{ .Release.Namespace }}
   labels:
     app: istio-init
-    istio: istio-init
+    istio: init
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
