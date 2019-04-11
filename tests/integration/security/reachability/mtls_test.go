@@ -164,6 +164,7 @@ func TestMutualTlsReachability(t *testing.T) {
 		}
 
 		policy := policy.ApplyPolicyFile(t, env, namespace, c.configFile)
+		defer policy.TearDown()
 		// Give some time for the policy propagate.
 		// TODO: query pilot or app to know instead of sleep.
 		time.Sleep(time.Second)
@@ -172,7 +173,6 @@ func TestMutualTlsReachability(t *testing.T) {
 				return connect.CheckConnection(t, conn)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		}
-		policy.TearDown()
 	}
 }
 

@@ -82,6 +82,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 	configFile := "global-mtls.yaml"
 
 	policy := policy.ApplyPolicyFile(t, env, namespace, configFile)
+	defer policy.TearDown()
 	// Sleep 3 seconds for the policy to take effect.
 	time.Sleep(3 * time.Second)
 	for _, conn := range connections {
@@ -89,7 +90,6 @@ func TestSdsVaultCaFlow(t *testing.T) {
 			return connection.CheckConnection(t, conn)
 		}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 	}
-	policy.TearDown()
 }
 
 func setupConfig(cfg *istio.Config) {
