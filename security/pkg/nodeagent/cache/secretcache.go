@@ -244,11 +244,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	}
 
 	e := val.(model.SecretItem)
-	if e.ResourceName == resourceName && e.Token == token && e.Version == version {
-		return true
-	}
-
-	return false
+	return e.ResourceName == resourceName && e.Token == token && e.Version == version
 }
 
 // DeleteSecret deletes a secret by its key from cache.
