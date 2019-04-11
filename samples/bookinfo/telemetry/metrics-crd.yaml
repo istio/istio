@@ -15,31 +15,29 @@ spec:
 ---
 # Configuration for a Prometheus handler
 apiVersion: "config.istio.io/v1alpha2"
-kind: handler
+kind: prometheus
 metadata:
-  name: prometheusdouble
+  name: doublehandler
   namespace: istio-system
 spec:
-  compiledAdapter: prometheus
-  params:
-    metrics:
-    - name: double_request_count # Prometheus metric name
-      instance_name: doublerequestcount.metric.istio-system # Mixer instance name (fully-qualified)
-      kind: COUNTER
-      label_names:
-      - reporter
-      - source
-      - destination
-      - message
+  metrics:
+  - name: double_request_count # Prometheus metric name
+    instance_name: doublerequestcount.metric.istio-system # Mixer instance name (fully-qualified)
+    kind: COUNTER
+    label_names:
+    - reporter
+    - source
+    - destination
+    - message
 ---
 # Rule to send metric instances to a Prometheus handler
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: doublepromtwo
+  name: doubleprom
   namespace: istio-system
 spec:
   actions:
-  - handler: prometheusdouble
+  - handler: doublehandler.prometheus
     instances:
     - doublerequestcount.metric

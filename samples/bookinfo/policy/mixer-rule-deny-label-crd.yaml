@@ -1,20 +1,17 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: handler
+kind: denier
 metadata:
   name: denyreviewsv3handler
 spec:
-  compiledAdapter: denier
-  params:
-    status:
-      code: 7
-      message: Not allowed
+  status:
+    code: 7
+    message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: instance
+kind: checknothing
 metadata:
   name: denyreviewsv3request
 spec:
-  compiledTemplate: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -23,5 +20,5 @@ metadata:
 spec:
   match: destination.labels["app"] == "ratings" && source.labels["app"]=="reviews" && source.labels["version"] == "v3"
   actions:
-  - handler: denyreviewsv3handler
-    instances: [ denyreviewsv3request ]
+  - handler: denyreviewsv3handler.denier
+    instances: [ denyreviewsv3request.checknothing ]
