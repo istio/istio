@@ -901,7 +901,8 @@ func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 
 // ReplaceInConfigMap will modify an existing configmap with the provided sed expression
 func ReplaceInConfigMap(namespace string, configmapName string, sedExpression string, kubeconfig string) error {
-	Shell("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml")
+	Shell("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml",
+		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
 
 	_, err := ShellMuteOutput("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml | sed \"%s\" | kubectl replace --kubeconfig=%s -f -",
 		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
@@ -911,6 +912,7 @@ func ReplaceInConfigMap(namespace string, configmapName string, sedExpression st
 		log.Infof("Configmap %s updated with sed expression %s", configmapName, sedExpression)
 	}
 
-	Shell("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml")
+	Shell("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml",
+		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
 	return err
 }
