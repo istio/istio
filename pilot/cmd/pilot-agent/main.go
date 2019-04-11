@@ -49,7 +49,9 @@ import (
 )
 
 var (
-	role             = &model.Proxy{}
+	role = &model.Proxy{
+		Metadata: map[string]string{},
+	}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
@@ -531,7 +533,7 @@ func init() {
 	// client certs
 	proxyCmd.PersistentFlags().StringVar(&tlsClientCertChain, "tlsClientCertChain",
 		model.DefaultCertChain, "Absolute path to client cert-chain file used for istio mTLS")
-	proxyCmd.PersistentFlags().StringVar(&tlsClientKey, "tlsSClientKey",
+	proxyCmd.PersistentFlags().StringVar(&tlsClientKey, "tlsClientKey",
 		model.DefaultKey, "Absolute path to client key file used for istio mTLS")
 	proxyCmd.PersistentFlags().StringVar(&tlsClientRootCert, "tlsClientRootCert",
 		model.DefaultRootCert, "Absolute path to client root cert file used for istio mTLS")
