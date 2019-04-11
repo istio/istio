@@ -105,8 +105,8 @@ function parse_skipped_tests() {
 
 function remove_skipped_tests_from_cov() {
   while read -r entry; do
-    entry=`echo ${entry} | sed 's/\//\\\\\//g'`
-    sed -i "/${entry}/d" $1
+    entry="`echo ${entry} | sed 's/\//\\\\\//g'`"
+    sed -i "/${entry}/d" "$1"
   done < "${CODECOV_SKIP}"
 }
 
