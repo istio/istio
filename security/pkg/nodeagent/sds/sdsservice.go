@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	pmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
@@ -47,9 +48,9 @@ const (
 	// pass credential token from envoy's SDS request to SDS service.
 	credentialTokenHeaderKey = "authorization"
 
-	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt, which is set in
-	// https://github.com/istio/istio/blob/master/pilot/pkg/model/authentication.go
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
+	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All SDS requests
+	// for root CA sent by ingress gateway have suffix -cacert.
+	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
 var (
@@ -296,9 +297,9 @@ func getCredentialToken(ctx context.Context) (string, error) {
 
 	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentail_header`) if it exists;
 	// otherwise fallback to credentialTokenHeader('authorization').
-	if h, ok := metadata[k8sSAJwtTokenHeaderKey]; ok {
+	if h, ok := metadata[pmodel.K8sSAJwtTokenHeaderKey]; ok {
 		if len(h) != 1 {
-			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", k8sSAJwtTokenHeaderKey, len(h))
+			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", pmodel.K8sSAJwtTokenHeaderKey, len(h))
 		}
 		return h[0], nil
 	}
