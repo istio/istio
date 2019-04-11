@@ -1,7 +1,12 @@
 #!/bin/bash -e
 
+#
+# Load common  waiting for control plane pods function
+#
+. ./tools/ipv6/wait_for_control_plane.sh
+
 sudo curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-sudo bash -c 'echo "deb http://apt.kubernetes.io/ kubernetes-trusty main" > /etc/apt/sources.list.d/kubernetes.list'
+sudo bash -c 'echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list'
 sudo apt-get update
 sudo apt-get install -y docker.io kubeadm kubelet kubectl kubernetes-cni
 
@@ -34,8 +39,14 @@ sudo systemctl daemon-reload
 sudo systemctl start docker
 sudo systemctl restart kubelet
 
-sudo ip -6 addr add 2001:470:b16e:84::11 dev docker0 || true
-sudo kubeadm init --config config-ipv6.yaml | tee /tmp/kubeout
+#
+# Getting interface to bind new ipv6 address and set up a default ipv6 route
+#
+intf=$(ip addr | awk '/state UP/ {print $2}' | sed 's/://')
+sudo ip -6 addr add 2001:470:b16e:84::11 dev "$intf" || true
+sudo ip -6 route add ::/0  dev "$intf"  || true
+
+sudo kubeadm init --config ./tools/ipv6/config-ipv6.yaml | tee /tmp/kubeout
 
 # Check if client config has been generated
 if [ ! -f "/etc/kubernetes/admin.conf" ]; then
@@ -49,6 +60,24 @@ export KUBECONFIG=/tmp/kube.conf
 #
 # Wait for control plane to compe up completely, timeout 180 seconds
 #
-tools/ipv6/wait_for_control_plane.sh
+control_plane=("etcd" "kube-apiserver" "kube-controller-manager" "kube-scheduler")
+wait_for_control_plane "${control_plane[@]}"
 
 kubectl get pods -n kube-system
+#
+# Installing calico networking 
+#
+kubectl create -f ./tools/ipv6/calico.yaml
+network_plane=("calico-node" "calico-kube-controllers")
+wait_for_control_plane "${network_plane[@]}"
+
+#
+# Untain the node in order to run workloads
+#
+kubectl taint nodes --all=true node.kubernetes.io/unschedulable || true
+
+#
+# Collect info from the cluster
+#
+kubectl get pod --all-namespaces -o wide || true
+kubectl get svc --all-namespaces -o wide || true

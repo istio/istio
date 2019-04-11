@@ -14,6 +14,7 @@ apiServer:
   extraArgs:
     advertise-address: 2001:470:b16e:84::11
     authorization-mode: Node,RBAC
+    etcd-servers: https://[2001:470:b16e:84::11]:2379
   timeoutForControlPlane: 4m0s
 apiVersion: kubeadm.k8s.io/v1beta1
 certificatesDir: /etc/kubernetes/pki
@@ -36,7 +37,7 @@ networking:
 address: '::'
 apiVersion: kubelet.config.k8s.io/v1beta1
 clusterDNS:
-- 2001:470:b16e:4110
+- 2001:470:b16e:4100::10
 clusterDomain: cluster.local
 healthzBindAddress: '::1'
 kind: KubeletConfiguration
