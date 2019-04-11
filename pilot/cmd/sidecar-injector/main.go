@@ -206,7 +206,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.injectConfigFile, "injectConfig", "/etc/istio/inject/config",
 		"File containing the Istio sidecar injection configuration and template")
 	rootCmd.PersistentFlags().StringVar(&flags.injectValuesFile, "injectValues", "/etc/istio/inject/values",
-		"File containing the Istio sidecar injection values")
+		"File containing the Istio sidecar injection values, in yaml format")
 	rootCmd.PersistentFlags().StringVar(&flags.certFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
 	rootCmd.PersistentFlags().StringVar(&flags.privateKeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",

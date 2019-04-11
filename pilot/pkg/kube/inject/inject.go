@@ -161,7 +161,7 @@ type SidecarTemplateData struct {
 	Spec           *corev1.PodSpec
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
-	Values         interface{}
+	Values         map[string]interface{}
 }
 
 // InitImageName returns the fully qualified image name for the istio
@@ -529,7 +529,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMeta
 
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v %v\n", err, valuesConfig)
+		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
 		return nil, "", err
 	}
 

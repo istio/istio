@@ -108,7 +108,6 @@ containers:
 {{- else if eq .Values.global.proxy.tracer "zipkin" }}
   - --zipkinAddress
   - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
-{{- end }}
 {{- else if eq .Values.global.proxy.tracer "datadog" }}
   - --datadogAgentAddress
   - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
@@ -243,11 +242,6 @@ containers:
   {{- end }}
   - mountPath: /etc/istio/proxy
     name: istio-envoy
-  {{- if ne .Values.global.sds.enabled true }}
-  - mountPath: /etc/certs/
-    name: istio-certs
-    readOnly: true
-  {{- end }}
   {{- if .Values.global.sds.enabled }}
   - mountPath: /var/run/sds/uds_path
     name: sds-uds-path

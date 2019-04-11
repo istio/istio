@@ -78,6 +78,7 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	return cfg, err
 }
 
+// grabs the raw values from the ConfigMap. These are encoded as JSON.
 func getValuesFromConfigMap(kubeconfig string) (string, error) {
 	client, err := createInterface(kubeconfig)
 	if err != nil {
