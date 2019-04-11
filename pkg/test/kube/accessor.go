@@ -88,8 +88,8 @@ func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 }
 
 // NewPortForwarder creates a new port forwarder.
-func (a *Accessor) NewPortForwarder(options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
-	return newPortForwarder(a.restConfig, options, localPort, remotePort)
+func (a *Accessor) NewPortForwarder(pod kubeApiCore.Pod, localPort, remotePort uint16) (PortForwarder, error) {
+	return newPortForwarder(a.restConfig, pod, localPort, remotePort)
 }
 
 // GetPods returns pods in the given namespace, based on the selectors. If no selectors are given, then
@@ -118,9 +118,13 @@ func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApi
 }
 
 // GetPod returns the pod with the given namespace and name.
-func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
-	return a.set.CoreV1().
+func (a *Accessor) GetPod(namespace, name string) (kubeApiCore.Pod, error) {
+	v, err := a.set.CoreV1().
 		Pods(namespace).Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return kubeApiCore.Pod{}, err
+	}
+	return *v, nil
 }
 
 // DeletePod deletes the given pod.

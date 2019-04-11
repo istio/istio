@@ -157,11 +157,12 @@ func forwardToGrpcPort(t *testing.T, app string) kube.PortForwarder {
 		t.Fatalf("missing pod names for app %q from %s cluster", app, primaryCluster)
 	}
 
+	pod, err := tc.Kube.KubeAccessor.GetPod(tc.Kube.Namespace, pods[0])
+	if err != nil {
+		t.Fatalf("failed retrieving pod %s/%s: %v", tc.Kube.Namespace, pods[0], err)
+	}
 	// Create a port forwarder so that we can send commands app "a" to talk to the churn app.
-	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(&kube.PodSelectOptions{
-		PodNamespace: tc.Kube.Namespace,
-		PodName:      pods[0],
-	}, 0, uint16(grpcPort))
+	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(pod, 0, uint16(grpcPort))
 	if err != nil {
 		t.Fatal(err)
 	}

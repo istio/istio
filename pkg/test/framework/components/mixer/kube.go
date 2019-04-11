@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -82,11 +81,7 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 		}
 		scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-		options := &testKube.PodSelectOptions{
-			PodNamespace: pod.Namespace,
-			PodName:      pod.Name,
-		}
-		forwarder, err := c.env.NewPortForwarder(options, 0, port)
+		forwarder, err := c.env.NewPortForwarder(pod, 0, port)
 		if err != nil {
 			return nil, err
 		}
