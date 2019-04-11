@@ -176,6 +176,16 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
+<tr id="ConnectionPoolSettings-HTTPSettings-idle_timeout">
+<td><code>idleTimeout</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
+If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.
+Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>

@@ -856,6 +856,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if http.MaxRetries < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
 		}
+		if http.IdleTimeout != nil {
+			errs = appendErrors(errs, ValidateDurationGogo(http.IdleTimeout))
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
@@ -2027,7 +2030,12 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, ValidateWildcardDomain(destination.Host))
+	host := destination.Host
+	if host == "*" {
+		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+	} else {
+		errs = appendErrors(errs, ValidateWildcardDomain(host))
+	}
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}

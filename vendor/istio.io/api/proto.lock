@@ -2973,6 +2973,11 @@
                     "id": 4,
                     "name": "max_retries",
                     "type": "int32"
+                  },
+                  {
+                    "id": 5,
+                    "name": "idle_timeout",
+                    "type": "google.protobuf.Duration"
                   }
                 ]
               }

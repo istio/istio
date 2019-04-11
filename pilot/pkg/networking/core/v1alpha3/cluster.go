@@ -678,6 +678,8 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds(direction)
+	var idleTimeout *types.Duration
+
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
@@ -696,6 +698,8 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		if settings.Http.MaxRetries > 0 {
 			threshold.MaxRetries = &types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
+
+		idleTimeout = settings.Http.IdleTimeout
 	}
 
 	if settings.Tcp != nil {
@@ -712,6 +716,11 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 
 	cluster.CircuitBreakers = &v2Cluster.CircuitBreakers{
 		Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{threshold},
+	}
+
+	if idleTimeout != nil {
+		idleTimeoutDuration := util.GogoDurationToDuration(idleTimeout)
+		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: &idleTimeoutDuration}
 	}
 }
 
@@ -806,6 +815,12 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		}
 	}
 	if lb == nil {
+		return
+	}
+
+	// Original destination service discovery must be used with the original destination load balancer.
+	if cluster.GetClusterDiscoveryType().Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}) {
+		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
 		return
 	}
 
