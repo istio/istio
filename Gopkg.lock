@@ -1953,7 +1953,7 @@
   revision = "56e7a63b5e38b614bb7cb8c49ed26dc991b324c4"
 
 [[projects]]
-  digest = "1:cb964e36388b4b7d141d595794fd8e384ff69e25badbe374e62fd7dc24e82fba"
+  digest = "1:97703d78f59b1906eee5cc024d06f57053995123c3628bb8fdf16f1d090b5cae"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -1961,6 +1961,7 @@
     "pkg/ignore",
     "pkg/proto/hapi/chart",
     "pkg/proto/hapi/version",
+    "pkg/strvals",
     "pkg/sympath",
     "pkg/timeconv",
     "pkg/version",
@@ -2302,6 +2303,7 @@
     "k8s.io/helm/pkg/engine",
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/version",
+    "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubectl/genericclioptions",
