@@ -626,6 +626,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if err := nt.SetServiceInstances(s.Env); err != nil {
 		return err
 	}
+	if err := nt.SetWorkloadLabels(s.Env); err != nil {
+		return err
+	}
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
 	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
@@ -675,6 +678,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			}
 		}
 		return nil
+	}
+
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+		return err
 	}
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
