@@ -157,6 +157,25 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sdstokensecret
+type: Opaque
+stringData:
+  sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
+VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
+wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
+EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
+5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
+ljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi\
+I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKP\
+mktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZ\
+uNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdv\
+bgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5r\
+y_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4a\
+SzC2o8aDtlQ"
+---
 `
 )
 
