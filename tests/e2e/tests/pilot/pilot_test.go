@@ -37,17 +37,17 @@ import (
 )
 
 const (
-	defaultRetryBudget      = 10
-	retryDelay              = time.Second
-	httpOK                  = "200"
-	ingressAppName          = "ingress"
-	ingressContainerName    = "ingress"
+	defaultRetryBudget             = 10
+	retryDelay                     = time.Second
+	httpOK                         = "200"
+	ingressAppName                 = "ingress"
+	ingressContainerName           = "ingress"
 	istioMeshConfigMapName         = "istio"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
 	istioIngressGatewayLabel       = "ingressgateway"
-	defaultPropagationDelay = 5 * time.Second
-	primaryCluster          = framework.PrimaryCluster
-	remoteCluster           = framework.RemoteCluster
+	defaultPropagationDelay        = 5 * time.Second
+	primaryCluster                 = framework.PrimaryCluster
+	remoteCluster                  = framework.RemoteCluster
 )
 
 var (
@@ -336,12 +336,12 @@ func (t *testConfig) Setup() (err error) {
 		// Update the meshNetworks within the mesh config with the gateway address of the remote
 		// cluster.
 		remoteGwAddr, err = util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
-		t.Kube.Namespace, t.Kube.RemoteKubeConfig, util.LoadBalancerServiceType, false)
+			t.Kube.Namespace, t.Kube.RemoteKubeConfig, util.LoadBalancerServiceType, false)
 		if err != nil {
 			return
-	        }
+		}
 		util.ReplaceInConfigMap(t.Kube.Namespace, istioMeshConfigMapName,
-		fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), t.Kube.KubeConfig)
+			fmt.Sprintf("s/0.0.0.0/%s/", remoteGwAddr), t.Kube.KubeConfig)
 	}
 
 	if len(t.Kube.Clusters) > 1 {
