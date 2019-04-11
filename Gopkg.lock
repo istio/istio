@@ -1479,7 +1479,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:95537015f7ca5a9c4be766141b18bd9bf262ea0c247f47f58a8b7bb1bc368d46"
+  digest = "1:4904a126e5f9e7e19d3616786958b60e965906d19fdbbb0643f2dc965625ccd3"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
@@ -1524,7 +1524,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:17b4dad92815a78aaf5d7a05122f781a51528be9245958dad456d23c5bbb646d"
+  digest = "1:9ef7b77e56ef24d86e1a3969823817c748c0b000cf4e389ffe2a22b65f722466"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
