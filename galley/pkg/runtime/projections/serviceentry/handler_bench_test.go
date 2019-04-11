@@ -321,7 +321,7 @@ func newEndpoints(ips ...string) resource.Entry {
 
 func newBenchHandler() *serviceentry.Handler {
 	var handler *serviceentry.Handler
-	handler = serviceentry.NewHandler(domainSuffix, processing.ListenerFromFn(func(_ resource.Collection) {
+	handler = serviceentry.NewHandler(domain, processing.ListenerFromFn(func(_ resource.Collection) {
 		_ = handler.BuildSnapshot()
 	}))
 	return handler
