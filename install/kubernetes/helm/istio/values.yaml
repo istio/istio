@@ -170,6 +170,10 @@ global:
     # Expected values are: trace|debug|info|warning|error|critical|off
     logLevel: ""
 
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
+    componentLogLevel: ""
+
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # 5 seconds is the default refresh rate used by Envoy
     dnsRefreshRate: 5s
