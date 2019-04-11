@@ -846,6 +846,49 @@ func TestValidateProxyConfig(t *testing.T) {
 			),
 			isValid: false,
 		},
+		{
+			name: "datadog without address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog with correct address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "datadog-agent:8126",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "datadog with invalid address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "address-missing-port-number",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -3743,7 +3786,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "`roleRef` or `actions` must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3763,9 +3806,20 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
+				Role: "/",
+			},
+			expectErrMsg: "`role` cannot have an empty ServiceRole name",
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
-			expectErrMsg: "name cannot be empty",
+			expectErrMsg: "`name` in `roleRef` cannot be empty",
 		},
 		{
 			name: "first-class field already exists",
@@ -3833,7 +3887,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			expectErrMsg: "`roleRef` or `actions` must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "proto with both roleRef and inline role definition",
@@ -3857,7 +3911,48 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			expectErrMsg: "only one of `roleRef` or `actions` can be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and role",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Role: "service-role-1",
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both role and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Role: "service-role-1",
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "success proto with roleRef",

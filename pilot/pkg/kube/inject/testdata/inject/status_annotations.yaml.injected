@@ -32,12 +32,14 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - status.default
+        - status.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
@@ -46,8 +48,6 @@ spec:
         - istio-pilot:15010
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -57,7 +57,7 @@ spec:
         - --applicationPorts
         - 1,2,3
         - --concurrency
-        - "1"
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
@@ -75,8 +75,18 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_ANNOTATIONS
+          value: |
+            {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"123"}
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"status"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -92,11 +102,15 @@ spec:
           initialDelaySeconds: 100
           periodSeconds: 200
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
-            memory: 30Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -122,11 +136,18 @@ spec:
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
