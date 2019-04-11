@@ -26,6 +26,7 @@ type Connection struct {
 	To              apps.KubeApp
 	Protocol        apps.AppProtocol
 	Port            int
+	Path            string
 	ExpectedSuccess bool
 }
 
@@ -35,7 +36,7 @@ func CheckConnection(t *testing.T, conn Connection) error {
 		return fmt.Errorf("cannot get upstream endpoint for connection test %v", conn)
 	}
 
-	results, err := conn.From.Call(ep, apps.AppCallOptions{Protocol: conn.Protocol})
+	results, err := conn.From.Call(ep, apps.AppCallOptions{Protocol: conn.Protocol, Path: conn.Path})
 	if conn.ExpectedSuccess {
 		if err != nil || len(results) == 0 || results[0].Code != "200" {
 			// Addition log for debugging purpose.

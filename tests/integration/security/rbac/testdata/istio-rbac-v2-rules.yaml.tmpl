@@ -1,0 +1,129 @@
+# istio-rbac-v2-rules.yaml to enforce access control for both http and tcp services using Istio RBAC v2 rules.
+
+# For service a, allow no one to access it.
+# This will also result a default tcp rule for service a that denies all access.
+# This actually means nobody could access a.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-a-http
+spec:
+  rules:
+    - methods: ["GET"]
+      constraints:
+        - key: "destination.labels[app]"
+          values: ["a"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-a-http
+spec:
+  allow:
+    - subjects:
+        - not_names: ["allUsers"]
+      roleRef:
+        kind: ServiceRole
+        name: "access-a-http"
+---
+
+# For service b, only allow authenticated user to access it with GET at any paths except /secret*
+# or only access it at tcp port 90.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-b-http-tcp
+spec:
+  rules:
+    - methods: ["GET"]
+      not_paths: ["/secret*"]
+    - constraints:
+        - key: "destination.port"
+          values: ["90"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-b-http-tcp
+spec:
+  workload_selector:
+    labels:
+      app: b
+  allow:
+    - subjects:
+        - names: ["allAuthenticatedUsers"]
+      roleRef:
+        kind: ServiceRole
+        name: "access-b-http-tcp"
+---
+
+# For service c:
+# * Allow GET requests for any path, except paths ending with /admin for service account d.
+# * Deny all requests for service account b.
+# * Deny anyone else by default.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: deny-get-at-admin-prefix-path-rules
+spec:
+  rules:
+    - methods: ["GET"]
+      not_paths: ["*/admin"]
+      paths: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: deny-all-access-rules
+spec:
+  rules:
+    - not_methods: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-c
+spec:
+  workload_selector:
+    labels:
+      app: c
+  allow:
+    - subjects:
+        - names: ["cluster.local/ns/{{ .Namespace }}/sa/d"]
+      roleRef:
+        kind: ServiceRole
+        name: "deny-get-at-admin-prefix-path-rules"
+    - subjects:
+        - names: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+      roleRef:
+        kind: ServiceRole
+        name: "deny-all-access-rules"
+---
+
+# For service d:
+# * anyone can access it via HTTP requests
+# * no one can access TCP at port 90.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: access-d-http-tcp
+spec:
+  rules:
+    - methods: ["*"]
+    - not_ports: [90]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: authz-policy-access-d-http-tcp
+spec:
+  workload_selector:
+    labels:
+      app: d
+  allow:
+    - subjects:
+        - names: ["allUsers"]
+      roleRef:
+        kind: ServiceRole
+        name: "access-d-http-tcp"
+---

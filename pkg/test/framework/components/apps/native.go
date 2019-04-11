@@ -446,6 +446,7 @@ func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
+	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -458,5 +459,6 @@ func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(localhost, strconv.Itoa(e.port.ProxyPort)),
+		Path:   opts.Path,
 	}
 }

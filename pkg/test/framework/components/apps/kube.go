@@ -464,6 +464,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
+	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -480,6 +481,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
+		Path:   opts.Path,
 	}
 }
 
@@ -648,6 +650,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 		dstServiceName = opts.Headers.Get("Host")
 	}
 
+	fmt.Println("URL IS " + dstURL.String())
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
 		Url:   dstURL.String(),
 		Count: int32(opts.Count),
@@ -703,7 +706,6 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
