@@ -52,7 +52,7 @@ Istio is composed of these components:
 
 - **Citadel** - A centralized component responsible for certificate issuance and rotation.
 
-- **Node Agent** - A per-node component responsible for certificate issuance and rotation.
+- **Citadel Agent** - A per-node component responsible for certificate issuance and rotation.
 
 - **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
@@ -68,7 +68,7 @@ currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [security](security/). This directory contains security related code,
-including Citadel (acting as Certificate Authority), node agent, etc.
+including Citadel (acting as Certificate Authority), citadel agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies

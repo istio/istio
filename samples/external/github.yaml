@@ -1,0 +1,53 @@
+# This ServiceEntry exposes the hosts needed for github.com.
+# After applying this file, Istio-enabled pods will be able to execute
+# `git clone https://github.com/istio/api.git` and (with local identification
+# config and certificate) `git clone git@github.com:istio/api.git`
+
+# HTTP and TLS, the host must be specified
+# See https://istio.io/docs/tasks/traffic-management/egress/
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: github-https
+spec:
+  hosts:
+  - github.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+---
+# For TCP services the IP ranges SHOULD be specified to avoid problems
+# if multiple SEs use the same port number.
+# See https://istio.io/blog/2018/egress-tcp/#mesh-external-service-entry-for-an-external-mysql-instance
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: github-tcp
+spec:
+  hosts:
+  - dummy.github.com # not used
+  addresses: # from https://help.github.com/articles/about-github-s-ip-addresses/
+  - "13.229.188.59/32"
+  - "13.250.177.223/32"
+  - "140.82.112.0/20"
+  - "18.194.104.89/32"
+  - "18.195.85.27/32"
+  - "185.199.108.0/22"
+  - "185.199.108.153/32"
+  - "185.199.109.153/32"
+  - "185.199.110.153/32"
+  - "185.199.111.153/32"
+  - "192.30.252.0/22"
+  - "192.30.252.153/32"
+  - "192.30.252.154/32"
+  - "23.20.92.3/32"
+  - "35.159.8.160/32"
+  - "52.74.223.119/32"
+  - "54.166.52.62/32"
+  - "54.87.5.173/32"
+  ports:
+  - name: tcp
+    number: 22
+    protocol: tcp
+  location: MESH_EXTERNAL

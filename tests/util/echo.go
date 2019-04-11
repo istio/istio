@@ -59,7 +59,7 @@ type codeAndSlices struct {
 	slices           int
 }
 
-func (h *pilotTestHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
+func (h *pilotTestHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) { // nolint:interfacer
 
 	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
@@ -532,13 +532,13 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 
 		sleepTime := time.Second / time.Duration(ec.qps)
 		//log.Printf("Sleeping %v between requests\n", sleepTime)
-		throttle := time.Tick(sleepTime)
+		throttle := time.NewTicker(sleepTime)
 
 		var wg sync.WaitGroup
 		var m sync.Mutex
 
 		for i := 0; i < ec.count; i++ {
-			<-throttle
+			<-throttle.C
 			wg.Add(1)
 
 			ic := i
@@ -553,6 +553,7 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 		wg.Wait()
+		throttle.Stop()
 	}
 
 	if err != nil {

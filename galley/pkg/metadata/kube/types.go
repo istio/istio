@@ -81,6 +81,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/apikeys"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -92,6 +94,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/authorizations"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -103,6 +107,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/bypasses"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -114,6 +120,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/checknothings"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -125,6 +133,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/circonuses"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -136,6 +146,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/cloudwatches"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -147,6 +159,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/deniers"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -158,6 +172,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/dogstatsds"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -169,6 +185,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/edges"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -180,6 +198,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/fluentds"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -191,6 +211,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/kubernetesenvs"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -202,6 +224,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/kuberneteses"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -213,6 +237,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/listcheckers"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -224,6 +250,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/listentries"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -235,6 +263,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/logentries"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -246,6 +276,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/memquotas"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -257,6 +289,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/metrics"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -268,6 +302,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/noops"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -279,6 +315,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/opas"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -290,6 +328,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/prometheuses"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -301,6 +341,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/quotas"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -312,6 +354,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/rbacs"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -323,6 +367,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/redisquotas"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -334,28 +380,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/reportnothings"),
 		Converter: converter.Get("identity"),
-	})
 
-	b.Add(schema.ResourceSpec{
-		Kind:      "servicecontrolreport",
-		ListKind:  "servicecontrolreportList",
-		Singular:  "servicecontrolreport",
-		Plural:    "servicecontrolreports",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrolreports"),
-		Converter: converter.Get("identity"),
-	})
-
-	b.Add(schema.ResourceSpec{
-		Kind:      "servicecontrol",
-		ListKind:  "servicecontrolList",
-		Singular:  "servicecontrol",
-		Plural:    "servicecontrols",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrols"),
-		Converter: converter.Get("identity"),
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -367,6 +393,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/signalfxs"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -378,6 +406,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/solarwindses"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -389,6 +419,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/stackdrivers"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -400,6 +432,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/statsds"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -411,6 +445,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/stdios"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -422,6 +458,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/tracespans"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -433,6 +471,8 @@ func init() {
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/zipkins"),
 		Converter: converter.Get("identity"),
+
+		Optional: true,
 	})
 
 	b.Add(schema.ResourceSpec{
@@ -579,6 +619,17 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "AuthorizationPolicy",
+		ListKind:  "AuthorizationPolicyList",
+		Singular:  "authorizationpolicy",
+		Plural:    "authorizationpolicies",
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
+		Target:    metadata.Types.Get("istio/rbac/v1alpha1/authorizationpolicies"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "ClusterRbacConfig",
 		ListKind:  "ClusterRbacConfigList",
 		Singular:  "clusterrbacconfig",
@@ -663,7 +714,7 @@ func init() {
 		Version:   "v1",
 		Group:     "",
 		Target:    metadata.Types.Get("k8s/core/v1/services"),
-		Converter: converter.Get("kube-service-resource"),
+		Converter: converter.Get("identity"),
 	})
 
 	b.Add(schema.ResourceSpec{

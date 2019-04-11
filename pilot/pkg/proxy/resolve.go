@@ -16,30 +16,30 @@ package proxy
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"istio.io/istio/pkg/log"
 )
 
+type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, error)
+
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
-var ErrResolveNoAddress = errors.New("no address specified")
+var ErrResolveNoAddress = stderrors.New("no address specified")
 
 // ResolveAddr resolves an authority address to an IP address. Incoming
 // addr can be an IP address or hostname. If addr is an IPv6 address, the IP
 // part must be enclosed in square brackets.
 //
-// TODO: LookupIPAddr() may return multiple IP addresses, of which this function
-// returns the first entry. We're assuming that IPv4 addresses will be listed
-// first, meaning it has priority over IPv6. If this does not hold, then
-// additional logic will be needed to enforce an IP mode priority.
-//
-// To use this function in an IPv6 only environment, either provide an IPv6
-// address or ensure the hostname resolves to only IPv6 addresses.
-func ResolveAddr(addr string) (string, error) {
+// LookupIPAddr() may return multiple IP addresses, of which this function returns
+// the first IPv4 entry. To use this function in an IPv6 only environment, either
+// provide an IPv6 address or ensure the hostname resolves to only IPv6 addresses.
+func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) {
 	if addr == "" {
 		return "", ErrResolveNoAddress
 	}
@@ -52,16 +52,28 @@ func ResolveAddr(addr string) (string, error) {
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	addrs, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, host)
+	var addrs []net.IPAddr
+	var lookupErr error
+	if (len(lookupIPAddr) > 0) && (lookupIPAddr[0] != nil) {
+		// if there are more than one lookup function, ignore all but first
+		addrs, lookupErr = lookupIPAddr[0](ctx, host)
+	} else {
+		addrs, lookupErr = net.DefaultResolver.LookupIPAddr(ctx, host)
+	}
+
 	if lookupErr != nil || len(addrs) == 0 {
-		return "", fmt.Errorf("lookup failed for IP address: %v", lookupErr)
+		return "", errors.WithMessage(lookupErr, "lookup failed for IP address")
 	}
 	var resolvedAddr string
-	ip := addrs[0].IP
-	if ip.To4() == nil {
-		resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
-	} else {
-		resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
+
+	for _, address := range addrs {
+		ip := address.IP
+		if ip.To4() == nil {
+			resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
+		} else {
+			resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
+			break
+		}
 	}
 	log.Infof("Addr resolved to: %s", resolvedAddr)
 	return resolvedAddr, nil

@@ -25,12 +25,6 @@
 #   unused-packages = true
 
 required = [
-  ### BEGIN spelling check deps
-  "github.com/client9/misspell",
-  ### END spelling check deps
-  ### BEGIN Mixer codegen deps
-  "github.com/istio/tools/protoc-gen-docs",
-  ### END Mixer codegen deps
   # fortio is built in vendor for the testing framework
   "fortio.org/fortio",
 ]
@@ -111,7 +105,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  version = "^0.6.7"
+  version = "0.7.0"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -210,10 +204,6 @@ ignored = [
   version = "1.0.2"
 
 [[constraint]]
-  name = "github.com/pborman/uuid"
-  version = "1.1.0"
-
-[[constraint]]
   name = "github.com/pmezard/go-difflib"
   version = "1.0.0"
 
@@ -246,8 +236,8 @@ ignored = [
   version = "1.2.1"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/uber/jaeger-client-go"
-  version = "2.12.0"
 
 [[constraint]]
   name = "go.uber.org/atomic"
@@ -293,6 +283,7 @@ ignored = [
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 
+# Need to integrate apis to master
 [[constraint]]
   name = "istio.io/api"
   branch = "master"
@@ -365,4 +356,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/google/go-cmp"
+  version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/google/cel-go"
   version = "0.2.0"

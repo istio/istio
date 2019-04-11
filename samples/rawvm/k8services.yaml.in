@@ -12,13 +12,16 @@ spec:
   selector:
     app: echosrv
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 # 2 pods for service inside the cluster, will get istio injected
 kind: Deployment
 metadata:
   name: raw-svc-deployment
 spec:
   replicas: 2 # tells deployment to run 2 pods matching the template
+  selector:
+    matchLabels:
+      app: echosrv
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -42,13 +45,16 @@ spec:
   selector:
     app: mysqlclient-istio
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 # 1 pod, will get istio injected
 kind: Deployment
 metadata:
   name: mysqlclient-istio
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: mysqlclient-istio
   template:
     metadata:
       labels:

@@ -53,7 +53,7 @@ func (h *handler) cacheAndSend(ctx context.Context) {
 				lastFlush = t
 			}
 			if err := h.send(ctx, t, h.entitiesToSend, h.edgesToSend); err != nil {
-				h.env.Logger().Errorf("sending context graph batch failed: %v", err)
+				_ = h.env.Logger().Errorf("sending context graph batch failed: %v", err)
 				// TODO: Invalidate these entities and edges so we try again on the next tick?
 			}
 			epoch++
@@ -176,13 +176,13 @@ func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity
 }
 
 func (h *handler) call(ctx context.Context, req *contextgraphpb.AssertBatchRequest) error {
-	h.env.Logger().Debugf("Sending %v entities and %v relationships",
+	h.env.Logger().Debugf("Sending Context Graph AssertBatch with %d entities, and %d relationships",
 		len(req.EntityPresentAssertions), len(req.RelationshipPresentAssertions))
 	if _, err := h.assertBatch(ctx, req); err != nil {
 		s, _ := status.FromError(err)
 		if d := s.Proto().Details; len(d) > 0 {
 			// Log the debug message, if present.
-			h.env.Logger().Errorf("STATUS: %s\n", d[0].Value)
+			_ = h.env.Logger().Errorf("STATUS: %s\n", d[0].Value)
 		}
 		return err
 	}

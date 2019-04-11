@@ -170,6 +170,35 @@ func TestConvertToPort(t *testing.T) {
 	}
 }
 
+func TestConvertPortsToString(t *testing.T) {
+	testCases := []struct {
+		Name   string
+		V      []int32
+		Expect []string
+		Err    string
+	}{
+		{
+			Name:   "valid ports",
+			V:      []int32{80, 3000, 443},
+			Expect: []string{"80", "3000", "443"},
+		},
+		{
+			Name:   "valid port",
+			V:      []int32{9080},
+			Expect: []string{"9080"},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := convertPortsToString(tc.V)
+		for i := range tc.Expect {
+			if tc.Expect[i] != actual[i] {
+				t.Errorf("%s: expecting %s, but got %s", tc.Name, tc.Expect, actual)
+			}
+		}
+	}
+}
+
 func TestConvertToHeaderMatcher(t *testing.T) {
 	testCases := []struct {
 		Name   string
@@ -205,6 +234,31 @@ func TestConvertToHeaderMatcher(t *testing.T) {
 		actual := convertToHeaderMatcher(tc.K, tc.V)
 		if !reflect.DeepEqual(*tc.Expect, *actual) {
 			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+		}
+	}
+}
+
+func TestIsKeyBinary(t *testing.T) {
+	cases := []struct {
+		s      string
+		expect bool
+	}{
+		{s: "a[b]", expect: true},
+		{s: "a", expect: false},
+		{s: "a.b", expect: false},
+		{s: "a.b[c]", expect: true},
+		{s: "a.b[c.d]", expect: true},
+		{s: "[a]", expect: false},
+		{s: "[a", expect: false},
+		{s: "a]", expect: false},
+		{s: "a[]", expect: false},
+		{s: "a.b[c.d]e", expect: false},
+		{s: "a.b[[c.d]]", expect: true},
+	}
+
+	for _, c := range cases {
+		if isKeyBinary(c.s) != c.expect {
+			t.Errorf("isKeyBinary returned incorrect result for key: %s", c.s)
 		}
 	}
 }

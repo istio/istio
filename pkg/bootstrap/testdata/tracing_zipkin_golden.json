@@ -112,6 +112,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         
@@ -148,6 +149,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -214,7 +216,8 @@
       "config": {
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v1/spans",
-        "trace_id_128bit":"true"
+        "trace_id_128bit":"true",
+        "shared_span_context": "false"
       }
     }
   }

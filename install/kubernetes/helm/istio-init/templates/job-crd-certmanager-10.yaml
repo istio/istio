@@ -1,3 +1,4 @@
+{{- if .Values.certmanager.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -5,6 +6,9 @@ metadata:
   name: istio-init-crd-certmanager-10
 spec:
   template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-init-service-account
       containers:
@@ -21,3 +25,4 @@ spec:
         configMap:
           name: istio-crd-certmanager-10
       restartPolicy: OnFailure
+{{- end }}

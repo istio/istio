@@ -24,7 +24,6 @@ import (
 var (
 	meshIP1 = []byte{1, 1, 1, 1}
 	meshIP2 = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 204, 152, 189, 116}
-	meshIP3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
 )
 
 // MixerFilterConf stores config for Mixer filter.
@@ -77,7 +76,6 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 	mfConf := &mccpb.HttpClientConfig{
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP3}},
 				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "POD11"}},
 				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "XYZ11"}},
 			},

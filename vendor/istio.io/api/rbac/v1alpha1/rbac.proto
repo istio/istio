@@ -48,7 +48,7 @@ syntax = "proto3";
 //     methods: ["GET", "HEAD"]
 //     constraints:
 //     - key: "destination.labels[version]"
-//       value: ["v1", "v2"]
+//       values: ["v1", "v2"]
 // ```
 //
 // A ServiceRoleBinding specification includes two parts:
@@ -90,10 +90,10 @@ option go_package="istio.io/api/rbac/v1alpha1";
 // TODO: Move the WorkloadSelector to a common place to be shared by other packages.
 // WorkloadSelector specifies the criteria used to determine if the Gateway
 // or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload info such as
+// includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload to be
+// specified, all conditions need to match in order for the workload instance to be
 // selected. Currently, only label based selection mechanism is supported.
 message WorkloadSelector {
   // One or more labels that indicate a specific set of pods/VMs on which
@@ -104,7 +104,7 @@ message WorkloadSelector {
 }
 
 // $hide_from_docs
-// AuthorizationPolicy to enforce access control on a selected workload.
+// AuthorizationPolicy to enforce access control on a selected workload instance.
 message AuthorizationPolicy {
   // $hide_from_docs
   // Optional. One or more labels that indicate a specific set of pods/VMs
@@ -115,7 +115,7 @@ message AuthorizationPolicy {
   WorkloadSelector workload_selector = 1;
 
   // $hide_from_docs
-  // A list of bindings that specify the subjects and permissions to the selected workload.
+  // A list of bindings that specify the subjects and permissions to the selected workload instance.
   repeated ServiceRoleBinding allow = 2;
 }
 
@@ -226,6 +226,46 @@ message ServiceRoleBinding {
   // $hide_from_docs
   // Indicates enforcement mode of the ServiceRoleBinding.
   EnforcementMode mode = 3;
+
+  // $hide_from_docs
+  // Inline role definition. An inline role is a role that is defined inside an
+  // authorization policy, instead of explicitly defined in a ServiceRole object.
+  // Inline roles can be used for the role definitions that are not intended to
+  // be reused in other bindings, while explicit roles are reusable. Both inline
+  // roles (defined in "actions" field) and explicit roles (defined in ServiceRole)
+  // are supported. Users should use only one of them in a single binding.
+  // For example, the following “product-frontend” AuthorizationPolicy allows “frontend”
+  // service to view “product” service on “/info” path.
+  // ```yaml
+  // apiVersion: "rbac.istio.io/v1alpha1"
+  // kind: AuthorizationPolicy
+  // metadata:
+  //  name: product-frontend
+  //  namespace: ns1
+  // spec:
+  //  selector:
+  //    labels:
+  //      app: product
+  //  allow:
+  //  - subjects:
+  //    - names: ["cluster.local/ns/default/sa/frontend"]
+  //    actions:
+  //    - paths: ["/info"]
+  //      methods: ["GET"]
+  // Required. The set of access rules (permissions) that the role has.
+  repeated AccessRule actions = 4;
+
+  // $hide_from_docs
+  // A `role` inside a ServiceRoleBinding refers to the ServiceRole that this
+  // ServiceRoleBinding binds to. A ServiceRoleBinding can bind to a ServiceRole
+  // in the same namespace or the root namespace. A ServiceRole in the root namespace
+  // represents a mesh global ServiceRole.
+  // The value of `role` is the name of the ServiceRole, and it can start with or without a forward slash ("/").
+  // When a `role` starts with "/", e.g. "/service-viewer", it means that this ServiceRoleBinding
+  // refers to the ServiceRole in the configurable Istio root namespace.
+  // When a `role` starts without "/", this ServiceRoleBinding refers to the ServiceRole in the
+  // same namespace as the AuthorizationPolicy's, which contains said ServiceRoleBinding.
+  string role = 5;
 }
 
 // Subject defines an identity. The identity is either a user or identified by a set of `properties`.
@@ -235,13 +275,14 @@ message Subject {
   string user = 1;
 
   // $hide_from_docs
-  // Optional. A list of principals that the subject represents. This is matched to the
-  // `source.principal` attribute. If not specified, it applies to any principals.
-  repeated string principals = 4;
+  // Optional. A list of subject names. This is matched to the
+  // `source.principal` attribute. If one of subject names is "*", it matches to a subject with any name.
+  // Prefix and suffix matches are supported.
+  repeated string names = 4;
 
   // $hide_from_docs
-  // Optional. A list of principals that must not be matched.
-  repeated string not_principals = 5;
+  // Optional. A list of subject names that must not be matched.
+  repeated string not_names = 5;
 
   // $hide_from_docs
   // Optional. The group that the subject belongs to.
@@ -293,13 +334,14 @@ message RoleRef {
   string name = 2;
 }
 
-// RbacConfig defines the global config to control Istio RBAC behavior.
+// $hide_from_docs
+// RbacConfig is deprecated.  RbacConfig defined the global config to control Istio RBAC behavior.
 // This Custom Resource is a singleton where only one Custom Resource should be created globally in
-// the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
-// Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+// the mesh and the namespace should be the same to other Istio components, which usually is `istio-system`.
+// Note: This is enforced in both `istioctl` and server side, new Custom Resource will be rejected if found any
 // existing one, the user should either delete the existing one or change the existing one directly.
 //
-// Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
+// Below is an example of an `RbacConfig` resource called `istio-rbac-config` which enables Istio RBAC for all
 // services in the default namespace.
 //
 // ```yaml
@@ -337,7 +379,7 @@ message RbacConfig {
     repeated string services = 1;
 
     // $hide_from_docs
-    // A list of workloads.
+    // A list of workload instances.
     repeated WorkloadSelector workload_selectors = 3;
 
     // A list of namespaces.
@@ -354,7 +396,7 @@ message RbacConfig {
 
   // $hide_from_docs
   // Indicates enforcement mode of the RbacConfig, in ENFORCED mode by default.
-  // It's used to verify new RbacConfig work as expected before rolling to production. 
+  // It's used to verify new RbacConfig work as expected before rolling to production.
   // When setting as PERMISSIVE, RBAC isn't enforced and has no impact on users.
   // RBAC engine run RbacConfig in PERMISSIVE mode and logs stats.
   // Invalid to set RbacConfig in PERMISSIVE and ServiceRoleBinding in ENFORCED mode.

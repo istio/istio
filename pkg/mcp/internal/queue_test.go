@@ -1,4 +1,4 @@
-// Copyright 2019  Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 package internal
 
 import (
+	"encoding/json"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -118,7 +120,6 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for scheduled response")
 	}
-	t.Fatal("unreachable")
 	return nil
 }
 
@@ -342,5 +343,14 @@ func TestUniqueQueue_Dump(t *testing.T) {
 
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Fatalf("\n got %v \nwant %v\n diff %v", got, want, diff)
+	}
+
+	jsonMarshalDumpHook = func(v interface{}) ([]byte, error) { return nil, errors.New("unmarhsal error") }
+	defer func() { jsonMarshalDumpHook = json.Marshal }()
+
+	want = ""
+	got = q.Dump()
+	if got != want {
+		t.Fatalf("wrong output on json marshal error\n got %v \nwant %v", got, want)
 	}
 }

@@ -248,7 +248,7 @@ func TestRoutes(t *testing.T) {
 						resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
 						count := make(map[string]int)
 						for _, elt := range resp.Version {
-							count[elt] = count[elt] + 1
+							count[elt]++
 						}
 						log.Infof("request counts %v", count)
 						epsilon := 10
@@ -654,7 +654,7 @@ func TestHeadersManipulations(t *testing.T) {
 	}
 }
 
-func TestDestinationRuleConfigScope(t *testing.T) {
+func TestDestinationRuleExportTo(t *testing.T) {
 	var cfgs []*deployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
@@ -708,20 +708,22 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 
 	cases := []struct {
 		testName        string
-		description     string
 		rules           map[string][]string
 		src             string
 		dst             string
 		expectedSuccess bool
 		onFailure       func()
 	}{
-		{
-			testName:        "private destination rule in same namespace",
-			rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
-			src:             "a",
-			dst:             "c",
-			expectedSuccess: true,
-		},
+		// TODO: this test cannot be enabled until we start running e2e tests in multiple namespaces or
+		// in a namespace other than istio-system - which happens to be the config root namespace
+		// only public rules work in the config root namespace
+		//{
+		//	testName:        "private destination rule in same namespace",
+		//	rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
+		//	src:             "a",
+		//	dst:             "c",
+		//	expectedSuccess: true,
+		//},
 		{
 			testName:        "private destination rule in different namespaces",
 			rules:           map[string][]string{"dns1": {"destination-rule-c-private.yaml"}},

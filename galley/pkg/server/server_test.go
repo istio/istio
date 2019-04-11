@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/meshconfig"
-	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -82,10 +81,20 @@ loop:
 }
 
 func TestNewServer(t *testing.T) {
+	args := DefaultArgs()
+	args.APIAddress = "tcp://0.0.0.0:0"
+	args.Insecure = true
+
+	// filter out schemas for excluded kinds
+	sourceResourceSchemas := getSourceSchema(args).All()
+
 	p := defaultPatchTable()
 	mk := mock.NewKube()
 	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-	p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
+
+	var gotSourceSchemas []schema.ResourceSpec
+	p.newSource = func(_ client.Interfaces, _ time.Duration, si *schema.Instance, _ *converter.Config) (runtime.Source, error) {
+		gotSourceSchemas = si.All()
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) monitoring.Reporter {
@@ -95,31 +104,49 @@ func TestNewServer(t *testing.T) {
 	p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.verifyResourceTypesPresence = func(client.Interfaces) error {
-		return nil
+	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
+		return specs, nil
 	}
 
-	args := DefaultArgs()
-	args.APIAddress = "tcp://0.0.0.0:0"
-	args.Insecure = true
+	partialResourceList := sourceResourceSchemas[:len(sourceResourceSchemas)/2]
+	p.findSupportedResources = func(interfaces client.Interfaces, _ []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
+		return partialResourceList, nil
+	}
 
-	typeCount := len(kubeMeta.Types.All())
 	tests := []struct {
-		name          string
-		wantListeners int
+		name                      string
+		wantSourceSchemas         []schema.ResourceSpec
+		disableResourceReadyCheck bool
 	}{
 		{
-			name:          "Simple",
-			wantListeners: typeCount - 1,
+			name:              "Simple",
+			wantSourceSchemas: sourceResourceSchemas,
+		},
+		{
+			name:                      "DisableResourceReadyCheck",
+			disableResourceReadyCheck: true,
+			wantSourceSchemas:         partialResourceList,
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(tt *testing.T) {
+			args.DisableResourceReadyCheck = test.disableResourceReadyCheck
 			s, err := newServer(args, p)
 			if err != nil {
-				t.Fatalf("Unexpected error creating service: %v", err)
+				tt.Fatalf("Unexpected error creating service: %v", err)
 			}
 			_ = s.Close()
+
+			if len(gotSourceSchemas) != len(test.wantSourceSchemas) {
+				tt.Fatalf("wrong number of resource sourceResourceSchemas found: got %v want %v \n gotSchemas %v\nwantSchemas %v",
+					len(gotSourceSchemas), len(test.wantSourceSchemas), gotSourceSchemas, test.wantSourceSchemas)
+			}
+
+			for j := range gotSourceSchemas {
+				if gotSourceSchemas[j].CanonicalResourceName() != test.wantSourceSchemas[j].CanonicalResourceName() {
+					tt.Fatalf("wrong resource found: got %v want %v", gotSourceSchemas[j], test.wantSourceSchemas[j])
+				}
+			}
 		})
 	}
 }
@@ -135,8 +162,8 @@ func TestServer_Basic(t *testing.T) {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.verifyResourceTypesPresence = func(client.Interfaces) error {
-		return nil
+	p.verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
+		return specs, nil
 	}
 
 	args := DefaultArgs()
@@ -145,6 +172,12 @@ func TestServer_Basic(t *testing.T) {
 	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
+	}
+
+	// ensure that it does not crash
+	addr := s.Address()
+	if addr == nil {
+		t.Fatalf("expected address not found")
 	}
 
 	var wg sync.WaitGroup
@@ -157,4 +190,10 @@ func TestServer_Basic(t *testing.T) {
 
 	wg.Wait()
 	_ = s.Close()
+
+	// ensure that it does not crash
+	addr = s.Address()
+	if addr != nil {
+		t.Fatalf("unexpected address found")
+	}
 }

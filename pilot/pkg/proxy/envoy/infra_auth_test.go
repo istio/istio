@@ -28,7 +28,7 @@ const (
 
 func TestGetMixerSAN(t *testing.T) {
 	spiffe.SetTrustDomain("cluster.local")
-	mixerSANs := GetMixerSAN("istio-system")
+	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
 	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
 		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
 	}
@@ -36,7 +36,7 @@ func TestGetMixerSAN(t *testing.T) {
 
 func TestGetPilotSAN(t *testing.T) {
 	spiffe.SetTrustDomain("cluster.local")
-	pilotSANs := GetPilotSAN("istio-system")
+	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
 	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
 		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}

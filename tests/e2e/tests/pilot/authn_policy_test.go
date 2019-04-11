@@ -169,8 +169,8 @@ func TestAuthNJwt(t *testing.T) {
 			expect string
 		}{
 			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6288
-			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+			{dst: "d", src: "a", port: "", path: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", path: "", token: "foo", expect: "401"},
 		}
 		cases = append(cases, extraCases...)
 	}

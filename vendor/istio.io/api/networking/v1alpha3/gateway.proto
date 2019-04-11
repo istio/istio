@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
+// $title: Gateway
+// $description: Configuration affecting edge load balancer.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html
 
 // `Gateway` describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections. The specification
@@ -24,12 +24,12 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // use, SNI configuration for the load balancer, etc.
 //
 // For example, the following Gateway configuration sets up a proxy to act
-// as a load balancer exposing port 80 and 9080 (http), 443 (https), and
-// port 2379 (TCP) for ingress.  The gateway will be applied to the proxy
-// running on a pod with labels `app: my-gateway-controller`. While Istio
-// will configure the proxy to listen on these ports, it is the
-// responsibility of the user to ensure that external traffic to these
-// ports are allowed into the mesh.
+// as a load balancer exposing port 80 and 9080 (http), 443 (https),
+// 9443(https) and port 2379 (TCP) for ingress.  The gateway will be
+// applied to the proxy running on a pod with labels `app:
+// my-gateway-controller`. While Istio will configure the proxy to listen
+// on these ports, it is the responsibility of the user to ensure that
+// external traffic to these ports are allowed into the mesh.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -52,15 +52,24 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
-//       name: https
+//       name: https-443
 //       protocol: HTTPS
 //     hosts:
 //     - uk.bookinfo.com
 //     - eu.bookinfo.com
 //     tls:
-//       mode: SIMPLE #enables HTTPS on this port
+//       mode: SIMPLE # enables HTTPS on this port
 //       serverCertificate: /etc/certs/servercert.pem
 //       privateKey: /etc/certs/privatekey.pem
+//   - port:
+//       number: 9443
+//       name: https-9443
+//       protocol: HTTPS
+//     hosts:
+//     - "bookinfo-namespace/*.bookinfo.com"
+//     tls:
+//       mode: SIMPLE # enables HTTPS on this port
+//       credentialName: bookinfo-secret # fetches certs from Kubernetes secret
 //   - port:
 //       number: 9080
 //       name: http-wildcard
@@ -74,20 +83,21 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     hosts:
 //     - "*"
 // ```
+//
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
 // the forwarding of traffic arriving at a particular host or gateway port.
 //
 // For example, the following VirtualService splits traffic for
-// "https://uk.bookinfo.com/reviews", "https://eu.bookinfo.com/reviews",
-// "http://uk.bookinfo.com:9080/reviews",
-// "http://eu.bookinfo.com:9080/reviews" into two versions (prod and qa) of
+// `https://uk.bookinfo.com/reviews`, `https://eu.bookinfo.com/reviews`,
+// `http://uk.bookinfo.com:9080/reviews`,
+// `http://eu.bookinfo.com:9080/reviews` into two versions (prod and qa) of
 // an internal reviews service on port 9080. In addition, requests
 // containing the cookie "user: dev-123" will be sent to special port 7777
 // in the qa version. The same rule is also applicable inside the mesh for
 // requests to the "reviews.prod.svc.cluster.local" service. This rule is
-// applicable across ports 443, 9080. Note that "http://uk.bookinfo.com"
-// gets redirected to "https://uk.bookinfo.com" (i.e. 80 redirects to 443).
+// applicable across ports 443, 9080. Note that `http://uk.bookinfo.com`
+// gets redirected to `https://uk.bookinfo.com` (i.e. 80 redirects to 443).
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -107,19 +117,19 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   - match:
 //     - headers:
 //         cookie:
-//           user: dev-123
+//           exact: "user=dev-123"
 //     route:
 //     - destination:
 //         port:
 //           number: 7777
 //         host: reviews.qa.svc.cluster.local
 //   - match:
-//       uri:
+//     - uri:
 //         prefix: /reviews/
 //     route:
 //     - destination:
 //         port:
-//           number: 9080 # can be omitted if its the only port for reviews
+//           number: 9080 # can be omitted if it's the only port for reviews
 //         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
@@ -140,7 +150,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   namespace: bookinfo-namespace
 // spec:
 //   hosts:
-//   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
+//   - mongosvr.prod.svc.cluster.local # name of internal Mongo service
 //   gateways:
 //   - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
 //                                        namespace as virtual service.
@@ -153,6 +163,36 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //         port:
 //           number: 5555
 // ```
+//
+// It is possible to restrict the set of virtual services that can bind to
+// a gateway server using the namespace/hostname syntax in the hosts field.
+// For example, the following Gateway allows any virtual service in the ns1
+// namespace to bind to it, while restricting only the virtual service with
+// foo.bar.com host in the ns2 namespace to bind to it.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Gateway
+// metadata:
+//   name: my-gateway
+//   namespace: some-config-namespace
+// spec:
+//   selector:
+//     app: my-gateway-controller
+//   servers:
+//   - port:
+//       number: 80
+//       name: http
+//       protocol: HTTP
+//     hosts:
+//     - "ns1/*"
+//     - "ns2/foo.bar.com"
+// ```
+//
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
@@ -161,7 +201,7 @@ message Gateway {
   // on which this gateway configuration should be applied. The scope of
   // label search is restricted to the configuration namespace in which the
   // the resource is present. In other words, the Gateway resource must
-  // reside in the same namespace as the gateway workload.
+  // reside in the same namespace as the gateway workload instance.
   map<string, string> selector = 2;
 }
 
@@ -228,30 +268,40 @@ message Gateway {
 // ```
 message Server {
   // REQUIRED: The Port on which the proxy should listen for incoming
-  // connections. If using unix domain socket, use 0 as the port number,
-  // with a valid protocol and port name, along with the bind parameter.
+  // connections.
   Port port = 1;
 
   // $hide_from_docs
-  // The ip or the unix domain socket to which the listener should be bound
-  // to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
-  // abstract namespace).
+  // The ip or the Unix domain socket to which the listener should be bound
+  // to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar`
+  // (Linux abstract namespace). When using Unix domain sockets, the port
+  // number should be 0.
   string bind = 4;
 
-  // REQUIRED. A list of hosts exposed by this gateway. At least one
-  // host is required. While typically applicable to
-  // HTTP services, it can also be used for TCP services using TLS with
-  // SNI. May contain a wildcard prefix for the bottom-level component of
-  // a domain name. For example `*.foo.com` matches `bar.foo.com`
-  // and `*.com` matches `bar.foo.com`, `example.com`, and so on.
+  // REQUIRED. One or more hosts exposed by this gateway.
+  // While typically applicable to
+  // HTTP services, it can also be used for TCP services using TLS with SNI.
+  // A host is specified as a `dnsName` with an optional `namespace/` prefix.
+  // The `dnsName` should be specified using FQDN format, optionally including
+  // a wildcard character in the left-most component (e.g., `prod/*.example.com`).
+  // Set the `dnsName` to `*` to select all `VirtualService` hosts from the
+  // specified namespace (e.g.,`prod/*`). If no `namespace/` is specified,
+  // the `VirtualService` hosts will be selected from any available namespace.
+  // Any associated `DestinationRule` in the same namespace will also be used.
   //
-  // **Note**: A `VirtualService` that is bound to a gateway must have one
-  // or more hosts that match the hosts specified in a server. The match
+  // A `VirtualService` must be bound to the gateway and must have one or
+  // more hosts that match the hosts specified in a server. The match
   // could be an exact match or a suffix match with the server's hosts. For
-  // example, if the server's hosts specifies "*.example.com",
-  // VirtualServices with hosts dev.example.com, prod.example.com will
-  // match. However, VirtualServices with hosts example.com or
-  // newexample.com will not match.
+  // example, if the server's hosts specifies `*.example.com`, a
+  // `VirtualService` with hosts `dev.example.com` or `prod.example.com` will
+  // match. However, a `VirtualService` with host `example.com` or
+  // `newexample.com` will not match.
+  //
+  // NOTE: Only virtual services exported to the gateway's namespace
+  // (e.g., `exportTo` value of `*`) can be referenced.
+  // Private configurations (e.g., `exportTo` set to `.`) will not be
+  // available. Refer to the `exportTo` setting in `VirtualService`,
+  // `DestinationRule`, and `ServiceEntry` configurations for details.
   repeated string hosts = 2;
 
   message TLSOptions {
@@ -304,6 +354,24 @@ message Server {
     // client side certificate.
     string ca_certificates = 5;
 
+    // The credentialName stands for a unique identifier that can be used
+    // to identify the serverCertificate and the privateKey. The
+    // credentialName appended with suffix "-cacert" is used to identify
+    // the CaCertificates associated with this server. Gateway workloads
+    // capable of fetching credentials from a remote credential store such
+    // as Kubernetes secrets, will be configured to retrieve the
+    // serverCertificate and the privateKey using credentialName, instead
+    // of using the file system paths specified above. If using mutual TLS,
+    // gateway workload instances will retrieve the CaCertificates using
+    // credentialName-cacert. The semantics of the name are platform
+    // dependent.  In Kubernetes, the default Istio supplied credential
+    // server expects the credentialName to match the name of the
+    // Kubernetes secret that holds the server certificate, the private
+    // key, and the CA certificate (if using mutual TLS). Set the
+    // `ISTIO_META_USER_SDS` metadata variable in the gateway's proxy to
+    // enable the dynamic credential fetching feature.
+    string credential_name = 10;
+
     // A list of alternate names to verify the subject identity in the
     // certificate presented by the client.
     repeated string subject_alt_names = 6;
@@ -342,9 +410,9 @@ message Server {
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
 
-  // The loopback IP endpoint or unix domain socket to which traffic should
-  // be forwarded to by default. Format should be 127.0.0.1:PORT or
-  // unix:///path/to/socket or unix://@foobar (Linux abstract namespace).
+  // The loopback IP endpoint or Unix domain socket to which traffic should
+  // be forwarded to by default. Format should be `127.0.0.1:PORT` or
+  // `unix:///path/to/socket` or `unix://@foobar` (Linux abstract namespace).
   string default_endpoint = 5;
 }
 

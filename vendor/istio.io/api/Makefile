@@ -11,19 +11,22 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 docker_lock = protolock
+docker_lock_release = ./scripts/check-release-locks.sh
 docker_tool = prototool
 else
-gen_img := gcr.io/istio-testing/protoc:2018-06-12
-lock_img := gcr.io/istio-testing/protolock:2018-10-23
-all_img := gcr.io/istio-testing/api-build-tools:2018-10-31
+gen_img := gcr.io/istio-testing/protoc:2019-03-29
+lock_img := gcr.io/istio-testing/protolock:2019-03-11
+all_img := gcr.io/istio-testing/api-build-tools:2019-03-11
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
 repo_mount := $(mount_dir)/istio.io/api
-docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
+uid := $(shell id -u)
+docker_gen := docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
 out_path = .
-docker_lock = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
-docker_tool = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
+docker_lock = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
+docker_lock_release = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) --entrypoint=/bin/ash $(lock_img) $(repo_mount)/scripts/check-release-locks.sh
+docker_tool = docker run --rm --user $(uid) -v /etc/passwd:/etc/passwd:ro -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
 endif
 
 ########################
@@ -69,7 +72,8 @@ gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping):$(out_path)
 # protoc_gen_docs
 ########################
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,dictionary=$(repo_dir)/dictionaries/en-US,custom_word_list=$(repo_dir)/dictionaries/custom.txt,mode=html_fragment_with_front_matter:$(repo_dir)/
+protoc_gen_docs_plugin_for_networking := --docs_out=warnings=true,dictionary=$(repo_dir)/dictionaries/en-US,custom_word_list=$(repo_dir)/dictionaries/custom.txt,per_file=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 #####################
 # Generation Rules
@@ -239,14 +243,14 @@ routing_v1alpha3_path := networking/v1alpha3
 routing_v1alpha3_protos := $(shell find networking/v1alpha3 -type f -name '*.proto' | sort)
 routing_v1alpha3_pb_gos := $(routing_v1alpha3_protos:.proto=.pb.go)
 routing_v1alpha3_pb_pythons := $(routing_v1alpha3_protos:.proto=_pb2.py)
-routing_v1alpha3_pb_doc := $(routing_v1alpha3_path)/istio.routing.v1alpha3.pb.html
+routing_v1alpha3_pb_docs := $(routing_v1alpha3_protos:.proto=.pb.html)
 
-generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
+generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_docs)
 
-$(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
+$(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_docs): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
 	@$(docker_lock) status
-	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
+	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin_for_networking)$(routing_v1alpha3_path) $^
 
 generate-routing-python: $(routing_v1alpha3_pb_pythons)
 
@@ -257,7 +261,7 @@ $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 
 clean-routing:
 	rm -f $(routing_v1alpha3_pb_gos)
-	rm -f $(routing_v1alpha3_pb_doc)
+	rm -f $(routing_v1alpha3_pb_docs)
 
 #####################
 # rbac/...
@@ -328,10 +332,10 @@ envoy_pb_pythons := $(envoy_protos:.proto=_pb2.py)
 generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
 
 # Envoy APIs is internal APIs, documents is not required.
-$(envoy_pb_gos): $(envoy_protos)
+$(envoy_pb_gos): %.pb.go : %.proto
 	## Generate envoy/*/*.pb.go
 	@$(docker_lock) status
-	@$(docker_gen) $(gogofast_plugin) $^
+	@$(docker_gen) $(gogofast_plugin) $<
 
 generate-envoy-python: $(envoy_pb_pythons)
 
@@ -353,6 +357,12 @@ proto-commit:
 
 proto-commit-force:
 	@$(docker_lock) commit --force
+
+proto-status:
+	@$(docker_lock) status
+
+release-lock-status:
+	@$(docker_lock_release)
 
 #####################
 # Lint

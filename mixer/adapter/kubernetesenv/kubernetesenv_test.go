@@ -55,7 +55,7 @@ func (b *fakeK8sBuilder) build(path string, env adapter.Env) (kubernetes.Interfa
 	return fake.NewSimpleClientset(), nil
 }
 
-func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, error) {
+func errorClientBuilder(_ string, _ adapter.Env) (kubernetes.Interface, error) {
 	return nil, errors.New("can't build k8s client")
 }
 
@@ -121,6 +121,44 @@ func TestBuilder_ControllerCache(t *testing.T) {
 	if len(b.controllers) != 1 {
 		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
+}
+
+// tests closing and rebuilding a handler
+func TestHandler_Close(t *testing.T) {
+	b := newFakeBuilder()
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	err = handler.Close()
+	if err != nil {
+		t.Fatalf("Close() returned unexpected error: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 0; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
+
+	_, err = b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("error in builder: %v", err)
+	}
+
+	b.Lock()
+	if got, want := len(b.controllers), 1; got != want {
+		t.Errorf("Got %d controllers, want %d", got, want)
+	}
+	b.Unlock()
 }
 
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
@@ -454,16 +492,21 @@ func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, ti
 	})
 }
 
-func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
-func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+func mockValidateClientConfig(_ clientcmdapi.Config) error {
+	return nil
+}
+
+func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
+	secretcontroller.ValidateClientConfig = mockValidateClientConfig
 	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()

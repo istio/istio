@@ -3,24 +3,23 @@
 
 package v2
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-import _ "github.com/gogo/googleapis/google/api"
-import _ "github.com/gogo/protobuf/gogoproto"
-import types "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-
-import bytes "bytes"
-
 import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+	bytes "bytes"
+	context "context"
+	fmt "fmt"
+	io "io"
+	math "math"
 
-import io "io"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
+	_ "github.com/gogo/googleapis/google/api"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	types "github.com/gogo/protobuf/types"
+	grpc "google.golang.org/grpc"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -33,7 +32,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// [#comment:next free field: 9]
+// [#comment:next free field: 10]
 type RouteConfiguration struct {
 	// The name of the route configuration. For example, it might match
 	// :ref:`route_config_name
@@ -42,6 +41,14 @@ type RouteConfiguration struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// An array of virtual hosts that make up the route table.
 	VirtualHosts []route.VirtualHost `protobuf:"bytes,2,rep,name=virtual_hosts,json=virtualHosts,proto3" json:"virtual_hosts"`
+	// An array of virtual hosts will be dynamically loaded via the VHDS API.
+	// Both *virtual_hosts* and *vhds* fields will be used when present. *virtual_hosts* can be used
+	// for a base routing table or for infrequently changing virtual hosts. *vhds* is used for
+	// on-demand discovery of virtual hosts. The contents of these two fields will be merged to
+	// generate a routing table for a given RouteConfiguration, with *vhds* derived configuration
+	// taking precedence.
+	// [#not-implemented-hide:]
+	Vhds *Vhds `protobuf:"bytes,9,opt,name=vhds,proto3" json:"vhds,omitempty"`
 	// Optionally specifies a list of HTTP headers that the connection manager
 	// will consider to be internal only. If they are found on external requests they will be cleaned
 	// prior to filter invocation. See :ref:`config_http_conn_man_headers_x-envoy-internal` for more
@@ -90,7 +97,7 @@ func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
 func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
 func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rds_6318040f4fe6d9cb, []int{0}
+	return fileDescriptor_78812f46dcff924a, []int{0}
 }
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -107,8 +114,8 @@ func (m *RouteConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (dst *RouteConfiguration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteConfiguration.Merge(dst, src)
+func (m *RouteConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteConfiguration.Merge(m, src)
 }
 func (m *RouteConfiguration) XXX_Size() int {
 	return m.Size()
@@ -129,6 +136,13 @@ func (m *RouteConfiguration) GetName() string {
 func (m *RouteConfiguration) GetVirtualHosts() []route.VirtualHost {
 	if m != nil {
 		return m.VirtualHosts
+	}
+	return nil
+}
+
+func (m *RouteConfiguration) GetVhds() *Vhds {
+	if m != nil {
+		return m.Vhds
 	}
 	return nil
 }
@@ -175,9 +189,109 @@ func (m *RouteConfiguration) GetValidateClusters() *types.BoolValue {
 	return nil
 }
 
+// [#not-implemented-hide:]
+type Vhds struct {
+	// Configuration source specifier for VHDS.
+	ConfigSource         core.ConfigSource `protobuf:"bytes,1,opt,name=config_source,json=configSource,proto3" json:"config_source"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *Vhds) Reset()         { *m = Vhds{} }
+func (m *Vhds) String() string { return proto.CompactTextString(m) }
+func (*Vhds) ProtoMessage()    {}
+func (*Vhds) Descriptor() ([]byte, []int) {
+	return fileDescriptor_78812f46dcff924a, []int{1}
+}
+func (m *Vhds) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Vhds) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Vhds.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Vhds) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Vhds.Merge(m, src)
+}
+func (m *Vhds) XXX_Size() int {
+	return m.Size()
+}
+func (m *Vhds) XXX_DiscardUnknown() {
+	xxx_messageInfo_Vhds.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Vhds proto.InternalMessageInfo
+
+func (m *Vhds) GetConfigSource() core.ConfigSource {
+	if m != nil {
+		return m.ConfigSource
+	}
+	return core.ConfigSource{}
+}
+
 func init() {
 	proto.RegisterType((*RouteConfiguration)(nil), "envoy.api.v2.RouteConfiguration")
+	proto.RegisterType((*Vhds)(nil), "envoy.api.v2.Vhds")
 }
+
+func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_78812f46dcff924a) }
+
+var fileDescriptor_78812f46dcff924a = []byte{
+	// 673 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xbf, 0x6f, 0xd3, 0x40,
+	0x18, 0xed, 0x25, 0xe9, 0xaf, 0x4b, 0x8a, 0xda, 0xeb, 0xaf, 0x34, 0xa0, 0x24, 0x0a, 0x05, 0x45,
+	0x0c, 0x36, 0x32, 0x13, 0xed, 0x44, 0x5a, 0x41, 0xc5, 0xd2, 0xca, 0x2d, 0x99, 0x10, 0xd6, 0xd5,
+	0xbe, 0xc6, 0x96, 0x5c, 0x7f, 0xe6, 0xee, 0x6c, 0xc8, 0x0a, 0x0b, 0x62, 0x84, 0x7f, 0x82, 0xbf,
+	0x81, 0x05, 0xc6, 0x8e, 0x48, 0xec, 0x08, 0x05, 0x06, 0xf8, 0x2f, 0x90, 0xcf, 0x36, 0xc4, 0x4d,
+	0x61, 0x40, 0x5d, 0xa2, 0xcb, 0xbd, 0xf7, 0xbe, 0xef, 0x7d, 0x77, 0xef, 0x8c, 0xd7, 0x58, 0x10,
+	0xc3, 0x50, 0xa7, 0xa1, 0xa7, 0xc7, 0x86, 0xce, 0x1d, 0xa1, 0x85, 0x1c, 0x24, 0x90, 0x9a, 0xda,
+	0xd7, 0x68, 0xe8, 0x69, 0xb1, 0xd1, 0xb8, 0x56, 0x60, 0xd9, 0xc0, 0x99, 0x7e, 0x4c, 0x05, 0x4b,
+	0xb9, 0x8d, 0x1b, 0x93, 0xa8, 0x0d, 0xc1, 0x89, 0x37, 0xb0, 0x04, 0x44, 0xdc, 0xce, 0x69, 0xc5,
+	0x22, 0x8e, 0x27, 0x6c, 0x88, 0x19, 0x1f, 0x66, 0x68, 0xb3, 0x68, 0x04, 0x22, 0xc9, 0xd2, 0xdf,
+	0x5c, 0x3d, 0x00, 0x18, 0xf8, 0x4c, 0x11, 0x68, 0x10, 0x80, 0xa4, 0xd2, 0x83, 0x40, 0xe4, 0xea,
+	0x0c, 0x55, 0xff, 0x8e, 0xa3, 0x13, 0xfd, 0x19, 0xa7, 0x61, 0xc8, 0x78, 0x8e, 0xaf, 0xc7, 0xd4,
+	0xf7, 0x1c, 0x2a, 0x99, 0x9e, 0x2f, 0x32, 0x60, 0x65, 0x00, 0x03, 0x50, 0x4b, 0x3d, 0x59, 0xa5,
+	0xbb, 0x9d, 0x6f, 0x15, 0x4c, 0xcc, 0xa4, 0xf9, 0x8e, 0x9a, 0x23, 0xe2, 0xaa, 0x19, 0x21, 0xb8,
+	0x12, 0xd0, 0x53, 0x56, 0x47, 0x6d, 0xd4, 0x9d, 0x37, 0xd5, 0x9a, 0x3c, 0xc4, 0x0b, 0xb1, 0xc7,
+	0x65, 0x44, 0x7d, 0xcb, 0x05, 0x21, 0x45, 0xbd, 0xd4, 0x2e, 0x77, 0xab, 0x46, 0x4b, 0x1b, 0x3f,
+	0x40, 0x2d, 0x9d, 0xa4, 0x9f, 0x12, 0xf7, 0x40, 0xc8, 0x5e, 0xe5, 0xec, 0x4b, 0x6b, 0xca, 0xac,
+	0xc5, 0x7f, 0xb6, 0x04, 0xb9, 0x89, 0x2b, 0xb1, 0xeb, 0x88, 0xfa, 0x7c, 0x1b, 0x75, 0xab, 0x06,
+	0x29, 0x96, 0xe8, 0xbb, 0x8e, 0x30, 0x15, 0x4e, 0x0c, 0xbc, 0xea, 0x05, 0x92, 0xf1, 0x80, 0xfa,
+	0x16, 0x04, 0xfe, 0xd0, 0x72, 0x19, 0x75, 0x18, 0x17, 0xf5, 0x72, 0xbb, 0xdc, 0x9d, 0x37, 0x97,
+	0x73, 0x70, 0x3f, 0xf0, 0x87, 0x7b, 0x29, 0x44, 0x5c, 0xbc, 0xce, 0x99, 0x08, 0x21, 0x10, 0x2c,
+	0xa7, 0x5b, 0x12, 0x2c, 0xea, 0x38, 0xf5, 0x8a, 0x72, 0xbc, 0x59, 0x6c, 0x97, 0x5c, 0xa3, 0x96,
+	0x8a, 0xfb, 0xd4, 0x8f, 0xd8, 0x7e, 0x98, 0x1c, 0x41, 0xaf, 0xfa, 0xfe, 0xe7, 0xc7, 0xf2, 0xcc,
+	0x1b, 0x54, 0x5e, 0xfc, 0x31, 0x6b, 0xae, 0xe4, 0x15, 0xb3, 0x26, 0x47, 0x70, 0xcf, 0x71, 0xc8,
+	0x36, 0x6e, 0x5c, 0xd4, 0x89, 0xb3, 0x53, 0x88, 0x59, 0x7d, 0x5a, 0x59, 0x5c, 0x9f, 0x50, 0x9a,
+	0x0a, 0x26, 0x27, 0x78, 0x8d, 0xb3, 0xa7, 0x11, 0x13, 0xf2, 0xbc, 0xcb, 0x99, 0xff, 0x75, 0xb9,
+	0x9c, 0x15, 0x2c, 0x98, 0xbc, 0x8b, 0x37, 0x2e, 0xe8, 0x93, 0x79, 0x9c, 0x53, 0x1e, 0xd7, 0xce,
+	0xeb, 0x32, 0x8b, 0x0f, 0xf0, 0x52, 0x1e, 0x22, 0xcb, 0xf6, 0x23, 0x21, 0x93, 0x93, 0x9f, 0x55,
+	0x57, 0xd6, 0xd0, 0xd2, 0x1c, 0x6a, 0x79, 0x0e, 0xb5, 0x1e, 0x80, 0xaf, 0x9c, 0x99, 0x8b, 0xb9,
+	0x68, 0x27, 0xd3, 0x74, 0x1e, 0xe3, 0x4a, 0x72, 0xa9, 0xe4, 0x08, 0x2f, 0x14, 0xde, 0x8b, 0xca,
+	0xd7, 0x44, 0x84, 0xd4, 0xa8, 0x69, 0x1e, 0x0f, 0x15, 0xad, 0x77, 0x25, 0x89, 0x50, 0x32, 0xe9,
+	0xf4, 0x6b, 0x54, 0x5a, 0x44, 0x66, 0xcd, 0x1e, 0x43, 0x8d, 0x0f, 0x25, 0xbc, 0xaa, 0x32, 0xbc,
+	0x9b, 0xbf, 0xb4, 0x43, 0xc6, 0x63, 0xcf, 0x66, 0xe4, 0x11, 0xae, 0x1d, 0x4a, 0xce, 0xe8, 0xa9,
+	0x82, 0x05, 0x69, 0x16, 0x1b, 0xfd, 0xe6, 0x9b, 0xe9, 0xfc, 0x8d, 0xd6, 0x5f, 0xf1, 0xf4, 0x0e,
+	0x3b, 0x53, 0x5d, 0x74, 0x1b, 0x91, 0x27, 0xb8, 0xba, 0xcb, 0x7c, 0x49, 0xb3, 0xaa, 0xd7, 0xcf,
+	0xa9, 0x12, 0x68, 0xa2, 0xf4, 0xe6, 0xbf, 0x49, 0x85, 0xfa, 0x80, 0xab, 0xf7, 0x99, 0xb4, 0xdd,
+	0xcb, 0x72, 0xdd, 0x7a, 0xf1, 0xf9, 0xfb, 0xdb, 0xd2, 0x46, 0x67, 0xa5, 0xf0, 0x39, 0xda, 0x52,
+	0x4f, 0x55, 0x6c, 0xa1, 0x5b, 0xc6, 0x4b, 0x84, 0xaf, 0x8e, 0x3d, 0xd9, 0x89, 0x73, 0x74, 0xf0,
+	0x92, 0x32, 0xdc, 0x1f, 0x7f, 0xc3, 0x97, 0x3d, 0x76, 0x6f, 0xfb, 0xdd, 0xa8, 0x89, 0xce, 0x46,
+	0x4d, 0xf4, 0x69, 0xd4, 0x44, 0x5f, 0x47, 0x4d, 0x84, 0x1b, 0x1e, 0xa4, 0xfa, 0x90, 0xc3, 0xf3,
+	0x61, 0xa1, 0x54, 0x6f, 0xce, 0x74, 0xc4, 0x41, 0x12, 0xbe, 0x03, 0xf4, 0x0a, 0xa1, 0xe3, 0x19,
+	0x15, 0xc4, 0x3b, 0xbf, 0x02, 0x00, 0x00, 0xff, 0xff, 0xfa, 0x13, 0x2b, 0xc3, 0xe7, 0x05, 0x00,
+	0x00,
+}
+
 func (this *RouteConfiguration) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -207,6 +321,9 @@ func (this *RouteConfiguration) Equal(that interface{}) bool {
 		if !this.VirtualHosts[i].Equal(&that1.VirtualHosts[i]) {
 			return false
 		}
+	}
+	if !this.Vhds.Equal(that1.Vhds) {
+		return false
 	}
 	if len(this.InternalOnlyHeaders) != len(that1.InternalOnlyHeaders) {
 		return false
@@ -256,6 +373,33 @@ func (this *RouteConfiguration) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Vhds) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Vhds)
+	if !ok {
+		that2, ok := that.(Vhds)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ConfigSource.Equal(&that1.ConfigSource) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
@@ -270,7 +414,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type RouteDiscoveryServiceClient interface {
 	StreamRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_StreamRoutesClient, error)
-	IncrementalRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_IncrementalRoutesClient, error)
+	DeltaRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_DeltaRoutesClient, error)
 	FetchRoutes(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
 }
 
@@ -313,31 +457,31 @@ func (x *routeDiscoveryServiceStreamRoutesClient) Recv() (*DiscoveryResponse, er
 	return m, nil
 }
 
-func (c *routeDiscoveryServiceClient) IncrementalRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_IncrementalRoutesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[1], "/envoy.api.v2.RouteDiscoveryService/IncrementalRoutes", opts...)
+func (c *routeDiscoveryServiceClient) DeltaRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_DeltaRoutesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[1], "/envoy.api.v2.RouteDiscoveryService/DeltaRoutes", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &routeDiscoveryServiceIncrementalRoutesClient{stream}
+	x := &routeDiscoveryServiceDeltaRoutesClient{stream}
 	return x, nil
 }
 
-type RouteDiscoveryService_IncrementalRoutesClient interface {
-	Send(*IncrementalDiscoveryRequest) error
-	Recv() (*IncrementalDiscoveryResponse, error)
+type RouteDiscoveryService_DeltaRoutesClient interface {
+	Send(*DeltaDiscoveryRequest) error
+	Recv() (*DeltaDiscoveryResponse, error)
 	grpc.ClientStream
 }
 
-type routeDiscoveryServiceIncrementalRoutesClient struct {
+type routeDiscoveryServiceDeltaRoutesClient struct {
 	grpc.ClientStream
 }
 
-func (x *routeDiscoveryServiceIncrementalRoutesClient) Send(m *IncrementalDiscoveryRequest) error {
+func (x *routeDiscoveryServiceDeltaRoutesClient) Send(m *DeltaDiscoveryRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *routeDiscoveryServiceIncrementalRoutesClient) Recv() (*IncrementalDiscoveryResponse, error) {
-	m := new(IncrementalDiscoveryResponse)
+func (x *routeDiscoveryServiceDeltaRoutesClient) Recv() (*DeltaDiscoveryResponse, error) {
+	m := new(DeltaDiscoveryResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -356,7 +500,7 @@ func (c *routeDiscoveryServiceClient) FetchRoutes(ctx context.Context, in *Disco
 // RouteDiscoveryServiceServer is the server API for RouteDiscoveryService service.
 type RouteDiscoveryServiceServer interface {
 	StreamRoutes(RouteDiscoveryService_StreamRoutesServer) error
-	IncrementalRoutes(RouteDiscoveryService_IncrementalRoutesServer) error
+	DeltaRoutes(RouteDiscoveryService_DeltaRoutesServer) error
 	FetchRoutes(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
 }
 
@@ -390,26 +534,26 @@ func (x *routeDiscoveryServiceStreamRoutesServer) Recv() (*DiscoveryRequest, err
 	return m, nil
 }
 
-func _RouteDiscoveryService_IncrementalRoutes_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RouteDiscoveryServiceServer).IncrementalRoutes(&routeDiscoveryServiceIncrementalRoutesServer{stream})
+func _RouteDiscoveryService_DeltaRoutes_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RouteDiscoveryServiceServer).DeltaRoutes(&routeDiscoveryServiceDeltaRoutesServer{stream})
 }
 
-type RouteDiscoveryService_IncrementalRoutesServer interface {
-	Send(*IncrementalDiscoveryResponse) error
-	Recv() (*IncrementalDiscoveryRequest, error)
+type RouteDiscoveryService_DeltaRoutesServer interface {
+	Send(*DeltaDiscoveryResponse) error
+	Recv() (*DeltaDiscoveryRequest, error)
 	grpc.ServerStream
 }
 
-type routeDiscoveryServiceIncrementalRoutesServer struct {
+type routeDiscoveryServiceDeltaRoutesServer struct {
 	grpc.ServerStream
 }
 
-func (x *routeDiscoveryServiceIncrementalRoutesServer) Send(m *IncrementalDiscoveryResponse) error {
+func (x *routeDiscoveryServiceDeltaRoutesServer) Send(m *DeltaDiscoveryResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *routeDiscoveryServiceIncrementalRoutesServer) Recv() (*IncrementalDiscoveryRequest, error) {
-	m := new(IncrementalDiscoveryRequest)
+func (x *routeDiscoveryServiceDeltaRoutesServer) Recv() (*DeltaDiscoveryRequest, error) {
+	m := new(DeltaDiscoveryRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -451,8 +595,104 @@ var _RouteDiscoveryService_serviceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "IncrementalRoutes",
-			Handler:       _RouteDiscoveryService_IncrementalRoutes_Handler,
+			StreamName:    "DeltaRoutes",
+			Handler:       _RouteDiscoveryService_DeltaRoutes_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "envoy/api/v2/rds.proto",
+}
+
+// VirtualHostDiscoveryServiceClient is the client API for VirtualHostDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type VirtualHostDiscoveryServiceClient interface {
+	DeltaVirtualHosts(ctx context.Context, opts ...grpc.CallOption) (VirtualHostDiscoveryService_DeltaVirtualHostsClient, error)
+}
+
+type virtualHostDiscoveryServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewVirtualHostDiscoveryServiceClient(cc *grpc.ClientConn) VirtualHostDiscoveryServiceClient {
+	return &virtualHostDiscoveryServiceClient{cc}
+}
+
+func (c *virtualHostDiscoveryServiceClient) DeltaVirtualHosts(ctx context.Context, opts ...grpc.CallOption) (VirtualHostDiscoveryService_DeltaVirtualHostsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_VirtualHostDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.VirtualHostDiscoveryService/DeltaVirtualHosts", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &virtualHostDiscoveryServiceDeltaVirtualHostsClient{stream}
+	return x, nil
+}
+
+type VirtualHostDiscoveryService_DeltaVirtualHostsClient interface {
+	Send(*DeltaDiscoveryRequest) error
+	Recv() (*DeltaDiscoveryResponse, error)
+	grpc.ClientStream
+}
+
+type virtualHostDiscoveryServiceDeltaVirtualHostsClient struct {
+	grpc.ClientStream
+}
+
+func (x *virtualHostDiscoveryServiceDeltaVirtualHostsClient) Send(m *DeltaDiscoveryRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *virtualHostDiscoveryServiceDeltaVirtualHostsClient) Recv() (*DeltaDiscoveryResponse, error) {
+	m := new(DeltaDiscoveryResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// VirtualHostDiscoveryServiceServer is the server API for VirtualHostDiscoveryService service.
+type VirtualHostDiscoveryServiceServer interface {
+	DeltaVirtualHosts(VirtualHostDiscoveryService_DeltaVirtualHostsServer) error
+}
+
+func RegisterVirtualHostDiscoveryServiceServer(s *grpc.Server, srv VirtualHostDiscoveryServiceServer) {
+	s.RegisterService(&_VirtualHostDiscoveryService_serviceDesc, srv)
+}
+
+func _VirtualHostDiscoveryService_DeltaVirtualHosts_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(VirtualHostDiscoveryServiceServer).DeltaVirtualHosts(&virtualHostDiscoveryServiceDeltaVirtualHostsServer{stream})
+}
+
+type VirtualHostDiscoveryService_DeltaVirtualHostsServer interface {
+	Send(*DeltaDiscoveryResponse) error
+	Recv() (*DeltaDiscoveryRequest, error)
+	grpc.ServerStream
+}
+
+type virtualHostDiscoveryServiceDeltaVirtualHostsServer struct {
+	grpc.ServerStream
+}
+
+func (x *virtualHostDiscoveryServiceDeltaVirtualHostsServer) Send(m *DeltaDiscoveryResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *virtualHostDiscoveryServiceDeltaVirtualHostsServer) Recv() (*DeltaDiscoveryRequest, error) {
+	m := new(DeltaDiscoveryRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _VirtualHostDiscoveryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "envoy.api.v2.VirtualHostDiscoveryService",
+	HandlerType: (*VirtualHostDiscoveryServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "DeltaVirtualHosts",
+			Handler:       _VirtualHostDiscoveryService_DeltaVirtualHosts_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -572,6 +812,45 @@ func (m *RouteConfiguration) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if m.Vhds != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintRds(dAtA, i, uint64(m.Vhds.Size()))
+		n2, err := m.Vhds.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Vhds) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Vhds) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintRds(dAtA, i, uint64(m.ConfigSource.Size()))
+	n3, err := m.ConfigSource.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n3
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -637,6 +916,24 @@ func (m *RouteConfiguration) Size() (n int) {
 			n += 1 + l + sovRds(uint64(l))
 		}
 	}
+	if m.Vhds != nil {
+		l = m.Vhds.Size()
+		n += 1 + l + sovRds(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Vhds) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.ConfigSource.Size()
+	n += 1 + l + sovRds(uint64(l))
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -671,7 +968,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -699,7 +996,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -709,6 +1006,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -728,7 +1028,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -737,6 +1037,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -759,7 +1062,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -769,6 +1072,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -788,7 +1094,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -797,6 +1103,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -819,7 +1128,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -829,6 +1138,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -848,7 +1160,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -857,6 +1169,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -879,7 +1194,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -888,6 +1203,9 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -912,7 +1230,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -922,10 +1240,49 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRds
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			m.RequestHeadersToRemove = append(m.RequestHeadersToRemove, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Vhds", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Vhds == nil {
+				m.Vhds = &Vhds{}
+			}
+			if err := m.Vhds.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -934,6 +1291,96 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRds
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthRds
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Vhds) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRds
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Vhds: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Vhds: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigSource", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRds
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRds
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRds
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ConfigSource.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRds(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRds
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRds
 			}
 			if (iNdEx + skippy) > l {
@@ -1003,8 +1450,11 @@ func skipRds(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthRds
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthRds
 			}
 			return iNdEx, nil
@@ -1035,6 +1485,9 @@ func skipRds(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthRds
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -1053,46 +1506,3 @@ var (
 	ErrInvalidLengthRds = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowRds   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_rds_6318040f4fe6d9cb) }
-
-var fileDescriptor_rds_6318040f4fe6d9cb = []byte{
-	// 579 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xbf, 0x6f, 0xd3, 0x40,
-	0x14, 0xee, 0x35, 0xa1, 0xa5, 0x97, 0x22, 0xb5, 0xd7, 0x5f, 0x69, 0x84, 0x92, 0xa8, 0x62, 0x08,
-	0x1d, 0x6c, 0x30, 0x13, 0x65, 0x22, 0x45, 0x50, 0x58, 0x8a, 0x5c, 0xe8, 0x6a, 0x5d, 0xed, 0xd7,
-	0xc4, 0x92, 0x73, 0xcf, 0xdc, 0x9d, 0x0d, 0x59, 0x99, 0x98, 0xe1, 0x9f, 0xe0, 0x6f, 0x80, 0x85,
-	0xb1, 0x23, 0x88, 0x1d, 0xa1, 0x88, 0x01, 0xfe, 0x0b, 0x94, 0x3b, 0x1b, 0xea, 0xb6, 0x48, 0x08,
-	0xb1, 0x44, 0x2f, 0xf7, 0x7d, 0xef, 0x7d, 0xdf, 0x77, 0xf7, 0x12, 0xba, 0x0e, 0x22, 0xc7, 0xb1,
-	0xcb, 0xd3, 0xd8, 0xcd, 0x3d, 0x57, 0x46, 0xca, 0x49, 0x25, 0x6a, 0x64, 0x8b, 0xe6, 0xdc, 0xe1,
-	0x69, 0xec, 0xe4, 0x5e, 0xeb, 0x6a, 0x85, 0x15, 0xa2, 0x04, 0xf7, 0x88, 0x2b, 0xb0, 0xdc, 0x33,
-	0x68, 0x14, 0xab, 0x10, 0x73, 0x90, 0xe3, 0x02, 0x6d, 0x57, 0x15, 0x30, 0xd3, 0x60, 0x3f, 0xcb,
-	0xee, 0x01, 0xe2, 0x20, 0x01, 0x43, 0xe0, 0x42, 0xa0, 0xe6, 0x3a, 0x46, 0xa1, 0xca, 0xee, 0x02,
-	0x35, 0xdf, 0x8e, 0xb2, 0x63, 0xf7, 0xb9, 0xe4, 0x69, 0x0a, 0xb2, 0xc4, 0x37, 0x72, 0x9e, 0xc4,
-	0x11, 0xd7, 0xe0, 0x96, 0x45, 0x01, 0xac, 0x0e, 0x70, 0x80, 0xa6, 0x74, 0xa7, 0x95, 0x3d, 0xdd,
-	0x7a, 0x5f, 0xa7, 0xcc, 0x9f, 0x8a, 0xef, 0xa2, 0x38, 0x8e, 0x07, 0x99, 0x34, 0x62, 0x8c, 0xd1,
-	0xba, 0xe0, 0x23, 0x68, 0x92, 0x2e, 0xe9, 0x2d, 0xf8, 0xa6, 0x66, 0x8f, 0xe8, 0x95, 0x3c, 0x96,
-	0x3a, 0xe3, 0x49, 0x30, 0x44, 0xa5, 0x55, 0x73, 0xb6, 0x5b, 0xeb, 0x35, 0xbc, 0x8e, 0x73, 0xfa,
-	0x66, 0x1c, 0x9b, 0xe4, 0xd0, 0x12, 0xf7, 0x50, 0xe9, 0x7e, 0xfd, 0xe4, 0x4b, 0x67, 0xc6, 0x5f,
-	0xcc, 0x7f, 0x1f, 0x29, 0xe6, 0xd1, 0xb5, 0x58, 0x68, 0x90, 0x82, 0x27, 0x01, 0x8a, 0x64, 0x1c,
-	0x0c, 0x81, 0x47, 0x20, 0x55, 0xb3, 0xd6, 0xad, 0xf5, 0x16, 0xfc, 0x95, 0x12, 0xdc, 0x17, 0xc9,
-	0x78, 0xcf, 0x42, 0x6c, 0x48, 0x37, 0x24, 0xa8, 0x14, 0x85, 0x82, 0x92, 0x1e, 0x68, 0x0c, 0x78,
-	0x14, 0x35, 0xeb, 0xc6, 0xc9, 0xb5, 0xaa, 0x93, 0xe9, 0xab, 0x38, 0xb6, 0xf9, 0x90, 0x27, 0x19,
-	0xec, 0xa7, 0xd3, 0x68, 0xfd, 0xc6, 0xbb, 0x1f, 0x1f, 0x6a, 0x73, 0xaf, 0x49, 0x6d, 0xe9, 0xfb,
-	0xbc, 0xbf, 0x5a, 0x4e, 0x2c, 0x44, 0x9e, 0xe0, 0xdd, 0x28, 0x62, 0x77, 0x68, 0xeb, 0x22, 0x25,
-	0x09, 0x23, 0xcc, 0xa1, 0x79, 0xc9, 0x58, 0xdc, 0x38, 0xd7, 0xe9, 0x1b, 0x98, 0x1d, 0xd3, 0x75,
-	0x09, 0xcf, 0x32, 0x50, 0xfa, 0xac, 0xcb, 0xb9, 0x7f, 0x75, 0xb9, 0x52, 0x0c, 0xac, 0x98, 0x7c,
-	0x40, 0x97, 0xcb, 0x17, 0x0e, 0xc2, 0x24, 0x53, 0x7a, 0x7a, 0x7d, 0xf3, 0x5d, 0xd2, 0x6b, 0x78,
-	0x2d, 0xc7, 0x2e, 0x89, 0x53, 0x2e, 0x89, 0xd3, 0x47, 0x4c, 0xcc, 0x78, 0x7f, 0xa9, 0x6c, 0xda,
-	0x2d, 0x7a, 0xd8, 0x6d, 0xba, 0x79, 0x81, 0xe1, 0x22, 0xec, 0x65, 0x13, 0x76, 0xfd, 0xac, 0x01,
-	0x9b, 0xd5, 0xfb, 0x34, 0x4b, 0xd7, 0xcc, 0xf6, 0xdc, 0x2b, 0x77, 0xfc, 0x00, 0x64, 0x1e, 0x87,
-	0xc0, 0x9e, 0xd2, 0xc5, 0x03, 0x2d, 0x81, 0x8f, 0x0c, 0xac, 0x58, 0xbb, 0x9a, 0xfa, 0x17, 0xdf,
-	0xb7, 0x83, 0x5b, 0x9d, 0x3f, 0xe2, 0xf6, 0x96, 0xb7, 0x66, 0x7a, 0xe4, 0x06, 0x61, 0x29, 0x5d,
-	0x7e, 0x28, 0x42, 0x09, 0x23, 0x10, 0x9a, 0x27, 0xc5, 0xec, 0xeb, 0xd5, 0xde, 0x53, 0x84, 0x73,
-	0x32, 0xdb, 0x7f, 0x43, 0xad, 0x28, 0x22, 0x6d, 0xdc, 0x07, 0x1d, 0x0e, 0xff, 0x57, 0x8e, 0xce,
-	0xcb, 0xcf, 0xdf, 0xde, 0xcc, 0x6e, 0x6e, 0xad, 0x56, 0xfe, 0x1a, 0x76, 0xcc, 0xcf, 0x46, 0xed,
-	0x90, 0xed, 0xfe, 0xcd, 0xb7, 0x93, 0x36, 0x39, 0x99, 0xb4, 0xc9, 0xc7, 0x49, 0x9b, 0x7c, 0x9d,
-	0xb4, 0x09, 0x6d, 0xc5, 0x68, 0xa7, 0xa6, 0x12, 0x5f, 0x8c, 0x2b, 0x02, 0x8f, 0xc9, 0x2b, 0x42,
-	0x8e, 0xe6, 0xcc, 0x3b, 0xdf, 0xfa, 0x19, 0x00, 0x00, 0xff, 0xff, 0xa0, 0x82, 0x72, 0xb9, 0xbc,
-	0x04, 0x00, 0x00,
-}

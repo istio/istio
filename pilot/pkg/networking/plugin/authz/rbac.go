@@ -61,8 +61,9 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP              = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace       = "source.namespace"            // e.g. "default".
+	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace = "source.namespace" // e.g. "default".
+	// TODO(pitlv2109): Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
 	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
 	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
@@ -70,6 +71,11 @@ const (
 	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
 	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
+
+	// reserved string values in names and not_names in ServiceRoleBinding.
+	// This prevents ambiguity when the user defines "*" for names or not_names.
+	allUsers              = "allUsers"              // Allow all users, both authenticated and unauthenticated.
+	allAuthenticatedUsers = "allAuthenticatedUsers" // Allow all authenticated users.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -80,10 +86,11 @@ const (
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
+	// Envoy config attributes for ServiceRole rules.
 	methodHeader = ":method"
 	pathHeader   = ":path"
-
-	spiffePrefix = spiffe.Scheme + "://"
+	hostHeader   = ":authority"
+	portKey      = "port"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.
@@ -140,6 +147,12 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	}
 
 	// Check if the constraints are matched.
+	return service.areConstraintsMatched(rule)
+}
+
+// areConstraintsMatched returns True if the calling service's attributes and/or labels match to
+// the ServiceRole constraints.
+func (service serviceMetadata) areConstraintsMatched(rule *rbacproto.AccessRule) bool {
 	for _, constraint := range rule.Constraints {
 		if !attributesEnforcedInPlugin(constraint.Key) {
 			continue
@@ -164,7 +177,6 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -194,12 +206,12 @@ func generateMetadataStringMatcher(key string, v *metadata.StringMatcher, filter
 }
 
 // generateMetadataListMatcher generates a metadata list matcher for the given path keys and value.
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(filter string, keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
 				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+					StringMatch: createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */),
 				},
 			},
 		},
@@ -213,7 +225,7 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 
 	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
+		Filter: filter,
 		Path:   paths,
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_ListMatch{
@@ -223,10 +235,10 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 }
 
-func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metadata.StringMatcher {
+func createStringMatcher(v string, forceRegexPattern, prependSpiffe bool) *metadata.StringMatcher {
 	extraPrefix := ""
-	if forTCPFilter {
-		extraPrefix = spiffePrefix
+	if prependSpiffe {
+		extraPrefix = spiffe.URIPrefix
 	}
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
@@ -266,7 +278,7 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* forTCPFilter */)
+		stringMatcher := createStringMatcher(v, true /* forceRegexPattern */, false /* prependSpiffe */)
 		return generateMetadataStringMatcher(attrSrcPrincipal, stringMatcher, filterName)
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
@@ -275,10 +287,10 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		return generateMetadataListMatcher([]string{attrRequestClaims, claim}, v)
+		return generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, claim}, v)
 	}
 
-	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
+	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */)
 	if !attributesFromAuthN(k) {
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
 		if forTCPFilter {
@@ -301,7 +313,11 @@ func NewPlugin() plugin.Plugin {
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return nil
+	if in.Node.Type != model.Router {
+		return nil
+	}
+
+	return buildFilter(in, mutable)
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
@@ -315,6 +331,15 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// Only supports sidecar proxy for now.
 	if in.Node.Type != model.SidecarProxy {
+		return nil
+	}
+
+	return buildFilter(in, mutable)
+}
+
+func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.ServiceInstance == nil || in.ServiceInstance.Service == nil {
+		rbacLog.Errorf("nil service instance")
 		return nil
 	}
 
@@ -332,19 +357,33 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	option := rbacOption{authzPolicies: authzPolicies, globalPermissiveMode: globalPermissive}
+
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		rbacLog.Debugf("building tcp filter config for %v", *service)
-		filter := buildTCPFilter(service, option)
-		if filter != nil {
+		tcpFilter := buildTCPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
+		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+			// For gateways, due to TLS termination, a listener marked as TCP could very well
+			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
+			// to decide the type of filter to attach
+			httpFilter := buildHTTPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
+			rbacLog.Infof("built http filter config for %s", service.name)
+			for cnum := range mutable.FilterChains {
+				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
+				}
+			}
+		} else {
 			rbacLog.Infof("built tcp filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *filter)
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *tcpFilter)
 			}
 		}
 	case plugin.ListenerProtocolHTTP:
 		rbacLog.Debugf("building http filter config for %v", *service)
-		filter := buildHTTPFilter(service, option)
+		filter := buildHTTPFilter(service, option, util.IsXDSMarshalingToAnyEnabled(in.Node))
 		if filter != nil {
 			rbacLog.Infof("built http filter config for %s", service.name)
 			for cnum := range mutable.FilterChains {
@@ -416,35 +455,61 @@ func isRbacEnabled(svc string, ns string, authzPolicies *model.AuthorizationPoli
 	}
 }
 
-func buildTCPFilter(service *serviceMetadata, option rbacOption) *listener.Filter {
+func buildTCPFilter(service *serviceMetadata, option rbacOption, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
 	option.forTCPFilter = true
 	// The result of convertRbacRulesToFilterConfig() is wrapped in a config for http filter, here we
 	// need to extract the generated rules and put in a config for network filter.
-	config := convertRbacRulesToFilterConfig(service, option)
+	var config *http_config.RBAC
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for TCP filter")
+		config = convertRbacRulesToFilterConfigV2(service, option)
+	} else {
+		rbacLog.Debugf("used RBAC v1 for TCP filter")
+		config = convertRbacRulesToFilterConfig(service, option)
+	}
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
-		ConfigType: &listener.Filter_Config{
-			Config: util.MessageToStruct(&network_config.RBAC{
-				Rules:       config.Rules,
-				ShadowRules: config.ShadowRules,
-				StatPrefix:  rbacTCPFilterStatPrefix,
-			}),
-		},
 	}
+	rbacConfig := &network_config.RBAC{
+		Rules:       config.Rules,
+		ShadowRules: config.ShadowRules,
+		StatPrefix:  rbacTCPFilterStatPrefix,
+	}
+
+	if isXDSMarshalingToAnyEnabled {
+		tcpConfig.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
+	} else {
+		tcpConfig.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
+	}
+
 	rbacLog.Debugf("generated tcp filter config: %v", tcpConfig)
 	return &tcpConfig
 }
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.HttpFilter {
+func buildHTTPFilter(service *serviceMetadata, option rbacOption, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	option.forTCPFilter = false
-	config := convertRbacRulesToFilterConfig(service, option)
-	rbacLog.Debugf("generated http filter config: %v", *config)
-	return &http_conn.HttpFilter{
-		Name:       rbacHTTPFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)},
+	var config *http_config.RBAC
+	if option.authzPolicies.IsRbacV2 {
+		rbacLog.Debugf("used RBAC v2 for HTTP filter")
+		config = convertRbacRulesToFilterConfigV2(service, option)
+	} else {
+		rbacLog.Debugf("used RBAC v1 for HTTP filter")
+		config = convertRbacRulesToFilterConfig(service, option)
 	}
+	rbacLog.Debugf("generated http filter config: %v", *config)
+	out := &http_conn.HttpFilter{
+		Name: rbacHTTPFilterName,
+	}
+
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
 }
 
 // convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
@@ -545,6 +610,24 @@ func convertRbacRulesToFilterConfig(service *serviceMetadata, option rbacOption)
 	return &http_config.RBAC{Rules: rbac}
 }
 
+// appendRule appends a |rule| to |rules| if |rule| is not nil.
+func appendRule(rules *policyproto.Permission_AndRules, rule *policyproto.Permission) {
+	if rule != nil {
+		rules.AndRules.Rules = append(rules.AndRules.Rules, rule)
+	}
+}
+
+// appendNotRule appends a |notRule| to AndRules of |rules| if |notRule| is not nil.
+func appendNotRule(rules *policyproto.Permission_AndRules, notRule *policyproto.Permission) {
+	if notRule != nil {
+		rules.AndRules.Rules = append(rules.AndRules.Rules,
+			&policyproto.Permission{Rule: &policyproto.Permission_NotRule{
+				NotRule: notRule,
+			},
+			})
+	}
+}
+
 // convertToPermission converts a single AccessRule to a Permission.
 func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	rules := &policyproto.Permission_AndRules{
@@ -553,18 +636,44 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		},
 	}
 
+	if len(rule.Hosts) > 0 {
+		hostRule := permissionForKeyValues(hostHeader, rule.Hosts)
+		appendRule(rules, hostRule)
+	}
+
+	if len(rule.NotHosts) > 0 {
+		notHostRule := permissionForKeyValues(hostHeader, rule.NotHosts)
+		appendNotRule(rules, notHostRule)
+	}
+
 	if len(rule.Methods) > 0 {
 		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
-		if methodRule != nil {
-			rules.AndRules.Rules = append(rules.AndRules.Rules, methodRule)
-		}
+		appendRule(rules, methodRule)
+	}
+
+	if len(rule.NotMethods) > 0 {
+		notMethodRule := permissionForKeyValues(methodHeader, rule.NotMethods)
+		appendNotRule(rules, notMethodRule)
 	}
 
 	if len(rule.Paths) > 0 {
 		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
-		if pathRule != nil {
-			rules.AndRules.Rules = append(rules.AndRules.Rules, pathRule)
-		}
+		appendRule(rules, pathRule)
+	}
+
+	if len(rule.NotPaths) > 0 {
+		notPathRule := permissionForKeyValues(pathHeader, rule.NotPaths)
+		appendNotRule(rules, notPathRule)
+	}
+
+	if len(rule.Ports) > 0 {
+		portRule := permissionForKeyValues(portKey, convertPortsToString(rule.Ports))
+		appendRule(rules, portRule)
+	}
+
+	if len(rule.NotPorts) > 0 {
+		notPortRule := permissionForKeyValues(portKey, convertPortsToString(rule.NotPorts))
+		appendNotRule(rules, notPortRule)
 	}
 
 	if len(rule.Constraints) > 0 {
@@ -572,16 +681,13 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 		// key and this should already be caught in validation stage.
 		for _, constraint := range rule.Constraints {
 			p := permissionForKeyValues(constraint.Key, constraint.Values)
-			if p != nil {
-				rules.AndRules.Rules = append(rules.AndRules.Rules, p)
-			}
+			appendRule(rules, p)
 		}
 	}
 
 	if len(rules.AndRules.Rules) == 0 {
 		// None of above rule satisfied means the permission applies to all paths/methods/constraints.
-		rules.AndRules.Rules = append(rules.AndRules.Rules,
-			&policyproto.Permission{Rule: &policyproto.Permission_Any{Any: true}})
+		appendRule(rules, &policyproto.Permission{Rule: &policyproto.Permission_Any{Any: true}})
 	}
 
 	return &policyproto.Permission{Rule: rules}
@@ -608,6 +714,7 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding, forTCPFilter 
 	return enforcedPrincipals, permissivePrincipals
 }
 
+// TODO(pitlv2109): Refactor first class fields.
 // convertToPrincipal converts a single subject to principal.
 func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policyproto.Principal {
 	ids := &policyproto.Principal_AndIds{
@@ -616,6 +723,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		},
 	}
 
+	// TODO(pitlv2109): Delete this subject.User block of code once we rolled out 1.2?
 	if subject.User != "" {
 		if subject.User == "*" {
 			// Generate an any rule to grant access permission to anyone if the value is "*".
@@ -641,6 +749,7 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		}
 	}
 
+	// TODO(pitlv2109): Same as above.
 	if subject.Group != "" {
 		if subject.Properties == nil {
 			subject.Properties = make(map[string]string)
@@ -655,7 +764,47 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 		subject.Properties[attrRequestClaimGroups] = subject.Group
 	}
 
-	if len(subject.Properties) != 0 {
+	if len(subject.Names) > 0 {
+		namesBinding := principalForKeyValues(attrSrcPrincipal, subject.Names, forTCPFilter)
+		appendID(namesBinding, ids)
+	}
+
+	if len(subject.NotNames) > 0 {
+		notNamesBinding := principalForKeyValues(attrSrcPrincipal, subject.NotNames, forTCPFilter)
+		appendNotID(notNamesBinding, ids)
+	}
+
+	if len(subject.Groups) > 0 {
+		groupsBinding := principalForKeyValues(attrRequestClaimGroups, subject.Groups, forTCPFilter)
+		appendID(groupsBinding, ids)
+	}
+
+	if len(subject.NotGroups) > 0 {
+		notGroupsBinding := principalForKeyValues(attrRequestClaimGroups, subject.NotGroups, forTCPFilter)
+		appendNotID(notGroupsBinding, ids)
+	}
+
+	if len(subject.Namespaces) > 0 {
+		namespacesBinding := principalForKeyValues(attrSrcNamespace, subject.Namespaces, forTCPFilter)
+		appendID(namespacesBinding, ids)
+	}
+
+	if len(subject.NotNamespaces) > 0 {
+		notNamespacesBinding := principalForKeyValues(attrSrcNamespace, subject.NotNamespaces, forTCPFilter)
+		appendNotID(notNamespacesBinding, ids)
+	}
+
+	if len(subject.Ips) > 0 {
+		ipsBinding := principalForKeyValues(attrSrcIP, subject.Ips, forTCPFilter)
+		appendID(ipsBinding, ids)
+	}
+
+	if len(subject.NotIps) > 0 {
+		notIpsBinding := principalForKeyValues(attrSrcIP, subject.NotIps, forTCPFilter)
+		appendNotID(notIpsBinding, ids)
+	}
+
+	if len(subject.Properties) > 0 {
 		// Use a separate key list to make sure the map iteration order is stable, so that the generated
 		// config is stable.
 		var keys []string
@@ -691,6 +840,44 @@ func convertToPrincipal(subject *rbacproto.Subject, forTCPFilter bool) *policypr
 	return &policyproto.Principal{Identifier: ids}
 }
 
+// principalForKeyValues converts an Istio first class field (e.g. namespaces, groups, ips, as opposed
+// to properties fields) to Envoy RBAC config and returns said field as a Principal or returns nil
+// if the field is empty.
+func principalForKeyValues(key string, values []string, forTCPFilter bool) *policyproto.Principal {
+	orIds := &policyproto.Principal_OrIds{
+		OrIds: &policyproto.Principal_Set{
+			Ids: make([]*policyproto.Principal, 0),
+		},
+	}
+	for _, value := range values {
+		id := principalForKeyValue(key, value, forTCPFilter)
+		if id != nil {
+			orIds.OrIds.Ids = append(orIds.OrIds.Ids, id)
+		}
+	}
+	if len(orIds.OrIds.Ids) > 0 {
+		return &policyproto.Principal{Identifier: orIds}
+	}
+	return nil
+}
+
+// appendId appends a list of orIds to andIds.
+func appendID(orIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if orIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids, orIds)
+	}
+}
+
+// appendNotId appends a list of *not* orIds to andIds.
+func appendNotID(notOrIds *policyproto.Principal, andIds *policyproto.Principal_AndIds) {
+	if notOrIds != nil {
+		andIds.AndIds.Ids = append(andIds.AndIds.Ids,
+			&policyproto.Principal{Identifier: &policyproto.Principal_NotId{
+				NotId: notOrIds,
+			}})
+	}
+}
+
 func permissionForKeyValues(key string, values []string) *policyproto.Permission {
 	var converter func(string) (*policyproto.Permission, error)
 	switch {
@@ -704,17 +891,17 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
 			}, nil
 		}
-	case key == attrDestPort:
+	case key == attrDestPort || key == portKey:
 		converter = func(v string) (*policyproto.Permission, error) {
-			port, err := convertToPort(v)
+			portValue, err := convertToPort(v)
 			if err != nil {
 				return nil, err
 			}
 			return &policyproto.Permission{
-				Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
+				Rule: &policyproto.Permission_DestinationPort{DestinationPort: portValue},
 			}, nil
 		}
-	case key == pathHeader || key == methodHeader:
+	case key == pathHeader || key == methodHeader || key == hostHeader:
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Header{
@@ -739,7 +926,27 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_RequestedServerName{
-					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */),
+				},
+			}, nil
+		}
+	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
+		// Split key of format experimental.envoy.filters.a.b[c] to [envoy.filters.a.b, c].
+		parts := strings.SplitN(strings.TrimSuffix(strings.TrimPrefix(key, "experimental."), "]"), "[", 2)
+		converter = func(v string) (*policyproto.Permission, error) {
+			// If value is of format [v], create a list matcher.
+			// Else, if value is of format v, create a string matcher.
+			var metadataMatcher *metadata.MetadataMatcher
+			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+				metadataMatcher = generateMetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"))
+			} else {
+				stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */)
+				metadataMatcher = generateMetadataStringMatcher(parts[1], stringMatcher, parts[0])
+			}
+
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_Metadata{
+					Metadata: metadataMatcher,
 				},
 			}, nil
 		}
@@ -765,7 +972,10 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		}
 	}
 
-	return &policyproto.Permission{Rule: orRules}
+	if len(orRules.OrRules.Rules) > 0 {
+		return &policyproto.Permission{Rule: orRules}
+	}
+	return nil
 }
 
 // Create a Principal based on the key and the value.
@@ -773,6 +983,24 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 // value: the value of a subject property.
 // forTCPFilter: the principal is used in the TCP filter.
 func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Principal {
+	// Generate an any rule to grant access permission to anyone if the value is "*" for
+	// |attrSrcPrincipal|.
+	if key == attrSrcPrincipal {
+		if value == allUsers {
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
+		// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
+		// refer to authenticated users, since existing code using regex to map "*" to all authenticated
+		// users.
+		if value == allAuthenticatedUsers {
+			value = "*"
+		}
+	}
+
 	if forTCPFilter {
 		switch key {
 		case attrSrcPrincipal:

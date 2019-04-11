@@ -29,7 +29,6 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
@@ -57,9 +56,6 @@ var tests = []struct {
 	// attributes to use. If left empty, a default bag will be used.
 	attr map[string]interface{}
 
-	// the variety of the operation to apply.
-	variety tpb.TemplateVariety
-
 	// quota method arguments to pass
 	qma *QuotaMethodArgs
 
@@ -75,6 +71,9 @@ var tests = []struct {
 
 	// expected adapter/template log.
 	log string
+
+	// the variety of the operation to apply.
+	variety tpb.TemplateVariety
 
 	// print out the full log for this test. Useful for debugging.
 	fullLog bool
@@ -1004,8 +1003,7 @@ func TestDispatcher(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
 
-			expb := compiled.NewBuilder(s.Attributes)
-			r := routing.BuildTable(h, s, expb, "istio-system", true)
+			r := routing.BuildTable(h, s, "istio-system", true)
 			_ = dispatcher.ChangeRoute(r)
 
 			// clear logger, as we are not interested in adapter/template logs during config step.

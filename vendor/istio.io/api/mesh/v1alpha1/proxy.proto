@@ -45,7 +45,7 @@ message Tracing {
     string address = 1;
   }
 
-  // Lightstep defines configuration for a LightStep tracer.
+  // Defines configuration for a LightStep tracer.
   message Lightstep {
     // Address of the LightStep Satellite pool.
     string address = 1;
@@ -60,15 +60,33 @@ message Tracing {
     string cacert_path = 4;
   }
 
+  // Datadog defines configuration for a Datadog tracer.
+  message Datadog {
+    // Address of the Datadog Agent.
+    string address = 1;
+  }
+
   // The tracer implementation to be used by Envoy.
   oneof tracer {
     // Use a Zipkin tracer.
     Zipkin zipkin = 1;
     // Use a LightStep tracer.
     Lightstep lightstep = 2;
+    // Use a Datadog tracer.
+    Datadog datadog = 3;
   }
 }
 
+// SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+// For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+// For pilot/mixer, it's passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.
+message SDS {
+  // True if SDS is enabled.
+  bool enabled = 1;
+
+  // Path of k8s service account JWT path.
+  string k8s_sa_jwt_path = 2;
+}
 
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
@@ -119,9 +137,14 @@ message ProxyConfig {
   // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
   string statsd_udp_address = 10;
 
+  // Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+  // See [Metric Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto)
+  // for details about Envoy's Metrics Service API.
+  string envoy_metrics_service_address = 20;
+
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
-  
+
   // $hide_from_docs
   string availability_zone = 12 [deprecated=true];
 
@@ -164,4 +187,7 @@ message ProxyConfig {
 
   // Tracing configuration to be used by the proxy.
   Tracing tracing = 19;
+
+  // secret discovery service(SDS) configuration to be used by the proxy.
+  SDS sds = 21;
 }

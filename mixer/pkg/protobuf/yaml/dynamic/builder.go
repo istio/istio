@@ -23,6 +23,7 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -32,27 +33,21 @@ var (
 
 type (
 
-	// Compiler creates a compiled expression from a string expression
-	Compiler interface {
-		// Compile creates a compiled expression from a string expression
-		Compile(expr string) (compiled.Expression, v1beta1.ValueType, error)
-	}
-
 	// Builder builds encoder based on data
 	Builder struct {
 		resolver    yaml.Resolver
-		compiler    Compiler
+		compiler    lang.Compiler
 		skipUnknown bool
 		namedTypes  map[string]NamedEncoderBuilderFunc
 	}
 
 	// NamedEncoderBuilderFunc funcs have a special way to process input for encoding specific types
 	// for example istio...Value field accepts user input in a specific way
-	NamedEncoderBuilderFunc func(m *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler Compiler) (Encoder, error)
+	NamedEncoderBuilderFunc func(m *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler lang.Compiler) (Encoder, error)
 )
 
 // NewEncoderBuilder creates an EncoderBuilder.
-func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bool) *Builder {
+func NewEncoderBuilder(resolver yaml.Resolver, compiler lang.Compiler, skipUnknown bool) *Builder {
 	return &Builder{
 		resolver:    resolver,
 		compiler:    compiler,
@@ -225,7 +220,7 @@ func buildStaticEncoder(val interface{}, fd *descriptor.FieldDescriptorProto, e 
 }
 
 // buildDynamicEncoder builds dynamic encoder with special case for enum.
-func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *descriptor.EnumDescriptorProto, c Compiler) (Encoder, error) {
+func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *descriptor.EnumDescriptorProto, c lang.Compiler) (Encoder, error) {
 	var err error
 
 	var expr compiled.Expression

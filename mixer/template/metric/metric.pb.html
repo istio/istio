@@ -21,9 +21,8 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    source_service: source.service | &quot;unknown&quot;
     source_version: source.labels[&quot;version&quot;] | &quot;unknown&quot;
-    destination_service: destination.service | &quot;unknown&quot;
+    destination_service: destination.service.host | &quot;unknown&quot;
     destination_version: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
     response_code: response.code | 200
   monitored_resource_type: '&quot;UNSPECIFIED&quot;'

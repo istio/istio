@@ -36,7 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -85,10 +85,6 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 		return nil, nil, err
 	}
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = model.ValidateMeshConfig(meshConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -331,7 +327,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			first = false
 			value = []corev1.Container{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -361,7 +357,7 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 			first = false
 			value = []corev1.Volume{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -382,7 +378,7 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 			first = false
 			value = []corev1.LocalObjectReference{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -390,6 +386,15 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 			Value: value,
 		})
 	}
+	return patch
+}
+
+func addPodDNSConfig(target *corev1.PodDNSConfig, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
 	return patch
 }
 
@@ -435,16 +440,41 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
+	addAppProberCmd := func() {
+		if !rewrite {
+			return
+		}
+		sidecar := FindSidecar(sic.Containers)
+		if sidecar == nil {
+			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
+			return
+		}
+		// We don't have to escape json encoding here when using golang libraries.
+		if prober := DumpAppProbers(&pod.Spec); prober != "" {
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		}
+	}
+	addAppProberCmd()
+
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
+
+	if sic.DNSConfig != nil {
+		patch = append(patch, addPodDNSConfig(sic.DNSConfig, "/spec/dnsConfig")...)
+	}
 
 	if pod.Spec.SecurityContext != nil {
 		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
 	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
+	}
 
 	return json.Marshal(patch)
 }
@@ -460,7 +490,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotationStatus]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -529,14 +559,13 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	// TODO(incfly): plumbing wh.sidecarConfig.RewriteHTTPPRobe to the injectionData.
-	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, status, err := InjectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)
 	}
 
-	annotations := map[string]string{annotationStatus.name: status}
+	annotations := map[string]string{annotationStatus: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

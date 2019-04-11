@@ -32,6 +32,7 @@ import (
 	"github.com/onsi/gomega"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
 )
 
@@ -110,7 +112,7 @@ func TestServiceEntry(t *testing.T) {
 func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 	for {
 		// wait for pilot to make a MCP request
-		if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
+		if status := mcpServer.Cache.Status(groups.Default); status != nil {
 			if status.Watches() > 0 {
 				break
 			}
@@ -132,7 +134,7 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 				} else if m.MessageName == model.Gateway.MessageName {
 					gw, err := generateGateway()
 					if err != nil {
-						t.Fatal(err)
+						t.Log(err)
 					}
 					b.Set(model.Gateway.Collection, version, gw)
 				} else {
@@ -142,12 +144,12 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 
 			lastSnapshot := time.Now()
 			shot := b.Build()
-			mcpServer.Cache.SetSnapshot(snapshot.DefaultGroup, shot)
+			mcpServer.Cache.SetSnapshot(groups.Default, shot)
 			b = shot.Builder()
 
 			// wait for client to ACK the pushed snapshot
 			for {
-				if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
+				if status := mcpServer.Cache.Status(groups.Default); status != nil {
 					if status.LastWatchRequestTime().After(lastSnapshot) {
 						break
 					}
@@ -205,7 +207,12 @@ func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string
 
 func addMcpAddrs(mcpPort int) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{fmt.Sprintf("mcp://127.0.0.1:%d", mcpPort)}
+		if arg.MeshConfig == nil {
+			arg.MeshConfig = &meshconfig.MeshConfig{}
+		}
+		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+			{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
+		}
 	}
 }
 
@@ -294,7 +301,7 @@ func marshaledServiceEntry(servicePort, backendPort int, host string) (*types.An
 func generateGateway() ([]*mcp.Resource, error) {
 	gateway := &networking.Gateway{
 		Servers: []*networking.Server{
-			&networking.Server{
+			{
 				Port: &networking.Port{
 					Name:     "http-8099",
 					Number:   8099,

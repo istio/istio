@@ -3,18 +3,18 @@
 
 package v2
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	io "io"
+	math "math"
+	time "time"
 
-import time "time"
-
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
-
-import io "io"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/gogo/protobuf/types"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -36,17 +36,20 @@ type RedisProxy struct {
 	// configuring the backing cluster.
 	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Network settings for the connection pool to the upstream cluster.
-	Settings             *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings,proto3" json:"settings,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
-	XXX_unrecognized     []byte                       `json:"-"`
-	XXX_sizecache        int32                        `json:"-"`
+	Settings *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings,proto3" json:"settings,omitempty"`
+	// Indicates that latency stat should be computed in microseconds. By default it is computed in
+	// milliseconds.
+	LatencyInMicros      bool     `protobuf:"varint,4,opt,name=latency_in_micros,json=latencyInMicros,proto3" json:"latency_in_micros,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *RedisProxy) Reset()         { *m = RedisProxy{} }
 func (m *RedisProxy) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy) ProtoMessage()    {}
 func (*RedisProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_b5ef6bade3e8fafa, []int{0}
+	return fileDescriptor_67e7179f1292d5ae, []int{0}
 }
 func (m *RedisProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -63,8 +66,8 @@ func (m *RedisProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (dst *RedisProxy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedisProxy.Merge(dst, src)
+func (m *RedisProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedisProxy.Merge(m, src)
 }
 func (m *RedisProxy) XXX_Size() int {
 	return m.Size()
@@ -96,6 +99,13 @@ func (m *RedisProxy) GetSettings() *RedisProxy_ConnPoolSettings {
 	return nil
 }
 
+func (m *RedisProxy) GetLatencyInMicros() bool {
+	if m != nil {
+		return m.LatencyInMicros
+	}
+	return false
+}
+
 // Redis connection pool settings.
 type RedisProxy_ConnPoolSettings struct {
 	// Per-operation timeout in milliseconds. The timer starts when the first
@@ -104,17 +114,28 @@ type RedisProxy_ConnPoolSettings struct {
 	// The only exception to this behavior is when a connection to a backend is not yet established.
 	// In that case, the connect timeout on the cluster will govern the timeout until the connection
 	// is ready.
-	OpTimeout            *time.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout,proto3,stdduration" json:"op_timeout,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+	OpTimeout *time.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout,proto3,stdduration" json:"op_timeout,omitempty"`
+	// Use hash tagging on every redis key to guarantee that keys with the same hash tag will be
+	// forwarded to the same upstream. The hash key used for determining the upstream in a
+	// consistent hash ring configuration will be computed from the hash tagged key instead of the
+	// whole key. The algorithm used to compute the hash tag is identical to the `redis-cluster
+	// implementation <https://redis.io/topics/cluster-spec#keys-hash-tags>`_.
+	//
+	// Examples:
+	//
+	// * '{user1000}.following' and '{user1000}.followers' **will** be sent to the same upstream
+	// * '{user1000}.following' and '{user1001}.following' **might** be sent to the same upstream
+	EnableHashtagging    bool     `protobuf:"varint,2,opt,name=enable_hashtagging,json=enableHashtagging,proto3" json:"enable_hashtagging,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *RedisProxy_ConnPoolSettings) Reset()         { *m = RedisProxy_ConnPoolSettings{} }
 func (m *RedisProxy_ConnPoolSettings) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy_ConnPoolSettings) ProtoMessage()    {}
 func (*RedisProxy_ConnPoolSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_b5ef6bade3e8fafa, []int{0, 0}
+	return fileDescriptor_67e7179f1292d5ae, []int{0, 0}
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -131,8 +152,8 @@ func (m *RedisProxy_ConnPoolSettings) XXX_Marshal(b []byte, deterministic bool) 
 		return b[:n], nil
 	}
 }
-func (dst *RedisProxy_ConnPoolSettings) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedisProxy_ConnPoolSettings.Merge(dst, src)
+func (m *RedisProxy_ConnPoolSettings) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedisProxy_ConnPoolSettings.Merge(m, src)
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Size() int {
 	return m.Size()
@@ -150,10 +171,53 @@ func (m *RedisProxy_ConnPoolSettings) GetOpTimeout() *time.Duration {
 	return nil
 }
 
+func (m *RedisProxy_ConnPoolSettings) GetEnableHashtagging() bool {
+	if m != nil {
+		return m.EnableHashtagging
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*RedisProxy)(nil), "envoy.config.filter.network.redis_proxy.v2.RedisProxy")
 	proto.RegisterType((*RedisProxy_ConnPoolSettings)(nil), "envoy.config.filter.network.redis_proxy.v2.RedisProxy.ConnPoolSettings")
 }
+
+func init() {
+	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_67e7179f1292d5ae)
+}
+
+var fileDescriptor_67e7179f1292d5ae = []byte{
+	// 418 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0x41, 0x8e, 0xd3, 0x30,
+	0x14, 0x86, 0xe5, 0x74, 0x80, 0xd6, 0x95, 0x98, 0x19, 0x0b, 0x89, 0xd2, 0x45, 0x88, 0x60, 0x53,
+	0x55, 0xc2, 0x96, 0xc2, 0x86, 0x05, 0xab, 0x80, 0xc4, 0xb0, 0x40, 0x8a, 0x02, 0x2b, 0x24, 0x14,
+	0xb9, 0xa9, 0xe3, 0xb1, 0xc8, 0xf8, 0x45, 0x8e, 0x13, 0xa6, 0x37, 0x40, 0x70, 0x01, 0xce, 0xc0,
+	0x11, 0x58, 0xb1, 0x64, 0xc9, 0x0d, 0x40, 0xdd, 0x71, 0x0b, 0x14, 0x3b, 0x9d, 0x8e, 0x66, 0xd5,
+	0xdd, 0x8b, 0xff, 0xf7, 0xbf, 0xff, 0xcf, 0x87, 0x9f, 0x0b, 0xdd, 0xc1, 0x86, 0x15, 0xa0, 0x4b,
+	0x25, 0x59, 0xa9, 0x2a, 0x2b, 0x0c, 0xd3, 0xc2, 0x7e, 0x02, 0xf3, 0x91, 0x19, 0xb1, 0x56, 0x4d,
+	0x5e, 0x1b, 0xb8, 0xdc, 0xb0, 0x2e, 0xbe, 0xfe, 0x49, 0x6b, 0x03, 0x16, 0xc8, 0xd2, 0xb9, 0xa9,
+	0x77, 0x53, 0xef, 0xa6, 0x83, 0x9b, 0x5e, 0x5f, 0xef, 0xe2, 0x79, 0x28, 0x01, 0x64, 0x25, 0x98,
+	0x73, 0xae, 0xda, 0x92, 0xad, 0x5b, 0xc3, 0xad, 0x02, 0xed, 0x6f, 0xcd, 0xef, 0x77, 0xbc, 0x52,
+	0x6b, 0x6e, 0x05, 0xdb, 0x0d, 0x83, 0x70, 0x4f, 0x82, 0x04, 0x37, 0xb2, 0x7e, 0xf2, 0xaf, 0x8f,
+	0x3e, 0x8f, 0x30, 0xce, 0xfa, 0x84, 0xb4, 0x0f, 0x20, 0x4b, 0x3c, 0x6d, 0x2c, 0xb7, 0x79, 0x6d,
+	0x44, 0xa9, 0x2e, 0x67, 0x28, 0x42, 0x8b, 0x49, 0x32, 0xf9, 0xf1, 0xef, 0xe7, 0xe8, 0xc8, 0x04,
+	0x11, 0xca, 0x70, 0xaf, 0xa6, 0x4e, 0x24, 0x8f, 0xf1, 0x9d, 0xa2, 0x6a, 0x1b, 0x2b, 0xcc, 0x2c,
+	0xb8, 0xb9, 0xb7, 0x53, 0x08, 0xe0, 0x71, 0x23, 0xac, 0x55, 0x5a, 0x36, 0xb3, 0x51, 0x84, 0x16,
+	0xd3, 0xf8, 0x15, 0x3d, 0xfc, 0x6f, 0xe9, 0xbe, 0x1a, 0x7d, 0x01, 0x5a, 0xa7, 0x00, 0xd5, 0xdb,
+	0xe1, 0x5c, 0x82, 0xfb, 0xb8, 0x5b, 0x5f, 0x50, 0x70, 0x82, 0xb2, 0xab, 0x10, 0xb2, 0xc4, 0xa7,
+	0x15, 0xb7, 0x42, 0x17, 0x9b, 0x5c, 0xe9, 0xfc, 0x42, 0x15, 0x06, 0x9a, 0xd9, 0x51, 0x84, 0x16,
+	0xe3, 0xec, 0x78, 0x10, 0x5e, 0xeb, 0x37, 0xee, 0x79, 0xfe, 0x15, 0xe1, 0x93, 0x9b, 0x67, 0xc9,
+	0x19, 0xc6, 0x50, 0xe7, 0x56, 0x5d, 0x08, 0x68, 0xad, 0x23, 0x30, 0x8d, 0x1f, 0x50, 0x4f, 0x9d,
+	0xee, 0xa8, 0xd3, 0x97, 0x03, 0xf5, 0xe4, 0xee, 0xb7, 0x3f, 0x0f, 0x91, 0x6b, 0xf2, 0x1d, 0x05,
+	0x63, 0x94, 0x4d, 0xa0, 0x7e, 0xe7, 0xbd, 0xe4, 0x09, 0x26, 0x42, 0xf3, 0x55, 0x25, 0xf2, 0x73,
+	0xde, 0x9c, 0x5b, 0x2e, 0xa5, 0xd2, 0xd2, 0xb1, 0x1a, 0x67, 0xa7, 0x5e, 0x39, 0xdb, 0x0b, 0xc9,
+	0x87, 0x5f, 0xdb, 0x10, 0xfd, 0xde, 0x86, 0xe8, 0xef, 0x36, 0x44, 0xf8, 0x99, 0x02, 0x0f, 0xca,
+	0xb3, 0x38, 0x9c, 0x59, 0x72, 0xbc, 0x87, 0x96, 0xf6, 0x75, 0x53, 0xf4, 0x3e, 0xe8, 0xe2, 0xd5,
+	0x6d, 0xd7, 0xfd, 0xe9, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x23, 0x6c, 0x07, 0x51, 0xab, 0x02,
+	0x00, 0x00,
+}
+
 func (m *RedisProxy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -191,6 +255,16 @@ func (m *RedisProxy) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if m.LatencyInMicros {
+		dAtA[i] = 0x20
+		i++
+		if m.LatencyInMicros {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -221,6 +295,16 @@ func (m *RedisProxy_ConnPoolSettings) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += n2
+	}
+	if m.EnableHashtagging {
+		dAtA[i] = 0x10
+		i++
+		if m.EnableHashtagging {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -255,6 +339,9 @@ func (m *RedisProxy) Size() (n int) {
 		l = m.Settings.Size()
 		n += 1 + l + sovRedisProxy(uint64(l))
 	}
+	if m.LatencyInMicros {
+		n += 2
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -270,6 +357,9 @@ func (m *RedisProxy_ConnPoolSettings) Size() (n int) {
 	if m.OpTimeout != nil {
 		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.OpTimeout)
 		n += 1 + l + sovRedisProxy(uint64(l))
+	}
+	if m.EnableHashtagging {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -305,7 +395,7 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -333,7 +423,7 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -343,6 +433,9 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRedisProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -362,7 +455,7 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -372,6 +465,9 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRedisProxy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -391,7 +487,7 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -400,6 +496,9 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRedisProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -410,6 +509,26 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LatencyInMicros", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRedisProxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.LatencyInMicros = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRedisProxy(dAtA[iNdEx:])
@@ -417,6 +536,9 @@ func (m *RedisProxy) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRedisProxy
 			}
 			if (iNdEx + skippy) > l {
@@ -447,7 +569,7 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -475,7 +597,7 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -484,6 +606,9 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthRedisProxy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -494,6 +619,26 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnableHashtagging", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRedisProxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.EnableHashtagging = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRedisProxy(dAtA[iNdEx:])
@@ -501,6 +646,9 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthRedisProxy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRedisProxy
 			}
 			if (iNdEx + skippy) > l {
@@ -570,8 +718,11 @@ func skipRedisProxy(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthRedisProxy
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthRedisProxy
 			}
 			return iNdEx, nil
@@ -602,6 +753,9 @@ func skipRedisProxy(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthRedisProxy
+				}
 			}
 			return iNdEx, nil
 		case 4:
@@ -620,33 +774,3 @@ var (
 	ErrInvalidLengthRedisProxy = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowRedisProxy   = fmt.Errorf("proto: integer overflow")
 )
-
-func init() {
-	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_redis_proxy_b5ef6bade3e8fafa)
-}
-
-var fileDescriptor_redis_proxy_b5ef6bade3e8fafa = []byte{
-	// 352 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0x3f, 0x4e, 0xc3, 0x30,
-	0x14, 0xc6, 0xe5, 0x94, 0x3f, 0xad, 0x2b, 0xa1, 0x2a, 0x42, 0xa2, 0x74, 0x08, 0x15, 0x2c, 0x55,
-	0x07, 0x5b, 0x0a, 0x0b, 0x03, 0x53, 0x40, 0x82, 0x81, 0x21, 0x0a, 0x4c, 0x08, 0xa9, 0x4a, 0x5b,
-	0x27, 0xb2, 0x08, 0x7e, 0x91, 0xe3, 0x84, 0xf6, 0x0a, 0x9c, 0x80, 0x33, 0x20, 0x4e, 0xc0, 0xc4,
-	0xc8, 0xc8, 0x0d, 0x40, 0xdd, 0xb8, 0x05, 0x8a, 0x9d, 0x40, 0xd5, 0xa9, 0xdb, 0xb3, 0xbf, 0xf7,
-	0x7b, 0xdf, 0xfb, 0x1e, 0x3e, 0x65, 0xa2, 0x80, 0x39, 0x9d, 0x80, 0x88, 0x78, 0x4c, 0x23, 0x9e,
-	0x28, 0x26, 0xa9, 0x60, 0xea, 0x11, 0xe4, 0x3d, 0x95, 0x6c, 0xca, 0xb3, 0x51, 0x2a, 0x61, 0x36,
-	0xa7, 0x85, 0xbb, 0xfc, 0x24, 0xa9, 0x04, 0x05, 0xf6, 0x50, 0xd3, 0xc4, 0xd0, 0xc4, 0xd0, 0xa4,
-	0xa2, 0xc9, 0x72, 0x7b, 0xe1, 0xf6, 0x9c, 0x18, 0x20, 0x4e, 0x18, 0xd5, 0xe4, 0x38, 0x8f, 0xe8,
-	0x34, 0x97, 0xa1, 0xe2, 0x20, 0xcc, 0xac, 0xde, 0x5e, 0x11, 0x26, 0x7c, 0x1a, 0x2a, 0x46, 0xeb,
-	0xa2, 0x12, 0x76, 0x63, 0x88, 0x41, 0x97, 0xb4, 0xac, 0xcc, 0xef, 0xe1, 0xab, 0x85, 0x71, 0x50,
-	0x3a, 0xf8, 0xa5, 0x81, 0x3d, 0xc4, 0xed, 0x4c, 0x85, 0x6a, 0x94, 0x4a, 0x16, 0xf1, 0x59, 0x17,
-	0xf5, 0xd1, 0xa0, 0xe5, 0xb5, 0xde, 0x7e, 0xde, 0x1b, 0x1b, 0xd2, 0xea, 0xa3, 0x00, 0x97, 0xaa,
-	0xaf, 0x45, 0xfb, 0x08, 0x6f, 0x4f, 0x92, 0x3c, 0x53, 0x4c, 0x76, 0xad, 0xd5, 0xbe, 0x5a, 0xb1,
-	0x01, 0x37, 0x33, 0xa6, 0x14, 0x17, 0x71, 0xd6, 0x6d, 0xf4, 0xd1, 0xa0, 0xed, 0x5e, 0x90, 0xf5,
-	0xd3, 0x92, 0xff, 0xd5, 0xc8, 0x19, 0x08, 0xe1, 0x03, 0x24, 0xd7, 0xd5, 0x38, 0x0f, 0x97, 0x76,
-	0x9b, 0x4f, 0xc8, 0xea, 0xa0, 0xe0, 0xcf, 0xa4, 0x77, 0x87, 0x3b, 0xab, 0x9d, 0xf6, 0x25, 0xc6,
-	0x90, 0x8e, 0x14, 0x7f, 0x60, 0x90, 0x2b, 0x1d, 0xaa, 0xed, 0xee, 0x13, 0x73, 0x48, 0x52, 0x1f,
-	0x92, 0x9c, 0x57, 0x87, 0xf4, 0x76, 0x9e, 0xbf, 0x0e, 0x90, 0x1e, 0xfe, 0x82, 0xac, 0x26, 0x0a,
-	0x5a, 0x90, 0xde, 0x18, 0xd6, 0xbb, 0xfa, 0x58, 0x38, 0xe8, 0x73, 0xe1, 0xa0, 0xef, 0x85, 0x83,
-	0xf0, 0x09, 0x07, 0x13, 0xc6, 0xec, 0xbb, 0x7e, 0x2e, 0x1f, 0xdd, 0x5a, 0x85, 0x3b, 0xde, 0xd2,
-	0xde, 0xc7, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x15, 0xfe, 0xe9, 0xf7, 0x3e, 0x02, 0x00, 0x00,
-}

@@ -2,18 +2,12 @@
 # It is shipped with the release, used for bookinfo or quick installation of istio.
 # Includes components used in the demo, defaults to alpha3 rules.
 
-pilot:
-  traceSampling: 100.0
+# @include <values-istio-demo-common.yaml>
+#
+global:
+  controlPlaneSecurityEnabled: false
 
-grafana:
-  enabled: true
-
-tracing:
-  enabled: true
-
-servicegraph:
-  enabled: true
-
-kiali:
-  enabled: true
-  createDemoSecret: true
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/test/client/env"
 )
@@ -34,7 +34,6 @@ const checkAttributesMixerFail = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -73,7 +72,6 @@ const reportAttributesMixerFail = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -84,7 +82,6 @@ const reportAttributesMixerFail = `
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.uid": "",
-  "istio.mixer": "stringmap[status:UNAUTHENTICATED:Unauthenticated by mixer.]",
   "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
@@ -115,7 +112,7 @@ const reportAttributesMixerFail = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 306
+  "request.total_size": 266
 }
 `
 
@@ -127,7 +124,6 @@ const reportAttributesBackendFail = `
   "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
@@ -169,7 +165,7 @@ const reportAttributesBackendFail = `
      "server": "envoy"
   },
   "response.total_size": "*",
-  "request.total_size": 329
+  "request.total_size": 289
 }
 `
 

@@ -34,10 +34,10 @@ func setupWrapper(t *testing.T) *Wrapper {
 func TestWrapper_GetClusterConfigDump(t *testing.T) {
 	tests := []struct {
 		name                    string
-		noConfigs               bool
-		noCluster               bool
 		wantVersion             string
 		wantStatic, wantDynamic int
+		noConfigs               bool
+		noCluster               bool
 		wantErr                 bool
 	}{
 		{
@@ -89,9 +89,9 @@ func TestWrapper_GetClusterConfigDump(t *testing.T) {
 func TestWrapper_GetDynamicClusterDump(t *testing.T) {
 	tests := []struct {
 		name                                string
+		wantStatic, wantDynamic             int
 		noCluster                           bool
 		stripVersion, wantVersion, wantLast bool
-		wantStatic, wantDynamic             int
 		wantErr                             bool
 	}{
 		{

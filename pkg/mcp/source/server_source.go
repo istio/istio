@@ -16,16 +16,17 @@ package source
 
 import (
 	"io"
-	"time"
 
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/rate"
 )
+
+// TODO: consolidate common interfaces in source/server_source.go and sink/server_sink.go
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
 // returns nil, then the connection will be allowed. If the function returns an error, then it will be
@@ -41,34 +42,37 @@ type AuthChecker interface {
 // Server implements the server for the MCP source service. The server is the source of configuration and sends
 // configuration to the client.
 type Server struct {
-	authCheck            AuthChecker
-	newConnectionLimiter *rate.Limiter
-	src                  *Source
+	authCheck   AuthChecker
+	rateLimiter rate.Limit
+	src         *Source
 }
 
 var _ mcp.ResourceSourceServer = &Server{}
 
 // ServerOptions contains sink server specific options
 type ServerOptions struct {
-	NewConnectionFreq      time.Duration
-	NewConnectionBurstSize int
-	AuthChecker            AuthChecker
+	AuthChecker AuthChecker
+	RateLimiter rate.Limit
 }
 
 // NewServer creates a new instance of a MCP source server.
-func NewServer(options *Options, serverOptions *ServerOptions) *Server {
-	limiter := rate.NewLimiter(rate.Every(serverOptions.NewConnectionFreq), serverOptions.NewConnectionBurstSize)
+func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 	s := &Server{
-		src:                  New(options),
-		newConnectionLimiter: limiter,
-		authCheck:            serverOptions.AuthChecker,
+		src:         New(srcOptions),
+		authCheck:   serverOptions.AuthChecker,
+		rateLimiter: serverOptions.RateLimiter,
 	}
 	return s
 }
 
 // EstablishResourceStream implements the ResourceSourceServer interface.
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishResourceStreamServer) error {
-	// TODO - rate limit new connections?
+	if s.rateLimiter != nil {
+		if err := s.rateLimiter.Wait(stream.Context()); err != nil {
+			return err
+		}
+
+	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		authInfo = peerInfo.AuthInfo
@@ -80,7 +84,7 @@ func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishReso
 		return status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
-	err := s.src.processStream(stream)
+	err := s.src.ProcessStream(stream)
 	code := status.Code(err)
 	if code == codes.OK || code == codes.Canceled || err == io.EOF {
 		return nil

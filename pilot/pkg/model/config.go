@@ -266,19 +266,22 @@ type IstioConfigStore interface {
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
 
-	// AuthenticationPolicyByDestination selects authentication policy associated
-	// with a service + port.
+	// AuthenticationPolicyForWorkload selects authentication policy associated
+	// with a workload (or labels if specified) + port.
 	// If there are more than one policies at different scopes (global, namespace, service)
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(service *Service, port *Port) *Config
+	AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
 
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
+
+	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
+	AuthorizationPolicies(namespace string) []Config
 
 	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
 	RbacConfig() *Config
@@ -341,7 +344,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
-		Collection:  metadata.VirtualService.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
@@ -352,7 +355,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
-		Collection:  metadata.Gateway.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
 	}
 
 	// ServiceEntry describes service entries
@@ -363,7 +366,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Validate:    ValidateServiceEntry,
-		Collection:  metadata.ServiceEntry.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
 	}
 
 	// DestinationRule describes destination rules
@@ -374,7 +377,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
-		Collection:  metadata.DestinationRule.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Destinationrules.Collection.String(),
 	}
 
 	// EnvoyFilter describes additional envoy filters to be inserted by Pilot
@@ -385,7 +388,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
 		Validate:    ValidateEnvoyFilter,
-		Collection:  metadata.EnvoyFilter.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Envoyfilters.Collection.String(),
 	}
 
 	// Sidecar describes the listeners associated with sidecars in a namespace
@@ -396,7 +399,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Sidecar",
 		Validate:    ValidateSidecar,
-		Collection:  metadata.Sidecar.Collection.String(),
+		Collection:  metadata.IstioNetworkingV1alpha3Sidecars.Collection.String(),
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.
@@ -407,7 +410,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
 		Validate:    ValidateHTTPAPISpec,
-		Collection:  metadata.HTTPAPISpec.Collection.String(),
+		Collection:  metadata.IstioConfigV1alpha2Httpapispecs.Collection.String(),
 	}
 
 	// HTTPAPISpecBinding describes an HTTP API specification binding.
@@ -418,7 +421,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
 		Validate:    ValidateHTTPAPISpecBinding,
-		Collection:  metadata.HTTPAPISpecBinding.Collection.String(),
+		Collection:  metadata.IstioConfigV1alpha2Httpapispecbindings.Collection.String(),
 	}
 
 	// QuotaSpec describes an Quota specification.
@@ -429,7 +432,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
 		Validate:    ValidateQuotaSpec,
-		Collection:  metadata.QuotaSpec.Collection.String(),
+		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecs.Collection.String(),
 	}
 
 	// QuotaSpecBinding describes an Quota specification binding.
@@ -440,7 +443,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
 		Validate:    ValidateQuotaSpecBinding,
-		Collection:  metadata.QuotaSpecBinding.Collection.String(),
+		Collection:  metadata.IstioMixerV1ConfigClientQuotaspecbindings.Collection.String(),
 	}
 
 	// AuthenticationPolicy describes an authentication policy.
@@ -451,7 +454,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
-		Collection:  metadata.Policy.Collection.String(),
+		Collection:  metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
@@ -463,7 +466,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
 		Validate:      ValidateAuthenticationPolicy,
-		Collection:    metadata.MeshPolicy.Collection.String(),
+		Collection:    metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.
@@ -474,7 +477,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
-		Collection:  metadata.ServiceRole.Collection.String(),
+		Collection:  metadata.IstioRbacV1alpha1Serviceroles.Collection.String(),
 	}
 
 	// ServiceRoleBinding describes an RBAC service role.
@@ -486,7 +489,19 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
-		Collection:    metadata.ServiceRoleBinding.Collection.String(),
+		Collection:    metadata.IstioRbacV1alpha1Servicerolebindings.Collection.String(),
+	}
+
+	// AuthorizationPolicy describes an authorization policy.
+	AuthorizationPolicy = ProtoSchema{
+		ClusterScoped: false,
+		Type:          "authorization-policy",
+		Plural:        "authorization-policies",
+		Group:         "rbac",
+		Version:       "v1alpha1",
+		MessageName:   "istio.rbac.v1alpha1.AuthorizationPolicy",
+		Validate:      ValidateAuthorizationPolicy,
+		Collection:    metadata.IstioRbacV1alpha1Authorizationpolicies.Collection.String(),
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
@@ -499,7 +514,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.RbacConfig",
 		Validate:    ValidateRbacConfig,
-		Collection:  metadata.RbacConfig.Collection.String(),
+		Collection:  metadata.IstioRbacV1alpha1Rbacconfigs.Collection.String(),
 	}
 
 	// ClusterRbacConfig describes the cluster level RBAC config.
@@ -511,7 +526,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateClusterRbacConfig,
-		Collection:    metadata.ClusterRbacConfig.Collection.String(),
+		Collection:    metadata.IstioRbacV1alpha1Clusterrbacconfigs.Collection.String(),
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -530,6 +545,7 @@ var (
 		AuthenticationMeshPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		AuthorizationPolicy,
 		RbacConfig,
 		ClusterRbacConfig,
 	}
@@ -868,7 +884,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config {
 	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
@@ -889,7 +905,15 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Servic
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
+				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
+				if len(dest.Labels) != 0 {
+					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
+					destLabels := Labels(dest.Labels)
+					if !destLabels.SubsetOf(labels) {
+						continue
+					}
+					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, labels)
+				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}
 				// If destination port is defined, it must match.
@@ -958,6 +982,16 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	}
 
 	return bindings
+}
+
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+	authorizationPolicies, err := store.List(AuthorizationPolicy.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return authorizationPolicies
 }
 
 func (store *istioConfigStore) ClusterRbacConfig() *Config {

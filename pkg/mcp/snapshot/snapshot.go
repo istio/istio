@@ -15,10 +15,12 @@
 package snapshot
 
 import (
+	"sort"
 	"sync"
 	"time"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/source"
 )
@@ -29,6 +31,16 @@ var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 type Snapshot interface {
 	Resources(collection string) []*mcp.Resource
 	Version(collection string) string
+}
+
+// Info is used for configz
+type Info struct {
+	// Collection of mcp resource
+	Collection string
+	// Version of the resource
+	Version string
+	// Names of the resource entries.
+	Names []string
 }
 
 // Cache is a snapshot-based cache that maintains a single versioned
@@ -43,17 +55,11 @@ type Cache struct {
 	groupIndex GroupIndexFn
 }
 
-// GroupIndexFn returns a stable group index for the given MCP node.
-type GroupIndexFn func(node *mcp.SinkNode) string
-
-// DefaultGroup is the default group when using the DefaultGroupIndex() function.
-const DefaultGroup = "default"
-
-// DefaultGroupIndex provides a default GroupIndexFn function that
-// is usable for testing and simple deployments.
-func DefaultGroupIndex(_ *mcp.SinkNode) string {
-	return DefaultGroup
-}
+// GroupIndexFn returns a stable group index for the given MCP collection and node.
+// This is how an MCP server partitions snapshots to different clients. The index
+// function is an implementation detail of the MCP server and Istio does not
+// depend on any particular mapping.
+type GroupIndexFn func(collection string, node *mcp.SinkNode) string
 
 // New creates a new cache of resource snapshots.
 func New(groupIndex GroupIndexFn) *Cache {
@@ -96,7 +102,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 
 // Watch returns a watch for an MCP request.
 func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc { // nolint: lll
-	group := c.groupIndex(request.SinkNode)
+	group := c.groupIndex(request.Collection, request.SinkNode)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -230,6 +236,60 @@ func (c *Cache) Status(group string) *StatusInfo {
 	defer c.mu.RUnlock()
 	if info, ok := c.status[group]; ok {
 		return info
+	}
+	return nil
+}
+
+// GetGroups returns all groups of snapshots that the server layer is serving.
+func (c *Cache) GetGroups() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	groups := make([]string, 0, len(c.snapshots))
+
+	for t := range c.snapshots {
+		groups = append(groups, t)
+	}
+	sort.Strings(groups)
+
+	return groups
+}
+
+// GetSnapshotInfo return the snapshots information
+func (c *Cache) GetSnapshotInfo(group string) []Info {
+
+	//if the group is empty, then use the default one
+	if group == "" {
+		group = c.GetGroups()[0]
+	}
+
+	if snapshot, ok := c.snapshots[group]; ok {
+
+		snapshots := make([]Info, 0, len(metadata.Types.All()))
+		collections := make([]string, 0, len(metadata.Types.All()))
+
+		for _, info := range metadata.Types.All() {
+			collections = append(collections, info.Collection.String())
+		}
+		//sort the collections
+		sort.Strings(collections)
+
+		for _, collection := range collections {
+			entrieNames := make([]string, 0, len(snapshot.Resources(collection)))
+			for _, entry := range snapshot.Resources(collection) {
+				entrieNames = append(entrieNames, entry.Metadata.Name)
+			}
+			//sort the mcp resource names
+			sort.Strings(entrieNames)
+
+			info := Info{
+				Collection: collection,
+				Version:    snapshot.Version(collection),
+				Names:      entrieNames,
+			}
+			snapshots = append(snapshots, info)
+		}
+		return snapshots
 	}
 	return nil
 }

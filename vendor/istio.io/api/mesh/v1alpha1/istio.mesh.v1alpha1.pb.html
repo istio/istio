@@ -1,11 +1,13 @@
 ---
-title: istio.mesh.v1alpha1
+title: Service Mesh
+description: Configuration affecting the service mesh as a whole.
+location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-aliases:
-  - /docs/reference/config/service-mesh.html
-number_of_entries: 19
+number_of_entries: 21
 ---
+<p>Configuration affecting the service mesh as a whole.</p>
+
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
 <p>AuthenticationPolicy defines authentication policy. It can be set for
@@ -73,11 +75,11 @@ Use fs:/// to specify a file-based backend with absolute path to the directory.<
 </tr>
 <tr id="ConfigSource-tls_settings">
 <td><code>tlsSettings</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#TLSSettings">istio.networking.v1alpha3.TLSSettings</a></code></td>
 <td>
-<p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
-uses Istio MTLS and shares the root CA with Pilot, specify the TLS
-mode as ISTIO</em>MUTUAL.</p>
+<p>Use the tls_settings to specify the tls mode to use. If the MCP server
+uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+mode as <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -86,31 +88,49 @@ mode as ISTIO</em>MUTUAL.</p>
 </section>
 <h2 id="LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</h2>
 <section>
-<p>The following example sets up locality weight for mesh wide service
-Assume a service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
-and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
-This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing the service, 80% of the traffic
-is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
+<p>Locality-weighted load balancing allows administrators to control the
+distribution of traffic to endpoints based on the localities of where the
+traffic originates and where it will terminate. These localities are
+specified using arbitrary labels that designate a hierarchy of localities in
+&lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} form. For additional detail refer to
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality Weight</a>
+The following example shows how to setup locality weights mesh-wide.</p>
+
+<p>Given a mesh with workloads and their service deployed to &ldquo;us-west/zone1/<em>&rdquo;
+and &ldquo;us-west/zone2/</em>&rdquo;. This example specifies that when traffic accessing a
+service originates from workloads in &ldquo;us-west/zone1/<em>&rdquo;, 80% of the traffic
+will be sent to endpoints in &ldquo;us-west/zone1/</em>&rdquo;, i.e the same zone, and the
+remaining 20% will go to endpoints in &ldquo;us-west/zone2/<em>&rdquo;. This setup is
+intended to favor routing traffic to endpoints in the same locality.
+A similar setting is specified for traffic originating in &ldquo;us-west/zone2/</em>&rdquo;.</p>
 
 <pre><code class="language-yaml">  distribute:
-    - from: region1/zone1/*
+    - from: us-west/zone1/*
       to:
-        &quot;region1/zone1/*&quot;: 80
-        &quot;region1/zone2/*&quot;: 20
-    - from: region1/zone2/*
+        &quot;us-west/zone1/*&quot;: 80
+        &quot;us-west/zone2/*&quot;: 20
+    - from: us-west/zone2/*
       to:
-        &quot;region1/zone1/*&quot;: 20
-        &quot;region1/zone2/*&quot;: 80
+        &quot;us-west/zone1/*&quot;: 20
+        &quot;us-west/zone2/*&quot;: 80
 </code></pre>
 
-<p>The following example sets up locality failover policy for the ratings service
-Assume a service resides in &ldquo;region1&rdquo; &ldquo;region2&rdquo; and &ldquo;region3&rdquo;,
-This example specifies when clusters from &ldquo;region1/zone1&rdquo; accessing the service,
-if endpoints in &ldquo;region1&rdquo; becomes unhealthy, traffic will begin to trickle to &ldquo;region2&rdquo;.</p>
+<p>If the goal of the operator is not to distribute load across zones and
+regions but rather to restrict the regionality of failover to meet other
+operational requirements an operator can set a &lsquo;failover&rsquo; policy instead of
+a &lsquo;distribute&rsquo; policy.</p>
+
+<p>The following example sets up a locality failover policy for regions.
+Assume a service resides in zones within us-east, us-west &amp; eu-west
+this example specifies that when endpoints within us-east become unhealthy
+traffic should failover to endpoints in any zone or sub-zone within eu-west
+and similarly us-west should failover to us-east.</p>
 
 <pre><code class="language-yaml"> failover:
-   - from: region1
-     to: region2
+   - from: us-east
+     to: eu-west
+   - from: us-west
+     to: us-east
 </code></pre>
 
 <p>Locality load balancing settings.</p>
@@ -128,9 +148,9 @@ if endpoints in &ldquo;region1&rdquo; becomes unhealthy, traffic will begin to t
 <td><code>distribute</code></td>
 <td><code><a href="#LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute[]</a></code></td>
 <td>
-<p>Optional: only distribute or failover can be set.
+<p>Optional: only one of distribute or failover can be set.
 Explicitly specify loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight">Locality weighted load balancing</a>
 If empty, the locality weight is set according to the endpoints number within it.</p>
 
 </td>
@@ -151,9 +171,13 @@ Note: if no OutlierDetection specified, this will not take effect.</p>
 </section>
 <h2 id="LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute</h2>
 <section>
-<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
-&lsquo;</em>&rsquo; matches all localities
-&lsquo;region1/*&rsquo; matches all zones in region1</p>
+<p>Describes how traffic originating in the &lsquo;from&rsquo; zone or sub-zone is
+distributed over a set of &lsquo;to&rsquo; zones. Syntax for specifying a zone is
+&lbrace;region}/&lbrace;zone}/&lbrace;sub-zone} and terminal wildcards are allowed on any
+segment of the specification. Examples:
+* - matches all localities
+us-west/* - all zones and sub-zones within the us-west region
+us-west/zone-1/* - all sub-zones within us-west/zone-1</p>
 
 <table class="message-fields">
 <thead>
@@ -176,9 +200,9 @@ Note: if no OutlierDetection specified, this will not take effect.</p>
 <td><code>to</code></td>
 <td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
 <td>
-<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
-Should assign load balancing weight for all localities, otherwise the traffic are not routed
-following the percentage of weight.</p>
+<p>Map of upstream localities to traffic distribution weights. The sum of
+all weights should be == 100. Any locality not assigned a weight will
+receive no traffic.</p>
 
 </td>
 </tr>
@@ -187,8 +211,13 @@ following the percentage of weight.</p>
 </section>
 <h2 id="LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover</h2>
 <section>
-<p>Specify the traffic failover policy.
-As zone and sub_zone failover is supported by default, only region can be specified here.</p>
+<p>Specify the traffic failover policy across regions. Since zone and sub-zone
+failover is supported by default this only needs to be specified for
+regions when the operator needs to constrain traffic failover so that
+the default behavior of failing over to any endpoint globally does not
+apply. This is useful when failing over traffic across regions would not
+improve service health or may need to be restricted for other reasons
+like regulatory controls.</p>
 
 <table class="message-fields">
 <thead>
@@ -211,7 +240,8 @@ As zone and sub_zone failover is supported by default, only region can be specif
 <td><code>to</code></td>
 <td><code>string</code></td>
 <td>
-<p>Destination region the traffic will fail over to when endpoints in local region becomes unhealthy.</p>
+<p>Destination region the traffic will fail over to when endpoints in
+the &lsquo;from&rsquo; region becomes unhealthy.</p>
 
 </td>
 </tr>
@@ -245,8 +275,8 @@ tracing configuration).</p>
 <td>
 <p>Address of the server that will be used by the proxies for policy
 check calls. By using different names for mixerCheckServer and
-mixerReportServer, it is possible to have one set of mixer servers handle
-policy check calls while another set of mixer servers handle telemetry
+mixerReportServer, it is possible to have one set of Mixer servers handle
+policy check calls while another set of Mixer servers handle telemetry
 calls.</p>
 
 <p>NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
@@ -267,8 +297,8 @@ calls.</p>
 <td><code>disablePolicyChecks</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Disable policy checks by the mixer service. Default
-is false, i.e. mixer policy check is enabled by default.</p>
+<p>Disable policy checks by the Mixer service. Default
+is false, i.e. Mixer policy check is enabled by default.</p>
 
 </td>
 </tr>
@@ -276,7 +306,7 @@ is false, i.e. mixer policy check is enabled by default.</p>
 <td><code>policyCheckFailOpen</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Allow all traffic in cases when the mixer policy service cannot be reached.
+<p>Allow all traffic in cases when the Mixer policy service cannot be reached.
 Default is false which means the traffic is denied when the client is unable
 to connect to Mixer.</p>
 
@@ -286,8 +316,8 @@ to connect to Mixer.</p>
 <td><code>sidecarToTelemetrySessionAffinity</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
-always target the same mixer instance.</p>
+<p>Enable session affinity for Envoy Mixer reports so that calls from a proxy will
+always target the same Mixer instance.</p>
 
 </td>
 </tr>
@@ -318,7 +348,7 @@ other services.</p>
 </tr>
 <tr id="MeshConfig-tcp_keepalive">
 <td><code>tcpKeepalive</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
 <td>
 <p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
 
@@ -338,7 +368,7 @@ controller.  This corresponds to the value of
 <td><code>ingressService</code></td>
 <td><code>string</code></td>
 <td>
-<p>Name of the kubernetes service used for the istio ingress controller.</p>
+<p>Name of theKubernetes service used for the istio ingress controller.</p>
 
 </td>
 </tr>
@@ -425,7 +455,7 @@ services can be monitored.</p>
 <td><code>sdsUdsPath</code></td>
 <td><code>string</code></td>
 <td>
-<p>Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+<p>Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 Use secret-mount files instead of SDS if set to empty.</p>
 
 </td>
@@ -440,6 +470,16 @@ can be configured for a single control plane.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-trust_domain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>The trust domain corresponds to the trust root of a system.
+Refer to <a href="https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain">SPIFEE-ID</a>
+Fallback to old identity format(without trust domain) if not set.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-locality_lb_setting">
 <td><code>localityLbSetting</code></td>
 <td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
@@ -448,13 +488,11 @@ can be configured for a single control plane.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-trust_domain">
-<td><code>trustDomain</code></td>
-<td><code>string</code></td>
+<tr id="MeshConfig-dns_refresh_rate">
+<td><code>dnsRefreshRate</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>The trust domain corresponds to the trust root of a system.
-Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-Fallback to old identity format(without trust domain) if not set.</p>
+<p>Configures DNS refresh rate for Envoy clusters of type STRICT_DNS</p>
 
 </td>
 </tr>
@@ -508,7 +546,7 @@ Fallback to old identity format(without trust domain) if not set.</p>
 contain any annotation or whose annotations match the value
 specified in the ingress_class parameter described earlier. Use this
 mode if Istio ingress controller will be the default ingress
-controller for the entire kubernetes cluster.</p>
+controller for the entireKubernetes cluster.</p>
 
 </td>
 </tr>
@@ -582,12 +620,15 @@ inside a mesh and how to route to endpoints in each network. For example</p>
 
 <p>MeshNetworks(file/config map):
 networks:
-- network1:
+  network1:
   - endpoints:
-    - fromRegistry: registry1 #must match secret name in kubernetes
+    - fromRegistry: registry1 #must match secret name in Kubernetes
     - fromCidr: 192.168.100.0/22 #a VM network for example
     gateways:
     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 15443
+      locality: us-east-1a
+    - address: 192.168.100.1
       port: 15443
       locality: us-east-1a</p>
 
@@ -717,13 +758,13 @@ the following rules:</p>
 <li><p>Implicitly: If the registry explicitly provides information about
 the network to which the endpoint belongs to. In some cases, its
 possible to indicate the network associated with the endpoint by
-adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
+adding the <code>ISTIO_META_NETWORK</code> environment variable to the sidecar.</p></li>
 
 <li><p>Explicitly:</p></li>
 </ol>
 
-<p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
+<p>a. By matching the registry name with one of the &ldquo;fromRegistry&rdquo;
+   in the mesh config. A &ldquo;from_registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh
@@ -756,7 +797,7 @@ ranges for endpoints from different networks must not overlap.</p>
 <td>
 <p>Add all endpoints from the specified registry into this network.
 The names of the registries should correspond to the secret name
-that was used to configure the registry (kubernetes multicluster) or
+that was used to configure the registry (Kubernetes multicluster) or
 supplied by MCP server.</p>
 
 </td>
@@ -866,6 +907,16 @@ DEPRECATED: Use <a href="#ProxyConfig-tracing">tracing</a> instead.</p>
 
 </td>
 </tr>
+<tr id="ProxyConfig-envoy_metrics_service_address">
+<td><code>envoyMetricsServiceAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Envoy Metrics Service implementation (e.g. metrics-service:15000).
+See <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto">Metric Service</a>
+for details about Envoy&rsquo;s Metrics Service API.</p>
+
+</td>
+</tr>
 <tr id="ProxyConfig-proxy_admin_port">
 <td><code>proxyAdminPort</code></td>
 <td><code>int32</code></td>
@@ -936,6 +987,14 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDS">SDS</a></code></td>
+<td>
+<p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -974,6 +1033,40 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 </tbody>
 </table>
 </section>
+<h2 id="SDS">SDS</h2>
+<section>
+<p>SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDS-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if SDS is enabled.</p>
+
+</td>
+</tr>
+<tr id="SDS-k8s_sa_jwt_path">
+<td><code>k8sSaJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of k8s service account JWT path.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Tracing">Tracing</h2>
 <section>
 <p>Tracing defines configuration for the tracing performed by Envoy instances.</p>
@@ -1003,12 +1096,44 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 
 </td>
 </tr>
+<tr id="Tracing-datadog" class="oneof">
+<td><code>datadog</code></td>
+<td><code><a href="#Tracing-Datadog">Tracing.Datadog (oneof)</a></code></td>
+<td>
+<p>Use a Datadog tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Datadog">Tracing.Datadog</h2>
+<section>
+<p>Datadog defines configuration for a Datadog tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Datadog-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Datadog Agent.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
 <h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
 <section>
-<p>Lightstep defines configuration for a LightStep tracer.</p>
+<p>Defines configuration for a LightStep tracer.</p>
 
 <table class="message-fields">
 <thead>

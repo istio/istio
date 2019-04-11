@@ -222,7 +222,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 	}
 
-	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
 }
 
 // Services implements discovery interface
@@ -314,25 +314,11 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 	return out, sd.GetProxyServiceInstancesError
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (sd *MemServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
-	// not implemented
-	return ""
-}
-
 // ManagementPorts implements discovery interface
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: model.ProtocolHTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: model.ProtocolTCP,
-	}}
+	return nil
 }
 
 // WorkloadHealthCheckInfo implements discovery interface

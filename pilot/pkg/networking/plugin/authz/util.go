@@ -102,6 +102,14 @@ func convertToPort(v string) (uint32, error) {
 	return uint32(p), nil
 }
 
+func convertPortsToString(intPorts []int32) []string {
+	var ports []string
+	for _, port := range intPorts {
+		ports = append(ports, strconv.Itoa(int(port)))
+	}
+	return ports
+}
+
 // convertToHeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
@@ -134,6 +142,12 @@ func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 			ExactMatch: v,
 		},
 	}
+}
+
+// Check if the key is of format a[b].
+func isKeyBinary(key string) bool {
+	open := strings.Index(key, "[")
+	return strings.HasSuffix(key, "]") && open > 0 && open < len(key)-2
 }
 
 func extractNameInBrackets(s string) (string, error) {
