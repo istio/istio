@@ -18,11 +18,10 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )

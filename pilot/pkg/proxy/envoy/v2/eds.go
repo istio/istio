@@ -21,8 +21,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -30,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/features/pilot"
@@ -182,9 +181,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster *EdsCluster) error {
 
 	var hostname model.Hostname
-	var port int
+	var clusterPort int
 	var subsetName string
-	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
+	_, subsetName, hostname, clusterPort = model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -195,12 +194,15 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
-	portMap, f := push.ServicePort2Name[string(hostname)]
+	ports, f := push.ServicePort2Name[string(hostname)]
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
-	svcPort, f := portMap.GetByPort(port)
-	if !f {
+
+	// Check that there is a matching port
+	// We don't use the port though, as there could be multiple matches
+	_, found := ports.GetByPort(clusterPort)
+	if !found {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
@@ -220,26 +222,28 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// for this cluster
 	for _, endpoints := range se.Shards {
 		for _, ep := range endpoints {
-			if svcPort.Name != ep.ServicePortName {
-				continue
-			}
-			// Port labels
-			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
-				continue
-			}
-			cnt++
-
-			locLbEps, found := localityEpMap[ep.Locality]
-			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
+			for _, port := range ports {
+				if port.Port != clusterPort || port.Name != ep.ServicePortName {
+					continue
 				}
-				localityEpMap[ep.Locality] = locLbEps
+				// Port labels
+				if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
+					continue
+				}
+				cnt++
+
+				locLbEps, found := localityEpMap[ep.Locality]
+				if !found {
+					locLbEps = &endpoint.LocalityLbEndpoints{
+						Locality: util.ConvertLocality(ep.Locality),
+					}
+					localityEpMap[ep.Locality] = locLbEps
+				}
+				if ep.EnvoyEndpoint == nil {
+					ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+				}
+				locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
-			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 		}
 	}
 	se.mutex.RUnlock()
