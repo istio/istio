@@ -68,7 +68,7 @@ test: info clean prepare sync run-test clean
 run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make ${TEST_TARGET}"
+		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make git.dep ${TEST_TARGET}"
 
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
@@ -116,10 +116,20 @@ install-telemetry:
 	bin/iop istio-telemetry istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=${WAIT_TIMEOUT}
 
+# Simple bookinfo install and curl command
 run-bookinfo:
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
 	SKIP_CLEANUP=1 bin/test.sh ${GOPATH}/src/istio.io/istio
+
+# The simple test from integration.
+# Will kube-inject and test the ingress and service-to-service
+run-simple:
+	kubectl create ns simple
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
+
+run-integration:
+	(cd ${GOPATH}/src/istio.io/istio; make test-integration-kube)
 
 run-stability:
 	 ISTIO_ENV=istio-control bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
@@ -142,8 +152,6 @@ ifneq ($(MOUNT), 1)
 	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
 		${GOPATH}/src/github.com/istio.io
 	docker cp . ${KIND_CLUSTER}-control-plane:${GOPATH}/src/github.com/istio-ecosystem/istio-installer
-	docker cp ${GOPATH}/src/istio.io/istio ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io
-	docker cp ${GOPATH}/src/istio.io/tools ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io
 endif
 
 # Run an iterative shell in the docker image running the tests and k8s kind
@@ -174,6 +182,16 @@ docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/he
 
 # Build or get the dependencies.
 dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
+
+${GOPATH}/src/istio.io/istio:
+	mkdir -p $GOPATH/src/istio.io
+	git clone https://github.com/istio/istio.git ${GOPATH}/src/istio.io/istio
+
+${GOPATH}/src/istio.io/tools:
+	mkdir -p $GOPATH/src/istio.io
+	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/istio
+
+git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 
 ${GOPATH}/bin/repo:
 	curl https://storage.googleapis.com/git-repo-downloads/repo > $@
