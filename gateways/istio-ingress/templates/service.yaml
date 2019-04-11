@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := .Values.serviceAnnotations }}
