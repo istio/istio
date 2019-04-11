@@ -110,6 +110,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
         {{ if eq .config.ControlPlaneAuthPolicy 1 }}
@@ -174,6 +175,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -210,12 +212,26 @@
           }
         ]
       }
+      {{ else if .datadog }}
+      ,
+      {
+        "name": "datadog_agent",
+        "connect_timeout": "1s",
+        "type": "STRICT_DNS",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .datadog }}
+          }
+        ]
+      }
       {{ end }}
       {{ if .envoy_metrics_service }}
       ,
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -295,6 +311,17 @@
       "config": {
         "collector_cluster": "lightstep",
         "access_token_file": "{{ .lightstepToken}}"
+      }
+    }
+  }
+  {{ else if .datadog }}
+  ,
+  "tracing": {
+    "http": {
+      "name": "envoy.tracers.datadog",
+      "config": {
+        "collector_cluster": "datadog_agent",
+        "service_name": "{{ .cluster }}"
       }
     }
   }

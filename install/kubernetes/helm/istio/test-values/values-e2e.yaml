@@ -21,8 +21,24 @@ prometheus:
 gateways:
   istio-ingressgateway:
     autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
   istio-egressgateway:
     enabled: true
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
 
 mixer:
   policy:
