@@ -165,7 +165,7 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/test-bookinfo.sh --skip-cleanup src/github.com/istio/istio/
+            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
 
   - name: update
     serial_groups: [ cluster ]
@@ -305,4 +305,4 @@ jobs:
           - |
             echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/test-bookinfo.sh --skip-cleanup src/github.com/istio/istio/
+            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
