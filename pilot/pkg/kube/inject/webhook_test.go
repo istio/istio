@@ -40,6 +40,7 @@ import (
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
+	"k8s.io/helm/pkg/strvals"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
 
@@ -837,7 +838,7 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) *Webhook {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate := loadConfigMapWithHelm(t)
+	sidecarTemplate := loadConfigMapWithHelm(nil, t)
 	return createTestWebhook(sidecarTemplate)
 }
 
@@ -846,7 +847,7 @@ type configMapBody struct {
 	Template string `yaml:"template"`
 }
 
-func loadConfigMapWithHelm(t *testing.T) string {
+func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 	t.Helper()
 	c, err := chartutil.Load(helmChartDirectory)
 	if err != nil {
@@ -854,7 +855,9 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	}
 
 	values := getHelmValues(t)
-	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
+	mergedValues := mergeParamsIntoHelmValues(params, values, t)
+
+	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
@@ -895,10 +898,33 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	return body.Template
 }
 
-func getHelmValues(t *testing.T) string {
+func getHelmValues(t testing.TB) string {
 	t.Helper()
 	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
 	return string(util.ReadFile(valuesFile, t))
+}
+
+func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string {
+	t.Helper()
+	if params == nil {
+		return vals
+	}
+	valMap := chartutil.FromYaml(vals)
+	paramsVals := params.intoHelmValues()
+	for path, value := range paramsVals {
+		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
+		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return chartutil.ToYaml(valMap)
+}
+
+func escapeHelmValue(val string) string {
+	val = strings.Replace(val, ",", "\\,", -1)
+	val = strings.Replace(val, ".", "\\.", -1)
+	val = strings.Replace(val, "=", "\\=", -1)
+	return val
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -1434,10 +1460,7 @@ func BenchmarkInjectServe(b *testing.B) {
 		IncludeIPRanges:     DefaultIncludeIPRanges,
 		IncludeInboundPorts: DefaultIncludeInboundPorts,
 	}
-	sidecarTemplate, err := GenerateTemplateFromParams(params)
-	if err != nil {
-		b.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-	}
+	sidecarTemplate := loadConfigMapWithHelm(params, b)
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 
