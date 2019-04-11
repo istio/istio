@@ -135,11 +135,6 @@ const (
 	ProxyContainerName = "istio-proxy"
 )
 
-const (
-	sidecarTemplateDelimBegin = "[["
-	sidecarTemplateDelimEnd   = "]]"
-)
-
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
