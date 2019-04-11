@@ -29,7 +29,7 @@ import (
 const maxDeploymentTimeout = 480 * time.Second
 const propagationTime = 5 * time.Second
 
-func verifyMCMeshConfig(podNames []string, appEPs map[string][]string) error {
+func verifyMCMeshConfig(istioctl *framework.Istioctl, podNames []string, appEPs map[string][]string) error {
 	retry := util.Retrier{
 		BaseDelay: 2 * time.Second,
 		MaxDelay:  10 * time.Second,
@@ -37,7 +37,7 @@ func verifyMCMeshConfig(podNames []string, appEPs map[string][]string) error {
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		if err := verifyPods(tc.Kube.Istioctl, podNames, appEPs); err != nil {
+		if err := verifyPods(istioctl, podNames, appEPs); err != nil {
 			return err
 		}
 
@@ -118,12 +118,12 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 
 	// Verify that the mesh contains endpoints from the primary cluster only
 	log.Infof("Before adding remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
-	if err = verifyMCMeshConfig(primaryPodNames, primaryAppEPs); err != nil {
+	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
 		return err
 	}
 
 	if !tc.Kube.SplitHorizon {
-		if err = verifyMCMeshConfig(remotePodNames, primaryAppEPs); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, primaryAppEPs); err != nil {
 			return err
 		}
 	}
@@ -137,7 +137,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
 	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 
-	if err = verifyMCMeshConfig(primaryPodNames, aggregatedAppEPs); err != nil {
+	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
 		return err
 	}
 
@@ -146,7 +146,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 	if !tc.Kube.SplitHorizon {
 		accessibleFromRemotePods = aggregatedAppEPs
 	}
-	if err = verifyMCMeshConfig(remotePodNames, accessibleFromRemotePods); err != nil {
+	if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, accessibleFromRemotePods); err != nil {
 		return err
 	}
 
@@ -157,12 +157,12 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 
 	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
 	// Verify that the mesh contains the primary endpoints only
-	if err = verifyMCMeshConfig(primaryPodNames, primaryAppEPs); err != nil {
+	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
 		return err
 	}
 
 	if !tc.Kube.SplitHorizon {
-		if err = verifyMCMeshConfig(remotePodNames, primaryAppEPs); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, primaryAppEPs); err != nil {
 			return err
 		}
 	}
@@ -185,7 +185,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 	if err == nil {
 		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 		// Verify that the mesh contains endpoints from both the primary and the remote clusters
-		if err = verifyMCMeshConfig(primaryPodNames, aggregatedAppEPs); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
 			return err
 		}
 
@@ -194,7 +194,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 		if !tc.Kube.SplitHorizon {
 			accessibleFromRemotePods = aggregatedAppEPs
 		}
-		if err = verifyMCMeshConfig(remotePodNames, accessibleFromRemotePods); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, accessibleFromRemotePods); err != nil {
 			return err
 		}
 	}
@@ -214,7 +214,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
 	if err == nil {
 		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
-		if err = verifyMCMeshConfig(primaryPodNames, aggregatedAppEPs); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
 			return err
 		}
 
@@ -223,7 +223,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 		if !tc.Kube.SplitHorizon {
 			accessibleFromRemotePods = aggregatedAppEPs
 		}
-		if err = verifyMCMeshConfig(remotePodNames, accessibleFromRemotePods); err != nil {
+		if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, accessibleFromRemotePods); err != nil {
 			return err
 		}
 	}
