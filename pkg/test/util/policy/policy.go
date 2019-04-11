@@ -21,6 +21,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
 
+const (
+	// The directory that contains the test data (e.g., test policies).
+	// When using this util, please place the test data under this directory.
+	testDataDir = "testdata"
+)
+
 type TestPolicy struct {
 	t         *testing.T
 	env       *kube.Environment
@@ -30,14 +36,14 @@ type TestPolicy struct {
 
 func (p TestPolicy) TearDown() {
 	p.t.Logf("Tearing down policy %q.", p.fileName)
-	if err := p.env.Delete(p.namespace, path.Join("testdata", p.fileName)); err != nil {
+	if err := p.env.Delete(p.namespace, path.Join(testDataDir, p.fileName)); err != nil {
 		p.t.Fatalf("Cannot delete %q from namespace %q: %v", p.fileName, p.namespace, err)
 	}
 }
 
 func ApplyPolicyFile(t *testing.T, env *kube.Environment, namespace string, fileName string) *TestPolicy {
 	t.Logf("Applying policy file %v", fileName)
-	if err := env.Apply(namespace, path.Join("testdata", fileName)); err != nil {
+	if err := env.Apply(namespace, path.Join(testDataDir, fileName)); err != nil {
 		t.Fatalf("Cannot apply %q to namespace %q: %v", fileName, namespace, err)
 		return nil
 	}
