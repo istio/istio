@@ -276,8 +276,8 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 				{
 					// Bind Only
 					CaptureMode: networking.CaptureMode_NONE,
-					Bind: "127.1.1.2",
-					Hosts: []string{"*/*"},
+					Bind:        "127.1.1.2",
+					Hosts:       []string{"*/*"},
 				},
 				{
 					// Port Only
@@ -292,7 +292,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 				{
 					// None
 					CaptureMode: networking.CaptureMode_NONE,
-					Hosts: []string{"*/*"},
+					Hosts:       []string{"*/*"},
 				},
 			},
 		},
@@ -315,7 +315,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		if expectedListenerType == "" {
 			t.Fatalf("listener %s not expected", listenerName)
 		}
-		if expectedListenerType == "TCP" && isHTTPListener(listener){
+		if expectedListenerType == "TCP" && isHTTPListener(listener) {
 			t.Fatalf("expected TCP listener %s, but found HTTP", listenerName)
 		}
 		if expectedListenerType == "HTTP" && !isHTTPListener(listener) {
