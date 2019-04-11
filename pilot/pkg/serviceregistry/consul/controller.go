@@ -179,6 +179,37 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	data, err := c.getServices()
+	if err != nil {
+		return nil, err
+	}
+	out := make(model.LabelsCollection, 0)
+	for svcName := range data {
+		endpoints, err := c.getCatalogService(svcName, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, endpoint := range endpoints {
+			addr := endpoint.ServiceAddress
+			if addr == "" {
+				addr = endpoint.Address
+			}
+			if len(proxy.IPAddresses) > 0 {
+				for _, ipAddress := range proxy.IPAddresses {
+					if ipAddress == addr {
+						labels := convertLabels(endpoint.ServiceTags)
+						out = append(out, labels)
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return out, nil
+}
+
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.monitor.Start(stop)

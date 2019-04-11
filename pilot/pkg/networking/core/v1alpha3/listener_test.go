@@ -121,8 +121,10 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 	// Add a service and verify it's config
 	testInboundListenerConfig(t,
 		buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow))
+	testInboundListenerConfigWithoutServices(t)
 	testInboundListenerConfigWithSidecar(t,
 		buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow))
+	testInboundListenerConfigWithSidecarWithoutServices(t)
 }
 
 func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
@@ -180,6 +182,15 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testInboundListenerConfigWithoutServices(t *testing.T) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(p, nil)
+	if expected := 0; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+	}
+}
+
 func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
@@ -209,6 +220,34 @@ func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Servi
 
 	if !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
+	}
+}
+
+func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo-without-service",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildInboundListeners(p, sidecarConfig)
+	if expected := 0; len(listeners) != expected {
+		t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
 	}
 }
 

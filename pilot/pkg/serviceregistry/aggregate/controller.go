@@ -234,7 +234,32 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+		}
+		return out, nil
+	}
+
+	return out, errs
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	out := make(model.LabelsCollection, 0)
+	var errs error
+	// It doesn't make sense for a single proxy to be found in more than one registry.
+	// TODO: if otherwise, warning or else what to do about it.
+	for _, r := range c.GetRegistries() {
+		labels, err := r.GetProxyWorkloadLabels(proxy)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(labels) > 0 {
+			out = append(out, labels...)
+			break
+		}
+	}
+
+	if len(out) > 0 {
+		if errs != nil {
+			log.Warnf("GetProxyWorkloadLabels() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}
