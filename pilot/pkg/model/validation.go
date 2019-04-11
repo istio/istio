@@ -1555,26 +1555,40 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
 		}
 	}
-	if in.RoleRef != nil && len(in.Actions) > 0 {
-		errs = appendErrors(errs, fmt.Errorf("only one of `roleRef` or `actions` can be specified"))
-		return errs
+	roleFieldCount := 0
+	if in.RoleRef != nil {
+		roleFieldCount++
 	}
-	if in.RoleRef == nil && len(in.Actions) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("`roleRef` or `actions` must be specified"))
+	if len(in.Actions) > 0 {
+		roleFieldCount++
+	}
+	if in.Role != "" {
+		roleFieldCount++
+	}
+	if roleFieldCount != 1 {
+		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
 	}
 	if in.RoleRef != nil {
+		rbacLog.Warnf("`roleRef` is deprecated. Please use `role` instead")
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
 				in.RoleRef.Kind, expectKind))
 		}
 		if len(in.RoleRef.Name) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("name cannot be empty"))
+			errs = appendErrors(errs, fmt.Errorf("`name` in `roleRef` cannot be empty"))
 		}
 	}
 	if len(in.Actions) > 0 {
 		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
-		errs = ValidateServiceRole("", "", inlineServiceRole)
+		errs = appendErrors(errs, ValidateServiceRole("", "", inlineServiceRole))
+	}
+	if in.Role != "" {
+		// Same as rootNamespacePrefix in rbac_v2.go
+		const rootNamespacePrefix = "/"
+		if in.Role == rootNamespacePrefix {
+			errs = appendErrors(errs, fmt.Errorf("`role` cannot have an empty ServiceRole name"))
+		}
 	}
 	return errs
 }
