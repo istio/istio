@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package locality
+package failover
 
 import (
 	"bytes"
-	"net/http"
 	"regexp"
 	"sync"
 	"testing"
@@ -28,9 +27,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/pilot/locality"
 )
 
 // This test allows for Locality Load Balancing testing without needing Kube nodes in multiple regions.
@@ -44,26 +45,26 @@ import (
 //
 //  CDS Test
 //
-//                                                       +-> B (region.zone.subzone)
+//                                                  100% +-> B (notregion.zone.subzone)
 //                                                       |
-//                                                  100% |
 //                                                       |
-// A (region.zone.subzone) -> fake-external-service.com -|
 //                                                       |
-//                                                    0% |
+// A (region.zone.subzone) -> fake-external-service.com -|-> C (othernotregion.zone.subzone)
 //                                                       |
-//                                                       +-> C (notregion.notzone.notsubzone)
+//                                                       |
+//                                                       |
+//                                                       +-> NonExistantService (region.zone.subzone)
 //
 //
 //  EDS Test
 //
 //                                                       +-> 10.28.1.138 (B -> region.zone.subzone)
 //                                                       |
-//                                                  100% |
+//                                                       |
 //                                                       |
 // A (region.zone.subzone) -> fake-external-service.com -|
 //                                                       |
-//                                                    0% |
+//                                                       |
 //                                                       |
 //                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
 
@@ -74,79 +75,40 @@ const (
 
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
-type ServiceConfig struct {
-	Resolution      string
-	ServiceBAddress string
-	ServiceCAddress string
+type FailoverServiceConfig struct {
+	Resolution         string
+	ServiceBAddress    string
+	ServiceCAddress    string
+	NonExistantService string
 }
 
-// WARNING: If these tests are failing with 404s it is likely that you will need to increase the Pilot propagation sleep!
-func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
+func TestLocalityFailover(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, environment.Kube)
+	ctx.Environment().(*kube.Environment).Settings()
 
 	// Share Istio Control Plane
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{
-		Galley: g,
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+
+	t.Run("TestFailoverCDS", func(t *testing.T) {
+		testFailoverCDS(t, ctx, g, p)
 	})
 
-	t.Run("TestCDS", func(t *testing.T) {
-		testLocalityPrioritizedLoadBalancingCDS(t, ctx, g, p)
-	})
-
-	t.Run("TestEDS", func(t *testing.T) {
-		testLocalityPrioritizedLoadBalancingEDS(t, ctx, g, p)
-	})
+	// t.Run("TestFailoverEDS", func(t *testing.T) {
+	// 	testFailoverEDS(t, ctx, g, p)
+	// })
 
 }
 
-func testLocalityPrioritizedLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{
-		Pilot:  p,
-		Galley: g,
-	})
+func testFailoverCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
-	se := ServiceConfig{"DNS", "b", "c"}
-	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalServiceConfig)
-	var buf bytes.Buffer
-	tmpl.Execute(&buf, se)
-	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
-
-	// TODO: find a better way to do this!
-	// This sleep allows config to propagate
-	time.Sleep(30 * time.Second)
-
-	// Send traffic to service B via a service entry for the test duration.
-	wg := &sync.WaitGroup{}
-	wg.Add(numSendTasks)
-	log.Info("Sending traffic to local service (CDS)")
-	for i := 0; i < numSendTasks; i++ {
-		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
-	}
-	wg.Wait()
-}
-
-func testLocalityPrioritizedLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{
-		Pilot:  p,
-		Galley: g,
-	})
-	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
-	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
-	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
-
-	se := ServiceConfig{
-		"STATIC",
-		b.EndpointForPort(80).NetworkEndpoint().Address,
-		c.EndpointForPort(80).NetworkEndpoint().Address,
-	}
-	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalServiceConfig)
+	se := FailoverServiceConfig{"DNS", "b", "c", "nonexistantservice"}
+	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalFailoverServiceConfig)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, se)
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
@@ -158,42 +120,45 @@ func testLocalityPrioritizedLoadBalancingEDS(t *testing.T, ctx resource.Context,
 	// Send traffic to service B via a service entry for the test duration.
 	wg := &sync.WaitGroup{}
 	wg.Add(numSendTasks)
-	log.Info("Sending traffic to local service (EDS)")
+	log.Info("Sending traffic to failover service (CDS)")
 	for i := 0; i < numSendTasks; i++ {
-		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
+		go locality.SendTraffic(t, testDuration, a, "fake-external-service.com", serviceBHostname, wg)
 	}
 	wg.Wait()
 }
 
-func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to string, wg *sync.WaitGroup) {
-	timeout := time.After(duration)
-	for {
-		select {
-		case <-timeout:
-			wg.Done()
-			return
-		default:
-			headers := http.Header{}
-			headers.Add("Host", to)
-			// This is a hack to remain infrastructure agnostic when running
-			// We actually call the host set above not the endpoint we pass
-			resp, err := from.Call(from.EndpointForPort(80), apps.AppCallOptions{
-				Protocol: apps.AppProtocolHTTP,
-				Headers:  headers,
-			})
-			for _, r := range resp {
-				if match := serviceBHostname.FindString(r.Hostname); len(match) == 0 {
-					t.Errorf("Request was made to service %v, all requests should go to the instance of b", r.Hostname)
-				}
-			}
-			if err != nil {
-				t.Errorf("Send to fake-external-service.com failed: %v", err)
-			}
-		}
-	}
+func testFailoverEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	// 	t.Parallel()
+	// 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	// 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
+	// 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
+	// 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
+
+	// 	se := ServiceConfig{
+	// 		"STATIC",
+	// 		b.EndpointForPort(80).NetworkEndpoint().Address,
+	// 		c.EndpointForPort(80).NetworkEndpoint().Address,
+	// 	}
+	// 	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalFailoverServiceConfig)
+	// 	var buf bytes.Buffer
+	// 	tmpl.Execute(&buf, se)
+	// 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
+
+	// 	// TODO: find a better way to do this!
+	// 	// This sleep allows config to propagate
+	// 	time.Sleep(20 * time.Second)
+
+	// 	// Send traffic to service B via a service entry for the test duration.
+	// 	wg := &sync.WaitGroup{}
+	// 	wg.Add(numSendTasks)
+	// 	log.Info("Sending traffic to local service (EDS)")
+	// 	for i := 0; i < numSendTasks; i++ {
+	// 		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
+	// 	}
+	// 	wg.Wait()
 }
 
-var fakeExternalServiceConfig = `
+var fakeExternalFailoverServiceConfig = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -208,10 +173,12 @@ spec:
   resolution: {{.Resolution}}
   location: MESH_EXTERNAL
   endpoints:
-  - address: {{.ServiceBAddress}}
+  - address: {{.NonExistantService}}
     locality: region/zone/subzone
+  - address: {{.ServiceBAddress}}
+    locality: notregion/zone/subzone
   - address: {{.ServiceCAddress}}
-    locality: notregion/notzone/notsubzone
+    locality: othernotregion/zone/subzone
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
