@@ -39,7 +39,6 @@ global:
   # Default tag for Istio images.
   #tag: release-1.1-latest-daily
   tag: 1.1.0
-  istioVersion: "1.1"
 
   # TODO: specific to control, move there
   k8sIngress:

@@ -11,7 +11,7 @@ FROM    golang:1.11
 
 # Also installed docker, docker-compose, dockerize, jq
 
-ARG     K8S_VER=v1.13.4
+ARG     K8S_VER=v1.14.0
 ARG     ETCD_VER=v3.2.15
 ARG     MINIKUBE_VER=v0.25.0
 ARG     HELM_VER=v2.7.2
