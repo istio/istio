@@ -843,23 +843,38 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		client := pending[0]
 		pending = pending[1:]
 
+		// indicates whether to do a full push for the proxy
+		proxyFull := full
+		if !full {
+			s.proxyUpdatesMutex.RLock()
+			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
+				proxyFull = true
+			}
+			s.proxyUpdatesMutex.RUnlock()
+		}
+
 		wg.Add(1)
 		s.concurrentPushLimit <- struct{}{}
 		go func() {
 			defer func() {
+				if proxyFull {
+					s.proxyUpdatesMutex.Lock()
+					delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
+					s.proxyUpdatesMutex.Unlock()
+				}
 				<-s.concurrentPushLimit
 				wg.Done()
 			}()
 
 			edsOnly := edsUpdates
-			if full {
+			if proxyFull {
 				edsOnly = nil
 			}
 
 		Retry:
 			currentVersion := versionInfo()
 			// Stop attempting to push
-			if version != currentVersion && full {
+			if version != currentVersion && proxyFull {
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}

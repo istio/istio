@@ -474,12 +474,17 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	}
 	w, f := s.WorkloadsByID[id]
 	if !f {
-		// First time this workload has been seen. Maybe after the first connect, do a full push.
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
 		}
-		adsLog.Infof("First time sidecar instance added, full push %s ", id)
-		s.ConfigUpdate(true)
+		// First time this workload has been seen. Maybe after the first connect,
+		// do a full push for this proxy in the next push epoch.
+		s.proxyUpdatesMutex.Lock()
+		if s.proxyUpdates == nil {
+			s.proxyUpdates = make(map[string]struct{})
+		}
+		s.proxyUpdates[id] = struct{}{}
+		s.proxyUpdatesMutex.Unlock()
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
