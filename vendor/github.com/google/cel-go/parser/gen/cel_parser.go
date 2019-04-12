@@ -109,8 +109,6 @@ var parserATN = []uint16{
 	2, 2, 29, 37, 44, 52, 63, 75, 77, 84, 90, 93, 103, 106, 116, 119, 121,
 	125, 130, 133, 141, 144, 149, 153, 160, 172, 185, 189, 194, 202,
 }
-var deserializer = antlr.NewATNDeserializer(nil)
-var deserializedATN = deserializer.DeserializeFromUInt16(parserATN)
 
 var literalNames = []string{
 	"", "'in'", "'=='", "'!='", "'<'", "'<='", "'>='", "'>'", "'&&'", "'||'",
@@ -130,13 +128,6 @@ var ruleNames = []string{
 	"unary", "member", "primary", "exprList", "fieldInitializerList", "mapInitializerList",
 	"literal",
 }
-var decisionToDFA = make([]*antlr.DFA, len(deserializedATN.DecisionToState))
-
-func init() {
-	for index, ds := range deserializedATN.DecisionToState {
-		decisionToDFA[index] = antlr.NewDFA(ds, index)
-	}
-}
 
 type CELParser struct {
 	*antlr.BaseParser
@@ -144,7 +135,12 @@ type CELParser struct {
 
 func NewCELParser(input antlr.TokenStream) *CELParser {
 	this := new(CELParser)
-
+	deserializer := antlr.NewATNDeserializer(nil)
+	deserializedATN := deserializer.DeserializeFromUInt16(parserATN)
+	decisionToDFA := make([]*antlr.DFA, len(deserializedATN.DecisionToState))
+	for index, ds := range deserializedATN.DecisionToState {
+		decisionToDFA[index] = antlr.NewDFA(ds, index)
+	}
 	this.BaseParser = antlr.NewBaseParser(input)
 
 	this.Interpreter = antlr.NewParserATNSimulator(this, deserializedATN, decisionToDFA, antlr.NewPredictionContextCache())

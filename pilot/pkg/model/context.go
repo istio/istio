@@ -85,7 +85,9 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where Envoy proxy runs.
+	// Locality is the location of where Envoy proxy runs. This is extracted from
+	// the registry where possible. If the registry doesn't provide a locality for the
+	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
 	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.

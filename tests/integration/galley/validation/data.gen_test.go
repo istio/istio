@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -841,30 +842,30 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"testdata/authentication-v1alpha1-Policy-invalid.yaml": testdataAuthenticationV1alpha1PolicyInvalidYaml,
-	"testdata/authentication-v1alpha1-Policy-valid.yaml": testdataAuthenticationV1alpha1PolicyValidYaml,
-	"testdata/config-v1alpha2-HTTPAPISpec-invalid.yaml": testdataConfigV1alpha2HttpapispecInvalidYaml,
-	"testdata/config-v1alpha2-HTTPAPISpec-valid.yaml": testdataConfigV1alpha2HttpapispecValidYaml,
-	"testdata/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml": testdataConfigV1alpha2HttpapispecbindingInvalidYaml,
-	"testdata/config-v1alpha2-HTTPAPISpecBinding-valid.yaml": testdataConfigV1alpha2HttpapispecbindingValidYaml,
-	"testdata/config-v1alpha2-QuotaSpec-invalid.yaml": testdataConfigV1alpha2QuotaspecInvalidYaml,
-	"testdata/config-v1alpha2-QuotaSpec-valid.yaml": testdataConfigV1alpha2QuotaspecValidYaml,
-	"testdata/config-v1alpha2-QuotaSpecBinding-invalid.yaml": testdataConfigV1alpha2QuotaspecbindingInvalidYaml,
-	"testdata/config-v1alpha2-QuotaSpecBinding-valid.yaml": testdataConfigV1alpha2QuotaspecbindingValidYaml,
-	"testdata/config-v1alpha2-rule-invalid.yaml": testdataConfigV1alpha2RuleInvalidYaml,
-	"testdata/config-v1alpha2-rule-valid.yaml": testdataConfigV1alpha2RuleValidYaml,
-	"testdata/networking-v1alpha3-DestinationRule-invalid.yaml": testdataNetworkingV1alpha3DestinationruleInvalidYaml,
-	"testdata/networking-v1alpha3-DestinationRule-valid.yaml": testdataNetworkingV1alpha3DestinationruleValidYaml,
-	"testdata/networking-v1alpha3-Gateway-invalid.yaml": testdataNetworkingV1alpha3GatewayInvalidYaml,
-	"testdata/networking-v1alpha3-Gateway-valid.yaml": testdataNetworkingV1alpha3GatewayValidYaml,
+	"testdata/authentication-v1alpha1-Policy-invalid.yaml":           testdataAuthenticationV1alpha1PolicyInvalidYaml,
+	"testdata/authentication-v1alpha1-Policy-valid.yaml":             testdataAuthenticationV1alpha1PolicyValidYaml,
+	"testdata/config-v1alpha2-HTTPAPISpec-invalid.yaml":              testdataConfigV1alpha2HttpapispecInvalidYaml,
+	"testdata/config-v1alpha2-HTTPAPISpec-valid.yaml":                testdataConfigV1alpha2HttpapispecValidYaml,
+	"testdata/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml":       testdataConfigV1alpha2HttpapispecbindingInvalidYaml,
+	"testdata/config-v1alpha2-HTTPAPISpecBinding-valid.yaml":         testdataConfigV1alpha2HttpapispecbindingValidYaml,
+	"testdata/config-v1alpha2-QuotaSpec-invalid.yaml":                testdataConfigV1alpha2QuotaspecInvalidYaml,
+	"testdata/config-v1alpha2-QuotaSpec-valid.yaml":                  testdataConfigV1alpha2QuotaspecValidYaml,
+	"testdata/config-v1alpha2-QuotaSpecBinding-invalid.yaml":         testdataConfigV1alpha2QuotaspecbindingInvalidYaml,
+	"testdata/config-v1alpha2-QuotaSpecBinding-valid.yaml":           testdataConfigV1alpha2QuotaspecbindingValidYaml,
+	"testdata/config-v1alpha2-rule-invalid.yaml":                     testdataConfigV1alpha2RuleInvalidYaml,
+	"testdata/config-v1alpha2-rule-valid.yaml":                       testdataConfigV1alpha2RuleValidYaml,
+	"testdata/networking-v1alpha3-DestinationRule-invalid.yaml":      testdataNetworkingV1alpha3DestinationruleInvalidYaml,
+	"testdata/networking-v1alpha3-DestinationRule-valid.yaml":        testdataNetworkingV1alpha3DestinationruleValidYaml,
+	"testdata/networking-v1alpha3-Gateway-invalid.yaml":              testdataNetworkingV1alpha3GatewayInvalidYaml,
+	"testdata/networking-v1alpha3-Gateway-valid.yaml":                testdataNetworkingV1alpha3GatewayValidYaml,
 	"testdata/networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml,
-	"testdata/networking-v1alpha3-ServiceEntry-valid-skipped.yaml": testdataNetworkingV1alpha3ServiceentryValidSkippedYaml,
-	"testdata/networking-v1alpha3-VirtualService-invalid.yaml": testdataNetworkingV1alpha3VirtualserviceInvalidYaml,
-	"testdata/networking-v1alpha3-VirtualService-valid.yaml": testdataNetworkingV1alpha3VirtualserviceValidYaml,
-	"testdata/rbac-v1alpha1-ServiceRole-invalid.yaml": testdataRbacV1alpha1ServiceroleInvalidYaml,
-	"testdata/rbac-v1alpha1-ServiceRole-valid.yaml": testdataRbacV1alpha1ServiceroleValidYaml,
-	"testdata/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml": testdataRbacV1alpha1ServicerolebindingInvalidYaml,
-	"testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml": testdataRbacV1alpha1ServicerolebindingValidYaml,
+	"testdata/networking-v1alpha3-ServiceEntry-valid-skipped.yaml":   testdataNetworkingV1alpha3ServiceentryValidSkippedYaml,
+	"testdata/networking-v1alpha3-VirtualService-invalid.yaml":       testdataNetworkingV1alpha3VirtualserviceInvalidYaml,
+	"testdata/networking-v1alpha3-VirtualService-valid.yaml":         testdataNetworkingV1alpha3VirtualserviceValidYaml,
+	"testdata/rbac-v1alpha1-ServiceRole-invalid.yaml":                testdataRbacV1alpha1ServiceroleInvalidYaml,
+	"testdata/rbac-v1alpha1-ServiceRole-valid.yaml":                  testdataRbacV1alpha1ServiceroleValidYaml,
+	"testdata/rbac-v1alpha1-ServiceRoleBinding-invalid.yaml":         testdataRbacV1alpha1ServicerolebindingInvalidYaml,
+	"testdata/rbac-v1alpha1-ServiceRoleBinding-valid.yaml":           testdataRbacV1alpha1ServicerolebindingValidYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -906,32 +907,33 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"testdata": &bintree{nil, map[string]*bintree{
-		"authentication-v1alpha1-Policy-invalid.yaml": &bintree{testdataAuthenticationV1alpha1PolicyInvalidYaml, map[string]*bintree{}},
-		"authentication-v1alpha1-Policy-valid.yaml": &bintree{testdataAuthenticationV1alpha1PolicyValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-HTTPAPISpec-invalid.yaml": &bintree{testdataConfigV1alpha2HttpapispecInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-HTTPAPISpec-valid.yaml": &bintree{testdataConfigV1alpha2HttpapispecValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-HTTPAPISpecBinding-invalid.yaml": &bintree{testdataConfigV1alpha2HttpapispecbindingInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-HTTPAPISpecBinding-valid.yaml": &bintree{testdataConfigV1alpha2HttpapispecbindingValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-QuotaSpec-invalid.yaml": &bintree{testdataConfigV1alpha2QuotaspecInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-QuotaSpec-valid.yaml": &bintree{testdataConfigV1alpha2QuotaspecValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-QuotaSpecBinding-invalid.yaml": &bintree{testdataConfigV1alpha2QuotaspecbindingInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-QuotaSpecBinding-valid.yaml": &bintree{testdataConfigV1alpha2QuotaspecbindingValidYaml, map[string]*bintree{}},
-		"config-v1alpha2-rule-invalid.yaml": &bintree{testdataConfigV1alpha2RuleInvalidYaml, map[string]*bintree{}},
-		"config-v1alpha2-rule-valid.yaml": &bintree{testdataConfigV1alpha2RuleValidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-DestinationRule-invalid.yaml": &bintree{testdataNetworkingV1alpha3DestinationruleInvalidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-DestinationRule-valid.yaml": &bintree{testdataNetworkingV1alpha3DestinationruleValidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-Gateway-invalid.yaml": &bintree{testdataNetworkingV1alpha3GatewayInvalidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-Gateway-valid.yaml": &bintree{testdataNetworkingV1alpha3GatewayValidYaml, map[string]*bintree{}},
+		"authentication-v1alpha1-Policy-invalid.yaml":           &bintree{testdataAuthenticationV1alpha1PolicyInvalidYaml, map[string]*bintree{}},
+		"authentication-v1alpha1-Policy-valid.yaml":             &bintree{testdataAuthenticationV1alpha1PolicyValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-HTTPAPISpec-invalid.yaml":              &bintree{testdataConfigV1alpha2HttpapispecInvalidYaml, map[string]*bintree{}},
+		"config-v1alpha2-HTTPAPISpec-valid.yaml":                &bintree{testdataConfigV1alpha2HttpapispecValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-HTTPAPISpecBinding-invalid.yaml":       &bintree{testdataConfigV1alpha2HttpapispecbindingInvalidYaml, map[string]*bintree{}},
+		"config-v1alpha2-HTTPAPISpecBinding-valid.yaml":         &bintree{testdataConfigV1alpha2HttpapispecbindingValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-QuotaSpec-invalid.yaml":                &bintree{testdataConfigV1alpha2QuotaspecInvalidYaml, map[string]*bintree{}},
+		"config-v1alpha2-QuotaSpec-valid.yaml":                  &bintree{testdataConfigV1alpha2QuotaspecValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-QuotaSpecBinding-invalid.yaml":         &bintree{testdataConfigV1alpha2QuotaspecbindingInvalidYaml, map[string]*bintree{}},
+		"config-v1alpha2-QuotaSpecBinding-valid.yaml":           &bintree{testdataConfigV1alpha2QuotaspecbindingValidYaml, map[string]*bintree{}},
+		"config-v1alpha2-rule-invalid.yaml":                     &bintree{testdataConfigV1alpha2RuleInvalidYaml, map[string]*bintree{}},
+		"config-v1alpha2-rule-valid.yaml":                       &bintree{testdataConfigV1alpha2RuleValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-DestinationRule-invalid.yaml":      &bintree{testdataNetworkingV1alpha3DestinationruleInvalidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-DestinationRule-valid.yaml":        &bintree{testdataNetworkingV1alpha3DestinationruleValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-Gateway-invalid.yaml":              &bintree{testdataNetworkingV1alpha3GatewayInvalidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-Gateway-valid.yaml":                &bintree{testdataNetworkingV1alpha3GatewayValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-ServiceEntry-invalid-skipped.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryInvalidSkippedYaml, map[string]*bintree{}},
-		"networking-v1alpha3-ServiceEntry-valid-skipped.yaml": &bintree{testdataNetworkingV1alpha3ServiceentryValidSkippedYaml, map[string]*bintree{}},
-		"networking-v1alpha3-VirtualService-invalid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
-		"networking-v1alpha3-VirtualService-valid.yaml": &bintree{testdataNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRole-invalid.yaml": &bintree{testdataRbacV1alpha1ServiceroleInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRole-valid.yaml": &bintree{testdataRbacV1alpha1ServiceroleValidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRoleBinding-invalid.yaml": &bintree{testdataRbacV1alpha1ServicerolebindingInvalidYaml, map[string]*bintree{}},
-		"rbac-v1alpha1-ServiceRoleBinding-valid.yaml": &bintree{testdataRbacV1alpha1ServicerolebindingValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-ServiceEntry-valid-skipped.yaml":   &bintree{testdataNetworkingV1alpha3ServiceentryValidSkippedYaml, map[string]*bintree{}},
+		"networking-v1alpha3-VirtualService-invalid.yaml":       &bintree{testdataNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-VirtualService-valid.yaml":         &bintree{testdataNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRole-invalid.yaml":                &bintree{testdataRbacV1alpha1ServiceroleInvalidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRole-valid.yaml":                  &bintree{testdataRbacV1alpha1ServiceroleValidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRoleBinding-invalid.yaml":         &bintree{testdataRbacV1alpha1ServicerolebindingInvalidYaml, map[string]*bintree{}},
+		"rbac-v1alpha1-ServiceRoleBinding-valid.yaml":           &bintree{testdataRbacV1alpha1ServicerolebindingValidYaml, map[string]*bintree{}},
 	}},
 }}
 
@@ -981,4 +983,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

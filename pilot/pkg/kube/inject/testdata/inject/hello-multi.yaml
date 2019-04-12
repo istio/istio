@@ -1,10 +1,16 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-v1
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+      version: v1
   template:
     metadata:
       labels:
@@ -20,12 +26,18 @@ spec:
             - name: http
               containerPort: 80
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-v2
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+      version: v2
   template:
     metadata:
       labels:

@@ -74,7 +74,7 @@ func newNative(ctx resource.Context) (Instance, error) {
 	ctl, err = retry.Do(func() (interface{}, bool, error) {
 		c, err := policy.NewController(fmt.Sprintf(":%d", c.backend.Port()))
 		if err != nil {
-			scopes.Framework.Debugf("error while connecting to the PolicyBackend controller: %v", err)
+			scopes.Framework.Infof("error while connecting to the PolicyBackend controller: %v", err)
 			return nil, false, err
 		}
 		return c, true, nil
@@ -90,12 +90,14 @@ func newNative(ctx resource.Context) (Instance, error) {
 func (c *nativeComponent) CreateConfigSnippet(name string, namespace string) string {
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
-kind: bypass
+kind: handler
 metadata:
   name: %s
   namespace: %s
 spec:
-  backend_address: 127.0.0.1:%d
+  params:
+    backend_address: 127.0.0.1:%d
+  compiledAdapter: bypass
 `, name, namespace, c.backend.Port())
 }
 
