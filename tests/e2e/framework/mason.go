@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"istio.io/test-infra/boskos/gcp"
+
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -35,8 +37,8 @@ type resourceInfo struct {
 	} `json:"projectsinfo,omitempty"`
 }
 
-func parseInfoFile(filePath string) (*resourceInfo, error) {
-	var info resourceInfo
+func parseInfoFile(filePath string) (gcp.ResourceInfo, error) {
+	var info gcp.ResourceInfo
 
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -49,29 +51,28 @@ func parseInfoFile(filePath string) (*resourceInfo, error) {
 	return &info, nil
 }
 
-func resourceInfoToGCPRawVM(info resourceInfo, ns string) (*GCPRawVM, error) {
+func resourceInfoToGCPRawVM(info gcp.ResourceInfo, ns string) (*GCPRawVM, error) {
+	for pn, projectInfo := range info {
+		// If more than one VM, taking the first one
+		if len(projectInfo.VMs) < 1 {
+			return nil, fmt.Errorf("there should be at least one vm")
+		}
+		vmInfo := projectInfo.VMs[0]
+		// If more than one Cluster, taking the first one
+		if len(projectInfo.Clusters) < 1 {
+			return nil, fmt.Errorf("there should be at least one cluster")
+		}
+		clusterInfo := projectInfo.Clusters[0]
+		return &GCPRawVM{
+			Name:        vmInfo.Name,
+			Zone:        vmInfo.Zone,
+			ClusterName: clusterInfo.Name,
+			ProjectID:   pn,
+			UseMason:    true,
+			Namespace:   ns,
+		}, nil
+	}
 	// Need to have the cluster and VM are in the same project,
 	// if there is more than one project we'll take the first one.
-	if len(info.ProjectsInfo) < 1 {
-		return nil, fmt.Errorf("there should be at least one project")
-	}
-	projectInfo := info.ProjectsInfo[0]
-	// If more than one VM, taking the first one
-	if len(projectInfo.VMs) < 1 {
-		return nil, fmt.Errorf("there should be at least one vm")
-	}
-	vmInfo := projectInfo.VMs[0]
-	// If more than one Cluster, taking the first one
-	if len(projectInfo.Clusters) < 1 {
-		return nil, fmt.Errorf("there should be at least one cluster")
-	}
-	clusterInfo := projectInfo.Clusters[0]
-	return &GCPRawVM{
-		Name:        vmInfo.Name,
-		Zone:        vmInfo.Zone,
-		ClusterName: clusterInfo.Name,
-		ProjectID:   projectInfo.Name,
-		UseMason:    true,
-		Namespace:   ns,
-	}, nil
+	return nil, fmt.Errorf("there should be at least one project")
 }
