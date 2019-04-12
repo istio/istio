@@ -76,12 +76,12 @@ for depl in ${BOOKINFO_DEPLOYMENTS}; do
 done
 kubectl get pod
 
-export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 if [ -z $INGRESS_HOST ]; then
-    export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.clusterIP}')
+    export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
 fi
-export INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
+export INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 set +e
 n=1
