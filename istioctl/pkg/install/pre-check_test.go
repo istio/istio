@@ -158,7 +158,7 @@ func (m *mockClientExecPreCheckConfig) getNameSpace(ns string) (*v1.Namespace, e
 		}
 		return n, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("namespaces \"%s\" not found", ns)
 
 }
 

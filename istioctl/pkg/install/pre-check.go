@@ -78,8 +78,8 @@ func installPreCheck(istioNamespaceFlag *string, restClientGetter resource.RESTC
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Istio-existence\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	ns, _ := c.getNameSpace(*istioNamespaceFlag)
-	if ns != nil {
+	_, err = c.getNameSpace(*istioNamespaceFlag)
+	if err == nil {
 		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", *istioNamespaceFlag)
 		return errors.New(msg)
 	}
