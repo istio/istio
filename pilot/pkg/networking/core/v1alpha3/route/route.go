@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -582,10 +581,8 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	}
 
 	out := route.CorsPolicy{
-		AllowOrigin: in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_Enabled{
-			Enabled: proto.BoolTrue,
-		},
+		AllowOrigin:      in.AllowOrigin,
+		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{},
 	}
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
