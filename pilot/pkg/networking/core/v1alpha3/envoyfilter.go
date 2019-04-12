@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"net"
 	"strings"
 
@@ -78,10 +80,10 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 					// Insert into http connection manager
-					insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+					doHTTPFilterOperation(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
 				} else {
 					// http listener, tcp filter
-					insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+					doNetworkFilterOperation(listener.Name, &listener.FilterChains[cnum], f)
 				}
 			} else {
 				// The listener match logic does not take into account the listener protocol
@@ -104,7 +106,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 						f.FilterName)
 					continue
 				}
-				insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
+				doNetworkFilterOperation(listener.Name, &listener.FilterChains[cnum], f)
 			}
 		}
 	}
@@ -219,16 +221,48 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	return true
 }
 
-func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+func doHTTPFilterOperation(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
 	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
+
+	if envoyFilter.Op == nil {
+		insertHTTPFilter(listenerName, filterChain, hcm, envoyFilter, nil, isXDSMarshalingToAnyEnabled)
+	}
+	switch selector := envoyFilter.Op.(type) {
+	case *networking.EnvoyFilter_Filter_InsertPosition:
+		insertHTTPFilter(listenerName, filterChain, hcm, envoyFilter, selector.InsertPosition, isXDSMarshalingToAnyEnabled)
+	case *networking.EnvoyFilter_Filter_Overwrite:
+		overwriteOrMergeHTTPFilter(listenerName, filterChain, hcm, envoyFilter, false, isXDSMarshalingToAnyEnabled)
+	case *networking.EnvoyFilter_Filter_Merge:
+		overwriteOrMergeHTTPFilter(listenerName, filterChain, hcm, envoyFilter, true, isXDSMarshalingToAnyEnabled)
+	}
+}
+
+func doNetworkFilterOperation(listenerName string, filterChain *listener.FilterChain,
+	envoyFilter *networking.EnvoyFilter_Filter) {
+
+	if envoyFilter.Op == nil {
+		insertNetworkFilter(listenerName, filterChain, envoyFilter, nil)
+	}
+	switch selector := envoyFilter.Op.(type) {
+	case *networking.EnvoyFilter_Filter_InsertPosition:
+		insertNetworkFilter(listenerName, filterChain, envoyFilter, selector.InsertPosition)
+	case *networking.EnvoyFilter_Filter_Overwrite:
+		overwriteOrMergeNetworkFilter(listenerName, filterChain, envoyFilter, false)
+	case *networking.EnvoyFilter_Filter_Merge:
+		overwriteOrMergeNetworkFilter(listenerName, filterChain, envoyFilter, true)
+	}
+}
+
+func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+	envoyFilter *networking.EnvoyFilter_Filter, insertPosition *networking.EnvoyFilter_InsertPosition, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST
-	if envoyFilter.InsertPosition != nil {
-		position = envoyFilter.InsertPosition.Index
+	if insertPosition != nil {
+		position = insertPosition.Index
 	}
 
 	oldLen := len(hcm.HttpFilters)
@@ -238,7 +272,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 		if position == networking.EnvoyFilter_InsertPosition_BEFORE {
 			// bubble the filter to the right position scanning from beginning
 			for i := 1; i < len(hcm.HttpFilters); i++ {
-				if hcm.HttpFilters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+				if hcm.HttpFilters[i].Name != insertPosition.RelativeTo {
 					hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
 				} else {
 					break
@@ -250,7 +284,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 		if position == networking.EnvoyFilter_InsertPosition_AFTER {
 			// bubble the filter to the right position scanning from end
 			for i := len(hcm.HttpFilters) - 2; i >= 0; i-- {
-				if hcm.HttpFilters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+				if hcm.HttpFilters[i].Name != insertPosition.RelativeTo {
 					hcm.HttpFilters[i+1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i+1]
 				} else {
 					break
@@ -270,20 +304,54 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	}
 	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
-	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }
 
+func overwriteOrMergeHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+	envoyFilter *networking.EnvoyFilter_Filter, isMerge bool, isXDSMarshalingToAnyEnabled bool) {
+
+	for i := 1; i < len(hcm.HttpFilters); i++ {
+		if hcm.HttpFilters[i].Name == envoyFilter.FilterName {
+			if !isMerge {
+				hcm.HttpFilters[i].ConfigType = &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig}
+			} else {
+				switch selector := hcm.HttpFilters[i].ConfigType.(type) {
+				case *http_conn.HttpFilter_Config:
+					proto.Merge(selector.Config, envoyFilter.FilterConfig)
+				case *http_conn.HttpFilter_TypedConfig:
+					selector.TypedConfig = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
+				}
+			}
+			break
+		}
+	}
+
+	// Rebuild the HTTP connection manager in the network filter chain
+	// Its the last filter in the filter chain
+	filterStruct := listener.Filter{
+		Name: xdsutil.HTTPConnectionManager,
+	}
+	if isXDSMarshalingToAnyEnabled {
+		filterStruct.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
+	} else {
+		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	}
+	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
+	log.Debugf("EnvoyFilters: overwrote %s filter in HTTP Connection Manager %s", envoyFilter.FilterName,
+		listenerName)
+}
+
 func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
-	envoyFilter *networking.EnvoyFilter_Filter) {
+	envoyFilter *networking.EnvoyFilter_Filter, insertPosition *networking.EnvoyFilter_InsertPosition) {
 	filter := &listener.Filter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &listener.Filter_Config{Config: envoyFilter.FilterConfig},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST
-	if envoyFilter.InsertPosition != nil {
-		position = envoyFilter.InsertPosition.Index
+	if insertPosition != nil {
+		position = insertPosition.Index
 	}
 
 	oldLen := len(filterChain.Filters)
@@ -293,7 +361,7 @@ func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
 		if position == networking.EnvoyFilter_InsertPosition_BEFORE {
 			// bubble the filter to the right position scanning from beginning
 			for i := 1; i < len(filterChain.Filters); i++ {
-				if filterChain.Filters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+				if filterChain.Filters[i].Name != insertPosition.RelativeTo {
 					filterChain.Filters[i-1], filterChain.Filters[i] = filterChain.Filters[i], filterChain.Filters[i-1]
 					break
 				}
@@ -304,13 +372,66 @@ func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
 		if position == networking.EnvoyFilter_InsertPosition_AFTER {
 			// bubble the filter to the right position scanning from end
 			for i := len(filterChain.Filters) - 2; i >= 0; i-- {
-				if filterChain.Filters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+				if filterChain.Filters[i].Name != insertPosition.RelativeTo {
 					filterChain.Filters[i+1], filterChain.Filters[i] = filterChain.Filters[i], filterChain.Filters[i+1]
 					break
 				}
 			}
 		}
 	}
-	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(filterChain.Filters))
+}
+
+func overwriteOrMergeNetworkFilter(listenerName string, filterChain *listener.FilterChain,
+	envoyFilter *networking.EnvoyFilter_Filter, isMerge bool) {
+
+	for i := 1; i < len(filterChain.Filters); i++ {
+		if filterChain.Filters[i].Name == envoyFilter.FilterName {
+			if !isMerge {
+				filterChain.Filters[i].ConfigType = &listener.Filter_Config{Config: envoyFilter.FilterConfig}
+			} else {
+				switch selector := filterChain.Filters[i].ConfigType.(type) {
+				case *listener.Filter_Config:
+					proto.Merge(selector.Config, envoyFilter.FilterConfig)
+				case *listener.Filter_TypedConfig:
+					selector.TypedConfig = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
+				}
+			}
+			return
+		}
+	}
+}
+
+func mergeAnyWithStruct(listenerName string, any *types.Any,	envoyFilter *networking.EnvoyFilter_Filter) *types.Any {
+	// Assuming that Pilot is compiled with this type [which should always be the case]
+	var err error
+	var x types.DynamicAny
+
+	// First get an object of type used by this message
+	if err = types.UnmarshalAny(any, &x); err != nil {
+		log.Debugf("EnvoyFilters: Failed to unmarshall built in filter %s (listener %s) from any type",
+			envoyFilter.FilterName, listenerName)
+		return any // retain old value
+	}
+
+	// Create a typed copy. We will convert the user's struct to this type
+	temp := proto.Clone(x.Message)
+	if err = xdsutil.StructToMessage(envoyFilter.FilterConfig, temp); err != nil {
+		log.Debugf("EnvoyFilters: Failed to convert user provided struct to typed filter %s (listener %s)",
+			envoyFilter.FilterName, listenerName)
+		return any
+	}
+
+	// Merge the two typed protos
+	proto.Merge(x.Message, temp)
+	var retVal *types.Any
+	// Convert the merged proto back to any
+	if retVal, err = types.MarshalAny(x.Message); err != nil {
+		log.Debugf("EnvoyFilters: Failed to convert merged message to Any for filter %s (listener %s)",
+			envoyFilter.FilterName, listenerName)
+		return any
+	}
+
+	return retVal
 }

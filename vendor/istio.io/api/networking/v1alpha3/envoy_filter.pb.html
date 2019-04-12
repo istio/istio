@@ -110,11 +110,32 @@ listener match criteria for all filter insertions.</p>
 
 </td>
 </tr>
-<tr id="EnvoyFilter-Filter-insert_position">
+<tr id="EnvoyFilter-Filter-insert_position" class="oneof oneof-start">
 <td><code>insertPosition</code></td>
-<td><code><a href="#EnvoyFilter-InsertPosition">EnvoyFilter.InsertPosition</a></code></td>
+<td><code><a href="#EnvoyFilter-InsertPosition">EnvoyFilter.InsertPosition (oneof)</a></code></td>
 <td>
-<p>Insert position in the filter chain. Defaults to FIRST</p>
+<p>Insert position in the filter chain. Defaults to FIRST.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-overwrite" class="oneof">
+<td><code>overwrite</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>If a filter by the same name exists in the filter chain, it
+will be replaced.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilter-Filter-merge" class="oneof">
+<td><code>merge</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>If a filter by the same name exists in the filter chain, the
+provided filter_config will be merged with the internally
+generated config.  Merge follows protobuf&rsquo;s merge semantics:
+individual fields (supplied here) will overwrite internally
+generated fields. Lists will be appended to.</p>
 
 </td>
 </tr>
@@ -130,8 +151,8 @@ listener match criteria for all filter insertions.</p>
 <td><code>filterName</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED: The name of the filter to instantiate. The name must match a supported
-filter <em>compiled into</em> Envoy.</p>
+<p>REQUIRED: The name of the filter to instantiate or replace. The
+name must match a supported filter <em>compiled into</em> Envoy.</p>
 
 </td>
 </tr>

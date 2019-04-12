@@ -163,8 +163,21 @@ message EnvoyFilter {
     // listener match criteria for all filter insertions.
     ListenerMatch listener_match = 1;
 
-    // Insert position in the filter chain. Defaults to FIRST
-    InsertPosition insert_position = 2;
+    oneof op {
+      // Insert position in the filter chain. Defaults to FIRST.
+      InsertPosition insert_position = 2;
+
+      // If a filter by the same name exists in the filter chain, it
+      // will be replaced.
+      bool overwrite = 6;
+
+      // If a filter by the same name exists in the filter chain, the
+      // provided filter_config will be merged with the internally
+      // generated config.  Merge follows protobuf's merge semantics:
+      // individual fields (supplied here) will overwrite internally
+      // generated fields. Lists will be appended to.
+      bool merge = 7;
+    }
 
     enum FilterType {
       // placeholder
@@ -180,8 +193,8 @@ message EnvoyFilter {
     // REQUIRED: The type of filter to instantiate.
     FilterType filter_type = 3;
 
-    // REQUIRED: The name of the filter to instantiate. The name must match a supported
-    // filter _compiled into_ Envoy.
+    // REQUIRED: The name of the filter to instantiate or replace. The
+    // name must match a supported filter _compiled into_ Envoy.
     string filter_name = 4;
 
     // REQUIRED: Filter specific configuration which depends on the filter being

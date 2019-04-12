@@ -24,7 +24,7 @@ import (
 	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	"github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -532,10 +532,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, pluginParams.Node)
 	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
-	// call plugins
-	for _, p := range configgen.Plugins {
-		p.OnInboundCluster(pluginParams, localCluster)
-	}
 
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
@@ -552,6 +548,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 				model.TrafficDirectionInbound)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(config.ConfigMeta)
 		}
+	}
+
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnInboundCluster(pluginParams, localCluster)
 	}
 	return localCluster
 }
