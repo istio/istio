@@ -189,7 +189,7 @@ ${GOPATH}/src/istio.io/istio:
 
 ${GOPATH}/src/istio.io/tools:
 	mkdir -p $GOPATH/src/istio.io
-	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/istio
+	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/tools
 
 git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 
