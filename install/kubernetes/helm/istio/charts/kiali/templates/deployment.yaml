@@ -1,7 +1,7 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kiali
+  name: kiali-operator
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
@@ -15,7 +15,7 @@ spec:
       app: kiali
   template:
     metadata:
-      name: kiali
+      name: kiali-operator
       labels:
         app: kiali
         chart: {{ template "kiali.chart" . }}
@@ -24,55 +24,52 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: kiali-service-account
+      serviceAccountName: kiali-operator
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-      - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
-        name: kiali
+      - image: "{{ .Values.hub }}/kiali-operator:{{ .Values.tag }}"
+        name: ansible
         command:
-        - "/opt/kiali/kiali"
-        - "-config"
-        - "/kiali-configuration/config.yaml"
-        - "-v"
-        - "4"
-        env:
-        - name: ACTIVE_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: SERVER_CREDENTIALS_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.dashboard.secretName }}
-              key: {{ .Values.dashboard.usernameKey }}
-              optional: true
-        - name: SERVER_CREDENTIALS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.dashboard.secretName }}
-              key: {{ .Values.dashboard.passphraseKey }}
-              optional: true
-        - name: PROMETHEUS_SERVICE_URL
-          value: {{ .Values.prometheusAddr }}
-{{- if .Values.contextPath }}
-        - name: SERVER_WEB_ROOT
-          value: {{ .Values.contextPath }}
-{{- end }}
+        - /usr/local/bin/ao-logs
+        - /tmp/ansible-operator/runner
+        - stdout
         volumeMounts:
-        - name: kiali-configuration
-          mountPath: "/kiali-configuration"
+        - mountPath: /tmp/ansible-operator/runner
+          name: runner
+          readOnly: true
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
+      - image: "{{ .Values.hub }}/kiali-operator:{{ .Values.tag }}"
+        name: operator
+        volumeMounts:
+        - mountPath: /tmp/ansible-operator/runner
+          name: runner
+        resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+        env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: "kiali-operator"
       volumes:
-      - name: kiali-configuration
-        configMap:
-          name: kiali
+      - name: runner
+        emptyDir: {}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

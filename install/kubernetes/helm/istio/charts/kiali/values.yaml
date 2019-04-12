@@ -3,8 +3,8 @@
 #
 enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
 replicaCount: 1
-hub: docker.io/kiali
-tag: v0.14
+hub: quay.io/kiali
+tag: v0.18
 contextPath: /kiali # The root context path to access the Kiali UI.
 nodeSelector: {}
 
@@ -44,12 +44,20 @@ ingress:
     #     - kiali.local
 
 dashboard:
-  secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
-  usernameKey: username # This is the key name within the secret whose value is the actual username. 
-  passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
-  grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
-  jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+  secretName: kiali # If using authStrategy of login, you must create a secret with this name - one is not provided out-of-box.
+  grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+  jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
 prometheusAddr: http://prometheus:9090
 
-# When true, a secret will be created with a default username and password. Useful for demos.
+# When true, a secret will be created with a default username and passphrase. Useful for demos.
 createDemoSecret: false
+
+# Kiali can be told not to allow users to modify anything by being put in view-only mode.
+viewOnlyMode: false
+
+# How users can access Kiali - one of:
+#  openshift (log into Kiali using OpenShift user credentials)
+#  login (log into Kiali using the credentials found in the Kiali secret)
+#  anonymous (no login required - access to Kiali is open to anyone)
+# Default is 'openshift' on OpenShift and 'login' on Kubernetes.
+# authStrategy: login

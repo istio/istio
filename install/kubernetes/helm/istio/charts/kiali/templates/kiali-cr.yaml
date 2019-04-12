@@ -1,0 +1,37 @@
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  labels:
+    app: {{ template "kiali.name" . }}
+    chart: {{ template "kiali.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  istio_namespace: {{ .Release.Namespace }}
+
+{{- if .Values.authStrategy }}
+  auth:
+    strategy: {{ .Values.authStrategy }}
+{{- end }}
+
+  deployment:
+    image_version: {{ .Values.tag }}
+    image_name: "quay.io/kiali/kiali"
+    namespace: {{ .Release.Namespace }}
+    secret_name: {{ .Values.dashboard.secretName }}
+    view_only_mode: {{ .Values.viewOnlyMode }}
+
+  external_services:
+    grafana:
+      url: {{ .Values.dashboard.grafanaURL }}
+    jaeger:
+      url: {{ .Values.dashboard.jaegerURL }}
+    prometheus:
+      url: {{ .Values.prometheusAddr }}
+
+  server:
+    port: 20001
+{{- if .Values.contextPath }}
+    web_root: {{ .Values.contextPath }}
+{{- end }}
