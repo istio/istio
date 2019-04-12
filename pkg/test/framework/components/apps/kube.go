@@ -98,13 +98,14 @@ spec:
     matchLabels:
       app: {{ .service }}
       version: {{ .version }}
-      istio-locality: {{ .locality }}
   template:
     metadata:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+{{- if ne .locality "" }}
         istio-locality: {{ .locality }}
+{{- end }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
