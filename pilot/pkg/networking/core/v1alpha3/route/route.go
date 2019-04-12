@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -583,8 +582,13 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_Enabled{
-			Enabled: proto.BoolTrue,
+		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
+			FilterEnabled: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   uint32(100),
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
 		},
 	}
 	out.AllowCredentials = in.AllowCredentials
