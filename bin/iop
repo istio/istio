@@ -43,7 +43,7 @@ function iop() {
 
     if [ "$1" == "-t" ]; then
         shift
-        helm template --namespace $ns -n $rel $tmpl  $cfg $*
+        render_kube_yaml $ns $rel $tmpl
     elif [ "$1" == "-d" ]; then
         shift
         kubectl delete --namespace $ns -l release=$ns-$rel $*
@@ -60,20 +60,26 @@ function iop() {
             kubectl label namespace $ns istio-env=$ISTIO_ENV --overwrite
         fi
 
-        if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
-
-            mkdir -p $OUT/$ns/$rel/
-            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* > $OUT/$ns/$rel/k8s.yaml
-            cp ${BASE}/kustomize/$ns/$rel/* $OUT/$ns/$rel/
-            kustomize build $OUT/$ns/$rel > $OUT/$ns/$rel.yaml
-            kubectl apply -n $ns --prune -l release=$ns-$rel -f $OUT/$ns/$rel.yaml
-            echo "Applied $OUT/$ns/$rel.yaml"
-        else
-
-            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
-
-        fi
+        render_kube_yaml $ns $rel $tmpl | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
     fi
+}
+
+function render_kube_yaml() {
+    local ns=$1
+    shift
+    local rel=$1
+    shift
+    local tmpl=$1
+    shift
+
+    if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
+            mkdir -p $OUT/$ns/$rel/ > /dev/null
+            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $* > $OUT/$ns/$rel/k8s.yaml
+            cp ${BASE}/kustomize/$ns/$rel/* $OUT/$ns/$rel/ > /dev/null
+            kustomize build $OUT/$ns/$rel
+        else
+            helm template --namespace $ns -n $ns-$rel $tmpl $cfg $*
+        fi
 }
 
 if [ "$1" == "" ] ; then
