@@ -2,16 +2,21 @@
 
 
 [[projects]]
-  digest = "1:e174cddfc0c772e3b414f95cc3cfc42b3480edb9b906cffb9f5aa9d8e09428f5"
+  digest = "1:ab74c6e6ef4f66484a767c64073cda4a28d68ccb5f80e33493b8c86dc9386619"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
+    "iam",
+    "internal",
+    "internal/optional",
+    "internal/trace",
     "internal/version",
     "logging",
     "logging/apiv2",
     "logging/internal",
     "logging/logadmin",
     "monitoring/apiv3",
+    "storage",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
@@ -286,6 +291,14 @@
   pruneopts = "UT"
   revision = "4ebf1de738443ea7f45f02dc394c4df1942a126d"
   version = "v1.1.0"
+
+[[projects]]
+  digest = "1:8bd557621150427d0e57981be07aeaa9dd0f884a27d448b00381a52b5826269d"
+  name = "github.com/deckarep/golang-set"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "cbaa98ba5575e67703b32b4b19f73c91f3c4159e"
+  version = "v1.7.1"
 
 [[projects]]
   digest = "1:7a6852b35eb5bbc184561443762d225116ae630c26a7c4d90546619f1e7d2ad2"
@@ -1416,9 +1429,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e0140c0c868c6e0f01c0380865194592c011fe521d6e12d78bfd33e756fe018a"
+  digest = "1:c313aef534e493304f3666fbd24dca5932ebf776a82b7a40f961c9355794a1b1"
   name = "golang.org/x/sync"
-  packages = ["semaphore"]
+  packages = [
+    "errgroup",
+    "semaphore",
+  ]
   pruneopts = "NUT"
   revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
 
@@ -1492,10 +1508,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:95537015f7ca5a9c4be766141b18bd9bf262ea0c247f47f58a8b7bb1bc368d46"
+  digest = "1:0bcd87b01986fdb90b0f94889fefabc85cd25f2e8d4dc5364e97062ed31b12a5"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
+    "compute/v1",
+    "container/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -1504,6 +1522,7 @@
     "iterator",
     "monitoring/v3",
     "option",
+    "storage/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -1535,7 +1554,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:17b4dad92815a78aaf5d7a05122f781a51528be9245958dad456d23c5bbb646d"
+  digest = "1:88467c41f24969e7b99cde6c1790eca31f0475b278b2b713640dd13a7bc52386"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1547,9 +1566,11 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
+    "googleapis/rpc/code",
     "googleapis/rpc/status",
     "protobuf/field_mask",
   ]
@@ -1683,6 +1704,17 @@
   ]
   pruneopts = "T"
   revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9a8366987123a3ee87cc9b7e61c190d02e7467bf44ee79e386803a100df81c2c"
+  name = "istio.io/test-infra"
+  packages = [
+    "boskos/gcp",
+    "toolbox/util",
+  ]
+  pruneopts = "NUT"
+  revision = "790620a8bbf0c4d64678d37abb1d631073739104"
 
 [[projects]]
   branch = "master"
@@ -2045,6 +2077,26 @@
   pruneopts = "NUT"
   revision = "cf59a14accee7082ac6dce932a1ec15e181a5e4f"
 
+[[projects]]
+  branch = "master"
+  digest = "1:d01d78ae2ea38a27ebed07b436643073d3e08033ee0a4c17f58cdc45afaf1eb4"
+  name = "k8s.io/test-infra"
+  packages = [
+    "boskos/common",
+    "boskos/mason",
+    "boskos/storage",
+  ]
+  pruneopts = "NUT"
+  revision = "f81d8b1a0d49ac7d2eefdaa651991f1b61082e79"
+
+[[projects]]
+  digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -2254,6 +2306,7 @@
     "istio.io/api/networking/v1alpha3",
     "istio.io/api/policy/v1beta1",
     "istio.io/api/rbac/v1alpha1",
+    "istio.io/test-infra/boskos/gcp",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
