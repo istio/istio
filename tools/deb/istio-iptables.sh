@@ -209,9 +209,9 @@ else
         r=${range%$pl}
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
-                ipv4_ranges_exclude+=("$range,")
+                ipv4_ranges_exclude+=("$range")
             else
-                ipv6_ranges_exclude+=("$range,")
+                ipv6_ranges_exclude+=("$range")
             fi
         fi
     done
