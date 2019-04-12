@@ -471,3 +471,7 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 	}
 	ms.secrets.Delete(key)
 }
+
+func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
+	return false
+}
