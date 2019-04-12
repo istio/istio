@@ -466,7 +466,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
 		delete(s.WorkloadsByID, id)
@@ -477,14 +476,32 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
 		}
-		// First time this workload has been seen. Maybe after the first connect,
-		// do a full push for this proxy in the next push epoch.
-		s.proxyUpdatesMutex.Lock()
-		if s.proxyUpdates == nil {
-			s.proxyUpdates = make(map[string]struct{})
+
+		fullPush := false
+		adsClientsMutex.RLock()
+		for _, connection := range adsClients {
+			// if the workload has envoy proxy and connected to server,
+			// then do a full xDS push for this proxy;
+			// otherwise:
+			//   case 1: the workload has no sidecar proxy, no need xDS push at all.
+			//   case 2: the workload xDS connection has not been established,
+			//           also no need to trigger a full push here.
+			if connection.modelNode.IPAddresses[0] == id {
+				fullPush = true
+			}
 		}
-		s.proxyUpdates[id] = struct{}{}
-		s.proxyUpdatesMutex.Unlock()
+		adsClientsMutex.RUnlock()
+
+		if fullPush {
+			// First time this workload has been seen. Maybe after the first connect,
+			// do a full push for this proxy in the next push epoch.
+			s.proxyUpdatesMutex.Lock()
+			if s.proxyUpdates == nil {
+				s.proxyUpdates = make(map[string]struct{})
+			}
+			s.proxyUpdates[id] = struct{}{}
+			s.proxyUpdatesMutex.Unlock()
+		}
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {

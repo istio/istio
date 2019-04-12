@@ -846,22 +846,18 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		// indicates whether to do a full push for the proxy
 		proxyFull := full
 		if !full {
-			s.proxyUpdatesMutex.RLock()
+			s.proxyUpdatesMutex.Lock()
 			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
 				proxyFull = true
+				delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
 			}
-			s.proxyUpdatesMutex.RUnlock()
+			s.proxyUpdatesMutex.Unlock()
 		}
 
 		wg.Add(1)
 		s.concurrentPushLimit <- struct{}{}
 		go func() {
 			defer func() {
-				if proxyFull {
-					s.proxyUpdatesMutex.Lock()
-					delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
-					s.proxyUpdatesMutex.Unlock()
-				}
 				<-s.concurrentPushLimit
 				wg.Done()
 			}()
