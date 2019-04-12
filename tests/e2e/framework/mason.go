@@ -37,7 +37,7 @@ type resourceInfo struct {
 	} `json:"projectsinfo,omitempty"`
 }
 
-func parseInfoFile(filePath string) (gcp.ResourceInfo, error) {
+func parseInfoFile(filePath string) (*gcp.ResourceInfo, error) {
 	var info gcp.ResourceInfo
 
 	data, err := ioutil.ReadFile(filePath)
