@@ -585,11 +585,14 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	for _, f := range rule.Filters {
-		if f.InsertPosition != nil {
-			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
-				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
-				if f.InsertPosition.RelativeTo == "" {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+		if f.Op != nil {
+			switch selector := f.Op.(type) {
+			case *networking.EnvoyFilter_Filter_InsertPosition:
+				if selector.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
+					selector.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
+					if selector.InsertPosition.RelativeTo == "" {
+						errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+					}
 				}
 			}
 		}

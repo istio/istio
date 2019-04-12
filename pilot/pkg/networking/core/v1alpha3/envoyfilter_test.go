@@ -16,11 +16,21 @@ package v1alpha3
 
 import (
 	"net"
+	"reflect"
 	"testing"
+	"time"
 
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func TestListenerMatch(t *testing.T) {
@@ -155,5 +165,80 @@ func TestListenerMatch(t *testing.T) {
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
+	}
+}
+
+func TestMergeAnyWithStruct(t *testing.T) {
+	proxy := &model.Proxy{
+		Type:        model.Router,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_PROXY_VERSION":             "1.1",
+		},
+		ConfigNamespace: "not-default",
+	}
+	mesh := meshconfig.MeshConfig{
+		EnableTracing:     true,
+		AccessLogFile:     "foo-bar.log",
+		AccessLogEncoding: meshconfig.MeshConfig_JSON,
+	}
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, mesh)
+
+	httpOpts := &httpListenerOpts{
+		routeConfig:      nil,
+		rds:              "8080",
+		statPrefix:       "8080",
+		addGRPCWebFilter: true,
+		useRemoteAddress: false,
+	}
+
+	inHCM := buildHTTPConnectionManager(proxy, env, httpOpts, nil)
+	inAny := util.MessageToAny(inHCM)
+
+	// listener.go sets this to 0
+	newTimeout := 5 * time.Minute
+	userHCM := &http_conn.HttpConnectionManager{
+		AddUserAgent:      &types.BoolValue{Value: true},
+		IdleTimeout:       &newTimeout,
+		StreamIdleTimeout: &newTimeout,
+		UseRemoteAddress:  &types.BoolValue{Value: true},
+		XffNumTrustedHops: 5,
+		HttpFilters: []*http_conn.HttpFilter{
+			{
+				Name: "some filter",
+			},
+		},
+	}
+
+	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
+	expectedHCM.AddUserAgent = userHCM.AddUserAgent
+	expectedHCM.IdleTimeout = userHCM.IdleTimeout
+	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
+	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
+	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
+	expectedHCM.HttpFilters = append(expectedHCM.HttpFilters, userHCM.HttpFilters...)
+
+	envoyFilter := &networking.EnvoyFilter_Filter{
+		Op:           &networking.EnvoyFilter_Filter_Merge{Merge: true},
+		FilterName:   xdsutil.HTTPConnectionManager,
+		FilterConfig: util.MessageToStruct(userHCM),
+	}
+
+	outAny, err := mergeAnyWithStruct("somename", inAny, envoyFilter)
+	if err != nil {
+		t.Errorf("Failed to merge: %v", err)
+	}
+
+	outHCM := http_conn.HttpConnectionManager{}
+	if err = types.UnmarshalAny(outAny, &outHCM); err != nil {
+		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
+	}
+
+	if !reflect.DeepEqual(expectedHCM, &outHCM) {
+		t.Errorf("Merged HCM does not match the expected output")
 	}
 }

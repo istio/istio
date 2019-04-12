@@ -320,7 +320,7 @@ func overwriteOrMergeHTTPFilter(listenerName string, filterChain *listener.Filte
 				case *http_conn.HttpFilter_Config:
 					proto.Merge(selector.Config, envoyFilter.FilterConfig)
 				case *http_conn.HttpFilter_TypedConfig:
-					selector.TypedConfig = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
+					selector.TypedConfig, _ = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
 				}
 			}
 			break
@@ -395,7 +395,7 @@ func overwriteOrMergeNetworkFilter(listenerName string, filterChain *listener.Fi
 				case *listener.Filter_Config:
 					proto.Merge(selector.Config, envoyFilter.FilterConfig)
 				case *listener.Filter_TypedConfig:
-					selector.TypedConfig = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
+					selector.TypedConfig, _ = mergeAnyWithStruct(listenerName, selector.TypedConfig, envoyFilter)
 				}
 			}
 			return
@@ -403,7 +403,7 @@ func overwriteOrMergeNetworkFilter(listenerName string, filterChain *listener.Fi
 	}
 }
 
-func mergeAnyWithStruct(listenerName string, any *types.Any,	envoyFilter *networking.EnvoyFilter_Filter) *types.Any {
+func mergeAnyWithStruct(listenerName string, any *types.Any, envoyFilter *networking.EnvoyFilter_Filter) (*types.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
 	var x types.DynamicAny
@@ -412,15 +412,16 @@ func mergeAnyWithStruct(listenerName string, any *types.Any,	envoyFilter *networ
 	if err = types.UnmarshalAny(any, &x); err != nil {
 		log.Debugf("EnvoyFilters: Failed to unmarshall built in filter %s (listener %s) from any type",
 			envoyFilter.FilterName, listenerName)
-		return any // retain old value
+		return any, err // retain old value
 	}
 
 	// Create a typed copy. We will convert the user's struct to this type
 	temp := proto.Clone(x.Message)
+	temp.Reset()
 	if err = xdsutil.StructToMessage(envoyFilter.FilterConfig, temp); err != nil {
 		log.Debugf("EnvoyFilters: Failed to convert user provided struct to typed filter %s (listener %s)",
 			envoyFilter.FilterName, listenerName)
-		return any
+		return any, err
 	}
 
 	// Merge the two typed protos
@@ -430,8 +431,8 @@ func mergeAnyWithStruct(listenerName string, any *types.Any,	envoyFilter *networ
 	if retVal, err = types.MarshalAny(x.Message); err != nil {
 		log.Debugf("EnvoyFilters: Failed to convert merged message to Any for filter %s (listener %s)",
 			envoyFilter.FilterName, listenerName)
-		return any
+		return any, err
 	}
 
-	return retVal
+	return retVal, nil
 }
