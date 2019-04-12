@@ -16,30 +16,64 @@
 
 set -x
 
-export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
-ISTIO_PATH="$1"
-if [ -z "$ISTIO_PATH" ]; then
-    echo "Usage: test.sh <istio-directory>"
+function print_help() {
+    echo 'Usage: test.sh [--skip-setup] [--skip-cleanup] <istio-directory>'
     exit 1
+}
+
+export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
+SKIP_CLEANUP=0
+SKIP_SETUP=0
+while [ $# -gt 0 ]
+do
+    case $1 in
+        --skip-cleanup)
+            SKIP_CLEANUP=1
+            ;;
+        --skip-setup)
+            SKIP_SETUP=1
+            ;;
+        *)
+            if [ ! -z "$ISTIO_PATH" ]; then
+                echo "invalid arguments"
+                print_help
+            fi
+            ISTIO_PATH=$1
+        ;;
+    esac
+    shift 1
+done
+
+#FIXME ISTIO_PATH not needed if skip setup + cleanup
+if [ -z "$ISTIO_PATH" ]; then
+    echo "istio-directory not set"
+    print_help
+fi
+if [ ! -d "$ISTIO_PATH" ]; then
+    echo "$ISTIO_PATH is not a directory"
+    print_help
 fi
 
 cd $ISTIO_PATH
 
-kubectl label namespace default istio-env=istio-control --overwrite
+BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3"
 
-if [ -z $SKIP_CLEANUP ] ; then
+if [ "$SKIP_SETUP" -ne 1 ]; then
+    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
-kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
-
+    kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+    kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
+    kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+    for depl in ${BOOKINFO_DEPLOYMENTS}; do
+        kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+    done
 fi
 
-kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
-kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
-
-kubectl rollout status deployments productpage-v1 --timeout=$WAIT_TIMEOUT
+for depl in ${BOOKINFO_DEPLOYMENTS}; do
+    kubectl rollout status deployments $depl --timeout=$WAIT_TIMEOUT
+done
 kubectl get pod
 
 export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -66,9 +100,9 @@ do
 done
 set -e
 
-if [ -z $SKIP_CLEANUP ] ; then
-echo "Cleaning up..."
-kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+if [ "$SKIP_CLEANUP" -ne 1 ]; then
+    echo "Cleaning up..."
+    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 fi
