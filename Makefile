@@ -112,6 +112,7 @@ endif
 
 # Install CRDS
 ${GOPATH}/out/yaml/crds.yaml: crds.yaml
+	mkdir -p ${GOPATH}/out/yaml
 	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
 	kubectl apply -f crds.yaml
 	kubectl wait --for=condition=Established -f crds.yaml
