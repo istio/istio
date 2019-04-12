@@ -128,16 +128,6 @@ install-base: install-crds
 	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 
-# Minimal modular install in istio-system (for simple test).
-install-system: install-crds
-	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
-	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
-	bin/iop istio-system istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
-	bin/iop istio-system istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS}
-	bin/iop istio-system istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
-	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
-	bin/iop istio-system istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
-	kubectl wait deployments ingressgateway -n istio-ingress --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 install-ingress:
 	bin/iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
@@ -158,6 +148,9 @@ run-bookinfo:
 # The simple test from integration.
 # Will kube-inject and test the ingress and service-to-service
 run-simple:
+	# Test assumes ingress is in same namespace with pilot.
+	bin/iop istio-control istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments ingressgateway -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl create ns simple
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
 

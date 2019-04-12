@@ -43,7 +43,7 @@ function iop() {
 
     if [ "$1" == "-t" ]; then
         shift
-        render_kube_yaml $ns $rel $tmpl
+        render_kube_yaml $ns $rel $tmpl $*
     elif [ "$1" == "-d" ]; then
         shift
         kubectl delete --namespace $ns -l release=$ns-$rel $*
@@ -60,10 +60,11 @@ function iop() {
             kubectl label namespace $ns istio-env=$ISTIO_ENV --overwrite
         fi
 
-        render_kube_yaml $ns $rel $tmpl | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
+        render_kube_yaml $ns $rel $tmpl $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
     fi
 }
 
+# The output of template and kustomize will be saved under $OUT/$NS/$NAME
 function render_kube_yaml() {
     local ns=$1
     shift
