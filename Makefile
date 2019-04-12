@@ -8,6 +8,15 @@
 # For local development, after 'make test' you can run individual steps or debug - the KIND cluster will be wiped
 # the next time you run 'make test', but will be kept around for debugging and repeat tests.
 #
+# Example local workflow:
+# - prepare cluster for development:
+#   make clean prepare MOUNT=1 KIND_CLUSTER=local
+# - install or reinstal istio components needed for test:
+#   make TEST_TARGET="install-system" SKIP_KIND_SETUP=1 SKIP_KIND_CLEANUP=1 KIND_CLUSTER=local
+# - Run individual tests using:
+#    make TEST_TARGET="run-simple-istio-system" SKIP_KIND_SETUP=1 SKIP_KIND_CLEANUP=1 KIND_CLUSTER=local
+#
+#
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
@@ -64,6 +73,17 @@ endif
 # 4. make run-test
 test: info clean prepare sync run-test clean
 
+# Verify each component can be generated. Create pre-processed yaml files with the defaults.
+# TODO: minimize 'ifs' in templates, and generate alternative files for cases we can't remove.
+build:
+	mkdir ${OUT}/release
+	cp crds.yaml ${OUT}/release
+	bin/iop istio-system istio-system-security ${BASE}/security/citadel -t > ${OUT}/release/citadel.yaml
+	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
+	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery -t > ${OUT}/release/istio-discovery.yaml
+	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject -t > ${OUT}/release/istio-autoinject.yaml
+
+
 # Runs the test
 run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf \
@@ -73,7 +93,9 @@ run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base install-ingress install-telemetry run-bookinfo
+run-all-tests: install-crds install-base install-ingress run-bookinfo
+
+run-sanity-tests: install-crds install-base install-ingress run-bookinfo
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
@@ -89,15 +111,15 @@ ifeq ($(SKIP_CLEANUP), 0)
 endif
 
 # Install CRDS
-
-install-crds:
+${GOPATH}/out/yaml/crds.yaml: crds.yaml
+	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
 	kubectl apply -f crds.yaml
-
-wait-crds:
 	kubectl wait --for=condition=Established -f crds.yaml
 
+install-crds: ${GOPATH}/out/yaml/crds.yaml
+
 # Individual step to install or update base istio.
-install-base:
+install-base: install-crds
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
 	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
@@ -105,6 +127,16 @@ install-base:
 	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 
+# Minimal modular install in istio-system (for simple test).
+install-system: install-crds
+	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
+	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
+	bin/iop istio-system istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
+	bin/iop istio-system istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS}
+	bin/iop istio-system istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
+	bin/iop istio-system istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments ingressgateway -n istio-ingress --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 install-ingress:
 	bin/iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
@@ -127,6 +159,10 @@ run-bookinfo:
 run-simple:
 	kubectl create ns simple
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
+
+run-simple-istio-system:
+	kubectl create ns simple-system
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple-system  --use_local_cluster=true --istio_namespace=istio-system")
 
 run-integration:
 	(cd ${GOPATH}/src/istio.io/istio; make test-integration-kube)
