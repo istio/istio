@@ -38,8 +38,8 @@ jobs:
         environment:
           GOPATH: /workspace/go
           SKIP_CLEANUP: 1
+          PATH: /bin:/usr/bin:/usr/local/go/bin:/usr/local/bin
           GOROOT: /usr/local/bin/go
-          PATH: ${PATH}:${GOROOT}/bin
           TMPDIR: /workspace/go/tmp
           TEST_TARGET: run-sanity-tests
 

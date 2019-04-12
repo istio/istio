@@ -102,7 +102,7 @@ function switch_istio_control() {
 
 COMMAND="install_all"
 METHOD=Install
-ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
+#ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
 ISTIO_CONTROL_OLD=${ISTIO_CONTROL_OLD:-istio-control}
 
 while [ $# -gt 0 ]
