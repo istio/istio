@@ -7,12 +7,11 @@
 FROM  kindest/node:v1.14.0
 
 # Environment variables used in the build.
-ENV     GOPATH=/go
-ENV     PATH=/go/bin:/go/out/linux_amd64:$PATH
+ENV     GOROOT=/usr/local/go
+ENV     PATH=/usr/local/go/bin:/bin:/usr/bin:${PATH}
 
 # Need to have docker installed
 #RUN curl -s -L https://get.docker.io/ | sh -x
-
 
 RUN  apt-get update && apt-get -qqy install make git
 
