@@ -11,7 +11,7 @@ number_of_entries: 11
 <h2 id="Jwt">Jwt</h2>
 <section>
 <p>JSON Web Token (JWT) token format for authentication as defined by
-https://tools.ietf.org/html/rfc7519. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
+<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
 2.0</a> and <a href="http://openid.net/connect">OIDC
 1.0</a> for how this is used in the whole
 authentication flow.</p>
@@ -109,8 +109,7 @@ audiences will be accepted.</p>
 <td><code>string</code></td>
 <td>
 <p>URL of the provider&rsquo;s public key set to validate signature of the
-JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID
-Discovery</a>.</p>
+JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID Discovery</a>.</p>
 
 <p>Optional if the key set document can either (a) be retrieved from
 <a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
@@ -118,7 +117,20 @@ Discovery</a> of
 the issuer or (b) inferred from the email domain of the issuer (e.g. a
 Google service account).</p>
 
-<p>Example: https://www.googleapis.com/oauth2/v1/certs</p>
+<p>Example: <code>https://www.googleapis.com/oauth2/v1/certs</code></p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
+
+</td>
+</tr>
+<tr id="Jwt-jwks">
+<td><code>jwks</code></td>
+<td><code>string</code></td>
+<td>
+<p>JSON Web Key Set of public keys to validate signature of the JWT.
+See https://auth0.com/docs/jwks.</p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
 
 </td>
 </tr>
@@ -130,7 +142,7 @@ Google service account).</p>
 header name.</p>
 
 <p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
-format will be x-goog-iap-jwt-assertion: <JWT>.</p>
+format will be x-goog-iap-jwt-assertion: &lt;JWT&gt;.</p>
 
 </td>
 </tr>
@@ -335,12 +347,13 @@ or origin) should be used as principal. By default, it uses peer.</p>
 
 <p>Examples:</p>
 
-<p>Policy to enable mTLS for all services in namespace frod</p>
+<p>Policy to enable mTLS for all services in namespace frod. The policy name must be
+<code>default</code>, and it contains no rule for <code>targets</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_enable
+  name: default
   namespace: frod
 spec:
   peers:
@@ -352,7 +365,7 @@ spec:
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_disable
+  name: productpage-mTLS-disable
   namespace: frod
 spec:
   targets:
@@ -365,7 +378,7 @@ for productpage:9000 except the path &lsquo;/health_check&rsquo; . Principal is 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS_enable
+  name: productpage-mTLS-with-JWT
   namespace: frod
 spec:
   targets:
@@ -612,7 +625,7 @@ fully qualified domain name will be resolved in a platform specific manner.</p>
 <td><code>ports</code></td>
 <td><code><a href="#PortSelector">PortSelector[]</a></code></td>
 <td>
-<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload ports.
+<p>Specifies the ports. Note that this is the port(s) exposed by the service, not workload instance ports.
 For example, if a service is defined as below, then <code>8000</code> should be used, not <code>9000</code>.</p>
 
 <pre><code class="language-yaml">kind: Service

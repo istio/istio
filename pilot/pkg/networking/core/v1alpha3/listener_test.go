@@ -39,7 +39,7 @@ var (
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
-		DNSDomains:  []string{"default.example.org"},
+		DNSDomain:   "default.example.org",
 		Metadata: map[string]string{
 			model.NodeMetadataConfigNamespace: "not-default",
 			"ISTIO_PROXY_VERSION":             "1.1",
@@ -65,9 +65,9 @@ func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1,com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2,com", wildcardIP, model.ProtocolTCP, tnow),
-		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test1.com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, model.ProtocolTCP, tnow),
+		buildService("test3.com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
@@ -128,9 +128,9 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	// Add a service and verify it's config
 	testOutboundListenerConfigWithSidecar(t,
-		buildService("test1,com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2,com", wildcardIP, model.ProtocolTCP, tnow),
-		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test1.com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, model.ProtocolTCP, tnow),
+		buildService("test3.com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
 }
 
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {

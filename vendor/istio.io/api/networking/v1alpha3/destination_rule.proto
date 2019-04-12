@@ -17,9 +17,9 @@ import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
 import "gogoproto/gogo.proto";
 
-package istio.networking.v1alpha3;
-
-option go_package = "istio.io/api/networking/v1alpha3";
+// $title: Destination Rule
+// $description: Configuration affecting load balancing, outlier detection, etc.
+// $location: https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html
 
 // `DestinationRule` defines policies that apply to traffic intended for a
 // service after routing has occurred. These rules specify configuration
@@ -91,11 +91,15 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       loadBalancer:
 //         simple: ROUND_ROBIN
 // ```
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
 message DestinationRule {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ServiceEntries](#ServiceEntry). Rules defined for
+  // declared by [ServiceEntries](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Rules defined for
   // services that do not exist in the service registry will be ignored.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
@@ -118,9 +122,23 @@ message DestinationRule {
   // service. Traffic policies can be overridden at subset level.
   repeated Subset subsets = 3;
 
-  // The resolution of a DestinationRule to apply to a service occurs in the
-  // context of a hierarchy of namespaces. This rule controls whether those
-  // namespaces are allowed to select this rule.
+  // A list of namespaces to which this destination rule is exported.
+  // The resolution of a destination rule to apply to a service occurs in the
+  // context of a hierarchy of namespaces. Exporting a destination rule allows
+  // it to be included in the resolution hierarchy for services in
+  // other namespaces. This feature provides a mechanism for service owners
+  // and mesh administrators to control the visibility of destination rules
+  // across namespace boundaries.
+  //
+  // If no namespaces are specified then the destination rule is exported to all
+  // namespaces by default.
+  //
+  // The value "." is reserved and defines an export to the same namespace that
+  // the destination rule is declared in. Similarly, the value "*" is reserved and
+  // defines an export to all namespaces.
+  //
+  // NOTE: in the current release, the `exportTo` value is restricted to
+  // "." or "*" (i.e., the current namespace or all namespaces).
   repeated string export_to = 4;
 }
 
@@ -173,7 +191,7 @@ message TrafficPolicy {
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
 // like A/B testing, or routing to a specific version of a service. Refer
-// to [VirtualService](#VirtualService) documentation for examples of using
+// to [VirtualService](/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService) documentation for examples of using
 // subsets in these scenarios. In addition, traffic policies defined at the
 // service-level can be overridden at a subset-level. The following rule
 // uses a round robin load balancing policy for all traffic going to a
@@ -407,6 +425,11 @@ message ConnectionPoolSettings {
     // Maximum number of retries that can be outstanding to all hosts in a
     // cluster at a given time. Defaults to 3.
     int32 max_retries = 4;
+
+    // The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
+    // If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed. 
+    // Note that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive. Applies to both HTTP1.1 and HTTP2 connections.
+    google.protobuf.Duration idle_timeout = 5;
   };
 
   // Settings common to both HTTP and TCP upstream connections.

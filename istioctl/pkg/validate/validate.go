@@ -17,8 +17,11 @@ package validate
 import (
 	"errors"
 	"fmt"
+	"io"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
@@ -31,6 +34,17 @@ import (
 // TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
 // k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
 // the genericclioptions packages are organized under kubectl.
+
+var (
+	// Expect YAML to only include these top-level fields
+	validFields = map[string]bool{
+		"apiVersion": true,
+		"kind":       true,
+		"metadata":   true,
+		"spec":       true,
+		"status":     true,
+	}
+)
 
 /*
 
@@ -77,7 +91,7 @@ func validateResource(un *unstructured.Unstructured) error {
 		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
-	return fmt.Errorf("mixer API validation is not supported")
+	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
 	/*
 		TODO(https://github.com/istio/istio/issues/4887)
 
@@ -98,9 +112,9 @@ Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
 
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions) error {
+func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	// resource.Builder{} validates most of the CLI flags consistent
-	// with kubectl which is good. Unforatunly, it also assumes
+	// with kubectl which is good. Unfortunately, it also assumes
 	// resources can be specified as '<resource> <name>' which is
 	// bad. We don't don't for file-based configuration validation. If
 	// a filename is missing, resource.Builder{} prints a warning
@@ -121,19 +135,39 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		return err
 	}
 
-	return r.Visit(func(info *resource.Info, err error) error {
-		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+	var errs error
+	_ = r.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
 		}
+		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			return nil
+		}
 
 		un := &unstructured.Unstructured{Object: content}
+		for key := range content {
+			if _, ok := validFields[key]; !ok {
+				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
+					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
+			}
+		}
+
 		if err := validateResource(un); err != nil {
-			return fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
-				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err)
+			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
+				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
 		}
 		return nil
 	})
+
+	if errs != nil {
+		return errs
+	}
+	for _, fname := range options.Filenames {
+		fmt.Fprintf(writer, "%q is valid\n", fname)
+	}
+	return nil
 }
 
 func strPtr(val string) *string {
@@ -166,7 +200,7 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions())
+			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
 		},
 	}
 

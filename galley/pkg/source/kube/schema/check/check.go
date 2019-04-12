@@ -18,13 +18,11 @@ import (
 	"fmt"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
-
-	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,18 +35,31 @@ var (
 
 // ResourceTypesPresence verifies that all expected k8s resources types are
 // present in the k8s apiserver.
-func ResourceTypesPresence(k client.Interfaces) error {
+func ResourceTypesPresence(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
 	cs, err := k.APIExtensionsClientset()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return resourceTypesPresence(cs, kubeMeta.Types.All())
+	return resourceTypesPresence(cs, specs, true)
 }
 
-func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec) error {
+// FindSupportedResourceSchemas returns the list of supported resource schemas supported by the k8s apiserver.
+func FindSupportedResourceSchemas(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+	cs, err := k.APIExtensionsClientset()
+	if err != nil {
+		return nil, err
+	}
+	return resourceTypesPresence(cs, specs, false)
+}
+
+func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec, pollRequired bool) ([]sourceSchema.ResourceSpec, error) {
 	search := make(map[string]*sourceSchema.ResourceSpec, len(specs))
+	required := make(map[string]*sourceSchema.ResourceSpec, len(specs))
 	for i, spec := range specs {
 		search[spec.Plural] = &specs[i]
+		if pollRequired && !spec.Optional {
+			required[spec.Plural] = &specs[i]
+		}
 	}
 
 	err := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
@@ -65,15 +76,16 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 			for _, r := range list.APIResources {
 				if r.Name == spec.Plural {
 					delete(search, plural)
+					delete(required, plural)
 					found = true
 					break
 				}
 			}
 			if !found {
-				log.Scope.Infof("%s resource type not found", spec.CanonicalResourceName())
+				log.Scope.Warnf("%s resource type not found", spec.CanonicalResourceName())
 			}
 		}
-		if len(search) == 0 {
+		if len(required) == 0 {
 			return true, nil
 		}
 		// entire search failed
@@ -86,12 +98,21 @@ func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.Resource
 
 	if err != nil {
 		var notFound []string
-		for plural := range search {
-			notFound = append(notFound, plural)
+		for _, spec := range required {
+			notFound = append(notFound, spec.Kind)
 		}
-		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
+		log.Scope.Errorf("Expected resources (CRDs) not found: %v", notFound)
+		log.Scope.Error("To stop Galley from waiting for these resources (CRDs), consider using the --excludedResourceKinds flag")
+
+		return nil, fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
 	}
 
-	log.Scope.Infof("Discovered all supported resources (# = %v)", len(specs))
-	return nil
+	found := make([]sourceSchema.ResourceSpec, 0, len(specs)-len(search))
+	for _, spec := range specs {
+		if _, missing := search[spec.Plural]; !missing {
+			found = append(found, spec)
+		}
+	}
+	log.Scope.Infof("Discovered all supported resources (# = %v)", len(found))
+	return found, nil
 }

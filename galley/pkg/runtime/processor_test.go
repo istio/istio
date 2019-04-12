@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
-
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/meshconfig"
@@ -30,7 +28,13 @@ import (
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/util/wait"
+)
+
+const (
+	timeout = 5 * time.Second
 )
 
 func TestProcessor_Start(t *testing.T) {
@@ -104,7 +108,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	defer restoreLogLevel(prevLevel)
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 
@@ -115,7 +119,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	}
 	defer p.Stop()
 
-	p.AwaitFullSync()
+	awaitFullSync(t, p)
 
 	k1 := resource.Key{Collection: resources.EmptyInfo.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
@@ -136,7 +140,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 
@@ -147,7 +151,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	}
 	defer p.Stop()
 
-	p.AwaitFullSync()
+	awaitFullSync(t, p)
 
 	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
@@ -168,10 +172,10 @@ func TestProcessor_Publishing(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	stateStrategy := publish.NewStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
 
-	processCallCount := sync.WaitGroup{}
+	processCallCount := &sync.WaitGroup{}
 	hookFn := func() {
 		processCallCount.Done()
 	}
@@ -184,20 +188,29 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	defer p.Stop()
 
-	p.AwaitFullSync()
+	awaitFullSync(t, p)
 
 	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
-	processCallCount.Wait()
+	// Wait for up to 5 seconds.
+	if err := wait.WithTimeout(processCallCount.Wait, timeout); err != nil {
+		t.Fatal(err)
+	}
 
 	if distributor.NumSnapshots() != 1 {
 		t.Fatalf("snapshot should have been distributed: %+v", distributor)
 	}
 }
 
+func awaitFullSync(t *testing.T, p *Processor) {
+	if err := p.AwaitFullSync(timeout); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func newTestProcessor(src Source, stateStrategy *publish.Strategy,
-	distributor publish.Distributor, hookFn postProcessHookFn) *Processor {
+	distributor Distributor, hookFn postProcessHookFn) *Processor {
 	return newProcessor(src, cfg, resources.TestSchema, stateStrategy, distributor, hookFn)
 }
 

@@ -112,6 +112,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "7s",
         "lb_policy": "ROUND_ROBIN",
         
@@ -174,11 +175,26 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
           {
             "socket_address": {"address": "localhost", "port_value": 6000}
+          }
+        ]
+      }
+
+      ,
+      {
+        "name": "envoy_metrics_service",
+        "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {"address": "metrics-service", "port_value": 15000}
           }
         ]
       }
@@ -249,6 +265,18 @@
   
   ,
   "stats_sinks": [
+
+    {
+      "name": "envoy.metrics_service",
+      "config": {
+        "grpc_service": {
+          "envoy_grpc": {
+            "cluster_name": "envoy_metrics_service"
+          }
+        }
+      }
+    },
+
     {
       "name": "envoy.statsd",
       "config": {
@@ -257,6 +285,7 @@
         }
       }
     }
+
   ]
   
 }

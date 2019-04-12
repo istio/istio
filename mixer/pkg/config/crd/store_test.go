@@ -45,7 +45,7 @@ const waitForTimeout = time.Second
 
 const apiGroupVersion = ConfigAPIGroup + "/" + ConfigAPIVersion
 
-func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+func createFakeDiscovery(_ *rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -155,7 +155,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 			return lw, nil
 		},
 		Probe:         probe.NewProbe(),
-		retryInterval: 0,
+		retryInterval: 1 * time.Millisecond,
 	}
 	return client, ns, lw
 }

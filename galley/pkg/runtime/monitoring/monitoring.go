@@ -113,6 +113,13 @@ func RecordStateTypeCount(collection string, count int) {
 	if err != nil {
 		log.Scope.Errorf("Error creating monitoring context for counting state: %v", err)
 	} else {
+		RecordStateTypeCountWithContext(ctx, count)
+	}
+}
+
+// RecordStateTypeCountWithContext
+func RecordStateTypeCountWithContext(ctx context.Context, count int) {
+	if ctx != nil {
 		stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
 	}
 }

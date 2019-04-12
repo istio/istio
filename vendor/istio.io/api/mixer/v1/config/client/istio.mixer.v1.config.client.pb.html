@@ -1,15 +1,19 @@
 ---
-title: istio.mixer.v1.config.client
+title: Mixer Client
+description: Configuration state for the Mixer client library.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.mixer.v1.config.client
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 20
 ---
+<p>Describes the configuration state for the Mixer client library that&rsquo;s built into Envoy.</p>
+
 <h2 id="APIKey">APIKey</h2>
 <section>
 <p>APIKey defines the explicit configuration for generating the
 <code>request.api_key</code> attribute from HTTP requests.</p>
 
-<p>See https://swagger.io/docs/specification/authentication/api-keys
+<p>See <a href="https://swagger.io/docs/specification/authentication/api-keys">API Keys</a>
 for a general overview of API keys as defined by OpenAPI.</p>
 
 <table class="message-fields">
@@ -902,7 +906,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 <td><code>disableCheckCalls</code></td>
 <td><code>bool</code></td>
 <td>
-<p>If set to true, disables mixer check calls.</p>
+<p>If set to true, disables Mixer check calls.</p>
 
 </td>
 </tr>
@@ -910,7 +914,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 <td><code>disableReportCalls</code></td>
 <td><code>bool</code></td>
 <td>
-<p>If set to true, disables mixer check calls.</p>
+<p>If set to true, disables Mixer check calls.</p>
 
 </td>
 </tr>
@@ -986,7 +990,7 @@ This is the mesh level policy. The default value for policy is FAIL_OPEN.</p>
 <td><code>statsUpdateInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Specify refresh interval to write mixer client statistics to Envoy share
+<p>Specify refresh interval to write Mixer client statistics to Envoy share
 memory. If not specified, the interval is 10 seconds.</p>
 
 </td>
@@ -998,7 +1002,7 @@ memory. If not specified, the interval is 10 seconds.</p>
 <p>Name of the cluster that will forward check calls to a pool of mixer
 servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
 checkCluster and reportCluster, it is possible to have one set of
-mixer servers handle check calls, while another set of mixer servers
+Mixer servers handle check calls, while another set of Mixer servers
 handle report calls.</p>
 
 <p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
@@ -1013,7 +1017,7 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 <p>Name of the cluster that will forward report calls to a pool of mixer
 servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
 checkCluster and reportCluster, it is possible to have one set of
-mixer servers handle check calls, while another set of mixer servers
+Mixer servers handle check calls, while another set of Mixer servers
 handle report calls.</p>
 
 <p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
@@ -1025,7 +1029,7 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 <td><code>attributesForMixerProxy</code></td>
 <td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
-<p>Default attributes to forward to mixer upstream. This typically
+<p>Default attributes to forward to Mixer upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes. These
 attributes are consumed by the proxy in front of mixer.</p>
 
@@ -1058,7 +1062,7 @@ in the deployment. The primary attribute producer in Istio is Envoy, although
 specialized Mixer adapters and services can also generate attributes.</p>
 
 <p>The common baseline set of attributes available in most Istio deployments is defined
-<a href="https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html">here</a>.</p>
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/attribute-vocabulary/">here</a>.</p>
 
 <p>Attributes are strongly typed. The supported attribute types are defined by
 <a href="https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto">ValueType</a>.

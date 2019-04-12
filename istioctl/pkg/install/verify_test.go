@@ -25,7 +25,7 @@ var (
 	availableDeployment = v1beta1.Deployment{
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -38,10 +38,10 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -55,10 +55,10 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentProgressing,
 				},
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentAvailable,
 				},
 			},
@@ -74,7 +74,7 @@ var (
 		},
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type: v1beta1.DeploymentReplicaFailure,
 				},
 			},
@@ -87,7 +87,7 @@ var (
 	deadlineExceededDeployment = v1beta1.Deployment{
 		Status: v1beta1.DeploymentStatus{
 			Conditions: []v1beta1.DeploymentCondition{
-				v1beta1.DeploymentCondition{
+				{
 					Type:   v1beta1.DeploymentProgressing,
 					Reason: "ProgressDeadlineExceeded",
 				},
@@ -105,7 +105,7 @@ func TestGetDeploymentStatus(t *testing.T) {
 	}
 	for i, c := range errCases {
 		t.Run(fmt.Sprintf("[err-%v] ", i), func(tt *testing.T) {
-			if err := getDeploymentStatus(c, "fooDeploy"); err == nil {
+			if err := getDeploymentStatus(c, "fooDeploy", ""); err == nil {
 				tt.Fatalf("unexpected nil error")
 			}
 		})
@@ -116,7 +116,7 @@ func TestGetDeploymentStatus(t *testing.T) {
 	}
 	for i, c := range okCases {
 		t.Run(fmt.Sprintf("[ok-%v] ", i), func(tt *testing.T) {
-			if err := getDeploymentStatus(c, "fooDeploy"); err != nil {
+			if err := getDeploymentStatus(c, "fooDeploy", ""); err != nil {
 				tt.Fatalf("unexpected error: %v", err)
 			}
 		})

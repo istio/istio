@@ -1,6 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: circonus
-metadata:
-  name: invalid-circonus
-spec:
-  badField: foo

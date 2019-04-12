@@ -3,7 +3,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
     chart: {{ template "galley.chart" . }}
@@ -62,8 +61,10 @@ webhooks:
         - envoyfilters
         - gateways
         - serviceentries
+        - sidecars
         - virtualservices
     failurePolicy: Fail
+    sideEffects: None
   - name: mixer.validation.istio.io
     clientConfig:
       service:
@@ -108,6 +109,12 @@ webhooks:
         - quotas
         - reportnothings
         - tracespans
+        - adapters
+        - handlers
+        - instances
+        - templates
+        - zipkins
     failurePolicy: Fail
+    sideEffects: None
 {{- end }}
 {{- end }}

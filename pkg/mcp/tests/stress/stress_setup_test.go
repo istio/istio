@@ -371,10 +371,6 @@ func (d *driver) initServer() error {
 	d.listener = l
 
 	d.serverAddress = l.Addr().String()
-	if err != nil {
-		_ = l.Close()
-		return err
-	}
 
 	d.grpcServer = grpc.NewServer()
 	mcp.RegisterResourceSourceServer(d.grpcServer, s)

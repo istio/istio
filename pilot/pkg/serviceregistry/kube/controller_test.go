@@ -212,7 +212,7 @@ func TestServices(t *testing.T) {
 	ctl.Env = &model.Environment{
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
-				"network1": &meshconfig.Network{
+				"network1": {
 					Endpoints: []*meshconfig.Network_NetworkEndpoints{
 						{
 							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
@@ -221,7 +221,7 @@ func TestServices(t *testing.T) {
 						},
 					},
 				},
-				"network2": &meshconfig.Network{
+				"network2": {
 					Endpoints: []*meshconfig.Network_NetworkEndpoints{
 						{
 							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
@@ -451,7 +451,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	svcNode.Type = model.Ingress
 	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
-	svcNode.DNSDomains = []string{"nsa.svc.cluster.local"}
+	svcNode.DNSDomain = "nsa.svc.cluster.local"
 	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
@@ -1033,7 +1033,7 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			AutomountServiceAccountToken: &automount,
 			// Validation requires this
 			Containers: []v1.Container{
-				v1.Container{
+				{
 					Name:  "test",
 					Image: "ununtu",
 				},

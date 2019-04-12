@@ -17,15 +17,12 @@ package vault
 
 import (
 	"fmt"
-	"io/ioutil"
 	"time"
 
-	"github.com/hashicorp/vault/api"
-
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
+/*
 // Config for prototyping purpose
 const (
 	istioCaMountPoint   = "istio_ca"
@@ -43,14 +40,10 @@ const (
 	testCAKeyCertFile   = "testdata/istio_ca.pem"
 	testCsrFile         = "testdata/workload-1.csr"
 )
+*/
 
 // CA connects to Vault to sign certificates.
 type CA struct {
-}
-
-// New returns a new CA instance.
-func New() (*CA, error) {
-	return &CA{}, nil
 }
 
 // Sign takes a PEM-encoded CSR and returns a signed certificate. If the CA is a multicluster CA,
@@ -70,6 +63,7 @@ func (v *CA) GetKeyCertBundle() util.KeyCertBundle {
 	return nil
 }
 
+/*
 // Get the connection to a Vault server and set the token for the connection.
 // vaultAddr: the address of the Vault server (e.g., "http://127.0.0.1:8200").
 // token: used for authentication.
@@ -182,7 +176,7 @@ func RunProtoTypeSignCsrFlow() error {
 		log.Errorf("ReadFile() failed (error %v)", err)
 		return err
 	}
-	_, err = setCaKeyCert(client, configCaKeyCertPath, string(keyCert[:]))
+	_, err = setCaKeyCert(client, configCaKeyCertPath, string(keyCert))
 	if err != nil {
 		log.Errorf("setCaKeyCert() failed (error %v)", err)
 		return err
@@ -199,7 +193,7 @@ func RunProtoTypeSignCsrFlow() error {
 		log.Errorf("ReadFile() failed (error %v)", err)
 		return err
 	}
-	res, err := signCsr(client, signCsrPath, string(testCsr[:]))
+	res, err := signCsr(client, signCsrPath, string(testCsr))
 	if err != nil {
 		log.Errorf("signCsr() failed (error %v)", err)
 		return err
@@ -209,3 +203,4 @@ func RunProtoTypeSignCsrFlow() error {
 	log.Infof("%v", res.Data["certificate"])
 	return nil
 }
+*/

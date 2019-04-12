@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -82,7 +81,7 @@ type SyncStatus struct {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func Syncz(w http.ResponseWriter, req *http.Request) {
+func Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -113,8 +112,7 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
-	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(out)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
@@ -122,19 +120,6 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.Service{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddService(model.Hostname(svcName), svc)
-	}
 
 	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
@@ -161,7 +146,7 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
 	s.mutex.RUnlock()
-	w.Write(out)
+	_, _ = w.Write(out)
 }
 
 // Tracks info about workloads. Currently only K8S serviceregistry populates this, based
@@ -172,26 +157,13 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
 	s.mutex.RUnlock()
-	w.Write(out)
+	_, _ = w.Write(out)
 }
 
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.ServiceInstance{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
-	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
 		svc, _ := s.Env.ServiceDiscovery.Services()
@@ -257,7 +229,7 @@ type authProtocol int
 const (
 	authnHTTP       authProtocol = 1
 	authnMTls       authProtocol = 2
-	authnPermissive authProtocol = authnHTTP | authnMTls
+	authnPermissive              = authnHTTP | authnMTls
 	authnCustomTLS  authProtocol = 4
 	authnCustomMTls authProtocol = 8
 )
@@ -429,9 +401,9 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		adsClientsMutex.RLock()
 		defer adsClientsMutex.RUnlock()
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
-		if !ok {
+		if !ok || len(connections) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Proxy not connected to this Pilot instance"))
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
@@ -445,19 +417,19 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		dump, err := s.configDump(connections[mostRecent])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		if err := jsonm.Marshal(w, dump); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("You must provide a proxyID in the query string"))
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
 // PushStatusHandler dumps the last PushContext
@@ -472,8 +444,8 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
-	w.WriteHeader(http.StatusOK)
+
+	_, _ = w.Write(out)
 }
 
 func writeAllADS(w io.Writer) {
@@ -507,6 +479,12 @@ func writeAllADS(w io.Writer) {
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 	if s.ConfigController != nil {
 		if !s.ConfigController.HasSynced() {
+			w.WriteHeader(503)
+			return
+		}
+	}
+	if s.KubeController != nil {
+		if !s.KubeController.HasSynced() {
 			w.WriteHeader(503)
 			return
 		}

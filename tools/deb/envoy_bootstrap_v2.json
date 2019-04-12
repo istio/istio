@@ -110,6 +110,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
         {{ if eq .config.ControlPlaneAuthPolicy 1 }}
@@ -174,6 +175,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -207,6 +209,34 @@
         "hosts": [
           {
             "socket_address": {{ .lightstep }}
+          }
+        ]
+      }
+      {{ else if .datadog }}
+      ,
+      {
+        "name": "datadog_agent",
+        "connect_timeout": "1s",
+        "type": "STRICT_DNS",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .datadog }}
+          }
+        ]
+      }
+      {{ end }}
+      {{ if .envoy_metrics_service }}
+      ,
+      {
+        "name": "envoy_metrics_service",
+        "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .envoy_metrics_service }}
           }
         ]
       }
@@ -284,10 +314,34 @@
       }
     }
   }
+  {{ else if .datadog }}
+  ,
+  "tracing": {
+    "http": {
+      "name": "envoy.tracers.datadog",
+      "config": {
+        "collector_cluster": "datadog_agent",
+        "service_name": "{{ .cluster }}"
+      }
+    }
+  }
   {{ end }}
-  {{ if .statsd }}
+  {{ if or .envoy_metrics_service .statsd }}
   ,
   "stats_sinks": [
+    {{ if .envoy_metrics_service }}
+    {
+      "name": "envoy.metrics_service",
+      "config": {
+        "grpc_service": {
+          "envoy_grpc": {
+            "cluster_name": "envoy_metrics_service"
+          }
+        }
+      }
+    },
+    {{ end }}
+    {{ if .statsd }}
     {
       "name": "envoy.statsd",
       "config": {
@@ -295,7 +349,8 @@
           "socket_address": {{ .statsd }}
         }
       }
-    }
+    },
+    {{ end }}
   ]
   {{ end }}
 }

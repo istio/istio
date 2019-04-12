@@ -197,6 +197,6 @@ func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version
 	return &meshInfo, nil
 }
 
-func mockExecClientVersionTest(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
+func mockExecClientVersionTest(_, _ string) (kubernetes.ExecClient, error) {
 	return &mockExecVersionConfig{}, nil
 }

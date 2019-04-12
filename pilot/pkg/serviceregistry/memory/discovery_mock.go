@@ -38,31 +38,12 @@ var (
 	// HelloInstanceV0 is a mock IP address for v0 of HelloService
 	HelloInstanceV0 = MakeIP(HelloService, 0)
 
-	// HelloInstanceV1 is a mock IP address for v1 of HelloService
-	HelloInstanceV1 = MakeIP(HelloService, 1)
-
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{HelloInstanceV0},
 		ID:          "v0.default",
-		DNSDomains:  []string{"default.svc.cluster.local"},
-	}
-
-	// HelloProxyV1 is a mock proxy v1 of HelloService
-	HelloProxyV1 = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{HelloInstanceV1},
-		ID:          "v1.default",
-		DNSDomains:  []string{"default.svc.cluster.local"},
-	}
-
-	// Ingress is a mock proxy to IP 10.3.3.3
-	Ingress = model.Proxy{
-		Type:        model.Ingress,
-		IPAddresses: []string{"10.3.3.3"},
-		ID:          "ingress.default",
-		DNSDomains:  []string{"default.svc.cluster.local"},
+		DNSDomain:   "default.svc.cluster.local",
 	}
 
 	// MockDiscovery is an in-memory ServiceDiscover with mock services

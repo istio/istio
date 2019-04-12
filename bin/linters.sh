@@ -39,6 +39,7 @@ function check_licenses() {
 }
 
 function install_golangcilint() {
+    # if you want to update this version, also change the version number in .golangci.yml
     GOLANGCI_VERSION="v1.15.0"
     curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
     golangci-lint --version
@@ -53,9 +54,16 @@ function run_adapter_lint() {
 
 function run_test_lint() {
     echo 'Running testlinter ...'
-    go build -o bin/testlinter tests/util/checker/testlinter/*.go
+    go build -o bin/testlinter tools/checker/testlinter/*.go
     bin/testlinter
     echo 'testlinter OK'
+}
+
+function run_envvar_lint() {
+    echo 'Running envvarlinter ...'
+    go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
+    bin/envvarlinter
+    echo 'envvarlinter OK'
 }
 
 function run_golangcilint() {
@@ -87,5 +95,6 @@ install_golangcilint
 run_golangcilint
 run_adapter_lint
 run_test_lint
+run_envvar_lint
 run_helm_lint
 check_grafana_dashboards

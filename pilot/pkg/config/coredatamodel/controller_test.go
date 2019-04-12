@@ -77,13 +77,13 @@ var (
 			Name: "service-foo",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
 	authnPolicy1 = &authn.Policy{
 		Peers: []*authn.PeerAuthenticationMethod{{
-			&authn.PeerAuthenticationMethod_Mtls{}},
+			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
@@ -448,9 +448,9 @@ func TestEventHandler(t *testing.T) {
 	}
 
 	gotEvents := map[model.Event]map[string]model.Config{
-		model.EventAdd:    map[string]model.Config{},
-		model.EventUpdate: map[string]model.Config{},
-		model.EventDelete: map[string]model.Config{},
+		model.EventAdd:    {},
+		model.EventUpdate: {},
+		model.EventDelete: {},
 	}
 	controller.RegisterEventHandler(model.ServiceEntry.Type, func(m model.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
@@ -514,7 +514,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
 				},
 			},
@@ -528,7 +528,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
 			},
@@ -543,7 +543,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
 				},
 			},
@@ -557,7 +557,7 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventDelete: map[string]model.Config{
+				model.EventDelete: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
 			},
@@ -573,11 +573,11 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
 					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
 				},
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
 				},
 			},
@@ -594,14 +594,14 @@ func TestEventHandler(t *testing.T) {
 				},
 			},
 			want: map[model.Event]map[string]model.Config{
-				model.EventAdd: map[string]model.Config{
+				model.EventAdd: {
 					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
 					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
 				},
-				model.EventUpdate: map[string]model.Config{
+				model.EventUpdate: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v1"),
 				},
-				model.EventDelete: map[string]model.Config{
+				model.EventDelete: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
 				},
 			},
@@ -622,9 +622,9 @@ func TestEventHandler(t *testing.T) {
 			}
 			// clear saved events after every step
 			gotEvents = map[model.Event]map[string]model.Config{
-				model.EventAdd:    map[string]model.Config{},
-				model.EventUpdate: map[string]model.Config{},
-				model.EventDelete: map[string]model.Config{},
+				model.EventAdd:    {},
+				model.EventUpdate: {},
+				model.EventDelete: {},
 			}
 		})
 	}
@@ -671,4 +671,47 @@ func makeMessage(value []byte, responseMessageName string) (proto.Message, error
 	}
 
 	return nil, err
+}
+
+func TestInvalidResource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	gw := proto.Clone(gateway).(*networking.Gateway)
+	gw.Servers[0].Hosts = nil
+
+	message0 := convertToResource(g, model.Gateway.MessageName, []proto.Message{gw})
+
+	change := convert(
+		[]proto.Message{message0[0]},
+		[]string{"bar-namespace/foo"},
+		model.Gateway.Collection, model.Gateway.MessageName)
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(model.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
+}
+
+func TestInvalidResource_BadTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	message0 := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
+	change := convert(
+		[]proto.Message{message0[0]},
+		[]string{"bar-namespace/foo"},
+		model.Gateway.Collection, model.Gateway.MessageName)
+	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
+		Seconds: -1,
+		Nanos:   -1,
+	}
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(model.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
 }

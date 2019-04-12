@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 type handler struct{}
@@ -121,7 +123,70 @@ func TestAppProbe(t *testing.T) {
 	testCases := []struct {
 		probePath  string
 		statusCode int
-		err        string
+	}{
+		{
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			statusCode: http.StatusBadRequest,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
+			statusCode: http.StatusOK,
+		},
+	}
+	for _, tc := range testCases {
+		client := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+		if err != nil {
+			t.Errorf("[%v] failed to create request", tc.probePath)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal("request failed")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != tc.statusCode {
+			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+		}
+	}
+}
+
+func TestHttpsAppProbe(t *testing.T) {
+	// Starts the application first.
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Errorf("failed to allocate unused port %v", err)
+	}
+	keyFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.key"
+	crtFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.crt"
+	go http.ServeTLS(listener, &handler{}, crtFile, keyFile)
+	appPort := listener.Addr().(*net.TCPAddr).Port
+
+	// Starts the pilot agent status server.
+	server, err := NewServer(Config{
+		StatusPort: 0,
+		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"},
+"/app-health/hello-world/livez": {"port": %v, "scheme": "HTTPS"}}`, appPort, appPort),
+	})
+	if err != nil {
+		t.Errorf("failed to create status server %v", err)
+		return
+	}
+	go server.Run(context.Background())
+
+	// We wait a bit here to ensure server's statusPort is updated.
+	time.Sleep(time.Second * 3)
+
+	server.mutex.RLock()
+	statusPort := server.statusPort
+	server.mutex.RUnlock()
+	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+	testCases := []struct {
+		probePath  string
+		statusCode int
 	}{
 		{
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),

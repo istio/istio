@@ -16,20 +16,17 @@ package deployment
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
 
+/*
 const (
 	namespaceTemplate = `apiVersion: v1
 kind: Namespace
@@ -43,7 +40,7 @@ metadata:
 	twoCRDInstallFile         = "crd-12.yaml"
 	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 )
-
+*/
 // HelmConfig configuration for a Helm-based deployment.
 type HelmConfig struct {
 	Accessor     *kube.Accessor
@@ -57,6 +54,7 @@ type HelmConfig struct {
 	Values     map[string]string
 }
 
+/*
 // NewHelmDeployment creates a new Helm-based deployment instance.
 func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	// Define a deployment name for Helm.
@@ -74,15 +72,15 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		}
 	}
 
-	var err error
-	var generatedYaml string
-	if generatedYaml, err = HelmTemplate(
+	generatedYaml, err := HelmTemplate(
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
 		c.WorkDir,
 		valuesFile,
-		c.Values); err != nil {
+		c.Values)
+
+	if err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
 	}
 
@@ -118,6 +116,7 @@ func getCrdsYamlFiles(c HelmConfig) (string, error) {
 	}
 	return prevContent, nil
 }
+*/
 
 // HelmTemplate calls "helm template".
 func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
@@ -146,6 +145,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		return "", err
 	}
 
+	// TODO cleanup
 	// Adding cni dependency as a workaround for now.
 	// if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
 	// 	helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {

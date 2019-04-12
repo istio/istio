@@ -32,14 +32,15 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	tversion "k8s.io/helm/pkg/proto/hapi/version"
+	"k8s.io/helm/pkg/strvals"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
 
@@ -167,7 +168,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 			},
 			want: true,
 		},
@@ -179,7 +180,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 			},
 			want: false,
 		},
@@ -214,7 +215,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 			},
 			want: true,
 		},
@@ -226,7 +227,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 			},
 			want: false,
 		},
@@ -431,7 +432,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -445,7 +446,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-enabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -459,7 +460,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-false-always-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "false"},
+				Annotations: map[string]string{annotationPolicy: "false"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: false,
@@ -499,7 +500,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "policy-disabled-annotation-true-never-inject",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{annotationPolicy.name: "true"},
+				Annotations: map[string]string{annotationPolicy: "true"},
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
@@ -605,12 +606,24 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_http_probe_nosidecar_rewrite.patch",
 			templateFile: "TestWebhookInject_http_probe_nosidecar_rewrite_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_https_probe_rewrite.yaml",
+			wantFile:     "TestWebhookInject_https_probe_rewrite.patch",
+			templateFile: "TestWebhookInject_https_probe_rewrite_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.yaml",
+			wantFile:     "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.patch",
+			templateFile: "TestWebhookInject_http_probe_rewrite_enabled_via_annotation_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.yaml",
+			wantFile:     "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.patch",
+			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
-		if c.inputFile != "TestWebhookInject_http_probe_nosidecar_rewrite.yaml" {
-			continue
-		}
 		input := filepath.Join("testdata/webhook", c.inputFile)
 		want := filepath.Join("testdata/webhook", c.wantFile)
 		templateFile := "TestWebhookInject_template.yaml"
@@ -825,7 +838,7 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) *Webhook {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate := loadConfigMapWithHelm(t)
+	sidecarTemplate := loadConfigMapWithHelm(nil, t)
 	return createTestWebhook(sidecarTemplate)
 }
 
@@ -834,7 +847,7 @@ type configMapBody struct {
 	Template string `yaml:"template"`
 }
 
-func loadConfigMapWithHelm(t *testing.T) string {
+func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 	t.Helper()
 	c, err := chartutil.Load(helmChartDirectory)
 	if err != nil {
@@ -842,7 +855,9 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	}
 
 	values := getHelmValues(t)
-	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
+	mergedValues := mergeParamsIntoHelmValues(params, values, t)
+
+	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
@@ -883,10 +898,33 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	return body.Template
 }
 
-func getHelmValues(t *testing.T) string {
+func getHelmValues(t testing.TB) string {
 	t.Helper()
 	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
 	return string(util.ReadFile(valuesFile, t))
+}
+
+func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string {
+	t.Helper()
+	if params == nil {
+		return vals
+	}
+	valMap := chartutil.FromYaml(vals)
+	paramsVals := params.intoHelmValues()
+	for path, value := range paramsVals {
+		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
+		if err := strvals.ParseIntoString(setStr, valMap); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return chartutil.ToYaml(valMap)
+}
+
+func escapeHelmValue(val string) string {
+	val = strings.Replace(val, ",", "\\,", -1)
+	val = strings.Replace(val, ".", "\\.", -1)
+	val = strings.Replace(val, "=", "\\=", -1)
+	return val
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -1006,16 +1044,16 @@ func applyJSONPatch(input, patch []byte, t *testing.T) []byte {
 	return prettyJSON(patchedJSON, t)
 }
 
-func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deployment {
+func jsonToDeployment(deploymentJSON []byte, t *testing.T) *appsv1.Deployment {
 	t.Helper()
-	var deployment extv1beta1.Deployment
+	var deployment appsv1.Deployment
 	if err := json.Unmarshal(deploymentJSON, &deployment); err != nil {
 		t.Fatal(err)
 	}
 	return &deployment
 }
 
-func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
+func deploymentToYaml(deployment *appsv1.Deployment, t *testing.T) []byte {
 	t.Helper()
 	yaml, err := yaml.Marshal(deployment)
 	if err != nil {
@@ -1024,10 +1062,10 @@ func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 	return yaml
 }
 
-func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing.T) error {
+func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
-	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
+	getAnnotations(got)[annotationStatus] = getAnnotations(want)[annotationStatus]
 	gotIstioCerts := istioCerts(got)
 	wantIstioCerts := istioCerts(want)
 	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
@@ -1077,11 +1115,11 @@ func normalizeAndCompareDeployments(got, want *extv1beta1.Deployment, t *testing
 	return util.Compare([]byte(gotString), []byte(wantString))
 }
 
-func annotations(d *extv1beta1.Deployment) map[string]string {
+func getAnnotations(d *appsv1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
 }
 
-func istioCerts(d *extv1beta1.Deployment) *corev1.Volume {
+func istioCerts(d *appsv1.Deployment) *corev1.Volume {
 	for i := 0; i < len(d.Spec.Template.Spec.Volumes); i++ {
 		v := &d.Spec.Template.Spec.Volumes[i]
 		if v.Name == "istio-certs" {
@@ -1091,7 +1129,7 @@ func istioCerts(d *extv1beta1.Deployment) *corev1.Volume {
 	return nil
 }
 
-func istioInit(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
+func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	t.Helper()
 	for i := 0; i < len(d.Spec.Template.Spec.InitContainers); i++ {
 		c := &d.Spec.Template.Spec.InitContainers[i]
@@ -1103,7 +1141,7 @@ func istioInit(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
 	return nil
 }
 
-func istioProxy(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
+func istioProxy(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	t.Helper()
 	for i := 0; i < len(d.Spec.Template.Spec.Containers); i++ {
 		c := &d.Spec.Template.Spec.Containers[i]
@@ -1132,7 +1170,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[annotationPolicy.name] = "false"
+		pod.ObjectMeta.Annotations[annotationPolicy] = "false"
 	}
 
 	raw, err := json.Marshal(&pod)
@@ -1422,10 +1460,7 @@ func BenchmarkInjectServe(b *testing.B) {
 		IncludeIPRanges:     DefaultIncludeIPRanges,
 		IncludeInboundPorts: DefaultIncludeInboundPorts,
 	}
-	sidecarTemplate, err := GenerateTemplateFromParams(params)
-	if err != nil {
-		b.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-	}
+	sidecarTemplate := loadConfigMapWithHelm(params, b)
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 

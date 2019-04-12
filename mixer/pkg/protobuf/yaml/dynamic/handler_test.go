@@ -180,7 +180,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
-		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi})
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi}, false)
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -387,7 +387,7 @@ func TestHandlerTimeout(t *testing.T) {
 	timeout := 10 * time.Millisecond
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String(), Timeout: &timeout}, false, adapterConfig,
-		[]*TemplateConfig{metricDi})
+		[]*TemplateConfig{metricDi}, false)
 	if err != nil {
 		t.Fatalf("cannot connect to remote handler %v", err)
 	}

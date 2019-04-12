@@ -21,11 +21,11 @@ import (
 )
 
 func TestDoAllDirs(t *testing.T) {
-	reports := doAllDirs([]string{"testdata/bad"})
+	reps := doAllDirs([]string{"testdata/bad"})
 
-	got := make([]string, len(reports))
-	for i := range reports {
-		got[i] = reports[i].msg
+	got := make([]string, len(reps))
+	for i := range reps {
+		got[i] = reps[i].msg
 	}
 
 	sort.Strings(got)
