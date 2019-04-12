@@ -18,6 +18,8 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test/scopes"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
 
@@ -35,14 +37,14 @@ type TestPolicy struct {
 }
 
 func (p TestPolicy) TearDown() {
-	p.t.Logf("Tearing down policy %q.", p.fileName)
+	scopes.CI.Infof("Tearing down policy %q.", p.fileName)
 	if err := p.env.Delete(p.namespace, path.Join(testDataDir, p.fileName)); err != nil {
 		p.t.Fatalf("Cannot delete %q from namespace %q: %v", p.fileName, p.namespace, err)
 	}
 }
 
 func ApplyPolicyFile(t *testing.T, env *kube.Environment, namespace string, fileName string) *TestPolicy {
-	t.Logf("Applying policy file %v", fileName)
+	scopes.CI.Infof("Applying policy file %v", fileName)
 	if err := env.Apply(namespace, path.Join(testDataDir, fileName)); err != nil {
 		t.Fatalf("Cannot apply %q to namespace %q: %v", fileName, namespace, err)
 		return nil

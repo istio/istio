@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Verify reachability under different authN scenario.
 package reachability
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,6 +30,14 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// This test verifies reachability under different authN scenario:
+// - app A to app B using mTLS.
+// - app A to app B using mTLS-permissive.
+// - app A to app B without using mTLS.
+// In each test, the steps are:
+// - Configure authn policy.
+// - Wait for config propagation.
+// - Send HTTP requests between apps.
 func TestMutualTlsReachability(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
@@ -157,36 +165,22 @@ func TestMutualTlsReachability(t *testing.T) {
 		},
 	}
 
-	for _, c := range testCases {
-		namespace := c.namespace
-		if len(namespace) == 0 {
-			namespace = istioCfg.SystemNamespace
-		}
-
-		policy := policy.ApplyPolicyFile(t, env, namespace, c.configFile)
-		defer policy.TearDown()
-		// Give some time for the policy propagate.
-		// TODO: query pilot or app to know instead of sleep.
-		time.Sleep(time.Second)
-		for _, conn := range c.connections {
-			retry.UntilSuccessOrFail(t, func() error {
-				return connect.CheckConnection(t, conn)
-			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-		}
+	for i, c := range testCases {
+		t.Run(fmt.Sprintf("%v - %v", i, c.configFile), func(t *testing.T) {
+			namespace := c.namespace
+			if len(namespace) == 0 {
+				namespace = istioCfg.SystemNamespace
+			}
+			policy := policy.ApplyPolicyFile(t, env, namespace, c.configFile)
+			defer policy.TearDown()
+			// Give some time for the policy propagate.
+			// TODO: query pilot or app to know instead of sleep.
+			time.Sleep(time.Second)
+			for _, conn := range c.connections {
+				retry.UntilSuccessOrFail(t, func() error {
+					return connect.CheckConnection(t, conn)
+				}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+			}
+		})
 	}
 }
-
-// TestAuthentictionPermissiveE2E these cases are covered end to end
-// app A to app B using plaintext (mTLS),
-// app A to app B using HTTPS (mTLS),
-// app A to app B using plaintext (legacy),
-// app A to app B using HTTPS (legacy).
-// explained: app-to-app-protocol(sidecar-to-sidecar-protocol). "legacy" means
-// no client sidecar, unable to send "istio" alpn indicator.
-// TODO(incfly): implement this
-// func TestAuthentictionPermissiveE2E(t *testing.T) {
-// Steps:
-// Configure authn policy.
-// Wait for config propagation.
-// Send HTTP requests between apps.
-// }
