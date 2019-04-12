@@ -23,7 +23,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -410,6 +410,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		Concurrency:                0,
 		StatNameLength:             189,
 		Tracing:                    nil,
+		EnvoyNodeMetadata:          map[string]string{},
 	}
 }
 
@@ -527,7 +528,6 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
-
 	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
 	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
 

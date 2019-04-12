@@ -49,9 +49,7 @@ import (
 )
 
 var (
-	role = &model.Proxy{
-		Metadata: map[string]string{},
-	}
+	role = &model.Proxy{}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
@@ -152,25 +150,27 @@ var (
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
+			proxyConfig := model.DefaultProxyConfig()
+
 			// Add cert paths as node metadata only if they differ from defaults
 			if tlsServerCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTLSServerCertChain] = tlsServerCertChain
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSServerCertChain] = tlsServerCertChain
 			}
 			if tlsServerKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTLSServerKey] = tlsServerKey
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSServerKey] = tlsServerKey
 			}
 			if tlsServerRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTLSServerRootCert] = tlsServerRootCert
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSServerRootCert] = tlsServerRootCert
 			}
 
 			if tlsClientCertChain != model.DefaultCertChain {
-				role.Metadata[model.NodeMetadataTLSClientCertChain] = tlsClientCertChain
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSClientCertChain] = tlsClientCertChain
 			}
 			if tlsClientKey != model.DefaultKey {
-				role.Metadata[model.NodeMetadataTLSClientKey] = tlsClientKey
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSClientKey] = tlsClientKey
 			}
 			if tlsClientRootCert != model.DefaultRootCert {
-				role.Metadata[model.NodeMetadataTLSClientRootCert] = tlsClientRootCert
+				proxyConfig.EnvoyNodeMetadata[model.NodeMetadataTLSClientRootCert] = tlsClientRootCert
 			}
 
 			tlsCertsToWatch = []string{
@@ -186,7 +186,6 @@ var (
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
-			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile

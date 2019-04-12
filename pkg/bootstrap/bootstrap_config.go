@@ -178,8 +178,10 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string) map[string]string {
-	meta := map[string]string{}
+func getNodeMetaData(envs []string, meta map[string]string) map[string]string {
+	if meta == nil {
+		meta = map[string]string{}
+	}
 
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]string, key string, val string) {
 		m[key] = val
@@ -245,7 +247,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv)
+	meta := getNodeMetaData(localEnv, config.EnvoyNodeMetadata)
 
 	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
 		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
