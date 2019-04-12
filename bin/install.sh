@@ -90,7 +90,6 @@ function install_telemetry() {
 }
 
 # Switch to other istio-control-namespace
-
 function switch_istio_control() {
     if [ "$ISTIO_CONTROL_NS" != "$ISTIO_CONTROL_OLD" ]; then
         for ns in $(kubectl get namespaces --no-headers -l istio-env=${ISTIO_CONTROL_OLD} -o=custom-columns=NAME:.metadata.name); do        kubectl label namespaces default --overwrite istio-env=${ISTIO_CONTROL_NS}
@@ -140,7 +139,9 @@ case "$COMMAND" in
     install_ingress) install_ingress ;;
     install_telemetry) install_telemetry ;;
     switch_istio_control) switch_istio_control ;;
-    install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry && switch_istio_control;;
+    install_all) install_crds &&  install_system && install_control && install_ingress && install_telemetry;;
 esac
+
+# Temporarily disabled - fails in circle:  && switch_istio_control
 
 echo "Finished"
