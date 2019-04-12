@@ -1,6 +1,6 @@
-{{- $busyboxImageSeparator := "" }}
+{{- $hubseparator := "" }}
 {{- if .Values.busybox.hub }}
-{{- $busyboxImageSeparator = "/" }}
+{{- $hubseparator := "/" }}
 {{- end }}
 # TODO: the original template has service account, roles, etc
 apiVersion: apps/v1
@@ -35,7 +35,7 @@ spec:
 {{- if .Values.security.enabled }}
       initContainers:
       - name: prom-init
-        image: "{{ .Values.busybox.hub }}{{ $busyboxImageSeparator }}busybox:1.30.1"
+        image: "{{ .Values.busybox.hub }}{{ $hubseparator }}busybox:1.30.1"
         command: ['sh', '-c', 'counter=0; until [ "$counter" -ge 30 ]; do if [ -f /etc/istio-certs/key.pem ]; then exit 0; else echo waiting for istio certs && sleep 1 && counter=$((counter+1)); fi; done; exit 1;']
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         volumeMounts:
