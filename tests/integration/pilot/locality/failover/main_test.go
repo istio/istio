@@ -26,7 +26,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("locality_loadbalancing", m, istio.SetupOnKube(&ist, setupConfig))
+	framework.Main("locality_prioritized_failover_loadbalancing", m, istio.SetupOnKube(&ist, setupConfig))
 }
 
 func setupConfig(cfg *istio.Config) {

@@ -16,6 +16,8 @@ package prioritized
 
 import (
 	"bytes"
+	"fmt"
+	"math/rand"
 	"regexp"
 	"testing"
 	"time"
@@ -43,28 +45,28 @@ import (
 //
 //  CDS Test
 //
-//                                                       +-> B (region.zone.subzone)
-//                                                       |
-//                                                  100% |
-//                                                       |
-// A (region.zone.subzone) -> fake-external-service.com -|
-//                                                       |
-//                                                    0% |
-//                                                       |
-//                                                       +-> C (notregion.notzone.notsubzone)
+//                                                                 +-> B (region.zone.subzone)
+//                                                                 |
+//                                                            100% |
+//                                                                 |
+// A (region.zone.subzone) -> fake-cds-external-service-12345.com -|
+//                                                                 |
+//                                                              0% |
+//                                                                 |
+//                                                                 +-> C (notregion.notzone.notsubzone)
 //
 //
 //  EDS Test
 //
-//                                                       +-> 10.28.1.138 (B -> region.zone.subzone)
-//                                                       |
-//                                                  100% |
-//                                                       |
-// A (region.zone.subzone) -> fake-external-service.com -|
-//                                                       |
-//                                                    0% |
-//                                                       |
-//                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
+//                                                                 +-> 10.28.1.138 (B -> region.zone.subzone)
+//                                                                 |
+//                                                            100% |
+//                                                                 |
+// A (region.zone.subzone) -> fake-eds-external-service-12345.com -|
+//                                                                 |
+//                                                              0% |
+//                                                                 |
+//                                                                 +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
 
 const (
 	testDuration = 5 * time.Second
@@ -73,6 +75,7 @@ const (
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
 type ServiceConfig struct {
+	Name            string
 	Host            string
 	Namespace       string
 	Resolution      string
@@ -92,6 +95,7 @@ func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 		Galley: g,
 	})
 
+	rand.Seed(time.Now().UnixNano())
 	t.Run("TestCDS", func(t *testing.T) {
 		testCDS(t, ctx, g, p)
 	})
@@ -109,9 +113,10 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 	})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
-	fakeHostname := "fake-cds-external-service.com"
+	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
 
 	se := ServiceConfig{
+		"lplb-cds-service-entry",
 		fakeHostname,
 		instance.Namespace().Name(),
 		"DNS",
@@ -128,7 +133,7 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 	time.Sleep(10 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
-	log.Info("Sending traffic to local service (CDS)")
+	log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
 	locality.SendTraffic(t, testDuration, a, fakeHostname, serviceBHostname)
 }
 
@@ -142,9 +147,10 @@ func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
 
-	fakeHostname := "fake-eds-external-service.com"
+	fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", rand.Int())
 
 	se := ServiceConfig{
+		"lplb-eds-service-entry",
 		fakeHostname,
 		instance.Namespace().Name(),
 		"STATIC",
@@ -161,7 +167,7 @@ func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 	time.Sleep(10 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
-	log.Info("Sending traffic to local service (EDS)")
+	log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
 	locality.SendTraffic(t, testDuration, a, fakeHostname, serviceBHostname)
 }
 
@@ -169,7 +175,7 @@ var fakeExternalServiceConfig = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: fake-service-entry
+  name: {{.Name}}
   namespace: {{.Namespace}}
 spec:
   hosts:

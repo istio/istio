@@ -16,8 +16,9 @@ package failover
 
 import (
 	"bytes"
+	"fmt"
+	"math/rand"
 	"regexp"
-	"sync"
 	"testing"
 	"time"
 
@@ -69,13 +70,15 @@ import (
 //                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
 
 const (
-	testDuration = 1 * time.Minute
-	numSendTasks = 16
+	testDuration = 5 * time.Second
 )
 
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
 type FailoverServiceConfig struct {
+	Name               string
+	Host               string
+	Namespace          string
 	Resolution         string
 	ServiceBAddress    string
 	ServiceCAddress    string
@@ -93,8 +96,9 @@ func TestLocalityFailover(t *testing.T) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-	t.Run("TestFailoverCDS", func(t *testing.T) {
-		testFailoverCDS(t, ctx, g, p)
+	rand.Seed(time.Now().UnixNano())
+	t.Run("TestCDS", func(t *testing.T) {
+		testCDS(t, ctx, g, p)
 	})
 
 	// t.Run("TestFailoverEDS", func(t *testing.T) {
@@ -103,28 +107,33 @@ func TestLocalityFailover(t *testing.T) {
 
 }
 
-func testFailoverCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
-	se := FailoverServiceConfig{"DNS", "b", "c", "nonexistantservice"}
-	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalFailoverServiceConfig)
+	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
+	se := FailoverServiceConfig{
+		"lplb-failover-cds-service-entry",
+		fakeHostname,
+		instance.Namespace().Name(),
+		"DNS",
+		"b",
+		"c",
+		"nonexistantservice",
+	}
+
+	tmpl, _ := template.New("CDSServiceConfig").Parse(fakeExternalServiceConfig)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, se)
 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
 
 	// TODO: find a better way to do this!
 	// This sleep allows config to propagate
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Send traffic to service B via a service entry for the test duration.
-	wg := &sync.WaitGroup{}
-	wg.Add(numSendTasks)
-	log.Info("Sending traffic to failover service (CDS)")
-	for i := 0; i < numSendTasks; i++ {
-		go locality.SendTraffic(t, testDuration, a, "fake-external-service.com", serviceBHostname, wg)
-	}
-	wg.Wait()
+	log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
+	locality.SendTraffic(t, testDuration, a, fakeHostname, serviceBHostname)
 }
 
 func testFailoverEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
@@ -158,14 +167,17 @@ func testFailoverEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pi
 	// 	wg.Wait()
 }
 
-var fakeExternalFailoverServiceConfig = `
+var fakeExternalServiceConfig = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: fake-service-entry
+  name: {{.Name}}
+  namespace: {{.Namespace}}
 spec:
   hosts:
-  - fake-external-service.com
+  - {{.Host}}
+  exportTo:
+  - "."
   ports:
   - number: 80
     name: http
@@ -184,20 +196,22 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: fake-service-route
+  namespace: {{.Namespace}}
 spec:
   hosts:
-  - fake-external-service.com
+  - {{.Host}}
   http:
   - route:
     - destination:
-        host: fake-external-service.com
+        host: {{.Host}}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: fake-service-destination
+  namespace: {{.Namespace}}
 spec:
-  host: fake-external-service.com
+  host: {{.Host}}
   trafficPolicy:
     outlierDetection:
       consecutiveErrors: 100
