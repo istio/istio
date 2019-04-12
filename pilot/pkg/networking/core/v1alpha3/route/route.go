@@ -581,8 +581,7 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	}
 
 	out := route.CorsPolicy{
-		AllowOrigin:      in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{},
+		AllowOrigin: in.AllowOrigin,
 	}
 
 	if util.IsProxyVersionGE11(node) {
