@@ -12,9 +12,9 @@
 # - prepare cluster for development:
 #   make clean prepare MOUNT=1 KIND_CLUSTER=local
 # - install or reinstal istio components needed for test:
-#   make TEST_TARGET="install-system" SKIP_KIND_SETUP=1 SKIP_KIND_CLEANUP=1 KIND_CLUSTER=local
+#   make TEST_TARGET="install-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
 # - Run individual tests using:
-#    make TEST_TARGET="run-simple-istio-system" SKIP_KIND_SETUP=1 SKIP_KIND_CLEANUP=1 KIND_CLUSTER=local
+#    make TEST_TARGET="run-simple-istio-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
 #
 #
 
