@@ -1,0 +1,9 @@
+pull_request_rules:
+  - name: automatic merge on CI success and review
+    conditions:
+      - status-success=continuous-integration/circleci/pr
+      - "#approved-reviews-by>=1"
+    actions:
+      merge:
+        method: merge
+        

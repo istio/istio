@@ -29,7 +29,6 @@ initWorkingDir: &initWorkingDir
 
 jobs:
   # TODO: add encrypted creds for real clusters, push to real clusters
-
   build:
     working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
     docker:
@@ -42,6 +41,29 @@ jobs:
           GOROOT: /usr/local/bin/go
           PATH: ${PATH}:${GOROOT}/bin
           TMPDIR: /workspace/go/tmp
+          TEST_TARGET: run-sanity-tests
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - run:
+          command: make build
+      - store_artifacts:
+          path: /workspace/go/out/
+
+  install-docker:
+    working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
+    docker:
+      # Image with KIND installed, based on Istio Kind node-image
+      # Should have all tools we need, recreated when we rev the tool versions.
+      - image: istionightly/kind:latest
+        environment:
+          GOPATH: /workspace/go
+          SKIP_CLEANUP: 1
+          GOROOT: /usr/local/bin/go
+          PATH: ${PATH}:${GOROOT}/bin
+          TMPDIR: /workspace/go/tmp
+          TEST_TARGET: run-sanity-tests
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -152,12 +174,13 @@ workflows:
                  - master
                  - dev
     jobs:
-      - build
+      - install-docker
       - install-minikube
       - modular-installation
 
   all:
     jobs:
       - build
+      - install-docker
       - install-minikube
       - modular-installation
