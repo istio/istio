@@ -66,6 +66,10 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 		(reflect.ValueOf(handler.AdapterParams()).Kind() != reflect.Ptr || !reflect.ValueOf(handler.AdapterParams()).IsNil()) {
 		encoded = encoded && encode(buf, handler.AdapterParams())
 	}
+	if handler.ConnectionConfig() != nil {
+		encoded = encoded && encode(buf, handler.ConnectionConfig())
+	}
+
 	for _, name := range instanceNames {
 		instance := instanceMap[name]
 		encoded = encoded && encode(buf, instance.TemplateName())
@@ -86,6 +90,7 @@ type hndlr interface {
 	GetName() string
 	AdapterName() string
 	AdapterParams() interface{}
+	ConnectionConfig() interface{}
 }
 type inst interface {
 	GetName() string

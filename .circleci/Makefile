@@ -6,7 +6,7 @@ ci.image:
 	docker build -t "${CI_HUB}/ci:$(CI_VERSION)" -f Dockerfile .
 
 ci.push:
-	docker push "${CI_HUB}/ci:$(CI_VERSION)"
+	docker push --config=/tmp/circle "${CI_HUB}/ci:$(CI_VERSION)" 
 
 ci.run:
 	docker run --rm -u $(shell id -u) -it \

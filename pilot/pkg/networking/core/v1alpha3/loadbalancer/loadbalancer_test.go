@@ -1,6 +1,7 @@
 package loadbalancer
 
 import (
+	"reflect"
 	"testing"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -13,57 +14,106 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
-	g := NewGomegaWithT(t)
 	locality := &envoycore.Locality{
 		Region:  "region1",
 		Zone:    "zone1",
 		SubZone: "subzone1",
 	}
-	env := buildEnvForClustersWithDistribute()
-	cluster := buildFakeCluster()
-	ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 
-	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
-			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
-			continue
+	t.Run("Distribute", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute
+			expected   []int
+		}{
+			{
+				name: "distribution between subzones",
+				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "region1/zone1/subzone1",
+						To: map[string]uint32{
+							"region1/zone1/subzone1": 80,
+							"region1/zone1/subzone2": 15,
+							"region1/zone1/subzone3": 5,
+						},
+					},
+				},
+				expected: []int{40, 40, 15, 5, 0, 0, 0},
+			},
 		}
-		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1") {
-			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(5)))
-			continue
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				env := buildEnvForClustersWithDistribute(tt.distribute)
+				cluster := buildFakeCluster()
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+				weights := []int{}
+				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
+				}
+				if !reflect.DeepEqual(weights, tt.expected) {
+					t.Errorf("Got weights %v expected %v", weights, tt.expected)
+				}
+			})
 		}
-		g.Expect(localityEndpoint.LbEndpoints).To(BeNil())
-	}
+	})
 
-	env = buildEnvForClustersWithFailover()
-	cluster = buildFakeCluster()
-	ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
-	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-		if localityEndpoint.Locality.Region == locality.Region {
-			if localityEndpoint.Locality.Zone == locality.Zone {
-				if localityEndpoint.Locality.SubZone == locality.SubZone {
+	t.Run("Failover: all priorities", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildFakeCluster()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+						continue
+					}
+					g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+					continue
+				}
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+				continue
+			}
+			if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
+			} else {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
+			}
+		}
+	})
+
+	t.Run("Failover: priorities with gaps", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildSmallCluster()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						t.Errorf("Should not exist")
+						continue
+					}
 					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 					continue
 				}
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+				t.Errorf("Should not exist")
 				continue
 			}
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
-			continue
+			if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+			} else {
+				t.Errorf("Should not exist")
+			}
 		}
-		if localityEndpoint.Locality.Region == "region2" {
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
-		} else {
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
-		}
-	}
+	})
 }
 
-func buildEnvForClustersWithDistribute() *model.Environment {
+func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -87,16 +137,7 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 			Nanos:   1,
 		},
 		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
-			Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
-				{
-					From: "region1/zone1/subzone1",
-					To: map[string]uint32{
-						"region1/zone1/subzone1": 90,
-						"region1/zone1/subzone2": 5,
-						"region1/zone1/subzone3": 5,
-					},
-				},
-			},
+			Distribute: distribute,
 		},
 	}
 
@@ -205,11 +246,13 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone1",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
 					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -217,11 +260,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone2",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -229,11 +267,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone1",
 						SubZone: "subzone3",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -241,11 +274,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "zone2",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -253,11 +281,6 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
 				},
 				{
 					Locality: &envoycore.Locality{
@@ -265,11 +288,39 @@ func buildFakeCluster() *apiv2.Cluster {
 						Zone:    "",
 						SubZone: "",
 					},
-					LbEndpoints: []endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
-						Value: 1,
+				},
+			},
+		},
+	}
+
+}
+
+func buildSmallCluster() *apiv2.Cluster {
+	return &apiv2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &apiv2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
 					},
-					Priority: 0,
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
 				},
 			},
 		},

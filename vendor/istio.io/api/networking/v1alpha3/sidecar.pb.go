@@ -2,31 +2,31 @@
 // source: networking/v1alpha3/sidecar.proto
 
 // `Sidecar` describes the configuration of the sidecar proxy that mediates
-// inbound and outbound communication to the workload it is attached to. By
+// inbound and outbound communication to the workload instance it is attached to. By
 // default, Istio will program all sidecar proxies in the mesh with the
-// necessary configuration required to reach every workload in the mesh, as
+// necessary configuration required to reach every workload instance in the mesh, as
 // well as accept traffic on all the ports associated with the
 // workload. The Sidecar resource provides a way to fine tune the set of
 // ports, protocols that the proxy will accept when forwarding traffic to
 // and from the workload. In addition, it is possible to restrict the set
 // of services that the proxy can reach when forwarding outbound traffic
-// from the workload.
+// from workload instances.
 //
 // Services and configuration in a mesh are organized into one or more
 // namespaces (e.g., a Kubernetes namespace or a CF org/space). A Sidecar
-// resource in a namespace will apply to one or more workloads in the same
+// resource in a namespace will apply to one or more workload instances in the same
 // namespace, selected using the workloadSelector. In the absence of a
-// workloadSelector, it will apply to all workloads in the same
+// workloadSelector, it will apply to all workload instances in the same
 // namespace. When determining the Sidecar resource to be applied to a
-// workload, preference will be given to the resource with a
-// workloadSelector that selects this workload, over a Sidecar resource
+// workload instsance, preference will be given to the resource with a
+// workloadSelector that selects this workload instance, over a Sidecar resource
 // without any workloadSelector.
 //
 // NOTE: *_Each namespace can have only one Sidecar resource without any
 // workload selector_*. The behavior of the system is undefined if more
 // than one selector-less Sidecar resources exist in a given namespace. The
 // behavior of the system is undefined if two or more Sidecar resources
-// with a workload selector select the same workload.
+// with a workload selector select the same workload instance.
 //
 // The example below declares a Sidecar resource in the prod-us1 namespace
 // that configures the sidecars in the namespace to allow egress traffic to
@@ -49,7 +49,7 @@
 //
 // The example below declares a Sidecar resource in the prod-us1 namespace
 // that accepts inbound HTTP traffic on port 9080 and forwards
-// it to the attached workload listening on a Unix domain socket. In the
+// it to the attached workload instance listening on a Unix domain socket. In the
 // egress direction, in addition to the istio-system namespace, the sidecar
 // proxies only HTTP traffic bound for port 9080 for services in the
 // prod-us1 namespace.
@@ -78,13 +78,13 @@
 //     - "prod-us1/*"
 // ```
 //
-// If the workload is deployed without IP tables based traffic capture, the
+// If the workload is deployed without IPTables based traffic capture, the
 // Sidecar resource is the only way to configure the ports on the proxy
-// attached to the workload. The following example declares a Sidecar
+// attached to the workload instance. The following example declares a Sidecar
 // resource in the prod-us1 namespace for all pods with labels "app:
 // productpage" belonging to the productpage.prod-us1 service. Assuming
 // that these pods are deployed without IPtable rules (i.e. the Istio init
-// container) and the proxy metadata `ISTIO_META_INTERCEPTION_MODE` is set to
+// container) and the proxy metadata ISTIO_META_INTERCEPTION_MODE is set to
 // NONE, the specification below allows such pods to receive HTTP traffic
 // on port 9080 and forward it to the application listening on
 // 127.0.0.1:8080. It also allows the application to communicate with a
@@ -146,7 +146,7 @@
 // traffic. The following Sidecar configuration allows the VM to expose a
 // listener on 172.16.1.32:80 (the VM's IP) for traffic arriving from the
 // 172.16.0.0/16 subnet. Note that in this scenario, the
-// `ISTIO_META_INTERCEPTION_MODE` metadata on the proxy in the VM should
+// ISTIO_META_INTERCEPTION_MODE metadata on the proxy in the VM should
 // contain "REDIRECT" or "TPROXY" as its value, implying that IP tables
 // based traffic capture is active.
 //
@@ -239,18 +239,17 @@ func (CaptureMode) EnumDescriptor() ([]byte, []int) {
 type Sidecar struct {
 	// Criteria used to select the specific set of pods/VMs on which this
 	// sidecar configuration should be applied. If omitted, the sidecar
-	// configuration will be applied to all workloads in the same config
-	// namespace.
+	// configuration will be applied to all workload instances in the same namespace.
 	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector,proto3" json:"workload_selector,omitempty"`
 	// Ingress specifies the configuration of the sidecar for processing
-	// inbound traffic to the attached workload. If omitted, Istio will
+	// inbound traffic to the attached workload instance. If omitted, Istio will
 	// automatically configure the sidecar based on the information about the workload
 	// obtained from the orchestration platform (e.g., exposed ports, services,
 	// etc.). If specified, inbound ports are configured if and only if the
-	// workload is associated with a service.
+	// workload instance is associated with a service.
 	Ingress []*IstioIngressListener `protobuf:"bytes,2,rep,name=ingress,proto3" json:"ingress,omitempty"`
 	// Egress specifies the configuration of the sidecar for processing
-	// outbound traffic from the attached workload to other services in the
+	// outbound traffic from the attached workload instance to other services in the
 	// mesh. If omitted, Istio will automatically configure the sidecar to be able to
 	// reach every service in the mesh that is visible to this namespace.
 	Egress               []*IstioEgressListener `protobuf:"bytes,3,rep,name=egress,proto3" json:"egress,omitempty"`
@@ -314,7 +313,7 @@ func (m *Sidecar) GetEgress() []*IstioEgressListener {
 }
 
 // IstioIngressListener specifies the properties of an inbound
-// traffic listener on the sidecar proxy attached to a workload.
+// traffic listener on the sidecar proxy attached to a workload instance.
 type IstioIngressListener struct {
 	// REQUIRED. The port associated with the listener. If using
 	// Unix domain socket, use 0 as the port number, with a valid
@@ -323,7 +322,7 @@ type IstioIngressListener struct {
 	// The ip or the Unix domain socket to which the listener should be bound
 	// to. Format: `x.x.x.x` or `unix:///path/to/uds` or `unix://@foobar` (Linux
 	// abstract namespace). If omitted, Istio will automatically configure the defaults
-	// based on imported services and the workload to which this
+	// based on imported services and the workload instances to which this
 	// configuration is applied to.
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
 	// When the bind address is an IP, the captureMode option dictates
@@ -333,7 +332,7 @@ type IstioIngressListener struct {
 	// REQUIRED: The loopback IP endpoint or Unix domain socket to which
 	// traffic should be forwarded to. This configuration can be used to
 	// redirect traffic arriving at the bind point on the sidecar to a port
-	// or Unix domain socket where the application workload is listening for
+	// or Unix domain socket where the application workload instance is listening for
 	// connections. Format should be 127.0.0.1:PORT or `unix:///path/to/socket`
 	DefaultEndpoint      string   `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -403,7 +402,7 @@ func (m *IstioIngressListener) GetDefaultEndpoint() string {
 }
 
 // IstioEgressListener specifies the properties of an outbound traffic
-// listener on the sidecar proxy attached to a workload.
+// listener on the sidecar proxy attached to a workload instance.
 type IstioEgressListener struct {
 	// The port associated with the listener. If using Unix domain socket,
 	// use 0 as the port number, with a valid protocol. The port if
@@ -419,7 +418,7 @@ type IstioEgressListener struct {
 	// to. Port MUST be specified if bind is not empty. Format: `x.x.x.x` or
 	// `unix:///path/to/uds` or `unix://@foobar` (Linux abstract namespace). If
 	// omitted, Istio will automatically configure the defaults based on imported
-	// services, the workload to which this configuration is applied to and
+	// services, the workload instances to which this configuration is applied to and
 	// the captureMode. If captureMode is NONE, bind will default to
 	// 127.0.0.1.
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
@@ -515,10 +514,10 @@ func (m *IstioEgressListener) GetHosts() []string {
 
 // WorkloadSelector specifies the criteria used to determine if the Gateway
 // or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload info such as
+// includes the metadata associated with a proxy, workload instance info such as
 // labels attached to the pod/VM, or any other info that the proxy provides
 // to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload to be
+// specified, all conditions need to match in order for the workload instance to be
 // selected. Currently, only label based selection mechanism is supported.
 type WorkloadSelector struct {
 	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
@@ -635,9 +634,9 @@ func (m *Sidecar) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.WorkloadSelector.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -690,9 +689,9 @@ func (m *IstioIngressListener) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n2, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Port.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -738,9 +737,9 @@ func (m *IstioEgressListener) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
-		n3, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Port.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}

@@ -120,8 +120,7 @@ func ilType(t reflect.Type) il.Type {
 			return il.Interface
 		}
 	case reflect.Interface:
-		switch t.Name() {
-		case "StringMap":
+		if t.Name() == "StringMap" {
 			return il.Interface
 		}
 	}

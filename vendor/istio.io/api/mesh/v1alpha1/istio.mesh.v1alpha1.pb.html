@@ -4,7 +4,7 @@ description: Configuration affecting the service mesh as a whole.
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 19
+number_of_entries: 21
 ---
 <p>Configuration affecting the service mesh as a whole.</p>
 
@@ -620,12 +620,15 @@ inside a mesh and how to route to endpoints in each network. For example</p>
 
 <p>MeshNetworks(file/config map):
 networks:
-- network1:
+  network1:
   - endpoints:
-    - fromRegistry: registry1 #must match secret name inKubernetes
+    - fromRegistry: registry1 #must match secret name in Kubernetes
     - fromCidr: 192.168.100.0/22 #a VM network for example
     gateways:
     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+      port: 15443
+      locality: us-east-1a
+    - address: 192.168.100.1
       port: 15443
       locality: us-east-1a</p>
 
@@ -760,8 +763,8 @@ adding the <code>ISTIO_META_NETWORK</code> environment variable to the sidecar.<
 <li><p>Explicitly:</p></li>
 </ol>
 
-<p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
+<p>a. By matching the registry name with one of the &ldquo;fromRegistry&rdquo;
+   in the mesh config. A &ldquo;from_registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh
@@ -984,6 +987,14 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+<tr id="ProxyConfig-sds">
+<td><code>sds</code></td>
+<td><code><a href="#SDS">SDS</a></code></td>
+<td>
+<p>secret discovery service(SDS) configuration to be used by the proxy.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1022,6 +1033,40 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 </tbody>
 </table>
 </section>
+<h2 id="SDS">SDS</h2>
+<section>
+<p>SDS defines secret discovery service(SDS) configuration to be used by the proxy.
+For workload, its values are set in sidecar injector(passed as arguments to istio-proxy container).
+For pilot/mixer, it&rsquo;s passed as arguments to istio-proxy container in pilot/mixer deployment yaml files directly.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SDS-enabled">
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if SDS is enabled.</p>
+
+</td>
+</tr>
+<tr id="SDS-k8s_sa_jwt_path">
+<td><code>k8sSaJwtPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path of k8s service account JWT path.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Tracing">Tracing</h2>
 <section>
 <p>Tracing defines configuration for the tracing performed by Envoy instances.</p>
@@ -1051,12 +1096,44 @@ CAP<em>NET</em>ADMIN capability, which is required to use TPROXY.</p>
 
 </td>
 </tr>
+<tr id="Tracing-datadog" class="oneof">
+<td><code>datadog</code></td>
+<td><code><a href="#Tracing-Datadog">Tracing.Datadog (oneof)</a></code></td>
+<td>
+<p>Use a Datadog tracer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tracing-Datadog">Tracing.Datadog</h2>
+<section>
+<p>Datadog defines configuration for a Datadog tracer.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tracing-Datadog-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the Datadog Agent.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
 <h2 id="Tracing-Lightstep">Tracing.Lightstep</h2>
 <section>
-<p>Lightstep defines configuration for a LightStep tracer.</p>
+<p>Defines configuration for a LightStep tracer.</p>
 
 <table class="message-fields">
 <thead>

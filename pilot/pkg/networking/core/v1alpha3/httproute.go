@@ -22,10 +22,12 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -139,15 +141,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			nameToServiceMap[svc.Hostname] = svc
-		} else {
-			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-
-				nameToServiceMap[svc.Hostname] = &model.Service{
-					Hostname:     svc.Hostname,
-					Address:      svc.Address,
-					MeshExternal: svc.MeshExternal,
-					Ports:        []*model.Port{svcPort},
-				}
+		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
+			nameToServiceMap[svc.Hostname] = &model.Service{
+				Hostname:     svc.Hostname,
+				Address:      svc.Address,
+				MeshExternal: svc.MeshExternal,
+				Ports:        []*model.Port{svcPort},
 			}
 		}
 	}
@@ -196,6 +195,46 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	util.SortVirtualHosts(virtualHosts)
+
+	if pilot.EnableFallthroughRoute() {
+		// This needs to be the last virtual host, as routes are evaluated in order.
+		if env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    "allow_any",
+				Domains: []string{"*"},
+				Routes: []route.Route{
+					{
+						Match: route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+						},
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								ClusterSpecifier: &route.RouteAction_Cluster{Cluster: util.PassthroughCluster},
+							},
+						},
+					},
+				},
+			})
+		} else {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    "block_all",
+				Domains: []string{"*"},
+				Routes: []route.Route{
+					{
+						Match: route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+						},
+						Action: &route.Route_DirectResponse{
+							DirectResponse: &route.DirectResponseAction{
+								Status: 502,
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
 	out := &xdsapi.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,

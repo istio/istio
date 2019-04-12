@@ -1309,8 +1309,8 @@ type Tls struct {
 	//	*Tls_AuthHeader_
 	//	*Tls_CustomHeader
 	TokenType isTls_TokenType `protobuf_oneof:"token_type"`
-	// Indicates the name of adapter backend which is useful for routing with
-	// proxy-fronted backend.
+	// Used to configure mixer TLS client to verify the hostname on the returned
+	// certificates. It is also included in the client's handshake to support SNI.
 	ServerName string `protobuf:"bytes,6,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
 }
 
@@ -1638,8 +1638,9 @@ type Mutual struct {
 	// verify the presented adapter certificates. By default Mixer should already
 	// include Istio CA certificates and system certificates in cert pool.
 	CaCertificates string `protobuf:"bytes,3,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
-	// Indicates the name of adapter backend server which is useful for routing with
-	// proxy-fronted backend.
+	// Used to configure mixer mutual TLS client to supply server name for SNI.
+	// It is not used to verify the hostname of the peer certificate, since
+	// Istio verifies whitelisted SAN fields in mutual TLS.
 	ServerName string `protobuf:"bytes,4,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
 }
 
@@ -2922,9 +2923,9 @@ func (m *AttributeManifest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintCfg(dAtA, i, uint64(v.Size()))
-				n1, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n1, err1 := v.MarshalTo(dAtA[i:])
+				if err1 != nil {
+					return 0, err1
 				}
 				i += n1
 			}
@@ -3023,9 +3024,9 @@ func (m *Rule) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Sampling.Size()))
-		n2, err := m.Sampling.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Sampling.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -3152,9 +3153,9 @@ func (m *Instance) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Params.Size()))
-		n3, err := m.Params.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Params.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -3223,9 +3224,9 @@ func (m *Handler) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Params.Size()))
-		n4, err := m.Params.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Params.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -3233,9 +3234,9 @@ func (m *Handler) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Connection.Size()))
-		n5, err := m.Connection.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.Connection.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -3281,9 +3282,9 @@ func (m *Connection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
-		n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -3291,9 +3292,9 @@ func (m *Connection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Authentication.Size()))
-		n7, err := m.Authentication.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.Authentication.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -3319,9 +3320,9 @@ func (m *Sampling) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Random.Size()))
-		n8, err := m.Random.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.Random.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}
@@ -3329,9 +3330,9 @@ func (m *Sampling) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.RateLimit.Size()))
-		n9, err := m.RateLimit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n9, err9 := m.RateLimit.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
 		}
 		i += n9
 	}
@@ -3363,9 +3364,9 @@ func (m *RandomSampling) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.PercentSampled.Size()))
-		n10, err := m.PercentSampled.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n10, err10 := m.PercentSampled.MarshalTo(dAtA[i:])
+		if err10 != nil {
+			return 0, err10
 		}
 		i += n10
 	}
@@ -3400,9 +3401,9 @@ func (m *RateLimitSampling) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintCfg(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.SamplingDuration)))
-	n11, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SamplingDuration, dAtA[i:])
-	if err != nil {
-		return 0, err
+	n11, err11 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.SamplingDuration, dAtA[i:])
+	if err11 != nil {
+		return 0, err11
 	}
 	i += n11
 	if m.MaxUnsampledEntries != 0 {
@@ -3462,9 +3463,9 @@ func (m *Authentication) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.AuthType != nil {
-		nn12, err := m.AuthType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn12, err12 := m.AuthType.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
 		}
 		i += nn12
 	}
@@ -3477,9 +3478,9 @@ func (m *Authentication_Tls) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Tls.Size()))
-		n13, err := m.Tls.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n13, err13 := m.Tls.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
 		}
 		i += n13
 	}
@@ -3491,9 +3492,9 @@ func (m *Authentication_Mutual) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Mutual.Size()))
-		n14, err := m.Mutual.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n14, err14 := m.Mutual.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
 		}
 		i += n14
 	}
@@ -3521,16 +3522,16 @@ func (m *Tls) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.CaCertificates)
 	}
 	if m.TokenSource != nil {
-		nn15, err := m.TokenSource.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn15, err15 := m.TokenSource.MarshalTo(dAtA[i:])
+		if err15 != nil {
+			return 0, err15
 		}
 		i += nn15
 	}
 	if m.TokenType != nil {
-		nn16, err := m.TokenType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn16, err16 := m.TokenType.MarshalTo(dAtA[i:])
+		if err16 != nil {
+			return 0, err16
 		}
 		i += nn16
 	}
@@ -3557,9 +3558,9 @@ func (m *Tls_Oauth) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Oauth.Size()))
-		n17, err := m.Oauth.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n17, err17 := m.Oauth.MarshalTo(dAtA[i:])
+		if err17 != nil {
+			return 0, err17
 		}
 		i += n17
 	}
@@ -4187,12 +4188,27 @@ func (this *Rule) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForActions := "[]*Action{"
+	for _, f := range this.Actions {
+		repeatedStringForActions += strings.Replace(f.String(), "Action", "Action", 1) + ","
+	}
+	repeatedStringForActions += "}"
+	repeatedStringForRequestHeaderOperations := "[]*Rule_HeaderOperationTemplate{"
+	for _, f := range this.RequestHeaderOperations {
+		repeatedStringForRequestHeaderOperations += strings.Replace(fmt.Sprintf("%v", f), "Rule_HeaderOperationTemplate", "Rule_HeaderOperationTemplate", 1) + ","
+	}
+	repeatedStringForRequestHeaderOperations += "}"
+	repeatedStringForResponseHeaderOperations := "[]*Rule_HeaderOperationTemplate{"
+	for _, f := range this.ResponseHeaderOperations {
+		repeatedStringForResponseHeaderOperations += strings.Replace(fmt.Sprintf("%v", f), "Rule_HeaderOperationTemplate", "Rule_HeaderOperationTemplate", 1) + ","
+	}
+	repeatedStringForResponseHeaderOperations += "}"
 	s := strings.Join([]string{`&Rule{`,
 		`Match:` + fmt.Sprintf("%v", this.Match) + `,`,
-		`Actions:` + strings.Replace(fmt.Sprintf("%v", this.Actions), "Action", "Action", 1) + `,`,
-		`RequestHeaderOperations:` + strings.Replace(fmt.Sprintf("%v", this.RequestHeaderOperations), "Rule_HeaderOperationTemplate", "Rule_HeaderOperationTemplate", 1) + `,`,
-		`ResponseHeaderOperations:` + strings.Replace(fmt.Sprintf("%v", this.ResponseHeaderOperations), "Rule_HeaderOperationTemplate", "Rule_HeaderOperationTemplate", 1) + `,`,
-		`Sampling:` + strings.Replace(fmt.Sprintf("%v", this.Sampling), "Sampling", "Sampling", 1) + `,`,
+		`Actions:` + repeatedStringForActions + `,`,
+		`RequestHeaderOperations:` + repeatedStringForRequestHeaderOperations + `,`,
+		`ResponseHeaderOperations:` + repeatedStringForResponseHeaderOperations + `,`,
+		`Sampling:` + strings.Replace(this.Sampling.String(), "Sampling", "Sampling", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -4253,7 +4269,7 @@ func (this *Handler) String() string {
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`Adapter:` + fmt.Sprintf("%v", this.Adapter) + `,`,
 		`Params:` + strings.Replace(fmt.Sprintf("%v", this.Params), "Struct", "types.Struct", 1) + `,`,
-		`Connection:` + strings.Replace(fmt.Sprintf("%v", this.Connection), "Connection", "Connection", 1) + `,`,
+		`Connection:` + strings.Replace(this.Connection.String(), "Connection", "Connection", 1) + `,`,
 		`CompiledAdapter:` + fmt.Sprintf("%v", this.CompiledAdapter) + `,`,
 		`}`,
 	}, "")
@@ -4266,7 +4282,7 @@ func (this *Connection) String() string {
 	s := strings.Join([]string{`&Connection{`,
 		`Address:` + fmt.Sprintf("%v", this.Address) + `,`,
 		`Timeout:` + strings.Replace(fmt.Sprintf("%v", this.Timeout), "Duration", "types.Duration", 1) + `,`,
-		`Authentication:` + strings.Replace(fmt.Sprintf("%v", this.Authentication), "Authentication", "Authentication", 1) + `,`,
+		`Authentication:` + strings.Replace(this.Authentication.String(), "Authentication", "Authentication", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -4276,8 +4292,8 @@ func (this *Sampling) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Sampling{`,
-		`Random:` + strings.Replace(fmt.Sprintf("%v", this.Random), "RandomSampling", "RandomSampling", 1) + `,`,
-		`RateLimit:` + strings.Replace(fmt.Sprintf("%v", this.RateLimit), "RateLimitSampling", "RateLimitSampling", 1) + `,`,
+		`Random:` + strings.Replace(this.Random.String(), "RandomSampling", "RandomSampling", 1) + `,`,
+		`RateLimit:` + strings.Replace(this.RateLimit.String(), "RateLimitSampling", "RateLimitSampling", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -4288,7 +4304,7 @@ func (this *RandomSampling) String() string {
 	}
 	s := strings.Join([]string{`&RandomSampling{`,
 		`AttributeExpression:` + fmt.Sprintf("%v", this.AttributeExpression) + `,`,
-		`PercentSampled:` + strings.Replace(fmt.Sprintf("%v", this.PercentSampled), "FractionalPercent", "FractionalPercent", 1) + `,`,
+		`PercentSampled:` + strings.Replace(this.PercentSampled.String(), "FractionalPercent", "FractionalPercent", 1) + `,`,
 		`UseIndependentRandomness:` + fmt.Sprintf("%v", this.UseIndependentRandomness) + `,`,
 		`}`,
 	}, "")
@@ -4299,7 +4315,7 @@ func (this *RateLimitSampling) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&RateLimitSampling{`,
-		`SamplingDuration:` + strings.Replace(strings.Replace(this.SamplingDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`SamplingDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.SamplingDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`MaxUnsampledEntries:` + fmt.Sprintf("%v", this.MaxUnsampledEntries) + `,`,
 		`SamplingRate:` + fmt.Sprintf("%v", this.SamplingRate) + `,`,
 		`}`,

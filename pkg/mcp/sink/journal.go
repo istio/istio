@@ -18,36 +18,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 )
-
-// JournaledRequest is a common structure for journaling
-// both mcp.MeshConfigRequest and mcp.RequestResources. It can be replaced with
-// mcp.RequestResources once we fully switch over to the new API.
-type JournaledRequest struct {
-	VersionInfo   string
-	Collection    string
-	ResponseNonce string
-	ErrorDetail   *rpc.Status
-	SinkNode      *mcp.SinkNode
-}
-
-func (jr *JournaledRequest) ToMeshConfigRequest() *mcp.MeshConfigRequest {
-	return &mcp.MeshConfigRequest{
-		TypeUrl:       jr.Collection,
-		VersionInfo:   jr.VersionInfo,
-		ResponseNonce: jr.ResponseNonce,
-		ErrorDetail:   jr.ErrorDetail,
-		SinkNode:      jr.SinkNode,
-	}
-}
 
 // RecentRequestInfo is metadata about a request that the client has sent.
 type RecentRequestInfo struct {
 	Time    time.Time
-	Request *JournaledRequest
+	Request *mcp.RequestResources
 }
 
 // Acked indicates whether the message was an ack or not.
@@ -71,41 +48,10 @@ func NewRequestJournal() *RecentRequestsJournal {
 	}
 }
 
-func (r *RecentRequestsJournal) RecordMeshConfigRequest(req *mcp.MeshConfigRequest) { // nolint:interfacer
-	r.itemsMutex.Lock()
-	defer r.itemsMutex.Unlock()
-
-	item := RecentRequestInfo{
-		Time: time.Now(),
-		Request: &JournaledRequest{
-			VersionInfo:   req.VersionInfo,
-			Collection:    req.TypeUrl,
-			ResponseNonce: req.ResponseNonce,
-			ErrorDetail:   req.ErrorDetail,
-			SinkNode:      req.SinkNode,
-		},
-	}
-
-	r.items[r.next] = item
-
-	r.next++
-	if r.next == cap(r.items) {
-		r.next = 0
-	}
-	if r.size < cap(r.items) {
-		r.size++
-	}
-}
-
 func (r *RecentRequestsJournal) RecordRequestResources(req *mcp.RequestResources) { // nolint:interfacer
 	item := RecentRequestInfo{
-		Time: time.Now(),
-		Request: &JournaledRequest{
-			Collection:    req.Collection,
-			ResponseNonce: req.ResponseNonce,
-			ErrorDetail:   req.ErrorDetail,
-			SinkNode:      req.SinkNode,
-		},
+		Time:    time.Now(),
+		Request: req,
 	}
 
 	r.itemsMutex.Lock()

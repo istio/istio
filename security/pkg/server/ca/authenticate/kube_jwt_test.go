@@ -57,7 +57,6 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	testCases := map[string]struct {
 		caCertPath     string
 		jwtPath        string
-		trustDomain    string
 		expectedErrMsg string
 	}{
 		"Invalid CA cert path": {
@@ -91,7 +90,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 			t.Errorf("Case %s: Unexpected Error: %v", id, err)
 		}
 		expectedAuthenticator := &KubeJWTAuthenticator{
-			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent[:])),
+			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
 			trustDomain: trustDomain,
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {

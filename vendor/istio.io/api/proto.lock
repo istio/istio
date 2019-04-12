@@ -8,8 +8,7 @@
             "name": "MutualTls.Mode",
             "enum_fields": [
               {
-                "name": "STRICT",
-                "integer": 0
+                "name": "STRICT"
               },
               {
                 "name": "PERMISSIVE",
@@ -21,8 +20,7 @@
             "name": "PrincipalBinding",
             "enum_fields": [
               {
-                "name": "USE_PEER",
-                "integer": 0
+                "name": "USE_PEER"
               },
               {
                 "name": "USE_ORIGIN",
@@ -89,6 +87,11 @@
               {
                 "id": 3,
                 "name": "jwks_uri",
+                "type": "string"
+              },
+              {
+                "id": 10,
+                "name": "jwks",
                 "type": "string"
               },
               {
@@ -234,7 +237,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.authentication.v1alpha1"
+        }
       }
     },
     {
@@ -261,7 +267,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "authentication/v1alpha1/policy.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.envoy.config.filter.http.authn.v2alpha1"
+        }
       }
     },
     {
@@ -402,7 +416,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.envoy.config.filter.http.jwt_auth.v2alpha1"
+        }
       }
     },
     {
@@ -424,7 +446,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.envoy.config.filter.network.tcp_cluster_rewrite.v2alpha1"
+        }
       }
     },
     {
@@ -493,7 +518,13 @@
                 "id": 2,
                 "name": "resources",
                 "type": "Resource",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -554,7 +585,13 @@
                 "id": 2,
                 "name": "resources",
                 "type": "Resource",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -626,7 +663,13 @@
                 "id": 3,
                 "name": "resources",
                 "type": "Resource",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
@@ -691,7 +734,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/rpc/status.proto"
+          },
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "mcp/v1alpha1/resource.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mcp.v1alpha1"
+        }
       }
     },
     {
@@ -736,7 +793,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "google/protobuf/struct.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mcp.v1alpha1"
+        }
       }
     },
     {
@@ -758,7 +829,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/any.proto"
+          },
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "mcp/v1alpha1/metadata.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mcp.v1alpha1"
+        }
       }
     },
     {
@@ -769,8 +854,7 @@
             "name": "MeshConfig.IngressControllerMode",
             "enum_fields": [
               {
-                "name": "OFF",
-                "integer": 0
+                "name": "OFF"
               },
               {
                 "name": "DEFAULT",
@@ -786,8 +870,7 @@
             "name": "MeshConfig.AuthPolicy",
             "enum_fields": [
               {
-                "name": "NONE",
-                "integer": 0
+                "name": "NONE"
               },
               {
                 "name": "MUTUAL_TLS",
@@ -799,8 +882,7 @@
             "name": "MeshConfig.AccessLogEncoding",
             "enum_fields": [
               {
-                "name": "TEXT",
-                "integer": 0
+                "name": "TEXT"
               },
               {
                 "name": "JSON",
@@ -812,8 +894,7 @@
             "name": "OutboundTrafficPolicy.Mode",
             "enum_fields": [
               {
-                "name": "REGISTRY_ONLY",
-                "integer": 0
+                "name": "REGISTRY_ONLY"
               },
               {
                 "name": "ALLOW_ANY",
@@ -895,12 +976,24 @@
               {
                 "id": 10,
                 "name": "auth_policy",
-                "type": "AuthPolicy"
+                "type": "AuthPolicy",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 11,
                 "name": "rds_refresh_delay",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 12,
@@ -930,7 +1023,13 @@
               {
                 "id": 16,
                 "name": "mixer_address",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 17,
@@ -950,7 +1049,13 @@
               {
                 "id": 21,
                 "name": "sds_refresh_delay",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 22,
@@ -1093,7 +1198,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "mesh/v1alpha1/proxy.proto"
+          },
+          {
+            "path": "networking/v1alpha3/destination_rule.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mesh.v1alpha1"
+        }
       }
     },
     {
@@ -1172,7 +1291,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.mesh.v1alpha1"
+        }
       }
     },
     {
@@ -1183,8 +1305,7 @@
             "name": "AuthenticationPolicy",
             "enum_fields": [
               {
-                "name": "NONE",
-                "integer": 0
+                "name": "NONE"
               },
               {
                 "name": "MUTUAL_TLS",
@@ -1200,8 +1321,7 @@
             "name": "ProxyConfig.InboundInterceptionMode",
             "enum_fields": [
               {
-                "name": "REDIRECT",
-                "integer": 0
+                "name": "REDIRECT"
               },
               {
                 "name": "TPROXY",
@@ -1223,6 +1343,11 @@
                 "id": 2,
                 "name": "lightstep",
                 "type": "Lightstep"
+              },
+              {
+                "id": 3,
+                "name": "datadog",
+                "type": "Datadog"
               }
             ],
             "messages": [
@@ -1260,6 +1385,31 @@
                     "type": "string"
                   }
                 ]
+              },
+              {
+                "name": "Datadog",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "address",
+                    "type": "string"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SDS",
+            "fields": [
+              {
+                "id": 1,
+                "name": "enabled",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "k8s_sa_jwt_path",
+                "type": "string"
               }
             ]
           },
@@ -1299,12 +1449,24 @@
               {
                 "id": 7,
                 "name": "discovery_refresh_delay",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 8,
                 "name": "zipkin_address",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 9,
@@ -1329,7 +1491,13 @@
               {
                 "id": 12,
                 "name": "availability_zone",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 13,
@@ -1365,10 +1533,23 @@
                 "id": 19,
                 "name": "tracing",
                 "type": "Tracing"
+              },
+              {
+                "id": 21,
+                "name": "sds",
+                "type": "SDS"
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mesh.v1alpha1"
+        }
       }
     },
     {
@@ -1381,12 +1562,28 @@
               {
                 "id": 1,
                 "name": "status",
-                "type": "google.rpc.Status"
+                "type": "google.rpc.Status",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "valid_duration",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  },
+                  {
+                    "name": "(gogoproto.stdduration)",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -1395,7 +1592,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/rpc/status.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1406,8 +1617,7 @@
             "name": "TemplateVariety",
             "enum_fields": [
               {
-                "name": "TEMPLATE_VARIETY_CHECK",
-                "integer": 0
+                "name": "TEMPLATE_VARIETY_CHECK"
               },
               {
                 "name": "TEMPLATE_VARIETY_REPORT",
@@ -1444,7 +1654,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/descriptor.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1482,7 +1700,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1596,7 +1817,18 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/any.proto"
+          },
+          {
+            "path": "google/rpc/status.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1611,7 +1843,13 @@
                 "field": {
                   "id": 1,
                   "name": "quotas",
-                  "type": "QuotaParams"
+                  "type": "QuotaParams",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    }
+                  ]
                 }
               }
             ],
@@ -1641,7 +1879,13 @@
                 "field": {
                   "id": 1,
                   "name": "quotas",
-                  "type": "Result"
+                  "type": "Result",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    }
+                  ]
                 }
               }
             ],
@@ -1652,7 +1896,17 @@
                   {
                     "id": 2,
                     "name": "valid_duration",
-                    "type": "google.protobuf.Duration"
+                    "type": "google.protobuf.Duration",
+                    "options": [
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      },
+                      {
+                        "name": "(gogoproto.stdduration)",
+                        "value": "true"
+                      }
+                    ]
                   },
                   {
                     "id": 3,
@@ -1663,7 +1917,18 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1673,7 +1938,15 @@
           {
             "name": "ReportResult"
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1690,7 +1963,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.mixer.adapter.model.v1beta1"
+        }
       }
     },
     {
@@ -1818,7 +2094,17 @@
                 "field": {
                   "id": 6,
                   "name": "timestamps",
-                  "type": "google.protobuf.Timestamp"
+                  "type": "google.protobuf.Timestamp",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    },
+                    {
+                      "name": "(gogoproto.stdtime)",
+                      "value": "true"
+                    }
+                  ]
                 }
               },
               {
@@ -1826,7 +2112,17 @@
                 "field": {
                   "id": 7,
                   "name": "durations",
-                  "type": "google.protobuf.Duration"
+                  "type": "google.protobuf.Duration",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    },
+                    {
+                      "name": "(gogoproto.stdduration)",
+                      "value": "true"
+                    }
+                  ]
                 }
               },
               {
@@ -1842,7 +2138,13 @@
                 "field": {
                   "id": 9,
                   "name": "string_maps",
-                  "type": "StringMap"
+                  "type": "StringMap",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    }
+                  ]
                 }
               }
             ]
@@ -1860,7 +2162,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1"
+        }
       }
     },
     {
@@ -1966,7 +2282,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "mixer/v1/attributes.proto"
+          },
+          {
+            "path": "mixer/v1/config/client/service.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1.config.client"
+        }
       }
     },
     {
@@ -1977,8 +2307,7 @@
             "name": "NetworkFailPolicy.FailPolicy",
             "enum_fields": [
               {
-                "name": "FAIL_OPEN",
-                "integer": 0
+                "name": "FAIL_OPEN"
               },
               {
                 "name": "FAIL_CLOSE",
@@ -2170,7 +2499,27 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "mixer/v1/attributes.proto"
+          },
+          {
+            "path": "mixer/v1/config/client/api_spec.proto"
+          },
+          {
+            "path": "mixer/v1/config/client/quota.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1.config.client"
+        }
       }
     },
     {
@@ -2287,7 +2636,18 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "mixer/v1/config/client/service.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1.config.client"
+        }
       }
     },
     {
@@ -2329,7 +2689,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1.config.client"
+        }
       }
     },
     {
@@ -2340,8 +2708,7 @@
             "name": "ReferencedAttributes.Condition",
             "enum_fields": [
               {
-                "name": "CONDITION_UNSPECIFIED",
-                "integer": 0
+                "name": "CONDITION_UNSPECIFIED"
               },
               {
                 "name": "ABSENCE",
@@ -2361,8 +2728,7 @@
             "name": "HeaderOperation.Operation",
             "enum_fields": [
               {
-                "name": "REPLACE",
-                "integer": 0
+                "name": "REPLACE"
               },
               {
                 "name": "REMOVE",
@@ -2378,8 +2744,7 @@
             "name": "ReportRequest.RepeatedAttributesSemantics",
             "enum_fields": [
               {
-                "name": "DELTA_ENCODING",
-                "integer": 0
+                "name": "DELTA_ENCODING"
               },
               {
                 "name": "INDEPENDENT_ENCODING",
@@ -2395,7 +2760,13 @@
               {
                 "id": 1,
                 "name": "attributes",
-                "type": "CompressedAttributes"
+                "type": "CompressedAttributes",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -2414,7 +2785,13 @@
                 "field": {
                   "id": 4,
                   "name": "quotas",
-                  "type": "QuotaParams"
+                  "type": "QuotaParams",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    }
+                  ]
                 }
               }
             ],
@@ -2442,7 +2819,13 @@
               {
                 "id": 2,
                 "name": "precondition",
-                "type": "PreconditionResult"
+                "type": "PreconditionResult",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ],
             "maps": [
@@ -2451,7 +2834,13 @@
                 "field": {
                   "id": 3,
                   "name": "quotas",
-                  "type": "QuotaResult"
+                  "type": "QuotaResult",
+                  "options": [
+                    {
+                      "name": "(gogoproto.nullable)",
+                      "value": "false"
+                    }
+                  ]
                 }
               }
             ],
@@ -2462,12 +2851,28 @@
                   {
                     "id": 1,
                     "name": "status",
-                    "type": "google.rpc.Status"
+                    "type": "google.rpc.Status",
+                    "options": [
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      }
+                    ]
                   },
                   {
                     "id": 2,
                     "name": "valid_duration",
-                    "type": "google.protobuf.Duration"
+                    "type": "google.protobuf.Duration",
+                    "options": [
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      },
+                      {
+                        "name": "(gogoproto.stdduration)",
+                        "value": "true"
+                      }
+                    ]
                   },
                   {
                     "id": 3,
@@ -2495,7 +2900,17 @@
                   {
                     "id": 1,
                     "name": "valid_duration",
-                    "type": "google.protobuf.Duration"
+                    "type": "google.protobuf.Duration",
+                    "options": [
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      },
+                      {
+                        "name": "(gogoproto.stdduration)",
+                        "value": "true"
+                      }
+                    ]
                   },
                   {
                     "id": 2,
@@ -2505,7 +2920,13 @@
                   {
                     "id": 5,
                     "name": "referenced_attributes",
-                    "type": "ReferencedAttributes"
+                    "type": "ReferencedAttributes",
+                    "options": [
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      }
+                    ]
                   }
                 ]
               }
@@ -2524,7 +2945,13 @@
                 "id": 2,
                 "name": "attribute_matches",
                 "type": "AttributeMatch",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ],
             "messages": [
@@ -2582,13 +3009,25 @@
                 "id": 1,
                 "name": "request_header_operations",
                 "type": "HeaderOperation",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "response_header_operations",
                 "type": "HeaderOperation",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2609,7 +3048,13 @@
                 "id": 1,
                 "name": "attributes",
                 "type": "CompressedAttributes",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
@@ -2649,7 +3094,24 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/rpc/status.proto"
+          },
+          {
+            "path": "mixer/v1/attributes.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.mixer.v1"
+        }
       }
     },
     {
@@ -2660,8 +3122,7 @@
             "name": "LoadBalancerSettings.SimpleLB",
             "enum_fields": [
               {
-                "name": "ROUND_ROBIN",
-                "integer": 0
+                "name": "ROUND_ROBIN"
               },
               {
                 "name": "LEAST_CONN",
@@ -2681,8 +3142,7 @@
             "name": "TLSSettings.TLSmode",
             "enum_fields": [
               {
-                "name": "DISABLE",
-                "integer": 0
+                "name": "DISABLE"
               },
               {
                 "name": "SIMPLE",
@@ -2871,7 +3331,13 @@
                       {
                         "id": 3,
                         "name": "ttl",
-                        "type": "google.protobuf.Duration"
+                        "type": "google.protobuf.Duration",
+                        "options": [
+                          {
+                            "name": "(gogoproto.stdduration)",
+                            "value": "true"
+                          }
+                        ]
                       }
                     ]
                   }
@@ -2958,6 +3424,11 @@
                     "id": 4,
                     "name": "max_retries",
                     "type": "int32"
+                  },
+                  {
+                    "id": 5,
+                    "name": "idle_timeout",
+                    "type": "google.protobuf.Duration"
                   }
                 ]
               }
@@ -3029,7 +3500,21 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "networking/v1alpha3/virtual_service.proto"
+          },
+          {
+            "path": "gogoproto/gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -3040,8 +3525,7 @@
             "name": "ListenerMatch.ListenerType",
             "enum_fields": [
               {
-                "name": "ANY",
-                "integer": 0
+                "name": "ANY"
               },
               {
                 "name": "SIDECAR_INBOUND",
@@ -3061,8 +3545,7 @@
             "name": "ListenerMatch.ListenerProtocol",
             "enum_fields": [
               {
-                "name": "ALL",
-                "integer": 0
+                "name": "ALL"
               },
               {
                 "name": "HTTP",
@@ -3078,8 +3561,7 @@
             "name": "InsertPosition.Index",
             "enum_fields": [
               {
-                "name": "FIRST",
-                "integer": 0
+                "name": "FIRST"
               },
               {
                 "name": "LAST",
@@ -3099,8 +3581,7 @@
             "name": "Filter.FilterType",
             "enum_fields": [
               {
-                "name": "INVALID",
-                "integer": 0
+                "name": "INVALID"
               },
               {
                 "name": "HTTP",
@@ -3213,7 +3694,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/struct.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -3224,8 +3713,7 @@
             "name": "TLSOptions.TLSmode",
             "enum_fields": [
               {
-                "name": "PASSTHROUGH",
-                "integer": 0
+                "name": "PASSTHROUGH"
               },
               {
                 "name": "SIMPLE",
@@ -3245,8 +3733,7 @@
             "name": "TLSOptions.TLSProtocol",
             "enum_fields": [
               {
-                "name": "TLS_AUTO",
-                "integer": 0
+                "name": "TLS_AUTO"
               },
               {
                 "name": "TLSV1_0",
@@ -3399,7 +3886,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -3410,8 +3900,7 @@
             "name": "ServiceEntry.Location",
             "enum_fields": [
               {
-                "name": "MESH_EXTERNAL",
-                "integer": 0
+                "name": "MESH_EXTERNAL"
               },
               {
                 "name": "MESH_INTERNAL",
@@ -3423,8 +3912,7 @@
             "name": "ServiceEntry.Resolution",
             "enum_fields": [
               {
-                "name": "NONE",
-                "integer": 0
+                "name": "NONE"
               },
               {
                 "name": "STATIC",
@@ -3534,7 +4022,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "networking/v1alpha3/gateway.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -3545,8 +4041,7 @@
             "name": "CaptureMode",
             "enum_fields": [
               {
-                "name": "DEFAULT",
-                "integer": 0
+                "name": "DEFAULT"
               },
               {
                 "name": "IPTABLES",
@@ -3646,7 +4141,15 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "networking/v1alpha3/gateway.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -3773,13 +4276,25 @@
                 "id": 12,
                 "name": "remove_response_headers",
                 "type": "string",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 14,
                 "name": "remove_request_headers",
                 "type": "string",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 16,
@@ -3793,7 +4308,13 @@
                 "field": {
                   "id": 11,
                   "name": "append_headers",
-                  "type": "string"
+                  "type": "string",
+                  "options": [
+                    {
+                      "name": "deprecated",
+                      "value": "true"
+                    }
+                  ]
                 }
               },
               {
@@ -3801,7 +4322,13 @@
                 "field": {
                   "id": 13,
                   "name": "append_response_headers",
-                  "type": "string"
+                  "type": "string",
+                  "options": [
+                    {
+                      "name": "deprecated",
+                      "value": "true"
+                    }
+                  ]
                 }
               },
               {
@@ -3809,7 +4336,13 @@
                 "field": {
                   "id": 15,
                   "name": "append_request_headers",
-                  "type": "string"
+                  "type": "string",
+                  "options": [
+                    {
+                      "name": "deprecated",
+                      "value": "true"
+                    }
+                  ]
                 }
               }
             ]
@@ -3945,6 +4478,14 @@
                   "name": "source_labels",
                   "type": "string"
                 }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 9,
+                  "name": "query_params",
+                  "type": "StringMatch"
+                }
               }
             ]
           },
@@ -3965,13 +4506,25 @@
                 "id": 3,
                 "name": "remove_response_headers",
                 "type": "string",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 5,
                 "name": "remove_request_headers",
                 "type": "string",
-                "is_repeated": true
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 7,
@@ -3985,7 +4538,13 @@
                 "field": {
                   "id": 4,
                   "name": "append_response_headers",
-                  "type": "string"
+                  "type": "string",
+                  "options": [
+                    {
+                      "name": "deprecated",
+                      "value": "true"
+                    }
+                  ]
                 }
               },
               {
@@ -3993,7 +4552,13 @@
                 "field": {
                   "id": 6,
                   "name": "append_request_headers",
-                  "type": "string"
+                  "type": "string",
+                  "options": [
+                    {
+                      "name": "deprecated",
+                      "value": "true"
+                    }
+                  ]
                 }
               }
             ]
@@ -4223,7 +4788,13 @@
                   {
                     "id": 1,
                     "name": "percent",
-                    "type": "int32"
+                    "type": "int32",
+                    "options": [
+                      {
+                        "name": "deprecated",
+                        "value": "true"
+                      }
+                    ]
                   },
                   {
                     "id": 2,
@@ -4248,7 +4819,13 @@
                   {
                     "id": 1,
                     "name": "percent",
-                    "type": "int32"
+                    "type": "int32",
+                    "options": [
+                      {
+                        "name": "deprecated",
+                        "value": "true"
+                      }
+                    ]
                   },
                   {
                     "id": 2,
@@ -4299,7 +4876,18 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/wrappers.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.networking.v1alpha3"
+        }
       }
     },
     {
@@ -4310,8 +4898,7 @@
             "name": "HeaderOperationTemplate.Operation",
             "enum_fields": [
               {
-                "name": "REPLACE",
-                "integer": 0
+                "name": "REPLACE"
               },
               {
                 "name": "REMOVE",
@@ -4327,8 +4914,7 @@
             "name": "FractionalPercent.DenominatorType",
             "enum_fields": [
               {
-                "name": "HUNDRED",
-                "integer": 0
+                "name": "HUNDRED"
               },
               {
                 "name": "TEN_THOUSAND",
@@ -4340,8 +4926,7 @@
             "name": "Tls.AuthHeader",
             "enum_fields": [
               {
-                "name": "PLAIN",
-                "integer": 0
+                "name": "PLAIN"
               },
               {
                 "name": "BEARER",
@@ -4546,7 +5131,13 @@
               {
                 "id": 3,
                 "name": "timeout",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdduration)",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 4,
@@ -4596,7 +5187,17 @@
               {
                 "id": 1,
                 "name": "sampling_duration",
-                "type": "google.protobuf.Duration"
+                "type": "google.protobuf.Duration",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  },
+                  {
+                    "name": "(gogoproto.stdduration)",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -4736,7 +5337,24 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "gogoproto/gogo.proto"
+          },
+          {
+            "path": "google/protobuf/struct.proto"
+          },
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "policy/v1beta1/value_type.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.policy.v1beta1"
+        }
       }
     },
     {
@@ -4747,8 +5365,7 @@
             "name": "HttpStatusCode",
             "enum_fields": [
               {
-                "name": "Empty",
-                "integer": 0
+                "name": "Empty"
               },
               {
                 "name": "Continue",
@@ -5003,7 +5620,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.policy.v1beta1"
+        }
       }
     },
     {
@@ -5125,7 +5745,18 @@
               }
             ]
           }
-        ]
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/duration.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "istio.policy.v1beta1"
+        }
       }
     },
     {
@@ -5136,8 +5767,7 @@
             "name": "ValueType",
             "enum_fields": [
               {
-                "name": "VALUE_TYPE_UNSPECIFIED",
-                "integer": 0
+                "name": "VALUE_TYPE_UNSPECIFIED"
               },
               {
                 "name": "STRING",
@@ -5185,7 +5815,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.policy.v1beta1"
+        }
       }
     },
     {
@@ -5196,8 +5829,7 @@
             "name": "EnforcementMode",
             "enum_fields": [
               {
-                "name": "ENFORCED",
-                "integer": 0
+                "name": "ENFORCED"
               },
               {
                 "name": "PERMISSIVE",
@@ -5209,8 +5841,7 @@
             "name": "RbacConfig.Mode",
             "enum_fields": [
               {
-                "name": "OFF",
-                "integer": 0
+                "name": "OFF"
               },
               {
                 "name": "ON",
@@ -5369,6 +6000,17 @@
                 "id": 3,
                 "name": "mode",
                 "type": "EnforcementMode"
+              },
+              {
+                "id": 4,
+                "name": "actions",
+                "type": "AccessRule",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "role",
+                "type": "string"
               }
             ]
           },
@@ -5395,7 +6037,13 @@
               {
                 "id": 2,
                 "name": "group",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 6,
@@ -5510,7 +6158,10 @@
               }
             ]
           }
-        ]
+        ],
+        "package": {
+          "name": "istio.rbac.v1alpha1"
+        }
       }
     }
   ]

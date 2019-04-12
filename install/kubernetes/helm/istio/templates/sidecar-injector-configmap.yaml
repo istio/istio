@@ -53,6 +53,7 @@ data:
             cpu: 100m
             memory: 50Mi
         securityContext:
+          runAsUser: 0
           capabilities:
             add:
             - NET_ADMIN
@@ -123,7 +124,13 @@ data:
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]" }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+        - --datadogAgentAddress
+        - {{ "[[ .ProxyConfig.GetTracing.GetDatadog.GetAddress ]]" }}
       {{- end }}
+      {{- if $.Values.global.proxy.logLevel }}
+        - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+      {{- end}}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -164,6 +171,12 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        {{ if eq .Values.global.proxy.tracer "datadog" }}
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        {{ end }}
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -192,6 +205,10 @@ data:
         - name: ISTIO_BOOTSTRAP_OVERRIDE
           value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
         {{ "[[- end ]]" }}
+        {{- if .Values.global.sds.customTokenDirectory }}
+        - name: ISTIO_META_SDS_TOKEN_PATH
+          value: "{{ .Values.global.sds.customTokenDirectory -}}/sdstoken"
+        {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
         readinessProbe:
@@ -241,18 +258,23 @@ data:
         {{ "[[- end ]]" }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        {{- if ne .Values.global.sds.enabled true }}
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
-        {{- end }}
         {{- if .Values.global.sds.enabled }}
-        - mountPath: /var/run/sds
+        - mountPath: /var/run/sds/uds_path
           name: sds-uds-path
+          readOnly: true
         {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- if .Values.global.sds.customTokenDirectory }}
+        - mountPath: "{{ .Values.global.sds.customTokenDirectory -}}"
+          name: custom-sds-token
+          readOnly: true
+        {{- end }}
+        {{- else }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -277,7 +299,13 @@ data:
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
-          path: /var/run/sds
+          path: /var/run/sds/uds_path
+          type: Socket
+      {{- if .Values.global.sds.customTokenDirectory }}
+      - name: custom-sds-token
+        secret:
+          secretName: sdstokensecret
+      {{- end }}
       {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:

@@ -38,8 +38,7 @@ import (
 // Testing the Split Horizon EDS.
 
 type expectedResults struct {
-	endpoints []string
-	weights   map[string]uint32
+	weights map[string]uint32
 }
 
 // The test will setup 3 networks with various number of endpoints for the same service within
@@ -76,8 +75,12 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network1",
 			sidecarID: sidecarID("10.1.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.1.0.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
+				weights: map[string]uint32{
+					"10.1.0.1":      2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -86,8 +89,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network2",
 			sidecarID: sidecarID("10.2.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.2.0.1", "10.2.0.2", "159.122.219.1", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.2.0.1":      2,
+					"10.2.0.2":      2,
+					"159.122.219.1": 2,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 		{
@@ -96,8 +104,13 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network3",
 			sidecarID: sidecarID("10.3.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3", "159.122.219.1", "159.122.219.2"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
+				weights: map[string]uint32{
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"10.3.0.1":      2,
+					"10.3.0.2":      2,
+					"10.3.0.3":      2,
+				},
 			},
 		},
 		{
@@ -106,8 +119,16 @@ func TestSplitHorizonEds(t *testing.T) {
 			network:   "network4",
 			sidecarID: sidecarID("10.4.0.1", "app3"),
 			want: expectedResults{
-				endpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4", "159.122.219.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights: map[string]uint32{
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
+					"159.122.219.1": 2,
+					"159.122.219.2": 4,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
+				},
 			},
 		},
 	}
@@ -160,8 +181,8 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	}
 
 	lbEndpoints := eps[0].LbEndpoints
-	if len(lbEndpoints) != len(expected.endpoints) {
-		t.Fatal(fmt.Errorf("number of endpoints should be %d but got %d", len(expected.endpoints), len(lbEndpoints)))
+	if len(lbEndpoints) != len(expected.weights) {
+		t.Fatal(fmt.Errorf("number of endpoints should be %d but got %d", len(expected.weights), len(lbEndpoints)))
 	}
 
 	for addr, weight := range expected.weights {

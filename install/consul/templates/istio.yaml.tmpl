@@ -54,7 +54,7 @@ services:
       - ./consul_config:/consul/config
 
   registrator:
-    image: gliderlabs/registrator:latest
+    image: gliderlabs/registrator:master
     networks:
       istiomesh:
     volumes:
@@ -68,9 +68,9 @@ services:
         aliases:
           - istio-pilot
     expose:
-      - "15003"
-      - "15005"
       - "15007"
+      - "15010"
+      - "15012"
     ports:
       - "8081:15007"
     command: ["discovery",

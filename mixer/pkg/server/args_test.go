@@ -16,6 +16,8 @@ package server
 
 import (
 	"testing"
+
+	"istio.io/istio/mixer/pkg/config/store"
 )
 
 func TestValidation(t *testing.T) {
@@ -51,6 +53,13 @@ func TestValidation(t *testing.T) {
 
 	a = DefaultArgs()
 	a.NumCheckCacheEntries = -1
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
+	a.ConfigStore = store.WithBackend(nil)
+	a.ConfigStoreURL = "k8s://"
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
 	}

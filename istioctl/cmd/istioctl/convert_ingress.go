@@ -207,13 +207,10 @@ func writeYAMLOutput(descriptor model.ConfigDescriptor, configs []model.Config, 
 func validateConfigs(configs []model.Config) error {
 	var errs error
 	for _, config := range configs {
-		var err error
-		switch config.Type {
-		case model.VirtualService.Type:
-			err = model.ValidateVirtualService(config.Name, config.Namespace, config.Spec)
-		}
-		if err != nil {
-			errs = multierror.Append(err, errs)
+		if config.Type == model.VirtualService.Type {
+			if err := model.ValidateVirtualService(config.Name, config.Namespace, config.Spec); err != nil {
+				errs = multierror.Append(err, errs)
+			}
 		}
 	}
 	return errs

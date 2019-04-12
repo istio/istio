@@ -56,6 +56,7 @@ type entry struct {
 	ProtoGoPackage string `json:"protoPackage"`
 	Collection     string `json:"collection"`
 	Generated      string `json:"generated"`
+	Optional       bool   `json:"optional"`
 }
 
 // collection related metadata
@@ -205,7 +206,7 @@ func readMetadata(path string) (*metadata, error) {
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.gen.go
 //
 
 package metadata
@@ -272,6 +273,9 @@ func init() {
 		Group:      "{{.Group}}",
 		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
+		{{ if .Optional }}
+		Optional:   true,
+		{{end}}
     })
 	{{end}}
 {{end}}

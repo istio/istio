@@ -15,19 +15,22 @@
 package sink
 
 import (
-	"errors"
+	"context"
 	"io"
-	"sync/atomic"
-	"time"
 
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/rate"
 )
+
+// RateLimiter is partially representing standard lib's rate limiter
+type RateLimiter interface {
+	Wait(ctx context.Context) (err error)
+}
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
 // returns nil, then the connection will be allowed. If the function returns an error, then it will be
@@ -44,8 +47,7 @@ type AuthChecker interface {
 // from the client.
 type Server struct {
 	authCheck            AuthChecker
-	newConnectionLimiter *rate.Limiter
-	connections          int64
+	newConnectionLimiter RateLimiter
 	sink                 *Sink
 }
 
@@ -53,18 +55,16 @@ var _ mcp.ResourceSinkServer = &Server{}
 
 // ServerOptions contains source server specific options
 type ServerOptions struct {
-	NewConnectionFreq      time.Duration
-	NewConnectionBurstSize int
-	AuthChecker            AuthChecker
+	AuthChecker AuthChecker
+	RateLimiter rate.Limit
 }
 
 // NewServer creates a new instance of a MCP sink server.
-func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
-	limiter := rate.NewLimiter(rate.Every(serverOptions.NewConnectionFreq), serverOptions.NewConnectionBurstSize)
+func NewServer(sinkOptions *Options, serverOptions *ServerOptions) *Server {
 	s := &Server{
-		sink:                 New(srcOptions),
-		newConnectionLimiter: limiter,
+		sink:                 New(sinkOptions),
 		authCheck:            serverOptions.AuthChecker,
+		newConnectionLimiter: serverOptions.RateLimiter,
 	}
 	return s
 }
@@ -73,12 +73,10 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSink_EstablishResourceStreamServer) error {
 	// TODO support receiving configuration from multiple sources?
 	// TODO MVP - limit to one connection at a time?
-	if !atomic.CompareAndSwapInt64(&s.connections, 0, 1) {
-		return errors.New("TODO limited to one connection at a time")
-	}
-	defer atomic.AddInt64(&s.connections, -1)
 
-	// TODO - rate limit new connections?
+	if err := s.newConnectionLimiter.Wait(stream.Context()); err != nil {
+		return err
+	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		authInfo = peerInfo.AuthInfo
@@ -90,7 +88,7 @@ func (s *Server) EstablishResourceStream(stream mcp.ResourceSink_EstablishResour
 		return status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
-	err := s.sink.processStream(stream)
+	err := s.sink.ProcessStream(stream)
 	code := status.Code(err)
 	if code == codes.OK || code == codes.Canceled || err == io.EOF {
 		return nil

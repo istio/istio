@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"os"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -31,6 +30,7 @@ import (
 	"google.golang.org/grpc/credentials/oauth"
 
 	policypb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
@@ -93,11 +93,10 @@ func getWhitelistSAN(cert []byte) []*url.URL {
 	if err != nil {
 		return whitelistSAN
 	}
-	for _, uri := range c.URIs {
-		whitelistSAN = append(whitelistSAN, uri)
-	}
-	return whitelistSAN
+	return append(whitelistSAN, c.URIs...)
 }
+
+var bypassVerificationVar = env.RegisterBoolVar("BYPASS_OOP_MTLS_SAN_VERIFICATION", false, "")
 
 func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 	// load peer cert/key.
@@ -145,7 +144,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual) ([]grpc.DialOption, error) {
 		if _, err = certs[0].Verify(opts); err != nil {
 			return err
 		}
-		if os.Getenv("BYPASS_OOP_MTLS_SAN_VERIFICATION") == "true" {
+		if bypassVerificationVar.Get() {
 			log.Infof("BYPASS_OOP_MTLS_SAN_VERIFICATION=true - bypassing mtls custom SAN verification")
 			return nil
 		}
@@ -269,7 +268,6 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
 	// TODO(bianpengyuan) pass in grpc connection context so that oauth client would share the same context.
 	if a.authCfg == nil {
-		opts = append(opts)
 		return []grpc.DialOption{grpc.WithInsecure()}, nil
 	}
 	switch t := a.authCfg.AuthType.(type) {

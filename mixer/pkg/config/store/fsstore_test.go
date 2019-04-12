@@ -299,15 +299,6 @@ func TestFSStore2MissingRoot(t *testing.T) {
 
 func TestFSStore2Robust(t *testing.T) {
 	const ns = "testing"
-	const tmpl = `
-kind: %s
-apiVersion: config.istio.io/v1alpha2
-metadata:
-  namespace: testing
-  name: %s
-spec:
-  %s
-`
 	for _, c := range []struct {
 		title   string
 		prepare func(fsroot string) error

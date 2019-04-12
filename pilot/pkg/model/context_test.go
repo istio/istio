@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -176,4 +178,11 @@ networks:
 	if !reflect.DeepEqual(got, &want) {
 		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
+}
+
+func TestGetOrDefaultFromMap(t *testing.T) {
+	meta := map[string]string{"key1": "key1ValueFromMap"}
+	assert.Equal(t, "key1ValueFromMap", model.GetOrDefaultFromMap(meta, "key1", "unexpected"))
+	assert.Equal(t, "expectedDefaultKey2Value", model.GetOrDefaultFromMap(meta, "key2", "expectedDefaultKey2Value"))
+	assert.Equal(t, "expectedDefaultFromNilMap", model.GetOrDefaultFromMap(nil, "key", "expectedDefaultFromNilMap"))
 }

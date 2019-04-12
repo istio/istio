@@ -1,6 +1,6 @@
 # This is used to generate istio-multicluster.yaml, used for CI/CD.
 global:
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # controlPlaneSecurityEnabled enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
@@ -12,7 +12,7 @@ global:
   proxy:
     accessLogFile: "/dev/stdout"
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with private docker registry.
+  ## imagePullSecrets for all ServiceAccount. Must be set for any cluster configured with private docker registry.
   # imagePullSecrets:
   #   - name: "private-registry-key"
 

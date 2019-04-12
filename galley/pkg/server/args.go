@@ -43,26 +43,17 @@ type Args struct {
 	// Address to use for Galley's gRPC API.
 	APIAddress string
 
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
 	// Maximum size of individual received gRPC messages
 	MaxReceivedMessageSize uint
 
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
 
-	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
-	Insecure bool
-
 	// The credential options to use for MCP.
 	CredentialOptions *creds.Options
 
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
-
-	// Enable galley server mode
-	EnableServer bool
 
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
 	AccessListFile string
@@ -79,11 +70,6 @@ type Args struct {
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string
 
-	// DisableResourceReadyCheck disables the CRD readiness check. This
-	// allows Galley to start when not all supported CRD are
-	// registered with the kube-apiserver.
-	DisableResourceReadyCheck bool
-
 	// SinkAddress should be set to the address of a MCP Resource
 	// Sink service that Galley will dial out to. Leaving empty disables
 	// sink.
@@ -96,6 +82,20 @@ type Args struct {
 	// SinkMeta list of key=values to attach as gRPC stream metadata to
 	// outgoing Sink connections.
 	SinkMeta []string
+
+	// Enables gRPC-level tracing
+	EnableGRPCTracing bool
+
+	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
+	Insecure bool
+
+	// Enable galley server mode
+	EnableServer bool
+
+	// DisableResourceReadyCheck disables the CRD readiness check. This
+	// allows Galley to start when not all supported CRD are
+	// registered with the kube-apiserver.
+	DisableResourceReadyCheck bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.

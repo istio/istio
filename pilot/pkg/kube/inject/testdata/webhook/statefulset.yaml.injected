@@ -1,10 +1,15 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   creationTimestamp: null
   name: hello
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
@@ -137,6 +142,7 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
           capabilities:
             add:
             - NET_ADMIN

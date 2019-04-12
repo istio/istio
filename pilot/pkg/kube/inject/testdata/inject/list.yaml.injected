@@ -1,12 +1,18 @@
 apiVersion: v1
 items:
-- apiVersion: extensions/v1beta1
+- apiVersion: apps/v1
   kind: Deployment
   metadata:
     creationTimestamp: null
     name: hello-v1
   spec:
     replicas: 3
+    selector:
+      matchLabels:
+        app: hello
+        tier: backend
+        track: stable
+        version: v1
     strategy: {}
     template:
       metadata:
@@ -29,12 +35,14 @@ items:
         - args:
           - proxy
           - sidecar
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
           - --configPath
           - /etc/istio/proxy
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello.default
+          - hello.$(POD_NAMESPACE)
           - --drainDuration
           - 45s
           - --parentShutdownDuration
@@ -43,8 +51,6 @@ items:
           - istio-pilot:15010
           - --connectTimeout
           - 1s
-          - --statsdUdpAddress
-          - ""
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -54,7 +60,7 @@ items:
           - --applicationPorts
           - "80"
           - --concurrency
-          - "1"
+          - "2"
           env:
           - name: POD_NAME
             valueFrom:
@@ -72,8 +78,15 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {"app":"hello","tier":"backend","track":"stable","version":"v1"}
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -89,10 +102,15 @@ items:
             initialDelaySeconds: 1
             periodSeconds: 2
           resources:
+            limits:
+              cpu: "2"
+              memory: 128Mi
             requests:
-              cpu: 10m
+              cpu: 100m
+              memory: 128Mi
           securityContext:
             readOnlyRootFilesystem: true
+            runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
             name: istio-envoy
@@ -118,11 +136,18 @@ items:
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 50Mi
+            requests:
+              cpu: 10m
+              memory: 10Mi
           securityContext:
             capabilities:
               add:
               - NET_ADMIN
+            runAsUser: 0
         volumes:
         - emptyDir:
             medium: Memory
@@ -132,13 +157,19 @@ items:
             optional: true
             secretName: istio.default
   status: {}
-- apiVersion: extensions/v1beta1
+- apiVersion: apps/v1
   kind: Deployment
   metadata:
     creationTimestamp: null
     name: hello-v2
   spec:
     replicas: 3
+    selector:
+      matchLabels:
+        app: hello
+        tier: backend
+        track: stable
+        version: v2
     strategy: {}
     template:
       metadata:
@@ -161,12 +192,14 @@ items:
         - args:
           - proxy
           - sidecar
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
           - --configPath
           - /etc/istio/proxy
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello.default
+          - hello.$(POD_NAMESPACE)
           - --drainDuration
           - 45s
           - --parentShutdownDuration
@@ -175,8 +208,6 @@ items:
           - istio-pilot:15010
           - --connectTimeout
           - 1s
-          - --statsdUdpAddress
-          - ""
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
@@ -186,7 +217,7 @@ items:
           - --applicationPorts
           - "81"
           - --concurrency
-          - "1"
+          - "2"
           env:
           - name: POD_NAME
             valueFrom:
@@ -204,8 +235,15 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {"app":"hello","tier":"backend","track":"stable","version":"v2"}
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -221,10 +259,15 @@ items:
             initialDelaySeconds: 1
             periodSeconds: 2
           resources:
+            limits:
+              cpu: "2"
+              memory: 128Mi
             requests:
-              cpu: 10m
+              cpu: 100m
+              memory: 128Mi
           securityContext:
             readOnlyRootFilesystem: true
+            runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
             name: istio-envoy
@@ -250,11 +293,18 @@ items:
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 50Mi
+            requests:
+              cpu: 10m
+              memory: 10Mi
           securityContext:
             capabilities:
               add:
               - NET_ADMIN
+            runAsUser: 0
         volumes:
         - emptyDir:
             medium: Memory
