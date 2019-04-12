@@ -34,6 +34,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		port    int
 		node    *model.Proxy
 		want    []string
+		aliases []model.Hostname
 	}{
 		{
 			name: "same domain",
@@ -47,6 +48,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			aliases: nil,
 		},
 		{
 			name: "different domains with some shared dns",
@@ -60,6 +62,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			want: []string{"foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
+			aliases: nil,
 		},
 		{
 			name: "different domains with no shared dns",
@@ -71,12 +74,33 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want:    []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			aliases: nil,
+		},
+		{
+			name: "domain with aliases",
+			service: &model.Service{
+				Hostname:     "foo.local.campus.net",
+				MeshExternal: false,
+			},
+			port: 80,
+			node: &model.Proxy{
+				DNSDomain: "local.campus.net",
+			},
+			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
+				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+				"bar", "bar.local", "bar.local.campus", "bar:80", "bar.local:80", "bar.local.campus:80",
+				"baz.other", "baz.other.campus", "baz.other:80", "baz.other.campus:80",
+			},
+			aliases: []model.Hostname{
+				model.Hostname("bar.local.campus.net"),
+				model.Hostname("baz.other.campus.net"),
+			},
 		},
 	}
 
 	for _, c := range cases {
-		out := generateVirtualHostDomains(c.service, c.port, c.node)
+		out := generateVirtualHostDomains(c.service, c.port, c.node, c.aliases)
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {

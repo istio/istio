@@ -126,6 +126,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			Namespace: svc.Namespace,
 			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
 			ExportTo:  exportTo,
+			Target:    model.Hostname(external),
 		},
 	}
 }

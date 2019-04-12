@@ -136,6 +136,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
+	// Allows for efficient lookup of all alias service hostnames (that are in the scope) for a given target service
+	// hostname. Used to generate routes for alternative alias hostnames along with the primary service hostname.
+	aliasesByTarget := make(map[model.Hostname][]model.Hostname)
+
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
@@ -151,6 +155,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 					Ports:        []*model.Port{svcPort},
 				}
 			}
+		}
+		// Populating aliases map for MeshExternal services only to minimize the overhead added to this traversal.
+		// Assumes that no two services may ever have the same fully qualified hostname.
+		if svc.MeshExternal && svc.Attributes.Target != "" {
+			aliasesByTarget[svc.Attributes.Target] = append(aliasesByTarget[svc.Attributes.Target], svc.Hostname)
 		}
 	}
 
@@ -182,7 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		for _, svc := range virtualHostWrapper.Services {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port),
-				Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+				Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node, aliasesByTarget[svc.Hostname]),
 				Routes:  virtualHostWrapper.Routes,
 			})
 		}
@@ -258,11 +267,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	return out
 }
 
-// generateVirtualHostDomains generates the set of domain matches for a service being accessed from
-// a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
+// generateVirtualHostDomains generates the set of domain matches for a service being accessed from a proxy node.
+// If optional `aliases` argument is provided, also generates variants for each alias hostname of the service.
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, aliases []model.Hostname) []string {
 	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
+	for _, alias := range aliases {
+		domains = append(domains, generateAltVirtualHosts(string(alias), port, node.DNSDomain)...)
+	}
 
 	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)

@@ -467,6 +467,10 @@ type ServiceAttributes struct {
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[Visibility]bool
+	// Target defines a hostname that the current headless 'alias' service is pointing at.
+	// For example Kubernetes-specific equivalent of such service would be a service of type "ExternalName". This field
+	// would be populated with its "externalName" field value.
+	Target Hostname
 }
 
 // ServiceDiscovery enumerates Istio service instances.
