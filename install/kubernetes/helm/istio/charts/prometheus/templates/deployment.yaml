@@ -1,4 +1,3 @@
-
 # TODO: the original template has service account, roles, etc
 apiVersion: apps/v1
 kind: Deployment
