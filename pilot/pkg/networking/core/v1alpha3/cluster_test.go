@@ -120,6 +120,55 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 	}
 }
 
+func TestCommonHttpProtocolOptions(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	directionInfos := []struct {
+		direction    model.TrafficDirection
+		clusterIndex int
+	}{
+		{
+			direction:    model.TrafficDirectionOutbound,
+			clusterIndex: 0,
+		}, {
+			direction:    model.TrafficDirectionInbound,
+			clusterIndex: 1,
+		},
+	}
+	settings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests: 1,
+			IdleTimeout:             &types.Duration{Seconds: 15},
+		},
+	}
+
+	for _, directionInfo := range directionInfos {
+		settingsName := "default"
+		if settings != nil {
+			settingsName = "override"
+		}
+		testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
+		t.Run(testName, func(t *testing.T) {
+			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+				&networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						ConnectionPool: settings,
+					},
+				})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(len(clusters)).To(Equal(4))
+			cluster := clusters[directionInfo.clusterIndex]
+			g.Expect(cluster.CommonHttpProtocolOptions).To(Not(BeNil()))
+			commonHTTPProtocolOptions := cluster.CommonHttpProtocolOptions
+
+			// Verify that the values were set correctly.
+			g.Expect(commonHTTPProtocolOptions.IdleTimeout).To(Not(BeNil()))
+			g.Expect(*commonHTTPProtocolOptions.IdleTimeout).To(Equal(time.Duration(15000000000)))
+		})
+	}
+}
+
 func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
@@ -683,4 +732,27 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
 	}
+}
+
+func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 }

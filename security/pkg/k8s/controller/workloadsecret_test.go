@@ -43,6 +43,8 @@ const (
 )
 
 var (
+	requireExplicitOptIn = false
+
 	caCert          = []byte("fake CA cert")
 	caKey           = []byte("fake private key")
 	certChain       = []byte("fake cert chain")
@@ -125,9 +127,11 @@ func TestSecretController(t *testing.T) {
 			callCount := 0
 			// PrependReactor to ensure action handled by our handler.
 			client.Fake.PrependReactor("*", "*", func(a ktesting.Action) (bool, runtime.Object, error) {
-				callCount++
-				if callCount < secretCreationRetry {
-					return true, nil, errors.New("failed to create secret deliberately")
+				if a.GetVerb() == "create" {
+					callCount++
+					if callCount < secretCreationRetry {
+						return true, nil, errors.New("failed to create secret deliberately")
+					}
 				}
 				return true, nil, nil
 			})
@@ -139,7 +143,7 @@ func TestSecretController(t *testing.T) {
 				Namespace:   "test-ns",
 			},
 		}
-		controller, err := NewSecretController(createFakeCA(), defaultTTL,
+		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 			[]string{metav1.NamespaceAll}, webhooks)
 		if tc.shouldFail {
@@ -177,7 +181,7 @@ func TestSecretContent(t *testing.T) {
 	saName := "test-serviceaccount"
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
+	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
 	if err != nil {
@@ -189,6 +193,7 @@ func TestSecretContent(t *testing.T) {
 	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
+		return
 	}
 	if !bytes.Equal(rootCert, secret.Data[RootCertID]) {
 		t.Errorf("Root cert verification error: expected %v but got %v", rootCert, secret.Data[RootCertID])
@@ -199,7 +204,7 @@ func TestSecretContent(t *testing.T) {
 }
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL,
+	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
 		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
 		[]string{metav1.NamespaceAll}, nil)
 	if err != nil {
@@ -318,10 +323,10 @@ func TestUpdateSecret(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller, err := NewSecretController(createFakeCA(), time.Hour,
+
+		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, false,
-			[]string{metav1.NamespaceAll},
-			nil)
+			[]string{metav1.NamespaceAll}, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -348,6 +353,83 @@ func TestUpdateSecret(t *testing.T) {
 
 		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
 			t.Errorf("Case %q: %s", k, err.Error())
+		}
+	}
+}
+
+func TestSecretOptIn(t *testing.T) {
+	nsSchema := schema.GroupVersionResource{
+		Resource: "namespaces",
+		Version:  "v1",
+	}
+	secretSchema := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+
+	testCases := map[string]struct {
+		requireOptIn    bool
+		ns              *v1.Namespace
+		secret          *v1.Secret
+		expectedActions []ktesting.Action
+	}{
+		"always create when opt-in not required": {
+			requireOptIn: false,
+			ns:           createNS("unlabeled", map[string]string{}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
+				ktesting.NewCreateAction(secretSchema, "unlabeled", ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType)),
+			},
+		},
+		"opt-in required, no label => disabled": {
+			requireOptIn: true,
+			ns:           createNS("unlabeled", map[string]string{}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
+				ktesting.NewGetAction(nsSchema, "", "unlabeled"),
+			},
+		},
+		"opt-in required, disabled label => disabled": {
+			requireOptIn: true,
+			ns:           createNS("disabled-ns", map[string]string{"istio-managed": "disabled"}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-managed": "disabled"})),
+				ktesting.NewGetAction(nsSchema, "", "disabled-ns"),
+			},
+		},
+		"opt-in required, enabled label => enabled": {
+			requireOptIn: true,
+			ns:           createNS("enabled-ns", map[string]string{"istio-managed": "enabled"}),
+			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-managed": "enabled"})),
+				ktesting.NewGetAction(nsSchema, "", "enabled-ns"),
+				ktesting.NewCreateAction(secretSchema, "enabled-ns", ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		controller, err := NewSecretController(createFakeCA(), tc.requireOptIn, defaultTTL,
+			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
+			[]string{metav1.NamespaceAll}, nil)
+		if err != nil {
+			t.Errorf("failed to create secret controller: %v", err)
+		}
+		client.ClearActions()
+
+		_, err = client.Core().Namespaces().Create(tc.ns)
+		if err != nil {
+			t.Errorf("failed to create ns in %s: %v", k, err)
+		}
+		controller.saAdded(createServiceAccount("test-sa", tc.ns.Name))
+
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Failure in test case %s: %v", k, err)
 		}
 	}
 }
@@ -387,6 +469,15 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func createNS(name string, labels map[string]string) *v1.Namespace {
+	return &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }

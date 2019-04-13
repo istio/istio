@@ -29,12 +29,20 @@ package authz
 
 import (
 	"fmt"
+	"strings"
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+)
+
+const (
+	// rootNamespacePrefix is the prefix of the root namespace. This is used to refer to ServiceRoles
+	// that are defined in the root namespace.
+	// For more details, check out root_namespace field at https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto
+	rootNamespacePrefix = "/"
 )
 
 // convertRbacRulesToFilterConfigV2 is the successor of convertRbacRulesToFilterConfig, which supports
@@ -77,6 +85,14 @@ func convertRbacRulesToFilterConfigV2(service *serviceMetadata, option rbacOptio
 			if binding.RoleRef != nil {
 				role = option.authzPolicies.RoleForNameAndNamespace(binding.RoleRef.Name, namespace)
 				serviceRoleName = binding.RoleRef.Name
+			} else if binding.Role != "" {
+				if strings.HasPrefix(binding.Role, rootNamespacePrefix) {
+					globalRoleName := strings.TrimPrefix(binding.Role, rootNamespacePrefix)
+					role = option.authzPolicies.RoleForNameAndNamespace(globalRoleName, model.DefaultMeshConfig().RootNamespace)
+				} else {
+					role = option.authzPolicies.RoleForNameAndNamespace(binding.Role, namespace)
+				}
+				serviceRoleName = binding.Role
 			} else if len(binding.Actions) > 0 {
 				role = &rbacproto.ServiceRole{Rules: binding.Actions}
 				serviceRoleName = fmt.Sprintf("%s-inline-role", authzPolicy.Name)

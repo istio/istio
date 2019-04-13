@@ -72,12 +72,7 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	}()
 
 	// Start port-forwarding for pilot.
-	options := &testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}
-
-	c.forwarder, err = env.NewPortForwarder(options, 0, port)
+	c.forwarder, err = env.NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}

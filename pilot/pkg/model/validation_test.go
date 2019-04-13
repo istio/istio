@@ -318,6 +318,39 @@ func TestLabelsValidate(t *testing.T) {
 			tags:  Labels{"key": "value"},
 			valid: true,
 		},
+		{
+			name:  "good tag - empty value",
+			tags:  Labels{"key": ""},
+			valid: true,
+		},
+		{
+			name: "bad tag - empty key",
+			tags: Labels{"": "value"},
+		},
+		{
+			name: "bad tag key 1",
+			tags: Labels{".key": "value"},
+		},
+		{
+			name: "bad tag key 2",
+			tags: Labels{"key_": "value"},
+		},
+		{
+			name: "bad tag key 3",
+			tags: Labels{"key$": "value"},
+		},
+		{
+			name: "bad tag value 1",
+			tags: Labels{"key": ".value"},
+		},
+		{
+			name: "bad tag value 2",
+			tags: Labels{"key": "value_"},
+		},
+		{
+			name: "bad tag value 3",
+			tags: Labels{"key": "value$"},
+		},
 	}
 	for _, c := range cases {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
@@ -806,6 +839,49 @@ func TestValidateProxyConfig(t *testing.T) {
 								AccessToken: "abcdefg1234567",
 								Secure:      true,
 								CacertPath:  "",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog without address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog with correct address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "datadog-agent:8126",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "datadog with invalid address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "address-missing-port-number",
 							},
 						},
 					}
@@ -2724,6 +2800,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2737,6 +2814,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2771,6 +2859,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 
@@ -3694,7 +3786,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
 			},
-			expectErrMsg: "`roleRef` or `actions` must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "incorrect kind",
@@ -3714,9 +3806,20 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
 					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
 				},
+				Role: "/",
+			},
+			expectErrMsg: "`role` cannot have an empty ServiceRole name",
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
 				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
 			},
-			expectErrMsg: "name cannot be empty",
+			expectErrMsg: "`name` in `roleRef` cannot be empty",
 		},
 		{
 			name: "first-class field already exists",
@@ -3784,7 +3887,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			expectErrMsg: "`roleRef` or `actions` must be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "proto with both roleRef and inline role definition",
@@ -3808,7 +3911,48 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					},
 				},
 			},
-			expectErrMsg: "only one of `roleRef` or `actions` can be specified",
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both roleRef and role",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						RoleRef: &rbac.RoleRef{
+							Kind: "ServiceRole",
+							Name: "service-role-1",
+						},
+						Role: "service-role-1",
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
+		},
+		{
+			name: "proto with both role and inline role definition",
+			in: &rbac.AuthorizationPolicy{
+				Allow: []*rbac.ServiceRoleBinding{
+					{
+						Subjects: []*rbac.Subject{
+							{
+								Namespaces: []string{"default, istio-system"},
+							},
+						},
+						Role: "service-role-1",
+						Actions: []*rbac.AccessRule{
+							{
+								Ports: []int32{3000},
+							},
+						},
+					},
+				},
+			},
+			expectErrMsg: "exactly one of `roleRef`, `role`, or `actions` must be specified",
 		},
 		{
 			name: "success proto with roleRef",

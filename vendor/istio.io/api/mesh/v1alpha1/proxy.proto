@@ -45,7 +45,7 @@ message Tracing {
     string address = 1;
   }
 
-  // Lightstep defines configuration for a LightStep tracer.
+  // Defines configuration for a LightStep tracer.
   message Lightstep {
     // Address of the LightStep Satellite pool.
     string address = 1;
@@ -83,7 +83,7 @@ message Tracing {
 message SDS {
   // True if SDS is enabled.
   bool enabled = 1;
-  
+
   // Path of k8s service account JWT path.
   string k8s_sa_jwt_path = 2;
 }

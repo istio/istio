@@ -351,6 +351,120 @@ func BenchmarkMatch(b *testing.B) {
 	}
 }
 
+func TestHostnamesIntersection(t *testing.T) {
+	tests := []struct {
+		a, b, intersection Hostnames
+	}{
+		{
+			Hostnames{"foo,com"},
+			Hostnames{"bar.com"},
+			Hostnames{},
+		},
+		{
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"bar.com"},
+			Hostnames{"bar.com"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"*.com"},
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			Hostnames{"*.com"},
+			Hostnames{"foo.com", "bar.com"},
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			Hostnames{"foo.com", "*.net"},
+			Hostnames{"*.com", "bar.net"},
+			Hostnames{"foo.com", "bar.net"},
+		},
+		{
+			Hostnames{"foo.com", "*.net"},
+			Hostnames{"*.bar.net"},
+			Hostnames{"*.bar.net"},
+		},
+		{
+			Hostnames{"foo.com", "bar.net"},
+			Hostnames{"*"},
+			Hostnames{"foo.com", "bar.net"},
+		},
+		{
+			Hostnames{"foo.com"},
+			Hostnames{},
+			Hostnames{},
+		},
+		{
+			Hostnames{},
+			Hostnames{"bar.com"},
+			Hostnames{},
+		},
+		{
+			Hostnames{"*", "foo.com"},
+			Hostnames{"foo.com"},
+			Hostnames{"foo.com"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			result := tt.a.Intersection(tt.b)
+			if !reflect.DeepEqual(result, tt.intersection) {
+				t.Fatalf("%v.Intersection(%v) = %v, want %v", tt.a, tt.b, result, tt.intersection)
+			}
+		})
+	}
+}
+
+func TestHostnamesForNamespace(t *testing.T) {
+	tests := []struct {
+		hosts     []string
+		namespace string
+		want      Hostnames
+	}{
+		{
+			[]string{"ns1/foo.com", "ns2/bar.com"},
+			"ns1",
+			Hostnames{"foo.com"},
+		},
+		{
+			[]string{"ns1/foo.com", "ns2/bar.com"},
+			"ns3",
+			Hostnames{},
+		},
+		{
+			[]string{"ns1/foo.com", "*/bar.com"},
+			"ns1",
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			[]string{"ns1/foo.com", "*/bar.com"},
+			"ns3",
+			Hostnames{"bar.com"},
+		},
+		{
+			[]string{"foo.com", "ns2/bar.com"},
+			"ns2",
+			Hostnames{"foo.com", "bar.com"},
+		},
+		{
+			[]string{"foo.com", "ns2/bar.com"},
+			"ns3",
+			Hostnames{"foo.com"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			result := HostnamesForNamespace(tt.hosts, tt.namespace)
+			if !reflect.DeepEqual(result, tt.want) {
+				t.Fatalf("HostnamesForNamespace(%v, %v) = %v, want %v", tt.hosts, tt.namespace, result, tt.want)
+			}
+		})
+	}
+}
+
 func TestHostnamesSortOrder(t *testing.T) {
 	tests := []struct {
 		in, want Hostnames
@@ -450,7 +564,7 @@ func TestGetLocality(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "endpoint with locality",
+			name: "endpoint with locality is overridden by label",
 			instance: ServiceInstance{
 				Endpoint: NetworkEndpoint{
 					Locality: "region/zone/subzone-1",
@@ -459,19 +573,19 @@ func TestGetLocality(t *testing.T) {
 					LocalityLabel: "region/zone/subzone-2",
 				},
 			},
-			expected: "region/zone/subzone-1",
+			expected: "region/zone/subzone-2",
 		},
 		{
-			name: "endpoint without locality, parse from labels",
+			name: "endpoint without label, use registry locality",
 			instance: ServiceInstance{
 				Endpoint: NetworkEndpoint{
-					Locality: "",
+					Locality: "region/zone/subzone-1",
 				},
 				Labels: Labels{
-					LocalityLabel: "region/zone/subzone-2",
+					LocalityLabel: "",
 				},
 			},
-			expected: "region/zone/subzone-2",
+			expected: "region/zone/subzone-1",
 		},
 		{
 			name: "istio-locality label with k8s label separator",
@@ -484,6 +598,18 @@ func TestGetLocality(t *testing.T) {
 				},
 			},
 			expected: "region/zone/subzone-2",
+		},
+		{
+			name: "istio-locality label with both k8s label separators and slashes",
+			instance: ServiceInstance{
+				Endpoint: NetworkEndpoint{
+					Locality: "",
+				},
+				Labels: Labels{
+					LocalityLabel: "region/zone/subzone.2",
+				},
+			},
+			expected: "region/zone/subzone.2",
 		},
 	}
 

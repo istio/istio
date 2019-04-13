@@ -62,17 +62,19 @@ if [ -z "${POD_NAME:-}" ]; then
   POD_NAME=$(hostname -s)
 fi
 
-# Init option will only initialize iptables. Can be used
-if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
-  # Update iptables, based on current config. This is for backward compatibility with the init image mode.
-  # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-  "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
-  exit 0
-fi
+# Init option will only initialize iptables. set ISTIO_CUSTOM_IP_TABLES to true if you would like to ignore this step
+if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
+    if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
+      # Update iptables, based on current config. This is for backward compatibility with the init image mode.
+      # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
+      "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
+      exit 0
+    fi
 
-if [[ ${1-} != "run" ]] ; then
-  # Update iptables, based on config file
-  "${ISTIO_BIN_BASE}/istio-iptables.sh"
+    if [[ ${1-} != "run" ]] ; then
+      # Update iptables, based on config file
+      "${ISTIO_BIN_BASE}/istio-iptables.sh"
+    fi
 fi
 
 EXEC_USER=${EXEC_USER:-istio-proxy}

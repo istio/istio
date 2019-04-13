@@ -381,6 +381,8 @@ func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB)
 	return r
 }
 
+const nativeEndpointIP = "127.0.0.1"
+
 type nativeEndpoint struct {
 	owner *nativeApp
 	port  *agent.MappedPort
@@ -398,6 +400,18 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
+func (e *nativeEndpoint) NetworkEndpoint() model.NetworkEndpoint {
+	return model.NetworkEndpoint{
+		Address: nativeEndpointIP,
+		Port:    e.port.ApplicationPort,
+		ServicePort: &model.Port{
+			Name:     e.port.Name,
+			Port:     e.port.ProxyPort,
+			Protocol: e.port.Protocol,
+		},
+	}
+}
+
 func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 	protocol := string(opts.Protocol)
 	switch protocol {
@@ -412,7 +426,7 @@ func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 		protocol += "s"
 	}
 
-	host := "127.0.0.1"
+	host := nativeEndpointIP
 	port := e.port.ProxyPort
 	return &url.URL{
 		Scheme: protocol,

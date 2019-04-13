@@ -1,7 +1,6 @@
 #
 # mixer configuration
 #
-enabled: true
 image: mixer
 
 env:

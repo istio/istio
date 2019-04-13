@@ -68,6 +68,7 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
+	istioHelmChartName             = "istio"
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
@@ -225,7 +226,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *istioNamespace, *kubeInjectCM, "")
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +243,6 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err = os.Chmod(i.localPath, 0755); err != nil {
 			return nil, err
 		}
-		i.defaultProxy = true
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}
@@ -273,13 +273,12 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err = NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
+		remoteI, err = NewIstioctl(yamlDir, *namespace, *istioNamespace, "istio-sidecar-injector", remoteKubeConfig)
 		if err != nil {
 			return nil, err
 		}
 		if baseVersion != "" {
 			remoteI.localPath = filepath.Join(releaseDir, "/bin/istioctl")
-			remoteI.defaultProxy = true
 		}
 		aRemote = NewAppManager(tmpDir, *namespace, remoteI, remoteKubeConfig)
 	}
@@ -486,7 +485,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == helmInstallerName {
 		// clean up using helm
-		err := util.HelmDelete(k.Namespace)
+		err := util.HelmDelete(istioHelmChartName)
 		if err != nil {
 			return nil
 		}
@@ -505,7 +504,16 @@ func (k *KubeInfo) Teardown() error {
 		}
 
 		if *clusterWide {
-			istioYaml := getClusterWideInstallFile()
+			var istioYaml string
+			if *multiClusterDir != "" {
+				if *authEnable {
+					istioYaml = mcAuthInstallFileNamespace
+				} else {
+					istioYaml = mcNonAuthInstallFileNamespace
+				}
+			} else {
+				istioYaml = getClusterWideInstallFile()
+			}
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -726,6 +734,11 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Remote Istio %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := util.CreateMultiClusterSecret(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+			log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
+			return err
+		}
+		time.Sleep(10 * time.Second)
 	}
 
 	if *useAutomaticInjection {
@@ -925,7 +938,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
@@ -934,7 +947,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, "istio", valFile, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, istioHelmChartName, valFile, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
 			istioHelmInstallDir, valFile, setValue, k.Namespace)

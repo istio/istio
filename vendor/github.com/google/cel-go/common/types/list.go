@@ -36,27 +36,32 @@ var (
 // NewDynamicList returns a traits.Lister with heterogenous elements.
 // value should be an array of "native" types, i.e. any type that
 // NativeToValue() can convert to a ref.Val.
-func NewDynamicList(value interface{}) traits.Lister {
-	return &baseList{value, reflect.ValueOf(value)}
+func NewDynamicList(adapter ref.TypeAdapter, value interface{}) traits.Lister {
+	return &baseList{
+		TypeAdapter: adapter,
+		value:       value,
+		refValue:    reflect.ValueOf(value)}
 }
 
 // NewStringList returns a traits.Lister containing only strings.
-func NewStringList(elems []string) traits.Lister {
+func NewStringList(adapter ref.TypeAdapter, elems []string) traits.Lister {
 	return &stringList{
-		baseList: NewDynamicList(elems).(*baseList),
+		baseList: NewDynamicList(adapter, elems).(*baseList),
 		elems:    elems}
 }
 
 // NewValueList returns a traits.Lister with ref.Val elements.
-func NewValueList(elems []ref.Val) traits.Lister {
+func NewValueList(adapter ref.TypeAdapter, elems []ref.Val) traits.Lister {
 	return &valueList{
-		baseList: NewDynamicList(elems).(*baseList),
+		baseList: NewDynamicList(adapter, elems).(*baseList),
 		elems:    elems}
 }
 
 // baseList points to a list containing elements of any type.
-// value is an array of native values, and refValue is its reflection object.
+// The `value` is an array of native values, and refValue is its reflection object.
+// The `ref.TypeAdapter` enables native type to CEL type conversions.
 type baseList struct {
+	ref.TypeAdapter
 	value    interface{}
 	refValue reflect.Value
 }
@@ -72,8 +77,9 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 		return l
 	}
 	return &concatList{
-		prevList: l,
-		nextList: other.(traits.Lister)}
+		TypeAdapter: l.TypeAdapter,
+		prevList:    l,
+		nextList:    other.(traits.Lister)}
 }
 
 func (l *baseList) Contains(elem ref.Val) ref.Val {
@@ -86,8 +92,7 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 }
 
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	// JSON conversions are a special case since the 'native' type in this case
-	// actually a protocol buffer message rather than a list.
+	// JSON conversions are a special case since the 'native' type is a proto message.
 	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
@@ -121,8 +126,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if otherElemKind == thisElemKind {
 		return l.value, nil
 	}
-	// Allow the element ConvertToNative() function to determine whether
-	// conversion is possible.
+	// Allow the element ConvertToNative() function to determine whether conversion is possible.
 	elemCount := int(l.Size().(Int))
 	nativeList := reflect.MakeSlice(typeDesc, elemCount, elemCount)
 	for i := 0; i < elemCount; i++ {
@@ -174,7 +178,7 @@ func (l *baseList) Get(index ref.Val) ref.Val {
 		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
 	}
 	elem := l.refValue.Index(int(i)).Interface()
-	return NativeToValue(elem)
+	return l.NativeToValue(elem)
 }
 
 func (l *baseList) Iterator() traits.Iterator {
@@ -198,7 +202,9 @@ func (l *baseList) Value() interface{} {
 }
 
 // concatList combines two list implementations together into a view.
+// The `ref.TypeAdapter` enables native type to CEL type conversions.
 type concatList struct {
+	ref.TypeAdapter
 	value    interface{}
 	prevList traits.Lister
 	nextList traits.Lister
@@ -215,8 +221,9 @@ func (l *concatList) Add(other ref.Val) ref.Val {
 		return l
 	}
 	return &concatList{
-		prevList: l,
-		nextList: other.(traits.Lister)}
+		TypeAdapter: l.TypeAdapter,
+		prevList:    l,
+		nextList:    other.(traits.Lister)}
 }
 
 func (l *concatList) Contains(elem ref.Val) ref.Val {
@@ -226,8 +233,9 @@ func (l *concatList) Contains(elem ref.Val) ref.Val {
 
 func (l *concatList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	combined := &baseList{
-		value:    l.Value(),
-		refValue: reflect.ValueOf(l.Value())}
+		TypeAdapter: l.TypeAdapter,
+		value:       l.Value(),
+		refValue:    reflect.ValueOf(l.Value())}
 	return combined.ConvertToNative(typeDesc)
 }
 
@@ -324,11 +332,12 @@ func (l *stringList) Add(other ref.Val) ref.Val {
 	switch other.(type) {
 	case *stringList:
 		concatElems := append(l.elems, other.(*stringList).elems...)
-		return NewStringList(concatElems)
+		return NewStringList(l.TypeAdapter, concatElems)
 	}
 	return &concatList{
-		prevList: l.baseList,
-		nextList: other.(traits.Lister)}
+		TypeAdapter: l.TypeAdapter,
+		prevList:    l.baseList,
+		nextList:    other.(traits.Lister)}
 }
 
 func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
@@ -388,8 +397,9 @@ func (l *valueList) Add(other ref.Val) ref.Val {
 		return ValOrErr(other, "no such overload")
 	}
 	return &concatList{
-		prevList: l,
-		nextList: other.(traits.Lister)}
+		TypeAdapter: l.TypeAdapter,
+		prevList:    l,
+		nextList:    other.(traits.Lister)}
 }
 
 func (l *valueList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
