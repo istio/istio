@@ -34,20 +34,16 @@ jobs:
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
-      - image: istionightly/kind:latest
+      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
         environment:
           GOPATH: /workspace/go
-          SKIP_CLEANUP: 1
-          PATH: /bin:/usr/bin:/usr/local/go/bin:/usr/local/bin
-          GOROOT: /usr/local/bin/go
           TMPDIR: /workspace/go/tmp
-          TEST_TARGET: run-sanity-tests
 
     # Can run multiple images, first is primary, all use localhost
     steps:
       - checkout
       - run:
-          command: make build
+          command: make run-build
       - store_artifacts:
           path: /workspace/go/out/
 

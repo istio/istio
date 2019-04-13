@@ -20,3 +20,6 @@ ADD helm /usr/local/bin
 ADD repo /usr/local/bin
 
 RUN curl -Lo - https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+
+# It appears go test in istio/istio requires gcc
+RUN  apt-get -qqy install build-essential autoconf libtool autotools-dev
