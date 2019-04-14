@@ -619,6 +619,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	return out
 }
 
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	// There is only one IP for kube registry
+	proxyIP := proxy.IPAddresses[0]
+
+	pod := c.pods.getPodByIP(proxyIP)
+	if pod != nil {
+		return model.LabelsCollection{pod.Labels}, nil
+	}
+	return nil, nil
+}
+
 func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
 	pod := c.pods.getPodByIP(ip)

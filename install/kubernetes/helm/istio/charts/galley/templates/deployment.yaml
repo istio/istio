@@ -25,7 +25,6 @@ spec:
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
 {{- if .Values.global.priorityClassName }}
@@ -104,3 +103,4 @@ spec:
           name: istio
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

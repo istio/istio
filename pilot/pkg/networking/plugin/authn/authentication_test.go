@@ -536,6 +536,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		useTrustworthyJwt bool
 		useNormalJwt      bool
 		expected          []plugin.FilterChain
+		meta              map[string]string
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -655,9 +656,69 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "StrictMTLS with custom cert paths from proxy node metadata",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			meta: map[string]string{
+				model.NodeMetadataTLSServerCertChain: "/custom/path/to/cert-chain.pem",
+				model.NodeMetadataTLSServerKey:       "/custom-key.pem",
+				model.NodeMetadataTLSServerRootCert:  "/custom/path/to/root.pem",
+			},
+			// Only one filter chain with mTLS settings should be generated.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificates: []*auth.TlsCertificate{
+								{
+									CertificateChain: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom/path/to/cert-chain.pem",
+										},
+									},
+									PrivateKey: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom-key.pem",
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: "/custom/path/to/root.pem",
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: proto.BoolTrue,
+					},
+				},
+			},
+		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
+		got := setupFilterChains(
+			c.in,
+			c.sdsUdsPath,
+			c.useTrustworthyJwt,
+			c.useNormalJwt,
+			c.meta,
+		)
+		if !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

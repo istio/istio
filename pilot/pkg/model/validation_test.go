@@ -813,6 +813,49 @@ func TestValidateProxyConfig(t *testing.T) {
 			),
 			isValid: false,
 		},
+		{
+			name: "datadog without address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "datadog with correct address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "datadog-agent:8126",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "datadog with invalid address",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Datadog_{
+							Datadog: &meshconfig.Tracing_Datadog{
+								Address: "address-missing-port-number",
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -2261,6 +2304,21 @@ func TestValidateRouteDestination(t *testing.T) {
 		{name: "simple", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz"},
 		}}, valid: true},
+		{name: "wildcard dash", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*-foo.baz"},
+		}}, valid: true},
+		{name: "wildcard prefix", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*foo.baz"},
+		}}, valid: true},
+		{name: "wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "*"},
+		}}, valid: false},
+		{name: "bad wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.*"},
+		}}, valid: false},
+		{name: "bad fqdn", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "default/baz"},
+		}}, valid: false},
 		{name: "no destination", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: nil,
 		}}, valid: false},
@@ -2709,6 +2767,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2722,6 +2781,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2756,6 +2826,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 

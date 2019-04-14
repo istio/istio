@@ -135,6 +135,8 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
@@ -286,6 +288,8 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN

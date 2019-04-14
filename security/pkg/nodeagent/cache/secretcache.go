@@ -70,6 +70,9 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
+	// The initial backoff time in millisecond to avoid the thundering herd problem.
+	InitialBackoff int64
+
 	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
 	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
 	SecretRefreshGraceDuration time.Duration
@@ -95,6 +98,9 @@ type Options struct {
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
+
+	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
+	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool
 
 	// SecretExist checks if secret already existed.
 	SecretExist(connectionID, resourceName, token, version string) bool
@@ -152,6 +158,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, 
 		configOptions:  options,
 	}
 
+	fetcher.AddCache = ret.UpdateK8sSecret
 	fetcher.DeleteCache = ret.DeleteK8sSecret
 	fetcher.UpdateCache = ret.UpdateK8sSecret
 
@@ -218,6 +225,50 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	return ns, nil
 }
 
+// IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
+// and needs to wait for ingress gateway secret to be ready.
+func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
+	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
+	if sc.fetcher.UseCaClient == true {
+		return false
+	}
+
+	key := ConnKey{
+		ConnectionID: connectionID,
+		ResourceName: resourceName,
+	}
+	// Add an entry into cache, so that when ingress gateway secret is ready, gateway agent is able to
+	// notify the ingress gateway and push the secret to via connect ID.
+	if _, found := sc.secrets.Load(key); !found {
+		t := time.Now()
+		dummySecret := &model.SecretItem{
+			ResourceName: resourceName,
+			Token:        token,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sc.secrets.Store(key, *dummySecret)
+	}
+
+	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
+	// is not empty.
+	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+	// If kubernetes secret does not exist, need to wait for secret.
+	if !exist {
+		return true
+	}
+
+	// If expecting ingress gateway CA certificate, and that resource is empty, need to wait for
+	// non empty resource.
+	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+		return len(secretItem.RootCert) == 0
+	}
+
+	// If expect ingress gateway server certificate and private key, but at least one of them is
+	// empty, need to wait for non empty resource.
+	return len(secretItem.CertificateChain) == 0 || len(secretItem.PrivateKey) == 0
+}
+
 // DeleteSecret deletes a secret by its key from cache.
 func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	key := ConnKey{
@@ -271,13 +322,24 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 			go func() {
 				defer wg.Done()
 
-				newSecret := &model.SecretItem{
-					CertificateChain: ns.CertificateChain,
-					PrivateKey:       ns.PrivateKey,
-					ResourceName:     secretName,
-					Token:            oldSecret.Token,
-					CreatedTime:      ns.CreatedTime,
-					Version:          ns.Version,
+				var newSecret *model.SecretItem
+				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
+					newSecret = &model.SecretItem{
+						ResourceName: secretName,
+						RootCert:     ns.RootCert,
+						Token:        oldSecret.Token,
+						CreatedTime:  ns.CreatedTime,
+						Version:      ns.Version,
+					}
+				} else {
+					newSecret = &model.SecretItem{
+						CertificateChain: ns.CertificateChain,
+						PrivateKey:       ns.PrivateKey,
+						ResourceName:     secretName,
+						Token:            oldSecret.Token,
+						CreatedTime:      ns.CreatedTime,
+						Version:          ns.Version,
+					}
 				}
 				secretMap[key] = newSecret
 				if sc.notifyCallback != nil {
@@ -485,12 +547,16 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
+	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
+	log.Debugf("Wait for %d millisec for initial CSR", backOffInMilliSec)
+	// Add a jitter to initial CSR to avoid thundering herd problem.
+	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
 	startTime := time.Now()
-	retry := 0
-	backOffInMilliSec := initialBackOffIntervalInMilliSec
+	var retry int64
 	var certChainPEM []string
 	for true {
-		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+			ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		if err == nil {
 			break
 		}
@@ -508,10 +574,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}
 
 		retry++
-		backOffInMilliSec = retry * backOffInMilliSec
-		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
-		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
-		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
+		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
+		log.Warnf("CSR failed for %q: %v, retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
 	log.Debugf("CSR response certificate chain %+v \n", certChainPEM)

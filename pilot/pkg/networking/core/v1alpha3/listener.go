@@ -77,7 +77,7 @@ var (
 	EnvoyJSONLogFormat = &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
 			"start_time":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
 			"path":                      &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
 			"protocol":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
 			"response_code":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
@@ -463,7 +463,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// route config. Endpoint IP is handled below and Service IP is handled
 	// by outbound routes. Traffic sent to our service VIP is redirected by
 	// remote services' kubeproxy to our specific endpoint IP.
-	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, listenerOpts.port)
 
 	if old, exists := listenerMap[listenerMapKey]; exists {
 		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
@@ -725,11 +725,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				egressListener.IstioListener.Port != nil {
 				// We have a non catch all listener on some user specified port
 				// The user specified port may or may not match a service port.
-				// If it does not match any service port, then we expect the
-				// user to provide a virtualService that will route to a proper
-				// Service. This is the reason why we can't reuse the big
-				// forloop logic below as it iterates over all services and
-				// their service ports.
+				// If it does not match any service port and the service has only
+				// one port, then we pick a default service port. If service has
+				// multiple ports, we expect the user to provide a virtualService
+				// that will route to a proper Service.
 
 				listenPort := &model.Port{
 					Port:     int(egressListener.IstioListener.Port.Number),
@@ -739,45 +738,40 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
 				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
-				// we will bind to user specified IP (if any) or to 0.0.0.0
-				// We cannot auto infer bind IPs here from the imported services as the user could specify
-				// some random port and import 100s of multi-port services. Our behavior for HTTP is that
-				// when the user explicitly specifies a port, we establish a HTTP proxy on that port for
-				// the imported services. For TCP, the user would have to specify a virtualService for the
-				// imported Service, mapping from the listenPort to some specific service port
+				// we will bind to user specified IP (if any) or to the VIPs of services in
+				// this egress listener.
 				bind := ""
 				if bindToPort {
 					bind = LocalhostAddress
 				} else {
 					bind = egressListener.IstioListener.Bind
-					if len(bind) == 0 {
-						bind = WildcardAddress
+				}
+
+				for _, service := range services {
+					listenerOpts := buildListenerOpts{
+						env:            env,
+						proxy:          node,
+						proxyInstances: proxyInstances,
+						proxyLabels:    proxyLabels,
+						bind:           bind,
+						port:           listenPort.Port,
+						bindToPort:     bindToPort,
 					}
+
+					pluginParams := &plugin.InputParams{
+						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+						ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+						Env:              env,
+						Node:             node,
+						ProxyInstances:   proxyInstances,
+						Push:             push,
+						Bind:             bind,
+						Port:             listenPort,
+						Service:          service,
+					}
+
+					configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 				}
-
-				listenerOpts := buildListenerOpts{
-					env:            env,
-					proxy:          node,
-					proxyInstances: proxyInstances,
-					proxyLabels:    proxyLabels,
-					bind:           bind,
-					port:           listenPort.Port,
-					bindToPort:     bindToPort,
-				}
-
-				pluginParams := &plugin.InputParams{
-					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
-					ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-					Env:              env,
-					Node:             node,
-					ProxyInstances:   proxyInstances,
-					Push:             push,
-					Bind:             bind,
-					Port:             listenPort,
-				}
-
-				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
-
 			} else {
 				// This is a catch all egress listener with no port. This
 				// should be the last egress listener in the sidecar
@@ -1426,8 +1420,11 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: xdsutil.FileAccessLog,
 		}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
+		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 		} else {
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}

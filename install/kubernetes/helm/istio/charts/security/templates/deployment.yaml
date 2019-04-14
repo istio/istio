@@ -26,7 +26,6 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-citadel-service-account
 {{- if .Values.global.priorityClassName }}
@@ -55,6 +54,12 @@ spec:
           {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
           {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: {{ .Values.global.monitoringPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -74,3 +79,4 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

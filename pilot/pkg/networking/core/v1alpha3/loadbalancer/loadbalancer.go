@@ -31,6 +31,7 @@ func ApplyLocalityLBSetting(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	enableFailover bool,
 ) {
 	if locality == nil || loadAssignment == nil {
 		return
@@ -39,7 +40,8 @@ func ApplyLocalityLBSetting(
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
 		applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
-	} else {
+	} else if enableFailover {
+		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
 		applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
 	}
 }
@@ -73,7 +75,11 @@ func applyLocalityWeight(
 					if _, exist := misMatched[i]; exist {
 						if util.LocalityMatch(ep.Locality, locality) {
 							delete(misMatched, i)
-							destLocMap[i] = ep.LoadBalancingWeight.Value
+							if ep.LoadBalancingWeight != nil {
+								destLocMap[i] = ep.LoadBalancingWeight.Value
+							} else {
+								destLocMap[i] = 1
+							}
 							totalWeight += destLocMap[i]
 						}
 					}
@@ -141,7 +147,7 @@ func applyLocalityFailover(
 	for i, priority := range priorities {
 		if i != priority {
 			// the LocalityLbEndpoints index in ClusterLoadAssignment.Endpoints
-			for index := range priorityMap[priority] {
+			for _, index := range priorityMap[priority] {
 				loadAssignment.Endpoints[index].Priority = uint32(i)
 			}
 		}

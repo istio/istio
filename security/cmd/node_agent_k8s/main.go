@@ -259,12 +259,32 @@ func setWorkloadCacheTimeParams() {
 		secretRotationJobRunInterval = env
 	}
 
+	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
+	// Default to 10, a valid range is [10, 120000].
+	var initBackoff int64 = 10
+	env := os.Getenv("INITIAL_BACKOFF_MSEC")
+	if len(env) > 0 {
+		initialBackoff, err := strconv.ParseInt(env, 0, 32)
+		if err != nil {
+			log.Errorf("Failed to parse INITIAL_BACKOFF to integer with error: %v", err)
+			os.Exit(1)
+		} else if initialBackoff < 10 || initialBackoff > 120000 {
+			log.Errorf("INITIAL_BACKOFF should be within range 10 to 120000")
+			os.Exit(1)
+		} else {
+			initBackoff = initialBackoff
+		}
+	}
+
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretTTL, "secretTtl",
 		secretTTLDuration, "Secret's TTL")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
 		secretRefreshGraceDuration, "Secret's Refresh Grace Duration")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, "secretRotationInterval",
 		secretRotationJobRunInterval, "Secret rotation job running interval")
+
+	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, "initialBackoff",
+		initBackoff, "The initial backoff interval in milliseconds")
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")

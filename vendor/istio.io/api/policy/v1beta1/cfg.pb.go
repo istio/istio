@@ -1309,8 +1309,8 @@ type Tls struct {
 	//	*Tls_AuthHeader_
 	//	*Tls_CustomHeader
 	TokenType isTls_TokenType `protobuf_oneof:"token_type"`
-	// Indicates the name of adapter backend which is useful for routing with
-	// proxy-fronted backend.
+	// Used to configure mixer TLS client to verify the hostname on the returned
+	// certificates. It is also included in the client's handshake to support SNI.
 	ServerName string `protobuf:"bytes,6,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
 }
 
@@ -1638,8 +1638,9 @@ type Mutual struct {
 	// verify the presented adapter certificates. By default Mixer should already
 	// include Istio CA certificates and system certificates in cert pool.
 	CaCertificates string `protobuf:"bytes,3,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
-	// Indicates the name of adapter backend server which is useful for routing with
-	// proxy-fronted backend.
+	// Used to configure mixer mutual TLS client to supply server name for SNI.
+	// It is not used to verify the hostname of the peer certificate, since
+	// Istio verifies whitelisted SAN fields in mutual TLS.
 	ServerName string `protobuf:"bytes,4,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
 }
 

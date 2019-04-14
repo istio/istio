@@ -26,13 +26,13 @@ istio-ingressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    #requests:
-    #  cpu: 1800m
-    #  memory: 256Mi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 256Mi
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
@@ -44,6 +44,12 @@ istio-ingressgateway:
   #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
   ports:
     ## You can add custom gateway ports
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+  - port: 15020
+    targetPort: 15020
+    name: status-port
   - port: 80
     targetPort: 80
     name: http2
@@ -73,9 +79,6 @@ istio-ingressgateway:
   - port: 15443
     targetPort: 15443
     name: tls
-  - port: 15020
-    targetPort: 15020
-    name: status-port
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -112,6 +115,27 @@ istio-ingressgateway:
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
 
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote “hard” vs. “soft” requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # “security” and value “S1”.
+  podAntiAffinityLabelSelector: {}
+  podAntiAffinityTermLabelSelector: {}
+
 istio-egressgateway:
   enabled: false
   labels:
@@ -122,6 +146,13 @@ istio-egressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 256Mi
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}
@@ -158,6 +189,27 @@ istio-egressgateway:
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
   nodeSelector: {}
+  
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote “hard” vs. “soft” requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # “security” and value “S1”.
+  podAntiAffinityLabelSelector: {}
+  podAntiAffinityTermLabelSelector: {}
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well

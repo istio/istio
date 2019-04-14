@@ -17,6 +17,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -161,6 +162,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -335,7 +337,6 @@ spec:
         istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
