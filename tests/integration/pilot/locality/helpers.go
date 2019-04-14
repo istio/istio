@@ -18,6 +18,9 @@ func SendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 	for {
 		select {
 		case <-timeout:
+			if totalRequests < 1 {
+				t.Error("No requests made.")
+			}
 			if len(hostnameFailures) > 0 {
 				t.Errorf("Total requests: %v, requests made to service unexpected services: %v.", totalRequests, hostnameFailures)
 			}
