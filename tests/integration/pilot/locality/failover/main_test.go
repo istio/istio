@@ -34,4 +34,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["pilot.env.PILOT_ENABLE_LOCALITY_LOAD_BALANCING"] = "true"
+	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
+	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
 }

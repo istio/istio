@@ -35,47 +35,48 @@ import (
 	"istio.io/istio/tests/integration/pilot/locality"
 )
 
-// This test allows for Locality Load Balancing testing without needing Kube nodes in multiple regions.
-// We do this by overriding the calling service locality with the istio-locality label and the serving
-// services with a service entry.
+// This test allows for Locality Load Balancing Failover testing without needing Kube nodes in multiple regions.
+// We do this by overriding the calling service's locality with the istio-locality label and the serving
+// service's locality with a service entry.
 //
-// The created Service Entry for fake-external-service.com points the domain at services
+// The created Service Entry for fake-(cds|eds)-external-service-12345.com points the domain at services
 // that exist internally in the mesh. In the Service Entry we set service B to be in the same locality
 // as the caller (A) and service C to be in a different locality. We then verify that all request go to
 // service B. For details check the Service Entry configuration at the bottom of the page.
 //
 //  CDS Test
 //
-//                                                  100% +-> B (notregion.zone.subzone)
-//                                                       |
-//                                                       |
-//                                                       |
-// A (region.zone.subzone) -> fake-external-service.com -|-> C (othernotregion.zone.subzone)
-//                                                       |
-//                                                       |
-//                                                       |
-//                                                       +-> NonExistantService (region.zone.subzone)
+//                                                            100% +-> b (closeregion.zone.subzone)
+//                                                                 |
+//                                                                 |
+//                                                                 |
+// A (region.zone.subzone) -> fake-cds-external-service-12345.com -|-> c (notcloseregion.zone.subzone)
+//                                                                 |
+//                                                                 |
+//                                                                 |
+//                                                                 +-> NonExistantService (region.zone.subzone)
 //
 //
 //  EDS Test
 //
-//                                                       +-> 10.28.1.138 (B -> region.zone.subzone)
-//                                                       |
-//                                                       |
-//                                                       |
-// A (region.zone.subzone) -> fake-external-service.com -|
-//                                                       |
-//                                                       |
-//                                                       |
-//                                                       +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
+//                                                            100% +-> 10.28.1.138 (b -> closeregion.zone.subzone)
+//                                                                 |
+//                                                                 |
+//                                                                 |
+// A (region.zone.subzone) -> fake-eds-external-service-12345.com -|-> 10.28.1.139 (c -> notcloseregion.zone.subzone)
+//                                                                 |
+//                                                                 |
+//                                                                 |
+//                                                                 +-> 10.10.10.10 (NonExistantService -> region.zone.subzone)
+//
 
 const (
-	testDuration = 5 * time.Second
+	testDuration = 10 * time.Second
 )
 
 var serviceBHostname = regexp.MustCompile("^b-.*$")
 
-type FailoverServiceConfig struct {
+type ServiceConfig struct {
 	Name               string
 	Host               string
 	Namespace          string
@@ -101,18 +102,19 @@ func TestLocalityFailover(t *testing.T) {
 		testCDS(t, ctx, g, p)
 	})
 
-	// t.Run("TestFailoverEDS", func(t *testing.T) {
-	// 	testFailoverEDS(t, ctx, g, p)
-	// })
+	t.Run("TestEDS", func(t *testing.T) {
+		testEDS(t, ctx, g, p)
+	})
 
 }
 
 func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	t.Parallel()
 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
-	se := FailoverServiceConfig{
+	se := ServiceConfig{
 		"lplb-failover-cds-service-entry",
 		fakeHostname,
 		instance.Namespace().Name(),
@@ -136,35 +138,36 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 	locality.SendTraffic(t, testDuration, a, fakeHostname, serviceBHostname)
 }
 
-func testFailoverEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	// 	t.Parallel()
-	// 	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
-	// 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
-	// 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
-	// 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
+func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
+	t.Parallel()
+	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
+	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
+	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
 
-	// 	se := ServiceConfig{
-	// 		"STATIC",
-	// 		b.EndpointForPort(80).NetworkEndpoint().Address,
-	// 		c.EndpointForPort(80).NetworkEndpoint().Address,
-	// 	}
-	// 	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalFailoverServiceConfig)
-	// 	var buf bytes.Buffer
-	// 	tmpl.Execute(&buf, se)
-	// 	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
+	fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", rand.Int())
+	se := ServiceConfig{
+		"lplb-failover-eds-service-entry",
+		fakeHostname,
+		instance.Namespace().Name(),
+		"STATIC",
+		b.EndpointForPort(80).NetworkEndpoint().Address,
+		c.EndpointForPort(80).NetworkEndpoint().Address,
+		"10.10.10.10",
+	}
 
-	// 	// TODO: find a better way to do this!
-	// 	// This sleep allows config to propagate
-	// 	time.Sleep(20 * time.Second)
+	tmpl, _ := template.New("EDSServiceConfig").Parse(fakeExternalServiceConfig)
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, se)
+	g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
 
-	// 	// Send traffic to service B via a service entry for the test duration.
-	// 	wg := &sync.WaitGroup{}
-	// 	wg.Add(numSendTasks)
-	// 	log.Info("Sending traffic to local service (EDS)")
-	// 	for i := 0; i < numSendTasks; i++ {
-	// 		go sendTraffic(t, testDuration, a, "fake-external-service.com", wg)
-	// 	}
-	// 	wg.Wait()
+	// TODO: find a better way to do this!
+	// This sleep allows config to propagate
+	time.Sleep(10 * time.Second)
+
+	// Send traffic to service B via a service entry for the test duration.
+	log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
+	locality.SendTraffic(t, testDuration, a, fakeHostname, serviceBHostname)
 }
 
 var fakeExternalServiceConfig = `
@@ -188,9 +191,9 @@ spec:
   - address: {{.NonExistantService}}
     locality: region/zone/subzone
   - address: {{.ServiceBAddress}}
-    locality: notregion/zone/subzone
+    locality: closeregion/zone/subzone
   - address: {{.ServiceCAddress}}
-    locality: othernotregion/zone/subzone
+    locality: notcloseregion/zone/subzone
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -204,6 +207,10 @@ spec:
   - route:
     - destination:
         host: {{.Host}}
+    retries:
+      attempts: 3
+      perTryTimeout: 1s
+      retryOn: gateway-error,connect-failure,refused-stream
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -214,7 +221,7 @@ spec:
   host: {{.Host}}
   trafficPolicy:
     outlierDetection:
-      consecutiveErrors: 100
+      consecutiveErrors: 1
       interval: 1s
       baseEjectionTime: 3m
       maxEjectionPercent: 100

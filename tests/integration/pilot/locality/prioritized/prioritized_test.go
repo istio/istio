@@ -35,17 +35,17 @@ import (
 )
 
 // This test allows for Locality Prioritized Load Balancing testing without needing Kube nodes in multiple regions.
-// We do this by overriding the calling service locality with the istio-locality label and the serving
-// services with a service entry.
+// We do this by overriding the calling service's locality with the istio-locality label and the serving
+// service's locality with a service entry.
 //
-// The created Service Entry for fake-external-service.com points the domain at services
+// The created Service Entry for fake-(cds|eds)-external-service-12345.com points the domain at services
 // that exist internally in the mesh. In the Service Entry we set service B to be in the same locality
 // as the caller (A) and service C to be in a different locality. We then verify that all request go to
 // service B. For details check the Service Entry configuration at the bottom of the page.
 //
 //  CDS Test
 //
-//                                                                 +-> B (region.zone.subzone)
+//                                                                 +-> b (region.zone.subzone)
 //                                                                 |
 //                                                            100% |
 //                                                                 |
@@ -53,12 +53,12 @@ import (
 //                                                                 |
 //                                                              0% |
 //                                                                 |
-//                                                                 +-> C (notregion.notzone.notsubzone)
+//                                                                 +-> c (notregion.notzone.notsubzone)
 //
 //
 //  EDS Test
 //
-//                                                                 +-> 10.28.1.138 (B -> region.zone.subzone)
+//                                                                 +-> 10.28.1.138 (b -> region.zone.subzone)
 //                                                                 |
 //                                                            100% |
 //                                                                 |
@@ -66,7 +66,7 @@ import (
 //                                                                 |
 //                                                              0% |
 //                                                                 |
-//                                                                 +-> 10.28.1.139 (C -> notregion.notzone.notsubzone)
+//                                                                 +-> 10.28.1.139 (c -> notregion.notzone.notsubzone)
 
 const (
 	testDuration = 5 * time.Second

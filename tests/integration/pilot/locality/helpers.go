@@ -41,7 +41,7 @@ func SendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 				}
 			}
 			if err != nil {
-				errorFailures[fmt.Errorf("Send to fake-external-service.com failed: %v", err).Error()]++
+				errorFailures[fmt.Errorf("Send to %v failed: %v", to, err).Error()]++
 			}
 		}
 	}
