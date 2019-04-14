@@ -39,10 +39,17 @@ import (
 // We do this by overriding the calling service's locality with the istio-locality label and the serving
 // service's locality with a service entry.
 //
+// Failover is set in the mesh config as follows:
+// failover:
+// - from: region
+// 	 to: closeregion
+//
 // The created Service Entry for fake-(cds|eds)-external-service-12345.com points the domain at services
-// that exist internally in the mesh. In the Service Entry we set service B to be in the same locality
-// as the caller (A) and service C to be in a different locality. We then verify that all request go to
-// service B. For details check the Service Entry configuration at the bottom of the page.
+// that exist internally in the mesh. In the Service Entry we set a non-existent service or IP to be in the same
+// locality as the caller (A). Service B to be in the primary failover locality and service C to be in the secondary failover locality.
+// For CDS, the endpoint pool for the service in the local locality is empty so it fails over to service B.
+// For EDS, when the request to the local locality fails outlier detection ejects the fake IP and fails over to service B.
+// We then verify that all request go to service B. For details check the Service Entry configuration at the bottom of the page.
 //
 //  CDS Test
 //
@@ -54,7 +61,7 @@ import (
 //                                                                 |
 //                                                                 |
 //                                                                 |
-//                                                                 +-> NonExistantService (region.zone.subzone)
+//                                                                 +-> NonExistentService (region.zone.subzone)
 //
 //
 //  EDS Test
@@ -67,7 +74,7 @@ import (
 //                                                                 |
 //                                                                 |
 //                                                                 |
-//                                                                 +-> 10.10.10.10 (NonExistantService -> region.zone.subzone)
+//                                                                 +-> 10.10.10.10 (NonExistentService -> region.zone.subzone)
 //
 
 const (
