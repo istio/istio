@@ -12,7 +12,6 @@ spec:
   - number: 443
     name: https
     protocol: HTTPS
-  resolution: DNS
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
