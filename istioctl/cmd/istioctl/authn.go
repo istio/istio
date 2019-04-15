@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 )
 
@@ -41,7 +40,7 @@ istioctl authn tls-check 656bd7df7c-5zp4s.default bar
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
 			}
