@@ -2365,6 +2365,7 @@
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
+    "k8s.io/klog",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
