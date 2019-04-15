@@ -49,7 +49,7 @@ import (
 )
 
 var (
-	role = &model.Proxy{}
+	role             = &model.Proxy{}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
@@ -185,7 +185,6 @@ var (
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
-
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
