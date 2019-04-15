@@ -209,9 +209,9 @@ else
         r=${range%$pl}
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
-                ipv4_ranges_exclude+=("$range")
+                ipv4_ranges_include+=("$range")
             else
-                ipv6_ranges_exclude+=("$range")
+                ipv6_ranges_include+=("$range")
             fi
         fi
     done
@@ -520,7 +520,6 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     done
   fi
   # Apply outbound IPv6 inclusions.
-  # for now process only "*"
   if [ "${ipv6_ranges_include[0]}" == "*" ]; then
     # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
     ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
