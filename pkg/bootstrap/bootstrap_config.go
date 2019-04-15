@@ -174,11 +174,11 @@ func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[str
 	}
 }
 
-// getNodeMetaData function uses an environment variable contract
+// updateNodeMetadataFromEnv function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, meta map[string]string) map[string]string {
+func updateNodeMetadataFromEnv(envs []string, meta map[string]string) map[string]string {
 	if meta == nil {
 		meta = map[string]string{}
 	}
@@ -247,7 +247,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["nodeID"] = node
 
 	// Support passing extra info from node environment as metadata
-	meta := getNodeMetaData(localEnv, config.EnvoyNodeMetadata)
+	meta := updateNodeMetadataFromEnv(localEnv, config.EnvoyNodeMetadata)
 
 	if inclusionPatterns, ok := meta[EnvoyStatsMatcherInclusionPatterns]; ok {
 		opts["inclusionPatterns"] = strings.Split(inclusionPatterns, ",")
