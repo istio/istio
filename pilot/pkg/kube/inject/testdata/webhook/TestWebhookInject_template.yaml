@@ -12,8 +12,8 @@ volumes:
   name: istio-envoy
 - name: istio-certs
   secret:
-    [[ if eq .Spec.ServiceAccountName "" -]]
+    {{ if eq .Spec.ServiceAccountName "" -}}
     secretName: istio.default
-    [[ else -]]
-    secretName: [[ printf "istio.%s" .Spec.ServiceAccountName ]]
-    [[ end -]]
+    {{ else -}}
+    secretName: {{ printf "istio.%s" .Spec.ServiceAccountName }}
+    {{ end -}}
