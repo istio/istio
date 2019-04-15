@@ -200,6 +200,10 @@ type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
 
+	// Name of the (go) object define the schema. Leave blank to infer from the 'Type' below.
+	// This field is used to generate Kube CRD types map (pilot/pkg/config/kube/crd/types.go).
+	SchemaObjectName string
+
 	// Type is the config proto type.
 	Type string
 
@@ -448,6 +452,7 @@ var (
 
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
+		SchemaObjectName: "AuthenticationPolicy",
 		Type:        "policy",
 		Plural:      "policies",
 		Group:       "authentication",
@@ -460,6 +465,7 @@ var (
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
 	AuthenticationMeshPolicy = ProtoSchema{
 		ClusterScoped: true,
+		SchemaObjectName: "AuthenticationMeshPolicy",
 		Type:          "mesh-policy",
 		Plural:        "mesh-policies",
 		Group:         "authentication",
