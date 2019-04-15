@@ -20,7 +20,7 @@ configMap: true
 # Only one pilot profile should enable ingress support !!!
 ingress:
   # If empty, node-port is assumed.
-  ingressService: ingressgateway
+  ingressService: istio-ingressgateway
   # DEFAULT: all Ingress resources without annotation or with istio annotation
   # STRICT: only with istio annotation
   # OFF: no ingress or sync.

@@ -22,8 +22,8 @@ function print_help() {
 }
 
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
-SKIP_CLEANUP=0
-SKIP_SETUP=0
+SKIP_CLEANUP=${SKIP_CLEANUP:-0}
+SKIP_SETUP=${SKIP_SETUP:-0}
 while [ $# -gt 0 ]
 do
     case $1 in
@@ -59,29 +59,32 @@ cd $ISTIO_PATH
 BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3"
 
 if [ "$SKIP_SETUP" -ne 1 ]; then
-    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+    kubectl create ns bookinfo || /bin/true
+    kubectl label ns bookinfo istio-env=istio-control --overwrite
+    #kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    #kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    #kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
-    kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-    kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
-    kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+    kubectl -n bookinfo apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+    kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
+    kubectl -n bookinfo apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+    # Not sure what this does...
+    #for depl in ${BOOKINFO_DEPLOYMENTS}; do
+    #    kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+    #done
     for depl in ${BOOKINFO_DEPLOYMENTS}; do
-        kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
+        kubectl -n bookinfo rollout status deployments $depl --timeout=$WAIT_TIMEOUT
     done
 fi
 
-for depl in ${BOOKINFO_DEPLOYMENTS}; do
-    kubectl rollout status deployments $depl --timeout=$WAIT_TIMEOUT
-done
 kubectl get pod
 
-export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 if [ -z $INGRESS_HOST ]; then
-    export INGRESS_HOST=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.clusterIP}')
+    export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
 fi
-export INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
+export INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 set +e
 n=1
@@ -102,7 +105,7 @@ set -e
 
 if [ "$SKIP_CLEANUP" -ne 1 ]; then
     echo "Cleaning up..."
-    kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-    kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+    kubectl -n bookinfo delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 fi

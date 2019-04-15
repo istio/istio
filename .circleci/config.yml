@@ -29,7 +29,6 @@ initWorkingDir: &initWorkingDir
 
 jobs:
   # TODO: add encrypted creds for real clusters, push to real clusters
-
   build:
     working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
     docker:
@@ -39,6 +38,32 @@ jobs:
         environment:
           GOPATH: /workspace/go
           SKIP_CLEANUP: 1
+          GOROOT: /usr/local/bin/go
+          PATH: ${PATH}:${GOROOT}/bin
+          TMPDIR: /workspace/go/tmp
+          TEST_TARGET: run-sanity-tests
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - run:
+          command: make build
+      - store_artifacts:
+          path: /workspace/go/out/
+
+  install-docker:
+    working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
+    docker:
+      # Image with KIND installed, based on Istio Kind node-image
+      # Should have all tools we need, recreated when we rev the tool versions.
+      - image: istionightly/kind:latest
+        environment:
+          GOPATH: /workspace/go
+          SKIP_CLEANUP: 1
+          GOROOT: /usr/local/bin/go
+          PATH: ${PATH}:${GOROOT}/bin
+          TMPDIR: /workspace/go/tmp
+          TEST_TARGET: run-sanity-tests
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -48,6 +73,7 @@ jobs:
       #    docker_layer_caching: true
       - run:
           command: |
+            mkdir -p $GOPATH/tmp
             mkdir -p $GOPATH/src/istio.io/
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
             git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
@@ -148,12 +174,13 @@ workflows:
                  - master
                  - dev
     jobs:
-      - build
+      - install-docker
       - install-minikube
       - modular-installation
 
   all:
     jobs:
       - build
+      - install-docker
       - install-minikube
       - modular-installation

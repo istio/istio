@@ -8,6 +8,15 @@
 # For local development, after 'make test' you can run individual steps or debug - the KIND cluster will be wiped
 # the next time you run 'make test', but will be kept around for debugging and repeat tests.
 #
+# Example local workflow:
+# - prepare cluster for development:
+#   make clean prepare MOUNT=1 KIND_CLUSTER=local
+# - install or reinstal istio components needed for test:
+#   make TEST_TARGET="install-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
+# - Run individual tests using:
+#    make TEST_TARGET="run-simple-istio-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
+#
+#
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
@@ -64,16 +73,29 @@ endif
 # 4. make run-test
 test: info clean prepare sync run-test clean
 
+# Verify each component can be generated. Create pre-processed yaml files with the defaults.
+# TODO: minimize 'ifs' in templates, and generate alternative files for cases we can't remove.
+build:
+	mkdir ${OUT}/release
+	cp crds.yaml ${OUT}/release
+	bin/iop istio-system istio-system-security ${BASE}/security/citadel -t > ${OUT}/release/citadel.yaml
+	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
+	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery -t > ${OUT}/release/istio-discovery.yaml
+	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject -t > ${OUT}/release/istio-autoinject.yaml
+
+
 # Runs the test
 run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make ${TEST_TARGET}"
+		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make git.dep ${TEST_TARGET}"
 
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base install-ingress install-telemetry run-bookinfo
+run-all-tests: install-crds install-base install-ingress run-bookinfo
+
+run-sanity-tests: install-crds install-base install-ingress run-bookinfo
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
@@ -89,15 +111,16 @@ ifeq ($(SKIP_CLEANUP), 0)
 endif
 
 # Install CRDS
-
-install-crds:
+${GOPATH}/out/yaml/crds.yaml: crds.yaml
+	mkdir -p ${GOPATH}/out/yaml
+	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
 	kubectl apply -f crds.yaml
-
-wait-crds:
 	kubectl wait --for=condition=Established -f crds.yaml
 
+install-crds: ${GOPATH}/out/yaml/crds.yaml
+
 # Individual step to install or update base istio.
-install-base:
+install-base: install-crds
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
 	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
@@ -116,10 +139,27 @@ install-telemetry:
 	bin/iop istio-telemetry istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=${WAIT_TIMEOUT}
 
+# Simple bookinfo install and curl command
 run-bookinfo:
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
 	SKIP_CLEANUP=1 bin/test.sh ${GOPATH}/src/istio.io/istio
+
+# The simple test from integration.
+# Will kube-inject and test the ingress and service-to-service
+run-simple:
+	# Test assumes ingress is in same namespace with pilot.
+	bin/iop istio-control istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments ingressgateway -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl create ns simple
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
+
+run-simple-istio-system:
+	kubectl create ns simple-system
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple E2E_ARGS="--skip_setup --namespace=simple-system  --use_local_cluster=true --istio_namespace=istio-system")
+
+run-integration:
+	(cd ${GOPATH}/src/istio.io/istio; make test-integration-kube)
 
 run-stability:
 	 ISTIO_ENV=istio-control bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
@@ -142,8 +182,6 @@ ifneq ($(MOUNT), 1)
 	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
 		${GOPATH}/src/istio.io
 	docker cp . ${KIND_CLUSTER}-control-plane:${GOPATH}/src/github.com/istio-ecosystem/istio-installer
-	docker cp ${GOPATH}/src/istio.io/istio ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io
-	docker cp ${GOPATH}/src/istio.io/tools ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io
 endif
 
 # Run an iterative shell in the docker image running the tests and k8s kind
@@ -174,6 +212,16 @@ docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/he
 
 # Build or get the dependencies.
 dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
+
+${GOPATH}/src/istio.io/istio:
+	mkdir -p $GOPATH/src/istio.io
+	git clone https://github.com/istio/istio.git ${GOPATH}/src/istio.io/istio
+
+${GOPATH}/src/istio.io/tools:
+	mkdir -p $GOPATH/src/istio.io
+	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/tools
+
+git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
 
 ${GOPATH}/bin/repo:
 	curl https://storage.googleapis.com/git-repo-downloads/repo > $@
