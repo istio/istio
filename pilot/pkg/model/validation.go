@@ -412,6 +412,11 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 func ValidateGateway(name, namespace string, msg proto.Message) (errs error) {
+	// Gateway name must conform to the DNS label format (no dots)
+	if !IsDNS1123Label(name) {
+		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+	}
+
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
