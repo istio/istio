@@ -58,19 +58,26 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 
 // Delete this deployment instance.
 func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
-	if len(i.appliedFiles) > 0 {
-		// Delete in the opposite order that they were applied.
-		for ix := len(i.appliedFiles) - 1; ix >= 0; ix-- {
-			err = multierror.Append(err, a.Delete(i.namespace, i.appliedFiles[ix])).ErrorOrNil()
+	f := func() (interface{}, bool, error) {
+		if len(i.appliedFiles) > 0 {
+			// Delete in the opposite order that they were applied.
+			for ix := len(i.appliedFiles) - 1; ix >= 0; ix-- {
+				err = multierror.Append(err, a.Delete(i.namespace, i.appliedFiles[ix])).ErrorOrNil()
+			}
+		} else if i.yamlFilePath != "" {
+			if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
+				scopes.CI.Warnf("Error deleting deployment: %v", err)
+			}
+		} else {
+			if err = a.DeleteContents(i.namespace, i.yamlContents); err != nil {
+				scopes.CI.Warnf("Error deleting deployment: %v", err)
+			}
 		}
-	} else if i.yamlFilePath != "" {
-		if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
-			scopes.CI.Warnf("Error deleting deployment: %v", err)
-		}
-	} else {
-		if err = a.DeleteContents(i.namespace, i.yamlContents); err != nil {
-			scopes.CI.Warnf("Error deleting deployment: %v", err)
-		}
+		return nil, true, nil
+	}
+
+	if _, err := retry.Do(f, opts...); err != nil {
+		return err
 	}
 
 	if wait && err != nil {
