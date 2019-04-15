@@ -15,54 +15,81 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
+
+	"istio.io/istio/istioctl/pkg/kubernetes"
 )
 
-type dashboardTestCase struct {
-	args           []string
-	expectedString string // String output is expected to contain
-	wantException  bool
-}
-
 func TestDashboard(t *testing.T) {
+	clientExecFactory = mockExecClientDashboard
 
-	cases := []dashboardTestCase{
+	cases := []testCase{
 		{ // case 0
 			args:           strings.Split("experimental dashboard", " "),
-			expectedString: "Access to Istio web UIs",
+			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
 		{ // case 1
 			args:           strings.Split("experimental dashboard invalid", " "),
-			expectedString: `unknown dashboard "invalid"`,
+			expectedRegexp: regexp.MustCompile(`unknown dashboard "invalid"`),
+			wantException:  true,
+		},
+		{ // case 2
+			args:           strings.Split("experimental dashboard controlz", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: specify a pod"),
+			wantException:  true,
+		},
+		{ // case 3
+			args:           strings.Split("experimental dashboard controlz pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 4
+			args:           strings.Split("experimental dashboard envoy", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: specify a pod"),
+			wantException:  true,
+		},
+		{ // case 5
+			args:           strings.Split("experimental dashboard envoy pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
+			wantException:  true,
+		},
+		{ // case 6
+			args:           strings.Split("experimental dashboard grafana", " "),
+			expectedOutput: "Error: no Grafana pods found\n",
+			wantException:  true,
+		},
+		{ // case 7
+			args:           strings.Split("experimental dashboard jaeger", " "),
+			expectedOutput: "Error: no Jaeger pods found\n",
+			wantException:  true,
+		},
+		{ // case 8
+			args:           strings.Split("experimental dashboard kiali", " "),
+			expectedOutput: "Error: no Kiali pods found\n",
+			wantException:  true,
+		},
+		{ // case 9
+			args:           strings.Split("experimental dashboard prometheus", " "),
+			expectedOutput: "Error: no Prometheus pods found\n",
+			wantException:  true,
+		},
+		{ // case 10
+			args:           strings.Split("experimental dashboard zipkin", " "),
+			expectedOutput: "Error: no Zipkin pods found\n",
 			wantException:  true,
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			var out bytes.Buffer
-			rootCmd.SetOutput(&out)
-			rootCmd.SetArgs(c.args)
-
-			fErr := rootCmd.Execute()
-			output := out.String()
-
-			if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
-				t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", strings.Join(c.args, " "), output, c.expectedString)
-			}
-			if c.wantException {
-				if fErr == nil {
-					t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
-						strings.Join(c.args, " "), output)
-				}
-			} else {
-				if fErr != nil {
-					t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
-				}
-			}
+			verifyOutput(t, c)
 		})
 	}
+}
+
+func mockExecClientDashboard(_, _ string) (kubernetes.ExecClient, error) {
+	return &mockExecConfig{}, nil
 }
