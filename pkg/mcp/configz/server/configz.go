@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/mcp/configz/server/assets"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -68,7 +69,7 @@ type data struct {
 // Activate is implementation of Topic.Activate.
 func (c *configzTopic) Activate(context fw.TopicContext) {
 	l := template.Must(context.Layout().Clone())
-	c.tmpl = template.Must(l.Parse(string(MustAsset("assets/templates/config.html"))))
+	c.tmpl = template.Must(l.Parse(string(assets.MustAsset("templates/config.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		d := c.collectData("")
