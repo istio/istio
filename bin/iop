@@ -64,6 +64,7 @@ function iop() {
     fi
 }
 
+# The output of template and kustomize will be saved under $OUT/$NS/$NAME
 function render_kube_yaml() {
     local ns=$1
     shift

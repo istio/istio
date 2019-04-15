@@ -1,3 +1,5 @@
+# Override istio settings to fit in KIND
+
 global:
   defaultResources:
     requests:
@@ -9,6 +11,16 @@ global:
       requests:
         cpu: 0m
         memory: 1Mi
+
+    accessLogFile: "/dev/stdout"
+
+# This section is passed to all templates
+# TODO: should be moved to kustomize
+resources:
+  requests:
+    cpu: 0m
+    memory: 1Mi
+
 
 # Pilot options
 configValidation: true
