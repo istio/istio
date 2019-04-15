@@ -125,7 +125,7 @@ test.integration.race.kube: | $(JUNIT_REPORT)
 test.integration.race.native: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} --log_output_level=CI:debug,tf:debug -timeout 120m \
+	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
