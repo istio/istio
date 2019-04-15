@@ -15,7 +15,6 @@
 package sds_citadel_test
 
 import (
-	"path"
 	"testing"
 	"time"
 
@@ -23,43 +22,17 @@ import (
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/connection"
+	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
 	inst istio.Instance
 )
-
-type testPolicy struct {
-	t         *testing.T
-	env       *kube.Environment
-	namespace string
-	fileName  string
-}
-
-func (p testPolicy) tearDown() {
-	p.t.Logf("Tearing down policy %q.", p.fileName)
-	if err := p.env.Delete(p.namespace, path.Join("testdata", p.fileName)); err != nil {
-		p.t.Fatalf("Cannot delete %q from namespace %q: %v", p.fileName, p.namespace, err)
-	}
-}
-
-func applyPolicyFile(t *testing.T, env *kube.Environment, namespace string, fileName string) *testPolicy {
-	t.Logf("Applying policy file %v", fileName)
-	if err := env.Apply(namespace, path.Join("testdata", fileName)); err != nil {
-		t.Fatalf("Cannot apply %q to namespace %q: %v", fileName, namespace, err)
-		return nil
-	}
-	return &testPolicy{
-		t:         t,
-		env:       env,
-		namespace: namespace,
-		fileName:  fileName,
-	}
-}
 
 func TestSdsCitadelCaFlow(t *testing.T) {
 	ctx := framework.NewContext(t)
@@ -71,8 +44,11 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 		t.Fatalf("Fail to get default config: %v", err)
 	}
 	env := ctx.Environment().(*kube.Environment)
-	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
-	appInst := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
+	appInst := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
 
 	aApp, _ := appInst.GetAppOrFail("a", t).(apps.KubeApp)
 	bApp, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)
@@ -90,7 +66,8 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 	namespace := istioCfg.SystemNamespace
 	configFile := "global-mtls.yaml"
 
-	policy := applyPolicyFile(t, env, namespace, configFile)
+	testPolicy := policy.ApplyPolicyFile(t, env, namespace, configFile)
+	defer testPolicy.TearDown()
 	// Sleep 3 seconds for the policy to take effect.
 	time.Sleep(3 * time.Second)
 	for _, conn := range connections {
@@ -98,7 +75,6 @@ func TestSdsCitadelCaFlow(t *testing.T) {
 			return connection.CheckConnection(t, conn)
 		}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 	}
-	policy.tearDown()
 }
 
 func setupConfig(cfg *istio.Config) {

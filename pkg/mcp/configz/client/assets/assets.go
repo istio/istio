@@ -12,19 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package reachability
+//go:generate $GOPATH/src/istio.io/istio/bin/go-bindata.sh --nocompress --nometadata --pkg assets -o assets.gen.go ./templates/...
 
-import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-)
-
-var (
-	ist istio.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework.Main("reachability_test", m, istio.SetupOnKube(&ist, nil))
-}
+package assets
