@@ -78,10 +78,14 @@ spec:
           - name: "ENABLE_INGRESS_GATEWAY_SDS"
             value: "true"
           - name: "INGRESS_GATEWAY_NAMESPACE"
+{{- if not $spec.sds.sdsSecretsNamespace }}
             valueFrom:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+{{- else }}    
+            value: {{ $spec.sds.sdsSecretsNamespace }}
+{{- end }}
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway

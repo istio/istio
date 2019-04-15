@@ -18,6 +18,8 @@ istio-ingressgateway:
     # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
     # This server runs in the same pod as ingress gateway.
     image: node-agent-k8s
+    # Namespace SDS watches for TLS secrets, if set to empty it watches the namespace the gateway is deployed to.
+    sdsSecretsNamespace: ""
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
