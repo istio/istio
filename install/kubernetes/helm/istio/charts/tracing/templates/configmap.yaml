@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger-tracing
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+data:
+  span_storage_type: {{ .Values.jaeger.span_storage_type }}
+  es.server_urls: {{ .Values.jaeger.es.server_urls }}
+  es.bulk.actions: {{ .Values.jaeger.es.bulk.actions | quote }}
+  es.bulk.flush_interval: {{ .Values.jaeger.es.bulk.flush_interval | quote }}
+  es.bulk.size: {{ .Values.jaeger.es.bulk.size | quote }}
+  es.bulk.workers: {{ .Values.jaeger.es.bulk.workers | quote }}
+  es.index_prefix: {{ .Values.jaeger.es.index_prefix }}
+  es.max_span_age: {{ .Values.jaeger.es.max_span_age | quote }}
+  es.num_replicas: {{ .Values.jaeger.es.num_replicas | quote }}
+  es.num_shards: {{ .Values.jaeger.es.num_shards | quote }}
+  es.sniffer: {{ .Values.jaeger.es.sniffer }}
+  es.tags_as_fields.all: {{ .Values.jaeger.es.tags_as_fields.all | quote }}
+  es.tags_as_fields.config_file: {{ .Values.jaeger.es.tags_as_fields.config_file }}
+  es.tags_as_fields.dot_replacement: {{ .Values.jaeger.es.tags_as_fields.dot_replacement }}
+  es.timeout: {{ .Values.jaeger.es.timeout | quote }}
+  es.tls.enable: {{ .Values.jaeger.es.tls.enable | quote }}

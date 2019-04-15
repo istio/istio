@@ -30,8 +30,63 @@ podAntiAffinityTermLabelSelector: {}
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.9
+  # The type of backend (cassandra, elasticsearch, kafka, memory) used for trace storage.
+  # Multiple backends can be specified (currently only for writing spans) as comma-separated list,
+  # e.g. "elasticsearch, memory". (default "memory")
+  span_storage_type: memory
   memory:
     max_traces: 50000
+  # Elasticsearch backend configuration. Configuration applies when "jaeger.span_storage_type" is set to "elasticsearch"
+  es:
+    # The comma-separated list of ElasticSearch servers, must be full url i.e. http://elasticsearch:9200
+    #(default "http://elasticsearch:9200")
+    server_urls: http://elasticsearch:9200
+    # The username required by ElasticSearch. (default "elastic")
+    username:
+    # The password required by ElasticSearch. (default "changeme")
+    password:
+
+    bulk:
+      # The number of requests that can be enqueued before the bulk processor decides to commit (default 1000).
+      actions: 1000
+      # Duration after which bulk requests are committed, regardless of other tresholds. Set to zero to disable.
+      # By default, this is disabled. (default 200ms)
+      flush_interval: 200
+      # The number of bytes that the bulk requests can take up before the bulk processor decides to commit (default 5000000)
+      size: 5000000
+      # The number of workers that are able to receive bulk requests and eventually commit them to Elasticsearch (default 1)
+      workers: 1
+    # Optional prefix of Jaeger indices. For example "production" creates "production:jaeger-*".
+    index_prefix: production
+    # The maximum lookback for spans in ElasticSearch (default 72h0m0s)
+    max_span_age:
+    # The number of replicas per index in ElasticSearch (default 1)
+    num_replicas: 1
+    # The number of shards per index in ElasticSearch (default 5)
+    num_shards: 5
+    # The sniffer config for ElasticSearch; client uses sniffing process to find all nodes automatically,
+    # disable if not required.
+    sniffer:
+    tags_as_fields:
+      # (Experimental) Store all span and process tags as object fields.
+      # If true .tags-as-fields.config-file is ignored. Binary tags are always stored as nested objects. (default "false")
+      all: false
+      # (Experimental) Optional path to a file containing tag keys which will be stored as object fields.
+      # Each key should be on a separate line.
+      config_file:
+      # (Experimental) The character used to replace dots (".") in tag keys stored as object fields. (default "@")
+      dot_replacement:
+    # Timeout used for queries. A Timeout of zero means no timeout (default 0s)
+    timeout:
+    tls:
+      # Enable TLS certificate authentication, (default "false")
+      enable: true
+      # Path to TLS CA file
+      ca:
+      # Path to TLS certificate file
+      cert:
+      # Path to TLS key file
+      key:
 
 zipkin:
   hub: docker.io/openzipkin

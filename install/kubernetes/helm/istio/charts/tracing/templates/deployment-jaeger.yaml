@@ -59,12 +59,107 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: SPAN_STORAGE_TYPE
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: span_storage_type
+{{ if eq .Values.jaeger.span_storage_type "elasticsearch" }}
+          - name: ES_SERVER_URLS
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.server_urls
+{{- if .Values.jaeger.es.username }}
+          - name: ES_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: elasticsearch
+                key: username
+          - name: ES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: elasticsearch
+                key: password
+{{- end }}
+          - name: ES_BULK_FLASH_INTERVAL
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.bulk.flush_interval
+          - name: ES_BULK_SIZE
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.bulk.size
+          - name: ES_BULK_WORKERS
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.bulk.workers
+          - name: ES_INDEX_PREFIX
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.index_prefix
+          - name: ES_MAX_SPAN_AGE
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.max_span_age
+          - name: ES_NUM_REPLICAS
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.num_replicas
+          - name: ES_NUM_SHARDS
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.num_shards
+          - name: ES_SNIFFER
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key:  es.sniffer
+          - name: ES_TAGS_AS_FIELDS_ALL
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.tags_as_fields.all
+          - name: ES_TAGS_AS_FIELDS_CONFIG_FILE
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.tags_as_fields.config_file
+          - name: ES_TAGS_AS_FIELDS_DOT_REPLACEMENT
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.tags_as_fields.dot_replacement
+          - name: ES_TIMEOUT
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.timeout
+          - name: TLS
+            valueFrom:
+              configMapKeyRef:
+                name: jaeger-tracing
+                key: es.tls.enable
+{{- end }}
           - name: COLLECTOR_ZIPKIN_HTTP_PORT
             value: "9411"
           - name: MEMORY_MAX_TRACES
             value: "{{ .Values.jaeger.memory.max_traces }}"
           - name: QUERY_BASE_PATH
             value: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
+{{- if and (eq .Values.jaeger.span_storage_type "elasticsearch") (.Values.jaeger.es.tls.enable) }}
+          volumeMounts:
+          - name: elasticsearch-tls
+            mountPath: "/var/run/secrets"
+            readOnly: true
+{{- end }}
           livenessProbe:
             httpGet:
               path: /
@@ -79,6 +174,12 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+      volumes:
+{{- if and (eq .Values.jaeger.span_storage_type "elasticsearch") (.Values.jaeger.es.tls.enable) }}
+        - name: elasticsearch-tls
+          secret:
+            secretName: elasticsearch-tls
+{{ end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
