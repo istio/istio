@@ -443,7 +443,7 @@ func TestNodeMetadata(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := getNodeMetaData(tc.envFunc(), tc.initialMetadata)
+			actual := updateNodeMetadataFromEnv(tc.envFunc(), tc.initialMetadata)
 			assert.Equal(t, tc.expectedMetadata, actual)
 		})
 	}
