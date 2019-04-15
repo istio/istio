@@ -585,7 +585,14 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	}
 
 	if util.IsProxyVersionGE11(node) {
-		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{}
+		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
+			FilterEnabled: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		}
 	} else {
 		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
 	}
