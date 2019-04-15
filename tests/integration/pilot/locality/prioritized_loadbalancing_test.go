@@ -89,7 +89,9 @@ func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 
 	// Share Istio Control Plane
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
 
 	t.Run("TestCDS", func(t *testing.T) {
 		testLocalityPrioritizedLoadBalancingCDS(t, ctx, g, p)
@@ -103,7 +105,10 @@ func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 
 func testLocalityPrioritizedLoadBalancingCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
-	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{
+		Pilot:  p,
+		Galley: g,
+	})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	se := ServiceConfig{"DNS", "b", "c"}
@@ -128,7 +133,10 @@ func testLocalityPrioritizedLoadBalancingCDS(t *testing.T, ctx resource.Context,
 
 func testLocalityPrioritizedLoadBalancingEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
-	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{
+		Pilot:  p,
+		Galley: g,
+	})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
