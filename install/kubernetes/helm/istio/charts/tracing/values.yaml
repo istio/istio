@@ -80,7 +80,7 @@ jaeger:
     timeout:
     tls:
       # Enable TLS certificate authentication, (default "false")
-      enable: true
+      enable: false
       # Path to TLS CA file
       ca:
       # Path to TLS certificate file
