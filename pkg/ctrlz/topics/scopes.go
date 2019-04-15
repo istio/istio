@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 	"istio.io/istio/pkg/log"
 )
 
@@ -77,7 +78,7 @@ func getScopeInfo(s *log.Scope) *scopeInfo {
 }
 
 func (scopeTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/scopes.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/scopes.html"))))
 
 	_ = context.HTMLRouter().NewRoute().HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		allScopes := log.Scopes()
