@@ -29,6 +29,9 @@ jobs:
     - get: istio-installer
       trigger: true
     - task: cleanup
+      params: &install-params
+          TAG: 1.1.0
+          KUBECONFIG: ((KUBECONFIG))
       config:
         platform: linux
         image_resource:
@@ -42,10 +45,11 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh cleanup
     - task: install-crds
+      params: *install-params
       config:
         platform: linux
         image_resource:
@@ -59,14 +63,13 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_crds
     - task: install-system
       config:
         platform: linux
-        params: &install-params
-          TAG: 1.1.0
+        params: *install-params
         image_resource:
           type: docker-image
           source:
@@ -78,7 +81,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_system
     - task: install-control
@@ -96,7 +99,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_control
     - task: install-ingress
@@ -114,7 +117,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_ingress
     - task: install-telemetry
@@ -132,7 +135,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_telemetry
 
@@ -148,6 +151,8 @@ jobs:
       trigger: true
       passed: [install]
     - task: install-bookinfo
+      params:
+        KUBECONFIG: ((KUBECONFIG))
       config:
         platform: linux
         image_resource:
@@ -163,7 +168,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
 
@@ -185,6 +190,7 @@ jobs:
         params: &update-params
           TAG: master-latest-daily
           HUB: gcr.io/istio-release
+          KUBECONFIG: ((KUBECONFIG))
           SUFFIX: master
         image_resource:
           type: docker-image
@@ -197,7 +203,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_system --update
     - task: update-control
@@ -215,7 +221,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_control --update
     - task: update-ingress
@@ -235,7 +241,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_ingress --update
     - task: update-telemetry
@@ -253,7 +259,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh install_telemetry --update
     - task: remove-old-installation
@@ -271,7 +277,7 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh switch_istio_control --update
 
@@ -288,6 +294,8 @@ jobs:
       trigger: false
       passed: [ update ]
     - task: install-bookinfo
+      params:
+        KUBECONFIG: ((KUBECONFIG))
       config:
         platform: linux
         image_resource:
@@ -303,6 +311,6 @@ jobs:
           args:
           - -ec
           - |
-            echo "((KUBECONFIG))" > /tmp/kubeconfig.yaml
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
