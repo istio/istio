@@ -345,7 +345,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 
 	svc := in.ServiceInstance.Service.Hostname
 	attr := in.ServiceInstance.Service.Attributes
-	authzPolicies := in.Env.PushContext.AuthzPolicies
+	authzPolicies := in.Push.AuthzPolicies
 	rbacEnabled, globalPermissive := isRbacEnabled(string(svc), attr.Namespace, authzPolicies)
 	if !rbacEnabled {
 		return nil

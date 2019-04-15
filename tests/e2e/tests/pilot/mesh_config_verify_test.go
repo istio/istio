@@ -116,32 +116,15 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 		return err
 	}
 
-	// Verify that the mesh contains endpoints from the primary cluster only
-	log.Infof("Before adding remote cluster secret, verify that the mesh only contains endpoints from the primary cluster only")
-	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
-		return err
-	}
-
-	if !tc.Kube.SplitHorizon {
-		if err = verifyMCMeshConfig(tc.Kube.RemoteIstioctl, remotePodNames, primaryAppEPs); err != nil {
-			return err
-		}
-	}
-
-	// Add the remote cluster by creating a secret and configmap in the primary cluster
-	if err = addRemoteCluster(); err != nil {
-		return err
-	}
-
 	// Verify that the mesh contains endpoints from both the primary and the remote clusters
-	log.Infof("After adding remote cluster secret, verify that the mesh contains endpoints from both the primary and the remote clusters")
+	log.Infof("Verify that the mesh contains endpoints from both the primary and the remote clusters")
 	aggregatedAppEPs := aggregateAppEPs(primaryAppEPs, remoteAppEPs, remoteGwAddr)
 
 	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, aggregatedAppEPs); err != nil {
 		return err
 	}
 
-	// currently, the primary cluster is not accessible from the remote one
+	// currently, the primary cluster is not accessible from the remote one for split horizon
 	accessibleFromRemotePods := remoteAppEPs
 	if !tc.Kube.SplitHorizon {
 		accessibleFromRemotePods = aggregatedAppEPs
@@ -155,8 +138,8 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 		return err
 	}
 
-	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
 	// Verify that the mesh contains the primary endpoints only
+	log.Infof("After deleting remote cluster secret, verify again that the mesh contains endpoints from the primary cluster only")
 	if err = verifyMCMeshConfig(tc.Kube.Istioctl, primaryPodNames, primaryAppEPs); err != nil {
 		return err
 	}
@@ -167,7 +150,7 @@ func createAndVerifyMCMeshConfig(remoteGwAddr string) error {
 		}
 	}
 
-	// Again, add the remote cluster by creating a secret and configmap in the primary cluster
+	// Add back the remote cluster by creating a secret and configmap in the primary cluster
 	if err = addRemoteCluster(); err != nil {
 		return err
 	}

@@ -36,11 +36,10 @@ func Execute(format string, args ...interface{}) (string, error) {
 			p = append(p, parts[i])
 		}
 	}
-	return executeArgs(nil, parts[0], p[1:]...)
+	return ExecuteArgs(nil, parts[0], p[1:]...)
 }
 
-func executeArgs(env []string, name string, args ...string) (string, error) {
-
+func ExecuteArgs(env []string, name string, args ...string) (string, error) {
 	if scope.DebugEnabled() {
 		cmd := strings.Join(args, " ")
 		cmd = name + " " + cmd

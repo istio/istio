@@ -1,4 +1,10 @@
+options:
+  no_parent_owners: true
+
+reviewers:
+  - wg-testing
 approvers:
-  - hklai
-  - rkpagadala
-  - utka
+  - wg-testing-leads
+
+labels:
+  - ci/prow
