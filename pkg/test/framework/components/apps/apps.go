@@ -59,7 +59,8 @@ type App interface {
 
 // AppParam specifies the parameter for a single app.
 type AppParam struct {
-	Name string
+	Name     string
+	Locality string
 }
 
 // Config for Apps
@@ -93,6 +94,7 @@ type AppEndpoint interface {
 	Name() string
 	Owner() App
 	Protocol() model.Protocol
+	NetworkEndpoint() model.NetworkEndpoint
 }
 
 // New returns a new instance of Apps

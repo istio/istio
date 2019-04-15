@@ -33,7 +33,6 @@ galley:
 #
 # @see charts/mixer/values.yaml, it takes precedence
 mixer:
-  enabled: true
   policy:
     # if policy is enabled the global.disablePolicyChecks has affect.
     enabled: true
@@ -245,7 +244,7 @@ global:
       host: # example: metrics-service.istio-system
       port: # example: 15000
 
-    # Specify which tracer to use. One of: lightstep, zipkin
+    # Specify which tracer to use. One of: lightstep, zipkin, datadog
     tracer: "zipkin"
 
   proxy_init:
@@ -293,6 +292,9 @@ global:
       # Host:Port for reporting trace data in zipkin format. If not specified, will default to
       # zipkin service (port 9411) in the same namespace as the other istio components.
       address: ""
+    datadog:
+      # Host:Port for submitting traces to the Datadog agent.
+      address: "$(HOST_IP):8126"
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:

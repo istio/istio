@@ -105,7 +105,7 @@ func (ap *attributeProvider) insert(n *node, words []string, valueType v1beta1.V
 
 func newAttributeProvider(attributes map[string]*v1beta1.AttributeManifest_AttributeInfo) *attributeProvider {
 	out := &attributeProvider{
-		protos:  types.NewProvider(),
+		protos:  types.NewRegistry(),
 		typeMap: make(map[string]*node),
 	}
 	out.root = out.newNode("")
@@ -154,36 +154,29 @@ func (ap *attributeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	}
 	return ap.protos.FindType(typeName)
 }
-func (ap *attributeProvider) FindFieldType(t *exprpb.Type, fieldName string) (*ref.FieldType, bool) {
-	switch v := t.TypeKind.(type) {
-	case *exprpb.Type_MessageType:
-		node, ok := ap.typeMap[v.MessageType]
-		if !ok {
-			break
-		}
-
-		child, ok := node.children[fieldName]
-		if !ok {
-			break
-		}
-
-		typ := child.typ
-		if typ == nil {
-			typ = decls.NewObjectType(child.typeName)
-		}
-
-		return &ref.FieldType{
-				Type:             typ,
-				SupportsPresence: true},
-			true
+func (ap *attributeProvider) FindFieldType(messageName, fieldName string) (*ref.FieldType, bool) {
+	node, ok := ap.typeMap[messageName]
+	if !ok {
+		return ap.protos.FindFieldType(messageName, fieldName)
 	}
-	return ap.protos.FindFieldType(t, fieldName)
+
+	child, ok := node.children[fieldName]
+	if !ok {
+		return nil, false
+	}
+
+	typ := child.typ
+	if typ == nil {
+		typ = decls.NewObjectType(child.typeName)
+	}
+
+	return &ref.FieldType{
+			Type:             typ,
+			SupportsPresence: true},
+		true
 }
 func (ap *attributeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
 	return ap.protos.NewValue(typeName, fields)
-}
-func (ap *attributeProvider) RegisterType(types ...ref.Type) error {
-	return ap.protos.RegisterType(types...)
 }
 
 // Attribute activation binds attribute values to the expression nodes
