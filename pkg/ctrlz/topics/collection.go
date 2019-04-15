@@ -24,6 +24,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 // ReadableCollection is a staticCollection collection of entries to be exposed via CtrlZ.
@@ -60,13 +61,13 @@ func (c *collectionTopic) Prefix() string {
 func (c *collectionTopic) Activate(context fw.TopicContext) {
 
 	l := template.Must(context.Layout().Clone())
-	c.mainTmpl = template.Must(l.Parse(string(MustAsset("assets/templates/collection/main.html"))))
+	c.mainTmpl = template.Must(l.Parse(string(assets.MustAsset("templates/collection/main.html"))))
 
 	l = template.Must(context.Layout().Clone())
-	c.listTmpl = template.Must(l.Parse(string(MustAsset("assets/templates/collection/list.html"))))
+	c.listTmpl = template.Must(l.Parse(string(assets.MustAsset("templates/collection/list.html"))))
 
 	l = template.Must(context.Layout().Clone())
-	c.itemTmpl = template.Must(l.Parse(string(MustAsset("assets/templates/collection/item.html"))))
+	c.itemTmpl = template.Must(l.Parse(string(assets.MustAsset("templates/collection/item.html"))))
 
 	_ = context.HTMLRouter().
 		StrictSlash(true).
