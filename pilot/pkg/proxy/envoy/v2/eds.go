@@ -825,7 +825,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
+			// TODO(#12961) get outlierDetection from the cluster
+			// For now, we should default to allowing Failover rather than rejecting. Even if we do not know
+			// what the outlierDetection is for the Cluster, it is reasonable to require the user to provide
+			// outlier detection without enforcing this in code, as this is an alpha feature behind a flag.
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
 		}
 
 		endpoints += len(l.Endpoints)
