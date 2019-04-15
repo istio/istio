@@ -423,6 +423,7 @@ func TestNodeMetadata(t *testing.T) {
 				"cartPath1": "/etc/cert1",
 				"cartPath2": "/etc/cert2",
 				"l1":        "to be replaced",
+				"special":   "not to be replaced",
 			},
 			envFunc: func() []string {
 				_, testEnv := createEnv(t, labels, anno)
@@ -435,6 +436,7 @@ func TestNodeMetadata(t *testing.T) {
 				"l2":              "v2",
 				"istio":           "sidecar",
 				"istio.io/enable": "{20: 20}",
+				"special":   "not to be replaced",
 			},
 		},
 	}
