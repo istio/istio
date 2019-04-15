@@ -12,10 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package agent
 
 import (
-	// Import all packages that have static initializers.
-	_ "istio.io/istio/pkg/test/framework/components/deployment"
-	_ "istio.io/istio/pkg/test/framework/components/environment/kube"
+	"net"
+
+	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
+
+type Config struct {
+	Domain           string
+	Namespace        namespace.Instance
+	Galley           galley.Instance
+	AppFactory       application.Factory
+	PortManager      reserveport.PortManager
+	ServiceName      string
+	Version          string
+	DiscoveryAddress *net.TCPAddr
+	TmpDir           string
+	EnvoyLogLevel    envoy.LogLevel
+}

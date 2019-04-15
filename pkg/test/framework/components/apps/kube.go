@@ -307,6 +307,10 @@ func appSelector(serviceName string) string {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
