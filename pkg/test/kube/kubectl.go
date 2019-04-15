@@ -82,6 +82,11 @@ func (c *kubectl) apply(namespace string, filename string) error {
 func (c *kubectl) applyInternal(namespace string, files []string) error {
 	for _, f := range files {
 		scopes.CI.Infof("Applying YAML file: %s", f)
+		fileContent, err := test.ReadConfigFile(f)
+		if err != nil {
+			return fmt.Errorf("failed to read the yaml file %v, err: %v", f, err)
+		}
+		scopes.CI.Infof("YAML file content is: %v", fileContent)
 		frmt := "kubectl apply %s %s -f %s"
 		scopes.Framework.Debugf("Executing kubectl: %s", fmt.Sprintf(frmt, c.configArg(), namespaceArg(namespace), f))
 		s, err := shell.Execute(frmt, c.configArg(), namespaceArg(namespace), f)
@@ -89,6 +94,7 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 			scopes.Framework.Debugf("(FAILED) Executing kubectl: %s (err: %v): %s", fmt.Sprintf(frmt, c.configArg(), namespaceArg(namespace), f), err, s)
 			return fmt.Errorf("%v: %s", err, s)
 		}
+		scopes.CI.Infof("kubectl apply YAML file (%s) has returned no error", f)
 	}
 	return nil
 }
