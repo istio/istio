@@ -53,6 +53,4 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-      affinity:
-{{- include "nodeaffinity" . | indent 6 }}
 {{ end }}

@@ -14,3 +14,10 @@ global:
 
 certmanager:
   enabled: false
+
+provider: jaeger
+
+jaeger:
+  hub: docker.io/jaegertracing
+  tag: 1.11.1
+
