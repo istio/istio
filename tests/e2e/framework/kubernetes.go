@@ -70,6 +70,7 @@ const (
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
 	remoteNetworkName              = "network2"
+	remoteNetworkRegistryToken     = "N2_REGISTRY_TOKEN"
 	istioHelmChartName             = "istio"
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
@@ -1116,7 +1117,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	if *splitHorizon {
 		registryName := filepath.Base(k.RemoteKubeConfig)
-		content = replacePattern(content, "N2_REGISTRY_TOKEN", registryName)
+		content = replacePattern(content, remoteNetworkRegistryToken, registryName)
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
