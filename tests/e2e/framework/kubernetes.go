@@ -521,10 +521,14 @@ func (k *KubeInfo) Teardown() error {
 		if *clusterWide {
 			var istioYaml string
 			if *multiClusterDir != "" {
-				if *authEnable {
-					istioYaml = mcAuthInstallFileNamespace
+				if *splitHorizon {
+					istioYaml = mcSplitHorizonInstallFile
 				} else {
-					istioYaml = mcNonAuthInstallFileNamespace
+					if *authEnable {
+						istioYaml = mcAuthInstallFileNamespace
+					} else {
+						istioYaml = mcNonAuthInstallFileNamespace
+					}
 				}
 			} else {
 				istioYaml = getClusterWideInstallFile()
