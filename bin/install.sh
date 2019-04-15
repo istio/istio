@@ -95,8 +95,8 @@ function switch_istio_control() {
         for ns in $(kubectl get namespaces --no-headers -l istio-env=${ISTIO_CONTROL_OLD} -o=custom-columns=NAME:.metadata.name); do        kubectl label namespaces default --overwrite istio-env=${ISTIO_CONTROL_NS}
             kubectl label namespaces ${ns} --overwrite istio-env=${ISTIO_CONTROL_NS}
         done
-        kubectl set env --all deployment --env="LAST_MANUAL_RESTART=$(date +%s)" --namespace=default
         kubectl delete namespace $ISTIO_CONTROL_OLD --wait --ignore-not-found
+        kubectl set env --all deployment --env="LAST_MANUAL_RESTART=$(date +%s)" --namespace=default
     fi
 }
 
