@@ -274,7 +274,7 @@ func (h *Handler) toMcpResource(service *resource.Entry, endpoints *resource.Ent
 
 	body, err := types.MarshalAny(&se)
 	if err != nil {
-		scope.Errorf("error serializing proto from source e: %v:", se)
+		scope.Errorf("error serializing proto from source e: %v", se)
 		return nil, false
 	}
 
