@@ -55,7 +55,7 @@ func TestMutualTlsReachability(t *testing.T) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{
 		Galley: g,
 	})
-	appsInstance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
+	appsInstance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 
 	aApp, _ := appsInstance.GetAppOrFail("a", t).(apps.KubeApp)
 	bApp, _ := appsInstance.GetAppOrFail("b", t).(apps.KubeApp)

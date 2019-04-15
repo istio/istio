@@ -15,16 +15,17 @@
 package rbac
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	importedPilot "istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
@@ -59,15 +60,16 @@ func setupConfig(cfg *istio.Config) {
 }
 
 func TestRBACV2(t *testing.T) {
-	fmt.Println("Starting RBAC V2 Test")
-	fmt.Println(successIfAuthEnabled)
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
 
 	env := ctx.Environment().(*kube.Environment)
-	pilot := importedPilot.NewOrFail(t, ctx, importedPilot.Config{})
-	appInst := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
+	appInst := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 
 	appA, _ := appInst.GetAppOrFail("a", t).(apps.KubeApp)
 	appB, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)

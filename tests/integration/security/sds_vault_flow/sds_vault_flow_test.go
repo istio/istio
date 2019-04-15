@@ -67,7 +67,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 	p := pilot.NewOrFail(t, ctx, pilot.Config{
 		Galley: g,
 	})
-	appInst := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
+	appInst := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 
 	aApp, _ := appInst.GetAppOrFail("a", t).(apps.KubeApp)
 	bApp, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)

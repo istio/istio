@@ -650,7 +650,6 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 		dstServiceName = opts.Headers.Get("Host")
 	}
 
-	fmt.Println("URL IS " + dstURL.String())
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
 		Url:   dstURL.String(),
 		Count: int32(opts.Count),
