@@ -161,10 +161,9 @@ func (vm *GCPRawVM) Setup() error {
 		return err
 	}
 	if err := vm.provision(); err != nil {
-		fmt.Println("jianfeih debug vm provisioning process..., err %v", err)
-		time.Sleep(time.Minute * 3600)
 		return err
 	}
+	// TODO: restore before submit.
 	// if err := vm.prepareCluster(); err != nil {
 	// 	return err
 	// }

@@ -216,7 +216,7 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 	sudo iptables -t nat -F
 
 test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_e2e_yaml
-	set -o pipefail; go test -v -timeout 3600m ./tests/e2e/tests/bookinfo \
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
