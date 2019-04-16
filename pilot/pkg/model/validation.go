@@ -1138,10 +1138,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		errs = multierror.Append(errs, errors.New("service cluster must be set"))
 	}
 
-	if config.EnvoyNodeMetadata == nil {
-		errs = multierror.Append(errs, errors.New("EnvoyNodeMetadata must be set"))
-	}
-
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
