@@ -4,26 +4,18 @@ about: Report a bug to help us improve Istio
 
 ---
 
-**Describe the bug**
-{{ Succinctly describe the bug }}
+**Bug description**
 
 **Expected behavior**
-{{ What did you expect to happen? }}
 
 **Steps to reproduce the bug**
-{{ Minimal steps to reproduce the behavior }}
 
-**Version**
-{{ What version of Istio and Kubernetes are you using? Use `istioctl version --remote` and `kubectl version` }}
+**Version (include the output of `istioctl version --remote` and `kubectl version`)**
 
-**Installation**
-{{ Please describe how Istio was installed }}
+**How was Istio installed?**
 
-**Environment**
-{{ Which environment, cloud vendor, OS, etc are you using? }}
+**Environment where bug was observed (cloud vendor, OS, etc)**
 
-**Cluster state**
-{{ If you're running on Kubernetes, consider [following the
-instructions](http://istio.io/help/bugs/#generating-a-cluster-state-archive)
-to generate "istio-dump.tar.gz", then attach it here by dragging and dropping
-the file onto this issue. }}
+Additionally, please consider attaching a [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive) by attaching
+the dump file to this issue.
+
