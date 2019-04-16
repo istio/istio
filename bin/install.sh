@@ -30,7 +30,7 @@ function install_crds() {
 # Cleanup all namespaces
 
 function cleanup() {
-    for namespace in istio-system  ${ISTIO_CONTROL_NS} istio-ingress istio-telemetry; do
+    for namespace in istio-system  ${ISTIO_CONTROL_NS} istio-control istio-control-master istio-ingress istio-telemetry; do
         kubectl delete namespace $namespace --wait --ignore-not-found
     done
 
