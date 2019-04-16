@@ -153,6 +153,15 @@ resources:
     converter:     "auth-policy-resource"
     collection:    "istio/authentication/v1alpha1/meshpolicies"
 
+  - kind:        "AuthenticationPolicy"
+    singular:    "authenticationpolicy"
+    plural:      "authenticationpolicies"
+    group:       "authentication.istio.io"
+    version:     "v1alpha2"
+    proto:       "istio.authentication.v1alpha2.AuthenticationPolicy"
+    converter:   "auth-policy-resource"
+    collection:  "istio/authentication/v1alpha2/authenticationpolicies"
+
   - kind:        "ServiceRole"
     singular:    "servicerole"
     plural:      "serviceroles"
