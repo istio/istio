@@ -43,9 +43,16 @@ func (p TestPolicy) TearDown() {
 	}
 }
 
+// ApplyPolicyFile applies a policy file from testdata directory of the test.
 func ApplyPolicyFile(t *testing.T, env *kube.Environment, namespace string, fileName string) *TestPolicy {
+	joinedPath := path.Join(testDataDir, fileName)
+	return ApplyPolicyAnyFilePath(t, env, namespace, joinedPath)
+}
+
+// ApplyPolicyAnyFilePath runs `kubectl -f <namespace> <fileName>` where fileName is the real/explicit path of the file.
+func ApplyPolicyAnyFilePath(t *testing.T, env *kube.Environment, namespace string, fileName string) *TestPolicy {
 	scopes.CI.Infof("Applying policy file %v", fileName)
-	if err := env.Apply(namespace, path.Join(testDataDir, fileName)); err != nil {
+	if err := env.Apply(namespace, fileName); err != nil {
 		t.Fatalf("Cannot apply %q to namespace %q: %v", fileName, namespace, err)
 		return nil
 	}
@@ -55,4 +62,13 @@ func ApplyPolicyFile(t *testing.T, env *kube.Environment, namespace string, file
 		namespace: namespace,
 		fileName:  fileName,
 	}
+}
+
+// ApplyPolicyFiles applies multiple policy files to the same namespace
+func ApplyPolicyFiles(t *testing.T, env *kube.Environment, namespace string, fileNames []string) []*TestPolicy {
+	var testPolicies []*TestPolicy
+	for _, fileName := range fileNames {
+		testPolicies = append(testPolicies, ApplyPolicyAnyFilePath(t, env, namespace, fileName))
+	}
+	return testPolicies
 }
