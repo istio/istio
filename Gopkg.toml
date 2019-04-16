@@ -286,7 +286,8 @@ ignored = [
 # Need to integrate apis to master
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  branch = "authn_v2"
+  source = "https://github.com/diemtvu/api.git"
 
 # fortio is latest tagged by default
 

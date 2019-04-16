@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -168,6 +169,16 @@ var (
 		Peers: []*authn.PeerAuthenticationMethod{{
 			Params: &authn.PeerAuthenticationMethod_Mtls{},
 		}},
+	}
+
+	ExampleAuthenticationPolicyAlpha2 = &authn2.AuthenticationPolicy{
+		ChannelAuthentication: []*authn2.Rule{
+			{
+				Def: &authn2.Rule_With{
+					With: "istio.mtls",
+				},
+			},
+		},
 	}
 
 	// ExampleServiceRole is an example rbac service role
@@ -437,6 +448,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"AuthenticationPolicy", configName, model.AuthenticationPolicyAlpha2, ExampleAuthenticationPolicyAlpha2},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"AuthorizationPolicy", configName, model.AuthorizationPolicy, ExampleAuthorizationPolicy},

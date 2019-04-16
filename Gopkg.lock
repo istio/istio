@@ -1639,11 +1639,12 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:f26e267647e01c727543b37bfa3481303dc78d1def53372dba0edee0f60e21d0"
+  branch = "authn_v2"
+  digest = "1:15e57f9ab32972cd1d0d71d32da38dca0a28470dc20f60ee4e1a4352bc781d92"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
+    "authentication/v1alpha2",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1656,7 +1657,8 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
+  revision = "bfb7a8bbe1fc5e4c724e1cc0a71c287c52bad06b"
+  source = "https://github.com/diemtvu/api.git"
 
 [[projects]]
   branch = "master"
@@ -2218,6 +2220,7 @@
     "gopkg.in/d4l3k/messagediff.v1",
     "gopkg.in/yaml.v2",
     "istio.io/api/authentication/v1alpha1",
+    "istio.io/api/authentication/v1alpha2",
     "istio.io/api/envoy/config/filter/http/authn/v2alpha1",
     "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1",
     "istio.io/api/mcp/v1alpha1",

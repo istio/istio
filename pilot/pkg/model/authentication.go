@@ -26,6 +26,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 )
 
 const (
@@ -76,6 +77,11 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance 
 			return policy
 		}
 	}
+
+	return nil
+}
+
+func GetConsolidateAuthenticationPolicyAlpha2(store IstioConfigStore, serviceInstance *ServiceInstance) *authn2.AuthenticationPolicy {
 
 	return nil
 }

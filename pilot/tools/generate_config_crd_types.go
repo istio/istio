@@ -42,6 +42,11 @@ func MakeConfigData(schema model.ProtoSchema) ConfigData {
 		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
 		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
 	}
+	// // Tweak to match current naming.
+	// // TODO(xiaolanz): change to meet the new naming convention.
+	// if schema.Group == "authentication" && (schema.Type == "policy" || schema.Type == "mesh-policy"){
+	// 	out.IstioKind = crd.KebabCaseToCamelCase(schema.Group + "-" + schema.Type)
+	// }
 	if len(schema.SchemaObjectName) > 0 {
 		out.IstioKind = schema.SchemaObjectName
 	}

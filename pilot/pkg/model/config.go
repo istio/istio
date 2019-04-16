@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
@@ -207,6 +208,9 @@ type ProtoSchema struct {
 	// Type is the config proto type.
 	Type string
 
+	// Name of the object defined the schema proto. If not set, it will be converted from Type KebabCaseToCamelCase.
+	SchemaName string
+
 	// Plural is the type in plural.
 	Plural string
 
@@ -277,6 +281,9 @@ type IstioConfigStore interface {
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
 	AuthenticationPolicyForWorkload(service *Service, labels Labels, port *Port) *Config
+
+	// Returns all v1alpha2 authentication policies matching with labels.
+	AuthenticationPolicyAlpha2ForLabels(namespace string, labels Labels) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -462,6 +469,18 @@ var (
 		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
+	// AuthenticationAuthenticationPolicy describes an authentication policy.
+	AuthenticationPolicyAlpha2 = ProtoSchema{
+		Type:        "authentication-policy",
+		SchemaName:  "AuthenticationPolicyAlpha2",
+		Plural:      "authentication-policies",
+		Group:       "authentication",
+		Version:     "v1alpha2",
+		MessageName: "istio.authentication.v1alpha2.AuthenticationPolicy",
+		Validate:    ValidateAuthenticationPolicyAlpha2,
+		Collection:  metadata.IstioAuthenticationV1alpha2Authenticationpolicies.Collection.String(),
+	}
+
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
 	AuthenticationMeshPolicy = ProtoSchema{
 		ClusterScoped:    true,
@@ -549,6 +568,7 @@ var (
 		QuotaSpecBinding,
 		AuthenticationPolicy,
 		AuthenticationMeshPolicy,
+		AuthenticationPolicyAlpha2,
 		ServiceRole,
 		ServiceRoleBinding,
 		AuthorizationPolicy,
@@ -967,6 +987,37 @@ func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service,
 		}
 	}
 
+	return nil
+}
+
+func (store *istioConfigStore) AuthenticationPolicyAlpha2ForLabels(namespace string, labels Labels) *Config {
+	log.Debugf("Geting policy for %v in %q", labels, namespace)
+	specs, err := store.List(AuthenticationPolicyAlpha2.Type, namespace)
+	if err != nil {
+		return nil
+	}
+	var out []Config
+	for _, spec := range specs {
+		policy := spec.Spec.(*authn2.AuthenticationPolicy)
+		policyName := spec.ConfigMeta.Name
+
+		if policySelector := policy.GetSelector(); policySelector != nil && len(policySelector.GetLabels()) > 0 {
+			if !Labels(policySelector.GetLabels()).SubsetOf(labels) {
+				continue
+			}
+		} else if policyName != DefaultAuthenticationPolicyName {
+			// Just a sanity check. Validation should prevent such policy added in the first place.
+			log.Warnf("Namespace-wide policy must be named 'default'. Has %q", policyName)
+			continue
+		}
+		out = append(out, spec)
+	}
+	if len(out) > 0 {
+		sortConfigByCreationTime(out)
+		return &out[0]
+	}
+
+	// TODO(diemtvu): add mesh-wide policy to the end
 	return nil
 }
 
