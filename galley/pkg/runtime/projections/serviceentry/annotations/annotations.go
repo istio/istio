@@ -21,4 +21,8 @@ const (
 
 	// EndpointsVersion provides the raw resource version of the most recent k8s Endpoints update (if available).
 	EndpointsVersion = "networking.istio.io/endpointsVersion"
+
+	// NotReadyEndpoints is an annotation providing the "NotReadyAddresses" from the Kubernetes Endpoints
+	// resource. The value is a comma-separated list of IP:port.
+	NotReadyEndpoints = "networking.istio.io/notReadyEndpoints"
 )
