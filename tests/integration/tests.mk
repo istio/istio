@@ -44,7 +44,7 @@ endif
 
 # This is a useful debugging target for testing everything.
 #.PHONY: test.integration.all
-test.integration.all: test.integration test.integration.kube test.integration.race.kube test.integration.race.native
+test.integration.all: test.integration test.integration.kube test.integration.race.native
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
@@ -96,21 +96,6 @@ test.integration.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.env kube \
-	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
-	--istio.test.hub=${HUB} \
-	--istio.test.tag=${TAG} \
-	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
-	${_INTEGRATION_TEST_INGRESS_FLAG} \
-	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
-
-# Integration tests that detect race condition for Kubernetes environment.
-.PHONY: test.integration.race.kube
-test.integration.race.kube: | $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	set -o pipefail; \
-	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 120m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
