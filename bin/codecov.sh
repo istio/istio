@@ -78,6 +78,9 @@ function code_coverage() {
       echo "${1}" | tee "${COVERAGEDIR}/${filename}.err"
     fi
   fi
+
+  #remove skipped tests from .cov file
+  remove_skipped_tests_from_cov "${COVERAGEDIR}/${filename}.cov"
 }
 
 function wait_for_proc() {
@@ -97,6 +100,13 @@ function parse_skipped_tests() {
     if [[ "${entry}" != "#"* ]]; then
       SKIPPED_TESTS_GREP_ARGS+="\\(${entry}\\)"
     fi
+  done < "${CODECOV_SKIP}"
+}
+
+function remove_skipped_tests_from_cov() {
+  while read -r entry; do
+    entry="$(echo "${entry}" | sed 's/\//\\\//g')"
+    sed -i "/${entry}/d" "$1"
   done < "${CODECOV_SKIP}"
 }
 
