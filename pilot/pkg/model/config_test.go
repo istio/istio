@@ -571,10 +571,10 @@ func TestAuthenticationPolicyAlpha2(t *testing.T) {
 		Selector: &authn2.Selector{
 			Labels: map[string]string{"app": "foo"},
 		},
-		ChannelAuthentication: []*authn2.Rule{
+		Peers: []*authn2.Rule{
 			{
-				Def: &authn2.Rule_With{
-					With: "policy-one-mtls",
+				Apply: &authn2.Rule_Method{
+					Method: "policy-one-mtls",
 				},
 			},
 		},
@@ -583,9 +583,9 @@ func TestAuthenticationPolicyAlpha2(t *testing.T) {
 		Selector: &authn2.Selector{
 			Labels: map[string]string{"app": "bar"},
 		},
-		ChannelAuthentication: []*authn2.Rule{
+		Peers: []*authn2.Rule{
 			{
-				Def: &authn2.Rule_Inline{
+				Apply: &authn2.Rule_Inline{
 					Inline: &authn2.AuthenticationMethod{
 						Params: &authn2.AuthenticationMethod_Mtls{},
 					},
@@ -594,10 +594,10 @@ func TestAuthenticationPolicyAlpha2(t *testing.T) {
 		},
 	}
 	policyNamespaceWide := authn2.AuthenticationPolicy{
-		ChannelAuthentication: []*authn2.Rule{
+		Peers: []*authn2.Rule{
 			{
-				Def: &authn2.Rule_With{
-					With: "policy-namespace-mtls",
+				Apply: &authn2.Rule_Method{
+					Method: "policy-namespace-mtls",
 				},
 			},
 		},
