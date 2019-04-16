@@ -28,7 +28,7 @@ jobs:
       trigger: true
 
     - task: cleanup
-      params: &params-1.1-daily
+      params: &params-1-1-daily
         TAG: release-1.1-latest-daily
         HUB: gcr.io/istio-release
         KUBECONFIG: ((KUBECONFIG))
@@ -51,7 +51,7 @@ jobs:
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh cleanup
     - task: install-crds
-      params: *params-1.1-daily
+      params: *params-1-1-daily
       config:
         platform: linux
         image_resource:
@@ -71,7 +71,7 @@ jobs:
     - task: install-system
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -89,7 +89,7 @@ jobs:
     - task: install-control
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -107,7 +107,7 @@ jobs:
     - task: install-ingress
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -125,7 +125,7 @@ jobs:
     - task: install-telemetry
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -179,13 +179,13 @@ jobs:
     plan:
     - get: 24h
       trigger: true
-      passsed: [test-after-install]
+      passed: [test-after-install]
     - get: istio-installer
       trigger: true
-      passsed: [test-after-install]
+      passed: [test-after-install]
 
     - task: cleanup
-      params: &install-params-1.1.0
+      params: &install-params-1-1-0
         TAG: 1.1.0
         HUB: istio
         KUBECONFIG: ((KUBECONFIG))
@@ -207,7 +207,7 @@ jobs:
             export KUBECONFIG=/tmp/kubeconfig.yaml
             istio-installer/bin/install.sh cleanup
     - task: install-crds-1.1.0
-      params: *install-params-1.1.0
+      params: *install-params-1-1-0
       config:
         platform: linux
         image_resource:
@@ -227,7 +227,7 @@ jobs:
     - task: install-system-1.1.0
       config:
         platform: linux
-        params: *install-params-1.1.0
+        params: *install-params-1-1-0
         image_resource:
           type: docker-image
           source:
@@ -245,7 +245,7 @@ jobs:
     - task: install-control-1.1.0
       config:
         platform: linux
-        params: *install-params-1.1.0
+        params: *install-params-1-1-0
         image_resource:
           type: docker-image
           source:
@@ -263,7 +263,7 @@ jobs:
     - task: install-ingress-1.1.0
       config:
         platform: linux
-        params: *install-params-1.1.0
+        params: *install-params-1-1-0
         image_resource:
           type: docker-image
           source:
@@ -281,7 +281,7 @@ jobs:
     - task: install-telemetry-1.1.0
       config:
         platform: linux
-        params: *install-params-1.1.0
+        params: *install-params-1-1-0
         image_resource:
           type: docker-image
           source:
@@ -333,7 +333,7 @@ jobs:
   - name: update
     serial_groups: [ cluster ]
     plan:
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
       passed: [test-after-install-1.1.0]
     - get: istio-installer
@@ -342,7 +342,7 @@ jobs:
     - task: update-system
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -360,7 +360,7 @@ jobs:
     - task: update-control
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -378,7 +378,7 @@ jobs:
     - task: update-ingress
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -398,7 +398,7 @@ jobs:
     - task: update-telemetry
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -416,7 +416,7 @@ jobs:
     - task: switch-and-remove-old-installation
       config:
         platform: linux
-        params: *params-1.1-daily
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -436,7 +436,7 @@ jobs:
   - name: test-after-update
     serial_groups: [ cluster ]
     plan:
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
       passed: [update]
     - get: istio-installer
