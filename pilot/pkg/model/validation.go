@@ -30,6 +30,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -1469,6 +1470,24 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 			jwtIssuers[method.Jwt.Issuer] = true
 		}
 		errs = appendErrors(errs, validateJwt(method.Jwt))
+	}
+
+	return errs
+}
+
+// ValidateAuthenticationPolicyAlpha2 checks that AuthenticationPolicy v1alpha2 is well-formed.
+func ValidateAuthenticationPolicyAlpha2(name, namespace string, msg proto.Message) error {
+	in, ok := msg.(*authn2.AuthenticationPolicy)
+	if !ok {
+		return errors.New("cannot cast to AuthenticationPolicy (v1alpha2)")
+	}
+	var errs error
+	log.Infof("ValidateAuthenticationPolicyAlpha2 %s.%s", name, namespace)
+	if in.GetSelector() == nil || len(in.GetSelector().GetLabels()) == 0 {
+		if name != DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("authentication policy with empty selector must be named %q, found %q",
+				DefaultAuthenticationPolicyName, name))
+		}
 	}
 
 	return errs

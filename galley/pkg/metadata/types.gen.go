@@ -14,6 +14,9 @@ import (
 	// Register protos in "istio.io/api/authentication/v1alpha1"
 	_ "istio.io/api/authentication/v1alpha1"
 
+	// Register protos in "istio.io/api/authentication/v1alpha2"
+	_ "istio.io/api/authentication/v1alpha2"
+
 	// Register protos in "istio.io/api/mixer/v1/config/client"
 	_ "istio.io/api/mixer/v1/config/client"
 
@@ -45,6 +48,9 @@ var (
 
 	// istio/authentication/v1alpha1/policies metadata
 	IstioAuthenticationV1alpha1Policies resource.Info
+
+	// istio/authentication/v1alpha2/authenticationpolicies metadata
+	IstioAuthenticationV1alpha2Authenticationpolicies resource.Info
 
 	// istio/config/v1alpha2/adapters metadata
 	IstioConfigV1alpha2Adapters resource.Info
@@ -230,6 +236,9 @@ func init() {
 	IstioAuthenticationV1alpha1Policies = b.Register(
 		"istio/authentication/v1alpha1/policies",
 		"type.googleapis.com/istio.authentication.v1alpha1.Policy")
+	IstioAuthenticationV1alpha2Authenticationpolicies = b.Register(
+		"istio/authentication/v1alpha2/authenticationpolicies",
+		"type.googleapis.com/istio.authentication.v1alpha2.AuthenticationPolicy")
 	IstioConfigV1alpha2Adapters = b.Register(
 		"istio/config/v1alpha2/adapters",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")

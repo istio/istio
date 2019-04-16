@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -558,6 +559,145 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 			if !reflect.DeepEqual(testCase.expected, policy) {
 				t.Errorf("AuthenticationPolicy(%s:%d) => expected:\n%s\nbut got:\n%s\n(from %s/%s)",
 					testCase.hostname, testCase.port, testCase.expected.String(), policy.String(), out.Name, out.Namespace)
+			}
+		}
+	}
+}
+
+func TestAuthenticationPolicyAlpha2(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	policyOne := authn2.AuthenticationPolicy{
+		Selector: &authn2.Selector{
+			Labels: map[string]string{"app": "foo"},
+		},
+		ChannelAuthentication: []*authn2.Rule{
+			{
+				Def: &authn2.Rule_With{
+					With: "policy-one-mtls",
+				},
+			},
+		},
+	}
+	policyTwo := authn2.AuthenticationPolicy{
+		Selector: &authn2.Selector{
+			Labels: map[string]string{"app": "bar"},
+		},
+		ChannelAuthentication: []*authn2.Rule{
+			{
+				Def: &authn2.Rule_Inline{
+					Inline: &authn2.AuthenticationMethod{
+						Params: &authn2.AuthenticationMethod_Mtls{},
+					},
+				},
+			},
+		},
+	}
+	policyNamespaceWide := authn2.AuthenticationPolicy{
+		ChannelAuthentication: []*authn2.Rule{
+			{
+				Def: &authn2.Rule_With{
+					With: "policy-namespace-mtls",
+				},
+			},
+		},
+	}
+
+	authNPolicies := []struct {
+		name      string
+		namespace string
+		policy    *authn2.AuthenticationPolicy
+	}{
+		{
+			name:      "policy-one",
+			namespace: "default",
+			policy:    &policyOne,
+		},
+		{
+			name:      "policy-two",
+			namespace: "default",
+			policy:    &policyTwo,
+		},
+		{
+			name:      model.DefaultAuthenticationPolicyName,
+			namespace: "another-galaxy",
+			policy:    &policyNamespaceWide,
+		},
+	}
+	for _, in := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:    in.name,
+				Group:   "authentication",
+				Version: "v1alpha2",
+				Domain:  "cluster.local",
+			},
+			Spec: in.policy,
+		}
+		config.ConfigMeta.Type = model.AuthenticationPolicyAlpha2.Type
+		config.ConfigMeta.Namespace = in.namespace
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		namespace string
+		labels    model.Labels
+		expected  *authn2.AuthenticationPolicy
+	}{
+		{
+			namespace: "default",
+			labels: model.Labels{
+				"app": "foo",
+			},
+			expected: &policyOne,
+		},
+		{
+			namespace: "default",
+			labels: model.Labels{
+				"app": "foo",
+				"env": "prod",
+			},
+			expected: &policyOne,
+		},
+		{
+			namespace: "default",
+			labels: model.Labels{
+				"env": "prod",
+			},
+			expected: nil,
+		},
+		{
+			namespace: "another-galaxy",
+			labels: model.Labels{
+				"app": "foo",
+			},
+			expected: &policyNamespaceWide,
+		},
+		{
+			namespace: "another-galaxy",
+			labels: model.Labels{
+				"app": "bar",
+			},
+			expected: &policyNamespaceWide,
+		},
+	}
+
+	for index, testCase := range cases {
+		out := store.AuthenticationPolicyAlpha2ForLabels(testCase.namespace, testCase.labels)
+
+		if out == nil {
+			if testCase.expected != nil {
+				t.Errorf("Test case %d failed: expected %v, got nil",
+					index,
+					testCase.expected)
+			}
+		} else {
+			policy := out.Spec.(*authn2.AuthenticationPolicy)
+			if !reflect.DeepEqual(testCase.expected, policy) {
+				t.Errorf("Test case %d failed: expected %v, got %v",
+					index, testCase.expected, policy)
 			}
 		}
 	}
