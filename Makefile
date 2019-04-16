@@ -446,3 +446,6 @@ ${GOPATH}/bin/go-junit-report:
 
 ${GOPATH}/bin/ci2gubernator:
 	go get -u istio.io/test-infra/toolbox/ci2gubernator
+
+lint: ${GOPATH}/bin/helm
+	helm lint istio-control/istio-discovery -f global.yaml
