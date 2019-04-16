@@ -436,7 +436,7 @@ func TestNodeMetadata(t *testing.T) {
 				"l2":              "v2",
 				"istio":           "sidecar",
 				"istio.io/enable": "{20: 20}",
-				"special":   "not to be replaced",
+				"special":         "not to be replaced",
 			},
 		},
 	}

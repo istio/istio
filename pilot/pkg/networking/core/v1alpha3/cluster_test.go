@@ -395,7 +395,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 
 	for _, c := range clusters {
 		if strings.Contains(c.Name, "outbound") {
-			actualOutboundClusterCount += 1
+			actualOutboundClusterCount++
 			tlsContext := c.TlsContext.CommonTlsContext
 			g.Expect(tlsContext).NotTo(BeNil())
 
