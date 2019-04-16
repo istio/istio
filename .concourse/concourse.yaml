@@ -279,7 +279,7 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh switch_istio_control --update
+            istio-installer/bin/install.sh switch_istio_control --update --remove-old-control
 
   - name: test-after-update
     serial_groups: [ cluster ]
