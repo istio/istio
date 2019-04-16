@@ -311,7 +311,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
 // for ingress gateway is updated.
 func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
-	secretMap := map[ConnKey]*model.SecretItem{}
+	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -341,7 +341,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 						Version:          ns.Version,
 					}
 				}
-				secretMap[key] = newSecret
+				secretMap.Store(key, newSecret)
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, secretName, newSecret); err != nil {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
@@ -358,9 +358,13 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 	})
 
 	wg.Wait()
-	for key, secret := range secretMap {
-		sc.secrets.Store(key, *secret)
-	}
+
+	secretMap.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		e := v.(*model.SecretItem)
+		sc.secrets.Store(key, *e)
+		return true
+	})
 }
 
 // SecretExist checks if secret already existed.
@@ -410,7 +414,7 @@ func (sc *SecretCache) rotate() {
 
 	log.Debug("Refresh job running")
 
-	secretMap := map[ConnKey]*model.SecretItem{}
+	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -462,7 +466,7 @@ func (sc *SecretCache) rotate() {
 					return
 				}
 
-				secretMap[key] = ns
+				secretMap.Store(key, ns)
 
 				atomic.AddUint64(&sc.secretChangedCount, 1)
 
@@ -482,9 +486,12 @@ func (sc *SecretCache) rotate() {
 
 	wg.Wait()
 
-	for key, secret := range secretMap {
-		sc.secrets.Store(key, *secret)
-	}
+	secretMap.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		e := v.(*model.SecretItem)
+		sc.secrets.Store(key, *e)
+		return true
+	})
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
