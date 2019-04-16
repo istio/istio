@@ -384,8 +384,6 @@ jobs:
           source:
             repository: gcr.io/peripli/istio-base
         inputs:
-          - name: istio-release-1.1
-            path: src/github.com/istio/istio
           - name: istio-installer
         run:
           path: /bin/sh
