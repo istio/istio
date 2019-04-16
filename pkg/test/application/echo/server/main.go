@@ -37,7 +37,19 @@ var (
 	key       string
 )
 
+var (
+	logOptionsFromCommandline = log.DefaultOptions()
+)
+
 func init() {
+	logOptionsFromCommandline.AttachFlags(
+		func(p *[]string, name string, value []string, usage string) {
+			// TODO(ozben): Implement string array method for capturing the complete set of log settings.
+		},
+		flag.StringVar,
+		flag.IntVar,
+		flag.BoolVar)
+
 	flag.IntSliceVar(&httpPorts, "port", []int{8080}, "HTTP/1.1 ports")
 	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	flag.StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
@@ -47,9 +59,9 @@ func init() {
 }
 
 func main() {
-	_ = log.Configure(log.DefaultOptions())
-
 	flag.Parse()
+
+	_ = log.Configure(logOptionsFromCommandline)
 
 	ports := make(model.PortList, len(httpPorts)+len(grpcPorts))
 	portIndex := 0
