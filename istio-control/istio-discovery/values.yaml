@@ -1,16 +1,68 @@
+# Values for discovery and mesh wide config
 
-# The main components of an environment:
-# - location of discovery, telemetry, flags used in injecting the pod
-# - the discovery environment will also have specific settings
+## Discovery Settings
 
+autoscaleEnabled: true
+autoscaleMin: 1
+autoscaleMax: 5
+replicaCount: 1
+
+# Can be a full hub/image:tag
+image: pilot
+sidecar: true
+traceSampling: 1.0
+
+# Resources for a small pilot install
+resources:
+  requests:
+    cpu: 500m
+    memory: 2048Mi
+
+env:
+  GODEBUG: gctrace=1
+  CONFIG_NAMESPACE: "istio-config"
+
+cpu:
+  targetAverageUtilization: 80
+
+# Specify the pod anti-affinity that allows you to constrain which nodes
+# your pod is eligible to be scheduled based on labels on pods that are
+# already running on the node rather than based on labels on nodes.
+# There are currently two types of anti-affinity:
+#    "requiredDuringSchedulingIgnoredDuringExecution"
+#    "preferredDuringSchedulingIgnoredDuringExecution"
+# which denote “hard” vs. “soft” requirements, you can define your values
+# in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+# correspondingly.
+# For example:
+# podAntiAffinityLabelSelector:
+# - key: security
+#   operator: In
+#   values: S1,S2
+#   topologyKey: "kubernetes.io/hostname"
+# This pod anti-affinity rule says that the pod requires not to be scheduled
+# onto a node if that node is already running a pod with label having key
+# “security” and value “S1”.
+podAntiAffinityLabelSelector: {}
+podAntiAffinityTermLabelSelector: {}
+
+# The following is used to limit how long a sidecar can be connected
+# to a pilot. It balances out load across pilot instances at the cost of
+# increasing system churn.
+keepaliveMaxServerConnectionAge: 30m
+
+# Additional labels to apply to the deployment.
+# The settings will auto-update pilot if keel is installed.
+deploymentLabels:
+  keel.sh/policy: major
+  keel.sh/trigger: poll
+
+
+## Mesh config settings
 
 # Used to override control-plane networs
 meshNetworks:
   networks: {}
-
-#
-mixer:
-  enable: true
 
 # Install the mesh config map, generated from values.yaml.
 # If false, pilot wil use default values (by default) or user-supplied values.
@@ -25,8 +77,6 @@ ingress:
   # STRICT: only with istio annotation
   # OFF: no ingress or sync.
   ingressControllerMode: "OFF"
-  # Namespace running the ingressgateway
-  ingressNamespace: istio-ingress
 
   # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
   # This is required to be different than 'istio' if multiple ingresses are present.
@@ -40,91 +90,4 @@ policy:
   # Will not define mixerCheckServer and mixerReportServer
   enabled: false
 
-
-## TODO:
-## Requires istio-system setting for
-#  citadel istio-sidecar-injector-service-account.istio-env11:istio-sidecar-injector.istio-env11.svc
-
-# If disabled only manual kube-inject or custom injectors can be used.
-# If enabled, namespaces labeled with ... will be injected.
-# It is possible to have a control namespace with only an injector - which defines an injection profile with
-# its own settings, possibly pointing to an existing or external pilot.
-sidecarInjectorWebhook:
-  enabled: true
-  # sidecar-injector webhook configuration.
-  # If down, new pods will fail to start or restart for a short time, but they will
-  # retry.
-  replicaCount: 1
-
-  # This enables injection of sidecar in all namespaces,
-  # with the exception of namespaces with "istio-injection:disabled" annotation
-  # Only one environment should have this enabled.
-  enableNamespacesByDefault: false
-
-  # If set, no iptable init will be added. It assumes CNI is installed.
-  # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'
-  istio_cni:
-    enabled: false
-
-  # Debug level for envoy and pilot-agent. Can be set to 'debug' for very verbose
-  # messages.
-  debug: info
-
-  # Mesh config values affecting injection. See the api - this is just the subset
-  # needed for injection.
-  mesh:
-
-    # TCP connection timeout when connecting to pilot
-    connectTimeout: 10s
-
-    # These settings that determine how long an old Envoy
-    # process should be kept alive after an occasional reload.
-    drainDuration: 45s
-    parentShutdownDuration: 1m0s
-
-    #
-    # Set concurrency to a specific number to control the number of Proxy worker threads.
-    # If not set (default), then start worker thread for each CPU thread/core.
-    #concurrency:
-
-    interceptionMode: REDIRECT
-
-
-
-enabled: true
-replicaCount: 1
-autoscaleMin: 1
-autoscaleMax: 5
-
-# Can be a full hub/image:tag
-image: pilot
-
 useMCP: true
-
-# Custom MCP server. HTTPS is required.
-# By default a galley in same namespace with pilot is used.
-mcpAddr:  istio-galley:15019
-
-traceSampling: 10.0
-
-# Additional labels to apply to the deployment.
-# The settings will auto-update pilot if keel is installed.
-deploymentLabels:
-  keel.sh/policy: major
-  keel.sh/trigger: poll
-
-# Resources for a small pilot install
-resources:
-  requests:
-    cpu: 500m
-    memory: 2048Mi
-
-# TODO: remove this, only used for testing, need real config
-env:
-  GODEBUG: gctrace=2
-  PILOT_HTTP10: "1"
-  CONFIG_NAMESPACE: "istio-config"
-  PILOT_TRACE_SAMPLING: "0.1"
-
-cpu:
-  targetAverageUtilization: 80

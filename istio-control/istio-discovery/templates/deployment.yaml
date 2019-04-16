@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
@@ -6,27 +6,36 @@ metadata:
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: pilot
-    istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
+    istio: pilot
+  annotations:
+    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
-{{- if not .Values.autoscaleMin }}
+{{- if not .Values.autoscaleEnabled }}
+{{- if .Values.replicaCount }}
   replicas: {{ .Values.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
 {{- end }}
   strategy:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+  selector:
+    matchLabels:
+      istio: pilot
   template:
     metadata:
       labels:
         app: pilot
+        release: {{ .Release.Name }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
         checksum/config-volume-envoy: {{ print $.Template.BasePath "/configmap-envoy.yaml" | sha256sum }}
         checksum/config-volume: {{ print $.Template.BasePath "/configmap.yaml" | sha256sum }}
     spec:
@@ -39,25 +48,35 @@ spec:
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.image | default "pilot" }}:{{ .Values.global.tag | default "release-1.1-latest-daily" }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
-          - --monitoringAddr=:15014
-{{- if .Values.global.proxy.discoveryDomain }}
+          - --monitoringAddr=:{{ .Values.global.monitoringPort }}
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
           - --domain
-          - {{ .Values.global.proxy.discoveryDomain }}
-{{- end }}
+          - {{ .Values.global.proxy.clusterDomain }}
 {{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+    {{- if not .Values.sidecar }}
+          - --secureGrpcAddr
+          - ":15011"
+    {{- end }}
+{{- else }}
           - --secureGrpcAddr
           - ""
+{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+          - --keepaliveMaxServerConnectionAge
+          - "{{ .Values.keepaliveMaxServerConnectionAge }}"
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -92,6 +111,8 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
+          - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
+            value: "1"
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -101,30 +122,40 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-
-
-       ### Sidercar - should only be used if MTLS is enabled.
-{{- if .Values.global.controlPlaneSecurityEnabled }}
-
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+{{- if .Values.sidecar }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag | default "release-1.1-latest-daily" }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
+          - containerPort: 15003
+          - containerPort: 15005
+          - containerPort: 15007
           - containerPort: 15011
           args:
           - proxy
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --serviceCluster
           - istio-pilot
           - --templateFile
-          - /var/lib/envoy/envoy.yaml.tmpl
+          - /etc/istio/proxy/envoy_pilot.yaml.tmpl
+        {{- if $.Values.global.controlPlaneSecurityEnabled}}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+        {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
-          - --proxyLogLevel
-          - DEBUG
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
           env:
           - name: POD_NAME
             valueFrom:
@@ -151,25 +182,39 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-          - name: pilot-envoy-config
-            mountPath: /var/lib/envoy
+          {{- if $.Values.global.sds.enabled }}
+          - name: sds-uds-path
+            mountPath: /var/run/sds/uds_path
+            readOnly: true
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- end }}
 {{- end }}
-
-
       volumes:
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: config-volume
         configMap:
           name: istio
-{{- if .Values.global.controlPlaneSecurityEnabled}}
-      - name: pilot-envoy-config
-        configMap:
-          name: pilot-envoy-config
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
-          optional: false
-{{- end }}
+          optional: true
       affinity:
-{{- if .Values.nodeaffinity }}
       {{- include "nodeaffinity" . | indent 6 }}
-{{- end }}
+      {{- include "podAntiAffinity" . | indent 6 }}
