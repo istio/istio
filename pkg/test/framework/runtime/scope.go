@@ -57,10 +57,12 @@ func (s *scope) done(nocleanup bool) error {
 	var err error
 	if !nocleanup {
 
+		scopes.CI.Errorf("howardjohn: starting done")
 		// Do reverse walk for cleanup.
 		for i := len(s.resources) - 1; i >= 0; i-- {
 			r := s.resources[i]
 			if closer, ok := r.(io.Closer); ok {
+				scopes.CI.Errorf("howardjohn: killing %v", r.ID())
 				scopes.Framework.Debugf("Begin cleaning up resource: %v", r.ID())
 				if e := closer.Close(); e != nil {
 					scopes.Framework.Debugf("Error cleaning up resource %s: %v", r.ID(), e)

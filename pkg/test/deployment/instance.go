@@ -59,6 +59,7 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 // Delete this deployment instance.
 func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 	f := func() (interface{}, bool, error) {
+		scopes.CI.Errorf("howardjohn: starting delete")
 		if len(i.appliedFiles) > 0 {
 			// Delete in the opposite order that they were applied.
 			for ix := len(i.appliedFiles) - 1; ix >= 0; ix-- {
@@ -73,6 +74,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 				scopes.CI.Warnf("Error deleting deployment: %v", err)
 			}
 		}
+		scopes.CI.Errorf("howardjohn: ending delete")
 		return nil, true, nil
 	}
 
@@ -81,6 +83,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 	}
 
 	if wait && err != nil {
+	scopes.CI.Errorf("howardjohn: waiting for ns delete")
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
 		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {
@@ -88,6 +91,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 			err = multierror.Append(err, e)
 		}
 	}
+	scopes.CI.Errorf("howardjohn: ns deleted")
 
 	return
 }

@@ -64,7 +64,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+TEST_PACKAGES = $(shell go list ./tests/integration/security/... | grep -v /qualification | grep -v /examples)
 
 # All integration tests targeting local environment.
 .PHONY: test.integration.local
@@ -95,7 +95,7 @@ test.integration.local.unstable: | $(JUNIT_REPORT)
 test.integration.kube: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 8m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
@@ -116,6 +116,7 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
+	--log_output_level=tf:debug \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \

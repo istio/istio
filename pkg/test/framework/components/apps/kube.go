@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/scopes"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -421,18 +422,23 @@ func (c *kubeComponent) Close() (err error) {
 		err = multierror.Append(err, app.(*kubeApp).Close()).ErrorOrNil()
 	}
 
+	scopes.CI.Errorf("howardjohn: closing kube")
 	// Delete any deployments
 	for i, d := range c.deployments {
 		if d != nil {
+
+			scopes.CI.Errorf("howardjohn: delete %v", d)
 			err = multierror.Append(err, d.Delete(c.env.Accessor, false)).ErrorOrNil()
 			c.deployments[i] = nil
 		}
 	}
 
+	scopes.CI.Errorf("howardjohn: waiting for pod delete")
 	// Wait for all deployments to be deleted.
 	for _, factory := range deploymentFactories {
 		err = multierror.Append(err, factory.waitUntilPodIsDeleted(c.env, c.namespace)).ErrorOrNil()
 	}
+	scopes.CI.Errorf("howardjohn: pods deleted")
 
 	return
 }
