@@ -4,6 +4,7 @@ package rawvm
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -21,7 +22,7 @@ type Instance interface {
 type Type string
 
 const (
-	// Native type VM Type.
+	// Native type VM Type, not implemented yet.
 	Native Type = "native"
 	// GCE type VM Type.
 	GCE Type = "gce"
@@ -39,4 +40,10 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 		return nil, fmt.Errorf("only GCE typed VM are supported")
 	}
 	return NewGCE(ctx, cfg)
+}
+
+// Register reigsters a VM service by creating necessary Kubernetes resources. Specifically, a
+// Kubernetes service and ServiceEntry.
+func Register(serviceName string, portList model.PortList) error {
+	return nil
 }

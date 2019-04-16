@@ -37,6 +37,19 @@ type resourceInfo struct {
 	} `json:"projectsinfo,omitempty"`
 }
 
+// ParseGCEInstance returns a GCEInstance from an given mason file.
+func ParseGCEInstance(filePath string) (*GCPRawVM, error) {
+	info, err := parseInfoFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	gce, err := resourceInfoToGCPRawVM(*info, "default")
+	if err != nil {
+		return nil, err
+	}
+	return gce, nil
+}
+
 func parseInfoFile(filePath string) (*gcp.ResourceInfo, error) {
 	var info gcp.ResourceInfo
 
