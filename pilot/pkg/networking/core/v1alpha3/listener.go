@@ -736,15 +736,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Name:     egressListener.IstioListener.Port.Name,
 				}
 
-				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
-				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// Bind IP + Port is specified, we will bind to the specified IP and Port.
+				// This specified IP is ideally expected to be a loopback IP.
+				//
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// only Port is specified, we will bind to the default loopback IP
+				// 127.0.0.1 and the specified Port.
+				//
+				// If capture mode is NONE, i.e., bindToPort is true, and
+				// only Bind IP is specified, we will bind to the specified IP
+				// for each port as defined in the service registry.
+				//
+				// If captureMode is not NONE, i.e., bindToPort is false, then
 				// we will bind to user specified IP (if any) or to the VIPs of services in
 				// this egress listener.
-				bind := ""
-				if bindToPort {
+				bind := egressListener.IstioListener.Bind
+				if bindToPort && bind == "" {
 					bind = LocalhostAddress
-				} else {
-					bind = egressListener.IstioListener.Bind
 				}
 
 				for _, service := range services {
@@ -798,7 +807,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				bind := ""
-				if bindToPort {
+				if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
+					bind = egressListener.IstioListener.Bind
+				}
+				if bindToPort && bind == "" {
 					bind = LocalhostAddress
 				}
 				for _, service := range services {
