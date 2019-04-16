@@ -27,7 +27,7 @@ jobs:
     - get: istio-installer
       trigger: true
 
-    - task: cleanup
+    - task: install-1-1-daily
       params: &params-1-1-daily
         TAG: release-1.1-latest-daily
         HUB: gcr.io/istio-release
@@ -49,98 +49,10 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh cleanup
-    - task: install-crds
-      params: *params-1-1-daily
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_crds
-    - task: install-system
-      config:
-        platform: linux
-        params: *params-1-1-daily
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_system
-    - task: install-control
-      config:
-        platform: linux
-        params: *params-1-1-daily
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_control
-    - task: install-ingress
-      config:
-        platform: linux
-        params: *params-1-1-daily
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_ingress
-    - task: install-telemetry
-      config:
-        platform: linux
-        params: *params-1-1-daily
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_telemetry
-
+            for step in cleanup install_crds install_system install_control install_ingress install_telemetry; do
+                istio-installer/bin/install.sh $step
+            done
+    
   - name: test-after-install
     serial_groups: [ cluster ]
     plan:
