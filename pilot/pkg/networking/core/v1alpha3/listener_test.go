@@ -129,10 +129,12 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 
 func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	// Add a service and verify it's config
-	testOutboundListenerConfigWithSidecar(t,
+	services := []*model.Service{
 		buildService("test1,com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
 		buildService("test2,com", wildcardIP, model.ProtocolTCP, tnow),
-		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second))}
+	testOutboundListenerConfigWithSidecar(t, services...)
+	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 }
 
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
@@ -286,6 +288,78 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 	if !isHTTPListener(listeners[1]) {
 		t.Fatal("expected HTTP listener on port 9000, found TCP")
+	}
+}
+
+func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					// Bind + Port
+					CaptureMode: networking.CaptureMode_NONE,
+					Port: &networking.Port{
+						Number:   9090,
+						Protocol: "HTTP",
+						Name:     "grpc",
+					},
+					Bind:  "127.1.1.2",
+					Hosts: []string{"*/*"},
+				},
+				{
+					// Bind Only
+					CaptureMode: networking.CaptureMode_NONE,
+					Bind:        "127.1.1.2",
+					Hosts:       []string{"*/*"},
+				},
+				{
+					// Port Only
+					CaptureMode: networking.CaptureMode_NONE,
+					Port: &networking.Port{
+						Number:   9090,
+						Protocol: "HTTP",
+						Name:     "grpc",
+					},
+					Hosts: []string{"*/*"},
+				},
+				{
+					// None
+					CaptureMode: networking.CaptureMode_NONE,
+					Hosts:       []string{"*/*"},
+				},
+			},
+		},
+	}
+	listeners := buildOutboundListeners(p, sidecarConfig, services...)
+	if len(listeners) != 4 {
+		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
+	}
+
+	expectedListeners := map[string]string{
+		"127.1.1.2_9090": "HTTP",
+		"127.1.1.2_8080": "TCP",
+		"127.0.0.1_9090": "HTTP",
+		"127.0.0.1_8080": "TCP",
+	}
+
+	for _, listener := range listeners {
+		listenerName := listener.Name
+		expectedListenerType := expectedListeners[listenerName]
+		if expectedListenerType == "" {
+			t.Fatalf("listener %s not expected", listenerName)
+		}
+		if expectedListenerType == "TCP" && isHTTPListener(listener) {
+			t.Fatalf("expected TCP listener %s, but found HTTP", listenerName)
+		}
+		if expectedListenerType == "HTTP" && !isHTTPListener(listener) {
+			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
+		}
 	}
 }
 
