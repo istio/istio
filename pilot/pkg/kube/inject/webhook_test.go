@@ -52,6 +52,7 @@ import (
 const (
 	helmChartDirectory     = "../../../../install/kubernetes/helm/istio"
 	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
+	injectorConfig         = "../../../../install/kubernetes/helm/istio/files/injection-template.yaml"
 	helmValuesFile         = "values.yaml"
 	yamlSeparator          = "\n---"
 	minimalSidecarTemplate = `
@@ -631,7 +632,8 @@ func TestWebhookInject(t *testing.T) {
 			templateFile = c.templateFile
 		}
 		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
-			wh := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
+			wh, cleanup := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
+			defer cleanup()
 			podYAML := util.ReadFile(input, t)
 			podJSON, err := yaml.YAMLToJSON(podYAML)
 			if err != nil {
@@ -657,8 +659,8 @@ func TestWebhookInject(t *testing.T) {
 // same tests as TestIntoResourceFile in order to verify that the webhook performs the same way as the manual injector.
 func TestHelmInject(t *testing.T) {
 	// Create the webhook from the install configmap.
-	webhook := createTestWebhookFromHelmConfigMap(t)
-
+	webhook, cleanup := createTestWebhookFromHelmConfigMap(t)
+	defer cleanup()
 	// NOTE: this list is a subset of the list in TestIntoResourceFile. It contains all test cases that operate
 	// on Deployments and do not require updates to the injection Params.
 	cases := []struct {
@@ -816,8 +818,22 @@ func TestHelmInject(t *testing.T) {
 	}
 }
 
-func createTestWebhook(sidecarTemplate string) *Webhook {
+func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	mesh := model.DefaultMeshConfig()
+	dir, err := ioutil.TempDir("", "webhook_test")
+	if err != nil {
+		t.Fatalf("TempDir() failed: %v", err)
+	}
+	cleanup := func() {
+		os.RemoveAll(dir) // nolint: errcheck
+	}
+	valuesBytes := []byte(getValuesWithHelm(nil, t))
+	valuesFile := filepath.Join(dir, "values-file.yaml")
+
+	if err := ioutil.WriteFile(valuesFile, valuesBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
+	}
 	return &Webhook{
 		sidecarConfig: &Config{
 			Policy:   InjectionPolicyEnabled,
@@ -825,26 +841,61 @@ func createTestWebhook(sidecarTemplate string) *Webhook {
 		},
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &mesh,
-	}
+		valuesFile:             valuesFile,
+	}, cleanup
 }
 
-func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
+func createTestWebhookFromFile(templateFile string, t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	sidecarTemplate := string(util.ReadFile(templateFile, t))
-	return createTestWebhook(sidecarTemplate)
+	return createTestWebhook(t, sidecarTemplate)
 }
 
-func createTestWebhookFromHelmConfigMap(t *testing.T) *Webhook {
+func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
 	sidecarTemplate := loadConfigMapWithHelm(nil, t)
-	return createTestWebhook(sidecarTemplate)
+	return createTestWebhook(t, sidecarTemplate)
 }
 
 type configMapBody struct {
 	Policy   string `yaml:"policy"`
 	Template string `yaml:"template"`
+}
+
+func loadSidecarTemplate(t testing.TB) string {
+	injectionConfig, err := ioutil.ReadFile(injectorConfig) // nolint: vetshadow
+	if err != nil {
+		t.Fatalf("failed to load sidecar template: %v", err)
+	}
+	return string(injectionConfig)
+}
+
+func getValues(params *Params, t testing.TB) string {
+	values := getHelmValues(t)
+	mergedValues := mergeParamsIntoHelmValues(params, values, t)
+	return mergedValues
+}
+
+func getValuesWithHelm(params *Params, t testing.TB) string {
+	c, err := chartutil.Load(helmChartDirectory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := getHelmValues(t)
+	mergedValues := mergeParamsIntoHelmValues(params, values, t)
+	config := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
+
+	vals, err := chartutil.CoalesceValues(c, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	yaml, err := vals.YAML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return yaml
 }
 
 func loadConfigMapWithHelm(params *Params, t testing.TB) string {
@@ -1213,9 +1264,10 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-
+	valuesBytes := []byte(getValues(&Params{}, t))
 	var (
 		configFile = filepath.Join(dir, "config-file.yaml")
+		valuesFile = filepath.Join(dir, "values-file.yaml")
 		meshFile   = filepath.Join(dir, "mesh-file.yaml")
 		certFile   = filepath.Join(dir, "cert-file.yaml")
 		keyFile    = filepath.Join(dir, "key-file.yaml")
@@ -1225,6 +1277,11 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
+	}
+
+	if err := ioutil.WriteFile(valuesFile, valuesBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
 	// mesh
@@ -1254,7 +1311,13 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	}
 
 	wh, err := NewWebhook(WebhookParameters{
-		ConfigFile: configFile, MeshFile: meshFile, CertFile: certFile, KeyFile: keyFile, Port: port})
+		ConfigFile: configFile,
+		ValuesFile: valuesFile,
+		MeshFile:   meshFile,
+		CertFile:   certFile,
+		KeyFile:    keyFile,
+		Port:       port,
+	})
 	if err != nil {
 		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)

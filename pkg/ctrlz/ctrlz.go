@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/go-bindata.sh --nocompress --nometadata --pkg ctrlz -o assets.gen.go assets/...
-
 // Package ctrlz implements Istio's introspection facility. When components
 // integrate with ControlZ, they automatically gain an IP port which allows operators
 // to visualize and control a number of aspects of each process, including controlling
@@ -37,6 +35,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"istio.io/istio/pkg/ctrlz/assets"
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"
 	"istio.io/istio/pkg/log"
@@ -65,7 +64,7 @@ type Server struct {
 }
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
-	return template.Must(layout.Parse(string(MustAsset(page))))
+	return template.Must(layout.Parse(string(assets.MustAsset(page))))
 }
 
 func registerTopic(router *mux.Router, layout *template.Template, t fw.Topic) {
@@ -137,13 +136,13 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		"getTopics": getTopics,
 	}
 
-	baseLayout := template.Must(template.New("base").Parse(string(MustAsset("assets/templates/layouts/base.html"))))
+	baseLayout := template.Must(template.New("base").Parse(string(assets.MustAsset("templates/layouts/base.html"))))
 	baseLayout = baseLayout.Funcs(funcs)
 	baseLayout = template.Must(baseLayout.Parse("{{ define \"instance\" }}" + instance + "{{ end }}"))
-	_ = augmentLayout(baseLayout, "assets/templates/modules/header.html")
-	_ = augmentLayout(baseLayout, "assets/templates/modules/sidebar.html")
-	_ = augmentLayout(baseLayout, "assets/templates/modules/last-refresh.html")
-	mainLayout := augmentLayout(template.Must(baseLayout.Clone()), "assets/templates/layouts/main.html")
+	_ = augmentLayout(baseLayout, "templates/modules/header.html")
+	_ = augmentLayout(baseLayout, "templates/modules/sidebar.html")
+	_ = augmentLayout(baseLayout, "templates/modules/last-refresh.html")
+	mainLayout := augmentLayout(template.Must(baseLayout.Clone()), "templates/layouts/main.html")
 
 	router := mux.NewRouter()
 	for _, t := range allTopics {

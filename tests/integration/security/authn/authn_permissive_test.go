@@ -24,14 +24,14 @@ import (
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	proto "github.com/gogo/protobuf/types"
 
-	authnv1alpha "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	pilot2 "istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
@@ -90,43 +90,38 @@ func TestAuthnPermissive(t *testing.T) {
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
 	ctx.RequireOrSkip(t, environment.Native)
 
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
+
 	env := ctx.Environment().(*native.Environment)
-	_, err := env.ServiceManager.ConfigStore.Create(
-		model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.AuthenticationPolicy.Type,
-				Name:      "default",
-				Namespace: "istio-system",
-			},
-			Spec: &authnv1alpha.Policy{
-				// TODO: make policy work just applied to service a.
-				// Targets: []*authn.TargetSelector{
-				// 	{
-				// 		Name: "a.istio-system.svc.local",
-				// 	},
-				// },
-				Peers: []*authnv1alpha.PeerAuthenticationMethod{{
-					Params: &authnv1alpha.PeerAuthenticationMethod_Mtls{
-						Mtls: &authnv1alpha.MutualTls{
-							Mode: authnv1alpha.MutualTls_PERMISSIVE,
-						},
-					},
-				}},
-			},
-		},
-	)
-	if err != nil {
-		t.Error(err)
-	}
-	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
-	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
+	ns := namespace.ClaimOrFail(t, ctx, env.SystemNamespace)
+
+	policy := `
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+spec:
+  peers:
+    - mtls:
+        mode: PERMISSIVE
+`
+	g.ApplyConfigOrFail(t, ns, policy)
+
+	aps := apps.NewOrFail(t, ctx, apps.Config{
+		Galley:    g,
+		Pilot:     p,
+		Namespace: ns,
+	})
 	a := aps.GetAppOrFail("a", t)
 	req := apps.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
-	err = pilot.StartDiscovery(req)
+	err := p.StartDiscovery(req)
 	if err != nil {
 		t.Fatalf("failed to call discovery %v", err)
 	}
-	err = pilot.WatchDiscovery(time.Second*10,
+	err = p.WatchDiscovery(time.Second*10,
 		func(resp *xdsapi.DiscoveryResponse) (b bool, e error) {
 			for _, r := range resp.Resources {
 				foo := &xdsapi.Listener{}

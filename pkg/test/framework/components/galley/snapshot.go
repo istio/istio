@@ -72,6 +72,7 @@ func NewGoldenSnapshotValidator(goldens []map[string]interface{}) SnapshotValida
 		actualMap := make(map[string]interface{})
 		for _, a := range actuals {
 			// Exclude ephemeral fields from comparison
+			a := proto.Clone(a).(*SnapshotObject)
 			a.Metadata.CreateTime = nil
 			a.Metadata.Version = ""
 

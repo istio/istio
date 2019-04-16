@@ -64,10 +64,10 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
   run:
     when: always
     command: |
-      make dumpsys || true
       make junit-report || true
       # TODO: upload the artifacts as well, for debugging !
       bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
+      make dumpsys || true
 
 jobs:
   e2e-simple:
