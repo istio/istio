@@ -25,28 +25,6 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	ruleKind      = "rule"
-	selectorField = "selector"
-	matchField    = "match"
-)
-
-// warnDeprecationAndFix warns users about deprecated fields.
-// It maps the field into new name.
-func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]interface{} {
-	if key.Kind != ruleKind {
-		return spec
-	}
-	sel := spec[selectorField]
-	if sel == nil {
-		return spec
-	}
-	log.Warnf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
-	spec[matchField] = sel
-	delete(spec, selectorField)
-	return spec
-}
-
 // cloneMessage looks up the kind in the map, and creates a clone of it.
 func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, error) {
 	msg, ok := kinds[kind]
@@ -58,7 +36,7 @@ func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, e
 
 // convert converts unstructured spec into the target proto.
 func convert(key Key, spec map[string]interface{}, target proto.Message) error {
-	jsonData, err := json.Marshal(warnDeprecationAndFix(key, spec))
+	jsonData, err := json.Marshal(spec)
 	if err != nil {
 		return err
 	}

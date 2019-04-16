@@ -27,6 +27,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
+	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -44,43 +45,17 @@ var (
 		"spec":       true,
 		"status":     true,
 	}
+
+	mixerAPIVersion = "config.istio.io/v1alpha2"
+	mixerKinds      = map[string]struct{}{
+		"rule":              {},
+		"adapter":           {},
+		"template":          {},
+		"handler":           {},
+		"instance":          {},
+		"attributemanifest": {},
+	}
 )
-
-/*
-
-TODO(https://github.com/istio/istio/issues/4887)
-
-Reusing the existing mixer validation code pulls in all of the mixer
-adapter packages into istioctl. Not only is this not ideal (see
-issue), but it also breaks the istioctl build on windows as some mixer
-adapters use linux specific packges (e.g. syslog).
-
-func createMixerValidator() store.BackendValidator {
-	info := generatedTmplRepo.SupportedTmplInfo
-	templates := make(map[string]*template.Info, len(info))
-	for k := range info {
-		t := info[k]
-		templates[k] = &t
-	}
-	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
-}
-
-var mixerValidator = createMixerValidator()
-
-type validateArgs struct {
-	filenames []string
-	// TODO validateObjectStream namespace/object?
-}
-
-func (args validateArgs) validate() error {
-	var errs *multierror.Error
-	if len(args.filenames) == 0 {
-		errs = multierror.Append(errs, errors.New("no filenames set (see --filename/-f)"))
-	}
-	return errs.ErrorOrNil()
-}
-*/
 
 func validateResource(un *unstructured.Unstructured) error {
 	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
@@ -91,7 +66,14 @@ func validateResource(un *unstructured.Unstructured) error {
 		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
-	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
+
+	if un.GetAPIVersion() == mixerAPIVersion {
+		if _, exists = mixerKinds[un.GetKind()]; exists {
+			return fmt.Errorf("%s not implemented", un.GetKind())
+		}
+		res := mixercrd.ToBackEndResource(un)
+		_ = res
+	}
 	/*
 		TODO(https://github.com/istio/istio/issues/4887)
 
@@ -105,6 +87,7 @@ func validateResource(un *unstructured.Unstructured) error {
 		}
 		return mixerValidator.Validate(ev)
 	*/
+	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
 }
 
 var errMissingResource = errors.New(`error: you must specify resources by --filename.

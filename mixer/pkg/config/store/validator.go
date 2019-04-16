@@ -15,8 +15,6 @@
 package store
 
 import (
-	"errors"
-
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/log"
@@ -25,30 +23,12 @@ import (
 type perKindValidateFunc func(br *BackEndResource) error
 
 type perKindValidator struct {
-	pbSpec   proto.Message
-	validate perKindValidateFunc
+	pbSpec proto.Message
 }
 
 func (pv *perKindValidator) validateAndConvert(key Key, br *BackEndResource, res *Resource) error {
-	if pv.validate != nil {
-		if err := pv.validate(br); err != nil {
-			return err
-		}
-	}
 	res.Spec = proto.Clone(pv.pbSpec)
 	return convert(key, br.Spec, res.Spec)
-}
-
-func validateRule(br *BackEndResource) error {
-	_, matchExists := br.Spec[matchField]
-	_, selectorExists := br.Spec[selectorField]
-	if !matchExists && selectorExists {
-		return errors.New("field 'selector' is deprecated, use 'match' instead")
-	}
-	if selectorExists {
-		log.Warnf("Deprecated field 'selector' used in %s. Use 'match' instead.", br.Metadata.Name)
-	}
-	return nil
 }
 
 // validator provides the default structural validation with delegating
@@ -63,11 +43,7 @@ type validator struct {
 func NewValidator(ev Validator, kinds map[string]proto.Message) BackendValidator {
 	vs := make(map[string]*perKindValidator, len(kinds))
 	for k, pb := range kinds {
-		var validateFunc perKindValidateFunc
-		if k == ruleKind {
-			validateFunc = validateRule
-		}
-		vs[k] = &perKindValidator{pb, validateFunc}
+		vs[k] = &perKindValidator{pb}
 	}
 	return &validator{
 		externalValidator: ev,
