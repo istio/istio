@@ -105,6 +105,12 @@ function switch_istio_control() {
     fi
 }
 
+function print_help_and_exit() {
+    set +x
+    echo "Usage: install.sh [ cleanup | install_crds | install_system | install_control | install_ingress | install_telemetry | switch_istio_control | install_all ] [--update]"
+    exit 1
+}
+
 COMMAND="install_all"
 METHOD=Install
 ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
@@ -124,6 +130,8 @@ do
         install_ingress) COMMAND=$1 ;;
         install_telemetry) COMMAND=$1 ;;
         switch_istio_control) COMMAND=$1 ;;
+        "") COMMAND="install_all" ;;
+        *) print_help_and_exit ;;
     esac
     shift 1
 done
