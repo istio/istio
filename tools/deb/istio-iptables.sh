@@ -59,6 +59,30 @@ function dump {
     ip6tables-save
 }
 
+#
+#  Function check if argument is a valid ipv4 or ipv6 address
+#
+function isValidIP() {
+   if [ "$1" != "${1#*[0-9].[0-9].[0-9].[0-9]}" ]; then
+      true
+   elif [ "$1" != "${1#*:[0-9a-fA-F]}" ]; then
+      true
+   else
+      false
+   fi
+}
+
+#
+# Function return true if agrument is a valid ipv4 address
+#
+function isIPv4() {
+   if [ "$1" != "${1#*[0-9].[0-9].[0-9].[0-9]}" ]; then
+      true
+   else
+      false
+  fi
+}
+
 trap dump EXIT
 
 # Use a comma as the separator for multi-value arguments.
@@ -157,6 +181,41 @@ if [ -z "${PROXY_GID}" ]; then
 PROXY_GID=${PROXY_UID}
 fi
 
+#
+# Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
+# need to split them in different arrays one for ipv4 and one for ipv6
+# in order to not to fail
+pl='/*'
+ipv6_ranges_exclude=()
+ipv4_ranges_exclude=()
+for range in "${OUTBOUND_IP_RANGES_EXCLUDE[@]}"; do
+    r=${range%$pl}
+    if isValidIP "$r"; then
+        if isIPv4 "$r"; then
+            ipv4_ranges_exclude+=("$range")
+        else
+            ipv6_ranges_exclude+=("$range")
+        fi
+    fi
+done
+
+ipv6_ranges_include=()
+ipv4_ranges_include=()
+if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+   ipv6_ranges_include=("*")
+   ipv4_ranges_include=("*")
+else 
+    for range in "${OUTBOUND_IP_RANGES_INCLUDE[@]}"; do
+        r=${range%$pl}
+        if isValidIP "$r"; then
+            if isIPv4 "$r"; then
+                ipv4_ranges_include+=("$range")
+            else
+                ipv6_ranges_include+=("$range")
+            fi
+        fi
+    done
+fi
 
 # Remove the old chains, to generate new configs.
 iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
@@ -331,9 +390,9 @@ done
 # localhost.
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
-# Apply outbound IP exclusions. Must be applied before inclusions.
-if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
-  for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
+# Apply outbound IPv4 exclusions. Must be applied before inclusions.
+if [ ${#ipv4_ranges_exclude[@]} -gt 0 ]; then
+  for cidr in "${ipv4_ranges_exclude[@]}"; do
     iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
   done
 fi
@@ -343,16 +402,16 @@ for internalInterface in ${KUBEVIRT_INTERFACES}; do
 done
 
 # Apply outbound IP inclusions.
-if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+if [ "${ipv4_ranges_include[0]}" == "*" ]; then
   # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
   iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
   for internalInterface in ${KUBEVIRT_INTERFACES}; do
     iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
   done
 
-elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
+elif [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
   # User has specified a non-empty list of cidrs to be redirected to Envoy.
-  for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+  for cidr in "${ipv4_ranges_include[@]}"; do
     for internalInterface in ${KUBEVIRT_INTERFACES}; do
         iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
     done
@@ -454,17 +513,30 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   # localhost.
   ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
   
+  # Apply outbound IPv6 exclusions. Must be applied before inclusions.
+  if [ ${#ipv6_ranges_exclude[@]} -gt 0 ]; then
+    for cidr in "${ipv6_ranges_exclude[@]}"; do
+      ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
+    done
+  fi
   # Apply outbound IPv6 inclusions.
-  # TODO Need to figure out differentiation  between IPv4 and IPv6 ranges 
-  # for now process only "*"
-  if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+  if [ "${ipv6_ranges_include[0]}" == "*" ]; then
     # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
     ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-  fi 
-
-  for internalInterface in ${KUBEVIRT_INTERFACES}; do
+    for internalInterface in ${KUBEVIRT_INTERFACES}; do
       ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
-  done
+    done
+  elif  [ ${#ipv6_ranges_include[@]} -gt 0 ]; then
+    # User has specified a non-empty list of cidrs to be redirected to Envoy.
+    for cidr in "${ipv6_ranges_include[@]}"; do
+      for internalInterface in ${KUBEVIRT_INTERFACES}; do
+        ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+      done
+      ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+    done
+    # All other traffic is not redirected.
+    ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
+  fi
 else
   # Drop all inbound traffic except established connections.
   ip6tables -F INPUT || true

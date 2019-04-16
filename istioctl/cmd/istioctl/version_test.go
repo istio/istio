@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
@@ -199,4 +200,12 @@ func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version
 
 func mockExecClientVersionTest(_, _ string) (kubernetes.ExecClient, error) {
 	return &mockExecVersionConfig{}, nil
+}
+
+func (client mockExecVersionConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
+	return &v1.PodList{}, nil
+}
+
+func (client mockExecVersionConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+	return nil, fmt.Errorf("mock k8s does not forward")
 }

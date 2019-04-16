@@ -39,6 +39,7 @@ import (
 const (
 	configMapKey       = "mesh"
 	injectConfigMapKey = "config"
+	valuesConfigMapKey = "values"
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
@@ -75,6 +76,29 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 			version.Info.Version), err)
 	}
 	return cfg, err
+}
+
+// grabs the raw values from the ConfigMap. These are encoded as JSON.
+func getValuesFromConfigMap(kubeconfig string) (string, error) {
+	client, err := createInterface(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
+			injectConfigMapName, istioNamespace, err)
+	}
+
+	valuesData, exists := config.Data[valuesConfigMapKey]
+	if !exists {
+		return "", fmt.Errorf("missing configuration map key %q in %q",
+			valuesConfigMapKey, injectConfigMapName)
+	}
+
+	return valuesData, nil
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
@@ -127,6 +151,7 @@ var (
 	outFilename         string
 	meshConfigFile      string
 	meshConfigMapName   string
+	valuesFile          string
 	injectConfigFile    string
 	injectConfigMapName string
 )
@@ -249,6 +274,19 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 			}
 
+			var valuesConfig string
+			if valuesFile != "" {
+				valuesConfigBytes, err := ioutil.ReadFile(valuesFile) // nolint: vetshadow
+				if err != nil {
+					return err
+				}
+				valuesConfig = string(valuesConfigBytes)
+			} else {
+				if valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
+			}
+
 			if emitTemplate {
 				config := inject.Config{
 					Policy:   inject.InjectionPolicyEnabled,
@@ -262,7 +300,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, meshConfig, reader, writer)
+			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
 		},
 	}
 )
@@ -279,6 +317,8 @@ func init() {
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
+	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
+		"injection values configuration filename.")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false,
 		"Emit sidecar template based on parameterized flags")

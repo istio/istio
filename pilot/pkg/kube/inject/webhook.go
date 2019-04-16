@@ -68,6 +68,7 @@ type Webhook struct {
 	server     *http.Server
 	meshFile   string
 	configFile string
+	valuesFile string
 	watcher    *fsnotify.Watcher
 	certFile   string
 	keyFile    string
@@ -103,6 +104,8 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 type WebhookParameters struct {
 	// ConfigFile is the path to the sidecar injection configuration file.
 	ConfigFile string
+
+	ValuesFile string
 
 	// MeshFile is the path to the mesh configuration file.
 	MeshFile string
@@ -158,6 +161,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
+		valuesFile:             p.ValuesFile,
 		meshFile:               p.MeshFile,
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
@@ -558,8 +562,13 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 			FSGroup: &grp,
 		}
 	}
+	valuesConfig, err := ioutil.ReadFile(wh.valuesFile)
+	if err != nil {
+		log.Errorf("failed to read values file: err=%v\n", err)
+		return toAdmissionResponse(err)
+	}
 
-	spec, status, err := InjectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, status, err := InjectionData(wh.sidecarConfig.Template, string(valuesConfig), wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)

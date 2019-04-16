@@ -58,6 +58,17 @@ type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
+	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
+	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
+	BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error)
+}
+
+// PortForward gathers port forwarding results
+type PortForward struct {
+	Forwarder    *portforward.PortForwarder
+	LocalPort    int
+	StopChannel  chan struct{}
+	ReadyChannel <-chan struct{}
 }
 
 // PortForward gathers port forwarding results

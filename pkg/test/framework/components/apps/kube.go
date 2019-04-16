@@ -98,13 +98,14 @@ spec:
     matchLabels:
       app: {{ .service }}
       version: {{ .version }}
-      istio-locality: {{ .locality }}
   template:
     metadata:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+{{- if ne .locality "" }}
         istio-locality: {{ .locality }}
+{{- end }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -307,6 +308,10 @@ func appSelector(serviceName string) string {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
