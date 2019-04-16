@@ -23,8 +23,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	pilot2 "istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	connect "istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
@@ -50,8 +51,11 @@ func TestMutualTlsReachability(t *testing.T) {
 
 	env := ctx.Environment().(*kube.Environment)
 
-	pilot := pilot2.NewOrFail(t, ctx, pilot2.Config{})
-	appsInstance := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot})
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
+	appsInstance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
 
 	aApp, _ := appsInstance.GetAppOrFail("a", t).(apps.KubeApp)
 	bApp, _ := appsInstance.GetAppOrFail("b", t).(apps.KubeApp)

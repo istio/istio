@@ -941,12 +941,12 @@
   version = "v0.8.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:61820d62888624679de099adf44bb6cf2fd55b7f9e8f4f8d320d9d9d28bee938"
+  branch = "release-3.11"
+  digest = "1:b8d1c7ce1bae7d93991ad16a581440b4257dad8c83acc41851b6203c73ece3e8"
   name = "github.com/openshift/api"
   packages = ["apps/v1"]
   pruneopts = "NUT"
-  revision = "dca24d1902afee9d2be02425a2d7c9f910063631"
+  revision = "8741ff068a473be041d7bafb4502c12e4f10aab5"
 
 [[projects]]
   digest = "1:6e36c3eab25478d363e7eb669f253d9f9a620e640b0e1d86d3e909cbb1a56ab6"
