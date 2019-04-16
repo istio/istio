@@ -71,14 +71,6 @@ type PortForward struct {
 	ReadyChannel <-chan struct{}
 }
 
-// PortForward gathers port forwarding results
-type PortForward struct {
-	Forwarder    *portforward.PortForwarder
-	LocalPort    int
-	StopChannel  chan struct{}
-	ReadyChannel <-chan struct{}
-}
-
 // NewClient is the constructor for the client wrapper
 func NewClient(kubeconfig, configContext string) (*Client, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
