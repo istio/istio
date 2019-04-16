@@ -68,10 +68,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	fetchFn := env.Accessor.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
-	if err := env.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return nil, err
-	}
-	pods, err := fetchFn()
+	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/application/echo"
@@ -283,7 +283,7 @@ func newChurnApp(t *testing.T) *churnApp {
 	}
 
 	fetchFn := tc.Kube.KubeAccessor.NewPodFetch(tc.Kube.Namespace, churnAppSelector)
-	if err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+	if _, err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		app.stop()
 		t.Fatal(err)
 		return nil

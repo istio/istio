@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -172,18 +172,19 @@ func (a *Accessor) NewSinglePodFetch(namespace string, selectors ...string) PodF
 }
 
 // WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) error {
+func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kubeApiCore.Pod, error) {
+	var pods []kubeApiCore.Pod
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		scopes.CI.Infof("Checking pods...")
+		scopes.CI.Infof("Checking pods ready...")
 
-		pods, err := fetchFunc()
+		fetched, err := fetchFunc()
 		if err != nil {
 			scopes.CI.Infof("Failed retrieving pods: %v", err)
 			return nil, false, err
 		}
 
-		for i, p := range pods {
+		for i, p := range fetched {
 			msg := "Ready"
 			if e := CheckPodReady(&p); e != nil {
 				msg = e.Error()
@@ -195,10 +196,11 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 		if err != nil {
 			return nil, false, err
 		}
+		pods = fetched
 		return nil, true, nil
 	}, newRetryOptions(opts...)...)
 
-	return err
+	return pods, err
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.
