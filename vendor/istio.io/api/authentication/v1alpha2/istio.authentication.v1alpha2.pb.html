@@ -1,0 +1,454 @@
+---
+title: Authentication Policy v1alpha2
+description: Authentication policy for Istio services.
+location: https://istio.io/docs/reference/config/istio.authentication.v1alpha2.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 10
+---
+<p>This package defines user-facing authentication policy.</p>
+
+<h2 id="AuthenticationMethod">AuthenticationMethod</h2>
+<section>
+<p>AuthenticationMethod</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AuthenticationMethod-mtls" class="oneof oneof-start">
+<td><code>mtls</code></td>
+<td><code><a href="#MutualTls">MutualTls (oneof)</a></code></td>
+<td>
+<p>Set if mTLS is used.</p>
+
+</td>
+</tr>
+<tr id="AuthenticationMethod-jwt" class="oneof">
+<td><code>jwt</code></td>
+<td><code><a href="#Jwt">Jwt (oneof)</a></code></td>
+<td>
+<p>Set if JWT is used. This option is not yet available.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
+<section>
+<p>AuthenticationPolicy: add comments</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AuthenticationPolicy-selector">
+<td><code>selector</code></td>
+<td><code><a href="#Selector">Selector</a></code></td>
+<td>
+<p>List rules to select workloads that the policy should be applied on.
+If empty, policy will be used on all workloads in the same namespace.</p>
+
+</td>
+</tr>
+<tr id="AuthenticationPolicy-peers">
+<td><code>peers</code></td>
+<td><code><a href="#Rule">Rule[]</a></code></td>
+<td>
+<p>List of authentication methods that can be used for peer authentication.
+They will be evaluated in order; the first validate one will be used to
+set peer identity (source.user) and other peer attributes. If none of
+these methods pass, request will be rejected with authentication failed error (401).
+Leave the list empty if peer authentication is not required</p>
+
+</td>
+</tr>
+<tr id="AuthenticationPolicy-origins">
+<td><code>origins</code></td>
+<td><code><a href="#Rule">Rule[]</a></code></td>
+<td>
+<p>Define origins authentications.</p>
+
+</td>
+</tr>
+<tr id="AuthenticationPolicy-principal_binding">
+<td><code>principalBinding</code></td>
+<td><code><a href="#PrincipalBinding">PrincipalBinding</a></code></td>
+<td>
+<p>Define whether peer or origin identity should be use for principal. Default
+value is USE_PEER.
+If peer (or origin) identity is not available, either because of peer/origin
+authentication is not defined, or failed, principal will be left unset.
+In other words, binding rule does not affect the decision to accept or
+reject request.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Jwt">Jwt</h2>
+<section>
+<p>JSON Web Token (JWT) token format for authentication as defined by
+<a href="https://tools.ietf.org/html/rfc7519">RFC 7519</a>. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
+2.0</a> and <a href="http://openid.net/connect">OIDC
+1.0</a> for how this is used in the whole
+authentication flow.</p>
+
+<p>For example:</p>
+
+<p>A JWT for any requests:</p>
+
+<pre><code class="language-yaml">issuer: https://example.com
+audiences:
+- bookstore_android.apps.googleusercontent.com
+  bookstore_web.apps.googleusercontent.com
+jwksUri: https://example.com/.well-known/jwks.json
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Jwt-issuer">
+<td><code>issuer</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the issuer that issued the JWT. See
+<a href="https://tools.ietf.org/html/rfc7519#section-4.1.1">issuer</a>
+Usually a URL or an email address.</p>
+
+<p>Example: https://securetoken.google.com
+Example: 1234567-compute@developer.gserviceaccount.com</p>
+
+</td>
+</tr>
+<tr id="Jwt-audiences">
+<td><code>audiences</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The list of JWT
+<a href="https://tools.ietf.org/html/rfc7519#section-4.1.3">audiences</a>.
+that are allowed to access. A JWT containing any of these
+audiences will be accepted.</p>
+
+<p>The service name will be accepted if audiences is empty.</p>
+
+<p>Example:</p>
+
+<pre><code class="language-yaml">audiences:
+- bookstore_android.apps.googleusercontent.com
+  bookstore_web.apps.googleusercontent.com
+</code></pre>
+
+</td>
+</tr>
+<tr id="Jwt-jwks_uri">
+<td><code>jwksUri</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL of the provider&rsquo;s public key set to validate signature of the
+JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID Discovery</a>.</p>
+
+<p>Optional if the key set document can either (a) be retrieved from
+<a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
+Discovery</a> of
+the issuer or (b) inferred from the email domain of the issuer (e.g. a
+Google service account).</p>
+
+<p>Example: <code>https://www.googleapis.com/oauth2/v1/certs</code></p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
+
+</td>
+</tr>
+<tr id="Jwt-jwks">
+<td><code>jwks</code></td>
+<td><code>string</code></td>
+<td>
+<p>JSON Web Key Set of public keys to validate signature of the JWT.
+See https://auth0.com/docs/jwks.</p>
+
+<p>Note: Only one of jwks_uri and jwks should be used.</p>
+
+</td>
+</tr>
+<tr id="Jwt-jwt_headers">
+<td><code>jwtHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>JWT is sent in a request header. <code>header</code> represents the
+header name.</p>
+
+<p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
+format will be x-goog-iap-jwt-assertion: &lt;JWT&gt;.</p>
+
+</td>
+</tr>
+<tr id="Jwt-jwt_params">
+<td><code>jwtParams</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>JWT is sent in a query parameter. <code>query</code> represents the
+query parameter name.</p>
+
+<p>For example, <code>query=jwt_token</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Match">Match</h2>
+<section>
+<p>PortSelector specifies the name or number of a port to be used for
+matching targets for authentication policy. This is copied from
+networking API to avoid dependency.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Match-ports">
+<td><code>ports</code></td>
+<td><code>uint32[]</code></td>
+<td>
+<p>ports TODO add comments</p>
+
+</td>
+</tr>
+<tr id="Match-paths">
+<td><code>paths</code></td>
+<td><code><a href="#StringMatch">StringMatch[]</a></code></td>
+<td>
+<p>paths TODO add comments</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MutualTls">MutualTls</h2>
+<section>
+<p>TLS authentication params.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MutualTls-allow_tls">
+<td><code>allowTls</code></td>
+<td><code>bool</code></td>
+<td>
+<p>WILL BE DEPRECATED, if set, will translates to <code>TLS_PERMISSIVE</code> mode.
+Set this flag to true to allow regular TLS (i.e without client x509
+certificate). If request carries client certificate, identity will be
+extracted and used (set to peer identity). Otherwise, peer identity will
+be left unset.
+When the flag is false (default), request must have client certificate.</p>
+
+</td>
+</tr>
+<tr id="MutualTls-mode">
+<td><code>mode</code></td>
+<td><code><a href="#MutualTls-Mode">MutualTls.Mode</a></code></td>
+<td>
+<p>Defines the mode of mTLS authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MutualTls-Mode">MutualTls.Mode</h2>
+<section>
+<p>Defines the acceptable connection TLS mode.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MutualTls-Mode-STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Client cert must be presented, connection is in TLS.</p>
+
+</td>
+</tr>
+<tr id="MutualTls-Mode-PERMISSIVE">
+<td><code>PERMISSIVE</code></td>
+<td>
+<p>Connection can be either plaintext or TLS, and client cert can be omitted.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PrincipalBinding">PrincipalBinding</h2>
+<section>
+<p>Associates authentication with request principal.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PrincipalBinding-USE_PEER">
+<td><code>USE_PEER</code></td>
+<td>
+<p>Principal will be set to the identity from peer authentication.</p>
+
+</td>
+</tr>
+<tr id="PrincipalBinding-USE_ORIGIN">
+<td><code>USE_ORIGIN</code></td>
+<td>
+<p>Principal will be set to the identity from origin authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule">Rule</h2>
+<section>
+<p>Rule: TODO add comments</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-match">
+<td><code>match</code></td>
+<td><code><a href="#Match">Match[]</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Rule-method" class="oneof oneof-start">
+<td><code>method</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+</td>
+</tr>
+<tr id="Rule-inline" class="oneof">
+<td><code>inline</code></td>
+<td><code><a href="#AuthenticationMethod">AuthenticationMethod (oneof)</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Selector">Selector</h2>
+<section>
+<p>TODO: put in common api.
+Select workloads by label matching. This is an AND.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Selector-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>labels</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StringMatch">StringMatch</h2>
+<section>
+<p>Describes how to match a given string. Match is case-sensitive.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StringMatch-exact" class="oneof oneof-start">
+<td><code>exact</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>exact string match.</p>
+
+</td>
+</tr>
+<tr id="StringMatch-prefix" class="oneof">
+<td><code>prefix</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>prefix-based match.</p>
+
+</td>
+</tr>
+<tr id="StringMatch-suffix" class="oneof">
+<td><code>suffix</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>suffix-based match.</p>
+
+</td>
+</tr>
+<tr id="StringMatch-regex" class="oneof">
+<td><code>regex</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>ECMAscript style regex-based match as defined by <a href="http://en.cppreference.com/w/cpp/regex/ecmascript">EDCA-262</a>.
+Example: &ldquo;^/pets/(.*?)?&rdquo;</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
