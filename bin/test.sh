@@ -60,18 +60,15 @@ BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2
 
 if [ "$SKIP_SETUP" -ne 1 ]; then
     kubectl create ns bookinfo || /bin/true
-    kubectl label ns bookinfo istio-env=istio-control --overwrite
-    #kubectl delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    #kubectl delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-    #kubectl delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+    ISTIO_CONTROL=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
+    ISTIO_CONTROL=${ISTIO_CONTROL:-istio-control}
+
+    kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
 
     kubectl -n bookinfo apply -f samples/bookinfo/platform/kube/bookinfo.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
-    # Not sure what this does...
-    #for depl in ${BOOKINFO_DEPLOYMENTS}; do
-    #    kubectl patch deployment $depl --patch '{"spec": {"strategy": {"rollingUpdate": {"maxSurge": 1,"maxUnavailable": 0},"type": "RollingUpdate"}}}'
-    #done
+
     for depl in ${BOOKINFO_DEPLOYMENTS}; do
         kubectl -n bookinfo rollout status deployments $depl --timeout=$WAIT_TIMEOUT
     done
