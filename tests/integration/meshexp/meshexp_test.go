@@ -28,6 +28,11 @@ const (
 	serviceName = ""
 )
 
+// How to run this test suite locally
+// go test -v ./tests/integration/meshexp   -istio.test.env  \
+// kube -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily" \
+// --project_number=895429144602  --project_id=jianfeih-test  \
+// --log_output_level=tf:debug,CI:debug
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshexp_test", m).

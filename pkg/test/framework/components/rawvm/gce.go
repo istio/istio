@@ -9,13 +9,17 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// var (
+// 	masonFile = flag.String("mason_info", "",
+// 		"File created by Mason Client that provides information about the SUT")
+// )
+
 // gceComponent is the implementation for GCE VM.
 type gceComponent struct {
 	// id is the GCE instance id.
 	id resource.ID
-	// masonFile is the mason client config file when running on the prow.
-	// If specified, test claims the GCE instance by parsing mason file.
-	masonFile string
+	// TODO: inline the struct once we delete old test.
+	rawVM *old_framework.GCPRawVM
 }
 
 // NewGCE creates a GCE instance that finishes the setup with specified application.
@@ -34,15 +38,25 @@ func NewGCE(ctx resource.Context, config Config) (Instance, error) {
 // - Start the Istio sidecar and node agent daemon processes;
 // TODO(inclfy): implement it.
 func (c *gceComponent) setup() error {
-	if c.masonFile == "" {
-		return fmt.Errorf("need to create GCE on the fly, not implemented")
-	}
-	_, err := old_framework.ParseGCEInstance("mason_file_from_flag")
+	vm, err := old_framework.NewGCPRawVM("default")
+	// if *masonFile == "" {
+	// 	return fmt.Errorf("need to create GCE on the fly, not implemented")
+	// }
+	// vm, err := old_framework.ParseGCEInstance(*masonFile)
 	if err != nil {
 		return err
 	}
+	if err := vm.Setup(); err != nil {
+		return fmt.Errorf("failed in gce instance setup stage. %v", err)
+	}
+	c.rawVM = vm
+	// fmt.Println("jianfeih debug, start to send hello world ssh command")
+	// output, err := c.rawVM.SecureShell("echo hello && cat /etc/hosts")
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Printf("jianfeih debug, the output is %v\n", output)
 	// TODO: implement steps below.
-	// - Propogate the info from GCERawVM to gceComponent from returned result.
 	// - Setup the DNS
 	return nil
 }
@@ -54,6 +68,9 @@ func (c *gceComponent) Execute(cmds []string) (string, error) {
 
 // Close implements Instance.Close interface.
 func (c *gceComponent) Close() (err error) {
+	if err := c.rawVM.Teardown(); err != nil {
+		return err
+	}
 	return nil
 }
 
