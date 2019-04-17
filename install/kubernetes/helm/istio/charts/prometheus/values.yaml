@@ -56,3 +56,17 @@ service:
 
 security:
   enabled: true
+
+# Operator configuration is used to generate Custom Resources
+# for use with the https://github.com/coreos/prometheus-operator. This support
+# currently is only offered as an alpha feature. Use of operator
+# configuration is mutually-exclusive with the templates to install the
+# Istio prometheus addon.
+operator:
+  # Enabling this option will generate all of the ServiceMonitor CRs for Istio.
+  createServiceMonitors: false
+  # Enabling this option will generate a Prometheus resource, causing the operator
+  # to create a prometheus deployment according to the generated spec. Only use this
+  # option if you have not already created a prometheus resource and/or you desire a 
+  # distinct prometheus resource for Istio.
+  createPrometheusResource: false

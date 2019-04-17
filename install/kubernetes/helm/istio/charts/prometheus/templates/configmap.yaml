@@ -1,3 +1,4 @@
+{{- if not (or .Values.operator.createPrometheusResource .Values.operator.createServiceMonitors) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -311,3 +312,4 @@ data:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: pod_name
+{{- end }}
