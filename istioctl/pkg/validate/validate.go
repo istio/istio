@@ -52,8 +52,6 @@ var (
 )
 
 type validator struct {
-	errs error
-
 	mixerValidator mixerstore.BackendValidator
 }
 
@@ -112,6 +110,7 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		return err
 	}
 
+	var errs error
 	v := &validator{
 		mixerValidator: mixervalidate.NewDefaultValidator(true),
 	}
@@ -122,26 +121,26 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		}
 		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
-			v.errs = multierror.Append(v.errs, err)
+			errs = multierror.Append(errs, err)
 			return nil
 		}
 
 		un := &unstructured.Unstructured{Object: content}
 		for key := range content {
 			if _, ok := validFields[key]; !ok {
-				v.errs = multierror.Append(v.errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
+				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
 					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
 			}
 		}
 
 		if err := v.validateResource(un); err != nil {
-			v.errs = multierror.Append(v.errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
+			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
 				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
 		}
 		return nil
 	})
-	if v.errs != nil {
-		return v.errs
+	if errs != nil {
+		return errs
 	}
 	for _, fname := range options.Filenames {
 		fmt.Fprintf(writer, "%q is valid\n", fname)
