@@ -30,7 +30,7 @@ function install_crds() {
 # Cleanup all namespaces
 
 function cleanup() {
-    for namespace in istio-system  ${ISTIO_CONTROL_NS} istio-ingress istio-telemetry; do
+    for namespace in istio-system  ${ISTIO_CONTROL_NS} istio-control istio-control-master istio-ingress istio-telemetry; do
         kubectl delete namespace $namespace --wait --ignore-not-found
     done
 
@@ -92,11 +92,16 @@ function install_telemetry() {
 # Switch to other istio-control-namespace
 function switch_istio_control() {
     if [ "$ISTIO_CONTROL_NS" != "$ISTIO_CONTROL_OLD" ]; then
-        for ns in $(kubectl get namespaces --no-headers -l istio-env=${ISTIO_CONTROL_OLD} -o=custom-columns=NAME:.metadata.name); do        kubectl label namespaces default --overwrite istio-env=${ISTIO_CONTROL_NS}
+        ACTIVE_NAMESPACES=$(kubectl get namespaces --no-headers -l istio-env=${ISTIO_CONTROL_OLD} -o=custom-columns=NAME:.metadata.name)
+        for ns in $ACTIVE_NAMESPACES; do
             kubectl label namespaces ${ns} --overwrite istio-env=${ISTIO_CONTROL_NS}
         done
-        kubectl set env --all deployment --env="LAST_MANUAL_RESTART=$(date +%s)" --namespace=default
-        kubectl delete namespace $ISTIO_CONTROL_OLD --wait --ignore-not-found
+        if [ $REMOVE_OLD_CONTROL = true ]; then
+            kubectl delete namespace $ISTIO_CONTROL_OLD --wait --ignore-not-found
+        fi
+        for ns in $ACTIVE_NAMESPACES; do
+            kubectl set env --all deployment --env="LAST_MANUAL_RESTART=$(date +%s)" --namespace=$ns
+        done
     fi
 }
 
@@ -104,6 +109,7 @@ COMMAND="install_all"
 METHOD=Install
 ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
 ISTIO_CONTROL_OLD=${ISTIO_CONTROL_OLD:-istio-control}
+REMOVE_OLD_CONTROL=${REMOVE_OLD_CONTROL:-false}
 
 while [ $# -gt 0 ]
 do
