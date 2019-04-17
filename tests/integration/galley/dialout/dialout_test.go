@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
+
 var yamlCfg = `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
