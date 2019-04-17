@@ -30,7 +30,7 @@ import (
 var (
 	// try to re-establish the bi-directional grpc stream after this delay.
 	reestablishStreamDelay = time.Second
-	triggerCollection = "$triggerCollection"
+	triggerCollection      = "$triggerCollection"
 )
 
 // Client implements the client for the MCP sink service. The client is the

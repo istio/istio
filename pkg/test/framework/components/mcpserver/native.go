@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	mcp "istio.io/api/mcp/v1alpha1"
 
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
