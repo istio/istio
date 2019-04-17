@@ -60,14 +60,20 @@ type Service struct {
 	Mutex sync.RWMutex
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
+	ClusterVIPs map[string]string `json:"clusterVips,omitempty"`
+
+	// LoadbalancerAddresses is a mapping between a cluster name and the load
+	// balancer address(es) to access the service from outside the cluster.
+	// Used by the aggregator to aggregate the Attributes.LoadBalancerAddresses
+	// for clusters where the service resides
+	LoadbalancerAddresses map[string][]string
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
-	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
+	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -465,6 +471,8 @@ type ServiceAttributes struct {
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[Visibility]bool
+	// LoadBalancerAddresses are addresses to access the services through the LB
+	LoadBalancerAddresses []string
 }
 
 // ServiceDiscovery enumerates Istio service instances.

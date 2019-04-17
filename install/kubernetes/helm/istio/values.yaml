@@ -443,8 +443,8 @@ global:
   # The second network, `network2`, in this example is defined differently with all endpoints
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
-  # cluster. The public IP for the gateway will be determined from that remote service (not
-  # supported yet).
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported).
   #
   # meshNetworks:
   #   network1:
@@ -457,7 +457,7 @@ global:
   #     endpoints:
   #     - fromRegistry: reg1
   #     gateways:
-  #     - registryServiceName: istio-ingressgateway
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
   #       port: 443
   #
   meshNetworks: {}

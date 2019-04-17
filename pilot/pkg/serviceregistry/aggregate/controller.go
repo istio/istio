@@ -141,13 +141,21 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				}
 
+				sp.Mutex.Lock()
 				// If the registry has a cluster ID, keep track of the cluster and the
 				// local address inside the cluster.
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
-				sp.Mutex.Lock()
 				sp.ClusterVIPs[r.ClusterID] = s.Address
+
+				if len(s.Attributes.LoadBalancerAddresses) > 0 {
+					if sp.LoadbalancerAddresses == nil {
+						sp.LoadbalancerAddresses = make(map[string][]string)
+					}
+					sp.LoadbalancerAddresses[r.ClusterID] = s.Attributes.LoadBalancerAddresses
+				}
+
 				sp.Mutex.Unlock()
 			}
 		}

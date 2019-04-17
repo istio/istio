@@ -113,6 +113,18 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Strings(serviceaccounts)
 
+	var lbAddrs []string
+	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
+		lbAddrs = make([]string, len(svc.Status.LoadBalancer.Ingress))
+		for i, ingress := range svc.Status.LoadBalancer.Ingress {
+			if len(ingress.IP) > 0 {
+				lbAddrs[i] = ingress.IP
+			} else if len(ingress.Hostname) > 0 {
+				lbAddrs[i] = ingress.Hostname
+			}
+		}
+	}
+
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
@@ -122,10 +134,11 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ExportTo:  exportTo,
+			Name:                  svc.Name,
+			Namespace:             svc.Namespace,
+			UID:                   fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ExportTo:              exportTo,
+			LoadBalancerAddresses: lbAddrs,
 		},
 	}
 }
