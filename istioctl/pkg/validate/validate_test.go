@@ -23,8 +23,9 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 )
 
 const (
