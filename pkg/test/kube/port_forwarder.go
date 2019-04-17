@@ -16,7 +16,6 @@ package kube
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,17 +48,10 @@ type PortForwarder interface {
 
 type defaultPortForwarder struct {
 	forwarder *portforward.PortForwarder
+	stopCh    chan struct{}
 	readyCh   <-chan struct{}
 	address   string
 	output    *bytes.Buffer
-}
-
-// PodSelectOptions contains options for pod selection.
-// Must specify PodNamespace and one of PodName/LabelSelector.
-type PodSelectOptions struct {
-	PodNamespace  string
-	PodName       string
-	LabelSelector string
 }
 
 func (f *defaultPortForwarder) Start() error {
@@ -86,37 +78,26 @@ func (f *defaultPortForwarder) Address() string {
 }
 
 func (f *defaultPortForwarder) Close() error {
+	close(f.stopCh)
 	f.forwarder.Close()
 	return nil
 }
 
-func newPortForwarder(restConfig *rest.Config, options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
+func newPortForwarder(restConfig *rest.Config, pod v1.Pod, localPort, remotePort uint16) (PortForwarder, error) {
 	restClient, err := rest.RESTClientFor(restConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := validatePodSelectOptions(options); err != nil {
-		return nil, err
-	}
-	podName := options.PodName
-	if podName == "" {
-		// Retrieve pod according to labelSelector if pod name not specified.
-		pod, err := getSelectedPod(restClient, options)
-		if err != nil {
-			return nil, err
-		}
-		podName = pod.Name
-	}
+	req := restClient.Post().Resource("pods").Namespace(pod.Namespace).Name(pod.Name).SubResource("portforward")
+	serverURL := req.URL()
 
-	req := restClient.Post().Resource("pods").Namespace(options.PodNamespace).Name(podName).SubResource("portforward")
-
-	transport, upgrader, err := spdy.RoundTripperFor(restConfig)
+	roundTripper, upgrader, err := spdy.RoundTripperFor(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}
 
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, serverURL)
 
 	stopCh := make(chan struct{})
 	readyCh := make(chan struct{})
@@ -128,37 +109,10 @@ func newPortForwarder(restConfig *rest.Config, options *PodSelectOptions, localP
 
 	return &defaultPortForwarder{
 		forwarder: fw,
+		stopCh:    stopCh,
 		readyCh:   readyCh,
 		output:    output,
 	}, nil
-}
-
-// getSelectedPod retrieves pods according to given options.
-func getSelectedPod(client *rest.RESTClient, options *PodSelectOptions) (*v1.Pod, error) {
-	podGet := client.Get().Resource("pods").Namespace(options.PodNamespace).Param("labelSelector", options.LabelSelector)
-	obj, err := podGet.Do().Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving pod: %v", err)
-	}
-
-	podList := obj.(*v1.PodList)
-	if len(podList.Items) < 1 {
-		return nil, errors.New("no corresponding pods found")
-	}
-
-	return &podList.Items[0], nil
-}
-
-// validatePodSelectOptions test if given PodSelectOptions is valid.
-func validatePodSelectOptions(options *PodSelectOptions) error {
-	if options.PodNamespace == "" {
-		return fmt.Errorf("no pod namespace specified")
-	}
-	if options.PodName == "" && options.LabelSelector == "" {
-		return fmt.Errorf("neither pod name nor label selector specified")
-	}
-
-	return nil
 }
 
 func parseAddress(output string) (string, error) {

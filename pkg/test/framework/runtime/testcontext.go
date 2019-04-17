@@ -159,7 +159,7 @@ func (c *testContext) Done(t *testing.T) {
 
 	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
 	if err := c.scope.done(c.suite.settings.NoCleanup); err != nil {
-		t.Fatalf("error scope cleanup: %v", err)
+		t.Logf("error scope cleanup: %v", err)
 	}
 	scopes.Framework.Debugf("Completed cleaning up testContext: %q", c.id)
 }

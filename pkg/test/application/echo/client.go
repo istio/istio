@@ -29,11 +29,12 @@ const (
 )
 
 var (
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex    = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex    = regexp.MustCompile("Host=(.*)")
+	idRegex       = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRegex  = regexp.MustCompile("ServiceVersion=(.*)")
+	portRegex     = regexp.MustCompile("ServicePort=(.*)")
+	codeRegex     = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex     = regexp.MustCompile("Host=(.*)")
+	hostnameRegex = regexp.MustCompile("Hostname=(.*)")
 )
 
 // Client is a simple client for forwarding echo requests between echo applications.
@@ -88,8 +89,10 @@ type ParsedResponse struct {
 	Port string
 	// Code is the response code
 	Code string
-	// Host is the host returned by the response
+	// Host is the host called by the request
 	Host string
+	// Hostname is the host that responded to the request
+	Hostname string
 }
 
 // IsOK indicates whether or not the code indicates a successful request.
@@ -169,6 +172,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = hostRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Host = match[1]
+	}
+
+	match = hostnameRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Hostname = match[1]
 	}
 
 	return &out

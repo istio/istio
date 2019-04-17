@@ -39,19 +39,21 @@ func Init(homeDir string, clientOnly bool) error {
 }
 
 func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
-	// Apply the overrides for the values file.
-	valuesString := ""
-	for k, v := range values {
-		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
-	}
-
-	valuesFileString := ""
+	p := []string{"helm", "--home", homeDir, "template", template, "--name", name, "--namespace", namespace}
 	if valuesFile != "" {
-		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
+		p = append(p, "--values")
+		p = append(p, valuesFile)
 	}
 
-	out, err := shell.Execute("helm --home %s template %s --name %s --namespace %s %s %s",
-		homeDir, template, name, namespace, valuesFileString, valuesString)
+	// Override the values in the helm value file.
+	for k, v := range values {
+		if k == "" {
+			continue
+		}
+		p = append(p, "--set")
+		p = append(p, fmt.Sprintf("%s=%s", k, v))
+	}
+	out, err := shell.ExecuteArgs(nil, "helm", p[1:]...)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)
 	}

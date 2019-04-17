@@ -333,16 +333,16 @@ func podLogs(labelSelector string, container string) {
 // portForward sets up local port forward to the pod specified by the "app" label
 func (p *promProxy) portForward(labelSelector string, localPort, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	options := &kube.PodSelectOptions{
-		PodNamespace:  p.namespace,
-		LabelSelector: labelSelector,
-	}
 	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
 	}
-	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	pod, err := accessor.FindPodBySelectors(p.namespace, labelSelector)
+	if err != nil {
+		log.Errorf("error finding pods: %v", err)
+	}
+	forwarder, err := accessor.NewPortForwarder(pod, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err
