@@ -15,7 +15,7 @@
 package deployment
 
 import (
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -47,7 +47,7 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 	}
 
 	if wait {
-		if err := a.WaitUntilPodsAreReady(a.NewPodFetch(i.namespace), opts...); err != nil {
+		if _, err := a.WaitUntilPodsAreReady(a.NewPodFetch(i.namespace), opts...); err != nil {
 			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}

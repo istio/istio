@@ -23,7 +23,7 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
@@ -81,12 +81,11 @@ func (c *kubectl) apply(namespace string, filename string) error {
 
 func (c *kubectl) applyInternal(namespace string, files []string) error {
 	for _, f := range files {
-		scopes.CI.Infof("Applying YAML file: %s", f)
-		frmt := "kubectl apply %s %s -f %s"
-		scopes.Framework.Debugf("Executing kubectl: %s", fmt.Sprintf(frmt, c.configArg(), namespaceArg(namespace), f))
-		s, err := shell.Execute(frmt, c.configArg(), namespaceArg(namespace), f)
+		command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
+		scopes.CI.Infof("Applying YAML: %s", command)
+		s, err := shell.Execute(command)
 		if err != nil {
-			scopes.Framework.Debugf("(FAILED) Executing kubectl: %s (err: %v): %s", fmt.Sprintf(frmt, c.configArg(), namespaceArg(namespace), f), err, s)
+			scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
 			return fmt.Errorf("%v: %s", err, s)
 		}
 	}
@@ -303,7 +302,7 @@ func (d *yamlDoc) toTempFile(workDir, fileNamePrefix string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	name := f.Name()
 
