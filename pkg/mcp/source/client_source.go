@@ -30,6 +30,7 @@ import (
 var (
 	// try to re-establish the bi-directional grpc stream after this delay.
 	reestablishStreamDelay = time.Second
+	triggerCollection = "$triggerCollection"
 )
 
 // Client implements the client for the MCP sink service. The client is the
@@ -59,7 +60,7 @@ var reconnectTestProbe = func() {}
 // trigger response which we expect the server to NACK.
 func (c *Client) sendTriggerResponse(stream Stream) error {
 	trigger := &mcp.Resources{
-		Collection: "", // unimplemented collection
+		Collection: triggerCollection,
 	}
 
 	if err := stream.Send(trigger); err != nil {
@@ -72,7 +73,7 @@ func (c *Client) sendTriggerResponse(stream Stream) error {
 // isTriggerResponse checks whether the given RequestResources object is an expected NACK response to a previous
 // trigger message.
 func isTriggerResponse(msg *mcp.RequestResources) bool {
-	return msg.Collection == "" && msg.ErrorDetail != nil && codes.Code(msg.ErrorDetail.Code) == codes.Unimplemented
+	return msg.Collection == triggerCollection && msg.ErrorDetail != nil && codes.Code(msg.ErrorDetail.Code) == codes.Unimplemented
 }
 
 // Run implements mcpClient
