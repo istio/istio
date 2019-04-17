@@ -44,9 +44,13 @@ type Environment struct {
 	// Mesh for configuring pilot.
 	Mesh *meshConfig.MeshConfig
 
+	// SystemNamespace is the namespace used for all Istio system components.
 	SystemNamespace string
-	Domain          string
 
+	// Domain used by components in the native environment.
+	Domain string
+
+	// PortManager provides free ports on-demand.
 	PortManager reserveport.PortManager
 }
 

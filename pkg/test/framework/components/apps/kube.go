@@ -743,11 +743,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		return kubeApiCore.Pod{}, err
-	}
-
-	pods, err := podFetchFunc()
+	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}
