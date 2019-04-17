@@ -286,8 +286,8 @@ func (h *Handler) toMcpResource(service *resource.Entry, endpoints *resource.Ent
 	return entry, true
 }
 
-func (h *Handler) updateEndpointIPs(name resource.FullName, new resource.Entry) {
-	newIPs := getEndpointIPs(new)
+func (h *Handler) updateEndpointIPs(name resource.FullName, newRE resource.Entry) {
+	newIPs := getEndpointIPs(newRE)
 	var prevIPs map[string]struct{}
 
 	if prev, exists := h.endpoints[name]; exists {

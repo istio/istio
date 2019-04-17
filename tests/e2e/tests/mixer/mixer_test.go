@@ -131,8 +131,7 @@ func (t *testConfig) Setup() (err error) {
 		defaultRules = append(defaultRules, *dr)
 	}
 	// Append default metric template and prometheus adapter config for out of process adapter dynamic encoding
-	defaultRules = append(defaultRules, mixerPromAdapterConfig)
-	defaultRules = append(defaultRules, mixerMetricTemplate)
+	defaultRules = append(defaultRules, mixerPromAdapterConfig, mixerMetricTemplate)
 
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule}

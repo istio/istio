@@ -302,7 +302,6 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	//g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 

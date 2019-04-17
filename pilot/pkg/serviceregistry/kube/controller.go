@@ -225,7 +225,6 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					// c.updateEDS(cur.(*v1.Endpoints))
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)

@@ -99,18 +99,12 @@ func (a *echo) start() (err error) {
 			dialer:  a.dialer,
 		}
 		switch p.Protocol {
-		case model.ProtocolTCP:
-			fallthrough
-		case model.ProtocolHTTP:
-			fallthrough
-		case model.ProtocolHTTPS:
+		case model.ProtocolTCP, model.ProtocolHTTP, model.ProtocolHTTPS:
 			a.servers = append(a.servers, &httpServer{
 				port: p,
 				h:    handler,
 			})
-		case model.ProtocolHTTP2:
-			fallthrough
-		case model.ProtocolGRPC:
+		case model.ProtocolHTTP2, model.ProtocolGRPC:
 			a.servers = append(a.servers, &grpcServer{
 				port:    p,
 				h:       handler,

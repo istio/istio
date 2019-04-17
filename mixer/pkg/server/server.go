@@ -147,8 +147,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	// construct the gRPC options
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)), grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
 	if a.TracingOptions.TracingEnabled() {
 		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)

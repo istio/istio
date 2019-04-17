@@ -227,7 +227,7 @@ func TestHandleLogEntry(t *testing.T) {
 
 	mf := &mockFluentd{}
 
-	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
+	tm := time.Date(2017, time.August, 21, 10, 4, 0, 0, time.UTC)
 
 	cases := []struct {
 		name       string

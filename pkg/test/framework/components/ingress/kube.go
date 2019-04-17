@@ -158,7 +158,5 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 		Body: contents,
 	}
 
-	// scopes.Framework.Debugf("Received response to ingress call (url: %s): %+v", url, response)
-
 	return response, nil
 }

@@ -320,9 +320,6 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 		fakeDiscovery.Resources[0].APIResources = append(
 			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
-		)
-		fakeDiscovery.Resources[0].APIResources = append(
-			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
 		)
 		return true, nil, nil

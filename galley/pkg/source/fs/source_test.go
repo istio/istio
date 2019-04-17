@@ -316,9 +316,7 @@ func TestDuplicateResourceNamesDifferentTypes(t *testing.T) {
 	actual2 := events.Expect(t, ch)
 	if actual2.Entry.ID.Collection == kubeMeta.Types.Get("VirtualService").Target.Collection {
 		// Reorder
-		tmp := actual2
-		actual2 = actual1
-		actual1 = tmp
+		actual2, actual1 = actual1, actual2
 	}
 	// Expect the add of VirtualService
 	u[0].SetResourceVersion("v0")

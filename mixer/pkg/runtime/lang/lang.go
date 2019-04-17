@@ -71,8 +71,6 @@ func fromString(value string) LanguageRuntime {
 		return CEL
 	case "COMPAT":
 		return COMPAT
-	case "CEXL":
-		return CEXL
 	default:
 		return CEXL
 	}
@@ -85,8 +83,6 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 		return cel.NewBuilder(finder, cel.CEL)
 	case COMPAT:
 		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
-	case CEXL:
-		fallthrough
 	default:
 		return compiled.NewBuilder(finder)
 	}
@@ -99,8 +95,6 @@ func NewTypeChecker(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) 
 		return cel.NewBuilder(finder, cel.CEL)
 	case COMPAT:
 		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
-	case CEXL:
-		fallthrough
 	default:
 		return checker.NewTypeChecker(finder)
 	}

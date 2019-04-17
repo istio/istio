@@ -239,9 +239,9 @@ func (d *Impl) acquireRoutingContext() *RoutingContext {
 }
 
 // ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
-func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
+func (d *Impl) ChangeRoute(newTable *routing.Table) *RoutingContext {
 	newRC := &RoutingContext{
-		Routes: new,
+		Routes: newTable,
 	}
 
 	d.rcLock.Lock()
