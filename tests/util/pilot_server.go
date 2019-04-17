@@ -158,7 +158,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			return false, nil
 		}
 		defer resp.Body.Close()
-		ioutil.ReadAll(resp.Body)
+		_, _ = ioutil.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusOK {
 			return true, nil
 		}

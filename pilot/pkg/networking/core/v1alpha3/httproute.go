@@ -266,8 +266,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr)
-			domains = append(domains, fmt.Sprintf("%s:%d", svcAddr, port))
+			domains = append(domains, svcAddr, fmt.Sprintf("%s:%d", svcAddr, port))
 		}
 	}
 	return domains
@@ -300,16 +299,14 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	}
 
 	// adds the uniq piece foo, foo:80
-	vhosts = append(vhosts, uniqHostname)
-	vhosts = append(vhosts, fmt.Sprintf("%s:%d", uniqHostname, port))
+	vhosts = append(vhosts, uniqHostname, fmt.Sprintf("%s:%d", uniqHostname, port))
 
 	// adds all the other variants (foo.local, foo.local:80)
 	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
 		if sharedDNSDomain[i] == '.' {
 			variant := fmt.Sprintf("%s.%s", uniqHostname, sharedDNSDomain[:i])
 			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
-			vhosts = append(vhosts, variant)
-			vhosts = append(vhosts, variantWithPort)
+			vhosts = append(vhosts, variant, variantWithPort)
 		}
 	}
 	return vhosts

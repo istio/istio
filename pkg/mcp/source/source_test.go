@@ -169,10 +169,10 @@ func (h *sourceTestHarness) setRecvError(err error) {
 	h.recvErr = err
 }
 
-func (h *sourceTestHarness) setCloseWatch(close bool) {
+func (h *sourceTestHarness) setCloseWatch(closeWatch bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.closeWatch = close
+	h.closeWatch = closeWatch
 }
 
 func (h *sourceTestHarness) watchesCreated(typeURL string) int {
@@ -770,15 +770,6 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	}
 	s := New(options)
 
-	//s := makeSourceUnderTest(h)
-	/*
-		options := &Options{
-			Watcher:           h,
-			CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-			Reporter:          monitoring.NewInMemoryStatsContext(),
-			//ConnRateLimiter:    NewFakePerConnLimiter(),
-		}
-	*/
 	for _, v := range s.collections {
 		v.Incremental = true
 	}

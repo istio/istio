@@ -689,15 +689,18 @@ func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
-	if job, ok := out.(*v2alpha1.CronJob); ok {
+	switch v := out.(type) {
+	case *v2alpha1.CronJob:
+		job := v
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
-	} else if pod, ok := out.(*corev1.Pod); ok {
+	case *corev1.Pod:
+		pod := v
 		metadata = &pod.ObjectMeta
 		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
-	} else {
+	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
 

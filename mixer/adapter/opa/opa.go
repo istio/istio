@@ -176,15 +176,6 @@ func convertSubjectObjectToMap(subject *authorization.Subject) map[string]interf
 	if len(subject.Groups) > 0 {
 		result["groups"] = []interface{}{subject.Groups}
 	}
-	/*
-		if subject.Groups != nil && len(subject.Groups) > 0 {
-			groups := []interface{}{}
-			for _, group := range subject.Groups {
-				groups = append(groups, group)
-			}
-			result["groups"] = groups
-		}
-	*/
 
 	if subject.Properties != nil {
 		properties := map[string]interface{}{}

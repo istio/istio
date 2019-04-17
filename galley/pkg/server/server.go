@@ -154,8 +154,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)), grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
 	var checker source.AuthChecker = server.NewAllowAllChecker()
