@@ -45,13 +45,18 @@ func TestValidate(t *testing.T) {
 	}{
 		{
 			"update",
-			backendEvent(store.Update, "handler", "foo", map[string]interface{}{"adapter": "noop", "name": "default"}),
+			backendEvent(store.Update, "handler", "foo", map[string]interface{}{"compiledAdapter": "noop", "name": "default"}),
 			nil,
 		},
 		{
-			"update error",
+			"update error (shallow)",
 			backendEvent(store.Update, "handler", "foo", map[string]interface{}{"adapterr": "noop"}),
 			errors.New(`unknown field "adapterr" in v1beta1.Handler`),
+		},
+		{
+			"update error (referential)",
+			backendEvent(store.Update, "handler", "foo", map[string]interface{}{"adapter": "prometheus"}),
+			errors.New(`handler='foo.handler.ns'.adapter: adapter 'prometheus' not found`),
 		},
 		{
 			"delete",
@@ -65,7 +70,7 @@ func TestValidate(t *testing.T) {
 		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
-			v := NewDefaultValidator()
+			v := NewDefaultValidator(true)
 			err := v.Validate(c.ev)
 			if c.want == nil && err != nil {
 				tt.Errorf("Got %v, Want nil", err)
@@ -73,5 +78,13 @@ func TestValidate(t *testing.T) {
 				tt.Errorf("Got %v, Want to contain %s", err, c.want.Error())
 			}
 		})
+	}
+}
+
+func TestSupportsKind(t *testing.T) {
+	v := NewDefaultValidator(true)
+
+	if got := v.SupportsKind("instance"); !got {
+		t.Errorf("SupportsKind => got false for instance")
 	}
 }
