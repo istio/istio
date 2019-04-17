@@ -91,30 +91,23 @@ func TestLocalityPrioritizedLoadBalancing(t *testing.T) {
 
 	// Share Istio Control Plane
 	g := galley.NewOrFail(t, ctx, galley.Config{})
-	p := pilot.NewOrFail(t, ctx, pilot.Config{
-		Galley: g,
-	})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	rand.Seed(time.Now().UnixNano())
-	t.Run("TestCDS", func(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
 		testCDS(t, ctx, g, p)
 	})
 
-	t.Run("TestEDS", func(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
 		testEDS(t, ctx, g, p)
 	})
 }
 
 func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{
-		Pilot:  p,
-		Galley: g,
-	})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
-
 	se := ServiceConfig{
 		"lplb-cds-service-entry",
 		fakeHostname,
@@ -138,17 +131,12 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 }
 
 func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{
-		Pilot:  p,
-		Galley: g,
-	})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
 
 	fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", rand.Int())
-
 	se := ServiceConfig{
 		"lplb-eds-service-entry",
 		fakeHostname,

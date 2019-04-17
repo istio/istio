@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -98,25 +97,23 @@ func TestLocalityFailover(t *testing.T) {
 	defer ctx.Done(t)
 
 	ctx.RequireOrSkip(t, environment.Kube)
-	ctx.Environment().(*kube.Environment).Settings()
 
 	// Share Istio Control Plane
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 	rand.Seed(time.Now().UnixNano())
-	t.Run("TestCDS", func(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
 		testCDS(t, ctx, g, p)
 	})
 
-	t.Run("TestEDS", func(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
 		testEDS(t, ctx, g, p)
 	})
 }
 
 func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
@@ -145,8 +142,7 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 }
 
 func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
-	t.Parallel()
-	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
