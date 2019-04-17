@@ -279,6 +279,7 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
+            export REMOVE_OLD_CONTROL=true
             istio-installer/bin/install.sh switch_istio_control --update
 
   - name: test-after-update
