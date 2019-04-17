@@ -941,12 +941,12 @@
   version = "v0.8.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:61820d62888624679de099adf44bb6cf2fd55b7f9e8f4f8d320d9d9d28bee938"
+  branch = "release-3.11"
+  digest = "1:b8d1c7ce1bae7d93991ad16a581440b4257dad8c83acc41851b6203c73ece3e8"
   name = "github.com/openshift/api"
   packages = ["apps/v1"]
   pruneopts = "NUT"
-  revision = "dca24d1902afee9d2be02425a2d7c9f910063631"
+  revision = "8741ff068a473be041d7bafb4502c12e4f10aab5"
 
 [[projects]]
   digest = "1:6e36c3eab25478d363e7eb669f253d9f9a620e640b0e1d86d3e909cbb1a56ab6"
@@ -1953,7 +1953,7 @@
   revision = "56e7a63b5e38b614bb7cb8c49ed26dc991b324c4"
 
 [[projects]]
-  digest = "1:cb964e36388b4b7d141d595794fd8e384ff69e25badbe374e62fd7dc24e82fba"
+  digest = "1:97703d78f59b1906eee5cc024d06f57053995123c3628bb8fdf16f1d090b5cae"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -1961,6 +1961,7 @@
     "pkg/ignore",
     "pkg/proto/hapi/chart",
     "pkg/proto/hapi/version",
+    "pkg/strvals",
     "pkg/sympath",
     "pkg/timeconv",
     "pkg/version",
@@ -2212,6 +2213,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/authorization/v1beta1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",
@@ -2239,6 +2241,7 @@
     "k8s.io/apimachinery/pkg/util/uuid",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/util/yaml",
+    "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/fake",
@@ -2300,6 +2303,7 @@
     "k8s.io/helm/pkg/engine",
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/version",
+    "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubectl/genericclioptions",

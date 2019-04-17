@@ -98,13 +98,14 @@ spec:
     matchLabels:
       app: {{ .service }}
       version: {{ .version }}
-      istio-locality: {{ .locality }}
   template:
     metadata:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+{{- if ne .locality "" }}
         istio-locality: {{ .locality }}
+{{- end }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -156,6 +157,25 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sdstokensecret
+type: Opaque
+stringData:
+  sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
+VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
+wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
+EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
+5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
+ljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi\
+I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKP\
+mktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZ\
+uNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdv\
+bgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5r\
+y_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4a\
+SzC2o8aDtlQ"
 ---
 `
 )
@@ -288,6 +308,10 @@ func appSelector(serviceName string) string {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
@@ -440,6 +464,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
+	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -456,6 +481,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
+		Path:   opts.Path,
 	}
 }
 
@@ -512,10 +538,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	}
 
 	// Create a forwarder to the command port of the app.
-	a.forwarder, err = e.NewPortForwarder(&testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}, 0, grpcPort)
+	a.forwarder, err = e.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +705,6 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -721,11 +743,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		return kubeApiCore.Pod{}, err
-	}
-
-	pods, err := podFetchFunc()
+	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}

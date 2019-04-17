@@ -32,7 +32,7 @@ func TestWorkloadInstanceReify(t *testing.T) {
 		clusterLocation:   "pangea",
 		clusterName:       "global-mesh",
 		uid:               "kubernetes://istio-system/istio-telemetry-65db5b46fc-r7qhq",
-		owner:             "kubernetes://apis/extensions/v1beta1/namespaces/istio-system/deployments/istio-policy",
+		owner:             "kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-policy",
 		workloadName:      "istio-policy",
 		workloadNamespace: "istio-system",
 	}
@@ -51,13 +51,13 @@ func TestWorkloadInstanceReify(t *testing.T) {
 			"//cloudresourcemanager.googleapis.com/projects/org:project",
 			"io.istio.Owner",
 			"//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/" +
-				"global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+				"global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			"pangea",
 			[4]string{
 				"mesh%2F1",
 				"org2:project2",
 				"global-mesh",
-				"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+				"kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			},
 		},
 		{
@@ -81,19 +81,19 @@ func TestWorkloadInstanceReify(t *testing.T) {
 		{
 			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/workloads/istio-system/istio-policy",
 			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
-				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			typeName: "google.cloud.contextgraph.Membership",
 		}, {
 			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
-				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
 				"locations/pangea/clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq",
 			typeName: "google.cloud.contextgraph.Membership",
 		}, {
 			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
-				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			destinationFullName: "//container.googleapis.com/projects/org2:project2/locations/pangea/clusters/global-mesh/" +
-				"k8s/namespaces/istio-system/extensions/deployments/istio-policy",
+				"k8s/namespaces/istio-system/apps/deployments/istio-policy",
 			typeName: "google.cloud.contextgraph.Membership",
 		},
 	}
@@ -114,7 +114,7 @@ func TestWorkloadInstanceClusterLocation(t *testing.T) {
 		clusterProject:    "org2:project2",
 		clusterName:       "global-mesh",
 		uid:               "kubernetes://istio-system/istio-telemetry-65db5b46fc-r7qhq",
-		owner:             "kubernetes://apis/extensions/v1beta1/namespaces/istio-system/deployments/istio-policy",
+		owner:             "kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-policy",
 		workloadName:      "istio-policy",
 		workloadNamespace: "istio-system",
 	}
@@ -124,13 +124,13 @@ func TestWorkloadInstanceClusterLocation(t *testing.T) {
 	}{
 		{"pangea",
 			"//container.googleapis.com/projects/org2:project2/locations/pangea/" +
-				"clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-policy"},
+				"clusters/global-mesh/k8s/namespaces/istio-system/apps/deployments/istio-policy"},
 		{"us-central1-a",
 			"//container.googleapis.com/projects/org2:project2/zones/us-central1-a/" +
-				"clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-policy"},
+				"clusters/global-mesh/k8s/namespaces/istio-system/apps/deployments/istio-policy"},
 		{"us-central1",
 			"//container.googleapis.com/projects/org2:project2/locations/us-central1/" +
-				"clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-policy"},
+				"clusters/global-mesh/k8s/namespaces/istio-system/apps/deployments/istio-policy"},
 	} {
 		wi.clusterLocation = test.location
 		_, edges := wi.Reify(mockLogger{})
@@ -173,7 +173,7 @@ func TestTrafficAssertionReify(t *testing.T) {
 				// policy -> k8s membership
 				{policyOwnerEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
-						"k8s/namespaces/istio-system/extensions/deployments/istio-policy",
+						"k8s/namespaces/istio-system/apps/deployments/istio-policy",
 					membershipTypeName},
 				{policyWorkloadInstanceEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
@@ -192,7 +192,7 @@ func TestTrafficAssertionReify(t *testing.T) {
 				// telemetry -> k8s membership
 				{telemetryOwnerEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
-						"k8s/namespaces/istio-system/extensions/deployments/istio-telemetry",
+						"k8s/namespaces/istio-system/apps/deployments/istio-telemetry",
 					membershipTypeName},
 				{telemetryWorkloadInstanceEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
@@ -271,7 +271,7 @@ var istioPolicyWorkloadInstance = workloadInstance{
 	clusterProject:    "org2:project2",
 	clusterName:       "global-mesh",
 	uid:               "kubernetes://istio-policy-65db5b46fc-r7qhq.istio-system",
-	owner:             "kubernetes://apis/extensions/v1beta1/namespaces/istio-system/deployments/istio-policy",
+	owner:             "kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-policy",
 	workloadName:      "istio-policy",
 	workloadNamespace: "istio-system",
 }
@@ -282,7 +282,7 @@ var istioTelemetryWorkloadInstance = workloadInstance{
 	clusterProject:    "org2:project2",
 	clusterName:       "global-mesh",
 	uid:               "kubernetes://istio-telemetry-65db5b46fc-r7qhq.istio-system",
-	owner:             "kubernetes://apis/extensions/v1beta1/namespaces/istio-system/deployments/istio-telemetry",
+	owner:             "kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-telemetry",
 	workloadName:      "istio-telemetry",
 	workloadNamespace: "istio-system",
 }
@@ -299,9 +299,9 @@ var policyOwnerEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.Owner",
 	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
-		"owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+		"owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh",
-		"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy"},
+		"kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy"},
 }
 
 var policyWorkloadEntity = entity{
@@ -324,9 +324,9 @@ var telemetryOwnerEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.Owner",
 	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
-		"owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry",
+		"owners/kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry",
 	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh",
-		"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry"},
+		"kubernetes%3A%2F%2Fapis%2Fapps%2Fv1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry"},
 }
 
 var telemetryWorkloadEntity = entity{

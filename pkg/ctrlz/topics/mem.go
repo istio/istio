@@ -21,6 +21,7 @@ import (
 	"runtime"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type memTopic struct {
@@ -40,7 +41,7 @@ func (memTopic) Prefix() string {
 }
 
 func (memTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/mem.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/mem.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ms := &runtime.MemStats{}

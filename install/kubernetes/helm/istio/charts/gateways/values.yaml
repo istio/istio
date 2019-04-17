@@ -26,13 +26,13 @@ istio-ingressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    #requests:
-    #  cpu: 1800m
-    #  memory: 256Mi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 256Mi
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
@@ -143,6 +143,13 @@ istio-egressgateway:
   autoscaleMax: 5
   # specify replicaCount when autoscaleEnabled: false
   # replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2000m
+      memory: 256Mi
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}

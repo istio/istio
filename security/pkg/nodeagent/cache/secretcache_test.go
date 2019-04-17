@@ -118,6 +118,10 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false)
 
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	}
+
 	key := ConnKey{
 		ConnectionID: conID,
 		ResourceName: testResourceName,
@@ -138,6 +142,11 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	}
 	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); !bytes.Equal(got, want) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	}
+
+	// Root cert is parsed from CSR response, it's updated since 2nd CSR is different from 1st.
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(1); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
 	}
 
 	// Wait until unused secrets are evicted.

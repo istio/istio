@@ -196,7 +196,7 @@ ignored = [
   version = "0.8.2"
 
 [[constraint]]
-  branch = "master"
+  branch = "release-3.11"
   name = "github.com/openshift/api"
 
 [[constraint]]

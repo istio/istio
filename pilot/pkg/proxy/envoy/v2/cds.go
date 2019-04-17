@@ -17,6 +17,8 @@ package v2
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/features/pilot"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -78,7 +80,17 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 		return nil, err
 	}
 
+	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 &&
+		pilot.EnableCDSPrecomputation() {
+		// If SDS_TOKEN_PATH is in the node metadata, make a copy of rawClusters so that
+		// the path of SDS token will be applied to the copied clusters.
+		rawClusters = CopyClusters(rawClusters)
+	}
+
 	for _, c := range rawClusters {
+		if pilot.EnableCDSPrecomputation() {
+			SetTokenPathForSdsFromProxyMetadata(c, node)
+		}
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)
@@ -91,4 +103,69 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 		}
 	}
 	return rawClusters, nil
+}
+
+// Set the token path for SDS if SDS_TOKEN_PATH is defined in the proxy metadata
+func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
+	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 {
+		// Set the SDS token path in the TLS certificate config
+		if c.GetTlsContext() != nil && c.GetTlsContext().GetCommonTlsContext() != nil &&
+			c.GetTlsContext().GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() != nil {
+			for _, sc := range c.GetTlsContext().GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+				if sc.GetSdsConfig() != nil && sc.GetSdsConfig().GetApiConfigSource() != nil &&
+					sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() != nil {
+					for _, svc := range sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() {
+						// If no call-credential in the cluster, no need to set SDS token path
+						if svc.GetGoogleGrpc() != nil && svc.GetGoogleGrpc().GetCallCredentials() != nil &&
+							svc.GetGoogleGrpc().GetCredentialsFactoryName() == model.FileBasedMetadataPlugName {
+							adsLog.Debugf("Set SDS token path in TLS context based on the proxy metadata")
+							svc.GetGoogleGrpc().CallCredentials =
+								model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey)
+						}
+					}
+				}
+			}
+		}
+
+		// Set the SDS token path in the TLS validation context
+		if c.GetTlsContext() != nil && c.GetTlsContext().GetCommonTlsContext() != nil &&
+			c.GetTlsContext().GetCommonTlsContext().GetCombinedValidationContext() != nil &&
+			c.GetTlsContext().GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig() != nil {
+			sc := c.GetTlsContext().GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
+			if sc.GetSdsConfig() != nil && sc.GetSdsConfig().GetApiConfigSource() != nil &&
+				sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() != nil {
+				for _, svc := range sc.GetSdsConfig().GetApiConfigSource().GetGrpcServices() {
+					// If no call-credential in the cluster, no need to set SDS token path
+					if svc.GetGoogleGrpc() != nil && svc.GetGoogleGrpc().GetCallCredentials() != nil &&
+						svc.GetGoogleGrpc().GetCredentialsFactoryName() == model.FileBasedMetadataPlugName {
+						adsLog.Debugf("Set SDS token path in validation context based on the proxy metadata")
+						svc.GetGoogleGrpc().CallCredentials =
+							model.ConstructgRPCCallCredentials(sdsTokenPath, model.K8sSAJwtTokenHeaderKey)
+					}
+				}
+			}
+		}
+	}
+}
+
+func CopyClusters(srcClusters []*xdsapi.Cluster) []*xdsapi.Cluster {
+	clusters := make([]*xdsapi.Cluster, 0)
+	if srcClusters == nil {
+		return clusters
+	}
+	for _, c := range srcClusters {
+		bytes, err := c.Marshal()
+		if err != nil {
+			adsLog.Warnf("Error when marshal cluster: %v, error: %v", c, err)
+			continue
+		}
+		cp := &xdsapi.Cluster{}
+		err = cp.Unmarshal(bytes)
+		if err != nil {
+			adsLog.Warnf("Error when unmarshal cluster, error: %v", err)
+			continue
+		}
+		clusters = append(clusters, cp)
+	}
+	return clusters
 }

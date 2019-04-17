@@ -37,6 +37,7 @@ import (
 // cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/tracing_datadog/envoy-rev0.json pkg/bootstrap/testdata/tracing_datadog_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
@@ -71,6 +72,9 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "tracing_zipkin",
+		},
+		{
+			base: "tracing_datadog",
 		},
 		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
@@ -231,7 +235,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	if gobase == "" {
 		gobase = "../.."
 	}
-	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_v2.json"
+	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
 	return cfg, nil
 }
 

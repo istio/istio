@@ -68,10 +68,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	fetchFn := env.Accessor.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
-	if err := env.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return nil, err
-	}
-	pods, err := fetchFn()
+	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +80,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 	port := uint16(svc.Spec.Ports[0].Port)
 
-	options := &testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}
-	forwarder, err := env.Accessor.NewPortForwarder(options, 0, port)
+	forwarder, err := env.Accessor.NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}

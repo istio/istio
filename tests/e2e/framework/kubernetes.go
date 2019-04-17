@@ -226,7 +226,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
+	i, err := NewIstioctl(yamlDir, *namespace, *istioNamespace, *kubeInjectCM, "")
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,6 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err = os.Chmod(i.localPath, 0755); err != nil {
 			return nil, err
 		}
-		i.defaultProxy = true
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}
@@ -274,13 +273,12 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err = NewIstioctl(yamlDir, *namespace, *istioNamespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
+		remoteI, err = NewIstioctl(yamlDir, *namespace, *istioNamespace, "istio-sidecar-injector", remoteKubeConfig)
 		if err != nil {
 			return nil, err
 		}
 		if baseVersion != "" {
 			remoteI.localPath = filepath.Join(releaseDir, "/bin/istioctl")
-			remoteI.defaultProxy = true
 		}
 		aRemote = NewAppManager(tmpDir, *namespace, remoteI, remoteKubeConfig)
 	}
@@ -506,7 +504,16 @@ func (k *KubeInfo) Teardown() error {
 		}
 
 		if *clusterWide {
-			istioYaml := getClusterWideInstallFile()
+			var istioYaml string
+			if *multiClusterDir != "" {
+				if *authEnable {
+					istioYaml = mcAuthInstallFileNamespace
+				} else {
+					istioYaml = mcNonAuthInstallFileNamespace
+				}
+			} else {
+				istioYaml = getClusterWideInstallFile()
+			}
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -727,6 +734,11 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Remote Istio %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := util.CreateMultiClusterSecret(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+			log.Errorf("Unable to create remote cluster secret on local cluster %s", err.Error())
+			return err
+		}
+		time.Sleep(10 * time.Second)
 	}
 
 	if *useAutomaticInjection {

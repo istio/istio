@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"5e477e1f27e622d0eb2611698e9c0a77f7eee69bb873ddf8586b7431ae637249","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -54,6 +54,8 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
@@ -65,11 +67,15 @@ spec:
         - --parentShutdownDuration
         - 1m0s
         - --discoveryAddress
+<<<<<<< HEAD
         - istio-pilot:15010
+=======
+        - istio-pilot:15007
+        - --zipkinAddress
+        - ""
+>>>>>>> Remove the hardcoded sidecar template for
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -99,10 +105,17 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"hello","tier":"backend","track":"stable"}
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -123,6 +136,7 @@ spec:
             memory: 30Mi
         securityContext:
           readOnlyRootFilesystem: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -148,7 +162,13 @@ spec:
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
