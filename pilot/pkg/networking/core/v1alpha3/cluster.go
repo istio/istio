@@ -841,10 +841,17 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 	consistentHash := lb.GetConsistentHash()
 	if consistentHash != nil {
+		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
+		// unable to distinguish between set and unset case currently GregHanson
+		// 1024 is the default value for envoy
+		minRingSize := &types.UInt64Value{Value: 1024}
+		if consistentHash.MinimumRingSize != 0 {
+			minRingSize = &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+		}
 		cluster.LbPolicy = apiv2.Cluster_RING_HASH
 		cluster.LbConfig = &apiv2.Cluster_RingHashLbConfig_{
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
-				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
+				MinimumRingSize: minRingSize,
 			},
 		}
 	}
