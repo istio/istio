@@ -109,16 +109,13 @@ COMMAND="install_all"
 METHOD=Install
 ISTIO_CONTROL_OLD=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
 ISTIO_CONTROL_OLD=${ISTIO_CONTROL_OLD:-istio-control}
-REMOVE_OLD_CONTROL=false
+REMOVE_OLD_CONTROL=${REMOVE_OLD_CONTROL:-false}
 
 while [ $# -gt 0 ]
 do
     case "$1" in
         --update)
             METHOD=Update
-            ;;
-        --remove-old-control)
-            REMOVE_OLD_CONTROL=true
             ;;
         cleanup) COMMAND=$1 ;;
         install_crds) COMMAND=$1 ;;
