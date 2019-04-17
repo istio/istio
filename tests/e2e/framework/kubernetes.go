@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -62,6 +63,7 @@ const (
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
+	maxCNIDeployTime               = 10 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
 	caCertFileName                 = "samples/certs/ca-cert.pem"
@@ -499,24 +501,25 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup || os.Getenv("SKIP_CLEANUP") != "" {
 		return nil
 	}
+	var errs error
 	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(istioHelmChartName)
 		if err != nil {
 			// If fail don't return so other cleanup activities can complete
-			log.Errorf("Helm delete of chart %s failed", istioHelmChartName)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Could not delete %s", istioHelmChartName)))
 		}
 
 		if *useCNI {
 			err := util.HelmDelete("istio-cni")
 			if err != nil {
 				// If fail don't return so other cleanup activities can complete
-				log.Errorf("Helm delete of chart %s failed", "istio-cni")
+				errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Helm delete of chart %s failed", "istio-cni")))
 			}
 		}
 
 		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s", k.Namespace)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Failed to delete namespace %s", k.Namespace)))
 		}
 	} else {
 		if *useAutomaticInjection {
@@ -570,7 +573,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *multiClusterDir != "" {
 		if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Failed to delete namespace %s on remote cluster", k.Namespace)))
 		}
 	}
 
@@ -608,7 +611,7 @@ func (k *KubeInfo) Teardown() error {
 
 	log.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
-	return nil
+	return errs
 }
 
 // GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
@@ -717,7 +720,27 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Unable to deply Istio CNI")
 			return err
 		}
-		time.Sleep(10 * time.Second)
+
+		timeout := time.Now().Add(maxCNIDeployTime)
+		var CNIPodName string
+		for time.Now().Before(timeout) {
+			// Check if the CNI pod deployed
+			if CNIPodName, err = util.GetPodName(k.Namespace, "k8s-app=istio-cni-node", k.KubeConfig); err == nil {
+				break
+			}
+
+		}
+
+		if CNIPodName == "" {
+			return errors.New("Timeout waiting for CNI to deploy")
+		}
+
+		// Check if the CNI Pod is running.  Note at this point only the CNI is deployed
+		// and it will be the only pod in the namespace
+		if CNIRunning := util.CheckPodsRunning(k.Namespace, k.KubeConfig); CNIRunning != true {
+			return errors.New("Timeout waiting for CNI to become ready")
+		}
+
 	}
 
 	// Apply istio-init
@@ -1184,6 +1207,9 @@ func (k *KubeInfo) deployCNI() error {
 	// (e.g. GKE environments need the bin directory to be changed from the default
 	setValue := " --set hub=" + *cniHub + " --set tag=" + *cniTag
 	setValue += " --set excludeNamespaces={} --set pullPolicy=IfNotPresent --set logLevel=debug"
+	if extraHelmValues := os.Getenv("EXTRA_HELM_SETTINGS"); extraHelmValues != "" {
+		setValue += extraHelmValues
+	}
 	if *installer == helmInstallerName {
 		//Assumes the CNI helm repo is available alongside the istio repo
 		err := util.HelmInstall(*cniHelmRepo, "istio-cni", "", k.Namespace, setValue)
