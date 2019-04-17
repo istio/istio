@@ -4,7 +4,7 @@ description: Authentication policy for Istio services.
 location: https://istio.io/docs/reference/config/istio.authentication.v1alpha2.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 10
+number_of_entries: 11
 ---
 <p>This package defines user-facing authentication policy.</p>
 
@@ -44,6 +44,18 @@ number_of_entries: 10
 <section>
 <p>AuthenticationPolicy: add comments</p>
 
+<pre><code>spec:
+  selector:
+    app: foo
+  spec:
+    peers:
+    - apply: &quot;istio.mtls&quot;
+    origins:
+    - inline:
+        jwt:
+          issuer: foo@bar
+</code></pre>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -62,37 +74,10 @@ If empty, policy will be used on all workloads in the same namespace.</p>
 
 </td>
 </tr>
-<tr id="AuthenticationPolicy-peers">
-<td><code>peers</code></td>
-<td><code><a href="#Rule">Rule[]</a></code></td>
+<tr id="AuthenticationPolicy-spec">
+<td><code>spec</code></td>
+<td><code><a href="#PolicySpec">PolicySpec</a></code></td>
 <td>
-<p>List of authentication methods that can be used for peer authentication.
-They will be evaluated in order; the first validate one will be used to
-set peer identity (source.user) and other peer attributes. If none of
-these methods pass, request will be rejected with authentication failed error (401).
-Leave the list empty if peer authentication is not required</p>
-
-</td>
-</tr>
-<tr id="AuthenticationPolicy-origins">
-<td><code>origins</code></td>
-<td><code><a href="#Rule">Rule[]</a></code></td>
-<td>
-<p>Define origins authentications.</p>
-
-</td>
-</tr>
-<tr id="AuthenticationPolicy-principal_binding">
-<td><code>principalBinding</code></td>
-<td><code><a href="#PrincipalBinding">PrincipalBinding</a></code></td>
-<td>
-<p>Define whether peer or origin identity should be use for principal. Default
-value is USE_PEER.
-If peer (or origin) identity is not available, either because of peer/origin
-authentication is not defined, or failed, principal will be left unset.
-In other words, binding rule does not affect the decision to accept or
-reject request.</p>
-
 </td>
 </tr>
 </tbody>
@@ -309,6 +294,53 @@ When the flag is false (default), request must have client certificate.</p>
 <td><code>PERMISSIVE</code></td>
 <td>
 <p>Connection can be either plaintext or TLS, and client cert can be omitted.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PolicySpec">PolicySpec</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PolicySpec-peers">
+<td><code>peers</code></td>
+<td><code><a href="#Rule">Rule[]</a></code></td>
+<td>
+<p>List of authentication methods that can be used for peer authentication.
+They will be evaluated in order; the first validate one will be used to
+set peer identity (source.user) and other peer attributes. If none of
+these methods pass, request will be rejected with authentication failed error (401).
+Leave the list empty if peer authentication is not required</p>
+
+</td>
+</tr>
+<tr id="PolicySpec-origins">
+<td><code>origins</code></td>
+<td><code><a href="#Rule">Rule[]</a></code></td>
+<td>
+<p>Define origins authentications.</p>
+
+</td>
+</tr>
+<tr id="PolicySpec-principal_binding">
+<td><code>principalBinding</code></td>
+<td><code><a href="#PrincipalBinding">PrincipalBinding</a></code></td>
+<td>
+<p>Define whether peer or origin identity should be use for principal. Default
+value is USE_PEER.
+If peer (or origin) identity is not available, either because of peer/origin
+authentication is not defined, or failed, principal will be left unset.
+In other words, binding rule does not affect the decision to accept or
+reject request.</p>
 
 </td>
 </tr>

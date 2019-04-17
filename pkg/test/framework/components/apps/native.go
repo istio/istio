@@ -96,7 +96,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if err := cfg.fillInDefaults(ctx); err != nil {
 		return nil, err
 	}
-	c.id = ctx.TrackResource(c)
 
 	c := &nativeComponent{
 		apps: make([]App, 0),

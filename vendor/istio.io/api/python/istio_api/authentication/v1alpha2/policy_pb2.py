@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='authentication/v1alpha2/policy.proto',
   package='istio.authentication.v1alpha2',
   syntax='proto3',
-  serialized_pb=_b('\n$authentication/v1alpha2/policy.proto\x12\x1distio.authentication.v1alpha2\x1a$authentication/v1alpha2/method.proto\"a\n\x0bStringMatch\x12\x0f\n\x05\x65xact\x18\x01 \x01(\tH\x00\x12\x10\n\x06prefix\x18\x02 \x01(\tH\x00\x12\x10\n\x06suffix\x18\x03 \x01(\tH\x00\x12\x0f\n\x05regex\x18\x04 \x01(\tH\x00\x42\x0c\n\nmatch_type\"\x9d\x01\n\x04Rule\x12\x33\n\x05match\x18\x01 \x03(\x0b\x32$.istio.authentication.v1alpha2.Match\x12\x10\n\x06method\x18\x02 \x01(\tH\x00\x12\x45\n\x06inline\x18\x03 \x01(\x0b\x32\x33.istio.authentication.v1alpha2.AuthenticationMethodH\x00\x42\x07\n\x05\x61pply\"\x87\x02\n\x14\x41uthenticationPolicy\x12\x39\n\x08selector\x18\x01 \x01(\x0b\x32\'.istio.authentication.v1alpha2.Selector\x12\x32\n\x05peers\x18\x02 \x03(\x0b\x32#.istio.authentication.v1alpha2.Rule\x12\x34\n\x07origins\x18\x03 \x03(\x0b\x32#.istio.authentication.v1alpha2.Rule\x12J\n\x11principal_binding\x18\x06 \x01(\x0e\x32/.istio.authentication.v1alpha2.PrincipalBinding\"~\n\x08Selector\x12\x43\n\x06labels\x18\x03 \x03(\x0b\x32\x33.istio.authentication.v1alpha2.Selector.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"Q\n\x05Match\x12\r\n\x05ports\x18\x01 \x03(\r\x12\x39\n\x05paths\x18\x02 \x03(\x0b\x32*.istio.authentication.v1alpha2.StringMatch*0\n\x10PrincipalBinding\x12\x0c\n\x08USE_PEER\x10\x00\x12\x0e\n\nUSE_ORIGIN\x10\x01\x42&Z$istio.io/api/authentication/v1alpha2b\x06proto3')
+  serialized_pb=_b('\n$authentication/v1alpha2/policy.proto\x12\x1distio.authentication.v1alpha2\x1a$authentication/v1alpha2/method.proto\"a\n\x0bStringMatch\x12\x0f\n\x05\x65xact\x18\x01 \x01(\tH\x00\x12\x10\n\x06prefix\x18\x02 \x01(\tH\x00\x12\x10\n\x06suffix\x18\x03 \x01(\tH\x00\x12\x0f\n\x05regex\x18\x04 \x01(\tH\x00\x42\x0c\n\nmatch_type\"\x9d\x01\n\x04Rule\x12\x33\n\x05match\x18\x01 \x03(\x0b\x32$.istio.authentication.v1alpha2.Match\x12\x10\n\x06method\x18\x02 \x01(\tH\x00\x12\x45\n\x06inline\x18\x03 \x01(\x0b\x32\x33.istio.authentication.v1alpha2.AuthenticationMethodH\x00\x42\x07\n\x05\x61pply\"\xc2\x01\n\nPolicySpec\x12\x32\n\x05peers\x18\x02 \x03(\x0b\x32#.istio.authentication.v1alpha2.Rule\x12\x34\n\x07origins\x18\x03 \x03(\x0b\x32#.istio.authentication.v1alpha2.Rule\x12J\n\x11principal_binding\x18\x06 \x01(\x0e\x32/.istio.authentication.v1alpha2.PrincipalBinding\"\x8a\x01\n\x14\x41uthenticationPolicy\x12\x39\n\x08selector\x18\x01 \x01(\x0b\x32\'.istio.authentication.v1alpha2.Selector\x12\x37\n\x04spec\x18\x02 \x01(\x0b\x32).istio.authentication.v1alpha2.PolicySpec\"~\n\x08Selector\x12\x43\n\x06labels\x18\x03 \x03(\x0b\x32\x33.istio.authentication.v1alpha2.Selector.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"Q\n\x05Match\x12\r\n\x05ports\x18\x01 \x03(\r\x12\x39\n\x05paths\x18\x02 \x03(\x0b\x32*.istio.authentication.v1alpha2.StringMatch*0\n\x10PrincipalBinding\x12\x0c\n\x08USE_PEER\x10\x00\x12\x0e\n\nUSE_ORIGIN\x10\x01\x42&Z$istio.io/api/authentication/v1alpha2b\x06proto3')
   ,
   dependencies=[authentication_dot_v1alpha2_dot_method__pb2.DESCRIPTOR,])
 
@@ -42,8 +42,8 @@ _PRINCIPALBINDING = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=845,
-  serialized_end=893,
+  serialized_start=917,
+  serialized_end=965,
 )
 _sym_db.RegisterEnumDescriptor(_PRINCIPALBINDING)
 
@@ -156,36 +156,29 @@ _RULE = _descriptor.Descriptor(
 )
 
 
-_AUTHENTICATIONPOLICY = _descriptor.Descriptor(
-  name='AuthenticationPolicy',
-  full_name='istio.authentication.v1alpha2.AuthenticationPolicy',
+_POLICYSPEC = _descriptor.Descriptor(
+  name='PolicySpec',
+  full_name='istio.authentication.v1alpha2.PolicySpec',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='selector', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.selector', index=0,
-      number=1, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='peers', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.peers', index=1,
+      name='peers', full_name='istio.authentication.v1alpha2.PolicySpec.peers', index=0,
       number=2, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='origins', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.origins', index=2,
+      name='origins', full_name='istio.authentication.v1alpha2.PolicySpec.origins', index=1,
       number=3, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='principal_binding', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.principal_binding', index=3,
+      name='principal_binding', full_name='istio.authentication.v1alpha2.PolicySpec.principal_binding', index=2,
       number=6, type=14, cpp_type=8, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -204,7 +197,45 @@ _AUTHENTICATIONPOLICY = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=369,
-  serialized_end=632,
+  serialized_end=563,
+)
+
+
+_AUTHENTICATIONPOLICY = _descriptor.Descriptor(
+  name='AuthenticationPolicy',
+  full_name='istio.authentication.v1alpha2.AuthenticationPolicy',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='selector', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.selector', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='spec', full_name='istio.authentication.v1alpha2.AuthenticationPolicy.spec', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=566,
+  serialized_end=704,
 )
 
 
@@ -241,8 +272,8 @@ _SELECTOR_LABELSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=715,
-  serialized_end=760,
+  serialized_start=787,
+  serialized_end=832,
 )
 
 _SELECTOR = _descriptor.Descriptor(
@@ -271,8 +302,8 @@ _SELECTOR = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=634,
-  serialized_end=760,
+  serialized_start=706,
+  serialized_end=832,
 )
 
 
@@ -309,8 +340,8 @@ _MATCH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=762,
-  serialized_end=843,
+  serialized_start=834,
+  serialized_end=915,
 )
 
 _STRINGMATCH.oneofs_by_name['match_type'].fields.append(
@@ -333,15 +364,17 @@ _RULE.fields_by_name['method'].containing_oneof = _RULE.oneofs_by_name['apply']
 _RULE.oneofs_by_name['apply'].fields.append(
   _RULE.fields_by_name['inline'])
 _RULE.fields_by_name['inline'].containing_oneof = _RULE.oneofs_by_name['apply']
+_POLICYSPEC.fields_by_name['peers'].message_type = _RULE
+_POLICYSPEC.fields_by_name['origins'].message_type = _RULE
+_POLICYSPEC.fields_by_name['principal_binding'].enum_type = _PRINCIPALBINDING
 _AUTHENTICATIONPOLICY.fields_by_name['selector'].message_type = _SELECTOR
-_AUTHENTICATIONPOLICY.fields_by_name['peers'].message_type = _RULE
-_AUTHENTICATIONPOLICY.fields_by_name['origins'].message_type = _RULE
-_AUTHENTICATIONPOLICY.fields_by_name['principal_binding'].enum_type = _PRINCIPALBINDING
+_AUTHENTICATIONPOLICY.fields_by_name['spec'].message_type = _POLICYSPEC
 _SELECTOR_LABELSENTRY.containing_type = _SELECTOR
 _SELECTOR.fields_by_name['labels'].message_type = _SELECTOR_LABELSENTRY
 _MATCH.fields_by_name['paths'].message_type = _STRINGMATCH
 DESCRIPTOR.message_types_by_name['StringMatch'] = _STRINGMATCH
 DESCRIPTOR.message_types_by_name['Rule'] = _RULE
+DESCRIPTOR.message_types_by_name['PolicySpec'] = _POLICYSPEC
 DESCRIPTOR.message_types_by_name['AuthenticationPolicy'] = _AUTHENTICATIONPOLICY
 DESCRIPTOR.message_types_by_name['Selector'] = _SELECTOR
 DESCRIPTOR.message_types_by_name['Match'] = _MATCH
@@ -361,6 +394,13 @@ Rule = _reflection.GeneratedProtocolMessageType('Rule', (_message.Message,), dic
   # @@protoc_insertion_point(class_scope:istio.authentication.v1alpha2.Rule)
   ))
 _sym_db.RegisterMessage(Rule)
+
+PolicySpec = _reflection.GeneratedProtocolMessageType('PolicySpec', (_message.Message,), dict(
+  DESCRIPTOR = _POLICYSPEC,
+  __module__ = 'authentication.v1alpha2.policy_pb2'
+  # @@protoc_insertion_point(class_scope:istio.authentication.v1alpha2.PolicySpec)
+  ))
+_sym_db.RegisterMessage(PolicySpec)
 
 AuthenticationPolicy = _reflection.GeneratedProtocolMessageType('AuthenticationPolicy', (_message.Message,), dict(
   DESCRIPTOR = _AUTHENTICATIONPOLICY,

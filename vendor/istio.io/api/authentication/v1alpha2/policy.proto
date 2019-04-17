@@ -63,12 +63,7 @@ enum PrincipalBinding {
   USE_ORIGIN = 1;
 }
 
-// AuthenticationPolicy: add comments
-message AuthenticationPolicy {
-  // List rules to select workloads that the policy should be applied on.
-  // If empty, policy will be used on all workloads in the same namespace.
-  Selector selector = 1;
-
+message PolicySpec {
   // List of authentication methods that can be used for peer authentication.
   // They will be evaluated in order; the first validate one will be used to
   // set peer identity (source.user) and other peer attributes. If none of
@@ -86,6 +81,26 @@ message AuthenticationPolicy {
   // In other words, binding rule does not affect the decision to accept or
   // reject request.
   PrincipalBinding principal_binding = 6;
+}
+// AuthenticationPolicy: add comments
+// ```
+// spec:
+//   selector:
+//     app: foo
+//   spec:
+//     peers:
+//     - apply: "istio.mtls"
+//     origins:
+//     - inline:
+//         jwt:
+//           issuer: foo@bar
+// ```
+message AuthenticationPolicy {
+  // List rules to select workloads that the policy should be applied on.
+  // If empty, policy will be used on all workloads in the same namespace.
+  Selector selector = 1;
+
+  PolicySpec spec = 2;
 }
 
 // TODO: put in common api.

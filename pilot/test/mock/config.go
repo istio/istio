@@ -175,10 +175,12 @@ var (
 		Selector: &authn2.Selector {
 			Labels: map[string]string{ "app": "foo", },
 		},
-		Peers: []*authn2.Rule{
-			{
-				Apply: &authn2.Rule_Method{
-					Method: "istio.mtls",
+		Spec: &authn2.PolicySpec {
+			Peers: []*authn2.Rule{
+				{
+					Apply: &authn2.Rule_Method{
+						Method: "istio.mtls",
+					},
 				},
 			},
 		},
