@@ -112,12 +112,11 @@ func TestLocalityFailover(t *testing.T) {
 	t.Run("TestEDS", func(t *testing.T) {
 		testEDS(t, ctx, g, p)
 	})
-
 }
 
 func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
-	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 
 	fakeHostname := fmt.Sprintf("fake-cds-external-service-%v.com", rand.Int())
@@ -147,7 +146,7 @@ func testCDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Inst
 
 func testEDS(t *testing.T, ctx resource.Context, g galley.Instance, p pilot.Instance) {
 	t.Parallel()
-	instance := apps.NewOrFail(ctx, t, apps.Config{Pilot: p})
+	instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p})
 	a := instance.GetAppOrFail("a", t).(apps.KubeApp)
 	b := instance.GetAppOrFail("b", t).(apps.KubeApp)
 	c := instance.GetAppOrFail("c", t).(apps.KubeApp)
