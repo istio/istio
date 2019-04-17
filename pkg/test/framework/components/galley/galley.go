@@ -51,8 +51,12 @@ type Instance interface {
 	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
 }
 
-// Configuration for Galley
+// Config for Galley
 type Config struct {
+
+	// SinkAddress to dial-out to, if set.
+	SinkAddress string
+
 	// MeshConfig to use for this instance.
 	MeshConfig string
 }
