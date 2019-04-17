@@ -12,7 +12,7 @@ import (
 // mesh expansion.
 type Instance interface {
 	// Execute executes a command in the VM instance, returns the output and the error.
-	Execute(args []string) (string, error)
+	Execute(command string) (string, error)
 
 	// Close is invoked when VM instance is cleaned up.
 	Close() error

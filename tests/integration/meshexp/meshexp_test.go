@@ -3,6 +3,7 @@ package meshexp
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -29,10 +30,11 @@ const (
 )
 
 // How to run this test suite locally
-// go test -v ./tests/integration/meshexp   -istio.test.env  \
-// kube -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily" \
-// --project_number=895429144602  --project_id=jianfeih-test  \
-// --log_output_level=tf:debug,CI:debug
+// go test -v ./tests/integration/meshexp   -istio.test.env  kube \
+// -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily" \
+// --project_number=<your-gcp-project-number>  --project_id=<your-gcp-project>  \
+// --log_output_level=tf:debug,CI:debug  --zone=us-central1-a \
+// --deb_url=https://storage.googleapis.com/istio-release/releases/1.1.3/deb
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshexp_test", m).
@@ -64,7 +66,21 @@ func setupVMInstance(ctx framework.SuiteContext) error {
 	return nil
 }
 
+func TestPilotIsReachable(t *testing.T) {
+	output, err := vmInstance.Execute("/bin/sh -c curl localhost:15000/clusters")
+	if err != nil {
+		t.Errorf("VM instance failed to get Envoy CDS, %v", err)
+	}
+	// Examine sidecar CDS config to see if control plane exists or not.
+	for _, cluster := range []string{"istio-pilot", "istio-citadel"} {
+		if !strings.Contains(output, cluster) {
+			t.Errorf("%v not found in VM sidecar CDS config", cluster)
+		}
+	}
+}
+
 // TestKubernetesToVM sends a request to a pod in Kubernetes cluster, then the pod sends the request
 // to app runs on the VM, returns success if VM app returns success result.
-func TestKubernetesToVM(t *testing.T) {
-}
+// TODO(incfly): implemets it.
+// func TestKubernetesToVM(t *testing.T) {
+// }

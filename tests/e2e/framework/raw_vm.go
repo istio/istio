@@ -165,30 +165,25 @@ func (vm *GCPRawVM) Setup() error {
 		return err
 	}
 	// TODO: restore before submit.
-	// No need anymore, enabled initially.
-	// if err := vm.prepareCluster(); err != nil {
-	// 	return err
-	// }
 	if err := vm.setupMeshEx("generateClusterEnv", vm.ClusterName); err != nil {
 		return err
 	}
 	if _, err := u.Shell("cat cluster.env"); err != nil {
 		return err
 	}
-	// if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
-	// 	return err
-	// }
-	// if _, err := u.Shell("cat kubedns"); err != nil {
-	// 	return err
-	// }
-	// if err := buildIstioVersion(); err != nil {
-	// 	return err
-	// }
-	// if _, err := u.Shell("cat istio.VERSION"); err != nil {
-	// 	return err
-	// }
-	return nil
-	// return vm.setupMeshEx("machineSetup", vm.Name)
+	if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
+		return err
+	}
+	if _, err := u.Shell("cat kubedns"); err != nil {
+		return err
+	}
+	if err := buildIstioVersion(); err != nil {
+		return err
+	}
+	if _, err := u.Shell("cat istio.VERSION"); err != nil {
+		return err
+	}
+	return vm.setupMeshEx("machineSetup", vm.Name)
 }
 
 func buildIstioVersion() error {
@@ -237,10 +232,9 @@ func (vm *GCPRawVM) baseCommand(action string) string {
 func (vm *GCPRawVM) setupMeshEx(op string, args ...string) error {
 	argsStr := strings.Join(args, " ")
 	env := fmt.Sprintf(`
-		export ISTIO_NAMESPACE=%s;
 		export GCP_OPTS="--project %s --zone %s";
 		export SETUP_ISTIO_VM_SCRIPT="%s";`,
-		vm.Namespace, vm.ProjectID, vm.Zone, setupIstioVMScript)
+		vm.ProjectID, vm.Zone, setupIstioVMScript)
 	cmd := fmt.Sprintf("%s %s %s", setupMeshExScript, op, argsStr)
 	_, err := u.Shell(env + cmd)
 	return err

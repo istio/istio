@@ -42,21 +42,31 @@
 # If not set, defaults are used.
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to run a command on the VM.
+# ISTIO_CP_CONNECTIVITY - the way Kubernetes cluster exposes the Istio control plane, could be
+# 'gateway'(default) or 'ilb'.
 
 # Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
 # It will need to be installed on each machine expanding the mesh.
 function istioDnsmasq() {
   local NS=${ISTIO_NAMESPACE:-istio-system}
+  local CP_CONNECTIVITY=${ISTIO_CP_CONNECTIVITY:-gateway}
   # Multiple tries, it may take some time until the controllers generate the IPs
   for _ in {1..20}; do
-    PILOT_IP=$(kubectl get -n "$NS" service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    MIXER_IP=$(kubectl get -n "$NS" service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    CITADEL_IP=$(kubectl get -n "$NS" service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
+    if [ "${CP_CONNECTIVITY}" == "ilb" ]; then
+      PILOT_IP=$(kubectl get -n "$NS" service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+      ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+      MIXER_IP=$(kubectl get -n "$NS" service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+      CITADEL_IP=$(kubectl get -n "$NS" service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    else
+      GATEWAY_IP=$(kubectl get -n istio-system service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+      PILOT_IP=${GATEWAY_IP}
+      ISTIO_DNS=${GATEWAY_IP}
+      MIXER_IP=${GATEWAY_IP}
+      CITADEL_IP=${GATEWAY_IP}
+    fi
     if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
-      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
-      sleep 30
+      echo "Waiting for Istio Control Plane to be ready, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
+      sleep 10
     else
       break
     fi
@@ -69,19 +79,19 @@ function istioDnsmasq() {
 
   #/etc/dnsmasq.d/kubedns
   {
+    # DNS does not work fro Gateway based model since that requires mTLS.
+    # We might need to configure dnsmasq differently.
     echo "server=/svc.cluster.local/$ISTIO_DNS"
     echo "address=/istio-policy/$MIXER_IP"
     echo "address=/istio-telemetry/$MIXER_IP"
     echo "address=/istio-pilot/$PILOT_IP"
     echo "address=/istio-citadel/$CITADEL_IP"
-    echo "address=/istio-ca/$CITADEL_IP" # Deprecated. For backward compatibility
     # Also generate host entries for the istio-system. The generated config will work with both
     # 'cluster-wide' and 'per-namespace'.
     echo "address=/istio-policy.$NS/$MIXER_IP"
     echo "address=/istio-telemetry.$NS/$MIXER_IP"
     echo "address=/istio-pilot.$NS/$PILOT_IP"
     echo "address=/istio-citadel.$NS/$CITADEL_IP"
-    echo "address=/istio-ca.$NS/$CITADEL_IP" # Deprecated. For backward compatibility
   } > kubedns
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
