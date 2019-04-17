@@ -348,3 +348,13 @@ func GetInfo(name string) adapter.Info {
 	}
 	panic(fmt.Errorf("requesting a missing descriptor %q", name))
 }
+
+// InfoMap returns an indexed map of adapter infos.
+func InfoMap() map[string]*adapter.Info {
+	out := make(map[string]*adapter.Info, len(Infos))
+	for i := range Infos {
+		info := Infos[i]
+		out[info.Name] = &info
+	}
+	return out
+}

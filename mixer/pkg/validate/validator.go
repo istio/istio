@@ -17,9 +17,8 @@ package validate
 import (
 	"github.com/gogo/protobuf/proto"
 
-	adapterInfo "istio.io/istio/mixer/adapter"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
@@ -45,10 +44,8 @@ func NewValidator(adapters map[string]*adapter.Info, templates map[string]*templ
 	return out
 }
 
-// NewDefaultValidator creates a validator using compiled templates and adapters.
-// TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
-// config validation to remove galley dependency on mixer internal
-// packages.
+// NewDefaultValidator creates a validator using compiled templates and adapter descriptors.
+// It does not depend on actual handler/builder interfaces from the compiled-in adapters.
 func NewDefaultValidator(stateful bool) store.BackendValidator {
 	info := generatedTmplRepo.SupportedTmplInfo
 	templates := make(map[string]*template.Info, len(info))
@@ -56,7 +53,7 @@ func NewDefaultValidator(stateful bool) store.BackendValidator {
 		t := info[k]
 		templates[k] = &t
 	}
-	adapters := config.AdapterInfoMap(adapterInfo.Inventory(), template.NewRepository(info).SupportsTemplate)
+	adapters := metadata.InfoMap()
 	return NewValidator(adapters, templates, stateful)
 }
 
