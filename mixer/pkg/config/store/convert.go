@@ -53,6 +53,9 @@ func ConvertValue(ev BackendEvent, kinds map[string]proto.Message) (Event, error
 	if err != nil {
 		return Event{}, err
 	}
+	if ev.Value == nil {
+		return Event{Key: ev.Key, Type: ev.Type}, nil
+	}
 	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
 		return Event{}, err
 	}
