@@ -68,7 +68,7 @@ func promDashCmd() *cobra.Command {
 		Long:    `Open Istio's Prometheus dashboard`,
 		Example: `istioctl experimental dashboard prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -112,7 +112,7 @@ func grafanaDashCmd() *cobra.Command {
 		Long:    `Open Istio's Grafana dashboard`,
 		Example: `istioctl experimental dashboard grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -157,7 +157,7 @@ func kialiDashCmd() *cobra.Command {
 		Long:    `Open Istio's Kiali dashboard`,
 		Example: `istioctl experimental dashboard kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -201,7 +201,7 @@ func jaegerDashCmd() *cobra.Command {
 		Long:    `Open Istio's Jaeger dashboard`,
 		Example: `istioctl experimental dashboard jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -245,7 +245,7 @@ func zipkinDashCmd() *cobra.Command {
 		Long:    `Open Istio's Zipkin dashboard`,
 		Example: `istioctl experimental dashboard zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -294,7 +294,7 @@ func envoyDashCmd() *cobra.Command {
 			}
 
 			podName, ns := inferPodInfo(args[0], handleNamespace())
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -333,7 +333,7 @@ func controlZDashCmd() *cobra.Command {
 			}
 
 			podName, ns := inferPodInfo(args[0], handleNamespace())
-			client, err := kubernetes.NewClient(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

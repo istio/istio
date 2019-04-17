@@ -17,6 +17,7 @@ package validate
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -111,7 +112,7 @@ Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
 
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions) error {
+func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
 	// resource.Builder{} validates most of the CLI flags consistent
 	// with kubectl which is good. Unfortunately, it also assumes
 	// resources can be specified as '<resource> <name>' which is
@@ -160,7 +161,13 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		return nil
 	})
 
-	return errs
+	if errs != nil {
+		return errs
+	}
+	for _, fname := range options.Filenames {
+		fmt.Fprintf(writer, "%q is valid\n", fname)
+	}
+	return nil
 }
 
 func strPtr(val string) *string {
@@ -193,7 +200,7 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions())
+			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
 		},
 	}
 

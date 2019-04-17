@@ -862,7 +862,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 		return err
 	}
 
-	log.Infof("Secret %s labelled with %s=%s\n", secretName, secretLabel, labelValue)
+	log.Infof("Secret %s labeled with %s=%s\n", secretName, secretLabel, labelValue)
 	return nil
 }
 

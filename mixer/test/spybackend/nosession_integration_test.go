@@ -156,9 +156,9 @@ spec:
   template: quota
   params:
     dimensions:
-      source: source.labels["app"] | source.service | "unknown"
+      source: source.labels["app"] | source.name | "unknown"
       sourceVersion: source.labels["version"] | "unknown"
-      destination: destination.labels["app"] | destination.service | "unknown"
+      destination: destination.labels["app"] | destination.service.host | "unknown"
       destinationVersion: destination.labels["version"] | "unknown"
 ---
 `
@@ -671,7 +671,7 @@ func TestNoSessionBackend(t *testing.T) {
 						BestEffort: true,
 					},
 				},
-				Attrs: map[string]interface{}{"source.service": "foobar"},
+				Attrs: map[string]interface{}{"source.name": "foobar"},
 			}},
 			want: `
 					    		{
@@ -682,7 +682,7 @@ func TestNoSessionBackend(t *testing.T) {
 					    		    "name": "i3list.instance.istio-system",
 					    		    "value": {
                                       "Value": {
-                                        "StringValue": "defaultstr"
+                                        "StringValue": "foobar"
                                       }
                                     }
 					    		   }

@@ -26,6 +26,7 @@ import (
 )
 
 type protoObj struct {
+	ref.TypeAdapter
 	value     proto.Message
 	refValue  reflect.Value
 	typeDesc  *pb.TypeDescription
@@ -36,31 +37,31 @@ type protoObj struct {
 // NewObject returns an object based on a proto.Message value which handles
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
-func NewObject(value proto.Message) ref.Val {
-	typeDesc, err := pb.DescribeValue(value)
-	if err != nil {
-		panic(err)
-	}
+// Note:  only uses default Db.
+func NewObject(adapter ref.TypeAdapter,
+	typeDesc *pb.TypeDescription,
+	value proto.Message) ref.Val {
 	return &protoObj{
-		value:     value,
-		refValue:  reflect.ValueOf(value),
-		typeDesc:  typeDesc,
-		typeValue: NewObjectTypeValue(typeDesc.Name())}
+		TypeAdapter: adapter,
+		value:       value,
+		refValue:    reflect.ValueOf(value),
+		typeDesc:    typeDesc,
+		typeValue:   NewObjectTypeValue(typeDesc.Name())}
 }
 
-func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	if typeDesc.AssignableTo(o.refValue.Type()) {
+func (o *protoObj) ConvertToNative(refl reflect.Type) (interface{}, error) {
+	if refl.AssignableTo(o.refValue.Type()) {
 		return o.value, nil
 	}
-	if typeDesc == anyValueType {
+	if refl == anyValueType {
 		return ptypes.MarshalAny(o.Value().(proto.Message))
 	}
 	// If the object is already assignable to the desired type return it.
-	if reflect.TypeOf(o).AssignableTo(typeDesc) {
+	if reflect.TypeOf(o).AssignableTo(refl) {
 		return o, nil
 	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
-		o.refValue.Type(), typeDesc)
+		o.refValue.Type(), refl)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {
@@ -112,14 +113,14 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 	protoFieldName := string(index.(String))
 	if f, found := o.typeDesc.FieldByName(protoFieldName); found {
 		if !f.IsOneof() {
-			return getOrDefaultInstance(o.refValue.Elem().Field(f.Index()))
+			return getOrDefaultInstance(o.TypeAdapter, o.refValue.Elem().Field(f.Index()))
 		}
 
 		getter := o.refValue.MethodByName(f.GetterName())
 		if getter.IsValid() {
 			refField := getter.Call([]reflect.Value{})[0]
 			if refField.IsValid() {
-				return getOrDefaultInstance(refField)
+				return getOrDefaultInstance(o.TypeAdapter, refField)
 			}
 		}
 	}
@@ -174,22 +175,22 @@ func isFieldSet(refVal reflect.Value) ref.Val {
 	return True
 }
 
-func getOrDefaultInstance(refVal reflect.Value) ref.Val {
+func getOrDefaultInstance(adapter ref.TypeAdapter, refVal reflect.Value) ref.Val {
 	if isFieldSet(refVal) == True {
 		value := refVal.Interface()
-		return NativeToValue(value)
+		return adapter.NativeToValue(value)
 	}
-	return getDefaultInstance(refVal.Type())
+	return getDefaultInstance(adapter, refVal.Type())
 }
 
-func getDefaultInstance(refType reflect.Type) ref.Val {
+func getDefaultInstance(adapter ref.TypeAdapter, refType reflect.Type) ref.Val {
 	if refType.Kind() == reflect.Ptr {
 		refType = refType.Elem()
 	}
 	if defaultValue, found := protoDefaultInstanceMap[refType]; found {
 		return defaultValue
 	}
-	defaultValue := NativeToValue(reflect.New(refType).Interface())
+	defaultValue := adapter.NativeToValue(reflect.New(refType).Interface())
 	protoDefaultInstanceMap[refType] = defaultValue
 	return defaultValue
 }

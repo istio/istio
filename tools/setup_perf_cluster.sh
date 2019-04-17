@@ -24,8 +24,6 @@ VM_NAME=${VM_NAME:-fortio-vm}
 ISTIOCTL=${ISTIOCTL:-istioctl} # to override istioctl from outside of the path
 FORTIO_NAMESPACE=${FORTIO_NAMESPACE:-fortio} # Namespace for non istio app
 ISTIO_NAMESPACE=${ISTIO_NAMESPACE:-istio} # Namespace for istio injected app
-# Should not be set to true for perf measurement but to troubleshoot the setup
-DEBUG=false
 
 function Usage() {
     echo "usage: PROJECT=project ZONE=zone $0"
@@ -180,7 +178,7 @@ function install_non_istio_svc() {
 function install_istio_svc() {
  Execute kubectl create namespace "$ISTIO_NAMESPACE" || echo "Error assumed to be ns $ISTIO_NAMESPACE already created"
  FNAME=$TOOLS_DIR/perf_k8svcs
- Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
+ Execute sh -c "$ISTIOCTL kube-inject -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
  Execute kubectl apply -n "$ISTIO_NAMESPACE" -f "${FNAME}_istio.yaml"
 }
 

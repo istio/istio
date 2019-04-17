@@ -103,7 +103,7 @@ func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 }
 
 // ReadFile reads the content of the given file or fails the test if an error is encountered.
-func ReadFile(file string, t *testing.T) []byte {
+func ReadFile(file string, t testing.TB) []byte {
 	t.Helper()
 	golden, err := ioutil.ReadFile(file)
 	if err != nil {

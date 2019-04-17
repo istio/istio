@@ -55,10 +55,10 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh docker/ca-certificates.tgz \
                           tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
-# $(ISTIO_DOCKER)/tools/deb/istio-iptables.sh: $(ISTIO_OUT)/tools/deb/istio-iptables.sh | $(ISTIO_DOCKER)
+# $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
 # 	cp $FILE $$(@D))
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -94,8 +94,8 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 docker.proxy_debug: BUILD_PRE=mv envoy-debug-${PROXY_REPO_SHA} envoy &&
 docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
-docker.proxy_debug: tools/deb/envoy_bootstrap_drain.json
+docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
+docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxy_debug: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxy_debug: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
@@ -113,8 +113,8 @@ ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 
 # Default proxy image.
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
-docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
-docker.proxyv2: tools/deb/envoy_bootstrap_drain.json
+docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
+docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
@@ -122,14 +122,14 @@ docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: tools/deb/istio-iptables.sh
+docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
 docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg ISTIO_API_SHA=${ISTIO_PROXY_ISTIO_API_SHA_LABEL} --build-arg ENVOY_SHA=${ISTIO_PROXY_ENVOY_SHA_LABEL}
-docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
-docker.proxytproxy: tools/deb/envoy_bootstrap_drain.json
+docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
+docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
@@ -137,7 +137,7 @@ docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/deb/istio-iptables.sh
+docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
@@ -168,7 +168,7 @@ docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend
 	$(DOCKER_RULE)
 
-docker.kubectl: docker/Dockerfile$$(suffix $$@) $(ISTIO_BIN)/kubectl
+docker.kubectl: docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
 # addons docker images

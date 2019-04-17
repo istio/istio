@@ -165,7 +165,6 @@ func TestValidator(t *testing.T) {
 			true,
 			"",
 		},
-
 		{
 			"update rule",
 			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
@@ -277,8 +276,11 @@ func TestValidator(t *testing.T) {
 				tt.Errorf("Got %v, Want %v", result.ErrorOrNil(), cc.ok)
 			}
 			if cc.wantErr != "" {
+				if result.Error() == "" {
+					tt.Errorf("Got no error, Want err %s", cc.wantErr)
+				}
 				if !strings.Contains(result.Error(), cc.wantErr) {
-					tt.Errorf("Got error %s, Want err %s", result.Error(), cc.wantErr)
+					tt.Logf("Got error %s, Want err %s", result.Error(), cc.wantErr)
 				}
 			}
 		})

@@ -127,9 +127,9 @@ func (p *parserHelper) newMap(ctx interface{}, entries ...*exprpb.Expr_CreateStr
 	return exprNode
 }
 
-func (p *parserHelper) newMapEntry(ctx interface{}, key *exprpb.Expr, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+func (p *parserHelper) newMapEntry(entryID int64, key *exprpb.Expr, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
 	return &exprpb.Expr_CreateStruct_Entry{
-		Id:      p.id(ctx),
+		Id:      entryID,
 		KeyKind: &exprpb.Expr_CreateStruct_Entry_MapKey{MapKey: key},
 		Value:   value}
 }
@@ -145,9 +145,9 @@ func (p *parserHelper) newObject(ctx interface{},
 	return exprNode
 }
 
-func (p *parserHelper) newObjectField(ctx interface{}, field string, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+func (p *parserHelper) newObjectField(fieldID int64, field string, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
 	return &exprpb.Expr_CreateStruct_Entry{
-		Id:      p.id(ctx),
+		Id:      fieldID,
 		KeyKind: &exprpb.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
 		Value:   value}
 }
@@ -181,17 +181,20 @@ func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
 }
 
 func (p *parserHelper) id(ctx interface{}) int64 {
-	var token antlr.Token
+	var location common.Location
 	switch ctx.(type) {
 	case antlr.ParserRuleContext:
-		token = (ctx.(antlr.ParserRuleContext)).GetStart()
+		token := (ctx.(antlr.ParserRuleContext)).GetStart()
+		location = common.NewLocation(token.GetLine(), token.GetColumn())
 	case antlr.Token:
-		token = ctx.(antlr.Token)
+		token := ctx.(antlr.Token)
+		location = common.NewLocation(token.GetLine(), token.GetColumn())
+	case common.Location:
+		location = ctx.(common.Location)
 	default:
 		// This should only happen if the ctx is nil
 		return -1
 	}
-	location := common.NewLocation(token.GetLine(), token.GetColumn())
 	id := p.nextID
 	p.positions[id], _ = p.source.LocationOffset(location)
 	p.nextID++
@@ -269,65 +272,69 @@ func (b *balancer) balancedTree(lo, hi int) *exprpb.Expr {
 
 type exprHelper struct {
 	*parserHelper
-	ctx interface{}
+	id int64
+}
+
+func (e *exprHelper) nextMacroID() int64 {
+	return e.parserHelper.id(e.parserHelper.getLocation(e.id))
 }
 
 // LiteralBool implements the ExprHelper interface method.
 func (e *exprHelper) LiteralBool(value bool) *exprpb.Expr {
-	return e.parserHelper.newLiteralBool(e.ctx, value)
+	return e.parserHelper.newLiteralBool(e.nextMacroID(), value)
 }
 
 // LiteralBytes implements the ExprHelper interface method.
 func (e *exprHelper) LiteralBytes(value []byte) *exprpb.Expr {
-	return e.parserHelper.newLiteralBytes(e.ctx, value)
+	return e.parserHelper.newLiteralBytes(e.nextMacroID(), value)
 }
 
 // LiteralDouble implements the ExprHelper interface method.
 func (e *exprHelper) LiteralDouble(value float64) *exprpb.Expr {
-	return e.parserHelper.newLiteralDouble(e.ctx, value)
+	return e.parserHelper.newLiteralDouble(e.nextMacroID(), value)
 }
 
 // LiteralInt implements the ExprHelper interface method.
 func (e *exprHelper) LiteralInt(value int64) *exprpb.Expr {
-	return e.parserHelper.newLiteralInt(e.ctx, value)
+	return e.parserHelper.newLiteralInt(e.nextMacroID(), value)
 }
 
 // LiteralString implements the ExprHelper interface method.
 func (e *exprHelper) LiteralString(value string) *exprpb.Expr {
-	return e.parserHelper.newLiteralString(e.ctx, value)
+	return e.parserHelper.newLiteralString(e.nextMacroID(), value)
 }
 
 // LiteralUint implements the ExprHelper interface method.
 func (e *exprHelper) LiteralUint(value uint64) *exprpb.Expr {
-	return e.parserHelper.newLiteralUint(e.ctx, value)
+	return e.parserHelper.newLiteralUint(e.nextMacroID(), value)
 }
 
 // NewList implements the ExprHelper interface method.
 func (e *exprHelper) NewList(elems ...*exprpb.Expr) *exprpb.Expr {
-	return e.parserHelper.newList(e.ctx, elems...)
+	return e.parserHelper.newList(e.nextMacroID(), elems...)
 }
 
 // NewMap implements the ExprHelper interface method.
 func (e *exprHelper) NewMap(entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
-	return e.parserHelper.newMap(e.ctx, entries...)
+	return e.parserHelper.newMap(e.nextMacroID(), entries...)
 }
 
 // NewMapEntry implements the ExprHelper interface method.
 func (e *exprHelper) NewMapEntry(key *exprpb.Expr,
 	val *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
-	return e.parserHelper.newMapEntry(e.ctx, key, val)
+	return e.parserHelper.newMapEntry(e.nextMacroID(), key, val)
 }
 
 // NewObject implements the ExprHelper interface method.
 func (e *exprHelper) NewObject(typeName string,
 	fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
-	return e.parserHelper.newObject(e.ctx, typeName, fieldInits...)
+	return e.parserHelper.newObject(e.nextMacroID(), typeName, fieldInits...)
 }
 
 // NewObjectFieldInit implements the ExprHelper interface method.
 func (e *exprHelper) NewObjectFieldInit(field string,
 	init *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
-	return e.parserHelper.newObjectField(e.ctx, field, init)
+	return e.parserHelper.newObjectField(e.nextMacroID(), field, init)
 }
 
 // Fold implements the ExprHelper interface method.
@@ -339,33 +346,33 @@ func (e *exprHelper) Fold(iterVar string,
 	step *exprpb.Expr,
 	result *exprpb.Expr) *exprpb.Expr {
 	return e.parserHelper.newComprehension(
-		e.ctx, iterVar, iterRange, accuVar, accuInit, condition, step, result)
+		e.nextMacroID(), iterVar, iterRange, accuVar, accuInit, condition, step, result)
 }
 
 // Ident implements the ExprHelper interface method.
 func (e *exprHelper) Ident(name string) *exprpb.Expr {
-	return e.parserHelper.newIdent(e.ctx, name)
+	return e.parserHelper.newIdent(e.nextMacroID(), name)
 }
 
 // GlobalCall implements the ExprHelper interface method.
 func (e *exprHelper) GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr {
-	return e.parserHelper.newGlobalCall(e.ctx, function, args...)
+	return e.parserHelper.newGlobalCall(e.nextMacroID(), function, args...)
 }
 
 // ReceiverCall implements the ExprHelper interface method.
 func (e *exprHelper) ReceiverCall(function string,
 	target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
-	return e.parserHelper.newReceiverCall(e.ctx, function, target, args...)
+	return e.parserHelper.newReceiverCall(e.nextMacroID(), function, target, args...)
 }
 
 // PresenceTest implements the ExprHelper interface method.
 func (e *exprHelper) PresenceTest(operand *exprpb.Expr, field string) *exprpb.Expr {
-	return e.parserHelper.newPresenceTest(e.ctx, operand, field)
+	return e.parserHelper.newPresenceTest(e.nextMacroID(), operand, field)
 }
 
 // Select implements the ExprHelper interface method.
 func (e *exprHelper) Select(operand *exprpb.Expr, field string) *exprpb.Expr {
-	return e.parserHelper.newSelect(e.ctx, operand, field)
+	return e.parserHelper.newSelect(e.nextMacroID(), operand, field)
 }
 
 // OffsetLocation implements the ExprHelper interface method.

@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -102,6 +103,9 @@ spec:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+{{- if ne .locality "" }}
+        istio-locality: {{ .locality }}
+{{- end }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -154,6 +158,25 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sdstokensecret
+type: Opaque
+stringData:
+  sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
+VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
+wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
+EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
+5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
+ljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi\
+I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKP\
+mktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZ\
+uNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdv\
+bgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5r\
+y_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4a\
+SzC2o8aDtlQ"
+---
 `
 )
 
@@ -185,6 +208,7 @@ var (
 			injectProxy:    false,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "a",
@@ -199,6 +223,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "b",
@@ -213,6 +238,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v1",
@@ -227,6 +253,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v2",
@@ -241,6 +268,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "d",
@@ -255,6 +283,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "headless",
@@ -269,6 +298,7 @@ var (
 			injectProxy:    true,
 			headless:       true,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 	}
 )
@@ -278,6 +308,10 @@ func appSelector(serviceName string) string {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
@@ -324,6 +358,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		dfs[i] = deploymentFactory{
 			deployment:     param.Name,
 			service:        param.Name,
+			locality:       param.Locality,
 			version:        "v1",
 			port1:          8080,
 			port2:          80,
@@ -404,12 +439,12 @@ func (c *kubeComponent) Close() (err error) {
 }
 
 type endpoint struct {
-	port  *model.Port
-	owner *kubeApp
+	networkEndpoint model.NetworkEndpoint
+	owner           *kubeApp
 }
 
 func (e *endpoint) Name() string {
-	return e.port.Name
+	return e.networkEndpoint.ServicePort.Name
 }
 
 func (e *endpoint) Owner() App {
@@ -417,7 +452,11 @@ func (e *endpoint) Owner() App {
 }
 
 func (e *endpoint) Protocol() model.Protocol {
-	return e.port.Protocol
+	return e.networkEndpoint.ServicePort.Protocol
+}
+
+func (e *endpoint) NetworkEndpoint() model.NetworkEndpoint {
+	return e.networkEndpoint
 }
 
 func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
@@ -425,6 +464,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
+	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -440,7 +480,8 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 	return &url.URL{
 		Scheme: protocol,
-		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
+		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
+		Path:   opts.Path,
 	}
 }
 
@@ -482,8 +523,13 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
-	// Extract the endpoints from the service definition.
-	a.endpoints = getEndpoints(a, service)
+	eps, err := e.GetEndpoints(namespace, serviceName, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the endpoints from the endpoints definition.
+	a.endpoints = getEndpoints(a, eps)
 
 	var grpcPort uint16
 	grpcPort, err = a.getGrpcPort()
@@ -492,10 +538,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	}
 
 	// Create a forwarder to the command port of the app.
-	a.forwarder, err = e.NewPortForwarder(&testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}, 0, grpcPort)
+	a.forwarder, err = e.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -523,23 +566,31 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
+	return uint16(commandEndpoints[0].(*endpoint).networkEndpoint.ServicePort.Port), nil
 }
 
 func (a *kubeApp) Name() string {
 	return a.serviceName
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
-	out := make([]*endpoint, len(service.Spec.Ports))
-	for i, servicePort := range service.Spec.Ports {
-		out[i] = &endpoint{
-			owner: owner,
-			port: &model.Port{
-				Name:     servicePort.Name,
-				Port:     int(servicePort.Port),
-				Protocol: serviceRegistryKube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
-			},
+func getEndpoints(owner *kubeApp, endpoints *kubeApiCore.Endpoints) []*endpoint {
+	out := make([]*endpoint, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, address := range subset.Addresses {
+			for _, port := range subset.Ports {
+				out = append(out, &endpoint{
+					owner: owner,
+					networkEndpoint: model.NetworkEndpoint{
+						Address: address.IP,
+						Port:    int(port.Port),
+						ServicePort: &model.Port{
+							Name:     port.Name,
+							Port:     int(port.Port),
+							Protocol: serviceRegistryKube.ConvertProtocol(port.Name, port.Protocol),
+						},
+					},
+				})
+			}
 		}
 	}
 	return out
@@ -565,7 +616,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 
 func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 	for _, e := range a.endpoints {
-		if e.port.Port == port {
+		if e.networkEndpoint.ServicePort.Port == port {
 			return e
 		}
 	}
@@ -593,6 +644,12 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
+
+	// If host header is set, override the destination with it
+	if opts.Headers.Get("Host") != "" {
+		dstServiceName = opts.Headers.Get("Host")
+	}
+
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
 		Url:   dstURL.String(),
 		Count: int32(opts.Count),
@@ -616,7 +673,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+	if resp[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
 		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
@@ -644,10 +701,10 @@ type deploymentFactory struct {
 	injectProxy    bool
 	headless       bool
 	serviceAccount bool
+	locality       string
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -671,6 +728,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 		"injectProxy":     strconv.FormatBool(d.injectProxy),
 		"headless":        strconv.FormatBool(d.headless),
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+		"locality":        d.locality,
 	})
 	if err != nil {
 		return nil, err
@@ -685,11 +743,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		return kubeApiCore.Pod{}, err
-	}
-
-	pods, err := podFetchFunc()
+	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}

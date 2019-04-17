@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/appsignals"
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type signalsTopic struct {
@@ -41,7 +42,7 @@ func (signalsTopic) Prefix() string {
 }
 
 func (signalsTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/signals.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/signals.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		fw.RenderHTML(w, tmpl, nil)
