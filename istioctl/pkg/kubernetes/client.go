@@ -186,9 +186,8 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 	if err != nil {
 		if stderr.String() != "" {
 			return nil, fmt.Errorf("error execing into %v/%v %v container: %v\n%s", podName, podNamespace, container, err, stderr.String())
-		} else {
-			return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
 		}
+		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
 	}
 	return stdout.Bytes(), nil
 }
