@@ -397,7 +397,8 @@ func TestKubeInject(t *testing.T) {
 			configs: []model.Config{},
 			args: strings.Split(
 				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
-					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml",
+					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
+					" --valuesFile testdata/inject-values.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.injected",
 		},

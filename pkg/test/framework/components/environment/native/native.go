@@ -15,13 +15,22 @@
 package native
 
 import (
+	"io"
+
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
+
+const (
+	systemNamespace = "istio-system"
+	domain          = "svc.local"
+)
+
+var _ io.Closer = &Environment{}
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
@@ -35,8 +44,14 @@ type Environment struct {
 	// Mesh for configuring pilot.
 	Mesh *meshConfig.MeshConfig
 
-	// ServiceManager for all deployed services.
-	ServiceManager *service.Manager
+	// SystemNamespace is the namespace used for all Istio system components.
+	SystemNamespace string
+
+	// Domain used by components in the native environment.
+	Domain string
+
+	// PortManager provides free ports on-demand.
+	PortManager reserveport.PortManager
 }
 
 var _ resource.Environment = &Environment{}
@@ -44,10 +59,18 @@ var _ resource.Environment = &Environment{}
 // New returns a new native environment.
 func New(ctx api.Context) (resource.Environment, error) {
 	mesh := model.DefaultMeshConfig()
+
+	portMgr, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, err
+	}
+
 	e := &Environment{
-		ctx:            ctx,
-		Mesh:           &mesh,
-		ServiceManager: service.NewManager(),
+		ctx:             ctx,
+		Mesh:            &mesh,
+		SystemNamespace: systemNamespace,
+		Domain:          domain,
+		PortManager:     portMgr,
 	}
 	e.id = ctx.TrackResource(e)
 
@@ -69,4 +92,8 @@ func (e *Environment) Case(name environment.Name, fn func()) {
 // ID implements resource.Instance
 func (e *Environment) ID() resource.ID {
 	return e.id
+}
+
+func (e *Environment) Close() error {
+	return e.PortManager.Close()
 }

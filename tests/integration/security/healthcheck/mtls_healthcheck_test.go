@@ -19,6 +19,8 @@ package healthcheck
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/galley"
+
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -74,10 +76,18 @@ spec:
 	if err != nil {
 		t.Error(err)
 	}
-	pilot := pilot.NewOrFail(t, ctx, pilot.Config{})
-	aps := apps.NewOrFail(ctx, t, apps.Config{Pilot: pilot, AppParams: []apps.AppParam{
-		{Name: "healthcheck"},
-	}})
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{
+		Galley: g,
+	})
+	aps := apps.NewOrFail(t, ctx, apps.Config{
+		Pilot:  p,
+		Galley: g,
+
+		AppParams: []apps.AppParam{
+			{Name: "healthcheck"},
+		},
+	})
 	aps.GetAppOrFail("healthcheck", t)
 	// TODO(incfly): add a negative test once we have a per deployment annotation support for this feature.
 }

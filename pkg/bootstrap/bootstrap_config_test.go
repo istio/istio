@@ -235,7 +235,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	if gobase == "" {
 		gobase = "../.."
 	}
-	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_v2.json"
+	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap_v2.json"
 	return cfg, nil
 }
 

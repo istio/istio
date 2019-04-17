@@ -15,12 +15,14 @@
 package apps
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -34,6 +36,8 @@ const (
 	AppProtocolHTTP = "http"
 	// AppProtocolGRPC calls the app with GRPC
 	AppProtocolGRPC = "grpc"
+	// AppProtocolHTTP calls the app with TCP
+	AppProtocolTCP = "tcp"
 	// AppProtocolWebSocket calls the app with WebSocket
 	AppProtocolWebSocket = "ws"
 )
@@ -65,10 +69,27 @@ type AppParam struct {
 
 // Config for Apps
 type Config struct {
-	Pilot pilot.Instance
+	Namespace namespace.Instance
+	Pilot     pilot.Instance
+	Galley    galley.Instance
 	// AppParams specifies the apps needed for the test. If unspecified, a default suite of test apps
 	// will be deployed.
 	AppParams []AppParam
+}
+
+func (c Config) fillInDefaults(ctx resource.Context) (err error) {
+	if c.Galley == nil {
+		return errors.New("galley must not be nil")
+	}
+	if c.Pilot == nil {
+		return errors.New("pilot must not be mil")
+	}
+	if c.Namespace == nil {
+		if c.Namespace, err = namespace.New(ctx, "apps", true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AppCallOptions defines options for calling a DeployedAppEndpoint.
@@ -87,6 +108,8 @@ type AppCallOptions struct {
 
 	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
 	UseShortHostname bool
+
+	Path string
 }
 
 // AppEndpoint represents a single endpoint in a DeployedApp.
@@ -112,7 +135,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // New returns a new instance of Apps or fails test.
-func NewOrFail(ctx resource.Context, t *testing.T, cfg Config) Instance {
+func NewOrFail(t *testing.T, ctx resource.Context, cfg Config) Instance {
 	t.Helper()
 
 	i, err := New(ctx, cfg)
