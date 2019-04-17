@@ -287,10 +287,10 @@ func TestVMExtendsIstio(t *testing.T) {
 		err = vm.Setup()
 		inspect(err, "VM setup failed", "VM setup succeeded", t)
 		_, err = vm.SecureShell("curl -v istio-pilot:8080")
-		// inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)
-		// _, err2 := vm.SecureShell(fmt.Sprintf(
-		// 	"host istio-pilot.%s.svc.cluster.local.", vm.Namespace))
-		// inspect(err2, "VM failed to extend istio", "VM extends istio service mesh", t)
+		inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)
+		_, err2 := vm.SecureShell(fmt.Sprintf(
+			"host istio-pilot.%s.svc.cluster.local.", vm.Namespace))
+		inspect(err2, "VM failed to extend istio", "VM extends istio service mesh", t)
 		err = vm.Teardown()
 		inspect(err, "VM teardown failed", "VM teardown succeeded", t)
 	}
