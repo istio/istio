@@ -38,7 +38,7 @@ type TestPolicy struct {
 
 func (p TestPolicy) TearDown() {
 	scopes.CI.Infof("Tearing down policy %q.", p.fileName)
-	if err := p.env.Delete(p.namespace, path.Join(testDataDir, p.fileName)); err != nil {
+	if err := p.env.Delete(p.namespace, p.fileName); err != nil {
 		p.t.Fatalf("Cannot delete %q from namespace %q: %v", p.fileName, p.namespace, err)
 	}
 }
