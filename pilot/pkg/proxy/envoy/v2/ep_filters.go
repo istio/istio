@@ -195,21 +195,20 @@ func getNetworkRegistry(network *v1alpha1.Network) string {
 }
 
 func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName string, env *model.Environment) []string {
-	var gwAddrs []string
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
 	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		gwAddrs = []string{gw.GetAddress()}
-	} else {
-		// Second, try to find the gateway addresses by the provided service name
-		if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
-			svc, _ := env.GetService(model.Hostname(gwSvcName))
-			if svc != nil {
-				gwAddrs = svc.LoadbalancerAddresses[registryName]
-			}
+		return []string{gw.GetAddress()}
+	}
+
+	// Second, try to find the gateway addresses by the provided service name
+	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+		svc, _ := env.GetService(model.Hostname(gwSvcName))
+		if svc != nil {
+			return svc.LoadbalancerAddresses[registryName]
 		}
 	}
 
-	return gwAddrs
+	return nil
 }
