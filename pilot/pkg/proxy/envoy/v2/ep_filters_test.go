@@ -207,7 +207,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	gwSvcName := model.Hostname("istio-ingressgateway.istio-system.svc.cluster.local")
 	serviceDiscovery := NewMemServiceDiscovery(map[model.Hostname]*model.Service{
 		gwSvcName: {
-			Hostname: model.Hostname(gwSvcName),
+			Hostname: gwSvcName,
 			LoadbalancerAddresses: map[string][]string{
 				"cluster2": {"2.2.2.2"},
 			},
