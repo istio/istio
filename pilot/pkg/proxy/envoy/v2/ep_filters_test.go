@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"sort"
 	"testing"
 
@@ -365,7 +364,7 @@ func xdsConnection(network string) *XdsConnection {
 //  - 0 gateways for network4
 func environment() *model.Environment {
 	return &model.Environment{
-		ServiceDiscovery: &fakes.ServiceDiscovery{},
+		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
