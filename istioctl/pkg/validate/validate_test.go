@@ -151,7 +151,8 @@ func TestValidateResource(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			err := validateResource(fromYAML(c.in))
+			v := &validator{}
+			err := v.validateResource(fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}

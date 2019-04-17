@@ -46,3 +46,24 @@ func convert(key Key, spec map[string]interface{}, target proto.Message) error {
 
 	return err
 }
+
+// ConvertValue from JSON using a protobuf mapping
+func ConvertValue(ev BackendEvent, kinds map[string]proto.Message) (Event, error) {
+	pbSpec, err := cloneMessage(ev.Kind, kinds)
+	if err != nil {
+		return Event{}, err
+	}
+	if ev.Value == nil {
+		return Event{Key: ev.Key, Type: ev.Type}, nil
+	}
+	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
+		return Event{}, err
+	}
+	return Event{
+		Key:  ev.Key,
+		Type: ev.Type,
+		Value: &Resource{
+			Metadata: ev.Value.Metadata,
+			Spec:     pbSpec,
+		}}, nil
+}

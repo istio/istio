@@ -28,6 +28,8 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
+	mixerstore "istio.io/istio/mixer/pkg/config/store"
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -47,17 +49,15 @@ var (
 	}
 
 	mixerAPIVersion = "config.istio.io/v1alpha2"
-	mixerKinds      = map[string]struct{}{
-		"rule":              {},
-		"adapter":           {},
-		"template":          {},
-		"handler":           {},
-		"instance":          {},
-		"attributemanifest": {},
-	}
 )
 
-func validateResource(un *unstructured.Unstructured) error {
+type validator struct {
+	errs error
+
+	mixerValidator mixerstore.BackendValidator
+}
+
+func (v *validator) validateResource(un *unstructured.Unstructured) error {
 	schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKebabCase(un.GetKind()))
 	if exists {
 		obj, err := crd.ConvertObjectFromUnstructured(schema, un, "")
@@ -67,26 +67,20 @@ func validateResource(un *unstructured.Unstructured) error {
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
 
-	if un.GetAPIVersion() == mixerAPIVersion {
-		if _, exists = mixerKinds[un.GetKind()]; exists {
+	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
+		if !v.mixerValidator.SupportsKind(un.GetKind()) {
 			return fmt.Errorf("%s not implemented", un.GetKind())
 		}
-		res := mixercrd.ToBackEndResource(un)
-		_ = res
-	}
-	/*
-		TODO(https://github.com/istio/istio/issues/4887)
-
-		ev := &store.BackendEvent{
-			Key: store.Key{
+		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
+			Type: mixerstore.Update,
+			Key: mixerstore.Key{
 				Name:      un.GetName(),
 				Namespace: un.GetNamespace(),
 				Kind:      un.GetKind(),
 			},
-			Value: mixerCrd.ToBackEndResource(un),
-		}
-		return mixerValidator.Validate(ev)
-	*/
+			Value: mixercrd.ToBackEndResource(un),
+		})
+	}
 	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
 }
 
@@ -118,34 +112,36 @@ func validateObjects(restClientGetter resource.RESTClientGetter, options resourc
 		return err
 	}
 
-	var errs error
+	v := &validator{
+		mixerValidator: mixervalidate.NewDefaultValidator(true),
+	}
+
 	_ = r.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
 		}
 		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			v.errs = multierror.Append(v.errs, err)
 			return nil
 		}
 
 		un := &unstructured.Unstructured{Object: content}
 		for key := range content {
 			if _, ok := validFields[key]; !ok {
-				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
+				v.errs = multierror.Append(v.errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
 					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
 			}
 		}
 
-		if err := validateResource(un); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
+		if err := v.validateResource(un); err != nil {
+			v.errs = multierror.Append(v.errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
 				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
 		}
 		return nil
 	})
-
-	if errs != nil {
-		return errs
+	if v.errs != nil {
+		return v.errs
 	}
 	for _, fname := range options.Filenames {
 		fmt.Fprintf(writer, "%q is valid\n", fname)
