@@ -349,7 +349,6 @@ func applyRules(configVersion string, ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := getPreprocessedRulePath(tc, configVersion, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}

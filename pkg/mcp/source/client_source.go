@@ -16,21 +16,21 @@ package source
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
+	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
-	"github.com/gogo/status"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/pkg/mcp/monitoring"
 )
 
 var (
 	// try to re-establish the bi-directional grpc stream after this delay.
 	reestablishStreamDelay = time.Second
+	triggerCollection      = "$triggerCollection"
 )
 
 // Client implements the client for the MCP sink service. The client is the
@@ -44,6 +44,7 @@ type Client struct {
 	source   *Source
 }
 
+// NewClient returns a new instance of Client.
 func NewClient(client mcp.ResourceSinkClient, options *Options) *Client {
 	return &Client{
 		source:   New(options),
@@ -59,31 +60,23 @@ var reconnectTestProbe = func() {}
 // trigger response which we expect the server to NACK.
 func (c *Client) sendTriggerResponse(stream Stream) error {
 	trigger := &mcp.Resources{
-		Collection: "", // unimplemented collection
+		Collection: triggerCollection,
 	}
 
 	if err := stream.Send(trigger); err != nil {
 		return status.Errorf(status.Code(err), "could not send trigger request %v", err)
 	}
 
-	msg, err := stream.Recv()
-	if err != nil {
-		return status.Errorf(status.Code(err),
-			"could not receive expected nack response: %v", err)
-	}
-
-	if msg.ErrorDetail == nil {
-		return fmt.Errorf("server should have nacked, did not get an error")
-	}
-	errCode := codes.Code(msg.ErrorDetail.Code)
-	if errCode != codes.Unimplemented {
-		return fmt.Errorf("server should have nacked with code=%v: got %v",
-			codes.Unimplemented, errCode)
-	}
-
 	return nil
 }
 
+// isTriggerResponse checks whether the given RequestResources object is an expected NACK response to a previous
+// trigger message.
+func isTriggerResponse(msg *mcp.RequestResources) bool {
+	return msg.Collection == triggerCollection && msg.ErrorDetail != nil && codes.Code(msg.ErrorDetail.Code) == codes.Unimplemented
+}
+
+// Run implements mcpClient
 func (c *Client) Run(ctx context.Context) {
 	// The first attempt is immediate.
 	retryDelay := time.Nanosecond

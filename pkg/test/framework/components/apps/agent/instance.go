@@ -661,11 +661,11 @@ func findFreePort(portMgr reserveport.PortManager) (int, error) {
 	return int(reservedPort.GetPort()), nil
 }
 
-func randomBase64String(len int) string {
-	buff := make([]byte, len)
+func randomBase64String(length int) string {
+	buff := make([]byte, length)
 	_, _ = rand.Read(buff)
 	str := base64.URLEncoding.EncodeToString(buff)
-	return str[:len]
+	return str[:length]
 }
 
 func createTempDir() (string, error) {

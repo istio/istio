@@ -202,7 +202,7 @@ func TestLogEntry(t *testing.T) {
 		},
 	}
 
-	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
+	tm := time.Date(2017, time.August, 21, 10, 4, 0, 0, time.UTC)
 
 	cases := []struct {
 		instances []*logentry.Instance
@@ -443,7 +443,7 @@ func TestMetricEntry(t *testing.T) {
 		},
 	}
 
-	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
+	tm := time.Date(2017, time.August, 21, 10, 4, 0, 0, time.UTC)
 
 	cases := []struct {
 		instances   []*metric.Instance

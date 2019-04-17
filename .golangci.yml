@@ -5,7 +5,7 @@ run:
   concurrency: 4
 
   # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 10m
+  deadline: 20m
 
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
@@ -37,6 +37,7 @@ linters:
     - nakedret
     - prealloc
     - scopelint
+    - typecheck
   fast: false
 
 linters-settings:
@@ -100,10 +101,70 @@ linters-settings:
     # with golangci-lint call it on a directory with the changed file.
     check-exported: false
   gocritic:
-    disabled-checks:
-      - ifElseChain
-      - singleCaseSwitch
-      - appendAssign
+    enabled-checks:
+      - appendCombine
+      - argOrder
+      - assignOp
+      - badCond
+      - boolExprSimplify
+      - builtinShadow
+      - captLocal
+      - caseOrder
+      - codegenComment
+      - commentedOutCode
+      - commentedOutImport
+      - defaultCaseOrder
+      - deprecatedComment
+      - docStub
+      - dupArg
+      - dupBranchBody
+      - dupCase
+      - dupSubExpr
+      - elseif
+      - emptyFallthrough
+      - equalFold
+      - flagDeref
+      - flagName
+      - hexLiteral
+      - indexAlloc
+      - initClause
+      - methodExprCall
+      - nilValReturn
+      - octalLiteral
+      - offBy1
+      - rangeExprCopy
+      - regexpMust
+      - sloppyLen
+      - stringXbytes
+      - switchTrue
+      - typeAssertChain
+      - typeSwitchVar
+      - typeUnparen
+      - underef
+      - unlambda
+      - unnecessaryBlock
+      - unslice
+      - valSwap
+      - weakCond
+      - yodaStyleExpr
+
+      # Unused
+      # - appendAssign
+      # - commentFormatting
+      # - emptyStringTest
+      # - exitAfterDefer
+      # - ifElseChain
+      # - hugeParam
+      # - importShadow
+      # - nestingReduce
+      # - paramTypeCombine
+      # - ptrToRefParam
+      # - rangeValCopy
+      # - singleCaseSwitch
+      # - sloppyReassign
+      # - unlabelStmt
+      # - unnamedResult
+      # - wrapperFunc
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
