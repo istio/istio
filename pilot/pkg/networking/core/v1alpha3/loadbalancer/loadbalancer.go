@@ -121,7 +121,7 @@ func applyLocalityFailover(
 		if priority == 3 {
 			for _, failoverSetting := range failover {
 				if failoverSetting.From == locality.Region {
-					if localityEndpoint.Locality.Region != failoverSetting.To {
+					if localityEndpoint.Locality == nil || localityEndpoint.Locality.Region != failoverSetting.To {
 						priority = 4
 					}
 					break
