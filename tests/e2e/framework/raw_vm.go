@@ -34,6 +34,7 @@ type RawVM interface {
 	SecureCopy(files ...string) (string, error)
 }
 
+// TODO(incfly): rename this flags to istio.xx.yy format?
 var (
 	// flags to select vm with specific configuration
 	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
@@ -164,15 +165,16 @@ func (vm *GCPRawVM) Setup() error {
 		return err
 	}
 	// TODO: restore before submit.
+	// No need anymore, enabled initially.
 	// if err := vm.prepareCluster(); err != nil {
 	// 	return err
 	// }
 	if err := vm.setupMeshEx("generateClusterEnv", vm.ClusterName); err != nil {
 		return err
 	}
-	// if _, err := u.Shell("cat cluster.env"); err != nil {
-	// 	return err
-	// }
+	if _, err := u.Shell("cat cluster.env"); err != nil {
+		return err
+	}
 	// if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
 	// 	return err
 	// }

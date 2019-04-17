@@ -50,12 +50,13 @@ func (c *gceComponent) setup() error {
 		return fmt.Errorf("failed in gce instance setup stage. %v", err)
 	}
 	c.rawVM = vm
-	// fmt.Println("jianfeih debug, start to send hello world ssh command")
-	// output, err := c.rawVM.SecureShell("echo hello && cat /etc/hosts")
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("jianfeih debug, the output is %v\n", output)
+	fmt.Println("jianfeih debug, start to send hello world ssh command")
+	output, err := c.rawVM.SecureShell("echo hello && cat /etc/hosts")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("jianfeih debug, the output is %v\n", output)
+	// time.Sleep(time.Second * 360000)
 	// TODO: implement steps below.
 	// - Setup the DNS
 	return nil
