@@ -9,7 +9,6 @@ replicaCount: 1
 
 # Can be a full hub/image:tag
 image: pilot
-sidecar: true
 traceSampling: 1.0
 
 # Resources for a small pilot install

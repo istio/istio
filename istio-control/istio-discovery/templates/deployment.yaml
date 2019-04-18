@@ -63,15 +63,8 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.global.controlPlaneSecurityEnabled}}
-    {{- if not .Values.sidecar }}
-          - --secureGrpcAddr
-          - ":15011"
-    {{- end }}
-{{- else }}
           - --secureGrpcAddr
           - ""
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -80,9 +73,6 @@ spec:
           ports:
           - containerPort: 8080
           - containerPort: 15010
-{{- if not .Values.sidecar }}
-          - containerPort: 15011
-{{- end }}
           readinessProbe:
             httpGet:
               path: /ready
@@ -120,12 +110,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if .Values.sidecar }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -190,7 +176,6 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
-{{- end }}
       volumes:
       {{- if .Values.global.sds.enabled }}
       - hostPath:
@@ -210,6 +195,7 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+{{- if .Values.global.controlPlaneSecurityEnabled}}
       - name: pilot-envoy-config
         configMap:
           name: pilot-envoy-config
@@ -217,6 +203,7 @@ spec:
         secret:
           secretName: istio.istio-pilot-service-account
           optional: true
+{{- end }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
