@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 )
 
-// NewApplier returns the approprate (policy) applier, based on what policy version exist for the
-// given service instance.
+// NewApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
+// for the given service instance.
 func NewApplier(configStore model.IstioConfigStore,
 	serviceInstance *model.ServiceInstance) authn.Applier {
 	// TODO: check v1alpha2 policy and returns alpha2 applier, if exists.

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,96 +70,6 @@ func GetMutualTLS(policy *authn_v1alpha1.Policy) *authn_v1alpha1.MutualTls {
 			default:
 				continue
 			}
-		}
-	}
-	return nil
-}
-
-// setupFilterChains sets up filter chains based on authentication policy.
-func setupFilterChains(authnPolicy *authn_v1alpha1.Policy, sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
-	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return nil
-	}
-	alpnIstioMatch := &ldsv2.FilterChainMatch{
-		ApplicationProtocols: util.ALPNInMesh,
-	}
-	tls := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
-			// which is used to differentiate between service mesh and legacy traffic.
-			//
-			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
-			//
-			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
-			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
-			// include "istio", which would interfere with negotiation of the underlying
-			// protocol, e.g. HTTP/2.
-			AlpnProtocols: util.ALPNHttp,
-		},
-		RequireClientCertificate: protovalue.BoolTrue,
-	}
-	if sdsUdsPath == "" {
-		base := meta[pilot.BaseDir] + model.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
-
-		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
-
-		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+model.CertChainFilename)
-		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+model.KeyFilename)
-
-		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
-	} else {
-		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
-		}
-
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
-			},
-		}
-	}
-	mtls := GetMutualTLS(authnPolicy)
-	if mtls == nil {
-		return nil
-	}
-	if mtls.GetMode() == authn_v1alpha1.MutualTls_STRICT {
-		log.Debug("Allow only istio mutual TLS traffic")
-		return []plugin.FilterChain{
-			{
-				TLSContext: tls,
-			}}
-	}
-	if mtls.GetMode() == authn_v1alpha1.MutualTls_PERMISSIVE {
-		log.Debug("Allow both, ALPN istio and legacy traffic")
-		return []plugin.FilterChain{
-			{
-				FilterChainMatch: alpnIstioMatch,
-				TLSContext:       tls,
-				ListenerFilters: []ldsv2.ListenerFilter{
-					{
-						Name:       EnvoyTLSInspectorFilterName,
-						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
-					},
-				},
-			},
-			{
-				FilterChainMatch: &ldsv2.FilterChainMatch{},
-			},
 		}
 	}
 	return nil
@@ -282,10 +192,14 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 	return filterConfig
 }
 
-// buildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
-func buildJwtFilter(policy *authn_v1alpha1.Policy, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+// Implemenation of authn.Applier
+type v1alpha1Applier struct {
+	policy *authn_v1alpha1.Policy
+}
+
+func (a v1alpha1Applier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
-	filterConfigProto := convertPolicyToJwtConfig(policy)
+	filterConfigProto := convertPolicyToJwtConfig(a.policy)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -300,9 +214,8 @@ func buildJwtFilter(policy *authn_v1alpha1.Policy, isXDSMarshalingToAnyEnabled b
 	return out
 }
 
-// buildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
-func buildAuthNFilter(policy *authn_v1alpha1.Policy, proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	filterConfigProto := convertPolicyToAuthNFilterConfig(policy, proxyType)
+func (a v1alpha1Applier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -317,21 +230,93 @@ func buildAuthNFilter(policy *authn_v1alpha1.Policy, proxyType model.NodeType, i
 	return out
 }
 
-// Implemenation of authn.Applier
-type v1alpha1Applier struct {
-	policy *authn_v1alpha1.Policy
-}
+func (a v1alpha1Applier) InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
+	if a.policy == nil || len(a.policy.Peers) == 0 {
+		return nil
+	}
+	alpnIstioMatch := &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNInMesh,
+	}
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+			// which is used to differentiate between service mesh and legacy traffic.
+			//
+			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+			//
+			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+			// include "istio", which would interfere with negotiation of the underlying
+			// protocol, e.g. HTTP/2.
+			AlpnProtocols: util.ALPNHttp,
+		},
+		RequireClientCertificate: protovalue.BoolTrue,
+	}
+	if sdsUdsPath == "" {
+		base := meta[pilot.BaseDir] + model.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerRootCert, base+model.RootCertFilename)
 
-func (m v1alpha1Applier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	return buildJwtFilter(m.policy, isXDSMarshalingToAnyEnabled)
-}
+		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(tlsServerRootCert, []string{} /*subjectAltNames*/)
 
-func (m v1alpha1Applier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	return buildAuthNFilter(m.policy, proxyType, isXDSMarshalingToAnyEnabled)
-}
+		tlsServerCertChain := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerCertChain, base+model.CertChainFilename)
+		tlsServerKey := model.GetOrDefaultFromMap(meta, model.NodeMetadataTLSServerKey, base+model.KeyFilename)
 
-func (m v1alpha1Applier) InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
-	return setupFilterChains(m.policy, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta)
+		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerCertChain,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerKey,
+					},
+				},
+			},
+		}
+	} else {
+		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
+		}
+
+		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt, meta),
+			},
+		}
+	}
+	mtls := GetMutualTLS(a.policy)
+	if mtls == nil {
+		return nil
+	}
+	if mtls.GetMode() == authn_v1alpha1.MutualTls_STRICT {
+		log.Debug("Allow only istio mutual TLS traffic")
+		return []plugin.FilterChain{
+			{
+				TLSContext: tls,
+			}}
+	}
+	if mtls.GetMode() == authn_v1alpha1.MutualTls_PERMISSIVE {
+		log.Debug("Allow both, ALPN istio and legacy traffic")
+		return []plugin.FilterChain{
+			{
+				FilterChainMatch: alpnIstioMatch,
+				TLSContext:       tls,
+				ListenerFilters: []ldsv2.ListenerFilter{
+					{
+						Name:       EnvoyTLSInspectorFilterName,
+						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
+					},
+				},
+			},
+			{
+				FilterChainMatch: &ldsv2.FilterChainMatch{},
+			},
+		}
+	}
+	return nil
 }
 
 // NewApplier returns new applier for v1alpha1 authentication policy.

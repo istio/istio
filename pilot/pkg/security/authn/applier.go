@@ -23,8 +23,14 @@ import (
 
 // Applier TODO
 type Applier interface {
+	// InboundFilterChain returns inbound filter chain(s) to enforce the underlying authentication policy.
 	InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain
 
+	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
+	// It may return nil, if no JWT validation is needed.
 	JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter
+
+	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
+	// It may return nil, if no authentication is needed.
 	AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter
 }
