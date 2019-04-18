@@ -74,6 +74,7 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance 
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+			// TODO: convert this policy to alpha2 PolicySpec
 			return policy
 		}
 	}
@@ -81,8 +82,13 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, serviceInstance 
 	return nil
 }
 
-func GetConsolidateAuthenticationPolicyAlpha2(store IstioConfigStore, serviceInstance *ServiceInstance) *authn2.AuthenticationPolicy {
-
+// GetConsolidateAuthenticationPolicyAlpha2 returns the alpha2 authn policy.
+func GetConsolidateAuthenticationPolicyAlpha2(store IstioConfigStore, serviceInstance *ServiceInstance) *authn2.PolicySpec {
+	config := store.AuthenticationPolicyAlpha2ForLabels(serviceInstance.Service.Attributes.Namespace, serviceInstance.Labels)
+	if config != nil {
+		policy := config.Spec.(*authn2.AuthenticationPolicy)
+		return policy.Spec;
+	}
 	return nil
 }
 

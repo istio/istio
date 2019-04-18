@@ -149,6 +149,18 @@ type IstioConfigStore struct {
 	authenticationPolicyForWorkloadReturnsOnCall map[int]struct {
 		result1 *model.Config
 	}
+	AuthenticationPolicyAlpha2ForLabelsStub        func(namespace string, labels model.Labels) *model.Config
+	authenticationPolicyAlpha2ForLabelsMutex       sync.RWMutex
+	authenticationPolicyAlpha2ForLabelsArgsForCall []struct {
+		namespace string
+		labels  model.Labels
+	}
+	authenticationPolicyAlpha2ForLabelsReturns struct {
+		result1 *model.Config
+	}
+	authenticationPolicyAlpha2ForLabelsReturnsOnCall map[int]struct {
+		result1 *model.Config
+	}
 	ServiceRolesStub        func(namespace string) []model.Config
 	serviceRolesMutex       sync.RWMutex
 	serviceRolesArgsForCall []struct {
@@ -780,6 +792,55 @@ func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturnsOnCall(i int
 	}{result1}
 }
 
+func (fake *IstioConfigStore) AuthenticationPolicyAlpha2ForLabels(namespace string, labels model.Labels) *model.Config {
+	fake.authenticationPolicyAlpha2ForLabelsMutex.Lock()
+	ret, specificReturn := fake.authenticationPolicyAlpha2ForLabelsReturnsOnCall[len(fake.authenticationPolicyAlpha2ForLabelsArgsForCall)]
+	fake.authenticationPolicyAlpha2ForLabelsArgsForCall = append(fake.authenticationPolicyAlpha2ForLabelsArgsForCall, struct {
+		namespace string
+		labels  model.Labels
+	}{namespace, labels})
+	fake.recordInvocation("AuthenticationPolicyAlpha2ForLabels", []interface{}{namespace, labels})
+	fake.authenticationPolicyAlpha2ForLabelsMutex.Unlock()
+	if fake.AuthenticationPolicyAlpha2ForLabelsStub != nil {
+		return fake.AuthenticationPolicyAlpha2ForLabelsStub(namespace, labels)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.authenticationPolicyAlpha2ForLabelsReturns.result1
+}
+
+func (fake *IstioConfigStore) AuthenticationPolicyAlpha2ForLabelsCallCount() int {
+	fake.authenticationPolicyAlpha2ForLabelsMutex.RLock()
+	defer fake.authenticationPolicyAlpha2ForLabelsMutex.RUnlock()
+	return len(fake.authenticationPolicyAlpha2ForLabelsArgsForCall)
+}
+
+func (fake *IstioConfigStore) AuthenticationPolicyAlpha2ForLabelsArgsForCall(i int) (string, model.Labels) {
+	fake.authenticationPolicyAlpha2ForLabelsMutex.RLock()
+	defer fake.authenticationPolicyAlpha2ForLabelsMutex.RUnlock()
+	return fake.authenticationPolicyAlpha2ForLabelsArgsForCall[i].namespace, fake.authenticationPolicyAlpha2ForLabelsArgsForCall[i].labels
+}
+
+func (fake *IstioConfigStore) AuthenticationPolicyAlpha2ForLabelsReturns(result1 *model.Config) {
+	fake.AuthenticationPolicyAlpha2ForLabelsStub = nil
+	fake.authenticationPolicyAlpha2ForLabelsReturns = struct {
+		result1 *model.Config
+	}{result1}
+}
+
+func (fake *IstioConfigStore) AuthenticationPolicyAlpha2ForLabelsReturnsOnCall(i int, result1 *model.Config) {
+	fake.AuthenticationPolicyAlpha2ForLabelsStub = nil
+	if fake.authenticationPolicyAlpha2ForLabelsReturnsOnCall == nil {
+		fake.authenticationPolicyAlpha2ForLabelsReturnsOnCall = make(map[int]struct {
+			result1 *model.Config
+		})
+	}
+	fake.authenticationPolicyAlpha2ForLabelsReturnsOnCall[i] = struct {
+		result1 *model.Config
+	}{result1}
+}
+
 func (fake *IstioConfigStore) ServiceRoles(namespace string) []model.Config {
 	fake.serviceRolesMutex.Lock()
 	ret, specificReturn := fake.serviceRolesReturnsOnCall[len(fake.serviceRolesArgsForCall)]
@@ -1031,6 +1092,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
 	fake.authenticationPolicyForWorkloadMutex.RLock()
 	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
+	fake.authenticationPolicyAlpha2ForLabelsMutex.RLock()
+	defer fake.authenticationPolicyAlpha2ForLabelsMutex.RUnlock()
 	fake.serviceRolesMutex.RLock()
 	defer fake.serviceRolesMutex.RUnlock()
 	fake.serviceRoleBindingsMutex.RLock()

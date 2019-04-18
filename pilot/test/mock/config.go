@@ -172,10 +172,15 @@ var (
 	}
 
 	ExampleAuthenticationPolicyAlpha2 = &authn2.AuthenticationPolicy{
-		ChannelAuthentication: []*authn2.Rule{
-			{
-				Def: &authn2.Rule_With{
-					With: "istio.mtls",
+		Selector: &authn2.Selector {
+			Labels: map[string]string{ "app": "foo", },
+		},
+		Spec: &authn2.PolicySpec {
+			Peers: []*authn2.Rule{
+				{
+					Apply: &authn2.Rule_Method{
+						Method: "istio.mtls",
+					},
 				},
 			},
 		},
