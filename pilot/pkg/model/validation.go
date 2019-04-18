@@ -1475,19 +1475,128 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	return errs
 }
 
-// ValidateAuthenticationPolicyAlpha2 checks that AuthenticationPolicy v1alpha2 is well-formed.
-func ValidateAuthenticationPolicyAlpha2(name, namespace string, msg proto.Message) error {
-	in, ok := msg.(*authn2.AuthenticationPolicy)
+// ValidateAuthenticationPolicyV1Alpha2 checks that AuthenticationPolicy v1alpha2 is well-formed.
+func ValidateAuthenticationPolicyV1Alpha2(name, namespace string, msg proto.Message) error {
+	policy, ok := msg.(*authn2.AuthenticationPolicy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy (v1alpha2)")
 	}
 	var errs error
-	log.Infof("ValidateAuthenticationPolicyAlpha2 %s.%s", name, namespace)
-	if in.GetSelector() == nil || len(in.GetSelector().GetLabels()) == 0 {
+	log.Infof("ValidateAuthenticationPolicyV1Alpha2 %s.%s", name, namespace)
+	if errs = ValidateAuthnSelectorV1Alpha2(policy.GetSelector(), name, namespace); errs != nil {
+		return errs
+	}
+	if errs = ValidateAuthnSpecV1Alpha2(policy.GetSpec()); errs != nil {
+		return errs
+	}
+	return errs
+}
+
+func ValidateAuthnSelectorV1Alpha2(selector *authn2.Selector, name, namespace string) error {
+	var errs error
+	if selector == nil || len(selector.GetLabels()) == 0 {
 		if name != DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs, fmt.Errorf("authentication policy with empty selector must be named %q, found %q",
+			errs = appendErrors(errs, fmt.Errorf("authn policy with empty selector must be named %q, found %q",
 				DefaultAuthenticationPolicyName, name))
 		}
+	} else {
+		for k, v := range selector.GetLabels() {
+			if len(k) == 0 || len(v) == 0 {
+				log.Debug("policy selector contains a label with empty value")
+				errs = appendErrors(errs, fmt.Errorf("authn policy with empty label is disallowed"))
+			}
+		}
+	}
+	return errs
+}
+
+func ValidateAuthnSpecV1Alpha2(spec *authn2.PolicySpec) error {
+	var errs error
+
+	if spec == nil {
+		// nil policy spec is allowed, e.g., no authentication policy
+		// for the selected workload.
+		return errs
+	}
+
+	for i, peer := range spec.GetPeers() {
+		if peer == nil {
+			log.Debugf("policy spec for peer %v is nil", i)
+			errs = appendErrors(errs, fmt.Errorf("authn policy spec for peer %v is nil", i))
+			return errs
+		}
+		for j, match := range peer.GetMatch() {
+			if errs = ValidateAuthnMatchV1Alpha2(match); errs != nil {
+				log.Debugf("the match rule %v for peer %v has errors", j, i)
+				return errs
+			}
+		}
+	}
+
+	for i, origin := range spec.GetOrigins() {
+		if origin == nil {
+			log.Debugf("policy spec for origin %v is nil", i)
+			errs = appendErrors(errs, fmt.Errorf("authn policy spec for origin %v is nil", i))
+			return errs
+		}
+		for j, match := range origin.GetMatch() {
+			if errs = ValidateAuthnMatchV1Alpha2(match); errs != nil {
+				log.Debugf("the match rule %v for origin %v has errors", j, i)
+				return errs
+			}
+		}
+	}
+
+	if errs = ValidateAuthnPrincipalBindingV1Alpha2(spec.GetPrincipalBinding()); errs != nil {
+		return errs
+	}
+
+	return errs
+}
+
+func ValidateAuthnMatchV1Alpha2(match *authn2.Match) error {
+	var errs error
+
+	if match == nil {
+		errs = appendErrors(errs, fmt.Errorf("authn policy spec has a nil match rule"))
+		return errs
+	}
+
+	for _, path := range match.GetPaths() {
+		if path == nil {
+			errs = appendErrors(errs, fmt.Errorf("authn policy spec has a nil matching path"))
+			return errs
+		}
+		switch matchType := path.MatchType.(type) {
+		case *authn2.StringMatch_Exact:
+			if matchType.Exact == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("StringMatch_Exact in authn policy matching path is empty"))
+			}
+			return errs
+		case *authn2.StringMatch_Prefix:
+			if matchType.Prefix == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("StringMatch_Prefix in authn policy matching path is empty"))
+			}
+			return errs
+		case *authn2.StringMatch_Regex:
+			if matchType.Regex == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("StringMatch_Regex in authn policy matching path is empty"))
+			}
+			return errs
+		}
+	}
+
+	return errs
+}
+
+func ValidateAuthnPrincipalBindingV1Alpha2(binding authn2.PrincipalBinding) error {
+	var errs error
+
+	if _, ok := authn2.PrincipalBinding_name[int32(binding)]; !ok {
+		errs = appendErrors(errs, fmt.Errorf("invalid authn principal binding value: %v", binding))
 	}
 
 	return errs
