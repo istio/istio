@@ -110,7 +110,7 @@ function loadBaselineFile() {
 function getColumn() {
     local ENTRY="${1}"
     local COLUMN="${2}"
-    local PARTS=( "${ENTRY}" )
+    local PARTS=( ${ENTRY} )
     echo "${PARTS[${COLUMN}]}"
 }
 
@@ -196,7 +196,7 @@ function compareBenchResults() {
             local ALLOCS_PER_OP_CMP
             ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
 
-            if [ "${TIME_PER_OP_CMP}" != "0" ] || [ "${BYTES_PER_OP_CMP}" != "0" ] || [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
+            if [ "${TIME_PER_OP_CMP}" == "1" ] || [ "${BYTES_PER_OP_CMP}" == "1" ] || [ "${ALLOCS_PER_OP_CMP}" == "1" ]; then
                 echo "--FAILED ${BENCH_NAME}"
                 echo "Baseline:"
                 echo "   ${BASELINE_ENTRY}"
@@ -204,15 +204,15 @@ function compareBenchResults() {
                 echo "   ${RESULT_ENTRY}"
                 echo "Details:"
 
-                if [ "${TIME_PER_OP_CMP}" != "0" ]; then
+                if [ "${TIME_PER_OP_CMP}" == "1" ]; then
                     echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
                 fi
 
-                if [ "${BYTES_PER_OP_CMP}" != "0" ]; then
+                if [ "${BYTES_PER_OP_CMP}" == "1" ]; then
                     echo -e "  ${RESULT_BYTES_PER_OP} B/s is not in range of: ${BASELINE_BYTES_PER_OP}        \\t[tol: ${TOLERANCE_PERCENT_BYTES_PER_OP}%]"
                 fi
 
-                if [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
+                if [ "${ALLOCS_PER_OP_CMP}" == "1" ]; then
                     echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
                 fi
                 printf '\n\n'
