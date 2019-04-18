@@ -101,8 +101,12 @@ spec:
           - router
           - --domain
           - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
-          - --log_output_level
-          - 'info'
+        {{- if $.Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+        {{- end}}
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration

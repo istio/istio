@@ -113,6 +113,12 @@ global:
   # Default tag for Istio images.
   tag: release-1.1-latest-daily
 
+  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  # The control plane has different scopes depending on component, but can configure default log level across all components
+  # If empty, default scope and level will be used as configured in code
+  logging:
+    level: "default:info"
+
   # monitoring port used by mixer, pilot, galley
   monitoringPort: 15014
 
@@ -160,6 +166,10 @@ global:
 
     # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
+
+    # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
+    # Expected values are: trace|debug|info|warning|error|critical|off
+    logLevel: ""
 
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # 5 seconds is the default refresh rate used by Envoy
