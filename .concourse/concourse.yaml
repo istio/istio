@@ -49,10 +49,8 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            for step in cleanup install_crds install_system install_control install_ingress install_telemetry; do
-                echo "***** STEP $step *****"
-                istio-installer/bin/install.sh $step
-            done
+            istio-installer/bin/cleanup.sh
+            istio-installer/bin/install.sh
     
   - name: test-after-install
     serial_groups: [ cluster ]
@@ -118,10 +116,8 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
-            for step in cleanup install_crds install_system install_control install_ingress install_telemetry; do
-                echo "***** STEP $step *****"
-                istio-installer/bin/install.sh $step
-            done
+            istio-installer/bin/cleanup.sh
+            istio-installer/bin/install.sh
     
   - name: test-after-install-1.1.0
     serial_groups: [ cluster ]
@@ -183,10 +179,7 @@ jobs:
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             export REMOVE_OLD_CONTROL=true
-            for step in install_crds install_system install_control install_ingress install_telemetry switch_istio_control; do
-                echo "***** STEP $step *****"
-                istio-installer/bin/install.sh $step --update
-            done
+            istio-installer/bin/install.sh
   
   - name: test-after-update
     serial_groups: [ cluster ]

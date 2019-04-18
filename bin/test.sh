@@ -59,7 +59,7 @@ cd $ISTIO_PATH
 BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2 reviews-v3"
 
 if [ "$SKIP_SETUP" -ne 1 ]; then
-    kubectl create ns bookinfo || /bin/true
+    kubectl create ns bookinfo || true
     # We use the first namespace with sidecar injection enabled to determine the control plane's namespace.
     ISTIO_CONTROL=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
     ISTIO_CONTROL=${ISTIO_CONTROL:-istio-control}
