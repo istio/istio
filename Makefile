@@ -326,6 +326,8 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+	${ISTIO_OUT}/istioctl collateral --bash && \
+	mv istioctl.bash ${ISTIO_OUT}/tools
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
