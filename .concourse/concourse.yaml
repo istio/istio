@@ -182,6 +182,7 @@ jobs:
           - |
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
+            export REMOVE_OLD_CONTROL=true
             for step in install_crds install_system install_control install_ingress install_telemetry switch_istio_control; do
                 echo "***** STEP $step *****"
                 istio-installer/bin/install.sh $step --update
