@@ -27,7 +27,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	"k8s.io/client-go/util/jsonpath"
 )
@@ -37,13 +37,14 @@ var (
 	fixupAttributeReference    = regexp.MustCompile(`\[\s*'[^']+\s*'\s*]`)
 )
 
-type constraint func() error
-
 type Instance struct {
-	structure   interface{}
-	isJSON      bool
-	constraints []constraint
+	structure     interface{}
+	isJSON        bool
+	constraints   []constraint
+	creationError error
 }
+
+type constraint func() error
 
 // ForProto creates a structpath Instance by marshaling the proto to JSON and then evaluating over that
 // structure. This is the most generally useful form as serialization to JSON also automatically
@@ -51,19 +52,28 @@ type Instance struct {
 // over. The downside is the loss of type fidelity for numeric types as JSON can only represent
 // floats.
 func ForProto(proto proto.Message) *Instance {
-	i := &Instance{isJSON: true}
-
 	if proto == nil {
-		return i.appendError(errors.New("expected non-nil proto"))
+		return newErrorInstance(errors.New("expected non-nil proto"))
 	}
 
 	parsed, err := protoToParsedJSON(proto)
 	if err != nil {
-		return i.appendError(err)
+		return newErrorInstance(err)
 	}
 
+	i := &Instance{
+		isJSON:    true,
+		structure: parsed,
+	}
 	i.structure = parsed
 	return i
+}
+
+func newErrorInstance(err error) *Instance {
+	return &Instance{
+		isJSON:        true,
+		creationError: err,
+	}
 }
 
 func protoToParsedJSON(message proto.Message) (interface{}, error) {
@@ -81,60 +91,60 @@ func protoToParsedJSON(message proto.Message) (interface{}, error) {
 }
 
 func (i *Instance) Select(path string, args ...interface{}) *Instance {
+	if i.creationError != nil {
+		// There was an error during the creation of this Instance. Just return the
+		// same instance since it will error on Check anyway.
+		return i
+	}
+
 	path = fmt.Sprintf(path, args...)
 	value, err := i.findValue(path)
 	if err != nil {
-		return i.appendError(err)
+		return newErrorInstance(err)
 	}
 	if value == nil {
-		return i.appendError(fmt.Errorf("cannot select non-existent path: %v", path))
+		return newErrorInstance(fmt.Errorf("cannot select non-existent path: %v", path))
 	}
+
+	// Success.
 	return &Instance{
-		structure: value,
 		isJSON:    i.isJSON,
+		structure: value,
 	}
 }
 
-func (i *Instance) appendConstraint(c constraint) *Instance {
-	i.constraints = append(i.constraints, c)
+func (i *Instance) appendConstraint(fn func() error) *Instance {
+	i.constraints = append(i.constraints, fn)
 	return i
 }
 
-func (i *Instance) appendError(err error) *Instance {
-	return i.appendConstraint(func() error {
-		return err
-	})
-}
-
 func (i *Instance) Equals(expected interface{}, path string, args ...interface{}) *Instance {
-	i.appendConstraint(func() error {
+	path = fmt.Sprintf(path, args...)
+	return i.appendConstraint(func() error {
 		typeOf := reflect.TypeOf(expected)
 		protoMessageType := reflect.TypeOf((*proto.Message)(nil)).Elem()
 		if typeOf.Implements(protoMessageType) {
-			return i.equalsStruct(expected.(proto.Message), path, args...)
+			return i.equalsStruct(expected.(proto.Message), path)
 		}
 		switch kind := typeOf.Kind(); kind {
 		case reflect.String:
-			return i.equalsString(reflect.ValueOf(expected).String(), path, args...)
+			return i.equalsString(reflect.ValueOf(expected).String(), path)
 		case reflect.Bool:
-			return i.equalsBool(reflect.ValueOf(expected).Bool(), path, args...)
+			return i.equalsBool(reflect.ValueOf(expected).Bool(), path)
 		case reflect.Float32, reflect.Float64:
-			return i.equalsNumber(reflect.ValueOf(expected).Float(), path, args...)
+			return i.equalsNumber(reflect.ValueOf(expected).Float(), path)
 		case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
-			return i.equalsNumber(float64(reflect.ValueOf(expected).Int()), path, args...)
+			return i.equalsNumber(float64(reflect.ValueOf(expected).Int()), path)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return i.equalsNumber(float64(reflect.ValueOf(expected).Uint()), path, args...)
+			return i.equalsNumber(float64(reflect.ValueOf(expected).Uint()), path)
 		case protoMessageType.Kind():
 		}
 		// TODO: Add struct support
 		return fmt.Errorf("attempt to call Equals for unsupported type: %v", expected)
 	})
-
-	return i
 }
 
-func (i *Instance) equalsString(expected string, path string, args ...interface{}) error {
-	path = fmt.Sprintf(path, args...)
+func (i *Instance) equalsString(expected string, path string) error {
 	value, err := i.execute(path)
 	if err != nil {
 		return err
@@ -145,8 +155,7 @@ func (i *Instance) equalsString(expected string, path string, args ...interface{
 	return nil
 }
 
-func (i *Instance) equalsNumber(expected float64, path string, args ...interface{}) error {
-	path = fmt.Sprintf(path, args...)
+func (i *Instance) equalsNumber(expected float64, path string) error {
 	v, err := i.findValue(path)
 	if err != nil {
 		return err
@@ -158,8 +167,7 @@ func (i *Instance) equalsNumber(expected float64, path string, args ...interface
 	return nil
 }
 
-func (i *Instance) equalsBool(expected bool, path string, args ...interface{}) error {
-	path = fmt.Sprintf(path, args...)
+func (i *Instance) equalsBool(expected bool, path string) error {
 	v, err := i.findValue(path)
 	if err != nil {
 		return err
@@ -171,8 +179,7 @@ func (i *Instance) equalsBool(expected bool, path string, args ...interface{}) e
 	return nil
 }
 
-func (i *Instance) equalsStruct(proto proto.Message, path string, args ...interface{}) error {
-	path = fmt.Sprintf(path, args...)
+func (i *Instance) equalsStruct(proto proto.Message, path string) error {
 	jsonStruct, err := protoToParsedJSON(proto)
 	if err != nil {
 		return err
@@ -189,8 +196,8 @@ func (i *Instance) equalsStruct(proto proto.Message, path string, args ...interf
 }
 
 func (i *Instance) Exists(path string, args ...interface{}) *Instance {
-	i.appendConstraint(func() error {
-		path = fmt.Sprintf(path, args...)
+	path = fmt.Sprintf(path, args...)
+	return i.appendConstraint(func() error {
 		v, err := i.findValue(path)
 		if err != nil {
 			return err
@@ -200,13 +207,11 @@ func (i *Instance) Exists(path string, args ...interface{}) *Instance {
 		}
 		return nil
 	})
-
-	return i
 }
 
 func (i *Instance) NotExists(path string, args ...interface{}) *Instance {
-	i.appendConstraint(func() error {
-		path = fmt.Sprintf(path, args...)
+	path = fmt.Sprintf(path, args...)
+	return i.appendConstraint(func() error {
 		parser := jsonpath.New("path")
 		err := parser.Parse(i.fixPath(path))
 		if err != nil {
@@ -221,13 +226,23 @@ func (i *Instance) NotExists(path string, args ...interface{}) *Instance {
 		}
 		return nil
 	})
-	return i
 }
 
-// Check executes the set of contstraints for this selection
+// Check executes the set of constraints for this selection
 // and returns the first error encountered, or nil if all constraints
-// have been successfully met.
+// have been successfully met. All constraints are removed after them
+// check is performed.
 func (i *Instance) Check() error {
+	// After the check completes, clear out the constraints.
+	defer func() {
+		i.constraints = i.constraints[:0]
+	}()
+
+	// If there was a creation error, just return that immediately.
+	if i.creationError != nil {
+		return i.creationError
+	}
+
 	for _, c := range i.constraints {
 		if err := c(); err != nil {
 			return err
