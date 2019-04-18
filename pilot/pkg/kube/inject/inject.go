@@ -883,7 +883,7 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	return strings.Join(outPorts, ",")
 }
 
-func valueOrDefault(value string, defaultValue string) string {
+func valueOrDefault(value interface{}, defaultValue interface{}) interface{} {
 	if value == "" {
 		return defaultValue
 	}
