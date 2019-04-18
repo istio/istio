@@ -571,10 +571,12 @@ func TestAuthenticationPolicyAlpha2(t *testing.T) {
 		Selector: &authn2.Selector{
 			Labels: map[string]string{"app": "foo"},
 		},
-		ChannelAuthentication: []*authn2.Rule{
-			{
-				Def: &authn2.Rule_With{
-					With: "policy-one-mtls",
+		Spec: &authn2.PolicySpec {
+			Peers: []*authn2.Rule{
+				{
+					Apply: &authn2.Rule_Method{
+						Method: "policy-one-mtls",
+					},
 				},
 			},
 		},
@@ -583,21 +585,25 @@ func TestAuthenticationPolicyAlpha2(t *testing.T) {
 		Selector: &authn2.Selector{
 			Labels: map[string]string{"app": "bar"},
 		},
-		ChannelAuthentication: []*authn2.Rule{
-			{
-				Def: &authn2.Rule_Inline{
-					Inline: &authn2.AuthenticationMethod{
-						Params: &authn2.AuthenticationMethod_Mtls{},
+		Spec: &authn2.PolicySpec {
+			Peers: []*authn2.Rule{
+				{
+					Apply: &authn2.Rule_Inline{
+						Inline: &authn2.AuthenticationMethod{
+							Params: &authn2.AuthenticationMethod_Mtls{},
+						},
 					},
 				},
 			},
 		},
 	}
 	policyNamespaceWide := authn2.AuthenticationPolicy{
-		ChannelAuthentication: []*authn2.Rule{
-			{
-				Def: &authn2.Rule_With{
-					With: "policy-namespace-mtls",
+		Spec: &authn2.PolicySpec {
+			Peers: []*authn2.Rule{
+				{
+					Apply: &authn2.Rule_Method{
+						Method: "policy-namespace-mtls",
+					},
 				},
 			},
 		},

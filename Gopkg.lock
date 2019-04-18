@@ -1640,7 +1640,7 @@
 
 [[projects]]
   branch = "authn_v2"
-  digest = "1:15e57f9ab32972cd1d0d71d32da38dca0a28470dc20f60ee4e1a4352bc781d92"
+  digest = "1:0ba0ff606222e000ef4aacc7ceaa57c07ffce338f50f1ddb4371b33d3374df7a"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1657,7 +1657,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "bfb7a8bbe1fc5e4c724e1cc0a71c287c52bad06b"
+  revision = "835ad91e9266fc7916da3ab67a4cf980bbf62545"
   source = "https://github.com/diemtvu/api.git"
 
 [[projects]]

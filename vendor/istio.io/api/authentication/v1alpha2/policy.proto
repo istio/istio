@@ -1,0 +1,121 @@
+// Copyright 2019 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "authentication/v1alpha2/method.proto";
+
+// $title: Authentication Policy v1alpha2
+// $description: Authentication policy for Istio services.
+// $location: https://istio.io/docs/reference/config/istio.authentication.v1alpha2.html
+
+// This package defines user-facing authentication policy.
+package istio.authentication.v1alpha2;
+
+option go_package = "istio.io/api/authentication/v1alpha2";
+
+// Describes how to match a given string. Match is case-sensitive.
+message StringMatch {
+  oneof match_type {
+    // exact string match.
+    string exact = 1;
+
+    // prefix-based match.
+    string prefix = 2;
+
+    // suffix-based match.
+    string suffix = 3;
+
+    // ECMAscript style regex-based match as defined by [EDCA-262](
+    // http://en.cppreference.com/w/cpp/regex/ecmascript).
+    // Example: "^/pets/(.*?)?"
+    string regex = 4;
+  }
+}
+
+// Rule: TODO add comments
+message Rule {
+  repeated Match match = 1;
+
+  oneof apply {
+    string method = 2;
+    AuthenticationMethod inline = 3;
+  }
+}
+
+// Associates authentication with request principal.
+enum PrincipalBinding {
+  // Principal will be set to the identity from peer authentication.
+  USE_PEER = 0;
+
+  // Principal will be set to the identity from origin authentication.
+  USE_ORIGIN = 1;
+}
+
+message PolicySpec {
+  // List of authentication methods that can be used for peer authentication.
+  // They will be evaluated in order; the first validate one will be used to
+  // set peer identity (source.user) and other peer attributes. If none of
+  // these methods pass, request will be rejected with authentication failed error (401).
+  // Leave the list empty if peer authentication is not required
+  repeated Rule peers = 2;
+
+  // Define origins authentications.
+  repeated Rule origins = 3;
+
+  // Define whether peer or origin identity should be use for principal. Default
+  // value is USE_PEER.
+  // If peer (or origin) identity is not available, either because of peer/origin
+  // authentication is not defined, or failed, principal will be left unset.
+  // In other words, binding rule does not affect the decision to accept or
+  // reject request.
+  PrincipalBinding principal_binding = 6;
+}
+// AuthenticationPolicy: add comments
+// ```
+// spec:
+//   selector:
+//     app: foo
+//   spec:
+//     peers:
+//     - apply: "istio.mtls"
+//     origins:
+//     - inline:
+//         jwt:
+//           issuer: foo@bar
+// ```
+message AuthenticationPolicy {
+  // List rules to select workloads that the policy should be applied on.
+  // If empty, policy will be used on all workloads in the same namespace.
+  Selector selector = 1;
+
+  PolicySpec spec = 2;
+}
+
+// TODO: put in common api.
+// Select workloads by label matching. This is an AND.
+message Selector {
+  // labels
+  map<string, string> labels = 3;
+}
+
+// PortSelector specifies the name or number of a port to be used for
+// matching targets for authentication policy. This is copied from
+// networking API to avoid dependency.
+message Match {
+  // ports TODO add comments
+  repeated uint32 ports = 1;
+  // paths TODO add comments
+  repeated StringMatch paths = 2;
+}
