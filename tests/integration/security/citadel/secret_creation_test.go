@@ -17,6 +17,8 @@ package citadel
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/util/secret"
+
 	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
@@ -44,7 +46,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	}
 
 	t.Log(`checking secret "istio.default" is correctly created`)
-	if err := ExamineSecret(s); err != nil {
+	if err := secret.ExamineSecret(s); err != nil {
 		t.Error(err)
 	}
 
@@ -60,7 +62,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(`checking secret "istio.default" is correctly re-created`)
-	if err := ExamineSecret(s); err != nil {
+	if err := secret.ExamineSecret(s); err != nil {
 		t.Error(err)
 	}
 }
