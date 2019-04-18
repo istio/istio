@@ -70,7 +70,7 @@ export TAG="${TAG:-${GIT_SHA}}"
 
 make init
 
-setup_cluster
+setup_e2e_cluster
 
 JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
 T="-v" \
