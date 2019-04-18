@@ -25,6 +25,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn2 "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -3569,6 +3570,33 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateAuthenticationPolicyV1Alpha2(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "nil policy with namespace-wide policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in:         nil,
+			valid:      false,
+		},
+		{
+			name:       "empty policy with namespace-wide policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in:         &authn2.AuthenticationPolicy{},
+			valid:      true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateAuthenticationPolicyV1Alpha2(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateAuthenticationPolicyV1Alpha2(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
 }

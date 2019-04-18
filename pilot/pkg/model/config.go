@@ -473,7 +473,7 @@ var (
 		Group:       "authentication",
 		Version:     "v1alpha2",
 		MessageName: "istio.authentication.v1alpha2.AuthenticationPolicy",
-		Validate:    ValidateAuthenticationPolicyAlpha2,
+		Validate:    ValidateAuthenticationPolicyV1Alpha2,
 		Collection:  metadata.IstioAuthenticationV1alpha2Authenticationpolicies.Collection.String(),
 	}
 
