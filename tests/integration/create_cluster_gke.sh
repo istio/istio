@@ -15,11 +15,17 @@ NUM_NODES=${NUM_NODES:-3}
 function usage() {
   echo "${0} -p PROJECT [-z ZONE] [-c CLUSTER_NAME] [-v CLUSTER_VERSION] [-m MACHINE_TYPE] [-n NUM_NODES]"
   echo ''
+  # shellcheck disable=SC2016
   echo '  -p: Specifies the GCP Project name. (defaults to $PROJECT_NAME, or current GCP project if unspecified).'
+  # shellcheck disable=SC2016
   echo '  -z: Specifies the zone. (defaults to $ZONE, or "us-central1-f").'
+  # shellcheck disable=SC2016
   echo '  -c: Specifies the cluster name. (defaults to $CLUSTER_NAME, or "istio-e2e").'
+  # shellcheck disable=SC2016
   echo '  -v: Specifies the cluster version. (defaults to $CLUSTER_VERSION, or GCP default if unspecified ).'
+  # shellcheck disable=SC2016
   echo '  -m: Specifies the machine type. (defaults to $MACHINE_TYPE, or "n1-standard-4").'
+  # shellcheck disable=SC2016
   echo '  -n: Specifies the number of nodes. (defaults to $NUM_NODES, or "3").'
   echo ''
 }
