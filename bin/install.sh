@@ -120,6 +120,7 @@ REMOVE_OLD_CONTROL=${REMOVE_OLD_CONTROL:-false}
 
 while [ $# -gt 0 ]
 do
+    echo "$1"
     case "$1" in
         install_crds) COMMAND=$1 ;;
         install_system) COMMAND=$1 ;;
