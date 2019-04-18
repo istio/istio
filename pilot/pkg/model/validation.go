@@ -1477,6 +1477,7 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 
 // ValidateAuthenticationPolicyV1Alpha2 checks that AuthenticationPolicy v1alpha2 is well-formed.
 func ValidateAuthenticationPolicyV1Alpha2(name, namespace string, msg proto.Message) error {
+	// nil msg is not ok.
 	policy, ok := msg.(*authn2.AuthenticationPolicy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy (v1alpha2)")
@@ -1571,19 +1572,19 @@ func ValidateAuthnMatchV1Alpha2(match *authn2.Match) error {
 		case *authn2.StringMatch_Exact:
 			if matchType.Exact == "" {
 				errs = appendErrors(errs,
-					fmt.Errorf("StringMatch_Exact in authn policy matching path is empty"))
+					fmt.Errorf("stringmatch_exact in authn policy matching path is empty"))
 			}
 			return errs
 		case *authn2.StringMatch_Prefix:
 			if matchType.Prefix == "" {
 				errs = appendErrors(errs,
-					fmt.Errorf("StringMatch_Prefix in authn policy matching path is empty"))
+					fmt.Errorf("stringmatch_prefix in authn policy matching path is empty"))
 			}
 			return errs
 		case *authn2.StringMatch_Regex:
 			if matchType.Regex == "" {
 				errs = appendErrors(errs,
-					fmt.Errorf("StringMatch_Regex in authn policy matching path is empty"))
+					fmt.Errorf("stringmatch_regex in authn policy matching path is empty"))
 			}
 			return errs
 		}
