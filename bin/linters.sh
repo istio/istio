@@ -62,7 +62,7 @@ function run_test_lint() {
 function run_envvar_lint() {
     echo 'Running envvarlinter ...'
     go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
-    bin/envvarlinter
+    bin/envvarlinter mixer pilot security galley istioctl
     echo 'envvarlinter OK'
 }
 

@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -286,6 +285,9 @@ func applyEnvVars(cmd *cobra.Command) {
 	}
 }
 
+var defaultInitialBackoff = 10
+var initialBackoffEnvVar = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", defaultInitialBackoff, "")
+
 func main() {
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, enableWorkloadSDSFlag,
 		true,
@@ -319,19 +321,10 @@ func main() {
 
 	// The initial backoff time (in millisec) is a random number between 0 and initBackoff.
 	// Default to 10, a valid range is [10, 120000].
-	var initBackoff int64 = 10
-	env := os.Getenv("INITIAL_BACKOFF_MSEC")
-	if len(env) > 0 {
-		initialBackoff, err := strconv.ParseInt(env, 0, 32)
-		if err != nil {
-			log.Errorf("Failed to parse INITIAL_BACKOFF to integer with error: %v", err)
-			os.Exit(1)
-		} else if initialBackoff < 10 || initialBackoff > 120000 {
-			log.Errorf("INITIAL_BACKOFF should be within range 10 to 120000")
-			os.Exit(1)
-		} else {
-			initBackoff = initialBackoff
-		}
+	initBackoff := int64(initialBackoffEnvVar.Get())
+	if initBackoff < 10 || initBackoff > 120000 {
+		log.Errorf("INITIAL_BACKOFF_MSEC should be within range 10 to 120000")
+		os.Exit(1)
 	}
 	rootCmd.PersistentFlags().Int64Var(&workloadSdsCacheOptions.InitialBackoff, "initialBackoff",
 		initBackoff, "The initial backoff interval in milliseconds")
