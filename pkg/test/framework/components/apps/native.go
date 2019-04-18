@@ -404,12 +404,23 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 	return resp, nil
 }
 
-func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *nativeApp) ValidatedCall(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
 	r, err := a.Call(e, opts)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return r
+
+	if len(r) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(r))
+	}
+	if !r[0].IsOK() {
+		return nil, fmt.Errorf("unexpected response status code: %s", r[0].Code)
+	}
+	if r[0].Host != e.(*endpoint).owner.Name() {
+		return nil, fmt.Errorf("unexpected host: %s", r[0].Host)
+	}
+
+	return r, nil
 }
 
 type nativeEndpoint struct {

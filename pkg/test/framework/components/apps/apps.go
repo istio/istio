@@ -58,7 +58,7 @@ type App interface {
 	Endpoints() []AppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
-	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
+	ValidatedCall(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
 }
 
 // AppParam specifies the parameter for a single app.
@@ -77,7 +77,7 @@ type Config struct {
 	AppParams []AppParam
 }
 
-func (c Config) fillInDefaults(ctx resource.Context) (err error) {
+func (c *Config) fillInDefaults(ctx resource.Context) (err error) {
 	if c.Galley == nil {
 		return errors.New("galley must not be nil")
 	}
