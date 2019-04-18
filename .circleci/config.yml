@@ -47,6 +47,7 @@ jobs:
       - store_artifacts:
           path: /workspace/go/out/
 
+  # Pipeline running KIND and installer in the remote-docker environment.
   install-docker:
     working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
     docker:
@@ -83,7 +84,7 @@ jobs:
       - store_artifacts:
           path: /workspace/go/out/logs
 
-  # Uses machine and minikube --root.
+  # Uses machine and minikube --root, using one-step installation
   install-minikube:
     <<: *integrationDefaults
     environment: &minikubeEnv
@@ -119,6 +120,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  # Uses machine and minkube --root, but using step-by-stem installation
   modular-installation:
     <<: *integrationDefaults
     environment: *minikubeEnv
