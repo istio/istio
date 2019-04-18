@@ -29,9 +29,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/hashicorp/go-multierror"
-
+	"github.com/pkg/errors"
 	"istio.io/istio/pkg/log"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
@@ -732,13 +731,13 @@ func (k *KubeInfo) deployIstio() error {
 		}
 
 		if CNIPodName == "" {
-			return errors.New("Timeout waiting for CNI to deploy")
+			return errors.New("timeout waiting for CNI to deploy")
 		}
 
 		// Check if the CNI Pod is running.  Note at this point only the CNI is deployed
 		// and it will be the only pod in the namespace
-		if CNIRunning := util.CheckPodsRunning(k.Namespace, k.KubeConfig); CNIRunning != true {
-			return errors.New("Timeout waiting for CNI to become ready")
+		if CNIRunning := util.CheckPodsRunning(k.Namespace, k.KubeConfig); !CNIRunning {
+			return errors.New("timeout waiting for CNI to become ready")
 		}
 
 	}
