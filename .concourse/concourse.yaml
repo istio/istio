@@ -4,11 +4,9 @@
 # pool - serialize access to external systems
 # git - can also push
 resources:
-  - name: daily-build-1.1
-    type: docker-image
-    source:
-      repository: gcr.io/istio-release/citadel
-      tag: release-1.1-latest-daily
+  - name: 24h
+    type: time
+    source: {interval: 24h}
 
   - name: istio-installer
     type: git
@@ -24,121 +22,36 @@ jobs:
   - name: install
     serial_groups: [ cluster ]
     plan:
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
     - get: istio-installer
       trigger: true
-    - task: cleanup
-      params: &install-params
-          TAG: 1.1.0
-          KUBECONFIG: ((KUBECONFIG))
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh cleanup
-    - task: install-crds
-      params: *install-params
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_crds
-    - task: install-system
-      config:
-        platform: linux
-        params: *install-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_system
-    - task: install-control
-      config:
-        platform: linux
-        params: *install-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_control
-    - task: install-ingress
-      config:
-        platform: linux
-        params: *install-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_ingress
-    - task: install-telemetry
-      config:
-        platform: linux
-        params: *install-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_telemetry
 
+    - task: install-1-1-daily
+      params: &params-1-1-daily
+        TAG: release-1.1-latest-daily
+        HUB: gcr.io/istio-release
+        KUBECONFIG: ((KUBECONFIG))
+        # Remove overly generous resource request to avoid unnecessarily scaling up k8s nodes
+        RESOURCES_FLAGS: "--set global.resources.requests.cpu=0m --set resources.requests.cpu=0 --set resources.requests.memory=0 --set global.proxy.resources.requests.cpu=0 --set global.proxy.resources.requests.memory=0"
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            istio-installer/bin/cleanup.sh
+            istio-installer/bin/install.sh
+    
   - name: test-after-install
     serial_groups: [ cluster ]
     plan:
@@ -147,9 +60,76 @@ jobs:
       trigger: true
     - get: istio-release-1.1
       trigger: false
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
       passed: [install]
+    - task: install-bookinfo
+      params:
+        KUBECONFIG: ((KUBECONFIG))
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-release-1.1
+            path: src/github.com/istio/istio
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            istio-installer/bin/test.sh --skip-cleanup src/github.com/istio/istio/
+
+  - name: install-1.1.0
+    serial_groups: [ cluster ]
+    plan:
+    - get: 24h
+      trigger: true
+      passed: [test-after-install]
+    - get: istio-installer
+      trigger: true
+      passed: [test-after-install]
+
+    - task: install-1-1-0
+      params: &install-params-1-1-0
+        TAG: 1.1.0
+        HUB: istio
+        KUBECONFIG: ((KUBECONFIG))
+        RESOURCES_FLAGS: "--set global.resources.requests.cpu=0m --set resources.requests.cpu=0 --set resources.requests.memory=0 --set global.proxy.resources.requests.cpu=0 --set global.proxy.resources.requests.memory=0"
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: gcr.io/peripli/istio-base
+        inputs:
+          - name: istio-installer
+        run:
+          path: /bin/sh
+          args:
+          - -ec
+          - |
+            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
+            export KUBECONFIG=/tmp/kubeconfig.yaml
+            istio-installer/bin/cleanup.sh
+            istio-installer/bin/install.sh
+    
+  - name: test-after-install-1.1.0
+    serial_groups: [ cluster ]
+    plan:
+    - get: istio-installer
+      passed: [ install-1.1.0 ]
+      trigger: true
+    - get: istio-release-1.1
+      trigger: false
+    - get: 24h
+      trigger: true
+      passed: [install-1.1.0]
     - task: install-bookinfo
       params:
         KUBECONFIG: ((KUBECONFIG))
@@ -175,97 +155,16 @@ jobs:
   - name: update
     serial_groups: [ cluster ]
     plan:
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
-      passed: [test-after-install]
+      passed: [test-after-install-1.1.0]
     - get: istio-installer
-      passed: [ test-after-install ]
+      passed: [test-after-install-1.1.0]
       trigger: true
-    - get: istio-release-1.1
-      trigger: false
-      passed: [ test-after-install ]
-    - task: update-system
+    - task: update-1-1-daily
       config:
         platform: linux
-        params: &update-params
-          TAG: master-latest-daily
-          HUB: gcr.io/istio-release
-          KUBECONFIG: ((KUBECONFIG))
-          SUFFIX: master
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_system --update
-    - task: update-control
-      config:
-        platform: linux
-        params: *update-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_control --update
-    - task: update-ingress
-      config:
-        platform: linux
-        params: *update-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-release-1.1
-            path: src/github.com/istio/istio
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_ingress --update
-    - task: update-telemetry
-      config:
-        platform: linux
-        params: *update-params
-        image_resource:
-          type: docker-image
-          source:
-            repository: gcr.io/peripli/istio-base
-        inputs:
-          - name: istio-installer
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
-            export KUBECONFIG=/tmp/kubeconfig.yaml
-            istio-installer/bin/install.sh install_telemetry --update
-    - task: remove-old-installation
-      config:
-        platform: linux
-        params: *update-params
+        params: *params-1-1-daily
         image_resource:
           type: docker-image
           source:
@@ -280,20 +179,18 @@ jobs:
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             export REMOVE_OLD_CONTROL=true
-            istio-installer/bin/install.sh switch_istio_control --update
-
+            istio-installer/bin/install.sh
+  
   - name: test-after-update
     serial_groups: [ cluster ]
     plan:
-    - get: daily-build-1.1
+    - get: 24h
       trigger: true
       passed: [update]
     - get: istio-installer
-      passed: [ update ]
+      passed: [update]
       trigger: true
     - get: istio-release-1.1
-      trigger: false
-      passed: [ update ]
     - task: install-bookinfo
       params:
         KUBECONFIG: ((KUBECONFIG))
