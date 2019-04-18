@@ -76,6 +76,9 @@ func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) { // no
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v}",
+		r.Method, r.URL, r.Host, r.Header)
+
 	if r.Header.Get("testwebsocket") != "" {
 		h.WebSocketEcho(w, r)
 		return
@@ -84,11 +87,13 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := bytes.Buffer{}
 
 	if err := r.ParseForm(); err != nil {
+		log.Warn("ParseForm() error: " + err.Error())
 		body.WriteString("ParseForm() error: " + err.Error() + "\n")
 	}
 
 	// If the request has form ?headers=name:value[,name:value]* return those headers in response
 	if err := setHeaderResponseFromHeaders(r, w); err != nil {
+		log.Warn("response headers error: " + err.Error())
 		body.WriteString("response headers error: " + err.Error() + "\n")
 	}
 
@@ -96,6 +101,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// For example, ?codes=500:1,200:1 returns 500 1/2 times and 200 1/2 times
 	// For example, ?codes=500:90,200:10 returns 500 90% of times and 200 10% of times
 	if err := setResponseFromCodes(r, w); err != nil {
+		log.Warn("codes error: " + err.Error())
 		body.WriteString("codes error: " + err.Error() + "\n")
 	}
 
@@ -105,6 +111,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(body.Bytes()); err != nil {
 		log.Warna(err)
 	}
+	log.Infof("Response Headers: %+v", w.Header())
 }
 
 func (h handler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
@@ -168,8 +175,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// nolint: errcheck
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	// ping
 	mt, message, err := c.ReadMessage()
@@ -232,6 +238,7 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 		position += flavor.slices
 	}
 
+	log.Infof("Response status code: %d", responseCode)
 	response.WriteHeader(responseCode)
 	return nil
 }
