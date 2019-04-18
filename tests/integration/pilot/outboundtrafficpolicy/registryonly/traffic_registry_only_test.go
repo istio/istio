@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry_only
+package registryonly
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/tests/integration/pilot/outboundTrafficPolicy"
+	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 )
 
 func TestMain(m *testing.M) {
@@ -44,5 +44,5 @@ func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {
 		"http":  {"502"}, // HTTP will return an error code
 		"https": {},      // HTTPS will direct to blackhole cluster, giving no response
 	}
-	outboundTrafficPolicy.RunExternalRequestTest(expected, t)
+	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }

@@ -1,4 +1,4 @@
-package outboundTrafficPolicy
+package outboundtrafficpolicy
 
 import (
 	"bytes"

@@ -388,19 +388,6 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 		return nil, err
 	}
 
-	if len(resp) != 1 {
-		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstHost {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
-	}
-
 	return resp, nil
 }
 
@@ -416,8 +403,8 @@ func (a *nativeApp) ValidatedCall(e AppEndpoint, opts AppCallOptions) ([]*echo.P
 	if !r[0].IsOK() {
 		return nil, fmt.Errorf("unexpected response status code: %s", r[0].Code)
 	}
-	if r[0].Host != e.(*endpoint).owner.Name() {
-		return nil, fmt.Errorf("unexpected host: %s", r[0].Host)
+	if r[0].Host != e.Owner().(*nativeApp).fqdn() {
+		return nil, fmt.Errorf("unexpected host: %s, expected %v", r[0].Host, e.Owner().(*nativeApp).fqdn())
 	}
 
 	return r, nil
