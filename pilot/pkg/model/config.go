@@ -453,26 +453,26 @@ var (
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
 		SchemaObjectName: "AuthenticationPolicy",
-		Type:        "policy",
-		Plural:      "policies",
-		Group:       "authentication",
-		Version:     "v1alpha1",
-		MessageName: "istio.authentication.v1alpha1.Policy",
-		Validate:    ValidateAuthenticationPolicy,
-		Collection:  metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
+		Type:             "policy",
+		Plural:           "policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
 	AuthenticationMeshPolicy = ProtoSchema{
-		ClusterScoped: true,
+		ClusterScoped:    true,
 		SchemaObjectName: "AuthenticationMeshPolicy",
-		Type:          "mesh-policy",
-		Plural:        "mesh-policies",
-		Group:         "authentication",
-		Version:       "v1alpha1",
-		MessageName:   "istio.authentication.v1alpha1.Policy",
-		Validate:      ValidateAuthenticationPolicy,
-		Collection:    metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
+		Type:             "mesh-policy",
+		Plural:           "mesh-policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.
