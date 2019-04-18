@@ -511,7 +511,6 @@ func findLicenseFile(path string) ([]string, error) {
 func filter(in []string) (keep, skip []string) {
 	for _, s := range in {
 		s = cleanString(s)
-		//sv := strings.Split(s, "/")
 
 		if !hasAnyPrefix(s, mustStartWith) || hasAnyPrefix(s, skipPrefixes) {
 			skip = append(skip, s)

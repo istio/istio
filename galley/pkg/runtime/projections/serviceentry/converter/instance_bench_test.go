@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package convert_test
+package converter_test
 
 import (
 	"testing"
 	"time"
 
+	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/convert"
+	metadata2 "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 
@@ -43,65 +45,83 @@ func benchmarkService(b *testing.B, reuse bool) {
 
 	b.StopTimer()
 
-	// Setup a fairly representative k8s Service ... cluster IP, a few ports, some labels/annotations.
-	fullName := resource.FullNameFromNamespaceAndName(benchNamespace, "someservice")
-	spec := &coreV1.ServiceSpec{
-		ClusterIP: "10.0.0.1",
-		Ports: []coreV1.ServicePort{
-			{
-				Name:     "http",
-				Port:     80,
-				Protocol: coreV1.ProtocolTCP,
+	service := &resource.Entry{
+		ID: resource.VersionedKey{
+			Key: resource.Key{
+				FullName:   resource.FullNameFromNamespaceAndName(benchNamespace, "someservice"),
+				Collection: metadata2.K8sCoreV1Services.Collection,
 			},
-			{
-				Name:     "https",
-				Port:     443,
-				Protocol: coreV1.ProtocolTCP,
+			Version: resource.Version("v1"),
+		},
+		Metadata: resource.Metadata{
+			CreateTime: time.Now(),
+			Annotations: resource.Annotations{
+				"Annotation1": "AnnotationValue1",
+				"Annotation2": "AnnotationValue2",
+				"Annotation3": "AnnotationValue3",
+				"Annotation4": "AnnotationValue4",
+				"Annotation5": "AnnotationValue5",
 			},
-			{
-				Name:     "grpc",
-				Port:     8088,
-				Protocol: coreV1.ProtocolTCP,
+			Labels: resource.Labels{
+				"Label1": "LabelValue1",
+				"Label2": "LabelValue2",
+				"Label3": "LabelValue3",
+				"Label4": "LabelValue4",
+				"Label5": "LabelValue5",
 			},
 		},
-	}
-	metadata := resource.Metadata{
-		CreateTime: time.Now(),
-		Annotations: resource.Annotations{
-			"Annotation1": "AnnotationValue1",
-			"Annotation2": "AnnotationValue2",
-			"Annotation3": "AnnotationValue3",
-			"Annotation4": "AnnotationValue4",
-			"Annotation5": "AnnotationValue5",
-		},
-		Labels: resource.Labels{
-			"Label1": "LabelValue1",
-			"Label2": "LabelValue2",
-			"Label3": "LabelValue3",
-			"Label4": "LabelValue4",
-			"Label5": "LabelValue5",
+		Item: &coreV1.ServiceSpec{
+			ClusterIP: "10.0.0.1",
+			Ports: []coreV1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: coreV1.ProtocolTCP,
+				},
+				{
+					Name:     "https",
+					Port:     443,
+					Protocol: coreV1.ProtocolTCP,
+				},
+				{
+					Name:     "grpc",
+					Port:     8088,
+					Protocol: coreV1.ProtocolTCP,
+				},
+			},
 		},
 	}
 
+	c := converter.New(domainSuffix, nil)
+
 	// Create/init the output ServiceEntry if reuse is enabled.
+	var outMeta *mcp.Metadata
 	var out *networking.ServiceEntry
 	if reuse {
-		out = &networking.ServiceEntry{}
-		convertService(spec, metadata, fullName, out)
+		outMeta = newMetadata()
+		out = newServiceEntry()
+		if err := convertService(c, service, outMeta, out); err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		convertService(spec, metadata, fullName, out)
+		if err := convertService(c, service, outMeta, out); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
-func convertService(spec *coreV1.ServiceSpec, metadata resource.Metadata, fullName resource.FullName, entry *networking.ServiceEntry) {
-	if entry == nil {
-		entry = &networking.ServiceEntry{}
+func convertService(c *converter.Instance, service *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) error {
+	if outMeta == nil {
+		outMeta = newMetadata()
 	}
-	convert.Service(spec, metadata, fullName, domainSuffix, entry)
+	if out == nil {
+		out = newServiceEntry()
+	}
+	return c.Convert(service, nil, outMeta, out)
 }
 
 // BenchmarkEndpoints tests the performance of converting a single k8s Endpoints resource into a networking.ServiceEntry.
@@ -136,10 +156,10 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	}
 
 	// Create the pod/node cache, that will map the IPs to service accounts.
-	bcache := newBenchmarkCache()
+	pods := newPodCache()
 	saIndex := 0
 	for _, ip := range ips {
-		bcache.addPod(ip, serviceAccounts[saIndex])
+		addPod(pods, ip, serviceAccounts[saIndex])
 		saIndex = (saIndex + 1) % len(serviceAccounts)
 	}
 
@@ -177,25 +197,64 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 		endpoints.Subsets = append(endpoints.Subsets, subset)
 	}
 
+	entry := &resource.Entry{
+		ID: resource.VersionedKey{
+			Key: resource.Key{
+				FullName:   resource.FullNameFromNamespaceAndName(benchNamespace, "someservice"),
+				Collection: metadata2.K8sCoreV1Endpoints.Collection,
+			},
+			Version: resource.Version("v1"),
+		},
+		Metadata: resource.Metadata{
+			CreateTime: time.Now(),
+			Annotations: resource.Annotations{
+				"Annotation1": "AnnotationValue1",
+				"Annotation2": "AnnotationValue2",
+				"Annotation3": "AnnotationValue3",
+				"Annotation4": "AnnotationValue4",
+				"Annotation5": "AnnotationValue5",
+			},
+			Labels: resource.Labels{
+				"Label1": "LabelValue1",
+				"Label2": "LabelValue2",
+				"Label3": "LabelValue3",
+				"Label4": "LabelValue4",
+				"Label5": "LabelValue5",
+			},
+		},
+		Item: endpoints,
+	}
+
+	c := converter.New(domainSuffix, pods)
+
 	// Create/init the output ServiceEntry if reuse is enabled.
+	var outMeta *mcp.Metadata
 	var out *networking.ServiceEntry
 	if reuse {
-		out = &networking.ServiceEntry{}
-		convertEndpoints(endpoints, bcache, out)
+		outMeta = newMetadata()
+		out = newServiceEntry()
+		if err := convertEndpoints(c, entry, outMeta, out); err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		convertEndpoints(endpoints, bcache, out)
+		if err := convertEndpoints(c, entry, outMeta, out); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
-func convertEndpoints(endpoints *coreV1.Endpoints, pods pod.Cache, entry *networking.ServiceEntry) {
-	if entry == nil {
-		entry = &networking.ServiceEntry{}
+func convertEndpoints(c *converter.Instance, endpoints *resource.Entry, outMeta *mcp.Metadata, out *networking.ServiceEntry) error {
+	if outMeta == nil {
+		outMeta = newMetadata()
 	}
-	convert.Endpoints(endpoints, pods, entry)
+	if out == nil {
+		out = newServiceEntry()
+	}
+	return c.Convert(nil, endpoints, outMeta, out)
 }
 
 func min(a, b int) int {
@@ -205,28 +264,11 @@ func min(a, b int) int {
 	return b
 }
 
-var _ pod.Cache = &benchmarkCache{}
-
-type benchmarkCache struct {
-	pods map[string]pod.Info
-}
-
-func newBenchmarkCache() *benchmarkCache {
-	return &benchmarkCache{
-		pods: make(map[string]pod.Info),
-	}
-}
-
-func (c *benchmarkCache) addPod(ip, serviceAccountName string) {
-	c.pods[ip] = pod.Info{
+func addPod(pods fakePodCache, ip, serviceAccountName string) {
+	pods[ip] = pod.Info{
 		FullName:           resource.FullNameFromNamespaceAndName(benchNamespace, "SomePod"),
 		NodeName:           "SomeNode",
 		Locality:           "locality",
 		ServiceAccountName: serviceAccountName,
 	}
-}
-
-func (c *benchmarkCache) GetPodByIP(ip string) (pod.Info, bool) {
-	p, ok := c.pods[ip]
-	return p, ok
 }

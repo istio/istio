@@ -569,7 +569,7 @@ func waitForMixerProxyReadiness() error {
 			forwarder.Close()
 
 			if err != nil {
-				log.Infof("Failure retrieving status for pod %s (container: istio-proxy): %v", pod, err)
+				log.Infof("Failure retrieving status for pod %v (container: istio-proxy): %v", pod, err)
 				continue
 			}
 
@@ -577,7 +577,7 @@ func waitForMixerProxyReadiness() error {
 				return nil
 			}
 
-			log.Infof("Failure retrieving status for pod %s (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
+			log.Infof("Failure retrieving status for pod %v (container: istio-proxy) status code should be 200 got: %d", pod, resp.StatusCode)
 		}
 	}
 	return errors.New("proxy for mixer never started main dispatch loop")

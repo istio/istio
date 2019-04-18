@@ -523,7 +523,8 @@ func TestIntoResourceFile(t *testing.T) {
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
 			}
-			sidecarTemplate := loadConfigMapWithHelm(params, t)
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -532,7 +533,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -624,7 +625,8 @@ func TestRewriteAppProbe(t *testing.T) {
 				ReadinessFailureThreshold:    DefaultReadinessFailureThreshold,
 				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
 			}
-			sidecarTemplate := loadConfigMapWithHelm(params, t)
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -633,7 +635,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, &mesh, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -724,7 +726,8 @@ func TestInvalidAnnotations(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
 			params := newTestParams()
-			sidecarTemplate := loadConfigMapWithHelm(params, t)
+			sidecarTemplate := loadSidecarTemplate(t)
+			valuesConfig := getValues(params, t)
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {
@@ -732,7 +735,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate, params.Mesh, in, &got); err == nil {
+			if err = IntoResourceFile(sidecarTemplate, valuesConfig, params.Mesh, in, &got); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)

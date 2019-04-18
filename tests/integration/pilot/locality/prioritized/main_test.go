@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package locality
+package prioritized
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.Main("locality_loadbalancing", m, istio.SetupOnKube(&ist, setupConfig))
+	framework.Main("locality_prioritized_loadbalancing", m, istio.SetupOnKube(&ist, setupConfig))
 }
 
 func setupConfig(cfg *istio.Config) {

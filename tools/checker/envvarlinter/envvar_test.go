@@ -28,8 +28,6 @@ func getAbsPath(path string) string {
 }
 
 func TestNoOSEnvRule(t *testing.T) {
-	//	rule := rules.NewNoOsEnv()
-
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/envuse.go") +
 		":6:6:os.Getenv is disallowed, please see pkg/env instead (no_os_env)",

@@ -34,7 +34,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,11 +135,6 @@ const (
 	ProxyContainerName = "istio-proxy"
 )
 
-const (
-	sidecarTemplateDelimBegin = "[["
-	sidecarTemplateDelimEnd   = "]]"
-)
-
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
@@ -161,6 +156,7 @@ type SidecarTemplateData struct {
 	Spec           *corev1.PodSpec
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
+	Values         map[string]interface{}
 }
 
 // InitImageName returns the fully qualified image name for the istio
@@ -514,11 +510,21 @@ func directory(filepath string) string {
 	return dir
 }
 
-func InjectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+func flippedContains(needle, haystack string) bool {
+	return strings.Contains(haystack, needle)
+}
+
+func InjectionData(sidecarTemplate, valuesConfig, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
+		return nil, "", err
+	}
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
 		return nil, "", err
 	}
 
@@ -528,6 +534,7 @@ func InjectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		Spec:           spec,
 		ProxyConfig:    proxyConfig,
 		MeshConfig:     meshConfig,
+		Values:         values,
 	}
 
 	funcMap := template.FuncMap{
@@ -545,10 +552,11 @@ func InjectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
+		"contains":            flippedContains,
 	}
 
 	var tmpl bytes.Buffer
-	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
+	temp := template.New("inject")
 	t, err := temp.Funcs(funcMap).Parse(sidecarTemplate)
 	if err != nil {
 		log.Infof("Failed to parse template: %v %v\n", err, sidecarTemplate)
@@ -590,7 +598,7 @@ func InjectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -608,7 +616,7 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			outObject, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -647,7 +655,7 @@ func fromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+func intoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -667,7 +675,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			r, err := intoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -681,15 +689,18 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
-	if job, ok := out.(*v2alpha1.CronJob); ok {
+	switch v := out.(type) {
+	case *v2alpha1.CronJob:
+		job := v
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
-	} else if pod, ok := out.(*corev1.Pod); ok {
+	case *corev1.Pod:
+		pod := v
 		metadata = &pod.ObjectMeta
 		deploymentMetadata = &pod.ObjectMeta
 		podSpec = &pod.Spec
-	} else {
+	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
 
@@ -718,6 +729,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	spec, status, err := InjectionData(
 		sidecarTemplate,
+		valuesConfig,
 		sidecarTemplateVersionHash(sidecarTemplate),
 		deploymentMetadata,
 		podSpec,

@@ -344,7 +344,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			} else {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
-			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
 			// ignore for now
 		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
