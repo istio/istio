@@ -1,6 +1,9 @@
 #
 # addon prometheus configuration
 #
+# The value of `prometheus.enabled` will be ignored if any of the `prometheus.operator.*`
+# configuration options are selected. The use of the default addon is considered to be
+# mutually exclusive with Prometheus Operator configuration.
 enabled: true
 replicaCount: 1
 hub: docker.io/prom
@@ -59,9 +62,10 @@ security:
 
 # Operator configuration is used to generate Custom Resources
 # for use with the https://github.com/coreos/prometheus-operator. This support
-# currently is only offered as an alpha feature. Use of operator
-# configuration is mutually-exclusive with the templates to install the
-# Istio prometheus addon.
+# currently is only offered as an alpha feature.
+#
+# NOTE: Use of operator configuration is mutually-exclusive with the
+# templates to install the Istio prometheus addon.
 operator:
   # Enabling this option will generate all of the ServiceMonitor CRs for Istio.
   createServiceMonitors: false

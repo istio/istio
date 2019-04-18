@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: istio-mesh-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: istio-mesh
 spec:
@@ -12,7 +12,7 @@ spec:
       - {key: istio, operator: In, values: [mixer]}
   namespaceSelector:
     matchNames:
-      - istio-system
+      - {{ .Release.Namespace }}
   endpoints:
   - port: prometheus
     interval: {{ .Values.scrapeInterval }}
@@ -21,7 +21,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: istio-component-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: istio-components
 spec:
@@ -30,7 +30,7 @@ spec:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel]}
   namespaceSelector:
     matchNames:
-      - istio-system
+      - {{ .Release.Namespace }}
   endpoints:
   - port: http-monitoring 
     interval: {{ .Values.scrapeInterval }}
@@ -39,7 +39,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: envoy-stats-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: istio-proxies
 spec:
@@ -65,40 +65,12 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_name]
       action: replace
       targetLabel: pod_name
-    metricRelabelings:
-    - sourceLabels: [ cluster_name ]
-      regex: '(outbound|inbound|prometheus_stats).*'
-      action: drop
-    - sourceLabels: [ tcp_prefix ]
-      regex: '(outbound|inbound|prometheus_stats).*'
-      action: drop
-    - sourceLabels: [ listener_address ]
-      regex: '(.+)'
-      action: drop
-    - sourceLabels: [ http_conn_manager_listener_prefix ]
-      regex: '(.+)'
-      action: drop
-    - sourceLabels: [ http_conn_manager_prefix ]
-      regex: '(.+)'
-      action: drop
-    - sourceLabels: [ __name__ ]
-      regex: 'envoy_tls.*'
-      action: drop
-    - sourceLabels: [ __name__ ]
-      regex: 'envoy_tcp_downstream.*'
-      action: drop
-    - sourceLabels: [ __name__ ]
-      regex: 'envoy_http_(stats|admin).*'
-      action: drop
-    - sourceLabels: [ __name__ ]
-      regex: 'envoy_cluster_(lb|retry|bind|internal|max|original).*'
-      action: drop
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: kubernetes-pods-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: kube-pods
 spec:
@@ -142,7 +114,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: kubernetes-pods-secure-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: kube-pods-secure
 spec:
@@ -197,7 +169,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: kubernetes-services-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: kube-services
 spec:
@@ -241,7 +213,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: kubernetes-services-secure-monitor
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
   labels:
     monitoring: kube-services-secure
 spec:
@@ -298,7 +270,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 spec:
   image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
   version: {{ .Values.tag }}
