@@ -884,7 +884,7 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 }
 
 func valueOrDefault(value interface{}, defaultValue interface{}) interface{} {
-	if value == "" {
+	if value == "" || value == nil {
 		return defaultValue
 	}
 	return value
