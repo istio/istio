@@ -8,16 +8,31 @@
 # For local development, after 'make test' you can run individual steps or debug - the KIND cluster will be wiped
 # the next time you run 'make test', but will be kept around for debugging and repeat tests.
 #
-# Example local workflow:
+# Example local workflow for development/testing:
+#
+# export KIND_CLUSTER=local # or other clusters if working on multiple PRs
+# export MOUNT=1            #local directories mounted in the docker running Kind and tests
+# export SKIP_KIND_SETUP=1  #don't create new cluster at each iteration
+# export SKIP_CLEANUP=1     # leave cluster and tests in place, for debugging
 #
 # - prepare cluster for development:
-#     make clean prepare MOUNT=1 KIND_CLUSTER=local
-# - install or reinstal istio components needed for test:
-#     make TEST_TARGET="install-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
+#     make prepare
+# - install or reinstal istio components needed for test (repeat after rebuilding istio):
+#   This step currently needs uploaded images or 'kind load' to copy them into kind.
+#   (TODO: build istio in the kind container, so we don't have to upload)
+#
+#     make TEST_TARGET="install-base"
+#
 # - Run individual tests using:
-#     make TEST_TARGET="run-simple-istio-system" SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 MOUNT=1 KIND_CLUSTER=local
+#     make TEST_TARGET="run-simple-istio-system"
 #
+#  On the host, you can run "ps" and dlv attach for remote debugging. The tests run inside the KIND docker container,
+#  so they have access to the pods and apiserver, as well as the ingress and node.
 #
+# - make clean - when done
+#
+# - make kind-shell  - run a shell in the kind container.
+# - make kind-logs - get logs from all components
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
@@ -159,6 +174,10 @@ run-bookinfo:
 	# Bookinfo test
 	SKIP_CLEANUP=1 bin/test.sh ${GOPATH}/src/istio.io/istio
 
+# Simple fortio install and curl command
+#run-fortio:
+#	kubectl apply -f
+
 # The simple test from istio/istio integration.
 # Will kube-inject and test the ingress and service-to-service
 run-simple:
@@ -169,7 +188,7 @@ run-simple:
 	kubectl create ns simple || /bin/true
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp
-	(cd ${GOPATH}/src/istio.io/istio; TMPDIR=${GOPATH}/out/tmp make e2e_simple E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
+	(cd ${GOPATH}/src/istio.io/istio; TMPDIR=${GOPATH}/out/tmp make istioctl e2e_simple_noauth_run HUB=istionightly TAG=nightly-master E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
 
 run-integration:
 	export TMPDIR=${GOPATH}/out/tmp
@@ -225,16 +244,23 @@ docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/he
 	cp $^ ${GOPATH}/out/istio-builder/
 	docker build -t istionightly/kind ${GOPATH}/out/istio-builder
 
+docker.buildkite: test/buildkite/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
+	mkdir -p ${GOPATH}/out/istio-buildkite
+	cp $^ ${GOPATH}/out/istio-buildkite
+	docker build -t istionightly/buildkite ${GOPATH}/out/istio-buildkite
+
 # Build or get the dependencies.
 dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
 
+GITBASE ?= "https://github.com"
+
 ${GOPATH}/src/istio.io/istio:
 	mkdir -p $GOPATH/src/istio.io
-	git clone https://github.com/istio/istio.git ${GOPATH}/src/istio.io/istio
+	git clone ${GITBASE}/istio/istio.git ${GOPATH}/src/istio.io/istio
 
 ${GOPATH}/src/istio.io/tools:
 	mkdir -p $GOPATH/src/istio.io
-	git clone https://github.com/istio/tools.git ${GOPATH}/src/istio.io/tools
+	git clone ${GITBASE}/istio/tools.git ${GOPATH}/src/istio.io/tools
 
 #
 git.dep: ${GOPATH}/src/istio.io/istio ${GOPATH}/src/istio.io/tools
