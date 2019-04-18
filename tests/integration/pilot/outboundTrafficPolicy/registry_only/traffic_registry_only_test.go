@@ -40,9 +40,9 @@ func setupConfig(cfg *istio.Config) {
 }
 
 func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {
-	expected := map[string][]string {
-		"http": {"502"}, // HTTP will return an error code
-		"https": {}, // HTTPS will direct to blackhole cluster, giving no response
+	expected := map[string][]string{
+		"http":  {"502"}, // HTTP will return an error code
+		"https": {},      // HTTPS will direct to blackhole cluster, giving no response
 	}
 	outboundTrafficPolicy.RunExternalRequestTest(expected, t)
 }

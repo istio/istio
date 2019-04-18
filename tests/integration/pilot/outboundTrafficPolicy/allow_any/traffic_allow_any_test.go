@@ -40,8 +40,8 @@ func setupConfig(cfg *istio.Config) {
 }
 
 func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
-	expected := map[string][]string {
-		"http": {"200"},
+	expected := map[string][]string{
+		"http":  {"200"},
 		"https": {"200"},
 	}
 	outboundTrafficPolicy.RunExternalRequestTest(expected, t)
