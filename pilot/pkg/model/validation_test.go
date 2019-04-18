@@ -2394,6 +2394,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "simple with shortname host", in: &networking.VirtualService{
+			Hosts: []string{"foo"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 		{name: "duplicate hosts", in: &networking.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
 			Http: []*networking.HTTPRoute{{
@@ -3104,7 +3112,16 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
-		{name: "short name host", in: networking.ServiceEntry{
+		{name: "shortname in hosts, resolution NONE", in: networking.ServiceEntry{
+			Hosts: []string{"httpbin"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Addresses:  []string{"172.1.1.10"},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: false},
+		{name: "shortname in hosts, resolution DNS", in: networking.ServiceEntry{
 			Hosts: []string{"foo", "bar.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -3114,7 +3131,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
-			valid: true},
+			valid: false},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
