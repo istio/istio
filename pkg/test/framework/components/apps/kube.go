@@ -566,7 +566,7 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*endpoint).networkEndpoint.ServicePort.Port), nil
+	return uint16(commandEndpoints[0].(*endpoint).networkEndpoint.Port), nil
 }
 
 func (a *kubeApp) Name() string {
