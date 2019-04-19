@@ -42,10 +42,8 @@ func MakeConfigData(schema model.ProtoSchema) ConfigData {
 		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
 		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
 	}
-	// Tweak to match current naming.
-	// TODO(xiaolanz): change to meet the new naming convention.
-	if schema.Group == "authentication" {
-		out.IstioKind = crd.KebabCaseToCamelCase(schema.Group + "-" + schema.Type)
+	if len(schema.SchemaObjectName) > 0 {
+		out.IstioKind = schema.SchemaObjectName
 	}
 	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
 	return out
