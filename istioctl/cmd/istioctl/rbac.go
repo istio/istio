@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/kube"
 
 	"github.com/spf13/cobra"
 
@@ -84,6 +86,24 @@ istioctl experimental rbac can -s source.namespace=foo POST rating /data -a dest
 	return cmd
 }
 
+func upgrade() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade NAMESPACE",
+		Short: "UpgradeCRDs RBAC CRD files to use the newest API",
+		Long:  "Blah blah blah",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			upgrader, err := newUpgrader(args)
+			if err != nil {
+				return err
+			}
+			// TODO(pitlv2109): This should work end to end for simple cases. However consider rolling back if there is an error.
+			return upgrader.UpgradeCRDs()
+		},
+	}
+	return cmd
+}
+
 // Rbac provides a command named rbac that allows user to interact with Istio RBAC policies.
 func Rbac() *cobra.Command {
 	cmd := &cobra.Command{
@@ -97,6 +117,7 @@ istioctl experimental rbac can -u test GET rating /v1/health`,
 	}
 
 	cmd.AddCommand(can())
+	cmd.AddCommand(upgrade())
 	return cmd
 }
 
@@ -133,4 +154,22 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 		}
 	}
 	return &rbac.ConfigStore{Roles: rolesMap}, nil
+}
+
+func newUpgrader(namespaceArgs []string) (*rbac.Upgrader, error) {
+	istioClient, err := newClient()
+	if err != nil {
+		return nil, err
+	}
+	k8sClient, err := kube.CreateClientset("", "")
+	if err != nil {
+		return nil, err
+	}
+	namespace := rbac.AllNamespaces
+	if len(namespaceArgs) > 0 {
+		namespace = namespaceArgs[0]
+	}
+	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient, Namespace: namespace,
+		RoleToWorkloadLabels: map[string]rbac.WorkloadLabels{}}
+	return upgrader, nil
 }
