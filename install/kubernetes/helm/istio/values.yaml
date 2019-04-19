@@ -71,12 +71,6 @@ prometheus:
   enabled: true
 
 #
-# addon servicegraph configuration
-#
-servicegraph:
-  enabled: false
-
-#
 # addon jaeger tracing configuration
 #
 tracing:
