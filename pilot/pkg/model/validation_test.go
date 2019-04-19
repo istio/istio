@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn2 "istio.io/api/authentication/v1alpha2"
@@ -3669,6 +3669,328 @@ func TestValidateAuthenticationPolicyV1Alpha2(t *testing.T) {
 			configName: DefaultAuthenticationPolicyName,
 			in:         &authn2.AuthenticationPolicy{},
 			valid:      true,
+		},
+		{
+			name:       "empty selector value",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{
+					Labels: map[string]string{
+						"key1": "",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty selector key",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{
+					Labels: map[string]string{
+						"": "val1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty selector for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "nil selector for non-default policy name",
+			configName: "non" + DefaultAuthenticationPolicyName,
+			in:         &authn2.AuthenticationPolicy{},
+			valid:      false,
+		},
+		{
+			name:       "empty selector for non-default policy name",
+			configName: "non" + DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+			},
+			valid: false,
+		},
+		{
+			name:       "Empty spec for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec:     &authn2.PolicySpec{},
+			},
+			valid: true,
+		},
+		{
+			name:       "nil spec.peer for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						nil,
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "Empty spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{},
+						},
+					},
+				},
+			},
+			// Empty peer.match is ok. Empty peer.match means matching all ports and paths.
+			valid: true,
+		},
+		{
+			name:       "Empty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{},
+								},
+							},
+						},
+					},
+				},
+			},
+			// Empty peer.match.ports is ok. Empty peer.match.ports means matching all ports.
+			valid: true,
+		},
+		{
+			name:       "Nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "Empty paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{},
+								},
+							},
+						},
+					},
+				},
+			},
+			// Empty peer.match.paths is ok. Empty peer.match.paths means matching all paths.
+			valid: true,
+		},
+		{
+			name:       "Nil path and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										nil, //nil path
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			// A nil path in peer.match.paths is NOT ok.
+			valid: false,
+		},
+		{
+			name:       "Empty path in nonempty paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{}, //empty path
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			// An empty path in peer.match.paths is NOT ok.
+			valid: false,
+		},
+		{
+			name:       "Nonempty exact paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{
+											MatchType: &authn2.StringMatch_Exact{
+												Exact: "exact-path",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "Nonempty prefix paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{
+											MatchType: &authn2.StringMatch_Prefix{
+												Prefix: "prefix-path",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "Nonempty regex paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{
+											MatchType: &authn2.StringMatch_Regex{
+												Regex: "regex-path",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "Bind to peer with nonempty regex paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{
+											MatchType: &authn2.StringMatch_Regex{
+												Regex: "regex-path",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					PrincipalBinding: authn2.PrincipalBinding_USE_PEER,
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "Invalid principal binding value with nonempty regex paths and nonempty ports in spec.peer.match for default policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn2.AuthenticationPolicy{
+				Selector: &authn2.Selector{},
+				Spec: &authn2.PolicySpec{
+					Peers: []*authn2.Rule{
+						{
+							Match: []*authn2.Match{
+								{
+									Ports: []uint32{1234, 1235},
+									Paths: []*authn2.StringMatch{
+										{
+											MatchType: &authn2.StringMatch_Regex{
+												Regex: "regex-path",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					PrincipalBinding: 1234, // invalid principal binding value
+				},
+			},
+			valid: false,
 		},
 	}
 	for _, c := range cases {
