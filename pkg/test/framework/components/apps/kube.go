@@ -665,6 +665,9 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if err != nil {
 		return nil, err
 	}
+	if len(resp) != opts.Count {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
+	}
 
 	return resp, nil
 }
@@ -673,31 +676,6 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)
-	}
-	dst := e.(*endpoint)
-
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
-	}
-
-	dstServiceName := dst.owner.Name()
-	// If host header is set, override the destination with it
-	if opts.Headers.Get("Host") != "" {
-		dstServiceName = opts.Headers.Get("Host")
-	}
-
-	if len(r) != opts.Count {
-		t.Fatalf("unexpected number of responses: %d", len(r))
-	}
-	if !r[0].IsOK() {
-		t.Fatalf("unexpected response status code: %s", r[0].Code)
-	}
-	if r[0].Host != dstServiceName {
-		t.Fatalf("unexpected host: %s", r[0].Host)
-	}
-	if r[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
-		t.Fatalf("unexpected port: %s", r[0].Port)
 	}
 
 	return r
