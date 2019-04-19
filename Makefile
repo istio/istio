@@ -249,6 +249,13 @@ run-integration:
 	#(cd ${GOPATH}/src/istio.io/istio; \
 	#	$(GO) test -v ${T} ./tests/integration/... ${INT_FLAGS})
 
+	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube \
+		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace istio-control \
+		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
+
+run-integration-presubmit:
+	export TMPDIR=${GOPATH}/out/tmp
+	mkdir -p ${GOPATH}/out/tmp
 	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube.presubmit \
 		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace istio-control \
 		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
@@ -337,7 +344,8 @@ ${GOPATH}/bin/repo:
 	chmod +x $@
 
 ${GOPATH}/bin/helm:
-	curl -Lo - https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz | (cd ${GOPATH}/out; tar -zxvf -)
+	mkdir -p ${TMPDIR}
+    curl -Lo - https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz | (cd ${GOPATH}/out; tar -zxvf -)
 	chmod +x ${GOPATH}/out/linux-amd64/helm
 	mv ${GOPATH}/out/linux-amd64/helm ${GOPATH}/bin/helm
 
@@ -350,6 +358,7 @@ ${GOPATH}/bin/istioctl:
 
 ${GOPATH}/bin/kind:
 	echo ${GOPATH}
+	mkdir -p ${TMPDIR}
 	go get -u sigs.k8s.io/kind
 
 ${GOPATH}/bin/dep:
