@@ -135,7 +135,7 @@ func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
 // SecureCopy copies files to vm via scp
 func (vm *GCPRawVM) SecureCopy(files ...string) (string, error) {
 	filesStr := strings.Join(files, " ")
-	scp := fmt.Sprintf("gcloud compute scp -q --project %s --zone %s %s Prow@%s",
+	scp := fmt.Sprintf("gcloud compute scp -q --project %s --zone %s %s %s",
 		vm.ProjectID, vm.Zone, filesStr, vm.Name)
 	return u.Shell(scp)
 }
