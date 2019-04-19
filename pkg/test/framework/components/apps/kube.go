@@ -322,9 +322,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 
-	// Wait for the pods to transition to running.
-	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
-		return nil, err
+	c.namespace = cfg.Namespace
+	if c.namespace == nil {
+		if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
+			return nil, err
+		}
 	}
 
 	params := cfg.AppParams
@@ -663,18 +665,8 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if err != nil {
 		return nil, err
 	}
-
-	if len(resp) != 1 {
+	if len(resp) != opts.Count {
 		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
@@ -685,6 +677,7 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 

@@ -77,7 +77,7 @@ type Config struct {
 	AppParams []AppParam
 }
 
-func (c Config) fillInDefaults(ctx resource.Context) (err error) {
+func (c *Config) fillInDefaults(ctx resource.Context) (err error) {
 	if c.Galley == nil {
 		return errors.New("galley must not be nil")
 	}
