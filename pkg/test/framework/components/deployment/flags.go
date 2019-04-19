@@ -30,6 +30,12 @@ var (
 	}
 )
 
+// InitializeSettingsForUnitTest is merely for unit test, should never be called for actual e2e test.
+func InitializeSettingsForUnitTest() {
+	settingsFromCommandLine.Hub = "fake-hub"
+	settingsFromCommandLine.Tag = "fake-tag"
+}
+
 // SettingsFromCommandLine returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
 func SettingsFromCommandLine() (*Settings, error) {
 	if !flag.Parsed() {

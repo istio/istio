@@ -55,14 +55,20 @@ kind: Service
 metadata:
   name: {{ .service }}
   labels:
-    app: {{ .service }}
+		app: {{ .service }}
+{{- if .serviceAnntations }}
+    annotations:
+{{- range $name, $value := .serviceAnnotations }}
+    - $name: $value
+{{- end }}
+{{- end }}
 spec:
 {{- if eq .headless "true" }}
   clusterIP: None
 {{- end }}
   ports:
   - port: 80
-    targetPort: {{ .port1 }}
+    targetPort: {{ .Port1 }}
     name: http
   - port: 8080
     targetPort: {{ .port2 }}
@@ -106,9 +112,11 @@ spec:
 {{- if ne .locality "" }}
         istio-locality: {{ .locality }}
 {{- end }}
-{{- if eq .injectProxy "false" }}
-      annotations:
-        sidecar.istio.io/inject: "false"
+{{- if .podAnnotations }}
+		annotations:
+{{- range $name, $value := .podAnnotations }}
+    - $name: $value
+{{- end }}
 {{- end }}
     spec:
 {{- if eq .serviceAccount "true" }}
@@ -120,7 +128,7 @@ spec:
         imagePullPolicy: {{ .ImagePullPolicy }}
         args:
           - --port
-          - "{{ .port1 }}"
+          - "{{ .Port1 }}"
           - --port
           - "{{ .port2 }}"
           - --port
@@ -136,7 +144,7 @@ spec:
           - --version
           - "{{ .version }}"
         ports:
-        - containerPort: {{ .port1 }}
+        - containerPort: {{ .Port1 }}
         - containerPort: {{ .port2 }}
         - containerPort: {{ .port3 }}
         - containerPort: {{ .port4 }}
@@ -199,7 +207,7 @@ var (
 			deployment:     "t",
 			service:        "t",
 			version:        "unversioned",
-			port1:          8080,
+			Port1:          8080,
 			port2:          80,
 			port3:          9090,
 			port4:          90,
@@ -214,7 +222,7 @@ var (
 			deployment:     "a",
 			service:        "a",
 			version:        "v1",
-			port1:          8080,
+			Port1:          8080,
 			port2:          80,
 			port3:          9090,
 			port4:          90,
@@ -229,7 +237,7 @@ var (
 			deployment:     "b",
 			service:        "b",
 			version:        "unversioned",
-			port1:          80,
+			Port1:          80,
 			port2:          8080,
 			port3:          90,
 			port4:          9090,
@@ -244,7 +252,7 @@ var (
 			deployment:     "c-v1",
 			service:        "c",
 			version:        "v1",
-			port1:          80,
+			Port1:          80,
 			port2:          8080,
 			port3:          90,
 			port4:          9090,
@@ -259,7 +267,7 @@ var (
 			deployment:     "c-v2",
 			service:        "c",
 			version:        "v2",
-			port1:          80,
+			Port1:          80,
 			port2:          8080,
 			port3:          90,
 			port4:          9090,
@@ -274,7 +282,7 @@ var (
 			deployment:     "d",
 			service:        "d",
 			version:        "per-svc-auth",
-			port1:          80,
+			Port1:          80,
 			port2:          8080,
 			port3:          90,
 			port4:          9090,
@@ -289,7 +297,7 @@ var (
 			deployment:     "headless",
 			service:        "headless",
 			version:        "unversioned",
-			port1:          80,
+			Port1:          80,
 			port2:          8080,
 			port3:          90,
 			port4:          9090,
@@ -388,7 +396,7 @@ func newDeploymentByAppParm(param AppParam) deploymentFactory {
 		podAnnotations:     param.PodAnnotations,
 		serviceAnnotations: param.ServiceAnnotations,
 		version:            "v1",
-		port1:              8080,
+		Port1:              8080,
 		port2:              80,
 		port3:              9090,
 		port4:              90,
@@ -689,10 +697,12 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 }
 
 type deploymentFactory struct {
+	Hub                string
+	tag                string
 	deployment         string
 	service            string
 	version            string
-	port1              int
+	Port1              int
 	port2              int
 	port3              int
 	port4              int
@@ -711,26 +721,38 @@ func (d *deploymentFactory) renderTemplate() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	result, err := tmpl.Evaluate(template, map[string]string{
-		"Hub":             s.Hub,
-		"Tag":             s.Tag,
-		"ImagePullPolicy": s.PullPolicy,
-		"deployment":      d.deployment,
-		"service":         d.service,
-		"app":             d.service,
-		"version":         d.version,
-		"port1":           strconv.Itoa(d.port1),
-		"port2":           strconv.Itoa(d.port2),
-		"port3":           strconv.Itoa(d.port3),
-		"port4":           strconv.Itoa(d.port4),
-		"port5":           strconv.Itoa(d.port5),
-		"port6":           strconv.Itoa(d.port6),
-		"healthPort":      "true",
-		"injectProxy":     strconv.FormatBool(d.injectProxy),
-		"headless":        strconv.FormatBool(d.headless),
-		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
-		"locality":        d.locality,
-	})
+	// TODO(incfly): retire injectProxy field and use annotation.
+	if !d.injectProxy {
+		if d.podAnnotations == nil {
+			d.podAnnotations = make(map[string]string)
+		}
+		d.podAnnotations["sidecar.istio.io/inject"] = "false"
+	}
+	d.Hub = s.Hub
+	d.tag = s.Tag
+	result, err := tmpl.Evaluate(template, d)
+	// result, err := tmpl.Evaluate(template, map[string]string{
+	// 	"Hub":                s.Hub,
+	// 	"Tag":                s.Tag,
+	// 	"ImagePullPolicy":    s.PullPolicy,
+	// 	"deployment":         d.deployment,
+	// 	"service":            d.service,
+	// 	"app":                d.service,
+	// 	"version":            d.version,
+	// 	"Port1":              strconv.Itoa(d.Port1),
+	// 	"port2":              strconv.Itoa(d.port2),
+	// 	"port3":              strconv.Itoa(d.port3),
+	// 	"port4":              strconv.Itoa(d.port4),
+	// 	"port5":              strconv.Itoa(d.port5),
+	// 	"port6":              strconv.Itoa(d.port6),
+	// 	"healthPort":         "true",
+	// 	"injectProxy":        strconv.FormatBool(d.injectProxy),
+	// 	"headless":           strconv.FormatBool(d.headless),
+	// 	"serviceAccount":     strconv.FormatBool(d.serviceAccount),
+	// 	"locality":           d.locality,
+	// 	"serviceAnnotations": strconv.Format d.serviceAnnotations,
+	// 	"podAnnotations":     d.podAnnotations,
+	// })
 	if err != nil {
 		return "", err
 	}
