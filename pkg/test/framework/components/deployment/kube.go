@@ -60,7 +60,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			scopes.Framework.Errorf("Error deploying %q: %v", cfg.Name, err)
 			scopes.CI.Errorf("=== FAILED: Deployment %q ===", cfg.Name)
 		} else {
-			scopes.CI.Errorf("=== SUCCEEDED: Deployment %q ===", cfg.Name)
+			scopes.CI.Infof("=== SUCCEEDED: Deployment %q ===", cfg.Name)
 		}
 	}()
 
