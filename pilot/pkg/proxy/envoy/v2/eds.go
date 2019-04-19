@@ -329,10 +329,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// hostname --> service account
 	svc2account := map[string]map[string]bool{}
 
-	for _, registry := range registries {
-		// Each registry acts as a shard - we don't want to combine them because some
-		// may individually update their endpoints incrementally
-		for _, svc := range push.Services(nil) {
+	// Each registry acts as a shard - we don't want to combine them because some
+	// may individually update their endpoints incrementally
+	for _, svc := range push.Services(nil) {
+		for _, registry := range registries {
+			// in case this svc does not belong to the registry
+			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
+				continue
+			}
+
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
