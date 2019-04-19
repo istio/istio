@@ -32,6 +32,9 @@ var (
 
 // InitializeSettingsForUnitTest is merely for unit test, should never be called for actual e2e test.
 func InitializeSettingsForUnitTest() {
+	if flag.Parsed() && (settingsFromCommandLine.Hub != "" || settingsFromCommandLine.Tag != "") {
+		return
+	}
 	settingsFromCommandLine.Hub = "fake-hub"
 	settingsFromCommandLine.Tag = "fake-tag"
 }

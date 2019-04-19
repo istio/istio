@@ -30,6 +30,7 @@ import (
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/deployment"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -42,7 +43,7 @@ const (
 	appLabel = "app"
 
 	template = `
-{{- if eq .ServiceAccount "true" }}
+{{- if .ServiceAccount }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -54,15 +55,15 @@ kind: Service
 metadata:
   name: {{ .Service }}
   labels:
-		app: {{ .Service }}
-{{- if .serviceAnntations }}
+    app: {{ .Service }}
+{{- if .ServiceAnnotations }}
     annotations:
 {{- range $name, $value := .ServiceAnnotations }}
-    - $name: $value
+    - {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- end }}
 spec:
-{{- if eq .Headless "true" }}
+{{- if .Headless }}
   clusterIP: None
 {{- end }}
   ports:
@@ -72,7 +73,7 @@ spec:
   - port: 8080
     targetPort: {{ .Port2 }}
     name: http-two
-{{- if eq .Headless "true" }}
+{{- if .Headless }}
   - port: 10090
     targetPort: {{ .Port3 }}
     name: tcp
@@ -91,7 +92,7 @@ spec:
     targetPort: {{ .Port6 }}
     name: grpc
   selector:
-    App: {{ .Service }}
+    app: {{ .Service }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -101,29 +102,29 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      App: {{ .Service }}
-      Version: {{ .Version }}
+      app: {{ .Service }}
+      version: {{ .Version }}
   template:
     metadata:
       labels:
-        App: {{ .Service }}
-        Version: {{ .Version }}
+        app: {{ .Service }}
+        version: {{ .Version }}
 {{- if ne .Locality "" }}
         istio-Locality: {{ .Locality }}
 {{- end }}
 {{- if .PodAnnotations }}
-		annotations:
+    annotations:
 {{- range $name, $value := .PodAnnotations }}
-    - $name: $value
+    - {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- end }}
     spec:
-{{- if eq .ServiceAccount "true" }}
+{{- if .ServiceAccount }}
       serviceAccountName: {{ .Service }}
 {{- end }}
       containers:
-      - name: App
-        image: {{ .Hub }}/App:{{ .Tag }}
+      - name: app
+        image: {{ .Hub }}/app:{{ .Tag }}
         imagePullPolicy: {{ .ImagePullPolicy }}
         args:
           - --port
@@ -140,7 +141,7 @@ spec:
           - "{{ .Port6 }}"
           - --port
           - "3333"
-          - --Version
+          - --version
           - "{{ .Version }}"
         ports:
         - containerPort: {{ .Port1 }}
@@ -322,7 +323,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
-		deployments: make([]*Deployment.Instance, 0),
+		deployments: make([]*deployment.Instance, 0),
 		env:         env,
 	}
 	c.id = ctx.TrackResource(c)
@@ -696,8 +697,9 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 }
 
 type deploymentFactory struct {
-	hub                string
-	tag                string
+	Hub                string
+	Tag                string
+	ImagePullPolicy    string
 	Deployment         string
 	Service            string
 	Version            string
@@ -727,42 +729,21 @@ func (d *deploymentFactory) renderTemplate() (string, error) {
 		}
 		d.PodAnnotations["sidecar.istio.io/inject"] = "false"
 	}
-	d.hub = s.Hub
-	d.tag = s.Tag
+	d.Hub = s.Hub
+	d.Tag = s.Tag
+	d.ImagePullPolicy = s.PullPolicy
 	result, err := tmpl.Evaluate(template, d)
-	// result, err := tmpl.Evaluate(template, map[string]string{
-	// 	"Hub":                s.Hub,
-	// 	"Tag":                s.Tag,
-	// 	"ImagePullPolicy":    s.PullPolicy,
-	// 	"Deployment":         d.Deployment,
-	// 	"Service":            d.Service,
-	// 	"App":                d.Service,
-	// 	"Version":            d.Version,
-	// 	"Port1":              strconv.Itoa(d.Port1),
-	// 	"Port2":              strconv.Itoa(d.Port2),
-	// 	"Port3":              strconv.Itoa(d.Port3),
-	// 	"Port4":              strconv.Itoa(d.Port4),
-	// 	"Port5":              strconv.Itoa(d.Port5),
-	// 	"Port6":              strconv.Itoa(d.Port6),
-	// 	"HealthPort":         "true",
-	// 	"InjectProxy":        strconv.FormatBool(d.InjectProxy),
-	// 	"Headless":           strconv.FormatBool(d.Headless),
-	// 	"ServiceAccount":     strconv.FormatBool(d.ServiceAccount),
-	// 	"Locality":           d.Locality,
-	// 	"ServiceAnnotations": strconv.Format d.ServiceAnnotations,
-	// 	"PodAnnotations":     d.PodAnnotations,
-	// })
 	if err != nil {
 		return "", err
 	}
 	return result, nil
 }
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*Deployment.Instance, error) {
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
 	result, err := d.renderTemplate()
 	if err != nil {
 		return nil, err
 	}
-	out := Deployment.NewYamlContentDeployment(namespace.Name(), result)
+	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
 	if err = out.Deploy(e.Accessor, false); err != nil {
 		return nil, err
 	}
