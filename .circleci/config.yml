@@ -107,7 +107,7 @@ jobs:
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
           command: |
-            make git.deb
+            make git.dep
             export ISTIO_CONTROL=istio-control
             bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
