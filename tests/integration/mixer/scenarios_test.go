@@ -63,19 +63,28 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	_ = mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
 
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Cfg: bookinfo.BookInfo})
+	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	if err != nil {
+		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
+	}
+	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
 
-	g.ApplyConfigOrFail(t, d.Namespace(),
-		bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		bookinfo.NetworkingBookinfoGateway.LoadOrFailGatewayFileWithNamespace(t, bookinfoNs.Name()))
+	g.ApplyConfigOrFail(
+		t,
+		d.Namespace(),
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFailWithNamespace(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFailWithNamespace(t, bookinfoNs.Name()),
 	)
 
 	prom := prometheus.NewOrFail(t, ctx)
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	// Warm up
-	err := visitProductPage(ing, 30*time.Second, 200, t)
+	err = visitProductPage(ing, 30*time.Second, 200, t)
 	if err != nil {
 		t.Fatalf("unable to retrieve 200 from product page: %v", err)
 	}
