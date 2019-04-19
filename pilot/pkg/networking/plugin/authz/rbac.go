@@ -40,8 +40,8 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -273,7 +273,7 @@ func createStringMatcher(v string, forceRegexPattern, prependSpiffe bool) *metad
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
 func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.MetadataMatcher {
-	filterName := authn.AuthnFilterName
+	filterName := authn_v1alpha1.AuthnFilterName
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
@@ -287,7 +287,7 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		return generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, claim}, v)
+		return generateMetadataListMatcher(authn_v1alpha1.AuthnFilterName, []string{attrRequestClaims, claim}, v)
 	}
 
 	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* prependSpiffe */)

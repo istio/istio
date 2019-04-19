@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
@@ -235,7 +235,7 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 													MatchPattern: &metadata.StringMatcher_Regex{
 														Regex: ".*",
 													}},
-												authn.AuthnFilterName),
+												authn_v1alpha1.AuthnFilterName),
 										},
 									},
 								},
@@ -259,7 +259,7 @@ func TestConvertRbacRulesToFilterConfigV2(t *testing.T) {
 											Identifier: &policy.Principal_Metadata{
 												Metadata: generateMetadataStringMatcher(
 													attrSrcPrincipal, &metadata.StringMatcher{
-														MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/testing/.*`}}, authn.AuthnFilterName),
+														MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/testing/.*`}}, authn_v1alpha1.AuthnFilterName),
 											},
 										},
 									},
