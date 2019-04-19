@@ -21,6 +21,9 @@ function print_help() {
     exit 1
 }
 
+# Customizable
+INGRESS_NS=${INGRESS_NS:-istio-ingress}
+
 export WAIT_TIMEOUT=${WAIT_TIMEOUT:-5m}
 SKIP_CLEANUP=${SKIP_CLEANUP:-0}
 SKIP_SETUP=${SKIP_SETUP:-0}
@@ -61,12 +64,17 @@ BOOKINFO_DEPLOYMENTS="details-v1 productpage-v1 ratings-v1 reviews-v1 reviews-v2
 if [ "$SKIP_SETUP" -ne 1 ]; then
     kubectl create ns bookinfo || true
     # We use the first namespace with sidecar injection enabled to determine the control plane's namespace.
-    ISTIO_CONTROL=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
+    # Fails in KIND.
+    if [ -z "$ISTIO_CONTROL" ]; then
+        ISTIO_CONTROL=$(kubectl get namespaces -o=jsonpath='{$.items[:1].metadata.labels.istio-env}' -l istio-env)
+    fi
     ISTIO_CONTROL=${ISTIO_CONTROL:-istio-control}
 
-    kubectl -n bookinfo delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
-    kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+    if [ -z "$SKIP_DELETE" ]; then
+        kubectl -n bookinfo delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
+        kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+        kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
+    fi
 
     kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
 
@@ -83,12 +91,12 @@ set +e
 n=1
 while true
 do
-    export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    export INGRESS_HOST=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     if [ -z $INGRESS_HOST ]; then
-        export INGRESS_HOST=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
+        export INGRESS_HOST=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
     fi
-    export INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-    export SECURE_INGRESS_PORT=$(kubectl -n istio-ingress get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
+    export INGRESS_PORT=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+    export SECURE_INGRESS_PORT=$(kubectl -n ${INGRESS_NS} get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].port}')
     export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
     RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://${GATEWAY_URL}/productpage)
     if [ $RESULT -eq "200"  ]; then

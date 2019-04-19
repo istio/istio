@@ -30,14 +30,14 @@ initWorkingDir: &initWorkingDir
 jobs:
   # TODO: add encrypted creds for real clusters, push to real clusters
   build:
-    working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
+    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
       - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
         environment:
-          GOPATH: /workspace/go
-          TMPDIR: /workspace/go/tmp
+          GOPATH: /go
+          TMPDIR: /go/tmp
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -45,7 +45,7 @@ jobs:
       - run:
           command: make run-build
       - store_artifacts:
-          path: /workspace/go/out/
+          path: /go/out/
 
   # Pipeline running KIND and installer in the remote-docker environment.
   install-docker:
@@ -107,9 +107,8 @@ jobs:
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
           command: |
-            mkdir -p $GOPATH/src/istio.io/
-            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
-            git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
+            make git.deb
+            export ISTIO_CONTROL=istio-control
             bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
@@ -148,6 +147,7 @@ jobs:
       - run:
           command: |
             export PATH=/istio/bin:$PATH
+            export ISTIO_CONTROL=istio-control
             mkdir -p $GOPATH/src/istio.io/
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
             WAIT_TIMEOUT=5m bin/test.sh $GOPATH/src/istio.io/istio     
