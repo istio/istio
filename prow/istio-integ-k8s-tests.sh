@@ -52,12 +52,12 @@ function cleanup() {
 
 trap cleanup EXIT
 
-INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+MASON_INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
 FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
 setup_and_export_git_sha
 
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${MASON_INFO_PATH}" "${FILE_LOG}"
 
 
 if [ "${CI:-}" == 'bootstrap' ]; then

@@ -96,7 +96,7 @@ function setup_e2e_cluster() {
 
     setup_and_export_git_sha
 
-    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${MASON_INFO_PATH}" "${FILE_LOG}"
   else
     export GIT_SHA="${GIT_SHA:-$TAG}"
   fi
