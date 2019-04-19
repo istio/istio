@@ -49,7 +49,7 @@ import (
 )
 
 var (
-	role             = &model.Proxy{}
+	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16

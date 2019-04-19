@@ -245,7 +245,7 @@ func mySetup(ctx framework.SuiteContext) error {
 ### Helm Values Overrides
 
 If your tests require special Helm values flags, you can specify your Helm values via additional
-for Kubernetes environments. See [mtls_healthcheck_test.go](tests/integration/security/healthcheck/mtls_healthcheck_test.go) for example.
+for Kubernetes environments. See [mtls_healthcheck_test.go](security/healthcheck/mtls_healthcheck_test.go) for example.
 
 
 ### Command-Line Flags

@@ -93,8 +93,8 @@ func NewTTLWithCallback(defaultExpiration time.Duration, evictionInterval time.D
 		callback:          callback,
 	}
 
+	c.baseTimeNanos = time.Now().UnixNano()
 	if evictionInterval > 0 {
-		c.baseTimeNanos = time.Now().UTC().UnixNano()
 		c.stopEvicter = make(chan bool, 1)
 		c.evicterTerminated.Add(1)
 		go c.evicter(evictionInterval)
@@ -134,7 +134,7 @@ func (c *ttlCache) evictExpired(t time.Time) {
 	// sampled in the Set call as calling time.Now() is relatively expensive.
 	// Doing it here provides enough precision for our needs and tends to have
 	// much lower call frequency.
-	n := t.UTC().UnixNano()
+	n := t.UnixNano()
 	atomic.StoreInt64(&c.baseTimeNanos, n)
 
 	// This loop is inherently racy. As we iterate through the

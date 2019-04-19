@@ -305,6 +305,39 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
+func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ttl := time.Nanosecond * 100
+	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+						ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+							HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+								HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+									Name: "hash-cookie",
+									Ttl:  &ttl,
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(len(clusters)).To(Equal(3))
+
+	cluster := clusters[0]
+	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
+	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
+	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
+	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
+}
+
 func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig) *model.Environment {
 	configStore := &fakes.IstioConfigStore{}
 

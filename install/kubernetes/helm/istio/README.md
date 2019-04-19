@@ -22,7 +22,6 @@ This chart can install multiple Istio components as subcharts:
 - security(citadel)
 - grafana
 - prometheus
-- servicegraph
 - tracing(jaeger)
 - kiali
 
