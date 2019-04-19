@@ -51,6 +51,7 @@ export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}
 OUT ?= ${GOPATH}/out
 
+GO ?= go
 
 TEST_FLAGS ?=  HUB=${HUB} TAG=${TAG}
 
@@ -160,7 +161,10 @@ endif
 	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
 	kubectl apply -f crds.yaml
 	kubectl wait --for=condition=Established -f crds.yaml
+	cp crds.yaml /tmp/crds.yaml
 
+# Will use a temp file to avoid installing crds each time.
+# if the crds.yaml changes, the apply will happen again.
 install-crds: /tmp/crds.yaml
 
 # Individual step to install or update base istio.
@@ -168,7 +172,7 @@ install-base: install-crds
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
 	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
-	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS} --set global.mtls=false
+	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS}
 	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 	# Some tests assumes ingress is in same namespace with pilot.
@@ -233,12 +237,21 @@ run-mixer:
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_mixer_run ${TEST_FLAGS} \
 		E2E_ARGS="$E2E_ARGS --namespace=mixertest")
 
+INT_FLAGS ?= -istio.test.hub ${HUB} -istio.test.tag ${TAG} -istio.test.pullpolicy IfNotPresent \
+ -p 1 -istio.test.env kube --istio.test.kube.config ${KUBECONFIG} --istio.test.ci --istio.test.nocleanup \
+ --istio.test.kube.deploy=false -istio.test.kube.systemNamespace istio-control -istio.test.kube.minikube
+
 # Integration tests create and delete istio-system
 # Need to be fixed to use new installer
 run-integration:
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp
-	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube.presubmit T="-v")
+	#(cd ${GOPATH}/src/istio.io/istio; \
+	#	$(GO) test -v ${T} ./tests/integration/... ${INT_FLAGS})
+
+	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube.presubmit \
+		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace istio-control \
+		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
 
 run-stability:
 	 ISTIO_ENV=istio-control bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
