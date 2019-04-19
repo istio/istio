@@ -23,6 +23,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -70,10 +71,16 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		SecureGrpcAddr: "",
 	}
 
+	tmpMesh := model.DefaultMeshConfig()
+	mesh := &tmpMesh
+	if config.MeshConfig != nil {
+		mesh = config.MeshConfig
+	}
+
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        env.SystemNamespace,
 		DiscoveryOptions: options,
-		MeshConfig:       instance.environment.Mesh,
+		MeshConfig:       mesh,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
