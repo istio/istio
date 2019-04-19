@@ -1,5 +1,7 @@
 #!/bin/bash
 set -x
+
+# shellcheck disable=SC1091
 source gcb_lib.sh
 ROOT=$( cd $(git rev-parse --show-cdup); pwd)
 artifacts=(~/output/local)
