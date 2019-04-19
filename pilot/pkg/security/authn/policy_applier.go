@@ -21,8 +21,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
-// Applier TODO
-type Applier interface {
+// PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce
+// authentication policy. Each version of authentication policy will implement this interface.
+type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) to enforce the underlying authentication policy.
 	InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain
 

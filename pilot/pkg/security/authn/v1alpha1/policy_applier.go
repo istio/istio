@@ -192,12 +192,12 @@ func convertPolicyToAuthNFilterConfig(policy *authn_v1alpha1.Policy, proxyType m
 	return filterConfig
 }
 
-// Implemenation of authn.Applier
-type v1alpha1Applier struct {
+// Implemenation of authn.PolicyApplier
+type v1alpha1PolicyApplier struct {
 	policy *authn_v1alpha1.Policy
 }
 
-func (a v1alpha1Applier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
 	filterConfigProto := convertPolicyToJwtConfig(a.policy)
 	if filterConfigProto == nil {
@@ -214,7 +214,7 @@ func (a v1alpha1Applier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.
 	return out
 }
 
-func (a v1alpha1Applier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
@@ -230,7 +230,7 @@ func (a v1alpha1Applier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingTo
 	return out
 }
 
-func (a v1alpha1Applier) InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, sdsUseTrustworthyJwt, sdsUseNormalJwt bool, meta map[string]string) []plugin.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
@@ -319,9 +319,9 @@ func (a v1alpha1Applier) InboundFilterChain(sdsUdsPath string, sdsUseTrustworthy
 	return nil
 }
 
-// NewApplier returns new applier for v1alpha1 authentication policy.
-func NewApplier(policy *authn_v1alpha1.Policy) authn.Applier {
-	return &v1alpha1Applier{
+// NewPolicyApplier returns new applier for v1alpha1 authentication policy.
+func NewPolicyApplier(policy *authn_v1alpha1.Policy) authn.PolicyApplier {
+	return &v1alpha1PolicyApplier{
 		policy: policy,
 	}
 }

@@ -295,7 +295,7 @@ func TestBuildJwtFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := NewApplier(c.in).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
+		if got := NewPolicyApplier(c.in).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
@@ -476,7 +476,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := NewApplier(c.in).AuthNFilter(model.SidecarProxy, true)
+		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("buildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -711,7 +711,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := NewApplier(c.in).InboundFilterChain(
+		got := NewPolicyApplier(c.in).InboundFilterChain(
 			c.sdsUdsPath,
 			c.useTrustworthyJwt,
 			c.useNormalJwt,
