@@ -460,12 +460,12 @@ GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-application-echo-server ${ISTIO_OUT}/pkg-test-application-echo-client
-
+.PHONY: $(TEST_APP_BINS)
 $(TEST_APP_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 MIXER_TEST_BINS:=${ISTIO_OUT}/mixer-test-policybackend
-
+.PHONY: $(MIXER_TEST_BINS)
 $(MIXER_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
