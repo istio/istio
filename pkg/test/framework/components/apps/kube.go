@@ -357,21 +357,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Only deploys specified apps.
 	dfs := make([]deploymentFactory, len(params))
 	for i, param := range params {
-		dfs[i] = deploymentFactory{
-			deployment:     param.Name,
-			service:        param.Name,
-			locality:       param.Locality,
-			version:        "v1",
-			port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: false,
-		}
+		dfs[i] = newDeploymentByAppParm(param)
 		d, err := dfs[i].newDeployment(env, c.namespace)
 		if err != nil {
 			return nil, err
@@ -391,6 +377,27 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	return c, nil
+}
+
+// newDeploymentByAppParm returns a app based on AppParam.
+func newDeploymentByAppParm(param AppParam) deploymentFactory {
+	return deploymentFactory{
+		deployment:         param.Name,
+		service:            param.Name,
+		locality:           param.Locality,
+		podAnnotations:     param.PodAnnotations,
+		serviceAnnotations: param.ServiceAnnotations,
+		version:            "v1",
+		port1:              8080,
+		port2:              80,
+		port3:              9090,
+		port4:              90,
+		port5:              7070,
+		port6:              70,
+		injectProxy:        true,
+		headless:           false,
+		serviceAccount:     false,
+	}
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -682,19 +689,21 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 }
 
 type deploymentFactory struct {
-	deployment     string
-	service        string
-	version        string
-	port1          int
-	port2          int
-	port3          int
-	port4          int
-	port5          int
-	port6          int
-	injectProxy    bool
-	headless       bool
-	serviceAccount bool
-	locality       string
+	deployment         string
+	service            string
+	version            string
+	port1              int
+	port2              int
+	port3              int
+	port4              int
+	port5              int
+	port6              int
+	injectProxy        bool
+	headless           bool
+	serviceAccount     bool
+	locality           string
+	podAnnotations     map[string]string
+	serviceAnnotations map[string]string
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
@@ -726,7 +735,6 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 	if err != nil {
 		return nil, err
 	}
-
 	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
 	if err = out.Deploy(e.Accessor, false); err != nil {
 		return nil, err

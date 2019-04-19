@@ -65,6 +65,13 @@ type App interface {
 type AppParam struct {
 	Name     string
 	Locality string
+	// ServiceAnnotations specifies the annotations for the deployment.
+	// This allows to enable or disable different Istio features as per app based.
+	// For example, secure naming for the mesh expansion uses
+	// "alpha.istio.io/kubernetes-serviceaccounts".
+	ServiceAnnotations map[string]string
+	// DeploymentAnnotations specifies annotations on a pod.
+	PodAnnotations map[string]string
 }
 
 // Config for Apps
@@ -134,7 +141,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	return
 }
 
-// New returns a new instance of Apps or fails test.
+// NewOrFail returns a new instance of Apps or fails test.
 func NewOrFail(t *testing.T, ctx resource.Context, cfg Config) Instance {
 	t.Helper()
 
