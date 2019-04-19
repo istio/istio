@@ -27,6 +27,7 @@ set -x
 
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
+# shellcheck disable=SC1091
 source "${SCRIPTPATH}/gcb_lib.sh"
 
 function checkout_code() {
