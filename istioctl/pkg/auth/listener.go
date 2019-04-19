@@ -167,7 +167,7 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 
 func (l *ParsedListener) print(w io.Writer, printAll bool) {
 	for i, fc := range l.filterChains {
-		listenerName := fmt.Sprintf("%s", l.name)
+		listenerName := l.name
 		if len(l.filterChains) > 1 {
 			listenerName = fmt.Sprintf("%s[%d]", listenerName, i)
 		}
