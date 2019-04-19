@@ -397,6 +397,11 @@ func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB)
 		t.Fatal(err)
 	}
 
+	// Normalize the count.
+	if opts.Count <= 0 {
+		opts.Count = 1
+	}
+
 	if len(r) != opts.Count {
 		t.Fatalf("unexpected number of responses: %d", len(r))
 	}
@@ -406,7 +411,7 @@ func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB)
 	if r[0].Host != e.Owner().(*nativeApp).fqdn() {
 		t.Fatalf("unexpected host: %s, expected %v", r[0].Host, e.Owner().(*nativeApp).fqdn())
 	}
-	if r[0].Port != strconv.Itoa(e.(*endpoint).networkEndpoint.ServicePort.Port) {
+	if r[0].Port != strconv.Itoa(e.(*nativeEndpoint).port.ApplicationPort) {
 		t.Fatalf("unexpected port: %s", r[0].Port)
 	}
 

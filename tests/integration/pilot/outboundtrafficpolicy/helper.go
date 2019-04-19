@@ -76,6 +76,9 @@ func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceN
 	}
 }
 
+// TODO support native environment. Blocked by #13177 because the listeners for native use static
+// routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
+
 // Expected is a map of protocol -> expected response codes
 func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 	framework.

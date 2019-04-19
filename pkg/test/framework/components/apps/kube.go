@@ -676,6 +676,11 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	}
 	dst := e.(*endpoint)
 
+	// Normalize the count.
+	if opts.Count <= 0 {
+		opts.Count = 1
+	}
+
 	dstServiceName := dst.owner.Name()
 	// If host header is set, override the destination with it
 	if opts.Headers.Get("Host") != "" {
