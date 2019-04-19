@@ -162,7 +162,7 @@ func testCacheConcurrent(c Cache, t *testing.T) {
 
 }
 
-// WARNING: This test expects the cache to have been created with a long expiration time.
+// WARNING: This test expects the cache to have been created with no automatic eviction.
 func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testing.T) {
 	now := time.Now()
 
@@ -229,6 +229,7 @@ func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
 		t.Error("Got no entry, expecting it to be there")
 	}
 
+	time.Sleep(10 * time.Millisecond)
 	c.EvictExpired()
 
 	_, ok = c.Get("A")
