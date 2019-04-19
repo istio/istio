@@ -50,7 +50,7 @@ const (
 // LoadOrFailGatewayFileWithNamespace loads a Book Info Gateway configuration file from the system, changes it to be fit
 // for the namespace provided and returns its contents.
 func (l ConfigFile) LoadOrFailGatewayFileWithNamespace(t testing.TB, namespace string) string {
-	content := l.LoadOrFailWithNamespace(t,namespace)
+	content := l.LoadOrFailWithNamespace(t, namespace)
 	if namespace != "" {
 		content = replaceGatewayAndHostAddressWithNamespace(content, namespace)
 	}
