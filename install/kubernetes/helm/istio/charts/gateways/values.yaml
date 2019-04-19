@@ -44,6 +44,12 @@ istio-ingressgateway:
   #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
   ports:
     ## You can add custom gateway ports
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+  - port: 15020
+    targetPort: 15020
+    name: status-port
   - port: 80
     targetPort: 80
     name: http2
@@ -73,9 +79,6 @@ istio-ingressgateway:
   - port: 15443
     targetPort: 15443
     name: tls
-  - port: 15020
-    targetPort: 15020
-    name: status-port
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.

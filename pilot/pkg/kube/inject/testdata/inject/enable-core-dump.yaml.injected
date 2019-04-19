@@ -142,6 +142,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
           runAsUser: 0
       - args:
         - -c
@@ -154,6 +155,8 @@ spec:
         resources: {}
         securityContext:
           privileged: true
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
