@@ -132,6 +132,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
           runAsUser: 0
       restartPolicy: Never
       volumes:

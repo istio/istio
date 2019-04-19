@@ -38,6 +38,7 @@ initContainers:
       memory: 50Mi
   securityContext:
     runAsUser: 0
+    runAsNonRoot: false
     capabilities:
       add:
       - NET_ADMIN
@@ -62,6 +63,8 @@ initContainers:
   imagePullPolicy: IfNotPresent
   resources: {}
   securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
     privileged: true
 {{ end }}
 {{- end }}

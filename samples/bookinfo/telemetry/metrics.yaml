@@ -1,5 +1,5 @@
 # Configuration for metric instances
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: instance
 metadata:
   name: doublerequestcount
@@ -16,10 +16,10 @@ spec:
     monitored_resource_type: '"UNSPECIFIED"'
 ---
 # Configuration for a Prometheus handler
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
-  name: prometheusdouble
+  name: doublehandler
   namespace: istio-system
 spec:
   compiledAdapter: prometheus
@@ -35,13 +35,12 @@ spec:
       - message
 ---
 # Rule to send metric instances to a Prometheus handler
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
-  name: doublepromtwo
+  name: doubleprom
   namespace: istio-system
 spec:
   actions:
-  - handler: prometheusdouble
-    instances:
-    - doublerequestcount
+  - handler: doublehandler
+    instances: [ doublerequestcount ]

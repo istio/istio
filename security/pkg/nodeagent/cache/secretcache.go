@@ -104,6 +104,9 @@ type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
 
+	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
+	ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool
+
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
 	SecretExist(connectionID, resourceName, token, version string) bool
@@ -164,6 +167,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, 
 		configOptions:  options,
 	}
 
+	fetcher.AddCache = ret.UpdateK8sSecret
 	fetcher.DeleteCache = ret.DeleteK8sSecret
 	fetcher.UpdateCache = ret.UpdateK8sSecret
 
@@ -247,6 +251,50 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	return e.ResourceName == resourceName && e.Token == token && e.Version == version
 }
 
+// IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
+// and needs to wait for ingress gateway secret to be ready.
+func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
+	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
+	if sc.fetcher.UseCaClient {
+		return false
+	}
+
+	key := ConnKey{
+		ConnectionID: connectionID,
+		ResourceName: resourceName,
+	}
+	// Add an entry into cache, so that when ingress gateway secret is ready, gateway agent is able to
+	// notify the ingress gateway and push the secret to via connect ID.
+	if _, found := sc.secrets.Load(key); !found {
+		t := time.Now()
+		dummySecret := &model.SecretItem{
+			ResourceName: resourceName,
+			Token:        token,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}
+		sc.secrets.Store(key, *dummySecret)
+	}
+
+	// If node agent works as ingress gateway agent, searches for kubernetes secret and verify secret
+	// is not empty.
+	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+	// If kubernetes secret does not exist, need to wait for secret.
+	if !exist {
+		return true
+	}
+
+	// If expecting ingress gateway CA certificate, and that resource is empty, need to wait for
+	// non empty resource.
+	if strings.HasSuffix(resourceName, secretfetcher.IngressGatewaySdsCaSuffix) {
+		return len(secretItem.RootCert) == 0
+	}
+
+	// If expect ingress gateway server certificate and private key, but at least one of them is
+	// empty, need to wait for non empty resource.
+	return len(secretItem.CertificateChain) == 0 || len(secretItem.PrivateKey) == 0
+}
+
 // DeleteSecret deletes a secret by its key from cache.
 func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	key := ConnKey{
@@ -309,7 +357,7 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
 // for ingress gateway is updated.
 func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
-	secretMap := map[ConnKey]*model.SecretItem{}
+	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -320,15 +368,26 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 			go func() {
 				defer wg.Done()
 
-				newSecret := &model.SecretItem{
-					CertificateChain: ns.CertificateChain,
-					PrivateKey:       ns.PrivateKey,
-					ResourceName:     secretName,
-					Token:            oldSecret.Token,
-					CreatedTime:      ns.CreatedTime,
-					Version:          ns.Version,
+				var newSecret *model.SecretItem
+				if strings.HasSuffix(secretName, secretfetcher.IngressGatewaySdsCaSuffix) {
+					newSecret = &model.SecretItem{
+						ResourceName: secretName,
+						RootCert:     ns.RootCert,
+						Token:        oldSecret.Token,
+						CreatedTime:  ns.CreatedTime,
+						Version:      ns.Version,
+					}
+				} else {
+					newSecret = &model.SecretItem{
+						CertificateChain: ns.CertificateChain,
+						PrivateKey:       ns.PrivateKey,
+						ResourceName:     secretName,
+						Token:            oldSecret.Token,
+						CreatedTime:      ns.CreatedTime,
+						Version:          ns.Version,
+					}
 				}
-				secretMap[key] = newSecret
+				secretMap.Store(key, newSecret)
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, secretName, newSecret); err != nil {
 						log.Errorf("Failed to notify secret change for proxy %q: %v", connectionID, err)
@@ -345,9 +404,13 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 	})
 
 	wg.Wait()
-	for key, secret := range secretMap {
-		sc.secrets.Store(key, *secret)
-	}
+
+	secretMap.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		e := v.(*model.SecretItem)
+		sc.secrets.Store(key, *e)
+		return true
+	})
 }
 
 func (sc *SecretCache) rotate(updateRootFlag bool) {
@@ -358,7 +421,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 	log.Debug("Refresh job running")
 
-	secretMap := map[ConnKey]*model.SecretItem{}
+	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
@@ -381,7 +444,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				CreatedTime:  t,
 				Version:      t.String(),
 			}
-			secretMap[key] = ns
+			secretMap.Store(key, ns)
 
 			if sc.notifyCallback != nil {
 				// Push the updated root cert to client.
@@ -441,7 +504,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					return
 				}
 
-				secretMap[key] = ns
+				secretMap.Store(key, ns)
 
 				if sc.notifyCallback != nil {
 					if err := sc.notifyCallback(connectionID, resourceName, ns); err != nil {
@@ -459,9 +522,12 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 	wg.Wait()
 
-	for key, secret := range secretMap {
-		sc.secrets.Store(key, *secret)
-	}
+	secretMap.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		e := v.(*model.SecretItem)
+		sc.secrets.Store(key, *e)
+		return true
+	})
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
