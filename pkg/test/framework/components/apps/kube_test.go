@@ -44,17 +44,21 @@ func TestNewDeploymentByAppParams(t *testing.T) {
 		},
 	} {
 		d := newDeploymentByAppParm(tc.param)
+		name := tc.param.Name
 		got, err := d.renderTemplate()
 		if err != nil {
-			t.Errorf("[%v] deployment creation fail, error %v", tc.param.Name, err)
+			t.Errorf("[%v] deployment creation fail, error %v", name, err)
 		}
-		wantFilePath := fmt.Sprintf("testdata/%v.yaml", tc.param.Name)
+		wantFilePath := fmt.Sprintf("testdata/%v.yaml", name)
 		golden, err := ioutil.ReadFile(wantFilePath)
 		gotBytes := []byte(got)
 		wantBytes := []byte(golden)
 		if err != nil {
-			t.Errorf("[%v] gold file not found", tc.param.Name)
+			t.Errorf("[%v] gold file not found", name)
 		}
 		util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+		if util.Refresh() {
+			util.RefreshGoldenFile(gotBytes, wantFilePath, t)
+		}
 	}
 }
