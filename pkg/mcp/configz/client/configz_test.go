@@ -78,7 +78,11 @@ func TestConfigZ(t *testing.T) {
 
 	o := ctrlz.DefaultOptions()
 	cz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
-	defer cz.Close()
+	defer func() {
+		if cz != nil {
+			cz.Close()
+		}
+	}()
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
 
