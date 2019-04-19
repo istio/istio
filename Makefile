@@ -185,16 +185,24 @@ install-ingress:
 	bin/iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments ingressgateway -n istio-ingress --for=condition=available --timeout=${WAIT_TIMEOUT}
 
+# Telemetry will be installed in istio-control for the tests, until integration tests are changed
+# to expect telemetry in separate namespace
 install-telemetry:
 	#bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ --set global.istioNamespace=istio-control
-	bin/iop istio-telemetry istio-prometheus ${BASE}/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control ${IOP_OPTS}
-	bin/iop istio-telemetry istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control ${IOP_OPTS}
-	kubectl wait deployments istio-telemetry prometheus -n istio-telemetry --for=condition=available --timeout=${WAIT_TIMEOUT}
+	bin/iop istio-control istio-prometheus ${BASE}/istio-telemetry/prometheus/ --set global.istioNamespace=istio-control ${IOP_OPTS}
+	bin/iop istio-control istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments istio-telemetry prometheus -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
+
+install-policy:
+	bin/iop istio-control istio-policy ${BASE}/istio-policy --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments istio-policy -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 # Simple bookinfo install and curl command
 run-bookinfo:
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
+	kubectl -n bookinfo apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n bookinfo apply -f test/k8s/sidecar-local.yaml
 	SKIP_CLEANUP=1 ISTIO_CONTROL=istio-control INGRESS_NS=istio-control SKIP_DELETE=1 bin/test.sh ${GOPATH}/src/istio.io/istio
 
 # Simple fortio install and curl command
@@ -211,31 +219,31 @@ run-simple:
 	kubectl create ns simple || /bin/true
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
-	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_noauth_run ${TEST_FLAGS} \
-		E2E_ARGS="$E2E_ARGS --namespace=simple")
+		E2E_ARGS="${E2E_ARGS} --namespace=simple")
 
 # Simple test, strict mode
 run-simple-strict:
 	kubectl create ns simple-strict || /bin/true
 	kubectl -n simple-strict apply -f test/k8s/mtls_strict.yaml
-	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_run ${TEST_FLAGS} \
-		E2E_ARGS="$E2E_ARGS --namespace=simple-strict")
+		E2E_ARGS="${E2E_ARGS} --namespace=simple-strict")
 
 run-bookinfo-demo:
 	kubectl create ns bookinfo-demo || /bin/true
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
-	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_bookinfo_run ${TEST_FLAGS} \
-		E2E_ARGS="$E2E_ARGS --namespace=bookinfo-demo")
+		E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 
 run-mixer:
 	kubectl create ns mixertest || /bin/true
 	kubectl -n mixertest apply -f test/k8s/mtls_permissive.yaml
-	kubectl -n mixertest apply -f test/k8s/sidecar_local.yaml
+	kubectl -n mixertest apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_mixer_run ${TEST_FLAGS} \
-		E2E_ARGS="$E2E_ARGS --namespace=mixertest")
+		E2E_ARGS="${E2E_ARGS} --namespace=mixertest")
 
 INT_FLAGS ?= -istio.test.hub ${HUB} -istio.test.tag ${TAG} -istio.test.pullpolicy IfNotPresent \
  -p 1 -istio.test.env kube --istio.test.kube.config ${KUBECONFIG} --istio.test.ci --istio.test.nocleanup \
@@ -243,12 +251,14 @@ INT_FLAGS ?= -istio.test.hub ${HUB} -istio.test.tag ${TAG} -istio.test.pullpolic
 
 # Integration tests create and delete istio-system
 # Need to be fixed to use new installer
+# Requires an environment with telemetry installed
 run-integration:
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp
 	#(cd ${GOPATH}/src/istio.io/istio; \
 	#	$(GO) test -v ${T} ./tests/integration/... ${INT_FLAGS})
-
+	kubectl -n default apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n default apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube \
 		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace istio-control \
 		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
