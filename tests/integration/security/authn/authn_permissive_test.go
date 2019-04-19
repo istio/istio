@@ -24,7 +24,7 @@ import (
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	proto "github.com/gogo/protobuf/types"
 
-	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -51,7 +51,7 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 	// We expect tls_inspector filter exist.
 	inspector := false
 	for _, lf := range listener.ListenerFilters {
-		if lf.Name == authnplugin.EnvoyTLSInspectorFilterName {
+		if lf.Name == authn_applier.EnvoyTLSInspectorFilterName {
 			inspector = true
 			break
 		}
