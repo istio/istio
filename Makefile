@@ -24,7 +24,9 @@
 #     make TEST_TARGET="install-base"
 #
 # - Run individual tests using:
-#     make TEST_TARGET="run-simple-istio-system"
+#     make TEST_TARGET="run-simple" # or other run- targets.
+#  alternatively, run "make kind-shell" and run "make run-simple" or "cd ...istio.io/istio" and go test ...
+#  The tests MUST run inside the Kind container - so they have access to 'pods', ingress, etc.
 #
 #  On the host, you can run "ps" and dlv attach for remote debugging. The tests run inside the KIND docker container,
 #  so they have access to the pods and apiserver, as well as the ingress and node.
@@ -33,18 +35,32 @@
 #
 # - make kind-shell  - run a shell in the kind container.
 # - make kind-logs - get logs from all components
+#
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
 TOP ?= $(GOPATH)
-
+export GOPATH
+# TAG of the last stable release of istio. Used for upgrade testing and to verify istioctl.
+# TODO: make sure a '1.1' tag is applied to latest minor release, or have a manifest we can download
+STABLE_TAG = 1.1.0
+HUB ?= istionightly
+TAG ?= nightly-master
+export HUB
+export TAG
 EXTRA ?= --set global.hub=${HUB} --set global.tag=${TAG}
 OUT ?= ${GOPATH}/out
+
+
+TEST_FLAGS ?=  HUB=${HUB} TAG=${TAG}
 
 HELM_VER ?= v2.13.1
 
 # Target to run by default inside the builder docker image.
 TEST_TARGET ?= run-all-tests
+
+# Required, tests in docker may not execute in /tmp
+export TMPDIR = ${GOPATH}/out/tmp
 
 # Setting MOUNT to 1 will mount the current GOPATH into the kind cluster, and run the tests as the
 # current user. The default value for kind cluster will be 'local' instead of test.
@@ -116,13 +132,12 @@ docker-run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base install-ingress run-bookinfo
-
-run-sanity-tests: install-crds install-base install-ingress run-bookinfo
+run-all-tests: install-crds install-base install-ingress run-simple run-simple-strict run-bookinfo
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
 prepare:
+	mkdir -p ${TMPDIR}
 	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
 	kind create cluster --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 
@@ -153,9 +168,13 @@ install-base: install-crds
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
 	kubectl wait deployments istio-citadel11 -n istio-system --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config ${IOP_OPTS}
-	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS}
+	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery ${IOP_OPTS} --set global.mtls=false
 	bin/iop istio-control istio-autoinject ${BASE}/istio-control/istio-autoinject --set global.istioNamespace=istio-control ${IOP_OPTS}
 	kubectl wait deployments istio-galley istio-pilot istio-sidecar-injector -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
+	# Some tests assumes ingress is in same namespace with pilot.
+	# TODO: fix test (or replace), break it down in multiple namespaces for isolation/hermecity
+	bin/iop istio-control istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
+	kubectl wait deployments ingressgateway -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 
 install-ingress:
@@ -172,28 +191,54 @@ install-telemetry:
 run-bookinfo:
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
-	SKIP_CLEANUP=1 bin/test.sh ${GOPATH}/src/istio.io/istio
+	SKIP_CLEANUP=1 ISTIO_CONTROL=istio-control INGRESS_NS=istio-control SKIP_DELETE=1 bin/test.sh ${GOPATH}/src/istio.io/istio
 
 # Simple fortio install and curl command
 #run-fortio:
 #	kubectl apply -f
 
-# The simple test from istio/istio integration.
+# Will be used by tests
+export ISTIOCTL_BIN=/usr/local/bin/istioctl
+E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=istio-control
+
+# The simple test from istio/istio integration, in permissive mode
 # Will kube-inject and test the ingress and service-to-service
 run-simple:
-	# Test assumes ingress is in same namespace with pilot.
-	# TODO: fix test (or replace)
-	bin/iop istio-control istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=istio-control ${IOP_OPTS}
-	kubectl wait deployments ingressgateway -n istio-control --for=condition=available --timeout=${WAIT_TIMEOUT}
 	kubectl create ns simple || /bin/true
-	export TMPDIR=${GOPATH}/out/tmp
-	mkdir -p ${GOPATH}/out/tmp
-	(cd ${GOPATH}/src/istio.io/istio; TMPDIR=${GOPATH}/out/tmp make istioctl e2e_simple_noauth_run HUB=istionightly TAG=nightly-master E2E_ARGS="--skip_setup --namespace=simple  --use_local_cluster=true --istio_namespace=istio-control")
+	# Global default may be strict or permissive - make it explicit for this ns
+	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_noauth_run ${TEST_FLAGS} \
+		E2E_ARGS="$E2E_ARGS --namespace=simple")
 
+# Simple test, strict mode
+run-simple-strict:
+	kubectl create ns simple-strict || /bin/true
+	kubectl -n simple-strict apply -f test/k8s/mtls_strict.yaml
+	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_run ${TEST_FLAGS} \
+		E2E_ARGS="$E2E_ARGS --namespace=simple-strict")
+
+run-bookinfo-demo:
+	kubectl create ns bookinfo-demo || /bin/true
+	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n simple apply -f test/k8s/sidecar_local.yaml
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_bookinfo_run ${TEST_FLAGS} \
+		E2E_ARGS="$E2E_ARGS --namespace=bookinfo-demo")
+
+run-mixer:
+	kubectl create ns mixertest || /bin/true
+	kubectl -n mixertest apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n mixertest apply -f test/k8s/sidecar_local.yaml
+	(cd ${GOPATH}/src/istio.io/istio; make e2e_mixer_run ${TEST_FLAGS} \
+		E2E_ARGS="$E2E_ARGS --namespace=mixertest")
+
+# Integration tests create and delete istio-system
+# Need to be fixed to use new installer
 run-integration:
 	export TMPDIR=${GOPATH}/out/tmp
 	mkdir -p ${GOPATH}/out/tmp
-	(cd ${GOPATH}/src/istio.io/istio; TMPDIR=${GOPATH}/out/tmp make test.integration.pilot.kube)
+	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube.presubmit T="-v")
 
 run-stability:
 	 ISTIO_ENV=istio-control bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
@@ -232,6 +277,13 @@ else
 		${KIND_CLUSTER}-control-plane bash
 endif
 
+# Run a shell in docker image, as root
+kind-shell-root:
+	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
+		-w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+		${KIND_CLUSTER}-control-plane bash
+
+
 # Grab kind logs to $GOPATH/out/logs
 kind-logs:
 	mkdir -p ${OUT}/logs
@@ -241,6 +293,8 @@ kind-logs:
 # This replaces the istio-builder.
 docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
 	mkdir -p ${GOPATH}/out/istio-builder
+	curl -Lo - https://github.com/istio/istio/releases/download/${STABLE_TAG}/istio-${STABLE_TAG}-linux.tar.gz | \
+    		(cd ${GOPATH}/out/istio-builder;  tar --strip-components=1 -xzf - )
 	cp $^ ${GOPATH}/out/istio-builder/
 	docker build -t istionightly/kind ${GOPATH}/out/istio-builder
 
@@ -274,6 +328,13 @@ ${GOPATH}/bin/helm:
 	chmod +x ${GOPATH}/out/linux-amd64/helm
 	mv ${GOPATH}/out/linux-amd64/helm ${GOPATH}/bin/helm
 
+# Istio releases: deb and charts on https://storage.googleapis.com/istio-release
+#
+
+${GOPATH}/bin/istioctl:
+	(cd ${GOPATH}/src/istio.io/istio; make istioctl)
+	cp ${GOPATH}/out/linux_amd64/release/istioctl %@
+
 ${GOPATH}/bin/kind:
 	echo ${GOPATH}
 	go get -u sigs.k8s.io/kind
@@ -283,3 +344,5 @@ ${GOPATH}/bin/dep:
 
 ${GOPATH}/bin/go-junit-report:
 	go get github.com/jstemmer/go-junit-report
+
+

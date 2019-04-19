@@ -23,3 +23,5 @@ RUN curl -Lo - https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz | tar -C /us
 
 # It appears go test in istio/istio requires gcc
 RUN  apt-get -qqy install build-essential autoconf libtool autotools-dev
+
+ADD bin/istioctl /usr/local/bin
