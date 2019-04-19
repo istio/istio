@@ -26,6 +26,10 @@ else ifeq (${TEST_ENV},minikube-none)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
+_INTEGRATION_TEST_PROW_FLAG =
+ifeq (${USE_MASON_RESOURCE}, "True")
+ _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH}
+endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
 # temporary folder is used.
@@ -55,6 +59,7 @@ test.integration.%.kube:
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
+	${_INTEGRATION_TEST_PROW_FLAG}
 
 # Generate integration test targets for local environment.
 test.integration.%:
@@ -64,7 +69,8 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+# TODO(incfly): just for faster debugging, remove before the merge.
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep meshexp)
 
 # All integration tests targeting local environment.
 .PHONY: test.integration.local
