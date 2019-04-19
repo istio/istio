@@ -1784,6 +1784,20 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: true},
+		{name: "good origin with https and port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
 		{name: "bad origin", in: &networking.CorsPolicy{
 			AllowOrigin:   []string{"example.com", "error$.com"},
 			AllowMethods:  []string{"GET", "POST"},
@@ -1793,6 +1807,20 @@ func TestValidateCORSPolicy(t *testing.T) {
 		}, valid: false},
 		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
 			AllowOrigin:   []string{"http://", "https://"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:port"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:100000"},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
