@@ -339,11 +339,11 @@ dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
 GITBASE ?= "https://github.com"
 
 ${GOPATH}/src/istio.io/istio:
-	mkdir -p $GOPATH/src/istio.io
+	mkdir -p ${GOPATH}/src/istio.io
 	git clone ${GITBASE}/istio/istio.git ${GOPATH}/src/istio.io/istio
 
 ${GOPATH}/src/istio.io/tools:
-	mkdir -p $GOPATH/src/istio.io
+	mkdir -p ${GOPATH}/src/istio.io
 	git clone ${GITBASE}/istio/tools.git ${GOPATH}/src/istio.io/tools
 
 #
