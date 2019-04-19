@@ -1505,6 +1505,7 @@ func ValidateAuthnSelectorV1Alpha2(selector *authn2.Selector, name, namespace st
 			if len(k) == 0 || len(v) == 0 {
 				log.Debug("policy selector contains a label with empty value")
 				errs = appendErrors(errs, fmt.Errorf("authn policy with empty label is disallowed"))
+				return errs
 			}
 		}
 	}
@@ -1563,6 +1564,9 @@ func ValidateAuthnMatchV1Alpha2(match *authn2.Match) error {
 		return errs
 	}
 
+	// Empty match.ports is ok. Empty match.ports means matching all ports.
+
+	// Empty match.path is ok. Empty match.paths means matching all paths.
 	for _, path := range match.GetPaths() {
 		if path == nil {
 			errs = appendErrors(errs, fmt.Errorf("authn policy spec has a nil matching path"))
@@ -1586,6 +1590,9 @@ func ValidateAuthnMatchV1Alpha2(match *authn2.Match) error {
 				errs = appendErrors(errs,
 					fmt.Errorf("stringmatch_regex in authn policy matching path is empty"))
 			}
+			return errs
+		default:
+			errs = appendErrors(errs, fmt.Errorf("invalid match type in authn policy path"))
 			return errs
 		}
 	}
