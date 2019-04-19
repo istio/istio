@@ -706,12 +706,11 @@ type deploymentFactory struct {
 	serviceAnnotations map[string]string
 }
 
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+func (d *deploymentFactory) renderTemplate() (string, error) {
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
 	result, err := tmpl.Evaluate(template, map[string]string{
 		"Hub":             s.Hub,
 		"Tag":             s.Tag,
@@ -732,6 +731,13 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
 		"locality":        d.locality,
 	})
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+	result, err := d.renderTemplate()
 	if err != nil {
 		return nil, err
 	}
