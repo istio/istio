@@ -58,7 +58,7 @@ type App interface {
 	Endpoints() []AppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
-	ValidatedCall(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
+	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
 // AppParam specifies the parameter for a single app.

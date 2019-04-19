@@ -53,11 +53,7 @@ func TestHTTP(t *testing.T) {
     // Interact with the components...
     
     be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
-    result, err := a.ValidatedCall(be, components.AppCallOptions{}, t)[0]
-
-    if err != nil {
-        t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
-    }
+    result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
 }
 ```
 

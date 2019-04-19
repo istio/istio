@@ -391,23 +391,26 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 	return resp, nil
 }
 
-func (a *nativeApp) ValidatedCall(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 
-	if len(r) != 1 {
-		return nil, fmt.Errorf("unexpected number of responses: %d", len(r))
+	if len(r) != opts.Count {
+		t.Fatalf("unexpected number of responses: %d", len(r))
 	}
 	if !r[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", r[0].Code)
+		t.Fatalf("unexpected response status code: %s", r[0].Code)
 	}
 	if r[0].Host != e.Owner().(*nativeApp).fqdn() {
-		return nil, fmt.Errorf("unexpected host: %s, expected %v", r[0].Host, e.Owner().(*nativeApp).fqdn())
+		t.Fatalf("unexpected host: %s, expected %v", r[0].Host, e.Owner().(*nativeApp).fqdn())
+	}
+	if r[0].Port != strconv.Itoa(e.(*endpoint).networkEndpoint.ServicePort.Port) {
+		t.Fatalf("unexpected port: %s", r[0].Port)
 	}
 
-	return r, nil
+	return r
 }
 
 type nativeEndpoint struct {
