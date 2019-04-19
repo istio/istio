@@ -30,7 +30,6 @@ import (
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/deployment"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -43,27 +42,27 @@ const (
 	appLabel = "app"
 
 	template = `
-{{- if eq .serviceAccount "true" }}
+{{- if eq .ServiceAccount "true" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .service }}
+  name: {{ .Service }}
 ---
 {{- end }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .service }}
+  name: {{ .Service }}
   labels:
-		app: {{ .service }}
+		app: {{ .Service }}
 {{- if .serviceAnntations }}
     annotations:
-{{- range $name, $value := .serviceAnnotations }}
+{{- range $name, $value := .ServiceAnnotations }}
     - $name: $value
 {{- end }}
 {{- end }}
 spec:
-{{- if eq .headless "true" }}
+{{- if eq .Headless "true" }}
   clusterIP: None
 {{- end }}
   ports:
@@ -71,85 +70,85 @@ spec:
     targetPort: {{ .Port1 }}
     name: http
   - port: 8080
-    targetPort: {{ .port2 }}
+    targetPort: {{ .Port2 }}
     name: http-two
-{{- if eq .headless "true" }}
+{{- if eq .Headless "true" }}
   - port: 10090
-    targetPort: {{ .port3 }}
+    targetPort: {{ .Port3 }}
     name: tcp
 {{- else }}
   - port: 90
-    targetPort: {{ .port3 }}
+    targetPort: {{ .Port3 }}
     name: tcp
   - port: 9090
-    targetPort: {{ .port4 }}
+    targetPort: {{ .Port4 }}
     name: https
 {{- end }}
   - port: 70
-    targetPort: {{ .port5 }}
+    targetPort: {{ .Port5 }}
     name: http2-example
   - port: 7070
-    targetPort: {{ .port6 }}
+    targetPort: {{ .Port6 }}
     name: grpc
   selector:
-    app: {{ .service }}
+    App: {{ .Service }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .deployment }}
+  name: {{ .Deployment }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .service }}
-      version: {{ .version }}
+      App: {{ .Service }}
+      Version: {{ .Version }}
   template:
     metadata:
       labels:
-        app: {{ .service }}
-        version: {{ .version }}
-{{- if ne .locality "" }}
-        istio-locality: {{ .locality }}
+        App: {{ .Service }}
+        Version: {{ .Version }}
+{{- if ne .Locality "" }}
+        istio-Locality: {{ .Locality }}
 {{- end }}
-{{- if .podAnnotations }}
+{{- if .PodAnnotations }}
 		annotations:
-{{- range $name, $value := .podAnnotations }}
+{{- range $name, $value := .PodAnnotations }}
     - $name: $value
 {{- end }}
 {{- end }}
     spec:
-{{- if eq .serviceAccount "true" }}
-      serviceAccountName: {{ .service }}
+{{- if eq .ServiceAccount "true" }}
+      serviceAccountName: {{ .Service }}
 {{- end }}
       containers:
-      - name: app
-        image: {{ .Hub }}/app:{{ .Tag }}
+      - name: App
+        image: {{ .Hub }}/App:{{ .Tag }}
         imagePullPolicy: {{ .ImagePullPolicy }}
         args:
           - --port
           - "{{ .Port1 }}"
           - --port
-          - "{{ .port2 }}"
+          - "{{ .Port2 }}"
           - --port
-          - "{{ .port3 }}"
+          - "{{ .Port3 }}"
           - --port
-          - "{{ .port4 }}"
+          - "{{ .Port4 }}"
           - --grpc
-          - "{{ .port5 }}"
+          - "{{ .Port5 }}"
           - --grpc
-          - "{{ .port6 }}"
+          - "{{ .Port6 }}"
           - --port
           - "3333"
-          - --version
-          - "{{ .version }}"
+          - --Version
+          - "{{ .Version }}"
         ports:
         - containerPort: {{ .Port1 }}
-        - containerPort: {{ .port2 }}
-        - containerPort: {{ .port3 }}
-        - containerPort: {{ .port4 }}
-        - containerPort: {{ .port5 }}
-        - containerPort: {{ .port6 }}
+        - containerPort: {{ .Port2 }}
+        - containerPort: {{ .Port3 }}
+        - containerPort: {{ .Port4 }}
+        - containerPort: {{ .Port5 }}
+        - containerPort: {{ .Port6 }}
         - name: tcp-health-port
           containerPort: 3333
         readinessProbe:
@@ -204,109 +203,109 @@ var (
 
 	deploymentFactories = []*deploymentFactory{
 		{
-			deployment:     "t",
-			service:        "t",
-			version:        "unversioned",
+			Deployment:     "t",
+			Service:        "t",
+			Version:        "unversioned",
 			Port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
-			injectProxy:    false,
-			headless:       false,
-			serviceAccount: false,
-			locality:       "region.zone.subzone",
+			Port2:          80,
+			Port3:          9090,
+			Port4:          90,
+			Port5:          7070,
+			Port6:          70,
+			InjectProxy:    false,
+			Headless:       false,
+			ServiceAccount: false,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "a",
-			service:        "a",
-			version:        "v1",
+			Deployment:     "a",
+			Service:        "a",
+			Version:        "v1",
 			Port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: false,
-			locality:       "region.zone.subzone",
+			Port2:          80,
+			Port3:          9090,
+			Port4:          90,
+			Port5:          7070,
+			Port6:          70,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: false,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "b",
-			service:        "b",
-			version:        "unversioned",
+			Deployment:     "b",
+			Service:        "b",
+			Version:        "unversioned",
 			Port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-			locality:       "region.zone.subzone",
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "c-v1",
-			service:        "c",
-			version:        "v1",
+			Deployment:     "c-v1",
+			Service:        "c",
+			Version:        "v1",
 			Port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-			locality:       "region.zone.subzone",
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "c-v2",
-			service:        "c",
-			version:        "v2",
+			Deployment:     "c-v2",
+			Service:        "c",
+			Version:        "v2",
 			Port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-			locality:       "region.zone.subzone",
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "d",
-			service:        "d",
-			version:        "per-svc-auth",
+			Deployment:     "d",
+			Service:        "d",
+			Version:        "per-svc-auth",
 			Port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       false,
-			serviceAccount: true,
-			locality:       "region.zone.subzone",
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       false,
+			ServiceAccount: true,
+			Locality:       "region.zone.subzone",
 		},
 		{
-			deployment:     "headless",
-			service:        "headless",
-			version:        "unversioned",
+			Deployment:     "Headless",
+			Service:        "Headless",
+			Version:        "unversioned",
 			Port1:          80,
-			port2:          8080,
-			port3:          90,
-			port4:          9090,
-			port5:          70,
-			port6:          7070,
-			injectProxy:    true,
-			headless:       true,
-			serviceAccount: true,
-			locality:       "region.zone.subzone",
+			Port2:          8080,
+			Port3:          90,
+			Port4:          9090,
+			Port5:          70,
+			Port6:          7070,
+			InjectProxy:    true,
+			Headless:       true,
+			ServiceAccount: true,
+			Locality:       "region.zone.subzone",
 		},
 	}
 )
@@ -323,7 +322,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
-		deployments: make([]*deployment.Instance, 0),
+		deployments: make([]*Deployment.Instance, 0),
 		env:         env,
 	}
 	c.id = ctx.TrackResource(c)
@@ -351,11 +350,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		for _, d := range deploymentFactories {
 			pod, err := d.waitUntilPodIsReady(env, c.namespace)
 			if err != nil {
-				return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
+				return nil, fmt.Errorf("failed waiting for Deployment %s: %v", d.Deployment, err)
 			}
-			client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+			client, err := newKubeApp(d.Service, c.namespace.Name(), pod, env)
 			if err != nil {
-				return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
+				return nil, fmt.Errorf("failed creating client for Deployment %s: %v", d.Deployment, err)
 			}
 			c.apps = append(c.apps, client)
 		}
@@ -375,11 +374,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	for _, d := range dfs {
 		pod, err := d.waitUntilPodIsReady(env, c.namespace)
 		if err != nil {
-			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
+			return nil, fmt.Errorf("failed waiting for Deployment %s: %v", d.Deployment, err)
 		}
-		client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+		client, err := newKubeApp(d.Service, c.namespace.Name(), pod, env)
 		if err != nil {
-			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
+			return nil, fmt.Errorf("failed creating client for Deployment %s: %v", d.Deployment, err)
 		}
 		c.apps = append(c.apps, client)
 	}
@@ -387,24 +386,24 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return c, nil
 }
 
-// newDeploymentByAppParm returns a app based on AppParam.
+// newDeploymentByAppParm returns a App based on AppParam.
 func newDeploymentByAppParm(param AppParam) deploymentFactory {
 	return deploymentFactory{
-		deployment:         param.Name,
-		service:            param.Name,
-		locality:           param.Locality,
-		podAnnotations:     param.PodAnnotations,
-		serviceAnnotations: param.ServiceAnnotations,
-		version:            "v1",
+		Deployment:         param.Name,
+		Service:            param.Name,
+		Locality:           param.Locality,
+		PodAnnotations:     param.PodAnnotations,
+		ServiceAnnotations: param.ServiceAnnotations,
+		Version:            "v1",
 		Port1:              8080,
-		port2:              80,
-		port3:              9090,
-		port4:              90,
-		port5:              7070,
-		port6:              70,
-		injectProxy:        true,
-		headless:           false,
-		serviceAccount:     false,
+		Port2:              80,
+		Port3:              9090,
+		Port4:              90,
+		Port5:              7070,
+		Port6:              70,
+		InjectProxy:        true,
+		Headless:           false,
+		ServiceAccount:     false,
 	}
 }
 
@@ -423,7 +422,7 @@ func (c *kubeComponent) GetApp(name string) (App, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("unable to locate app for name %s", name)
+	return nil, fmt.Errorf("unable to locate App for name %s", name)
 }
 
 func (c *kubeComponent) GetAppOrFail(name string, t testing.TB) App {
@@ -435,8 +434,8 @@ func (c *kubeComponent) GetAppOrFail(name string, t testing.TB) App {
 }
 
 func (c *kubeComponent) Close() (err error) {
-	for _, app := range c.apps {
-		err = multierror.Append(err, app.(*kubeApp).Close()).ErrorOrNil()
+	for _, App := range c.apps {
+		err = multierror.Append(err, App.(*kubeApp).Close()).ErrorOrNil()
 	}
 
 	// Delete any deployments
@@ -529,15 +528,15 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		}
 	}()
 
-	service, err := e.GetService(namespace, serviceName)
+	Service, err := e.GetService(namespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the app name for this service.
-	a.appName = service.Labels[appLabel]
+	// Get the App name for this Service.
+	a.appName = Service.Labels[appLabel]
 	if len(a.appName) == 0 {
-		return nil, fmt.Errorf("service does not contain the 'app' label")
+		return nil, fmt.Errorf("Service does not contain the 'App' label")
 	}
 
 	eps, err := e.GetEndpoints(namespace, serviceName, kubeApiMeta.GetOptions{})
@@ -554,7 +553,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, err
 	}
 
-	// Create a forwarder to the command port of the app.
+	// Create a forwarder to the command port of the App.
 	a.forwarder, err = e.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
@@ -652,13 +651,13 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 		opts.Count = 1
 	}
 
-	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
+	// TODO(nmittler): Use an image with the new echo Service and invoke the command port rather than scraping logs.
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
-	// Forward a request from 'this' service to the destination service.
+	// Forward a request from 'this' Service to the destination Service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
 
@@ -697,23 +696,23 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 }
 
 type deploymentFactory struct {
-	Hub                string
+	hub                string
 	tag                string
-	deployment         string
-	service            string
-	version            string
+	Deployment         string
+	Service            string
+	Version            string
 	Port1              int
-	port2              int
-	port3              int
-	port4              int
-	port5              int
-	port6              int
-	injectProxy        bool
-	headless           bool
-	serviceAccount     bool
-	locality           string
-	podAnnotations     map[string]string
-	serviceAnnotations map[string]string
+	Port2              int
+	Port3              int
+	Port4              int
+	Port5              int
+	Port6              int
+	InjectProxy        bool
+	Headless           bool
+	ServiceAccount     bool
+	Locality           string
+	PodAnnotations     map[string]string
+	ServiceAnnotations map[string]string
 }
 
 func (d *deploymentFactory) renderTemplate() (string, error) {
@@ -721,49 +720,49 @@ func (d *deploymentFactory) renderTemplate() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// TODO(incfly): retire injectProxy field and use annotation.
-	if !d.injectProxy {
-		if d.podAnnotations == nil {
-			d.podAnnotations = make(map[string]string)
+	// TODO(incfly): retire InjectProxy field and use annotation.
+	if !d.InjectProxy {
+		if d.PodAnnotations == nil {
+			d.PodAnnotations = make(map[string]string)
 		}
-		d.podAnnotations["sidecar.istio.io/inject"] = "false"
+		d.PodAnnotations["sidecar.istio.io/inject"] = "false"
 	}
-	d.Hub = s.Hub
+	d.hub = s.Hub
 	d.tag = s.Tag
 	result, err := tmpl.Evaluate(template, d)
 	// result, err := tmpl.Evaluate(template, map[string]string{
 	// 	"Hub":                s.Hub,
 	// 	"Tag":                s.Tag,
 	// 	"ImagePullPolicy":    s.PullPolicy,
-	// 	"deployment":         d.deployment,
-	// 	"service":            d.service,
-	// 	"app":                d.service,
-	// 	"version":            d.version,
+	// 	"Deployment":         d.Deployment,
+	// 	"Service":            d.Service,
+	// 	"App":                d.Service,
+	// 	"Version":            d.Version,
 	// 	"Port1":              strconv.Itoa(d.Port1),
-	// 	"port2":              strconv.Itoa(d.port2),
-	// 	"port3":              strconv.Itoa(d.port3),
-	// 	"port4":              strconv.Itoa(d.port4),
-	// 	"port5":              strconv.Itoa(d.port5),
-	// 	"port6":              strconv.Itoa(d.port6),
-	// 	"healthPort":         "true",
-	// 	"injectProxy":        strconv.FormatBool(d.injectProxy),
-	// 	"headless":           strconv.FormatBool(d.headless),
-	// 	"serviceAccount":     strconv.FormatBool(d.serviceAccount),
-	// 	"locality":           d.locality,
-	// 	"serviceAnnotations": strconv.Format d.serviceAnnotations,
-	// 	"podAnnotations":     d.podAnnotations,
+	// 	"Port2":              strconv.Itoa(d.Port2),
+	// 	"Port3":              strconv.Itoa(d.Port3),
+	// 	"Port4":              strconv.Itoa(d.Port4),
+	// 	"Port5":              strconv.Itoa(d.Port5),
+	// 	"Port6":              strconv.Itoa(d.Port6),
+	// 	"HealthPort":         "true",
+	// 	"InjectProxy":        strconv.FormatBool(d.InjectProxy),
+	// 	"Headless":           strconv.FormatBool(d.Headless),
+	// 	"ServiceAccount":     strconv.FormatBool(d.ServiceAccount),
+	// 	"Locality":           d.Locality,
+	// 	"ServiceAnnotations": strconv.Format d.ServiceAnnotations,
+	// 	"PodAnnotations":     d.PodAnnotations,
 	// })
 	if err != nil {
 		return "", err
 	}
 	return result, nil
 }
-func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
+func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*Deployment.Instance, error) {
 	result, err := d.renderTemplate()
 	if err != nil {
 		return nil, err
 	}
-	out := deployment.NewYamlContentDeployment(namespace.Name(), result)
+	out := Deployment.NewYamlContentDeployment(namespace.Name(), result)
 	if err = out.Deploy(e.Accessor, false); err != nil {
 		return nil, err
 	}
@@ -771,7 +770,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 }
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
-	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.Service), fmt.Sprintf("Version=%s", d.Version))
 	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
@@ -781,6 +780,6 @@ func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespac
 
 func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, ns namespace.Instance) error {
 
-	podFetchFunc := e.NewPodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewPodFetch(ns.Name(), appSelector(d.Service), fmt.Sprintf("Version=%s", d.Version))
 	return e.WaitUntilPodsAreDeleted(podFetchFunc)
 }
