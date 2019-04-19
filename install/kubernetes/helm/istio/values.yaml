@@ -444,7 +444,8 @@ global:
   # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
   # cluster. The public IP for the gateway will be determined from that remote service (only
-  # LoadBalancer gateway service type is currently supported).
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
   #
   # meshNetworks:
   #   network1:
