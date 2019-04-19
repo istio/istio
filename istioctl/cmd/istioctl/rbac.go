@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/kube"
 
 	"github.com/spf13/cobra"
 
@@ -84,6 +86,37 @@ istioctl experimental rbac can -s source.namespace=foo POST rating /data -a dest
 	return cmd
 }
 
+func upgrade() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade <rbac-file1> <rbac-file2> ...",
+		Short: "UpgradeCRDs Authorization files to use the newest API",
+		Long: `
+This command automatically converts your Authorization v1 policy files to v2. 
+It works as expected. However, the current version has some limitations:
+* It does not support multiple rule in a single ServiceRole yet.
+* It does not support key value pairs that are not defined in the same line.
+* It does not automatically detect if the file is using tabs or spaces for indentation. It supports 
+  spaces for now.
+* It ignores lines that have the comment sign (#).
+* It works well when yaml files follow Istio conventions. For example,
+  rules:
+  - services: ["productpage.svc.cluster.local"]
+  but not (some editors auto-indent)
+  rules:
+    - services: ["productpage.svc.cluster.local"]
+`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			upgrader, err := newUpgrader(args)
+			if err != nil {
+				return err
+			}
+			return upgrader.UpgradeCRDs()
+		},
+	}
+	return cmd
+}
+
 // Rbac provides a command named rbac that allows user to interact with Istio RBAC policies.
 func Rbac() *cobra.Command {
 	cmd := &cobra.Command{
@@ -97,6 +130,7 @@ istioctl experimental rbac can -u test GET rating /v1/health`,
 	}
 
 	cmd.AddCommand(can())
+	cmd.AddCommand(upgrade())
 	return cmd
 }
 
@@ -133,4 +167,18 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 		}
 	}
 	return &rbac.ConfigStore{Roles: rolesMap}, nil
+}
+
+func newUpgrader(rbacFiles []string) (*rbac.Upgrader, error) {
+	istioClient, err := newClient()
+	if err != nil {
+		return nil, err
+	}
+	k8sClient, err := kube.CreateClientset("", "")
+	if err != nil {
+		return nil, err
+	}
+	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient,
+		RoleToWorkloadLabels: map[string]rbac.WorkloadLabels{}, RbacFiles: rbacFiles}
+	return upgrader, nil
 }
