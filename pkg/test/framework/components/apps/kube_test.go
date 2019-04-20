@@ -56,9 +56,9 @@ func TestNewDeploymentByAppParams(t *testing.T) {
 		if err != nil {
 			t.Errorf("[%v] gold file not found", name)
 		}
-		util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		if util.Refresh() {
 			util.RefreshGoldenFile(gotBytes, wantFilePath, t)
 		}
+		util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 	}
 }
