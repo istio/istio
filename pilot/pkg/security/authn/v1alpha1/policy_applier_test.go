@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authn
+package v1alpha1
 
 import (
 	"reflect"
@@ -182,7 +182,7 @@ func TestCollectJwtSpecs(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := CollectJwtSpecs(&c.in); len(got) != c.expectedSize {
+		if got := collectJwtSpecs(&c.in); len(got) != c.expectedSize {
 			t.Errorf("CollectJwtSpecs(%#v): return map of size (%d) != want(%d)\n", c.in, len(got), c.expectedSize)
 		}
 	}
@@ -231,7 +231,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := convertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
@@ -295,7 +295,7 @@ func TestBuildJwtFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := BuildJwtFilter(c.in, true); !reflect.DeepEqual(c.expected, got) {
+		if got := NewPolicyApplier(c.in).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
@@ -424,7 +424,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
+		if got := convertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -476,23 +476,23 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in, model.SidecarProxy, true)
+		got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, true)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
-				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
+				t.Errorf("buildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
 			}
 		} else {
 			if c.expectedFilterConfig == nil {
-				t.Errorf("BuildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
+				t.Errorf("buildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
 			} else {
 				if got.GetName() != AuthnFilterName {
-					t.Errorf("BuildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
+					t.Errorf("buildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
 				}
 				filterConfig := &authn_filter.FilterConfig{}
 				if err := filterConfig.Unmarshal(got.GetTypedConfig().GetValue()); err != nil {
-					t.Errorf("BuildAuthNFilter(%#v), bad filter config: %v", c.in, err)
+					t.Errorf("buildAuthNFilter(%#v), bad filter config: %v", c.in, err)
 				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
-					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
+					t.Errorf("buildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
 				}
 			}
 		}
@@ -711,8 +711,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := setupFilterChains(
-			c.in,
+		got := NewPolicyApplier(c.in).InboundFilterChain(
 			c.sdsUdsPath,
 			c.useTrustworthyJwt,
 			c.useNormalJwt,

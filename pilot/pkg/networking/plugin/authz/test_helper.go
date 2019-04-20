@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 )
 
 // nolint:deadcode
@@ -135,7 +135,7 @@ func generatePrincipal(principalName string) *policy.Principal {
 						Identifier: &policy.Principal_Metadata{
 							Metadata: generateMetadataStringMatcher(
 								"source.principal", &metadata.StringMatcher{
-									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}, authn.AuthnFilterName),
+									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}, authn_v1alpha1.AuthnFilterName),
 						},
 					},
 				},
@@ -196,7 +196,7 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+								Metadata: generateMetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 									[]string{attrRequestClaims, "groups"}, claimName),
 							},
 						},
