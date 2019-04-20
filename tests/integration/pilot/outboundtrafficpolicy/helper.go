@@ -129,13 +129,10 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-					if tc.protocol == "https" {
-						t.Skip("https is currently not supported until #13386 is fixed")
-					}
 					ep := dest.EndpointForPort(tc.port)
 					resp, err := client.Call(ep, apps.AppCallOptions{})
-					if err != nil {
-						t.Errorf("call failed: %v", err)
+					if err != nil && len(expected[tc.protocol]) != 0 {
+						t.Fatalf("request failed: %v", err)
 					}
 					codes := make([]string, 0, len(resp))
 					for _, r := range resp {
