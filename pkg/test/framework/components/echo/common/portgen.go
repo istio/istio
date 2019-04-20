@@ -20,6 +20,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+const (
+	httpBase  = 80
+	httpsBase = 443
+	grpcBase  = 7070
+	tcpBase   = 9090
+)
+
 // portGenerators creates a set of generators for service and instance ports.
 type portGenerators struct {
 	Service  *portGenerator
@@ -37,24 +44,25 @@ func newPortGenerators() *portGenerators {
 // portGenerator is a utility that generates reasonable default port values
 // for a given protocol.
 type portGenerator struct {
-	nextHTTP  []int
-	httpIndex int
-
-	nextGRPC  []int
-	grpcIndex int
-
-	nextTCP  []int
-	tcpIndex int
-
+	next map[model.Protocol]int
 	used map[int]struct{}
 }
 
 func newPortGenerator() *portGenerator {
 	return &portGenerator{
-		nextHTTP: []int{80, 8080},
-		nextTCP:  []int{90, 9090},
-		nextGRPC: []int{70, 7070},
-		used:     make(map[int]struct{}),
+		next: map[model.Protocol]int{
+			model.ProtocolHTTP:    httpBase,
+			model.ProtocolHTTPS:   httpsBase,
+			model.ProtocolTLS:     httpsBase,
+			model.ProtocolTCP:     tcpBase,
+			model.ProtocolGRPCWeb: grpcBase,
+			model.ProtocolGRPC:    grpcBase,
+			model.ProtocolMongo:   tcpBase,
+			model.ProtocolMySQL:   tcpBase,
+			model.ProtocolRedis:   tcpBase,
+			model.ProtocolUDP:     tcpBase,
+		},
+		used: make(map[int]struct{}),
 	}
 }
 
@@ -72,43 +80,26 @@ func (g *portGenerator) IsUsed(port int) bool {
 }
 
 // Next assigns the next port for the given protocol.
-func (g *portGenerator) Next(p model.Protocol) int {
-	var next int
-
+func (g *portGenerator) Next(protocol model.Protocol) int {
 	for {
-		var nextArray []int
-		var index *int
-		switch p {
-		case model.ProtocolHTTP:
-			nextArray = g.nextHTTP
-			index = &g.httpIndex
-		case model.ProtocolGRPC:
-			nextArray = g.nextGRPC
-			index = &g.grpcIndex
-		default:
-			nextArray = g.nextTCP
-			index = &g.tcpIndex
+		v := g.next[protocol]
+
+		if v == 0 {
+			panic("echo port generator: unsupported protocol " + protocol)
 		}
 
-		// Get the next value
-		next = nextArray[*index]
-
-		// Update the next.
-		nextArray[*index]++
-
-		if *index == math.MaxInt16 {
+		if v == math.MaxInt16 {
 			panic("echo port generator: ran out of ports")
 		}
 
-		*index++
+		g.next[protocol] = v + 1
 
-		if !g.IsUsed(next) {
-			// Mark this port as used.
-			g.SetUsed(next)
-			break
+		if g.IsUsed(v) {
+			continue
 		}
-		// Otherwise, the port was already used, pick another one.
-	}
 
-	return next
+		// Mark this port as used.
+		g.SetUsed(v)
+		return v
+	}
 }

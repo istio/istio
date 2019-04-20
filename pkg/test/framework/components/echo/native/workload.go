@@ -116,11 +116,12 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 
 		// Apply the service config to Galley.
 		svcCfg := serviceConfig{
-			service: cfg.Service,
-			ns:      cfg.Namespace,
-			domain:  env.Domain,
-			version: cfg.Version,
-			ports:   w.sidecar.GetPorts(),
+			service:  cfg.Service,
+			ns:       cfg.Namespace,
+			domain:   env.Domain,
+			version:  cfg.Version,
+			ports:    w.sidecar.GetPorts(),
+			locality: cfg.Locality,
 		}
 		if _, err = svcCfg.applyTo(cfg.Galley); err != nil {
 			return nil, err

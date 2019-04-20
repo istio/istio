@@ -20,17 +20,12 @@ import "net/http"
 type CallProtocol string
 
 const (
-	// HTTP calls echo with HTTP
-	HTTP CallProtocol = "http"
-
-	// GRPC calls echo with GRPC
-	GRPC CallProtocol = "grpc"
-
-	// TCP calls echo with TCP
-	TCP CallProtocol = "tcp"
-
-	// WebSocket calls echo with WebSocket
-	WebSocket CallProtocol = "ws"
+	HTTP       CallProtocol = "http"
+	HTTPS      CallProtocol = "https"
+	GRPC       CallProtocol = "grpc"
+	GRPCS      CallProtocol = "grpcs"
+	WebSocket  CallProtocol = "ws"
+	WebSocketS CallProtocol = "wss"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -61,7 +56,4 @@ type CallOptions struct {
 
 	// Headers indicates headers that should be sent in the request. Ignored for WebSocket calls.
 	Headers http.Header
-
-	// Secure indicates whether a secure connection should be used.
-	Secure bool
 }

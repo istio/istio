@@ -31,25 +31,28 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: {{.ServiceName}}
+  name: {{ .ServiceName }}
   labels:
-    app: {{.ServiceName}}
-    version: {{.Version}}
+    app: {{ .ServiceName }}
+    version: {{ .Version }}
 spec:
    hosts:
-   - {{.ServiceName}}.{{.Namespace}}.{{.Domain}}
+   - {{ .ServiceName }}.{{ .Namespace }}.{{ .Domain }}
    addresses:
    - 127.0.0.1/32
    ports:
    {{ range $i, $p := .Ports -}}
-   - number: {{$p.ServicePort}} 
-     name: {{$p.Name}}
-     protocol: {{$p.Protocol}}
+   - number: {{ $p.ServicePort }} 
+     name: {{ $p.Name }}
+     protocol: {{ $p.Protocol }}
    {{ end -}}
    resolution: STATIC
    location: MESH_INTERNAL
    endpoints:
     - address: 127.0.0.1
+      {{ if ne .Locality "" }}
+      locality: {{ .Locality }}
+      {{ end -}}
       ports:
         {{ range $i, $p := .Ports -}}
         {{$p.Name}}: {{$p.ServicePort}}
@@ -71,11 +74,12 @@ func init() {
 }
 
 type serviceConfig struct {
-	ns      namespace.Instance
-	ports   []echo.Port
-	service string
-	domain  string
-	version string
+	ns       namespace.Instance
+	ports    []echo.Port
+	service  string
+	domain   string
+	version  string
+	locality string
 }
 
 func (c serviceConfig) applyTo(g galley.Instance) (*galley.SnapshotObject, error) {
@@ -88,6 +92,7 @@ func (c serviceConfig) applyTo(g galley.Instance) (*galley.SnapshotObject, error
 		"Namespace":   c.ns.Name(),
 		"Domain":      c.domain,
 		"Ports":       c.ports,
+		"Locality":    c.locality,
 	}); err != nil {
 		return nil, err
 	}

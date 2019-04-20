@@ -49,6 +49,17 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 
+	// Append a gRPC port, if none was provided. This is needed
+	// for controlling the app.
+	if GetGRPCPort(c) == nil {
+		c.Ports = append([]echo.Port{
+			{
+				Name:     "grpc",
+				Protocol: model.ProtocolGRPC,
+			},
+		}, c.Ports...)
+	}
+
 	// Mark all user-defined ports as used, so the port generator won't assign them.
 	portGen := newPortGenerators()
 	for _, p := range c.Ports {
@@ -66,18 +77,15 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 
-	// Append a gRPC port, if none was provided. This is needed
-	// for controlling the app.
-	if GetGRPCPort(c) == nil {
-		c.Ports = append([]echo.Port{
-			{
-				Name:     "grpc",
-				Protocol: model.ProtocolGRPC,
-			},
-		}, c.Ports...)
+	// Second pass: try to make unassigned instance ports match service port.
+	for i, p := range c.Ports {
+		if p.InstancePort <= 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
+			c.Ports[i].InstancePort = p.ServicePort
+			portGen.Instance.SetUsed(p.ServicePort)
+		}
 	}
 
-	// Now, assign default values for any ports that haven't been specified.
+	// Final pass: assign default values for any ports that haven't been specified.
 	for i, p := range c.Ports {
 		if p.ServicePort <= 0 {
 			c.Ports[i].ServicePort = portGen.Service.Next(p.Protocol)

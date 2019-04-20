@@ -17,14 +17,14 @@ package common
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pilot/pkg/model"
+	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"net"
 	"net/url"
 	"reflect"
 	"strconv"
-
-	appEcho "istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
 func CallEcho(client *appEcho.Client, opts echo.CallOptions) (appEcho.ParsedResponses, error) {
@@ -33,7 +33,11 @@ func CallEcho(client *appEcho.Client, opts echo.CallOptions) (appEcho.ParsedResp
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	targetURL := makeURL(opts)
+	targetURL := &url.URL{
+		Scheme: string(opts.Protocol),
+		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port.ServicePort)),
+		Path:   opts.Path,
+	}
 	targetService := opts.Target.Config().Service
 
 	var headers []*proto.Header
@@ -100,6 +104,14 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		}
 	}
 
+	if opts.Protocol == "" {
+		// No protocol, fill it in.
+		var err error
+		if opts.Protocol, err = protocolForPort(opts.Port); err != nil {
+			return err
+		}
+	}
+
 	if opts.Host == "" {
 		// No host specified, use the fully qualified domain name for the service.
 		opts.Host = opts.Target.Config().FQDN()
@@ -112,24 +124,16 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	return nil
 }
 
-func makeURL(opts echo.CallOptions) *url.URL {
-	protocol := string(normalizeProtocol(opts.Protocol))
-	if opts.Secure {
-		protocol += "s"
-	}
-
-	return &url.URL{
-		Scheme: protocol,
-		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port.ServicePort)),
-		Path:   opts.Path,
-	}
-}
-
-func normalizeProtocol(p echo.CallProtocol) echo.CallProtocol {
-	switch p {
-	case echo.HTTP, echo.GRPC, echo.WebSocket:
-		return p
+func protocolForPort(port *echo.Port) (echo.CallProtocol, error) {
+	switch port.Protocol {
+	case model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolHTTP2:
+		return echo.GRPC, nil
+	case model.ProtocolHTTP, model.ProtocolTCP:
+		return echo.HTTP, nil
+	case model.ProtocolHTTPS, model.ProtocolTLS:
+		return echo.HTTPS, nil
 	default:
-		return echo.HTTP
+		return "", fmt.Errorf("failed creating call for port %s: unsupported protocol %s",
+			port.Name, port.Protocol)
 	}
 }
