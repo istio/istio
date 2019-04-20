@@ -76,8 +76,10 @@ if [ "$SKIP_SETUP" -ne 1 ]; then
         kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
     fi
 
-    kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
-
+    # Must skip if testing with global inject
+    if [ -z "$SKIP_LABEL" ]; then
+        kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
+    fi
     kubectl -n bookinfo apply -f samples/bookinfo/platform/kube/bookinfo.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
