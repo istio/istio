@@ -7,14 +7,6 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/framework/components/deployment"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-)
-
-var (
-	runtimeScheme = runtime.NewScheme()
-	codecs        = serializer.NewCodecFactory(runtimeScheme)
-	deserializer  = codecs.UniversalDeserializer()
 )
 
 func TestNewDeploymentByAppParams(t *testing.T) {

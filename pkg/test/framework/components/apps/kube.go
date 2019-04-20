@@ -537,7 +537,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	// Get the App name for this Service.
 	a.appName = Service.Labels[appLabel]
 	if len(a.appName) == 0 {
-		return nil, fmt.Errorf("Service does not contain the 'App' label")
+		return nil, fmt.Errorf("service does not contain the 'App' label")
 	}
 
 	eps, err := e.GetEndpoints(namespace, serviceName, kubeApiMeta.GetOptions{})
