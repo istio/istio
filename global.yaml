@@ -133,6 +133,20 @@ global:
       host: # example: statsd-svc.istio-system
       port: # example: 9125
 
+    # Sets the Envoy Metrics Service address, used to push Envoy metrics to an external collector
+    # via the Metrics Service gRPC API. This contains detailed stats information emitted directly
+    # by Envoy and should not be confused with the the Istio telemetry. The Envoy stats are also
+    # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
+    #
+    # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+    # for details about Envoy's Metrics Service API.
+    #
+    # Disabled by default.
+    envoyMetricsService:
+      enabled: false
+      host: # example: metrics-service.istio-system
+      port: # example: 15000
+
     # Specify which tracer to use. One of: lightstep, zipkin
     tracer: "zipkin"
 
