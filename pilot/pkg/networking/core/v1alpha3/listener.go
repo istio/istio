@@ -960,9 +960,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		httpOpts := &httpListenerOpts{
-			useRemoteAddress: false,
-			direction:        http_conn.EGRESS,
-			rds:              rdsName,
+			useRemoteAddress:         false,
+			direction:                http_conn.EGRESS,
+			rds:                      rdsName,
 		}
 
 		if pilot.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
@@ -1334,6 +1334,7 @@ type httpListenerOpts struct {
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
 	direction  http_conn.HttpConnectionManager_Tracing_OperationName
+	tracingTagsFromHeaders string
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
@@ -1457,6 +1458,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			OverallSampling: &envoy_type.Percent{
 				Value: tc.OverallSampling,
 			},
+			RequestHeadersForTags: httpOpts.tracingTagsFromHeaders,
 		}
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
