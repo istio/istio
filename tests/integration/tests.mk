@@ -27,7 +27,7 @@ else ifeq (${TEST_ENV},minikube-none)
 endif
 
 _INTEGRATION_TEST_PROW_FLAG =
-ifeq (${USE_MASON_RESOURCE}, "True")
+ifeq (${USE_MASON_RESOURCE},True)
  _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH}
 endif
 
@@ -59,7 +59,6 @@ test.integration.%.kube:
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
-	${_INTEGRATION_TEST_PROW_FLAG}
 
 # Generate integration test targets for local environment.
 test.integration.%:
@@ -125,6 +124,7 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
+	${_INTEGRATION_TEST_PROW_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Unstable/flaky/new integration tests targeting Kubernetes environment.
