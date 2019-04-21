@@ -1,0 +1,15 @@
+{{ if and (eq .Values.provider "jaeger") .Values.jaeger.operator.enabled }}
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger
+  namespace: {{ .Release.Namespace }}
+spec:
+{{ toYaml .Values.jaeger.spec | indent 2 }}
+  resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 4 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 4 }}
+{{- end }}
+{{ end }}

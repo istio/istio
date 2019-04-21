@@ -28,6 +28,9 @@ items:
         name: {{ .Values.service.name }}
     selector:
       app: {{ .Values.provider }}
+{{ if and (eq .Values.provider "jaeger") (eq .Values.jaeger.spec.strategy "production") }}
+      app.kubernetes.io/component: collector
+{{ end}}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -54,3 +57,6 @@ items:
 {{ end}}
     selector:
       app: {{ .Values.provider }}
+{{ if and (eq .Values.provider "jaeger") (eq .Values.jaeger.spec.strategy "production") }}
+      app.kubernetes.io/component: query
+{{ end}}

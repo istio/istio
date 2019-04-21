@@ -29,9 +29,60 @@ podAntiAffinityTermLabelSelector: {}
 
 jaeger:
   hub: docker.io/jaegertracing
-  tag: 1.9
+  tag: 1.11
   memory:
     max_traces: 50000
+  operator:
+    enabled: false
+  # The spec represents the Jaeger operator's custom resource (CR).
+  # CR docs can be found here: https://github.com/jaegertracing/jaeger-operator#creating-a-new-jaeger-instance
+  # Some example CRs: https://github.com/jaegertracing/jaeger-operator/tree/master/deploy/examples
+  spec:
+    strategy: allInOne
+    allInOne:
+      options:
+        query:
+          base-path: /jaeger
+    agent:
+      strategy: Sidecar
+    query:
+      options:
+        query:
+          base-path: /jaeger
+    storage:
+      type: memory
+      options:
+        memory:
+          max-traces: 50000
+        es:
+          server-urls: http://elasticsearch:9200
+        cassandra:
+          servers: cassandra
+          keyspace: jaeger_v1_datacenter3
+      cassandraCreateSchema:
+        datacenter: "datacenter3"
+        mode: "test"
+      # Setup a secret to contain the environment variables for use with storage
+      # See https://github.com/jaegertracing/jaeger-operator#secrets-support
+      secretName: ""
+    ui:
+      options:
+        dependencies:
+          # Disable dependencies tab, as information provided by tools such as Kiali will
+          # be more accurate than tracing derived data which is subject to sampling.
+          menuEnabled: false
+        tracking:
+          gaID: UA-000000-2
+        menu:
+          - label: "About Jaeger"
+            items:
+              - label: "Documentation"
+                url: "https://www.jaegertracing.io/docs/latest"
+    ingress:
+      enabled: false
+    annotations:
+      scheduler.alpha.kubernetes.io/critical-pod: ""
+      sidecar.istio.io/inject: "false"
 
 zipkin:
   hub: docker.io/openzipkin

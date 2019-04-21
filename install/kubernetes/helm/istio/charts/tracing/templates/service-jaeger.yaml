@@ -1,4 +1,4 @@
-{{ if eq .Values.provider "jaeger" }}
+{{ if and (eq .Values.provider "jaeger") (not .Values.jaeger.operator.enabled) }}
 
 apiVersion: v1
 kind: List
