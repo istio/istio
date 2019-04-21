@@ -1,7 +1,7 @@
 # This is used to generate istio.yaml for a stress/load test cluster.
 
 global:
-  hub: docker.io/istionightly
+  hub: docker.io/istionightly/
   tag: nightly-release-0.8
   meshExpansion: true
   meshExpansionILB: true
