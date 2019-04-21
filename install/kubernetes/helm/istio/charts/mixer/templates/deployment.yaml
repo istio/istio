@@ -38,7 +38,7 @@
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.image }}:{{ $.Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
@@ -105,7 +105,7 @@
 {{- if contains "/" $.Values.global.proxy.image }}
         image: "{{ $.Values.global.proxy.image }}"
 {{- else }}
-        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
@@ -211,7 +211,7 @@
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.image }}:{{ $.Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
@@ -287,7 +287,7 @@
 {{- if contains "/" $.Values.global.proxy.image }}
         image: "{{ $.Values.global.proxy.image }}"
 {{- else }}
-        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:

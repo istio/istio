@@ -7,7 +7,7 @@ initContainers:
 {{- if contains "/" .Values.global.proxy_init.image }}
   image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
-  image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+  image: "{{ .Values.global.hub }}{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
   args:
   - "-p"
@@ -57,7 +57,7 @@ initContainers:
 {{- if contains "/" .Values.global.proxy_init.image }}
   image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
-  image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+  image: "{{ .Values.global.hub }}{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
   imagePullPolicy: IfNotPresent
   resources: {}
@@ -70,7 +70,7 @@ containers:
 {{- if contains "/" .Values.global.proxy.image }}
   image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
 {{- else }}
-  image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+  image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.hub }}{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
   ports:
   - containerPort: 15090
