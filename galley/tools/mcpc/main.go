@@ -49,7 +49,7 @@ var (
 	output                 = flag.String("output", "short", "Output format. One of: long|short|stats|jsonpath=<template>")
 	labels                 = flag.String("labels", "", "Comma separated key/value pairs, e.g. -labels=k1=v1,k2=v2")
 	incremental            = flag.Bool("incremental", false,
-		"When true, the set of changes represent an requestIncremental resource update. When false, the set of changes represents a full-state update for the specified type.")
+		"When true, the set of changes represent an requestIncremental resource update. When false, the set of changes represents a full-state update for the specified type.") // nolint: lll
 )
 
 var (
