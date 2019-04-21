@@ -98,11 +98,12 @@ type CollectionOptions struct {
 
 // CollectionOptionsFromSlice returns a slice of collection options from
 // a slice of collection names.
-func CollectionOptionsFromSlice(names []string) []CollectionOptions {
+func CollectionOptionsFromSlice(names []string, incremental bool) []CollectionOptions {
 	options := make([]CollectionOptions, 0, len(names))
 	for _, name := range names {
 		options = append(options, CollectionOptions{
-			Name: name,
+			Name:        name,
+			Incremental: incremental,
 		})
 	}
 	return options

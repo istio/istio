@@ -285,7 +285,7 @@ func (d *driver) initOptions() {
 	d.serverOpts = &source.Options{
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		Watcher:            snapshot.New(groups.DefaultIndexFn),
-		CollectionsOptions: source.CollectionOptionsFromSlice(defaultCollections),
+		CollectionsOptions: source.CollectionOptionsFromSlice(defaultCollections, true),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second*10, 10),
 	}
 	for i := range d.serverOpts.CollectionsOptions {
@@ -295,13 +295,12 @@ func (d *driver) initOptions() {
 
 	d.clientOpts = &sink.Options{
 		ID:                "driver",
-		CollectionOptions: sink.CollectionOptionsFromSlice(defaultCollections),
+		CollectionOptions: sink.CollectionOptionsFromSlice(defaultCollections, true),
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	for i := range d.clientOpts.CollectionOptions {
 		if d.rnd.Float64() <= d.options.clientIncPercentage {
 			co := &d.clientOpts.CollectionOptions[i]
-			co.Incremental = true
 		}
 	}
 }

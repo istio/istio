@@ -130,7 +130,7 @@ func runMcpServer() (*mcptesting.Server, error) {
 	for i, m := range model.IstioConfigTypes {
 		collections[i] = m.Collection
 	}
-	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
+	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections, false))
 }
 
 func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {

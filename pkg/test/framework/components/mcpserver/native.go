@@ -49,7 +49,7 @@ func newSinkNative(ctx resource.Context, cfg SinkConfig) (*native, error) {
 
 	so := sink.Options{
 		ID:                "mcpserver.sink",
-		CollectionOptions: sink.CollectionOptionsFromSlice(cfg.Collections),
+		CollectionOptions: sink.CollectionOptionsFromSlice(cfg.Collections, false),
 		Updater:           u,
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}

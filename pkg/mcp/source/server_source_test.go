@@ -54,7 +54,7 @@ func TestServerSinkRateLimitter(t *testing.T) {
 	authChecker := test.NewFakeAuthChecker()
 	options := &Options{
 		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
@@ -88,7 +88,7 @@ func TestServerSource(t *testing.T) {
 	close(rateLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    rateLimiter,
 	}

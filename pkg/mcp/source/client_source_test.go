@@ -51,7 +51,7 @@ func TestClientSource(t *testing.T) {
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    fakeLimiter,
 	}

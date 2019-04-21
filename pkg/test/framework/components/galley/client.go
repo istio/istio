@@ -46,7 +46,7 @@ func (c *client) waitForSnapshot(collection string, validator SnapshotValidatorF
 
 	cl := mcp.NewResourceSourceClient(conn)
 	options := &sink.Options{
-		CollectionOptions: sink.CollectionOptionsFromSlice([]string{collection}),
+		CollectionOptions: sink.CollectionOptionsFromSlice([]string{collection}, false),
 		Updater:           u,
 		ID:                "",
 		Reporter:          monitoring.NewInMemoryStatsContext(),

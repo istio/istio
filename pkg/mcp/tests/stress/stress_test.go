@@ -106,7 +106,7 @@ func BenchmarkServerSupportedIncremental100PercentClients(b *testing.B) {
 func benchmarkUnknownCollection(clients int, b *testing.B) {
 	o := defaultOptions()
 	o.setupFn = func(d *driver) {
-		d.clientOpts.CollectionOptions = sink.CollectionOptionsFromSlice(generateCollectionNames(*numCollections, 1))
+		d.clientOpts.CollectionOptions = sink.CollectionOptionsFromSlice(generateCollectionNames(*numCollections, 1), false)
 	}
 	o.iterations = b.N
 	o.numClients = clients

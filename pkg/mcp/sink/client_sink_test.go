@@ -49,7 +49,7 @@ func TestClientSink(t *testing.T) {
 		sinkTestHarness: newSinkTestHarness(),
 	}
 	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,

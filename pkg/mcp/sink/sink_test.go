@@ -189,7 +189,7 @@ func newHarness() *sinkHarness {
 	}
 
 	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
@@ -653,7 +653,7 @@ func TestInMemoryUpdater(t *testing.T) {
 
 func TestSink_MetadataID(t *testing.T) {
 	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           NewInMemoryUpdater(),
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
@@ -674,7 +674,7 @@ func TestSink_MetadataID(t *testing.T) {
 
 func TestCreateInitialRequests(t *testing.T) {
 	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           NewInMemoryUpdater(),
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,

@@ -279,7 +279,7 @@ func startMCPCopilot() (*mcptesting.Server, error) {
 		collections[i] = m.Collection
 	}
 
-	server, err := mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
+	server, err := mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections, false))
 	if err != nil {
 		return nil, err
 	}

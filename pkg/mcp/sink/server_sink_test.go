@@ -57,7 +57,7 @@ func TestServerSinkRateLimitter(t *testing.T) {
 	}
 
 	sinkOptions := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
@@ -98,7 +98,7 @@ func TestServerSinkRateLimitterError(t *testing.T) {
 	}
 
 	sinkOptions := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,
@@ -135,7 +135,7 @@ func TestServerSink(t *testing.T) {
 
 	authChecker := test.NewFakeAuthChecker()
 	sinkOptions := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Updater:           h,
 		ID:                test.NodeID,
 		Metadata:          test.NodeMetadata,

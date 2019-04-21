@@ -288,7 +288,7 @@ func makeSourceUnderTest(w Watcher) *Source {
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            w,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    fakeLimiter,
 	}
@@ -518,7 +518,7 @@ func TestSourceReceiveError(t *testing.T) {
 
 	options := &Options{
 		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    test.NewFakePerConnLimiter(),
 	}
@@ -760,7 +760,7 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	close(fakeLimiter.ErrCh)
 	options := &Options{
 		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections, false),
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 		ConnRateLimiter:    fakeLimiter,
 	}

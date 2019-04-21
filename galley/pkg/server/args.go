@@ -96,6 +96,11 @@ type Args struct {
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// When true, the sink requests incremental updates from the source. Incremental
+	// updates are requested when this option is true. Incremental updates are only
+	// used if the sink requests it (per request) and the source decides to make use of it.
+	IncrementalResourceUpdate bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -115,6 +120,7 @@ func DefaultArgs() *Args {
 		DisableResourceReadyCheck: false,
 		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
 		SinkMeta:                  make([]string, 0),
+		IncrementalResourceUpdate: false,
 	}
 }
 
@@ -151,6 +157,7 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
 	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
+	_, _ = fmt.Fprintf(buf, "IncrementalResourceUpdate: %v\n", a.IncrementalResourceUpdate)
 
 	return buf.String()
 }

@@ -196,7 +196,7 @@ func runMcpServer() (*mcptest.Server, error) {
 	for i, m := range model.IstioConfigTypes {
 		collections[i] = m.Collection
 	}
-	return mcptest.NewServer(0, source.CollectionOptionsFromSlice(collections))
+	return mcptest.NewServer(0, source.CollectionOptionsFromSlice(collections, false))
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string) util.TearDownFunc {

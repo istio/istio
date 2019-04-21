@@ -42,12 +42,14 @@ import (
 var (
 	serverAddr             = flag.String("server", "127.0.0.1:9901", "The server address")
 	collectionList         = flag.String("collections", "", "Comma separated list of collections to watch")
-	useWellKnownTypes      = flag.Bool("use-wkt", false, "use well known collections types")
-	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")
-	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "use well known collections for mixer")
+	useWellKnownTypes      = flag.Bool("use-wkt", false, "Use well known collections types")
+	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "Use well known collections for pilot")
+	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "Use well known collections for mixer")
 	id                     = flag.String("id", "", "The node id for the client")
-	output                 = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
-	labels                 = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
+	output                 = flag.String("output", "short", "Output format. One of: long|short|stats|jsonpath=<template>")
+	labels                 = flag.String("labels", "", "Comma separated key/value pairs, e.g. -labels=k1=v1,k2=v2")
+	incremental            = flag.Bool("incremental", false,
+		"When true, the set of changes represent an requestIncremental resource update. When false, the set of changes represents a full-state update for the specified type.")
 )
 
 var (
@@ -192,6 +194,8 @@ func (u *updater) printStats(ch *sink.Change) {
 		return
 	}
 
+	fmt.Printf("Objects: %v\n", ch.Objects)
+
 	now := time.Now()
 
 	u.totalApply++
@@ -217,11 +221,20 @@ func (u *updater) printStats(ch *sink.Change) {
 		}
 	}
 
-	// update delete stats
-	for name := range stats.resources {
-		if _, ok := added[name]; !ok {
+	if *incremental {
+		for _, name := range ch.Removed {
 			stats.delete++
 			delete(stats.resources, name)
+		}
+
+	} else {
+		deleted := added
+		// update delete stats
+		for name := range stats.resources {
+			if _, ok := deleted[name]; !ok {
+				stats.delete++
+				delete(stats.resources, name)
+			}
 		}
 	}
 
@@ -387,7 +400,7 @@ func main() {
 	}
 
 	options := &sink.Options{
-		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
+		CollectionOptions: sink.CollectionOptionsFromSlice(collections, *incremental),
 		Updater:           u,
 		ID:                *id,
 		Metadata:          sinkMetadata,

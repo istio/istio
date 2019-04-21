@@ -180,7 +180,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	options := &source.Options{
 		Watcher:            distributor,
 		Reporter:           s.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections(), a.IncrementalResourceUpdate),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 

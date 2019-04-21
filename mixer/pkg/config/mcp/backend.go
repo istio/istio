@@ -192,8 +192,14 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	b.mcpReporter = monitoring.NewStatsContext("mixer/mcp/sink")
+	collectionOptions := make([]sink.CollectionOptions, len(collections))
+	for i, collection := range collections {
+		collectionOptions[i] = sink.CollectionOptions{
+			Name: collection,
+		}
+	}
 	options := &sink.Options{
-		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
+		CollectionOptions: collectionOptions,
 		Updater:           b,
 		ID:                mixerNodeID,
 		Reporter:          b.mcpReporter,
