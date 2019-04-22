@@ -115,7 +115,12 @@ jobs:
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
           command: |
-            make git.dep run-simple
+            # In machine we don't have istioctl
+            make /go/bin/istioctl
+      - run:
+          command: |
+            make git.dep run-simple ISTIOCTL_BIN=/go/bin/istioctl
+
             #bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
@@ -156,7 +161,8 @@ jobs:
             export PATH=/go/bin:$PATH
             export ISTIO_CONTROL=istio-control
             make git.dep
-            make run-simple
+            make /go/bin/istioctl
+            make run-simple ISTIOCTL_BIN=/go/bin/istioctl
 
             # Bookinfo test
             WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
