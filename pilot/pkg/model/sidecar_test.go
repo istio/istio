@@ -82,18 +82,6 @@ var (
 		},
 	}
 
-	configs4 = &Config{
-		ConfigMeta: ConfigMeta{
-			Name:      "foo",
-			Namespace: "not-default",
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{},
-			},
-		},
-	}
-
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -194,12 +182,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs3,
 			services4,
 			[]string{"bar", "barprime"},
-		},
-		{
-			"sidecar-with-no-egress",
-			configs4,
-			services4,
-			nil,
 		},
 	}
 
