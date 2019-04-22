@@ -26,9 +26,14 @@ else ifeq (${TEST_ENV},minikube-none)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
+
+@echo "jianfeih is debuggin use mason file"
+
 _INTEGRATION_TEST_PROW_FLAG =
 ifeq (${USE_MASON_RESOURCE},True)
     _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH}
+else
+  @echo ${USE_MASON_RESOURCE} "jianfeih is debugging"
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
