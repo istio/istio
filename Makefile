@@ -131,7 +131,7 @@ build:
 	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash istionightly/kind:latest \
 		-c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; ls; make run-build"
 
-# Runs the test in docker
+# Runs the test in docker. Will exec into KIND and run "make $TEST_TARGET" (default: run-all-tests)
 docker-run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf  \
 		${KIND_CLUSTER}-control-plane \
@@ -140,7 +140,12 @@ docker-run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base install-ingress run-simple run-simple-strict run-bookinfo
+run-all-tests: install-crds install-base install-ingress install-telemetry install-policy \
+	run-simple run-simple-strict run-bookinfo run-test.integration.kube.presubmit
+
+# Tests running against 'micro' environment - just citadel + pilot + ingress
+# TODO: also add 'nano' - pilot + ingress without citadel, some users are using this a-la-carte option
+run-micro-tests: install-crds install-base install-ingress run-simple run-simple-strict
 
 # Start a KIND cluster, using current docker environment, and a custom image including helm
 # and additional tools to install istio.
