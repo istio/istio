@@ -21,20 +21,14 @@ import (
 	"net/http"
 	"time"
 
-	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	routeapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"istio.io/istio/pkg/test/util/retry"
+
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	routeApi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
-)
-
-// HealthCheckState represents a health checking state returned from /server_info
-type HealthCheckState string
-
-const (
-	// HealthCheckLive indicates Envoy is live and ready to serve requests
-	HealthCheckLive HealthCheckState = "LIVE"
 )
 
 const (
@@ -42,79 +36,34 @@ const (
 	healthCheckInterval = 100 * time.Millisecond
 )
 
-var (
-	nilServerInfo = ServerInfo{}
-)
-
-// ServerInfo is the result of a request to /server_info
-type ServerInfo struct {
-	ProcessName                  string
-	CompiledSHABuildType         string
-	HealthCheckState             HealthCheckState
-	CurrentHotRestartEpochUptime time.Duration
-	TotalUptime                  time.Duration
-	CurrentHotRestartEpoch       int
-}
-
 // GetServerInfo returns a structure representing a call to /server_info
-func GetServerInfo(adminPort int) (ServerInfo, error) {
+func GetServerInfo(adminPort int) (*envoyAdmin.ServerInfo, error) {
 	buffer, err := doEnvoyGet("server_info", adminPort)
 	if err != nil {
-		return nilServerInfo, err
+		return nil, err
 	}
 
-	msg := &envoy_admin_v2alpha.ServerInfo{}
+	msg := &envoyAdmin.ServerInfo{}
 	if err := jsonpb.Unmarshal(buffer, msg); err != nil {
-		return nilServerInfo, err
+		return nil, err
 	}
 
-	currentHotRestartEpochUptime, err := types.DurationFromProto(msg.UptimeCurrentEpoch)
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	totalUptime, err := types.DurationFromProto(msg.UptimeAllEpochs)
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	currentEpoch := 0
-	if msg.CommandLineOptions != nil {
-		currentEpoch = int(msg.CommandLineOptions.RestartEpoch)
-	}
-
-	return ServerInfo{
-		ProcessName:                  "envoy",
-		CompiledSHABuildType:         msg.Version,
-		HealthCheckState:             HealthCheckState(msg.State.String()),
-		CurrentHotRestartEpochUptime: currentHotRestartEpochUptime,
-		TotalUptime:                  totalUptime,
-		CurrentHotRestartEpoch:       currentEpoch,
-	}, nil
+	return msg, nil
 }
 
 // WaitForHealthCheckLive polls the server info for Envoy and waits for it to transition to "live".
 func WaitForHealthCheckLive(adminPort int) error {
-	endTime := time.Now().Add(healthCheckTimeout)
-	for {
-		var info ServerInfo
+	return retry.UntilSuccess(func() error {
 		info, err := GetServerInfo(adminPort)
-		if err == nil {
-			if info.HealthCheckState == HealthCheckLive {
-				// It's running, we can return now.
-				return nil
-			}
-		}
-
-		// Stop trying after the timeout
-		if time.Now().After(endTime) {
-			err = fmt.Errorf("failed to start envoy after %ds. Error: %v", healthCheckTimeout/time.Second, err)
+		if err != nil {
 			return err
 		}
 
-		// Sleep a short before retry.
-		time.Sleep(healthCheckInterval)
-	}
+		if info.State != envoyAdmin.ServerInfo_LIVE {
+			return fmt.Errorf("envoy not live. Server State: %s", info.State)
+		}
+		return nil
+	}, retry.Delay(healthCheckInterval), retry.Timeout(healthCheckTimeout))
 }
 
 // GetConfigDumpStr polls Envoy admin port for the config dump and returns the response as a string.
@@ -127,13 +76,13 @@ func GetConfigDumpStr(adminPort int) (string, error) {
 }
 
 // GetConfigDump polls Envoy admin port for the config dump and returns the response.
-func GetConfigDump(adminPort int) (*envoy_admin_v2alpha.ConfigDump, error) {
+func GetConfigDump(adminPort int) (*envoyAdmin.ConfigDump, error) {
 	buffer, err := doEnvoyGet("config_dump", adminPort)
 	if err != nil {
 		return nil, err
 	}
 
-	msg := &envoy_admin_v2alpha.ConfigDump{}
+	msg := &envoyAdmin.ConfigDump{}
 	if err := jsonpb.Unmarshal(buffer, msg); err != nil {
 		return nil, err
 	}
@@ -150,7 +99,7 @@ func doEnvoyGet(path string, adminPort int) (*bytes.Buffer, error) {
 }
 
 // IsClusterPresent inspects the given Envoy config dump, looking for the given cluster
-func IsClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
+func IsClusterPresent(cfg *envoyAdmin.ConfigDump, clusterName string) bool {
 	wrapper := configdump.Wrapper{ConfigDump: cfg}
 	clusters, err := wrapper.GetClusterConfigDump()
 	if err != nil {
@@ -169,7 +118,7 @@ func IsClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) b
 }
 
 // IsOutboundListenerPresent inspects the given Envoy config dump, looking for the given listener.
-func IsOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName string) bool {
+func IsOutboundListenerPresent(cfg *envoyAdmin.ConfigDump, listenerName string) bool {
 	wrapper := configdump.Wrapper{ConfigDump: cfg}
 	listeners, err := wrapper.GetListenerConfigDump()
 	if err != nil {
@@ -185,7 +134,7 @@ func IsOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName
 }
 
 // IsOutboundRoutePresent inspects the given Envoy config dump, looking for an outbound route which targets the given cluster.
-func IsOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
+func IsOutboundRoutePresent(cfg *envoyAdmin.ConfigDump, clusterName string) bool {
 	wrapper := configdump.Wrapper{ConfigDump: cfg}
 	routes, err := wrapper.GetRouteConfigDump()
 	if err != nil {
@@ -197,12 +146,12 @@ func IsOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName str
 		if r.RouteConfig != nil {
 			for _, vh := range r.RouteConfig.VirtualHosts {
 				for _, route := range vh.Routes {
-					actionRoute, ok := route.Action.(*routeapi.Route_Route)
+					actionRoute, ok := route.Action.(*routeApi.Route_Route)
 					if !ok {
 						continue
 					}
 
-					cluster, ok := actionRoute.Route.ClusterSpecifier.(*routeapi.RouteAction_Cluster)
+					cluster, ok := actionRoute.Route.ClusterSpecifier.(*routeApi.RouteAction_Cluster)
 					if !ok {
 						continue
 					}
@@ -222,7 +171,7 @@ func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != 200 {
 		return nil, fmt.Errorf("unexpected status %d", response.StatusCode)
