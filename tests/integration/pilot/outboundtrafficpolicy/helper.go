@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"reflect"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
@@ -110,6 +111,9 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 
 			client := instance.GetAppOrFail("client", t).(apps.KubeApp)
 			dest := instance.GetAppOrFail("destination", t).(apps.KubeApp)
+
+			// Wait for config to propagate
+			time.Sleep(time.Second * 5)
 
 			cases := []struct {
 				name     string
