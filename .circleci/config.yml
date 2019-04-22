@@ -4,9 +4,11 @@ version: 2
 integrationDefaults: &integrationDefaults
   machine:
     image: ubuntu-1604:201903-01
+  working_directory: /go/src/github.com/istio-ecosystem/istio-installer
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
     - SKIP_CLEANUP: true
+    - GOPATH: /go
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
 
@@ -17,9 +19,9 @@ initWorkingDir: &initWorkingDir
   name: Initialize Working Directory
   pwd: /
   command: |
-    sudo mkdir -p /istio/bin
-    sudo chown -R $USER /istio
-    cd /istio/bin
+    sudo mkdir -p /go/bin
+    sudo chown -R $USER /go
+    cd /go/bin
     curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
     chmod +x ./kubectl
 
@@ -49,7 +51,7 @@ jobs:
 
   # Pipeline running KIND and installer in the remote-docker environment.
   install-docker:
-    working_directory: /workspace/go/src/github.com/istio-ecosystem/istio-installer
+    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
@@ -105,7 +107,7 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: 
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
           command: |
@@ -131,23 +133,23 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run:
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh install_crds
       - run: 
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh install_system
       - run:
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh install_control
       - run:
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh install_ingress
       - run:
           command: |
-            export PATH=/istio/bin:$PATH
+            export PATH=/go/bin:$PATH
             export ISTIO_CONTROL=istio-control
             mkdir -p $GOPATH/src/istio.io/
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
