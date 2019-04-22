@@ -10,7 +10,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kiali{{- if .Values.dashboard.readOnly }}-viewer{{- end }}
+  name: kiali{{- if .Values.dashboard.viewOnlyMode }}-viewer{{- end }}
 subjects:
 - kind: ServiceAccount
   name: kiali-service-account
