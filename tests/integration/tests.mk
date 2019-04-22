@@ -27,7 +27,7 @@ else ifeq (${TEST_ENV},minikube-none)
 endif
 
 _INTEGRATION_TEST_PROW_FLAG =
-ifeq (${USE_MASON_RESOURCE},True)
+ifneq ($(MASON_INFO_PATH),)
     _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH}
 endif
 
