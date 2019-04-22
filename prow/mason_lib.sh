@@ -19,7 +19,9 @@ MASON_CLIENT_PID=-1
 function mason_cleanup() {
   if [[ ${MASON_CLIENT_PID} != -1 ]]; then
     kill -SIGINT ${MASON_CLIENT_PID} || echo "failed to kill mason client"
-    wait
+    echo "jianfeih debug change wait to sleep..."
+    sleep 30
+    # wait
   fi
 }
 
@@ -34,7 +36,7 @@ function get_resource() {
 
   mason_client \
     --type="${type}" \
-    --boskos-url='http://boskos.boskos.svc.cluster.local' \
+    --boskos-url='localhost' \
     --owner="${owner}" \
     --info-save "${info_path}" \
     --kubeconfig-save "${HOME}/.kube/config" > "${file_log}" 2>&1 &

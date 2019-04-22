@@ -108,6 +108,7 @@ test.integration.kube: | $(JUNIT_REPORT)
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
+	${_INTEGRATION_TEST_PROW_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Presubmit integration tests targeting Kubernetes environment.
@@ -124,7 +125,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
-	${_INTEGRATION_TEST_PROW_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Unstable/flaky/new integration tests targeting Kubernetes environment.
