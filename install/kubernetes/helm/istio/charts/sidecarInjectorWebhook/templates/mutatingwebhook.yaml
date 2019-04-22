@@ -1,7 +1,7 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ template "sidecar-injector.chart" . }}
