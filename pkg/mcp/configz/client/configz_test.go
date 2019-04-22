@@ -77,14 +77,14 @@ func TestConfigZ(t *testing.T) {
 	defer cancel()
 
 	o := ctrlz.DefaultOptions()
-	cz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
-	defer func() {
-		if cz != nil {
-			cz.Close()
-		}
-	}()
+	o.Port = 0
+	cz, err := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cz.Close()
 
-	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
+	baseURL := fmt.Sprintf("http://%v", cz.Address())
 
 	// wait for client to make first watch request
 	for {

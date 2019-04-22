@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
-
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
@@ -52,14 +52,14 @@ func TestConfigZ(t *testing.T) {
 	s.Cache.SetSnapshot(groups.Default, b.Build())
 
 	o := ctrlz.DefaultOptions()
-	cz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(s.Cache)})
-	defer func() {
-		if cz != nil {
-			cz.Close()
-		}
-	}()
+	o.Port = 0
+	cz, err := ctrlz.Run(o, []fw.Topic{CreateTopic(s.Cache)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cz.Close()
 
-	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
+	baseURL := fmt.Sprintf("http://%v", cz.Address())
 
 	t.Run("configj with 1 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
 }
