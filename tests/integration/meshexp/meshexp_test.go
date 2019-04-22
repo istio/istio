@@ -62,7 +62,6 @@ func setupVMInstance(ctx framework.SuiteContext) error {
 		return fmt.Errorf("failed to create VM service %v", err)
 	}
 	rawvm.Register(serviceName, ports)
-	// TODO: setup a app in Kubernetes cluster to send request to VM app.
 	return nil
 }
 
