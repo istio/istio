@@ -54,7 +54,7 @@ func setupMeshExpansionInstall(cfg *istio.Config) {
 
 // setupVMInstance runs necessary setup on the VM instance and create service
 // entry for VM application.
-func setupVMInstance(ctx framework.SuiteContext) error {
+func setupVMInstance(ctx resource.Context) error {
 	var err error
 	vmInstance, err = rawvm.New(ctx, rawvm.Config{
 		Type: rawvm.GCE,
