@@ -38,6 +38,7 @@ var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 // be used with the mcp.MeshConfigRequest and mcp.RequestResources. It can
 // be removed once we fully cutover to mcp.RequestResources.
 type Request struct {
+	PeerAddr   string
 	Collection string
 
 	// Most recent version was that ACK/NACK'd by the sink
@@ -441,6 +442,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 		}
 
 		sr := &Request{
+			PeerAddr:    con.peerAddr,
 			SinkNode:    req.SinkNode,
 			Collection:  collection,
 			VersionInfo: versionInfo,
