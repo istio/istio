@@ -21,26 +21,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) Config {
-	c := Config{
-		ConfigMeta: ConfigMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &networking.Gateway{
-			Selector: map[string]string{"istio": gw},
-			Servers: []*networking.Server{
-				{
-					Hosts: []string{host},
-					Port:  &networking.Port{Name: portName, Number: portNumber, Protocol: portProtocol},
-				},
-			},
-		},
-	}
-	return c
-}
-
-func TestCreateGW(t *testing.T) {
+func TestMergeGateways(t *testing.T) {
 	configGw1 := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway")
 	configGw2 := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
 	configGw3 := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway")
@@ -111,4 +92,23 @@ func TestCreateGW(t *testing.T) {
 			}
 		})
 	}
+}
+
+func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) Config {
+	c := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": gw},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{host},
+					Port:  &networking.Port{Name: portName, Number: portNumber, Protocol: portProtocol},
+				},
+			},
+		},
+	}
+	return c
 }
