@@ -59,8 +59,7 @@ jobs:
         environment:
           GOPATH: /go
           SKIP_CLEANUP: 1
-          GOROOT: /usr/local/bin/go
-          TMPDIR: /workspace/go/tmp
+          TMPDIR: /go/tmp
           TEST_TARGET: run-sanity-tests
 
     # Can run multiple images, first is primary, all use localhost
