@@ -53,7 +53,7 @@ jobs:
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.
-      - image: istionightly/kind:latest
+      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
         environment:
           GOPATH: /workspace/go
           SKIP_CLEANUP: 1
@@ -89,6 +89,8 @@ jobs:
     <<: *integrationDefaults
     environment: &minikubeEnv
             - KUBECONFIG: /go/out/minikube.conf
+            - GOPATH: /go
+            - ISTIO_CONTROL: istio-control
             - TEST_ENV: minikube-none
             - RESOURCES_FLAGS: >-
                 --set global.defaultResources.requests.cpu=0m
@@ -108,7 +110,6 @@ jobs:
       - run:
           command: |
             make git.dep
-            export ISTIO_CONTROL=istio-control
             bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
