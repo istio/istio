@@ -70,7 +70,7 @@ type AppParam struct {
 	// For example, secure naming for the mesh expansion uses
 	// "alpha.istio.io/kubernetes-serviceaccounts".
 	ServiceAnnotations map[string]string
-	// DeploymentAnnotations specifies annotations for the pod.
+	// PodAnnotations specifies annotations for the pod.
 	PodAnnotations map[string]string
 }
 
