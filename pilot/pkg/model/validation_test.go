@@ -2312,7 +2312,7 @@ func TestValidateRouteDestination(t *testing.T) {
 		}}, valid: true},
 		{name: "wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "*"},
-		}}, valid: true},
+		}}, valid: false},
 		{name: "bad wildcard", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.*"},
 		}}, valid: false},
@@ -2767,6 +2767,7 @@ func TestValidateConnectionPool(t *testing.T) {
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
 				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
 			},
 		},
 			valid: true},
@@ -2780,6 +2781,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true},
 
 		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+				IdleTimeout:              &types.Duration{Seconds: 30},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
@@ -2814,6 +2826,10 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 

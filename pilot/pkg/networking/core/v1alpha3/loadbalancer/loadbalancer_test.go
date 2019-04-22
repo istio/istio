@@ -48,7 +48,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 				weights := []int{}
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
@@ -64,7 +64,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -90,7 +90,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {

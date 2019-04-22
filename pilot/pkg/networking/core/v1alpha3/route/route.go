@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -339,7 +338,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy),
+			Cors:        translateCORSPolicy(in.CorsPolicy, node),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -576,17 +575,21 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_Enabled{
-			Enabled: proto.BoolTrue,
-		},
 	}
+
+	if util.IsProxyVersionGE11(node) {
+		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{}
+	} else {
+		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
+	}
+
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")

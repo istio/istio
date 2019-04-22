@@ -678,6 +678,8 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds(direction)
+	var idleTimeout *types.Duration
+
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
@@ -696,6 +698,8 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 		if settings.Http.MaxRetries > 0 {
 			threshold.MaxRetries = &types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
+
+		idleTimeout = settings.Http.IdleTimeout
 	}
 
 	if settings.Tcp != nil {
@@ -712,6 +716,11 @@ func applyConnectionPool(env *model.Environment, cluster *apiv2.Cluster, setting
 
 	cluster.CircuitBreakers = &v2Cluster.CircuitBreakers{
 		Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{threshold},
+	}
+
+	if idleTimeout != nil {
+		idleTimeoutDuration := util.GogoDurationToDuration(idleTimeout)
+		cluster.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: &idleTimeoutDuration}
 	}
 }
 
@@ -809,6 +818,12 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 		return
 	}
 
+	// Original destination service discovery must be used with the original destination load balancer.
+	if cluster.GetClusterDiscoveryType().Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}) {
+		cluster.LbPolicy = apiv2.Cluster_ORIGINAL_DST_LB
+		return
+	}
+
 	// TODO: MAGLEV
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN:
@@ -826,10 +841,17 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 	consistentHash := lb.GetConsistentHash()
 	if consistentHash != nil {
+		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
+		// unable to distinguish between set and unset case currently GregHanson
+		// 1024 is the default value for envoy
+		minRingSize := &types.UInt64Value{Value: 1024}
+		if consistentHash.MinimumRingSize != 0 {
+			minRingSize = &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+		}
 		cluster.LbPolicy = apiv2.Cluster_RING_HASH
 		cluster.LbConfig = &apiv2.Cluster_RingHashLbConfig_{
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
-				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
+				MinimumRingSize: minRingSize,
 			},
 		}
 	}
@@ -845,17 +867,17 @@ func applyLocalityLBSetting(
 	// locality LB is being used. For now, we sacrifice memory and create clones of
 	// clusters for every proxy that asks for locality specific clusters
 	for i, cluster := range clusters {
+		// Failover should only be applied with outlier detection, or traffic will never failover.
+		enabledFailover := cluster.OutlierDetection != nil
 		if shared {
-			// update the locality settings only if the cluster has
-			// outlier detection settings
-			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
+			if cluster.LoadAssignment != nil {
 				clone := util.CloneCluster(cluster)
-				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB)
+				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB, enabledFailover)
 				clusters[i] = &clone
 			}
 		} else {
-			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
-				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB)
+			if cluster.LoadAssignment != nil {
+				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 			}
 		}
 	}

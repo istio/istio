@@ -54,6 +54,7 @@ data:
             memory: 50Mi
         securityContext:
           runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
@@ -78,6 +79,8 @@ data:
         imagePullPolicy: IfNotPresent
         resources: {}
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           privileged: true
       {{ end }}
 {{- end }}
@@ -128,6 +131,9 @@ data:
         - --datadogAgentAddress
         - {{ "[[ .ProxyConfig.GetTracing.GetDatadog.GetAddress ]]" }}
       {{- end }}
+      {{- if $.Values.global.proxy.logLevel }}
+        - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+      {{- end}}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}

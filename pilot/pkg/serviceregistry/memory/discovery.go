@@ -245,6 +245,14 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	if sd.GetProxyServiceInstancesError != nil {
+		return nil, sd.GetProxyServiceInstancesError
+	}
+	// no useful labels from the ServiceInstances created by MakeInstance()
+	return nil, nil
+}
+
 // ManagementPorts implements discovery interface
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{

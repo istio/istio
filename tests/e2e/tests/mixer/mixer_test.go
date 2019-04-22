@@ -93,7 +93,7 @@ var (
 	rateLimitRule                = "mixer-rule-ratings-ratelimit"
 	denialRule                   = "mixer-rule-ratings-denial"
 	ingressDenialRule            = "mixer-rule-ingress-denial"
-	newTelemetryRule             = "mixer-rule-additional-telemetry"
+	newTelemetryRule             = "../telemetry/metrics"
 	kubeenvTelemetryRule         = "mixer-rule-kubernetesenv-telemetry"
 	destinationRuleAll           = "destination-rule-all"
 	routeAllRule                 = "virtual-service-all-v1"
