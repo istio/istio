@@ -1,9 +1,7 @@
 service:
   # When updating this, also update bin/linters.sh accordingly
-  golangci-lint-version: 1.15.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.16.x # use the fixed version to not introduce new linters unexpectedly
 run:
-  concurrency: 4
-
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
 
