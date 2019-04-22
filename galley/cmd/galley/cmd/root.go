@@ -16,9 +16,11 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/viper"
 
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"
@@ -48,6 +50,17 @@ func GetRootCmd(args []string) *cobra.Command {
 		Section: "galley CLI",
 		Manual:  "Istio Galley Server",
 	}))
+
+	var cfgFile string
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
+
+	if len(cfgFile) > 0 {
+		viper.SetConfigName(cfgFile)
+		err := viper.ReadInConfig() // Find and read the config file
+		if err != nil {             // Handle errors reading the config file
+			panic(fmt.Errorf("fatal error config file: %s", err))
+		}
+	}
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
