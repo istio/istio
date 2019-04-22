@@ -60,7 +60,6 @@ jobs:
           GOPATH: /go
           SKIP_CLEANUP: 1
           TMPDIR: /go/tmp
-          TEST_TARGET: run-sanity-tests
 
     # Can run multiple images, first is primary, all use localhost
     steps:
@@ -75,7 +74,14 @@ jobs:
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
             git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
       - run:
-          command: make test
+          # Create KIND cluster (separate so we get time info)
+          command: make info dep prepare
+      - run:
+          command: make sync
+      - run:
+          command: make docker-run-test TEST_TARGET="install-crds install-base install-ingress"
+      - run:
+          command: make docker-run-test TEST_TARGET="run-simple"
       - run:
           when: always
           command: make kind-logs
