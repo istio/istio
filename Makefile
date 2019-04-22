@@ -665,6 +665,7 @@ e2e_files = istio-auth-non-mcp.yaml \
 			istio-one-namespace-auth.yaml \
 			istio-one-namespace-trust-domain.yaml \
 			istio-multicluster.yaml \
+			istio-multicluster-split-horizon.yaml \
 
 .PHONY: generate_e2e_yaml generate_e2e_yaml_coredump
 generate_e2e_yaml: $(e2e_files)

@@ -1,0 +1,25 @@
+# This is used to generate istio-multicluster-split-horizon.yaml, used for CI/CD.
+global:
+  controlPlaneSecurityEnabled: true
+  mtls:
+    enabled: true
+  proxy:
+    accessLogFile: "/dev/stdout"
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+  meshExpansion:
+    enabled: true
+  meshNetworks:
+    network2:
+      endpoints:
+      - fromRegistry: N2_REGISTRY_TOKEN
+      gateways:
+      - address: 0.0.0.0
+        port: 443
+security:
+  selfSigned: false
+gateways:
+  istio-egressgateway:
+    enabled: false
+
+
