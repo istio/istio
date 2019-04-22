@@ -160,7 +160,7 @@ jobs:
           command: |
             export PATH=/go/bin:$PATH
             export ISTIO_CONTROL=istio-control
-            make git.dep
+            make git.dep ${GOPATH}/out/tmp
             # TODO: execute the tests in the KIND docker image ( even if running with minikube)
             make git.dep /go/bin/istioctl
             make run-simple ISTIOCTL_BIN=/go/bin/istioctl
