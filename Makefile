@@ -243,7 +243,7 @@ E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=${ISTIO_NS}
 
 # The simple test from istio/istio integration, in permissive mode
 # Will kube-inject and test the ingress and service-to-service
-run-simple:
+run-simple: ${TMPDIR}
 	kubectl create ns simple || /bin/true
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
@@ -252,7 +252,7 @@ run-simple:
 		E2E_ARGS="${E2E_ARGS} --namespace=simple")
 
 # Simple test, strict mode
-run-simple-strict:
+run-simple-strict: ${TMPDIR}
 	kubectl create ns simple-strict || /bin/true
 	kubectl -n simple-strict apply -f test/k8s/mtls_strict.yaml
 	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
