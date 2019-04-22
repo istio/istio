@@ -131,6 +131,13 @@ run-build: dep
 	bin/iop ${ISTIO_NS} istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
 	bin/iop ${ISTIO_NS} istio-discovery ${BASE}/istio-control/istio-discovery -t > ${OUT}/release/istio-discovery.yaml
 	bin/iop ${ISTIO_NS} istio-autoinject ${BASE}/istio-control/istio-autoinject -t > ${OUT}/release/istio-autoinject.yaml
+	bin/iop ${ISTIO_NS} istio-ingress ${BASE}/gateways/istio-ingress -t > ${OUT}/release/istio-ingress.yaml
+	bin/iop ${ISTIO_NS} istio-egress ${BASE}/gateways/istio-egress -t > ${OUT}/release/istio-egress.yaml
+	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/mixer-telemetry -t > ${OUT}/release/istio-telemetry.yaml
+	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/prometheus -t > ${OUT}/release/istio-prometheus.yaml
+	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/grafana -t > ${OUT}/release/istio-grafana.yaml
+	bin/iop ${ISTIO_NS} istio-policy ${BASE}/istio-policy -t > ${OUT}/release/istio-policy.yaml
+	bin/iop ${ISTIO_NS} istio-cni ${BASE}/optional/istio-cni -t > ${OUT}/release/istio-cni.yaml
 
 build:
 	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash istionightly/kind:latest \
@@ -238,7 +245,7 @@ run-bookinfo:
 #	kubectl apply -f
 
 # Will be used by tests
-export ISTIOCTL_BIN=/usr/local/bin/istioctl
+export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
 E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=${ISTIO_NS}
 
 # The simple test from istio/istio integration, in permissive mode
