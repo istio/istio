@@ -29,7 +29,7 @@ set -x
 # for existing resources types
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER="${OWNER:-integ}"
-USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
+export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 
@@ -52,7 +52,7 @@ function cleanup() {
 
 trap cleanup EXIT
 
-MASON_INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+export MASON_INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
 FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
 setup_and_export_git_sha
