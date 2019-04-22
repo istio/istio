@@ -116,10 +116,10 @@ jobs:
       - run:
           command: |
             # In machine we don't have istioctl
-            make /go/bin/istioctl
+            make git.dep /go/bin/istioctl
       - run:
           command: |
-            make git.dep run-simple ISTIOCTL_BIN=/go/bin/istioctl
+            make run-simple ISTIOCTL_BIN=/go/bin/istioctl
 
             #bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
@@ -161,7 +161,8 @@ jobs:
             export PATH=/go/bin:$PATH
             export ISTIO_CONTROL=istio-control
             make git.dep
-            make /go/bin/istioctl
+            # TODO: execute the tests in the KIND docker image ( even if running with minikube)
+            make git.dep /go/bin/istioctl
             make run-simple ISTIOCTL_BIN=/go/bin/istioctl
 
             # Bookinfo test

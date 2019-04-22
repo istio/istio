@@ -137,7 +137,10 @@ run-build: dep
 	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/prometheus -t > ${OUT}/release/istio-prometheus.yaml
 	bin/iop ${ISTIO_NS} istio-telemetry ${BASE}/istio-telemetry/grafana -t > ${OUT}/release/istio-grafana.yaml
 	bin/iop ${ISTIO_NS} istio-policy ${BASE}/istio-policy -t > ${OUT}/release/istio-policy.yaml
-	bin/iop ${ISTIO_NS} istio-cni ${BASE}/optional/istio-cni -t > ${OUT}/release/istio-cni.yaml
+	#bin/iop ${ISTIO_NS} istio-cni ${BASE}/optional/istio-cni -t > ${OUT}/release/istio-cni.yaml
+	# TODO: generate single config (merge all yaml)
+	# TODO: different common user-values combinations
+	# TODO: apply to a local kube apiserver to validate against k8s
 
 build:
 	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash istionightly/kind:latest \
@@ -302,10 +305,17 @@ run-test.integration.kube:
 
 run-test.integration.kube.presubmit:
 	export TMPDIR=${GOPATH}/out/tmp
-	mkdir -p ${GOPATH}/out/tmp
-	(cd ${GOPATH}/src/istio.io/istio; TAG=${TAG} make test.integration.kube.presubmit \
-		CI=1 T="-v" K8S_TEST_FLAGS="--istio.test.kube.minikube --istio.test.kube.systemNamespace ${ISTIO_NS} \
-		 --istio.test.nocleanup --istio.test.kube.deploy=false ")
+	mkdir -p ${GOPATH}/out/tmp ${GOPATH}/out/linux_amd64/release/
+	(cd ${GOPATH}/src/istio.io/istio; \
+		${GO} test -p 1 -v \
+			istio.io/istio/tests/integration/echo istio.io/istio/tests/integration/... \
+	--istio.test.ci -timeout 30m \
+    --istio.test.select +presubmit \
+ 	--istio.test.env kube \
+	--istio.test.kube.config /etc/kubernetes/admin.conf \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=IfNotPresent  2>&1 | tee >(${GOPATH}/bin/go-junit-report > ${GOPATH}/out/linux_amd64/release/junit_unit-tests.xml)
 
 run-stability:
 	 ISTIO_ENV=${ISTIO_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
