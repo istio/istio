@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 		// Deploy Istio on the cluster
 		Setup(istio.SetupOnKube(nil, setupMeshExpansionInstall)).
 		// Create a VM instance before running the test.
-		Setup(setupVMInstance).
+		Setup((framework.SetupFn)(setupVMInstance)).
 		Run()
 }
 
