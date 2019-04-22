@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package resource
 
-import (
-	// Import all packages that have static initializers.
-	_ "istio.io/istio/pkg/test/framework/components/deployment"
-	_ "istio.io/istio/pkg/test/framework/components/environment/kube"
-	_ "istio.io/istio/pkg/test/framework/components/istio"
-)
+// SetupFn is a function used for performing setup actions.
+type SetupFn func(ctx Context) error

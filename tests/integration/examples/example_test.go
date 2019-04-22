@@ -17,6 +17,7 @@ package examples
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/examples/mycomponent"
 
 	"istio.io/istio/pkg/test/framework"
@@ -59,7 +60,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func mysetup(c framework.SuiteContext) error {
+func mysetup(c resource.Context) error {
 	// this function will be called as part of suite setup. You can do one-time setup here.
 	// returning an error from here will cause the suite to fail all-together.
 
@@ -80,11 +81,11 @@ func mysetup(c framework.SuiteContext) error {
 	return nil
 }
 
-func setupNative(_ framework.SuiteContext) error {
+func setupNative(_ resource.Context) error {
 	return nil
 }
 
-func setupKube(_ framework.SuiteContext) error {
+func setupKube(_ resource.Context) error {
 	return nil
 }
 
