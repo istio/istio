@@ -111,8 +111,8 @@ jobs:
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
           command: |
-            make git.dep
-            bin/test.sh $GOPATH/src/istio.io/istio
+            make git.dep run-simple
+            #bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -151,9 +151,11 @@ jobs:
           command: |
             export PATH=/go/bin:$PATH
             export ISTIO_CONTROL=istio-control
-            mkdir -p $GOPATH/src/istio.io/
-            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
-            WAIT_TIMEOUT=5m bin/test.sh $GOPATH/src/istio.io/istio     
+            make git.dep
+            make run-simple
+            
+            # Bookinfo test
+            WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:

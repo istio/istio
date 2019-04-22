@@ -36,6 +36,11 @@
 # - make kind-shell  - run a shell in the kind container.
 # - make kind-logs - get logs from all components
 #
+# Fully hermetic test:
+# - make test - will clean 'test' KIND cluster, create a new one, run the tests.
+# In case of failure:
+# - make test SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 TEST_TARGET=(target that failed)
+#
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
@@ -140,7 +145,7 @@ docker-run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: install-crds install-base install-ingress install-telemetry install-policy \
+run-all-tests: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy \
 	run-simple run-simple-strict run-bookinfo run-test.integration.kube.presubmit
 
 # Tests running against 'micro' environment - just citadel + pilot + ingress
@@ -153,6 +158,9 @@ prepare:
 	mkdir -p ${TMPDIR}
 	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
 	kind create cluster --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
+
+${TMPDIR}:
+	mkdir -p ${TMPDIR}
 
 maybe-prepare:
 ifeq ($(SKIP_KIND_SETUP), 0)
