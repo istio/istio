@@ -151,13 +151,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
-	if err = env.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
-		return nil, err
-	}
-	var pods []kubeApiCore.Pod
-	pods, err = podFetchFunc()
+	pods, err := env.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
+		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return nil, err
 	}
 	pod := pods[0]

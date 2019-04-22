@@ -64,10 +64,7 @@ func newKube(ctx resource.Context, _ Config) (*kubeComponent, error) {
 
 	for _, serviceType := range []string{telemetryService, policyService} {
 		fetchFn := c.env.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
-		if err := c.env.WaitUntilPodsAreReady(fetchFn); err != nil {
-			return nil, err
-		}
-		pods, err := fetchFn()
+		pods, err := c.env.WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
 		}

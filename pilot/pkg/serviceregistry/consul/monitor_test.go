@@ -81,9 +81,7 @@ func TestController(t *testing.T) {
 
 	// re-ordering of service instances -> does not trigger update
 	ts.Lock.Lock()
-	tmpReview := reviews[0]
-	reviews[0] = reviews[len(reviews)-1]
-	reviews[len(reviews)-1] = tmpReview
+	reviews[0], reviews[len(reviews)-1] = reviews[len(reviews)-1], reviews[0]
 	ts.Lock.Unlock()
 
 	time.Sleep(notifyThreshold)

@@ -17,8 +17,6 @@ package native
 import (
 	"io"
 
-	meshConfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -38,15 +36,13 @@ type Environment struct {
 	id  resource.ID
 	ctx api.Context
 
-	// TODO: It is not correct to have fixed meshconfig at the environment level. We should align this with Galley's
-	// mesh usage as well, which is per-component instantiation.
-
-	// Mesh for configuring pilot.
-	Mesh *meshConfig.MeshConfig
-
+	// SystemNamespace is the namespace used for all Istio system components.
 	SystemNamespace string
-	Domain          string
 
+	// Domain used by components in the native environment.
+	Domain string
+
+	// PortManager provides free ports on-demand.
 	PortManager reserveport.PortManager
 }
 
@@ -54,8 +50,6 @@ var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx api.Context) (resource.Environment, error) {
-	mesh := model.DefaultMeshConfig()
-
 	portMgr, err := reserveport.NewPortManager()
 	if err != nil {
 		return nil, err
@@ -63,7 +57,6 @@ func New(ctx api.Context) (resource.Environment, error) {
 
 	e := &Environment{
 		ctx:             ctx,
-		Mesh:            &mesh,
 		SystemNamespace: systemNamespace,
 		Domain:          domain,
 		PortManager:     portMgr,

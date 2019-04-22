@@ -16,8 +16,13 @@ package echo
 
 import (
 	"context"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"testing"
+
+	"github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
 
@@ -113,9 +118,69 @@ func (r ParsedResponses) Len() int {
 	return len(r)
 }
 
-// IsOK indicates whether or not the first response was successful.
-func (r ParsedResponses) IsOK() bool {
-	return r.Len() > 0 && r[0].IsOK()
+func (r ParsedResponses) Check(check func(int, *ParsedResponse) error) (err error) {
+	if r.Len() == 0 {
+		return fmt.Errorf("no responses received")
+	}
+
+	for i, response := range r {
+		if e := check(i, response); e != nil {
+			err = multierror.Append(err, e)
+		}
+	}
+	return
+}
+
+func (r ParsedResponses) CheckOrFail(t testing.TB, check func(int, *ParsedResponse) error) {
+	if err := r.Check(check); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (r ParsedResponses) CheckOK() error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if !response.IsOK() {
+			return fmt.Errorf("response[%d] Status Code: %s", i, response.Code)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckOKOrFail(t testing.TB) {
+	if err := r.CheckOK(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (r ParsedResponses) CheckHost(expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.Host != expected {
+			return fmt.Errorf("response[%d] Host: expected %s, received %s", i, expected, response.Host)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckHostOrFail(t testing.TB, expected string) {
+	if err := r.CheckHost(expected); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (r ParsedResponses) CheckPort(expected int) error {
+	expectedStr := strconv.Itoa(expected)
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.Port != expectedStr {
+			return fmt.Errorf("response[%d] Port: expected %s, received %s", i, expectedStr, response.Port)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckPortOrFail(t testing.TB, expected int) {
+	if err := r.CheckPort(expected); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Count occurrences of the given text within the bodies of all responses.
@@ -125,15 +190,6 @@ func (r ParsedResponses) Count(text string) int {
 		count += c.Count(text)
 	}
 	return count
-}
-
-// Body concatenates the bodies of all responses.
-func (r ParsedResponses) Body() string {
-	body := ""
-	for _, c := range r {
-		body += c.Body
-	}
-	return body
 }
 
 func parseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {

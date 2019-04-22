@@ -214,7 +214,6 @@ func (s *NoSessionServer) Close() error {
 	return nil
 }
 
-// GetCapturedCalls ...
 func (s *NoSessionServer) GetCapturedCalls() []spyadapter.CapturedCall {
 	return s.CapturedCalls
 }

@@ -31,7 +31,7 @@ import (
 var duration19, _ = time.ParseDuration("19ms")
 var duration20, _ = time.ParseDuration("20ms")
 var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
-var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
+var time1977 = time.Date(1977, time.February, 4, 12, 0, 0, 0, time.UTC)
 var t, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:35Z")
 var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 

@@ -49,7 +49,7 @@ const (
 	meshConfigFile = "meshconfig.yaml"
 )
 
-// NewNativeComponent factory function for the component
+// newNative returns the native implementation of galley.Instance.
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	n := &nativeComponent{
@@ -337,6 +337,11 @@ func (c *nativeComponent) restart() error {
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"
 
+	if c.cfg.SinkAddress != "" {
+		a.SinkAddress = c.cfg.SinkAddress
+		a.SinkAuthMode = "NONE"
+	}
+
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
@@ -346,6 +351,10 @@ func (c *nativeComponent) restart() error {
 	c.server = s
 
 	go s.Run()
+
+	// TODO: This is due to Galley start-up being racy. We should go back to the "Start" based model where
+	// return from s.Start() guarantees that all the setup is complete.
+	time.Sleep(time.Second)
 
 	c.client = &client{
 		address: fmt.Sprintf("tcp://%s", s.Address().String()),

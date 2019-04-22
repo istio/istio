@@ -131,6 +131,17 @@ func DeleteDeployment(d string, n string, kubeconfig string) error {
 	return err
 }
 
+// LabelNamespace will add a label to the kubernetes namespace
+func LabelNamespace(n, label, kubeconfig string) error {
+	if _, err := Shell("kubectl label namespace %s %s --kubeconfig=%s", n, label, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
+	}
+	log.Infof("label %s added to namespace %s", label, n)
+	return nil
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)
@@ -166,6 +177,12 @@ func kubeCommand(subCommand, namespace, yamlFileName string, kubeconfig string) 
 // KubeApply kubectl apply from file
 func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
+	return err
+}
+
+// KubeCommand executes the given kubectl command with the given yaml file
+func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
+	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 	return err
 }
 
@@ -267,7 +284,7 @@ func getRetrier(serviceType string) Retrier {
 // GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
 // Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
 // Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
-func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string, sanityCheck bool) (string, error) {
 
 	retry := getRetrier(serviceType)
 	var ingress string
@@ -298,6 +315,10 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 
 	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
+
+	if !sanityCheck {
+		return ingress, nil
+	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	ingressURL := fmt.Sprintf("http://%s", ingress)
@@ -874,6 +895,18 @@ func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)
 	} else {
 		log.Infof("Deleted secret %s", secretName)
+	}
+	return err
+}
+
+// ReplaceInConfigMap will modify an existing configmap with the provided sed expression
+func ReplaceInConfigMap(namespace string, configmapName string, sedExpression string, kubeconfig string) error {
+	_, err := ShellMuteOutput("kubectl get configmap/%s -n %s --kubeconfig=%s -o yaml | sed \"%s\" | kubectl replace --kubeconfig=%s -f -",
+		configmapName, namespace, kubeconfig, sedExpression, kubeconfig)
+	if err != nil {
+		log.Errorf("Failed to edit the configmap %s: %v", configmapName, err)
+	} else {
+		log.Infof("Configmap %s updated with sed expression %s", configmapName, sedExpression)
 	}
 	return err
 }

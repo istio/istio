@@ -111,6 +111,33 @@ func TestApplyLocalitySetting(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		env := buildEnvForClustersWithFailover()
+		cluster := buildSmallClusterWithNilLocalities()
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			if localityEndpoint.Locality == nil {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+			} else if localityEndpoint.Locality.Region == locality.Region {
+				if localityEndpoint.Locality.Zone == locality.Zone {
+					if localityEndpoint.Locality.SubZone == locality.SubZone {
+						t.Errorf("Should not exist")
+						continue
+					}
+					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+					continue
+				}
+				t.Errorf("Should not exist")
+				continue
+			} else if localityEndpoint.Locality.Region == "region2" {
+				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+			} else {
+				t.Errorf("Should not exist")
+			}
+		}
+	})
 }
 
 func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
@@ -315,6 +342,32 @@ func buildSmallCluster() *apiv2.Cluster {
 						SubZone: "subzone2",
 					},
 				},
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildSmallClusterWithNilLocalities() *apiv2.Cluster {
+	return &apiv2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &apiv2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &envoycore.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+				},
+				{},
 				{
 					Locality: &envoycore.Locality{
 						Region:  "region2",

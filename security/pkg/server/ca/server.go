@@ -158,8 +158,7 @@ func (s *Server) Run() error {
 	}
 
 	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, s.createTLSServerOption())
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	grpcOptions = append(grpcOptions, s.createTLSServerOption(), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 
 	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)

@@ -41,6 +41,7 @@ type Client struct {
 	reporter monitoring.Reporter
 }
 
+// NewClient returns a new instance of Client.
 func NewClient(client mcp.ResourceSourceClient, options *Options) *Client {
 	return &Client{
 		Sink:     New(options),

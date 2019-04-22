@@ -53,10 +53,7 @@ func TestNative(t *testing.T) {
 	b := all.GetAppOrFail("b", t)
 
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
-	responses := a.CallOrFail(be, apps.AppCallOptions{}, t)
-	if !responses[0].IsOK() {
-		t.Fatalf("failed sending request from a to b: %+v", responses)
-	}
+	_ = a.CallOrFail(be, apps.AppCallOptions{}, t)
 }
 
 func TestMain(m *testing.M) {

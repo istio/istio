@@ -172,7 +172,6 @@ func StartSecretController(k8s kubernetes.Interface,
 
 func (c *Controller) runWorker() {
 	for c.processNextItem() {
-		// continue looping
 	}
 }
 

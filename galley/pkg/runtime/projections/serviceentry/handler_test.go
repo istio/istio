@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/convert"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
 
@@ -39,14 +40,14 @@ import (
 )
 
 const (
-	domainSuffix = "company.com"
-	clusterIP    = "10.0.0.10"
-	pod1IP       = "10.0.0.1"
-	pod2IP       = "10.0.0.2"
-	namespace    = "fakeNamespace"
-	nodeName     = "node1"
-	region       = "region1"
-	zone         = "zone1"
+	domain    = "company.com"
+	clusterIP = "10.0.0.10"
+	pod1IP    = "10.0.0.1"
+	pod2IP    = "10.0.0.2"
+	namespace = "fakeNamespace"
+	nodeName  = "node1"
+	region    = "region1"
+	zone      = "zone1"
 )
 
 var (
@@ -168,17 +169,30 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "AddEndpoints",
 			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: entryForEndpoints(serviceName, createTime, "v1", pod1IP),
+				Kind: resource.Added,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v1").
+					IPs(pod1IP).
+					NotReadyIPs(pod2IP).
+					Build(),
 			},
 			validator: func(ctx pipelineContext) {
-				entry := entryForEndpoints(serviceName, createTime, "v1", pod1IP)
+				entry := newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v1").
+					IPs(pod1IP).
+					NotReadyIPs(pod2IP).
+					Build()
 				endpoints = &entry
 
 				expectedMetadata := newMetadataBuilder(service, endpoints).
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
+					NotReadyIPs(pod2IP).
 					Build()
 				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
@@ -195,11 +209,21 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "ExpandEndpoints",
 			event: resource.Event{
-				Kind:  resource.Updated,
-				Entry: entryForEndpoints(serviceName, createTime, "v2", pod1IP, pod2IP),
+				Kind: resource.Updated,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v2").
+					IPs(pod1IP, pod2IP).
+					Build(),
 			},
 			validator: func(ctx pipelineContext) {
-				entry := entryForEndpoints(serviceName, createTime, "v2", pod1IP, pod2IP)
+				entry := newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v2").
+					IPs(pod1IP, pod2IP).
+					Build()
 				endpoints = &entry
 
 				expectNotifications(ctx.t, ctx.l, 1)
@@ -223,11 +247,23 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "ContractEndpoints",
 			event: resource.Event{
-				Kind:  resource.Updated,
-				Entry: entryForEndpoints(serviceName, createTime, "v3", pod2IP),
+				Kind: resource.Updated,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v3").
+					IPs(pod2IP).
+					NotReadyIPs(pod1IP).
+					Build(),
 			},
 			validator: func(ctx pipelineContext) {
-				entry := entryForEndpoints(serviceName, createTime, "v3", pod2IP)
+				entry := newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v3").
+					IPs(pod2IP).
+					NotReadyIPs(pod1IP).
+					Build()
 				endpoints = &entry
 
 				expectNotifications(ctx.t, ctx.l, 1)
@@ -235,6 +271,7 @@ func TestLifecycle(t *testing.T) {
 					CreateTime(createTime).
 					Version(expectedVersion).
 					Labels(serviceLabels).
+					NotReadyIPs(pod1IP).
 					Build()
 				expectedVersion++
 				expectedBody := newServiceEntryBuilder().
@@ -251,8 +288,13 @@ func TestLifecycle(t *testing.T) {
 		{
 			name: "DeleteEndpoints",
 			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: entryForEndpoints(serviceName, createTime, "v3", pod2IP),
+				Kind: resource.Deleted,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v3").
+					IPs(pod2IP).
+					Build(),
 			},
 			validator: func(ctx pipelineContext) {
 				endpoints = nil
@@ -316,8 +358,13 @@ func TestAddOrder(t *testing.T) {
 		{
 			name: "Endpoints",
 			event: resource.Event{
-				Kind:  resource.Added,
-				Entry: entryForEndpoints(serviceName, createTime, "v1", pod1IP),
+				Kind: resource.Added,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v1").
+					IPs(pod1IP).
+					Build(),
 			},
 		},
 	}
@@ -409,8 +456,13 @@ func TestDeleteOrder(t *testing.T) {
 		{
 			name: "Endpoints",
 			event: resource.Event{
-				Kind:  resource.Deleted,
-				Entry: entryForEndpoints(serviceName, createTime, "v1", pod1IP),
+				Kind: resource.Deleted,
+				Entry: newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v1").
+					IPs(pod1IP).
+					Build(),
 			},
 		},
 	}
@@ -440,7 +492,12 @@ func TestDeleteOrder(t *testing.T) {
 				entry := entryForService(serviceName, createTime, "v1")
 				service := &entry
 
-				entry = entryForEndpoints(serviceName, createTime, "v1", pod1IP)
+				entry = newEndpointsEntryBuilder().
+					ServiceName(serviceName).
+					CreateTime(createTime).
+					Version("v1").
+					IPs(pod1IP).
+					Build()
 				endpoints := &entry
 
 				hasPod := true
@@ -527,7 +584,12 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 
 	var endpoints resource.Entry
 	t.Run("AddEndpoints", func(t *testing.T) {
-		endpoints = entryForEndpoints(serviceName, createTime, "v1", pod1IP)
+		endpoints = newEndpointsEntryBuilder().
+			ServiceName(serviceName).
+			CreateTime(createTime).
+			Version("v1").
+			IPs(pod1IP).
+			Build()
 		h.Handle(resource.Event{
 			Kind:  resource.Added,
 			Entry: endpoints,
@@ -575,8 +637,13 @@ func TestAddEndpointsWithUnknownEventKindShouldNotPanic(t *testing.T) {
 	h, l := newHandler()
 
 	h.Handle(resource.Event{
-		Kind:  resource.None,
-		Entry: entryForEndpoints(serviceName, createTime, "v1"),
+		Kind: resource.None,
+		Entry: newEndpointsEntryBuilder().
+			ServiceName(serviceName).
+			CreateTime(createTime).
+			Version("v1").
+			IPs(pod1IP).
+			Build(),
 	})
 	expectNotifications(t, l, 0)
 }
@@ -597,7 +664,7 @@ func (l *fakeListener) reset() {
 
 func newHandler() (*serviceentry.Handler, *fakeListener) {
 	l := &fakeListener{}
-	h := serviceentry.NewHandler(domainSuffix, l)
+	h := serviceentry.NewHandler(domain, l)
 	return h, l
 }
 
@@ -668,12 +735,49 @@ func entryForService(serviceName resource.FullName, createTime time.Time, versio
 	}
 }
 
-func entryForEndpoints(serviceName resource.FullName, createTime time.Time, version string, ips ...string) resource.Entry {
-	ns, n := serviceName.InterpretAsNamespaceAndName()
+type endpointsEntryBuilder struct {
+	serviceName resource.FullName
+	createTime  time.Time
+	version     string
+	ips         []string
+	notReadyIPs []string
+}
+
+func newEndpointsEntryBuilder() *endpointsEntryBuilder {
+	return &endpointsEntryBuilder{}
+}
+
+func (b *endpointsEntryBuilder) ServiceName(serviceName resource.FullName) *endpointsEntryBuilder {
+	b.serviceName = serviceName
+	return b
+}
+
+func (b *endpointsEntryBuilder) CreateTime(createTime time.Time) *endpointsEntryBuilder {
+	b.createTime = createTime
+	return b
+}
+
+func (b *endpointsEntryBuilder) Version(version string) *endpointsEntryBuilder {
+	b.version = version
+	return b
+}
+
+func (b *endpointsEntryBuilder) IPs(ips ...string) *endpointsEntryBuilder {
+	b.ips = ips
+	return b
+}
+
+func (b *endpointsEntryBuilder) NotReadyIPs(ips ...string) *endpointsEntryBuilder {
+	b.notReadyIPs = ips
+	return b
+}
+
+func (b *endpointsEntryBuilder) Build() resource.Entry {
+	ns, n := b.serviceName.InterpretAsNamespaceAndName()
 
 	eps := &coreV1.Endpoints{
 		ObjectMeta: metaV1.ObjectMeta{
-			CreationTimestamp: metaV1.Time{Time: createTime},
+			CreationTimestamp: metaV1.Time{Time: b.createTime},
 			Name:              n,
 			Namespace:         ns,
 		},
@@ -690,16 +794,22 @@ func entryForEndpoints(serviceName resource.FullName, createTime time.Time, vers
 		},
 	}
 
-	for _, ip := range ips {
+	for _, ip := range b.ips {
 		eps.Subsets[0].Addresses = append(eps.Subsets[0].Addresses, coreV1.EndpointAddress{
 			IP: ip,
 		})
 	}
 
+	for _, ip := range b.notReadyIPs {
+		eps.Subsets[0].NotReadyAddresses = append(eps.Subsets[0].NotReadyAddresses, coreV1.EndpointAddress{
+			IP: ip,
+		})
+	}
+
 	return resource.Entry{
-		ID: id(endpointsCollection, serviceName, version),
+		ID: id(endpointsCollection, b.serviceName, b.version),
 		Metadata: resource.Metadata{
-			CreateTime:  createTime,
+			CreateTime:  b.createTime,
 			Annotations: serviceAnnotations,
 		},
 		Item: eps,
@@ -707,7 +817,7 @@ func entryForEndpoints(serviceName resource.FullName, createTime time.Time, vers
 }
 
 func host(namespace, serviceName string) string {
-	return fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, domainSuffix)
+	return fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, domain)
 }
 
 func localityLabels(region, zone string) resource.Labels {
@@ -722,8 +832,9 @@ func localityLabels(region, zone string) resource.Labels {
 }
 
 type metadataBuilder struct {
-	service   resource.Entry
-	endpoints *resource.Entry
+	service     resource.Entry
+	endpoints   *resource.Entry
+	notReadyIPs []string
 
 	version    int
 	createTime time.Time
@@ -735,6 +846,11 @@ func newMetadataBuilder(service resource.Entry, endpoints *resource.Entry) *meta
 		service:   service,
 		endpoints: endpoints,
 	}
+}
+
+func (b *metadataBuilder) NotReadyIPs(notReadyIPs ...string) *metadataBuilder {
+	b.notReadyIPs = notReadyIPs
+	return b
 }
 
 func (b *metadataBuilder) Version(version int) *metadataBuilder {
@@ -755,12 +871,24 @@ func (b *metadataBuilder) Labels(labels map[string]string) *metadataBuilder {
 func (b *metadataBuilder) Build() *mcp.Metadata {
 	protoTime, _ := types.TimestampProto(b.createTime)
 
+	annos := make(map[string]string)
+	for k, v := range b.service.Metadata.Annotations {
+		annos[k] = v
+	}
+	annos[annotations.ServiceVersion] = string(b.service.ID.Version)
+	if b.endpoints != nil {
+		annos[annotations.EndpointsVersion] = string(b.endpoints.ID.Version)
+		if len(b.notReadyIPs) > 0 {
+			annos[annotations.NotReadyEndpoints] = notReadyAnnotation(b.notReadyIPs...)
+		}
+	}
+
 	return &mcp.Metadata{
 		Name:        serviceName.String(),
 		Version:     strconv.Itoa(b.version),
 		CreateTime:  protoTime,
 		Labels:      b.labels,
-		Annotations: convert.Annotations(b.service, b.endpoints),
+		Annotations: annos,
 	}
 }
 
@@ -926,13 +1054,9 @@ func getStagePermutations(values []stage) [][]stage {
 			for i := 0; i < n; i++ {
 				helper(arr, n-1)
 				if n%2 == 1 {
-					tmp := arr[i]
-					arr[i] = arr[n-1]
-					arr[n-1] = tmp
+					arr[i], arr[n-1] = arr[n-1], arr[i]
 				} else {
-					tmp := arr[0]
-					arr[0] = arr[n-1]
-					arr[n-1] = tmp
+					arr[0], arr[n-1] = arr[n-1], arr[0]
 				}
 			}
 		}
@@ -946,6 +1070,14 @@ func localityFor(region, zone string) string {
 		return fmt.Sprintf("%s/%s", region, zone)
 	}
 	return ""
+}
+
+func notReadyAnnotation(ips ...string) string {
+	for i := range ips {
+		ips[i] += ":80"
+	}
+
+	return strings.Join(ips, ",")
 }
 
 func expectNotifications(t *testing.T, l *fakeListener, count int) {

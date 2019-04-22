@@ -305,7 +305,7 @@ istioctl get virtualservice bookinfo
 			}
 
 			var typs []model.ProtoSchema
-			if !getByName && strings.ToLower(args[0]) == "all" {
+			if !getByName && strings.EqualFold(args[0], "all") {
 				typs = configClient.ConfigDescriptor()
 			} else {
 				typ, err := protoSchema(configClient, args[0])
@@ -348,7 +348,7 @@ istioctl get virtualservice bookinfo
 				return errs
 			}
 
-			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
+			var outputters = map[string]func(io.Writer, model.ConfigStore, []model.Config){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}

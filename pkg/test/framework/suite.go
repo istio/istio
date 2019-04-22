@@ -48,9 +48,6 @@ var (
 	rtMu sync.Mutex
 )
 
-// SetupFn is a function used for performing suite-level setup actions.
-type SetupFn func(ctx SuiteContext) error
-
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
 type mRunFn func() int
 
@@ -61,7 +58,7 @@ type Suite struct {
 	osExit func(int)
 	labels label.Set
 
-	setupFns []SetupFn
+	setupFns []resource.SetupFn
 }
 
 // NewSuite returns a new suite instance.
@@ -89,7 +86,7 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 // RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
 // stops test execution. This also applies the appropriate label to the suite implicitly.
 func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	setupFn := func(ctx SuiteContext) error {
+	setupFn := func(ctx resource.Context) error {
 		if name != ctx.Environment().EnvironmentName() {
 			scopes.Framework.Infof("Skipping suite %q: Required environment (%v) does not match current: %v",
 				ctx.Settings().TestID, name, ctx.Environment().EnvironmentName())
@@ -99,19 +96,19 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 	}
 
 	// Prepend the function, so that it runs as the first thing.
-	fns := []SetupFn{setupFn}
+	fns := []resource.SetupFn{setupFn}
 	fns = append(fns, s.setupFns...)
 	s.setupFns = fns
 	return s
 }
 
 // Setup runs enqueues the given setup function to run before test execution.
-func (s *Suite) Setup(fn SetupFn) *Suite {
+func (s *Suite) Setup(fn resource.SetupFn) *Suite {
 	s.setupFns = append(s.setupFns, fn)
 	return s
 }
 
-func (s *Suite) runSetupFn(fn SetupFn, ctx SuiteContext) (err error) {
+func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 	defer func() {
 		// Dump if the setup function fails
 		if err != nil && ctx.Settings().CIMode {
@@ -123,8 +120,8 @@ func (s *Suite) runSetupFn(fn SetupFn, ctx SuiteContext) (err error) {
 }
 
 // EnvSetup runs the given setup function conditionally, based on the current environment.
-func (s *Suite) EnvSetup(e environment.Name, fn SetupFn) *Suite {
-	s.Setup(func(ctx SuiteContext) error {
+func (s *Suite) EnvSetup(e environment.Name, fn resource.SetupFn) *Suite {
+	s.Setup(func(ctx resource.Context) error {
 		if ctx.Environment().EnvironmentName() != e {
 			return nil
 		}

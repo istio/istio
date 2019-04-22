@@ -35,10 +35,6 @@ bin/testlinter
 bin/envvarlinter
 # Install generated files
 install/consul/istio.yaml
-install/kubernetes/addons/grafana.yaml
-install/kubernetes/addons/servicegraph.yaml
-install/kubernetes/addons/zipkin-to-stackdriver.yaml
-install/kubernetes/addons/zipkin.yaml
 install/kubernetes/istio-demo.yaml
 install/kubernetes/istio-demo-auth.yaml
 install/kubernetes/istio-auth.yaml
@@ -79,3 +75,5 @@ security/cmd/node_agent/na/cert_file
 security/cmd/node_agent/na/pkey
 # Test artifacts
 tests/e2e/local/minikube/docker-machine-driver-hyperkit
+# istioctl bash completion file
+tools/istioctl.bash

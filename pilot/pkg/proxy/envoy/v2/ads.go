@@ -631,6 +631,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if len(nt.ServiceInstances) > 0 {
 		nt.Locality = util.ConvertLocality(nt.ServiceInstances[0].GetLocality())
 	}
+
 	// If there is no locality in the registry then use the one sent as part of the discovery request.
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.

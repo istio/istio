@@ -429,15 +429,12 @@ func (f *Builder) op0(op Opcode) {
 
 // op1 inserts a 1-arg opcode into the body.
 func (f *Builder) op1(op Opcode, p1 uint32) {
-	f.body = append(f.body, uint32(op))
-	f.body = append(f.body, p1)
+	f.body = append(f.body, uint32(op), p1)
 }
 
 // op2 inserts a 2-arg opcode into the body.
 func (f *Builder) op2(op Opcode, p1 uint32, p2 uint32) {
-	f.body = append(f.body, uint32(op))
-	f.body = append(f.body, p1)
-	f.body = append(f.body, p2)
+	f.body = append(f.body, uint32(op), p1, p2)
 }
 
 func (f *Builder) id(s string) uint32 {

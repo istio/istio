@@ -125,9 +125,6 @@ grafana:
 prometheus:
   enabled: false
 
-servicegraph:
-  enabled: false
-
 tracing:
   enabled: false
 

@@ -167,8 +167,8 @@ func (c *collectionTopic) handleItem(w http.ResponseWriter, _ *http.Request, col
 	fw.RenderHTML(w, c.itemTmpl, context)
 }
 
-func (c *collectionTopic) handleError(w http.ResponseWriter, _ *http.Request, error string) {
-	fw.RenderHTML(w, c.mainTmpl, mainContext{Error: error})
+func (c *collectionTopic) handleError(w http.ResponseWriter, _ *http.Request, errorText string) {
+	fw.RenderHTML(w, c.mainTmpl, mainContext{Error: errorText})
 }
 
 func (c *collectionTopic) listCollection(name string) ([]string, error) {

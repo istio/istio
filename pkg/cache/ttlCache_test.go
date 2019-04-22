@@ -31,7 +31,7 @@ func TestTTLConcurrent(t *testing.T) {
 }
 
 func TestTTLExpiration(t *testing.T) {
-	ttl := NewTTL(5*time.Second, 100*time.Second).(*ttlWrapper)
+	ttl := NewTTL(5*time.Second, 0).(*ttlCache)
 	testCacheExpiration(ttl, ttl.evictExpired, t)
 }
 

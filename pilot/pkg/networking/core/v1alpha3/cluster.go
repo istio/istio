@@ -138,8 +138,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
-	clusters = append(clusters, buildBlackHoleCluster(env))
-	clusters = append(clusters, buildDefaultPassthroughCluster(env))
+	clusters = append(clusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env))
 
 	return normalizeClusters(push, proxy, clusters), nil
 }
@@ -841,10 +840,17 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 	consistentHash := lb.GetConsistentHash()
 	if consistentHash != nil {
+		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
+		// unable to distinguish between set and unset case currently GregHanson
+		// 1024 is the default value for envoy
+		minRingSize := &types.UInt64Value{Value: 1024}
+		if consistentHash.MinimumRingSize != 0 {
+			minRingSize = &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+		}
 		cluster.LbPolicy = apiv2.Cluster_RING_HASH
 		cluster.LbConfig = &apiv2.Cluster_RingHashLbConfig_{
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
-				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
+				MinimumRingSize: minRingSize,
 			},
 		}
 	}

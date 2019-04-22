@@ -322,9 +322,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 
-	// Wait for the pods to transition to running.
-	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
-		return nil, err
+	c.namespace = cfg.Namespace
+	if c.namespace == nil {
+		if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
+			return nil, err
+		}
 	}
 
 	params := cfg.AppParams
@@ -464,6 +466,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
+	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -480,6 +483,7 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
+		Path:   opts.Path,
 	}
 }
 
@@ -661,18 +665,8 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if err != nil {
 		return nil, err
 	}
-
-	if len(resp) != 1 {
+	if len(resp) != opts.Count {
 		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
@@ -683,6 +677,7 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 
@@ -703,7 +698,6 @@ type deploymentFactory struct {
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -742,11 +736,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		return kubeApiCore.Pod{}, err
-	}
-
-	pods, err := podFetchFunc()
+	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}

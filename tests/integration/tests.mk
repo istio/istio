@@ -48,7 +48,7 @@ endif
 
 # This is a useful debugging target for testing everything.
 #.PHONY: test.integration.all
-test.integration.all: test.integration test.integration.kube
+test.integration.all: test.integration test.integration.kube test.integration.race.native
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
@@ -109,6 +109,15 @@ test.integration.kube: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
 	${_INTEGRATION_TEST_PROW_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
+# Integration tests that detect race condition for native environment.
+.PHONY: test.integration.race.native
+test.integration.race.native: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -race -p 1 ${T} ${TEST_PACKAGES} -timeout 120m \
+	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Presubmit integration tests targeting Kubernetes environment.

@@ -28,7 +28,7 @@ func Init(homeDir string, clientOnly bool) error {
 		clientSuffix = " --client-only"
 	}
 
-	out, err := shell.Execute("helm --home %s init %s", homeDir, clientSuffix)
+	out, err := shell.Execute(true, "helm --home %s init %s", homeDir, clientSuffix)
 	if err != nil {
 		scopes.Framework.Errorf("helm init: %v, out:%q", err, out)
 	} else {
@@ -41,8 +41,7 @@ func Init(homeDir string, clientOnly bool) error {
 func Template(homeDir, template, name, namespace string, valuesFile string, values map[string]string) (string, error) {
 	p := []string{"helm", "--home", homeDir, "template", template, "--name", name, "--namespace", namespace}
 	if valuesFile != "" {
-		p = append(p, "--values")
-		p = append(p, valuesFile)
+		p = append(p, "--values", valuesFile)
 	}
 
 	// Override the values in the helm value file.
@@ -50,10 +49,9 @@ func Template(homeDir, template, name, namespace string, valuesFile string, valu
 		if k == "" {
 			continue
 		}
-		p = append(p, "--set")
-		p = append(p, fmt.Sprintf("%s=%s", k, v))
+		p = append(p, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
-	out, err := shell.ExecuteArgs(nil, "helm", p[1:]...)
+	out, err := shell.ExecuteArgs(nil, true, "helm", p[1:]...)
 	if err != nil {
 		scopes.Framework.Errorf("helm template: %v, out:%q", err, out)
 	}

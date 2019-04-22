@@ -368,7 +368,7 @@ var (
 			text: `request.time > context.time`,
 			bag: map[string]interface{}{
 				"request.time": time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC),
-				"context.time": time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC),
+				"context.time": time.Date(1977, time.February, 4, 12, 0, 0, 0, time.UTC),
 			},
 			result:     true,
 			referenced: []string{"context.time", "request.time"},
