@@ -36,7 +36,7 @@ function get_resource() {
 
   mason_client \
     --type="${type}" \
-    --boskos-url='localhost' \
+    --boskos-url='http://boskos.boskos.svc.cluster.local' \
     --owner="${owner}" \
     --info-save "${info_path}" \
     --kubeconfig-save "${HOME}/.kube/config" > "${file_log}" 2>&1 &
