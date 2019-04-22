@@ -77,7 +77,7 @@ func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	sort.Slice(ret, func(i, j int) bool {
 		ipi := net.ParseIP(ret[i].ip)
 		ipj := net.ParseIP(ret[j].ip)
-		if bytes.Equal(ipi, ipj) {
+		if ipi.Equal(ipj) {
 			pi, _ := strconv.Atoi(ret[i].port)
 			pj, _ := strconv.Atoi(ret[j].port)
 			return pi < pj
