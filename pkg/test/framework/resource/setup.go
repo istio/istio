@@ -16,4 +16,3 @@ package resource
 
 // SetupFn is a function used for performing setup actions.
 type SetupFn func(ctx Context) error
-
