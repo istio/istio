@@ -204,16 +204,18 @@ var (
 
 	deploymentFactories = []*deploymentFactory{
 		{
-			Deployment:     "t",
-			Service:        "t",
-			Version:        "unversioned",
-			Port1:          8080,
-			Port2:          80,
-			Port3:          9090,
-			Port4:          90,
-			Port5:          7070,
-			Port6:          70,
-			InjectProxy:    false,
+			Deployment: "t",
+			Service:    "t",
+			Version:    "unversioned",
+			Port1:      8080,
+			Port2:      80,
+			Port3:      9090,
+			Port4:      90,
+			Port5:      7070,
+			Port6:      70,
+			PodAnnotations: map[string]string{
+				"sidecar.istio.io/inject": "false",
+			},
 			Headless:       false,
 			ServiceAccount: false,
 			Locality:       "region.zone.subzone",
@@ -228,7 +230,6 @@ var (
 			Port4:          90,
 			Port5:          7070,
 			Port6:          70,
-			InjectProxy:    true,
 			Headless:       false,
 			ServiceAccount: false,
 			Locality:       "region.zone.subzone",
@@ -243,7 +244,6 @@ var (
 			Port4:          9090,
 			Port5:          70,
 			Port6:          7070,
-			InjectProxy:    true,
 			Headless:       false,
 			ServiceAccount: true,
 			Locality:       "region.zone.subzone",
@@ -258,7 +258,6 @@ var (
 			Port4:          9090,
 			Port5:          70,
 			Port6:          7070,
-			InjectProxy:    true,
 			Headless:       false,
 			ServiceAccount: true,
 			Locality:       "region.zone.subzone",
@@ -273,7 +272,6 @@ var (
 			Port4:          9090,
 			Port5:          70,
 			Port6:          7070,
-			InjectProxy:    true,
 			Headless:       false,
 			ServiceAccount: true,
 			Locality:       "region.zone.subzone",
@@ -288,7 +286,6 @@ var (
 			Port4:          9090,
 			Port5:          70,
 			Port6:          7070,
-			InjectProxy:    true,
 			Headless:       false,
 			ServiceAccount: true,
 			Locality:       "region.zone.subzone",
@@ -303,7 +300,6 @@ var (
 			Port4:          9090,
 			Port5:          70,
 			Port6:          7070,
-			InjectProxy:    true,
 			Headless:       true,
 			ServiceAccount: true,
 			Locality:       "region.zone.subzone",
@@ -402,7 +398,6 @@ func newDeploymentByAppParm(param AppParam) deploymentFactory {
 		Port4:              90,
 		Port5:              7070,
 		Port6:              70,
-		InjectProxy:        true,
 		Headless:           false,
 		ServiceAccount:     false,
 	}
@@ -709,7 +704,6 @@ type deploymentFactory struct {
 	Port4              int
 	Port5              int
 	Port6              int
-	InjectProxy        bool
 	Headless           bool
 	ServiceAccount     bool
 	Locality           string
@@ -721,13 +715,6 @@ func (d *deploymentFactory) renderTemplate() (string, error) {
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return "", err
-	}
-	// TODO(incfly): retire InjectProxy field and use annotation.
-	if !d.InjectProxy {
-		if d.PodAnnotations == nil {
-			d.PodAnnotations = make(map[string]string)
-		}
-		d.PodAnnotations["sidecar.istio.io/inject"] = "false"
 	}
 	d.Hub = s.Hub
 	d.Tag = s.Tag

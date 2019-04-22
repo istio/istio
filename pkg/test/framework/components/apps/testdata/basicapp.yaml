@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: gcr.io/istio-release/app:master-latest-daily
+        image: fake-hub/app:fake-tag
         imagePullPolicy: Always
         args:
           - --port

@@ -65,12 +65,12 @@ type App interface {
 type AppParam struct {
 	Name     string
 	Locality string
-	// ServiceAnnotations specifies the annotations for the deployment.
+	// ServiceAnnotations specifies the annotations for the service.
 	// This allows to enable or disable different Istio features as per app based.
 	// For example, secure naming for the mesh expansion uses
 	// "alpha.istio.io/kubernetes-serviceaccounts".
 	ServiceAnnotations map[string]string
-	// DeploymentAnnotations specifies annotations on a pod.
+	// DeploymentAnnotations specifies annotations for the pod.
 	PodAnnotations map[string]string
 }
 
