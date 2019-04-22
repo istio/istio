@@ -57,10 +57,9 @@ jobs:
       # Should have all tools we need, recreated when we rev the tool versions.
       - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
         environment:
-          GOPATH: /workspace/go
+          GOPATH: /go
           SKIP_CLEANUP: 1
           GOROOT: /usr/local/bin/go
-          PATH: ${PATH}:${GOROOT}/bin
           TMPDIR: /workspace/go/tmp
           TEST_TARGET: run-sanity-tests
 
