@@ -25,7 +25,7 @@ import (
 var scope = log.RegisterScope("shell", "Shell execution scope", 0)
 
 // Execute the given command.
-func Execute(format string, args ...interface{}) (string, error) {
+func Execute(combinedOutput bool, format string, args ...interface{}) (string, error) {
 	s := fmt.Sprintf(format, args...)
 	// TODO: escape handling
 	parts := strings.Split(s, " ")
@@ -36,10 +36,15 @@ func Execute(format string, args ...interface{}) (string, error) {
 			p = append(p, parts[i])
 		}
 	}
-	return ExecuteArgs(nil, parts[0], p[1:]...)
+
+	var argStrings []string
+	if len(p) > 0 {
+		argStrings = p[1:]
+	}
+	return ExecuteArgs(nil, combinedOutput, parts[0], argStrings...)
 }
 
-func ExecuteArgs(env []string, name string, args ...string) (string, error) {
+func ExecuteArgs(env []string, combinedOutput bool, name string, args ...string) (string, error) {
 	if scope.DebugEnabled() {
 		cmd := strings.Join(args, " ")
 		cmd = name + " " + cmd
@@ -48,7 +53,16 @@ func ExecuteArgs(env []string, name string, args ...string) (string, error) {
 
 	c := exec.Command(name, args...)
 	c.Env = env
-	b, err := c.CombinedOutput()
+
+	var b []byte
+	var err error
+	if combinedOutput {
+		// Combine stderr and stdout in b.
+		b, err = c.CombinedOutput()
+	} else {
+		// Just return stdout in b.
+		b, err = c.Output()
+	}
 
 	if err != nil || !c.ProcessState.Success() {
 		scope.Debugf("Command[%s] => (FAILED) %s", name, string(b))

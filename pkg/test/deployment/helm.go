@@ -162,7 +162,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 
 func exec(cmd string) (string, error) {
 	scopes.CI.Infof("executing: %s", cmd)
-	str, err := shell.Execute(cmd)
+	str, err := shell.Execute(true, cmd)
 	if err != nil {
 		err = errors.Wrapf(err, "error (%s) executing command: %s", str, cmd)
 		scopes.CI.Errorf("%v", err)

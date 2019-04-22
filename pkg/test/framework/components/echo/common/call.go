@@ -17,25 +17,42 @@ package common
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pilot/pkg/model"
-	appEcho "istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/framework/components/echo"
 	"net"
 	"net/url"
 	"reflect"
 	"strconv"
+
+	"istio.io/istio/pilot/pkg/model"
+	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-func CallEcho(client *appEcho.Client, opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	if err := fillInCallOptions(&opts); err != nil {
+var (
+	// IdentityOutboundPortSelector is an OutboundPortSelectorFunc that always returns the original service port.
+	IdentityOutboundPortSelector OutboundPortSelectorFunc = func(servicePort int) (int, error) {
+		return servicePort, nil
+	}
+)
+
+// OutboundPortSelectorFunc is a function that selects the appropriate outbound port for sending
+// requests to a target service.
+type OutboundPortSelectorFunc func(servicePort int) (int, error)
+
+func CallEcho(client *appEcho.Client, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (appEcho.ParsedResponses, error) {
+	if err := fillInCallOptions(opts); err != nil {
+		return nil, err
+	}
+
+	port, err := outboundPortSelector(opts.Port.ServicePort)
+	if err != nil {
 		return nil, err
 	}
 
 	// Forward a request from 'this' service to the destination service.
 	targetURL := &url.URL{
 		Scheme: string(opts.Protocol),
-		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port.ServicePort)),
+		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(port)),
 		Path:   opts.Path,
 	}
 	targetService := opts.Target.Config().Service

@@ -25,6 +25,7 @@ import (
 	appEcho "istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -68,6 +69,12 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		Version: cfg.Version,
 	}
 
+	// Create and start the Echo application
+	w.app, err = appFactory.NewApplication(application.DefaultDialer)
+	if err != nil {
+		return nil, err
+	}
+
 	if cfg.Sidecar {
 		// Using a sidecar Envoy proxy. Need to wire up a custom discovery filter and start Envoy...
 
@@ -84,12 +91,6 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		// Create the discovery filter that modifies the XDS from Pilot to allow the application run
 		// run natively.
 		w.discoveryFilter, err = newDiscoverFilter(pilotDiscoveryAddress.String(), env.PortManager)
-		if err != nil {
-			return nil, err
-		}
-
-		// Create and start the application.
-		w.app, err = newAppFilter(w.discoveryFilter, appFactory)
 		if err != nil {
 			return nil, err
 		}
@@ -130,12 +131,7 @@ func newWorkload(ctx resource.Context, cfg *echo.Config) (w *workload, err error
 		// Update the ports in the configuration to reflect the port mapping between Envoy and the Application.
 		cfg.Ports = w.sidecar.GetPorts()
 	} else {
-		// No sidecar is simple - just create the app...
-
-		w.app, err = appFactory.NewApplication(application.DefaultDialer)
-		if err != nil {
-			return nil, err
-		}
+		// No sidecar case is simple: just use the application ports directly ...
 
 		// Update the configuration with the ports assigned by the application.
 		cfg.Ports = cfg.Ports[:0]
@@ -177,6 +173,20 @@ func (w *workload) Address() string {
 
 func (w *workload) Sidecar() echo.Sidecar {
 	return w.sidecar
+}
+
+func (w *workload) Call(opts *echo.CallOptions) (appEcho.ParsedResponses, error) {
+	// Override the Host.
+	opts.Host = localhost
+
+	portSelector := common.IdentityOutboundPortSelector
+	if w.discoveryFilter != nil {
+		// Use the discovery filter as the outbound port selector to force outbound
+		// requests to go through Envoy.
+		portSelector = w.discoveryFilter.GetBoundOutboundListenerPort
+	}
+
+	return common.CallEcho(w.Client, opts, portSelector)
 }
 
 func (w *workload) Close() (err error) {

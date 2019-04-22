@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 
@@ -186,7 +187,7 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 }
 
 func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
-	if err := c.WaitUntilReady(); err != nil {
+	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -241,7 +242,17 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 		return nil, err
 	}
 
-	return common.CallEcho(c.workloads[0].Client, opts)
+	out, err := common.CallEcho(c.workloads[0].Client, &opts, common.IdentityOutboundPortSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+			c.Config().Service,
+			strings.ToLower(string(opts.Port.Protocol)),
+			opts.Target.Config().Service,
+			opts.Port.ServicePort,
+			opts.Path,
+			err)
+	}
+	return out, nil
 }
 
 func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {

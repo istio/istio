@@ -72,16 +72,8 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			s.podNamespace, s.podName, err, command, response)
 	}
 
-	// Scan forward to the start of the JSON document.
-	startIndex := strings.IndexByte(response, '{')
-	if startIndex < 0 {
-		return fmt.Errorf("unable to locate start of Envoy config_dump. Response:\n%s", response)
+	if err := jsonpb.Unmarshal(strings.NewReader(response), out); err != nil {
+		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, response)
 	}
-	endIndex := strings.LastIndexByte(response, '}')
-	if endIndex < 0 {
-		return fmt.Errorf("unable to locate end of Envoy config_dump. Response:\n%s", response)
-	}
-	response = response[startIndex : endIndex+1]
-
-	return jsonpb.Unmarshal(strings.NewReader(response), out)
+	return nil
 }

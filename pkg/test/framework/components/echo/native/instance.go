@@ -15,7 +15,9 @@
 package native
 
 import (
+	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
@@ -77,8 +79,8 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
 }
 
-func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstance ...echo.Instance) {
-	if err := c.WaitUntilReady(); err != nil {
+func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.Instance) {
+	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -100,10 +102,17 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	// Override the Host.
-	opts.Host = localhost
-
-	return common.CallEcho(c.workload.Client, opts)
+	out, err := c.workload.Call(&opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+			c.Config().Service,
+			strings.ToLower(string(opts.Port.Protocol)),
+			opts.Target.Config().Service,
+			opts.Port.ServicePort,
+			opts.Path,
+			err)
+	}
+	return out, nil
 }
 
 func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {

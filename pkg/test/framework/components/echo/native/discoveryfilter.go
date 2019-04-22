@@ -59,11 +59,11 @@ type discoveryFilter interface {
 
 	// GetBoundOutboundListenerPort returns a port bound to the agent's Envoy listener. Traffic
 	// sent to this port will automatically be sent to the outbound cluster. Pilot assumes that
-	// outbound traffic will automatically be redirected to Envoy, so it just sends the unbound
+	// outbound traffic will automatically be redirected to Envoy, so it just sends the
 	// port for the remote service. To make outbound requests go through Envoy, however, the
 	// native agent needs to bind a real outbound port for the listener and all outbound requests
 	// must pass through that port.
-	GetBoundOutboundListenerPort(portFromPilot int) (int, bool)
+	GetBoundOutboundListenerPort(portFromPilot int) (int, error)
 }
 
 func newDiscoverFilter(discoveryAddress string, portManager reserveport.PortManager) (f discoveryFilter, err error) {
@@ -116,9 +116,12 @@ type discoveryFilterImpl struct {
 	discoveryAddress          string
 }
 
-func (a *discoveryFilterImpl) GetBoundOutboundListenerPort(portFromPilot int) (int, bool) {
+func (a *discoveryFilterImpl) GetBoundOutboundListenerPort(portFromPilot int) (int, error) {
 	p, ok := a.boundPortMap[portFromPilot]
-	return p, ok
+	if !ok {
+		return 0, fmt.Errorf("failed to find bound outbound port for servicePort %d", portFromPilot)
+	}
+	return p, nil
 }
 
 func (a *discoveryFilterImpl) Stop() {
