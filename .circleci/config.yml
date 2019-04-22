@@ -153,7 +153,7 @@ jobs:
             export ISTIO_CONTROL=istio-control
             make git.dep
             make run-simple
-            
+
             # Bookinfo test
             WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
