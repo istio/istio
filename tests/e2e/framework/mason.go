@@ -28,15 +28,6 @@ type instanceInfo struct {
 	Zone string `json:"zone"`
 }
 
-// resourceInfo holds information about the resource created, such that it can used
-type resourceInfo struct {
-	ProjectsInfo []struct {
-		Name     string         `json:"name"`
-		Clusters []instanceInfo `json:"clusters,omitempty"`
-		VMs      []instanceInfo `json:"vms,omitempty"`
-	} `json:"projectsinfo,omitempty"`
-}
-
 // ParseGCEInstance returns a GCEInstance from an given mason file.
 func ParseGCEInstance(filePath string) (*GCPRawVM, error) {
 	info, err := parseInfoFile(filePath)

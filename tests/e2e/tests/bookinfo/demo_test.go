@@ -280,11 +280,9 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
-		vm, err := framework.NewGCPRawVM(
-			GCPVMOpts{
-				Namespace:tc.CommonConfig.Kube.Namespace
-			}
-		)
+		vm, err := framework.NewGCPRawVM(framework.GCPVMOpts{
+			Namespace: tc.CommonConfig.Kube.Namespace,
+		})
 		inspect(err, "unable to configure VM", "VM configured correctly", t)
 		// VM setup and teardown is manual for now
 		// will be replaced with preprovision server calls

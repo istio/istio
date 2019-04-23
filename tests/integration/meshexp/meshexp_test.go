@@ -11,6 +11,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/rawvm"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -39,12 +40,13 @@ const (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshexp_test", m).
+		Label(label.Postsubmit).
 		// Restrict the test to the K8s environment only, tests will be skipped in native environment.
 		RequireEnvironment(environment.Kube).
 		// Deploy Istio on the cluster
 		Setup(istio.SetupOnKube(nil, setupMeshExpansionInstall)).
 		// Create a VM instance before running the test.
-		Setup((resource.SetupFn)(setupVMInstance)).
+		Setup(resource.SetupFn(setupVMInstance)).
 		Run()
 }
 
@@ -68,7 +70,8 @@ func setupVMInstance(ctx resource.Context) error {
 
 // TODO(incfly): change to config_dump and convert to xDS proto might be better.
 func TestPilotIsReachable(t *testing.T) {
-	output, err := vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
+	output, err := vmInstance.Execute(
+		`/bin/sh -c 'curl localhost:15000/clusters'`)
 	if err != nil {
 		t.Errorf("VM instance failed to get Envoy CDS, %v", err)
 	}
