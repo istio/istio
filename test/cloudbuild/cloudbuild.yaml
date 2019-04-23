@@ -1,7 +1,8 @@
 steps:
 - name: 'istionightly/kind:latest'
   args: ["-c", 'make test']
-  env: ['PROJECT_ROOT=hello']
+  env:
+  - 'GOPATH=/workspace'
   timeout: 600s
   entrypoint: /bin/bash
 
