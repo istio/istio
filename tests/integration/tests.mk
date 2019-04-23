@@ -28,7 +28,7 @@ endif
 
 _INTEGRATION_TEST_PROW_FLAG =
 ifneq ($(MASON_INFO_PATH),)
-    _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH}
+    _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a

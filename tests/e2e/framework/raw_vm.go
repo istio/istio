@@ -45,6 +45,7 @@ var (
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
 	debURL        = flag.String("deb_url", "", "The URL where `istio-sidecar.deb` can be accessed")
+	sshUser       = flag.String("istio.test.prow.gceuser", "", "The user for gcloud compute ssh into.")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -145,8 +146,12 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
-	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s Prow@%s --command \"%s\"",
-		vm.ProjectID, vm.Zone, vm.Name, cmd)
+	sshUserPrefix := ""
+	if *sshUser != "" {
+		sshUserPrefix = *sshUser + "@"
+	}
+	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s%s --command \"%s\"",
+		vm.ProjectID, vm.Zone, sshUserPrefix, vm.Name, cmd)
 	return u.Shell(ssh)
 }
 
@@ -179,9 +184,8 @@ func (vm *GCPRawVM) Setup() error {
 		return err
 	}
 	if err := vm.provision(); err != nil {
-		return err
+		return fmt.Errorf("gce vm provision failed %v", err)
 	}
-	// TODO: restore before submit.
 	opts := setupMeshExOpts{
 		zone: vm.ClusterZone,
 		args: []string{vm.ClusterName},
@@ -189,7 +193,7 @@ func (vm *GCPRawVM) Setup() error {
 	if err := vm.setupMeshEx("generateClusterEnv", opts); err != nil {
 		return err
 	}
-	if _, err := u.Shell("cat cluster.env", setupMeshExOpts{}); err != nil {
+	if _, err := u.Shell("cat cluster.env"); err != nil {
 		return err
 	}
 	if err := vm.setupMeshEx("generateDnsmasq", setupMeshExOpts{}); err != nil {
