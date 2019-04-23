@@ -65,13 +65,13 @@ if [ "$SKIP_SETUP" -ne 1 ]; then
     ISTIO_CONTROL=${ISTIO_CONTROL:-istio-control}
 
     kubectl -n bookinfo delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all.yaml --ignore-not-found
     kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 
     kubectl label ns bookinfo istio-env=${ISTIO_CONTROL} --overwrite
 
     kubectl -n bookinfo apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-    kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
+    kubectl -n bookinfo apply -f samples/bookinfo/networking/destination-rule-all.yaml
     kubectl -n bookinfo apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
     for depl in ${BOOKINFO_DEPLOYMENTS}; do
@@ -106,6 +106,6 @@ set -e
 if [ "$SKIP_CLEANUP" -ne 1 ]; then
     echo "Cleaning up..."
     kubectl -n bookinfo delete -f samples/bookinfo/platform/kube/bookinfo.yaml --ignore-not-found
-    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all-mtls.yaml --ignore-not-found
+    kubectl -n bookinfo delete -f samples/bookinfo/networking/destination-rule-all.yaml --ignore-not-found
     kubectl -n bookinfo delete -f samples/bookinfo/networking/bookinfo-gateway.yaml --ignore-not-found
 fi
