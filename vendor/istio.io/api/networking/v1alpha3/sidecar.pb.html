@@ -254,12 +254,12 @@ port.</p>
 <td><code>string</code></td>
 <td>
 <p>The ip or the Unix domain socket to which the listener should be bound
-to. Port MUST be specified if bind is not empty. Format: <code>x.x.x.x</code> or
+to. Port MUST be specified if bind is not an ip. Format: <code>x.x.x.x</code> or
 <code>unix:///path/to/uds</code> or <code>unix://@foobar</code> (Linux abstract namespace). If
 omitted, Istio will automatically configure the defaults based on imported
 services, the workload to which this configuration is applied to and
 the captureMode. If captureMode is NONE, bind will default to
-127.0.0.1.</p>
+127.0.0.1 if no loopback ip is specified.</p>
 
 </td>
 </tr>
