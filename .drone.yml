@@ -16,7 +16,7 @@ steps:
       - /home/circleci/bin/kind create cluster
       - export PATH=$PATH:$GOPATH/bin
       - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
-      - kubectl apply -f crds.yaml
+      - kubectl apply -f crds/
       - bin/iop istio-control discovery istio-control/istio-discovery
 
 

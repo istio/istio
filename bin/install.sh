@@ -26,9 +26,9 @@ function step() {
 
 function install_crds() {
     step "custom ressource definitions"
-    kubectl apply -f crds.yaml
+    kubectl apply -f crds/
     
-    kubectl wait --for=condition=Established -f crds.yaml
+    kubectl wait --for=condition=Established -f crds/
 }
 
 # Install citadel into namespace istio-system
@@ -50,6 +50,21 @@ function install_control() {
     bin/iop ${ISTIO_CONTROL_NS} istio-discovery $IBASE/istio-control/istio-discovery  --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.configNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS 
     step "auto-injector.."
     bin/iop ${ISTIO_CONTROL_NS} istio-autoinject $IBASE/istio-control/istio-autoinject --set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.istioNamespace=${ISTIO_CONTROL_NS} $RESOURCES_FLAGS
+
+    # Assure that webhook is deleted whenever sidecar-injector is deleted
+    INJECTOR_UID=$(kubectl get deployments -n ${ISTIO_CONTROL_NS} istio-sidecar-injector -o jsonpath="{.metadata.uid}")
+    PATCH="{\"metadata\": {
+        \"ownerReferences\": [
+            {
+                \"apiVersion\": \"extensions/v1beta1\",
+                \"blockOwnerDeletion\": true,
+                \"kind\": \"Deployment\",
+                \"name\": \"istio-sidecar-injector\",
+                \"uid\": \"${INJECTOR_UID}\"
+            }]
+        }
+    }"
+    kubectl patch mutatingwebhookconfiguration istio-sidecar-injector-${ISTIO_CONTROL_NS} --patch "${PATCH}"
 
     kubectl rollout status  deployment istio-galley -n ${ISTIO_CONTROL_NS} --timeout=$WAIT_TIMEOUT
     kubectl rollout status  deployment istio-pilot  -n ${ISTIO_CONTROL_NS} --timeout=$WAIT_TIMEOUT

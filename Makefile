@@ -131,8 +131,8 @@ test: info dep maybe-clean maybe-prepare sync docker-run-test maybe-clean
 # TODO: Add a local test - to check various things are in the right place (jsonpath or equivalent)
 # TODO: run a local etcd/apiserver and verify apiserver accepts the files
 run-build: dep
-	mkdir -p ${OUT}/release ${TMPDIR}
-	cp crds.yaml ${OUT}/release
+	mkdir ${OUT}/release
+	cp -aR crds/ ${OUT}/release
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel -t > ${OUT}/release/citadel.yaml
 	bin/iop ${ISTIO_NS} istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
 	bin/iop ${ISTIO_NS} istio-discovery ${BASE}/istio-control/istio-discovery -t > ${OUT}/release/istio-discovery.yaml
@@ -191,17 +191,14 @@ ifeq ($(SKIP_CLEANUP), 0)
 	$(MAKE) clean
 endif
 
-# Install CRDS - only once (in case of repeated runs in dev mode)
-/tmp/crds.yaml: crds.yaml
+# Install CRDS
+${GOPATH}/out/yaml/crds: crds
 	mkdir -p ${GOPATH}/out/yaml
-	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
-	kubectl apply -f crds.yaml
-	kubectl wait --for=condition=Established -f crds.yaml
-	cp crds.yaml /tmp/crds.yaml
+	cp -aR crds ${GOPATH}/out/yaml/crds
+	kubectl apply -f crds/
+	kubectl wait --for=condition=Established -f crds/
 
-# Will use a temp file to avoid installing crds each time.
-# if the crds.yaml changes, the apply will happen again.
-install-crds: /tmp/crds.yaml
+install-crds: ${GOPATH}/out/yaml/crds
 
 # Individual step to install or update base istio.
 # This setup is optimized for migration from 1.1 and testing - note that autoinject is enabled by default,
