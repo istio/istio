@@ -8,9 +8,6 @@ ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
 
-
-RUN chmod 755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
-
 # Sudoers used to allow tcpdump and other debug utilities.
 RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
