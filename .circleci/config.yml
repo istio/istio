@@ -30,7 +30,8 @@ initWorkingDir: &initWorkingDir
 #  ID is circleci(3434)
 
 jobs:
-  # TODO: add encrypted creds for real clusters, push to real clusters
+
+  # Build all the templates, verify the templates work.
   build:
     working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
@@ -46,11 +47,14 @@ jobs:
       - checkout
       - run:
           command: make run-build
+          # TODO: make lint
       - store_artifacts:
           path: /go/out/
 
-  # Pipeline running KIND and installer in the remote-docker environment.
-  integration-presubmit-remotedocker:
+  # Pipeline running KIND and installer in the remote-docker environment
+  # Runs the 'integration.presubmit' tests against an environment using new installer with components in same
+  # namespace.
+  integration-presubmit-kind:
     working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
@@ -94,7 +98,8 @@ jobs:
       - store_artifacts:
           path: /workspace/go/out/logs
 
-  integration-old-remotedocker:
+  # Old integration tests - simple (mtls strict and permissive), bookinfo
+  integration-old-kind:
     working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
@@ -141,6 +146,7 @@ jobs:
           path: /workspace/go/out/logs
 
   # Uses machine and minikube --root, using one-step installation
+  # Used to verify that minikube still works, and get a baseline/compare performance.
   install-minikube:
     <<: *integrationDefaults
     environment: &minikubeEnv
@@ -182,52 +188,6 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  # Uses machine and minkube --root, but using step-by-stem installation
-  modular-installation:
-    <<: *integrationDefaults
-    environment: *minikubeEnv
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - run: bin/testEnvRootMinikube.sh start
-      - run: bin/testEnvRootMinikube.sh wait
-      - run:
-          command: |
-            mkdir -p /go/out/tmp
-            export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m bin/install.sh install_crds
-      - run: 
-          command: |
-            export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m bin/install.sh install_system
-      - run:
-          command: |
-            export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m bin/install.sh install_control
-      - run:
-          command: |
-            export PATH=/go/bin:$PATH
-            WAIT_TIMEOUT=10m bin/install.sh install_ingress
-      - run:
-          command: |
-            export PATH=/go/bin:$PATH
-            export ISTIO_CONTROL=istio-control
-            make git.dep ${GOPATH}/out/tmp
-            # TODO: execute the tests in the KIND docker image ( even if running with minikube)
-            make git.dep /go/bin/istioctl
-            make run-test.integration.kube.presubmit ISTIOCTL_BIN=/go/bin/istioctl
-
-            # Bookinfo test
-            #WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_artifacts:
-          path: /var/lib/localkube/
-      - store_test_results:
-          path: /go/out/tests
-
 workflows:
   version: 2
   nightly:
@@ -240,14 +200,14 @@ workflows:
                  - master
                  - dev
     jobs:
-      - integration-presubmit-remotedocker
+      - integration-presubmit-kind
+      - integration-old-kind
       - install-minikube
       - modular-installation
 
   all:
     jobs:
       - build
-      - integration-presubmit-remotedocker
-      - integration-old-remotedocker
+      - integration-presubmit-kind
+      - integration-old-kind
       - install-minikube
-      - modular-installation
