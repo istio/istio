@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
@@ -9,6 +9,9 @@ metadata:
     istio: sidecar-injector
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: sidecar-injector
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -17,7 +20,6 @@ spec:
     metadata:
       labels:
         app: sidecar-injector
-        chart: sidecar-injector
         release: {{ .Release.Name }}
         istio: sidecar-injector
       annotations:
@@ -26,7 +28,7 @@ spec:
         checksum/config-volume: {{ print $.Template.BasePath "/sidecar-injector-configmap.yaml" | sha256sum }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
- {{- if .Values.global.priorityClassName }}
+{{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
@@ -38,12 +40,15 @@ spec:
             - --tlsCertFile=/etc/istio/certs/cert-chain.pem
             - --tlsKeyFile=/etc/istio/certs/key.pem
             - --injectConfig=/etc/istio/inject/config
-            - --meshConfig=/etc/istio/inject/mesh
+            - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
             - --healthCheckFile=/health
             - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
             - --log_output_level=debug
           volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+            readOnly: true
           - name: certs
             mountPath: /etc/istio/certs
             readOnly: true
@@ -75,11 +80,19 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       volumes:
+      - name: config-volume
+        configMap:
+          name: istio
       - name: certs
         secret:
           secretName: istio.istio-sidecar-injector-service-account
       - name: inject-config
         configMap:
           name: istio-sidecar-injector
+          items:
+          - key: config
+            path: config
+          - key: values
+            path: values
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
