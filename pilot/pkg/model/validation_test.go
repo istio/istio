@@ -2345,7 +2345,7 @@ func TestValidateRouteDestination(t *testing.T) {
 		}}, valid: true},
 		{name: "wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "*"},
-		}}, valid: true},
+		}}, valid: false},
 		{name: "bad wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.*"},
 		}}, valid: false},

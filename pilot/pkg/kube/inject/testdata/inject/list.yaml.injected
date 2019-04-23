@@ -147,6 +147,7 @@ items:
             capabilities:
               add:
               - NET_ADMIN
+            runAsNonRoot: false
             runAsUser: 0
         volumes:
         - emptyDir:
@@ -304,6 +305,7 @@ items:
             capabilities:
               add:
               - NET_ADMIN
+            runAsNonRoot: false
             runAsUser: 0
         volumes:
         - emptyDir:
