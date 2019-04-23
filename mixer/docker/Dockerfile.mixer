@@ -1,7 +1,14 @@
-FROM scratch
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
 
+FROM scratch as default
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
+
+FROM gcr.io/distroless/static as distroless
+
+FROM ${BASE_DISTRIBUTION}
+
 ADD mixs /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/mixs", "server"]

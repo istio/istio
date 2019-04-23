@@ -12,7 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM scratch
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+FROM scratch as default
+
+FROM gcr.io/distroless/static as distroless
+
+FROM ${BASE_DISTRIBUTION}
 
 ADD listadapter /usr/local/bin/
 
