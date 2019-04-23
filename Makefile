@@ -161,8 +161,10 @@ docker-run-test:
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
 # It can also be used directly on the host against a real k8s cluster.
-run-all-tests: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy \
-	run-simple run-simple-strict run-bookinfo run-test.integration.kube.presubmit
+run-all-tests: install-full \
+	run-test.integration.kube.presubmit run-simple run-simple-strict run-bookinfo
+
+install-full: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy
 
 # Tests running against 'micro' environment - just citadel + pilot + ingress
 # TODO: also add 'nano' - pilot + ingress without citadel, some users are using this a-la-carte option
@@ -214,15 +216,12 @@ install-base: install-crds
 	kubectl wait deployments istio-galley istio-pilot -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
 	bin/iop ${ISTIO_NS} istio-autoinject ${BASE}/istio-control/istio-autoinject --set enableNamespacesByDefault=true --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS}
 	kubectl wait deployments istio-sidecar-injector -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
-	# Some tests assumes ingress is in same namespace with pilot.
-	# TODO: fix test (or replace), break it down in multiple namespaces for isolation/hermecity
+
+# Some tests assumes ingress is in same namespace with pilot.
+# TODO: fix test (or replace), break it down in multiple namespaces for isolation/hermecity
+install-ingress:
 	bin/iop ${ISTIO_NS} istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS}
 	kubectl wait deployments ingressgateway -n ${ISTIO_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
-
-
-install-ingress:
-	bin/iop istio-ingress istio-ingress ${BASE}/gateways/istio-ingress --set global.istioNamespace=${ISTIO_NS} ${IOP_OPTS}
-	kubectl wait deployments ingressgateway -n istio-ingress --for=condition=available --timeout=${WAIT_TIMEOUT}
 
 # Telemetry will be installed in istio-control for the tests, until integration tests are changed
 # to expect telemetry in separate namespace
@@ -265,8 +264,9 @@ run-simple: ${TMPDIR}
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
+	kubectl label ns simple istio-injection=disabled --overwrite
 	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
-	  go test -v -timeout 25m ./tests/e2e/tests/simple -args \
+	 go test -v -timeout 25m ./tests/e2e/tests/simple -args \
 	     --auth_enable=false \
          --egress=false --ingress=false \
          --rbac_enable=false --cluster_wide \
@@ -281,7 +281,8 @@ run-simple: ${TMPDIR}
 run-simple-strict: ${TMPDIR}
 	kubectl create ns simple-strict || /bin/true
 	kubectl -n simple-strict apply -f test/k8s/mtls_strict.yaml
-	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
+	kubectl -n simple-strict apply -f test/k8s/sidecar-local.yaml
+	kubectl label ns simple-strict istio-injection=disabled --overwrite
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_run ${TEST_FLAGS} \
 		E2E_ARGS="${E2E_ARGS} --namespace=simple-strict")
 
