@@ -44,3 +44,9 @@ mesh:
   #concurrency:
 
   interceptionMode: REDIRECT
+
+
+## Backward compat
+
+mixer:
+  policy:
