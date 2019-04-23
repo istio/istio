@@ -2070,12 +2070,8 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 
 	for _, host := range policy.AllowOrigin {
 		if host != "*" {
-			if strings.HasPrefix(host, "https://") {
-				host = host[8:]
-			}
-			if strings.HasPrefix(host, "http://") {
-				host = host[7:]
-			}
+			host = strings.TrimPrefix(host, "https://")
+			host = strings.TrimPrefix(host, "http://")
 			parts := strings.Split(host, ":")
 			if len(parts) > 2 {
 				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
