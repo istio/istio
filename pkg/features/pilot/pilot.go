@@ -136,7 +136,8 @@ var (
 	// When ALLOW_ANY traffic policy is used, a Passthrough cluster is used.
 	// When REGISTRY_ONLY traffic policy is used, a 502 error is returned.
 	EnableFallthroughRoute = func() bool {
-		return os.Getenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") == "1"
+		val, set := os.LookupEnv("PILOT_ENABLE_FALLTHROUGH_ROUTE")
+		return val == "1" || !set
 	}
 
 	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
