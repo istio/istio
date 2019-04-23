@@ -1,0 +1,12 @@
+steps:
+- name: 'istionightly/kind:latest'
+  args: ["-c", 'make test']
+  env:
+  - 'GOPATH=/workspace'
+  timeout: 600s
+  entrypoint: /bin/bash
+
+
+
+options:
+    machineType: 'N1_HIGHCPU_8'
