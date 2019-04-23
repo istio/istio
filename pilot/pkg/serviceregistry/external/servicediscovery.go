@@ -238,6 +238,24 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, nil
 }
 
+func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	d.update()
+	d.storeMutex.RLock()
+	defer d.storeMutex.RUnlock()
+
+	out := make(model.LabelsCollection, 0)
+
+	for _, ip := range proxy.IPAddresses {
+		instances, found := d.ip2instance[ip]
+		if found {
+			for _, instance := range instances {
+				out = append(out, instance.Labels)
+			}
+		}
+	}
+	return out, nil
+}
+
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
 func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
