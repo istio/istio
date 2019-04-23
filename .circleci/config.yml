@@ -179,6 +179,7 @@ jobs:
           # TODO: include in the istio base image
           command: make ${GOPATH}/bin/kind
       - run:
+          export PATH=/go/bin:$PATH
           # Create KIND cluster (separate so we get time info)
           command: make info dep prepare
       - run:

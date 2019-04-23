@@ -175,7 +175,7 @@ run-micro-tests: install-crds install-base install-ingress run-simple run-simple
 prepare:
 	mkdir -p ${TMPDIR}
 	cat test/kind/kind.yaml | sed s,GOPATH,$(GOPATH), > ${GOPATH}/kind.yaml
-	kind create cluster --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
+	kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image istionightly/kind:latest
 
 ${TMPDIR}:
 	mkdir -p ${TMPDIR}
