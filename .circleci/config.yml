@@ -74,6 +74,9 @@ jobs:
             git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
             git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
       - run:
+          # TODO: include in the istio base image
+          command: make ${GOPATH}/bin/kind
+      - run:
           # Create KIND cluster (separate so we get time info)
           command: make info dep prepare
       - run:
