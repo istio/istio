@@ -84,13 +84,15 @@ func TestPilotIsReachable(t *testing.T) {
 	var err error
 	for i := 0; i < 10; i++ {
 		output, err = vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
+		if err == nil && output != "" {
+			log.Infof("succussfully get envoy config")
+			break
+		}
 		if err != nil {
 			log.Errorf("[Attempt %v] VM instance failed to get Envoy CDS, %v\n", i, err)
 		}
 		time.Sleep(time.Second * 5)
 	}
-	fmt.Println("jianfeih debug, sleep to hang the Vm")
-	time.Sleep(time.Second * 1200)
 	if output == "" {
 		t.Errorf("failed to get Envoy cluster config")
 	}
