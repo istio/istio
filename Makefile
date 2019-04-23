@@ -434,7 +434,7 @@ ${GOPATH}/bin/helm:
 
 ${GOPATH}/bin/istioctl:
 	(cd ${GOPATH}/src/istio.io/istio; make istioctl)
-	cp ${GOPATH}/out/linux_amd64/release/istioctl %@
+	cp ${GOPATH}/out/linux_amd64/release/istioctl $@
 
 ${GOPATH}/bin/kind:
 	echo ${GOPATH}
