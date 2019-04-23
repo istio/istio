@@ -1,9 +1,3 @@
-# First step of istio install: kubectl apply -f ./crds.yaml
-# All Istio CRDs, as well as CRDs for optional components (certmanager)
-#
-
-################### Istio 1.0 CRDs
-
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -20,11 +14,29 @@ spec:
     listKind: VirtualServiceList
     plural: virtualservices
     singular: virtualservice
+    shortNames:
+    - vs
     categories:
     - istio-io
     - networking-istio-io
   scope: Namespaced
   version: v1alpha3
+  additionalPrinterColumns:
+  - JSONPath: .spec.gateways
+    description: The names of gateways and sidecars that should apply these routes
+    name: Gateways
+    type: string
+  - JSONPath: .spec.hosts
+    description: The destination hosts to which traffic is being sent
+    name: Hosts
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -42,11 +54,25 @@ spec:
     listKind: DestinationRuleList
     plural: destinationrules
     singular: destinationrule
+    shortNames:
+    - dr
     categories:
     - istio-io
     - networking-istio-io
   scope: Namespaced
   version: v1alpha3
+  additionalPrinterColumns:
+  - JSONPath: .spec.host
+    description: The name of a service from the service registry
+    name: Host
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -64,11 +90,33 @@ spec:
     listKind: ServiceEntryList
     plural: serviceentries
     singular: serviceentry
+    shortNames:
+    - se
     categories:
     - istio-io
     - networking-istio-io
   scope: Namespaced
   version: v1alpha3
+  additionalPrinterColumns:
+  - JSONPath: .spec.hosts
+    description: The hosts associated with the ServiceEntry
+    name: Hosts
+    type: string
+  - JSONPath: .spec.location
+    description: Whether the service is external to the mesh or part of the mesh (MESH_EXTERNAL or MESH_INTERNAL)
+    name: Location
+    type: string
+  - JSONPath: .spec.resolution
+    description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    name: Resolution
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -85,11 +133,13 @@ spec:
     kind: Gateway
     plural: gateways
     singular: gateway
+    shortNames:
+    - gw
     categories:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3 
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -176,9 +226,6 @@ spec:
   scope: Cluster
   version: v1alpha1
 ---
-# {{- end }}
-
-# {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled .Values.global.useMCP }}
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -225,8 +272,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotaspecbindings.config.istio.io
-  annotations:
-
   labels:
     app: istio-mixer
     chart: istio
@@ -248,8 +293,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotaspecs.config.istio.io
-  annotations:
-
   labels:
     app: istio-mixer
     chart: istio
@@ -267,14 +310,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
-# Mixer CRDs
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rules.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: istio.io.mixer
@@ -294,13 +333,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: attributemanifests.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: istio.io.mixer
@@ -320,13 +356,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: bypasses.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: bypass
@@ -346,13 +379,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: circonuses.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: circonus
@@ -372,13 +402,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: deniers.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: denier
@@ -398,13 +425,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: fluentds.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: fluentd
@@ -424,13 +448,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kubernetesenvs.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: kubernetesenv
@@ -450,13 +471,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listcheckers.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: listchecker
@@ -476,13 +494,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: memquotas.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: memquota
@@ -502,13 +517,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: noops.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: noop
@@ -528,13 +540,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: opas.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: opa
@@ -554,13 +563,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: prometheuses.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: prometheus
@@ -580,13 +586,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rbacs.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: rbac
@@ -606,13 +609,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: redisquotas.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: redisquota
@@ -629,40 +629,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: servicecontrols.config.istio.io
-  annotations:
-
-  labels:
-    app: mixer
-    package: servicecontrol
-    istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: config.istio.io
-  names:
-    kind: servicecontrol
-    plural: servicecontrols
-    singular: servicecontrol
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
-
----
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: signalfxs.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: signalfx
@@ -682,13 +652,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: solarwindses.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: solarwinds
@@ -708,13 +675,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stackdrivers.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: stackdriver
@@ -734,59 +698,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: cloudwatches.config.istio.io
-  annotations:
-
-  labels:
-    app: mixer
-    package: cloudwatch
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: cloudwatch
-    plural: cloudwatches
-    singular: cloudwatch
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: dogstatsds.config.istio.io
-  annotations:
-
-  labels:
-    app: mixer
-    package: dogstatsd
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: dogstatsd
-    plural: dogstatsds
-    singular: dogstatsd
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: statsds.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: statsd
@@ -806,13 +721,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stdios.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: stdio
@@ -832,13 +744,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: apikeys.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: apikey
@@ -858,13 +767,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: authorizations.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: authorization
@@ -884,13 +790,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: checknothings.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: checknothing
@@ -910,13 +813,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kuberneteses.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: adapter.template.kubernetes
@@ -936,13 +836,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listentries.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: listentry
@@ -962,13 +859,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: logentries.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: logentry
@@ -987,14 +881,31 @@ spec:
     - policy-istio-io
   scope: Namespaced
   version: v1alpha2
----
+  additionalPrinterColumns:
+  - JSONPath: .spec.severity
+    description: The importance of the log entry
+    name: Severity
+    type: string
+  - JSONPath: .spec.timestamp
+    description: The time value for the log entry
+    name: Timestamp
+    type: string
+  - JSONPath: .spec.monitored_resource_type
+    description: Optional expression to compute the type of the monitored resource this log entry is being recorded on
+    name: Res Type
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
 
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: edges.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: edge
@@ -1014,13 +925,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: metrics.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: metric
@@ -1040,13 +948,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotas.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: quota
@@ -1066,13 +971,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: reportnothings.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: reportnothing
@@ -1092,39 +994,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: servicecontrolreports.config.istio.io
-  annotations:
-
-  labels:
-    app: mixer
-    package: servicecontrolreport
-    istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: config.istio.io
-  names:
-    kind: servicecontrolreport
-    plural: servicecontrolreports
-    singular: servicecontrolreport
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: tracespans.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: tracespan
@@ -1144,13 +1017,10 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rbacconfigs.rbac.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: istio.io.mixer
@@ -1170,13 +1040,10 @@ spec:
   scope: Namespaced
   version: v1alpha1
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: serviceroles.rbac.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: istio.io.mixer
@@ -1196,13 +1063,10 @@ spec:
   scope: Namespaced
   version: v1alpha1
 ---
-
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicerolebindings.rbac.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: istio.io.mixer
@@ -1221,13 +1085,23 @@ spec:
     - rbac-istio-io
   scope: Namespaced
   version: v1alpha1
+  additionalPrinterColumns:
+  - JSONPath: .spec.roleRef.name
+    description: The name of the ServiceRole object being referenced
+    name: Reference
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: adapters.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: adapter
@@ -1251,8 +1125,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: instances.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: instance
@@ -1276,8 +1148,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: templates.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: template
@@ -1301,8 +1171,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: handlers.config.istio.io
-  annotations:
-
   labels:
     app: mixer
     package: handler
@@ -1321,154 +1189,4 @@ spec:
     - policy-istio-io
   scope: Namespaced
   version: v1alpha2
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: clusterissuers.certmanager.k8s.io
-spec:
-  group: certmanager.k8s.io
-  version: v1alpha1
-  names:
-    kind: ClusterIssuer
-    plural: clusterissuers
-  scope: Cluster
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: issuers.certmanager.k8s.io
-spec:
-  group: certmanager.k8s.io
-  version: v1alpha1
-  names:
-    kind: Issuer
-    plural: issuers
-  scope: Namespaced
----
-
-################### Istio 1.1 CRDs
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: cloudwatches.config.istio.io
-  labels:
-    app: mixer
-    package: cloudwatch
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: cloudwatch
-    plural: cloudwatches
-    singular: cloudwatch
-    categories:
-      - istio-io
-      - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: dogstatsds.config.istio.io
-  labels:
-    app: mixer
-    package: dogstatsd
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: dogstatsd
-    plural: dogstatsds
-    singular: dogstatsd
-    categories:
-      - istio-io
-      - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: sidecars.networking.istio.io
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-spec:
-  group: networking.istio.io
-  names:
-    kind: Sidecar
-    plural: sidecars
-    singular: sidecar
-    categories:
-      - istio-io
-      - networking-istio-io
-  scope: Namespaced
-  version: v1alpha3
----
-
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: zipkins.config.istio.io
-  annotations:
-    "helm.sh/hook": crd-install
-  labels:
-    app: mixer
-    package: zipkin
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: zipkin
-    plural: zipkins
-    singular: zipkin
-    categories:
-      - istio-io
-      - policy-istio-io
-  scope: Namespaced
-  version: v1alpha2
----
-
-################### Cert manager (optional)
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: certificates.certmanager.k8s.io
-spec:
-  group: certmanager.k8s.io
-  version: v1alpha1
-  scope: Namespaced
-  names:
-    kind: Certificate
-    plural: certificates
-    shortNames:
-      - cert
-      - certs
-
----
-
-################## Istio 1.2 resourcs    
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: authorizationpolicies.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    kind: AuthorizationPolicy
-    plural: authorizationpolicies
-    singular: authorizationpolicy
-    categories:
-      - istio-io
-      - rbac-istio-io
-  scope: Namespaced
-  version: v1alpha1
 ---
