@@ -41,6 +41,7 @@
 # In case of failure:
 # - make test SKIP_KIND_SETUP=1 SKIP_CLEANUP=1 TEST_TARGET=(target that failed)
 #
+SHELL := /bin/bash
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GOPATH = $(shell cd ${BASE}/../../../..; pwd)
@@ -61,6 +62,11 @@ GO ?= go
 TEST_FLAGS ?=  HUB=${HUB} TAG=${TAG}
 
 HELM_VER ?= v2.13.1
+
+# Will be used by tests. In CI 'machine' or some other cases needs to be built locally, we can't
+# customize base image
+export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
+JUNIT_REPORT ?= /usr/local/bin/go-junit-report
 
 # Namespace and environment running the control plane.
 # A cluster must support multiple control plane versions.
@@ -247,19 +253,23 @@ run-bookinfo:
 #run-fortio:
 #	kubectl apply -f
 
-# Will be used by tests
-export ISTIOCTL_BIN ?= /usr/local/bin/istioctl
+# Generate junit reports, upload to testgrid, fail if conditions are met.
+# Failure is based on test status - may exclude some tests.
+report:
+	bin/report.sh
+
 E2E_ARGS=--skip_setup --use_local_cluster=true --istio_namespace=${ISTIO_NS}
 
 # The simple test from istio/istio integration, in permissive mode
 # Will kube-inject and test the ingress and service-to-service
 run-simple: ${TMPDIR}
+	mkdir -p  ${GOPATH}/out/logs
 	kubectl create ns simple || /bin/true
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
-	(cd ${GOPATH}/src/istio.io/istio; make e2e_simple_noauth_run ${TEST_FLAGS} \
-		E2E_ARGS="${E2E_ARGS} --namespace=simple")
+	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; make e2e_simple_noauth_run ${TEST_FLAGS} \
+		E2E_ARGS="${E2E_ARGS} --namespace=simple") 2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 # Simple test, strict mode
 run-simple-strict: ${TMPDIR}
@@ -305,17 +315,19 @@ run-test.integration.kube:
 
 run-test.integration.kube.presubmit:
 	export TMPDIR=${GOPATH}/out/tmp
-	mkdir -p ${GOPATH}/out/tmp ${GOPATH}/out/linux_amd64/release/
-	(cd ${GOPATH}/src/istio.io/istio; \
+	mkdir -p ${GOPATH}/out/tmp ${GOPATH}/out/linux_amd64/release/ ${GOPATH}/out/logs/
+	set -o pipefail; \
+	cd ${GOPATH}/src/istio.io/istio; \
 		${GO} test -p 1 -v \
 			istio.io/istio/tests/integration/echo istio.io/istio/tests/integration/... \
+    --istio.test.kube.deploy=false --istio.test.kube.minikube --istio.test.kube.systemNamespace ${ISTIO_NS}  --istio.test.nocleanup \
 	--istio.test.ci -timeout 30m \
     --istio.test.select +presubmit \
  	--istio.test.env kube \
 	--istio.test.kube.config /etc/kubernetes/admin.conf \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
-	--istio.test.pullpolicy=IfNotPresent  2>&1 | tee >(${GOPATH}/bin/go-junit-report > ${GOPATH}/out/linux_amd64/release/junit_unit-tests.xml)
+	--istio.test.pullpolicy=IfNotPresent  2>&1 | tee ${GOPATH}/out/logs/$@.log
 
 run-stability:
 	 ISTIO_ENV=${ISTIO_NS} bin/iop test stability ${GOPATH}/src/istio.io/tools/perf/stability/allconfig ${IOP_OPTS}
@@ -368,7 +380,7 @@ kind-logs:
 
 # Build the Kind+build tools image that will be useed in CI/CD or local testing
 # This replaces the istio-builder.
-docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/istioctl ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
+docker.istio-builder: test/docker/Dockerfile ${GOPATH}/bin/istioctl ${GOPATH}/bin/ci2gubernator ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/kind ${GOPATH}/bin/helm ${GOPATH}/bin/go-junit-report ${GOPATH}/bin/repo
 	mkdir -p ${GOPATH}/out/istio-builder
 	curl -Lo - https://github.com/istio/istio/releases/download/${STABLE_TAG}/istio-${STABLE_TAG}-linux.tar.gz | \
     		(cd ${GOPATH}/out/istio-builder;  tar --strip-components=1 -xzf - )
@@ -424,4 +436,5 @@ ${GOPATH}/bin/dep:
 ${GOPATH}/bin/go-junit-report:
 	go get github.com/jstemmer/go-junit-report
 
-
+${GOPATH}/bin/ci2gubernator:
+	go get -u istio.io/test-infra/toolbox/ci2gubernator

@@ -26,3 +26,5 @@ RUN  apt-get -qqy install build-essential autoconf libtool autotools-dev
 
 #ADD bin/istioctl /usr/local/bin
 ADD istioctl /usr/local/bin
+ADD go-junit-report /usr/local/bin
+ADD ci2gubernator /usr/local/bin
