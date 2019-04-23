@@ -71,6 +71,7 @@ func resourceInfoToGCPRawVM(info gcp.ResourceInfo, ns string) (*GCPRawVM, error)
 			Name:        vmInfo.Name,
 			Zone:        vmInfo.Zone,
 			ClusterName: clusterInfo.Name,
+			ClusterZone: clusterInfo.Zone,
 			ProjectID:   pn,
 			UseMason:    true,
 			Namespace:   ns,

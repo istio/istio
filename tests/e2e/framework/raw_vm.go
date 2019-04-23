@@ -34,7 +34,7 @@ type RawVM interface {
 	SecureCopy(files ...string) (string, error)
 }
 
-// TODO(incfly): rename this flags to istio.xx.yy format?
+// TODO: rename this flags to istio.xx.yy format?
 var (
 	// flags to select vm with specific configuration
 	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
@@ -167,7 +167,7 @@ func (vm *GCPRawVM) Teardown() error {
 	return nil
 }
 
-// Setup initialize the VM
+// Setup initializes the VM.
 func (vm *GCPRawVM) Setup() error {
 	if err := prepareConstants(); err != nil {
 		return err
@@ -256,6 +256,9 @@ func (vm *GCPRawVM) setupMeshEx(op string, opts setupMeshExOpts) error {
 		export GCP_OPTS="--project %s --zone %s";
 		export SETUP_ISTIO_VM_SCRIPT="%s";`,
 		vm.ProjectID, zone, setupIstioVMScript)
+	if *sshUser != "" {
+		env = fmt.Sprintf("%v\nexport GCP_SSH_USER=%v;", env, *sshUser)
+	}
 	cmd := fmt.Sprintf("%s %s %s", setupMeshExScript, op, argsStr)
 	_, err := u.Shell(env + cmd)
 	return err
@@ -296,5 +299,7 @@ func prepareConstants() error {
 	setupMeshExScript = filepath.Join(root, "install/tools/setupMeshEx.sh")
 	mashExpansionYaml = filepath.Join(root, "install/kubernetes/mesh-expansion.yaml")
 	setupIstioVMScript = filepath.Join(root, "install/tools/setupIstioVM.sh")
+	fmt.Printf("jianfeih debug setupMeshExScript %v, setupVmScript %v\n",
+		setupMeshExScript, setupIstioVMScript)
 	return nil
 }

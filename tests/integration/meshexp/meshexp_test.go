@@ -89,11 +89,6 @@ func TestPilotIsReachable(t *testing.T) {
 	} {
 		if !strings.Contains(output, cluster) {
 			t.Errorf("%v not found in VM sidecar CDS config", cluster)
-			t.Errorf(`
-================================
-Dump CDS Output for debugging
-%s
-================================`, output)
 		}
 	}
 }
