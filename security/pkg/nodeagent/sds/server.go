@@ -107,7 +107,7 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 			log.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
 			return nil, err
 		}
-		log.Infof("SDS gRPC server start, listen %q \n", options.WorkloadUDSPath)
+		log.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
 	}
 
 	if options.EnableIngressGatewaySDS {
@@ -115,7 +115,8 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 			log.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
 			return nil, err
 		}
-		log.Infof("SDS gRPC server start, listen %q \n", options.IngressGatewayUDSPath)
+		log.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
+			options.IngressGatewayUDSPath)
 	}
 
 	return s, nil
@@ -205,8 +206,13 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 			}
-			s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
-			if err != nil {
+			time.Sleep(waitTime)
+			waitTime *= 2
+		}
+		waitTime = time.Second
+		for i := 0; i < maxRetryTimes; i++ {
+			// Retry if setUpUds() fails.
+			if s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath); err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
 			}
 			time.Sleep(waitTime)
