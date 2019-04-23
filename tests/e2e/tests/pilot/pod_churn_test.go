@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/application/echo"
@@ -93,7 +93,7 @@ func TestPodChurn(t *testing.T) {
 			if code != httpOK {
 				numBadResponses += count
 			}
-			aggregateResults[code] = aggregateResults[code] + count
+			aggregateResults[code] += count
 		}
 	}
 
@@ -157,11 +157,12 @@ func forwardToGrpcPort(t *testing.T, app string) kube.PortForwarder {
 		t.Fatalf("missing pod names for app %q from %s cluster", app, primaryCluster)
 	}
 
+	pod, err := tc.Kube.KubeAccessor.GetPod(tc.Kube.Namespace, pods[0])
+	if err != nil {
+		t.Fatalf("failed retrieving pod %s/%s: %v", tc.Kube.Namespace, pods[0], err)
+	}
 	// Create a port forwarder so that we can send commands app "a" to talk to the churn app.
-	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(&kube.PodSelectOptions{
-		PodNamespace: tc.Kube.Namespace,
-		PodName:      pods[0],
-	}, 0, uint16(grpcPort))
+	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(pod, 0, uint16(grpcPort))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +246,7 @@ func (g *trafficGeneratorImpl) start() {
 				}
 				responseCount += len(responses)
 				for _, resp := range responses {
-					g.results[resp.Code] = g.results[resp.Code] + 1
+					g.results[resp.Code]++
 				}
 			}
 		}
@@ -282,7 +283,7 @@ func newChurnApp(t *testing.T) *churnApp {
 	}
 
 	fetchFn := tc.Kube.KubeAccessor.NewPodFetch(tc.Kube.Namespace, churnAppSelector)
-	if err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+	if _, err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		app.stop()
 		t.Fatal(err)
 		return nil

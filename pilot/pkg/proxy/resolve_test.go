@@ -15,8 +15,10 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 )
 
@@ -29,13 +31,32 @@ func determineLocalHostIPString(t *testing.T) string {
 	if err != nil || len(ips) == 0 {
 		t.Fatalf("Test setup failure - unable to determine IP of localhost: %v", err)
 	}
-	ip := ips[0]
-	if ip.To4() == nil {
-		return fmt.Sprintf("[%s]", ip.String())
+	var ret string
+	for _, ip := range ips {
+		if ip.To4() == nil {
+			ret = fmt.Sprintf("[%s]", ip.String())
+		} else {
+			return ip.String()
+		}
 	}
-	return ip.String()
+	return ret
 }
 
+func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
+	var ret = []net.IPAddr{
+		{IP: net.ParseIP("2001:db8::68")},
+		{IP: net.IPv4(1, 2, 3, 4)},
+		{IP: net.IPv4(1, 2, 3, 5)},
+	}
+	return ret, nil
+}
+
+func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]net.IPAddr, error) {
+	var ret = []net.IPAddr{
+		{IP: net.ParseIP("2001:db8::68")},
+	}
+	return ret, nil
+}
 func TestResolveAddr(t *testing.T) {
 	localIP := determineLocalHostIPString(t)
 
@@ -44,81 +65,111 @@ func TestResolveAddr(t *testing.T) {
 		input    string
 		expected string
 		errStr   string
+		lookup   func(ctx context.Context, addr string) ([]net.IPAddr, error)
 	}{
 		{
 			name:     "Host by name",
 			input:    "localhost:9080",
 			expected: fmt.Sprintf("%s:9080", localIP),
 			errStr:   "",
+			lookup:   nil,
 		},
 		{
 			name:     "Host by name w/brackets",
 			input:    "[localhost]:9080",
 			expected: fmt.Sprintf("%s:9080", localIP),
 			errStr:   "",
+			lookup:   nil,
 		},
 		{
 			name:     "Host by IPv4",
 			input:    "127.0.0.1:9080",
 			expected: "127.0.0.1:9080",
 			errStr:   "",
+			lookup:   nil,
 		},
 		{
 			name:     "Host by IPv6",
 			input:    "[::1]:9080",
 			expected: "[::1]:9080",
 			errStr:   "",
+			lookup:   nil,
 		},
 		{
 			name:     "Bad IPv4",
 			input:    "127.0.0.1.1:9080",
 			expected: "",
 			errStr:   "lookup failed for IP address: lookup 127.0.0.1.1: no such host",
+			lookup:   nil,
 		},
 		{
 			name:     "Bad IPv6",
 			input:    "[2001:db8::bad::1]:9080",
 			expected: "",
 			errStr:   "lookup failed for IP address: lookup 2001:db8::bad::1: no such host",
+			lookup:   nil,
 		},
 		{
 			name:     "Empty host",
 			input:    "",
 			expected: "",
 			errStr:   ErrResolveNoAddress.Error(),
+			lookup:   nil,
 		},
 		{
 			name:     "IPv6 missing brackets",
 			input:    "2001:db8::20:9080",
 			expected: "",
 			errStr:   "address 2001:db8::20:9080: too many colons in address",
+			lookup:   nil,
 		},
 		{
 			name:     "Colon, but no port",
 			input:    "localhost:",
 			expected: fmt.Sprintf("%s:", localIP),
 			errStr:   "",
+			lookup:   nil,
 		},
 		{
 			name:     "Missing port",
 			input:    "localhost",
 			expected: "",
 			errStr:   "address localhost: missing port in address",
+			lookup:   nil,
 		},
 		{
 			name:     "Missing host",
 			input:    ":9080",
 			expected: "",
 			errStr:   "lookup failed for IP address: lookup : no such host",
+			lookup:   nil,
+		},
+		{
+			name:     "Host by name - non local",
+			input:    "www.foo.com:9080",
+			expected: "1.2.3.4:9080",
+			errStr:   "",
+			lookup:   MockLookupIPAddr,
+		},
+		{
+			name:     "Host by name - non local 0 IPv6 only address",
+			input:    "www.foo.com:9080",
+			expected: "[2001:db8::68]:9080",
+			errStr:   "",
+			lookup:   MockLookupIPAddrIPv6,
 		},
 	}
 
 	for _, tc := range testCases {
-		actual, err := ResolveAddr(tc.input)
+		actual, err := ResolveAddr(tc.input, tc.lookup)
 		if err != nil {
 			if tc.errStr == "" {
 				t.Errorf("[%s] expected success, but saw error: %v", tc.name, err)
 			} else if err.Error() != tc.errStr {
+				if strings.Contains(err.Error(), "Temporary failure in name resolution") {
+					t.Logf("[%s] expected error %q, got %q", tc.name, tc.errStr, err.Error())
+					continue
+				}
 				t.Errorf("[%s] expected error %q, got %q", tc.name, tc.errStr, err.Error())
 			}
 		} else {

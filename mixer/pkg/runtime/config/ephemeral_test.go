@@ -15,7 +15,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/mixer/adapter/list/config"
@@ -25,65 +24,12 @@ import (
 func TestDynamicHandlerCorruption(t *testing.T) {
 	adapters := data.BuildAdapters(nil)
 	templates := data.BuildTemplates(nil)
-
-	// need an adapter with config
-	listbackend, err := ioutil.ReadFile("../../../test/listbackend/nosession.yaml")
+	cfg, err := data.ReadConfigs("../../../test/listbackend/nosession.yaml", "../../../template/listentry/template.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := string(listbackend)
-
-	listentry, err := ioutil.ReadFile("../../../template/listentry/template.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg = cfg + "\n---\n" + string(listentry)
-
-	cfg = cfg + `
----
-apiVersion: config.istio.io/v1alpha2
-kind: handler
-metadata:
-  name: h1
-  namespace: istio-system
-spec:
-  adapter: listbackend-nosession
-  connection:
-    address: 127.0.0.1:8080
-  params:
-    provider_url: google.com
-    overrides:
-    - a
-    - b
-    caching_interval: 5s
----
-apiVersion: config.istio.io/v1alpha2
-kind: handler
-metadata:
-  name: h2
-  namespace: istio-system
-spec:
-  adapter: listbackend-nosession
-  connection:
-    address: 127.0.0.1:8080
-  params:
-    refresh_interval: 5s
-    caching_use_count: 50
----
-apiVersion: config.istio.io/v1alpha2
-kind: handler
-metadata:
-  name: h3
-  namespace: istio-system
-spec:
-  adapter: listbackend-nosession
-  connection:
-    address: 127.0.0.1:8080
-  params:
-    blacklist: true
----
-`
+	cfg = data.JoinConfigs(cfg, data.ListHandler1, data.ListHandler2, data.ListHandler3)
 	s, err := GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 	if err != nil {
 		t.Fatal(err)

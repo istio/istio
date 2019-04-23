@@ -1,10 +1,13 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: statusPort
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: status
   strategy: {}
   template:
     metadata:
@@ -137,6 +140,7 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
           capabilities:
             add:
             - NET_ADMIN

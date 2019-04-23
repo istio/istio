@@ -532,13 +532,13 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 
 		sleepTime := time.Second / time.Duration(ec.qps)
 		//log.Printf("Sleeping %v between requests\n", sleepTime)
-		throttle := time.Tick(sleepTime)
+		throttle := time.NewTicker(sleepTime)
 
 		var wg sync.WaitGroup
 		var m sync.Mutex
 
 		for i := 0; i < ec.count; i++ {
-			<-throttle
+			<-throttle.C
 			wg.Add(1)
 
 			ic := i
@@ -553,6 +553,7 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 		wg.Wait()
+		throttle.Stop()
 	}
 
 	if err != nil {

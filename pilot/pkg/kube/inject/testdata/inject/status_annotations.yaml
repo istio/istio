@@ -1,9 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: statusPort
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: status
   template:
     metadata:
       annotations:

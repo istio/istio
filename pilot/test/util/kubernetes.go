@@ -16,8 +16,6 @@ package util
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,11 +25,6 @@ import (
 )
 
 // Test utilities for kubernetes
-
-const (
-	// PodCheckBudget is the maximum number of retries with 1s delays
-	PodCheckBudget = 200
-)
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
@@ -69,56 +62,6 @@ func DeleteNamespace(cl kubernetes.Interface, ns string) {
 	}
 }
 
-// GetPods gets pod names in a namespace
-func GetPods(cl kubernetes.Interface, ns string) []string {
-	out := make([]string, 0)
-	list, err := cl.CoreV1().Pods(ns).List(meta_v1.ListOptions{})
-	if err != nil {
-		return out
-	}
-	for _, pod := range list.Items {
-		out = append(out, pod.Name)
-	}
-	return out
-}
-
-func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
-	for _, pod := range items {
-		if pod.Status.Phase != "Pending" && pod.Status.Phase != "Running" {
-			continue
-		}
-		for _, container := range pod.Status.ContainerStatuses {
-			if container.Ready {
-				continue
-			}
-			cmd := fmt.Sprintf("kubectl describe pods %s --kubeconfig %s -n %s",
-				pod.Name, kubeconfig, ns)
-			output, _ := Shell(cmd)
-			log.Errorf("%s\n%s", cmd, output)
-
-			cmd = fmt.Sprintf("kubectl logs %s -c istio-proxy --kubeconfig %s -n %s",
-				pod.Name, kubeconfig, ns)
-			output, _ = Shell(cmd)
-			log.Errorf("%s\n%s", cmd, output)
-		}
-	}
-}
-
-// CopyPodFiles copies files from a pod to the machine
-func CopyPodFiles(container, pod, ns, source, dest string) {
-	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar -c container
-	var cmd string
-	if container == "" {
-		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s",
-			ns, pod, source, dest)
-	} else {
-		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s  -c %s",
-			ns, pod, source, dest, container)
-	}
-	output, _ := Shell(cmd)
-	log.Errorf("%s\n%s", cmd, output)
-}
-
 // CopyFilesToPod copies files from a machine to a pod.
 func CopyFilesToPod(container, pod, ns, source, dest string) error {
 	// kubectl cp /tmp/bar  <some-namespace>/<some-pod>:/tmp/foo -c container
@@ -128,95 +71,4 @@ func CopyFilesToPod(container, pod, ns, source, dest string) error {
 	}
 	_, err := Shell(cmd)
 	return err
-}
-
-// GetAppPods awaits till all pods are running in a namespace, and returns a map
-// from "app" label value to the pod names.
-func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (map[string][]string, error) {
-	// TODO: clean and move this method to top level, 'AwaitPods' or something similar,
-	// merged with the similar method used by the other tests. Eventually make it part of
-	// istioctl or a similar helper.
-	pods := make(map[string][]string)
-	var items []v1.Pod
-
-	for _, ns := range nslist {
-		log.Infof("Checking all pods are running in namespace %s ...", ns)
-
-		for n := 0; ; n++ {
-			list, err := cl.CoreV1().Pods(ns).List(meta_v1.ListOptions{})
-			if err != nil {
-				return pods, err
-			}
-			items = list.Items
-			ready := true
-
-			for _, pod := range items {
-				// Exclude pods that may be in non-running state when helm is used to
-				// initialize.
-				if strings.HasPrefix(pod.Name, "istio-mixer-create") {
-					continue
-				}
-				if strings.HasPrefix(pod.Name, "istio-sidecar-injector") {
-					continue
-				}
-				if pod.Status.Phase != "Running" {
-					log.Infof("Pod %s.%s has status %s", pod.Name, ns, pod.Status.Phase)
-					ready = false
-					break
-				} else {
-					for _, container := range pod.Status.ContainerStatuses {
-						if !container.Ready {
-							log.Infof("Container %s in Pod %s in namespace % s is not ready", container.Name, pod.Name, ns)
-							ready = false
-							break
-						}
-					}
-					if !ready {
-						break
-					}
-				}
-			}
-
-			if ready {
-				for _, pod := range items {
-					if app, exists := pod.Labels["app"]; exists {
-						pods[app] = append(pods[app], pod.Name)
-					}
-					if app, exists := pod.Labels["istio"]; exists {
-						pods[app] = append(pods[app], pod.Name)
-					}
-				}
-
-				break
-			}
-			if n > PodCheckBudget {
-				describeNotReadyPods(items, kubeconfig, ns)
-				return pods, fmt.Errorf("exceeded budget %d for checking pod status", n)
-			}
-
-			time.Sleep(time.Second)
-		}
-	}
-
-	log.Infof("Found pods: %v", pods)
-	return pods, nil
-}
-
-// FetchLogs for a container in a a pod
-func FetchLogs(cl kubernetes.Interface, name, namespace string, container string) string {
-	log.Infof("Fetching log for container %s in %s.%s", container, name, namespace)
-	raw, err := cl.CoreV1().Pods(namespace).
-		GetLogs(name, &v1.PodLogOptions{Container: container}).
-		Do().Raw()
-	if err != nil {
-		log.Infof("Request error %v", err)
-
-		raw, err = cl.CoreV1().Pods(namespace).
-			GetLogs(name, &v1.PodLogOptions{Container: container, Previous: true}).
-			Do().Raw()
-		if err != nil {
-			return ""
-		}
-	}
-	return string(raw)
 }

@@ -21,53 +21,45 @@ import (
 
 func TestStrategy_OnChange(t *testing.T) {
 	s := NewStrategyWithDefaults()
+	defer s.Close()
 
 	t0 := time.Now()
 	t1 := t0.Add(time.Second)
 
 	now := t0
 	s.nowFn = func() time.Time { return now }
-
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		// Use a very long time and an empty fn to avoid firing.
-		return time.AfterFunc(d, func() {})
-	}
+	s.startTimerFn = func() {}
 
 	s.OnChange()
-	if s.firstEvent != t0 || s.latestEvent != t0 || s.timer == nil {
+
+	if s.firstEvent != t0 || s.latestEvent != t0 {
 		t.Fatalf("Unexpected internal state: %+v", s)
 	}
 
 	// Call change again to see that firstEvent is not changed.
 	now = t1
 	s.OnChange()
-	if s.firstEvent != t0 || s.latestEvent != t1 || s.timer == nil {
+	if s.firstEvent != t0 || s.latestEvent != t1 {
 		t.Fatalf("Unexpected internal state: %+v", s)
 	}
 }
 
 func TestStrategy_OnTimer(t *testing.T) {
 	s := NewStrategyWithDefaults()
+	defer s.Close()
 
-	// Capture t0, as a constant time.
 	t0 := time.Now()
-	var t1 time.Time // t1 will be captured later
+	t1 := t0.Add(time.Millisecond)
 
 	now := t0
 	s.nowFn = func() time.Time { return now }
-
-	var registeredFn func()
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		t1 = t0.Add(d)
-		registeredFn = fn
-		return time.AfterFunc(d, func() {})
-	}
+	s.startTimerFn = func() {}
 
 	s.OnChange()
 
 	// Simulate call of onTimer w/o quiesce or max timeout
 	now = t1
-	registeredFn()
+	s.onTimer()
 
 	published := false
 	select {
@@ -82,24 +74,20 @@ func TestStrategy_OnTimer(t *testing.T) {
 
 func TestStrategy_OnTimer_Quiesce(t *testing.T) {
 	s := NewStrategyWithDefaults()
+	defer s.Close()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
+	s.startTimerFn = func() {}
 
 	now := t0
 	s.nowFn = func() time.Time { return now }
-
-	var registeredFn func()
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		registeredFn = fn
-		return time.AfterFunc(d, func() {})
-	}
 
 	s.OnChange()
 
 	// Simulate quiesce
 	now = t0.Add(defaultQuiesceDuration).Add(time.Nanosecond)
-	registeredFn()
+	s.onTimer()
 
 	published := false
 	select {
@@ -114,16 +102,14 @@ func TestStrategy_OnTimer_Quiesce(t *testing.T) {
 
 func TestStrategy_OnTimer_MaxTimeout(t *testing.T) {
 	s := NewStrategyWithDefaults()
+	defer s.Close()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
 
 	now := t0
 	s.nowFn = func() time.Time { return now }
-
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		return time.AfterFunc(d, func() {})
-	}
+	s.startTimerFn = func() {}
 
 	s.OnChange()
 
@@ -160,41 +146,27 @@ func TestStrategy_OnTimer_MaxTimeout(t *testing.T) {
 	}
 }
 
-func TestStrategy_Reset(t *testing.T) {
+func TestStrategy_CloseTwice(t *testing.T) {
 	s := NewStrategyWithDefaults()
-
-	// Capture t0, as a constant time.
-	t0 := time.Now()
-
-	now := t0
-	s.nowFn = func() time.Time { return now }
-
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		return time.AfterFunc(d, func() {})
-	}
 
 	s.OnChange()
 
-	s.Reset()
-	if s.timer != nil {
-		t.Fatal("timer should have been stopped")
-	}
+	s.Close()
+
 	// Should not crash.
-	s.Reset()
+	s.Close()
 }
 
 func TestStrategy_DeadlockAvoidance(t *testing.T) {
 	s := NewStrategyWithDefaults()
+	defer s.Close()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
 
 	now := t0
 	s.nowFn = func() time.Time { return now }
-
-	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
-		return time.AfterFunc(d, func() {})
-	}
+	s.startTimerFn = func() {}
 
 	s.OnChange()
 

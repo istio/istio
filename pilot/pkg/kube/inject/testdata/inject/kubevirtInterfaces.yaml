@@ -1,9 +1,14 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello  
+      tier: backend
+      track: stable
   template:
     metadata:
       annotations:

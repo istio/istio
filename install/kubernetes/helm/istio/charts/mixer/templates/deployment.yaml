@@ -9,6 +9,21 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: policy-adapter-secret
@@ -17,6 +32,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -32,6 +48,9 @@
           - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
@@ -47,10 +66,11 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          - --useTemplateCRDs=false
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
         {{- if .Values.env }}
         env:
@@ -138,6 +158,15 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
         - name: policy-adapter-secret
@@ -153,6 +182,21 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
+      {{- if $.Values.global.sds.enabled }}
+      - hostPath:
+          path: /var/run/sds/uds_path
+          type: Socket
+        name: sds-uds-path
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.global.trustDomain }}
+              expirationSeconds: 43200
+              path: istio-token
+      {{- end }}
+      {{- end }}
       - name: uds-socket
         emptyDir: {}
       - name: telemetry-adapter-secret
@@ -161,6 +205,7 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -176,6 +221,9 @@
           - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
@@ -197,7 +245,7 @@
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
           - --averageLatencyThreshold
           - {{ $.Values.telemetry.loadshedding.latencyThreshold }}
@@ -289,6 +337,15 @@
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
+        {{- if $.Values.global.sds.enabled }}
+        - name: sds-uds-path
+          mountPath: /var/run/sds/uds_path
+          readOnly: true
+        {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+        {{- end }}
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -297,7 +354,7 @@
 {{- range $key, $spec := .Values }}
 {{- if or (eq $key "policy") (eq $key "telemetry") }}
 {{- if $spec.enabled }}
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-{{ $key }}
@@ -335,7 +392,6 @@ spec:
         istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}

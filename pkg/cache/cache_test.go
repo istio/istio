@@ -95,10 +95,8 @@ func testCacheBasic(c Cache, t *testing.T) {
 					if str != tc.value {
 						t.Errorf("Got value %v, expected %v", str, tc.value)
 					}
-				} else {
-					if value != nil {
-						t.Errorf("Got value %v, expected nil", value)
-					}
+				} else if value != nil {
+					t.Errorf("Got value %v, expected nil", value)
 				}
 
 			case Set:

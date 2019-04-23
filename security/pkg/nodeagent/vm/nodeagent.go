@@ -107,7 +107,7 @@ func (na *nodeAgentInternal) Start() error {
 			retries++
 			timer := time.NewTimer(retrialInterval)
 			// Exponentially increase the backoff time.
-			retrialInterval = retrialInterval * 2
+			retrialInterval *= 2
 			<-timer.C
 		}
 	}

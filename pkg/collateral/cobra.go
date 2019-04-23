@@ -39,6 +39,7 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 				c.EmitManPages = true
 				c.EmitMarkdown = true
 				c.EmitHTMLFragmentWithFrontMatter = true
+				c.ManPageInfo = *hdr
 			}
 
 			return EmitCollateral(root, &c)

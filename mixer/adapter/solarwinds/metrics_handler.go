@@ -70,7 +70,7 @@ func newMetricsHandler(env adapter.Env, cfg *config.Params) metricsHandlerInterf
 		}
 
 		env.ScheduleDaemon(func() {
-			appoptics.BatchMeasurements(prepChan, pushChan, stopChan, int(batchSize), env.Logger())
+			appoptics.BatchMeasurements(prepChan, pushChan, stopChan, int(batchSize))
 			batchWait <- struct{}{}
 		})
 		env.ScheduleDaemon(func() {

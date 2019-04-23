@@ -95,7 +95,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 				Filename: K8sSATrustworthyJwtFileName,
 			},
 		},
-		HeaderKey: k8sSAJwtTokenHeaderKey,
+		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
 	normalMetaConfig := &v2alpha.FileBasedMetadataConfig{
@@ -104,7 +104,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 				Filename: K8sSAJwtFileName,
 			},
 		},
-		HeaderKey: k8sSAJwtTokenHeaderKey,
+		HeaderKey: K8sSAJwtTokenHeaderKey,
 	}
 
 	cases := []struct {
@@ -150,7 +150,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useTrustworthyJwt: true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey, trustworthyMetaConfig),
 			},
 		},
 		{
@@ -159,7 +159,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			useNormalJwt:   true,
 			expected: &auth.SdsSecretConfig{
 				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey, normalMetaConfig),
+				SdsConfig: constructsdsconfighelper(K8sSAJwtFileName, K8sSAJwtTokenHeaderKey, normalMetaConfig),
 			},
 		},
 		{
@@ -262,7 +262,7 @@ func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alp
 								CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
 								ChannelCredentials:     constructLocalChannelCredConfig(),
 								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									&core.GrpcService_GoogleGrpc_CallCredentials{
+									{
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 												Name: "envoy.grpc_credentials.file_based_metadata",

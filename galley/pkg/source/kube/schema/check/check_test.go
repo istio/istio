@@ -44,19 +44,21 @@ func TestCheckCRDPresence(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		missing map[int]bool
+		missing map[string]bool
 		wantErr bool
+		count   int
 	}{
 		{
 			name:    "all present",
 			wantErr: false,
+			count:   len(specs),
 		},
 		{
 			name: "none ready",
-			missing: func() map[int]bool {
-				m := make(map[int]bool)
-				for i := 0; i < len(specs); i++ {
-					m[i] = true
+			missing: func() map[string]bool {
+				m := make(map[string]bool)
+				for _, spec := range specs {
+					m[spec.Plural] = true
 				}
 				return m
 			}(),
@@ -64,18 +66,24 @@ func TestCheckCRDPresence(t *testing.T) {
 		},
 		{
 			name:    "first missing",
-			missing: map[int]bool{0: true},
+			missing: map[string]bool{"meshpolicies": true},
 			wantErr: true,
 		},
 		{
-			name:    "middle not ready",
-			missing: map[int]bool{(len(specs) / 2): true},
+			name:    "pod not ready",
+			missing: map[string]bool{"pods": true},
 			wantErr: true,
 		},
 		{
-			name:    "last not ready",
-			missing: map[int]bool{(len(specs) - 1): true},
+			name:    "virtualservice not ready",
+			missing: map[string]bool{"virtualservices": true},
 			wantErr: true,
+		},
+		{
+			name:    "optional not ready",
+			missing: map[string]bool{"circonuses": true},
+			wantErr: false,
+			count:   len(specs) - 1,
 		},
 	}
 
@@ -84,8 +92,8 @@ func TestCheckCRDPresence(t *testing.T) {
 			cs := extfake.NewSimpleClientset()
 
 			byGroupVersion := map[string][]meta_v1.APIResource{}
-			for i, spec := range specs {
-				if c.missing[i] {
+			for _, spec := range specs {
+				if c.missing[spec.Plural] {
 					continue
 				}
 				gv := spec.GroupVersion().String()
@@ -99,7 +107,7 @@ func TestCheckCRDPresence(t *testing.T) {
 				cs.Resources = append(cs.Resources, resourceList)
 			}
 
-			err := resourceTypesPresence(cs, specs)
+			found, err := resourceTypesPresence(cs, specs, true)
 			if c.wantErr {
 				if err == nil {
 					tt.Fatal("expected error but got success")
@@ -107,6 +115,9 @@ func TestCheckCRDPresence(t *testing.T) {
 			} else {
 				if err != nil {
 					tt.Fatalf("expected success but got error: %v", err)
+				}
+				if len(found) != c.count {
+					tt.Fatalf("expected %d found resources but got %d", c.count, len(found))
 				}
 			}
 		})
@@ -119,7 +130,6 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 	cases := []struct {
 		name    string
 		missing map[int]bool
-		want    map[int]bool
 	}{
 		{
 			name: "all present",
@@ -176,7 +186,10 @@ func TestFindSupportedResourceSchemas(t *testing.T) {
 				}
 			}
 
-			got := findSupportedResourceSchemas(cs, specs)
+			got, err := resourceTypesPresence(cs, specs, false)
+			if err != nil {
+				tt.Fatalf("unexpected error: %v", err)
+			}
 
 			if len(got) != len(want) {
 				tt.Fatalf("wrong number of resource schemas found: \n got %v\nwant %v", got, want)
@@ -205,7 +218,7 @@ func TestExportedFunctions(t *testing.T) {
 	// functions are tested covered by TestCheckCRDPresence and TestFindSupportedResourceSchemas
 	var emptySpecs []sourceSchema.ResourceSpec
 
-	if got := ResourceTypesPresence(m, emptySpecs); got != nil {
+	if _, got := ResourceTypesPresence(m, emptySpecs); got != nil {
 		t.Errorf("ResourceTypesPresence() returned unexpected error: %v", got)
 	}
 	if _, got := FindSupportedResourceSchemas(m, emptySpecs); got != nil {
@@ -213,7 +226,7 @@ func TestExportedFunctions(t *testing.T) {
 	}
 
 	m.err = errors.New("oops")
-	if got := ResourceTypesPresence(m, emptySpecs); got == nil {
+	if _, got := ResourceTypesPresence(m, emptySpecs); got == nil {
 		t.Error("ResourceTypesPresence() returned unexpected success")
 	}
 	if _, got := FindSupportedResourceSchemas(m, emptySpecs); got == nil {

@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `checknothing` template represents an empty block of data, which can useful
+// The `checknothing` template represents an empty block of data, which can be useful
 // in different testing scenarios.
 //
 // Example config:

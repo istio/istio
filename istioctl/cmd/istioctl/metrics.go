@@ -18,9 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -31,11 +28,6 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pkg/log"
@@ -91,47 +83,32 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(c *cobra.Command, args []string) error {
+func run(_ *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := kubernetes.NewClient(kubeconfig, configContext)
+	client, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
 
-	pl, err := prometheusPods(client)
+	pl, err := client.PodsForSelector(istioNamespace, "app=prometheus")
 	if err != nil {
-		return fmt.Errorf("not able to locate prometheus pod: %v", err)
+		return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 	}
 
 	if len(pl.Items) < 1 {
-		return errors.New("no prometheus pods found")
+		return errors.New("no Prometheus pods found")
 	}
-
-	port, err := availablePort()
-	if err != nil {
-		return fmt.Errorf("not able to find available port: %v", err)
-	}
-	log.Debugf("Using local port: %d", port)
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, port)
+	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, port, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
 
-	errCh := make(chan error)
-	go func() {
-		errCh <- fw.ForwardPorts()
-	}()
-
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("failure running port forward process: %v", err)
-	case <-readyCh:
+	if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
 		log.Debugf("port-forward to prometheus pod ready")
-		defer fw.Close()
 
 		promAPI, err := prometheusAPI(port)
 		if err != nil {
@@ -150,50 +127,10 @@ func run(c *cobra.Command, args []string) error {
 			printMetrics(sm)
 		}
 		return nil
+	}); err != nil {
+		return fmt.Errorf("failure running port forward process: %v", err)
 	}
-}
-
-func prometheusPods(client cache.Getter) (*v1.PodList, error) {
-	podGet := client.Get().Resource("pods").Namespace(istioNamespace).Param("labelSelector", "app=prometheus")
-	obj, err := podGet.Do().Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving pod: %v", err)
-	}
-	return obj.(*v1.PodList), nil
-}
-
-func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
-	req := client.Post().Resource("pods").Namespace(istioNamespace).Name(podName).SubResource("portforward")
-
-	transport, upgrader, err := spdy.RoundTripperFor(config)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failure creating roundtripper: %v", err)
-	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
-
-	stop := make(chan struct{})
-	ready := make(chan struct{})
-	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:9090", port)}, stop, ready, ioutil.Discard, os.Stderr)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed establishing port-forward: %v", err)
-	}
-
-	return fw, ready, nil
-}
-
-func availablePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	return port, l.Close()
+	return nil
 }
 
 func prometheusAPI(port int) (promv1.API, error) {

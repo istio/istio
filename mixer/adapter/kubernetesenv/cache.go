@@ -72,7 +72,7 @@ func podIP(obj interface{}) ([]string, error) {
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env, stopChan chan struct{}) cacheController {
 	sharedInformers := informers.NewSharedInformerFactory(clientset, refreshDuration)
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	podInformer.AddIndexers(cache.Indexers{
+	_ = podInformer.AddIndexers(cache.Indexers{
 		"ip": podIP,
 	})
 

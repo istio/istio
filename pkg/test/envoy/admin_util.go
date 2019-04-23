@@ -35,8 +35,6 @@ type HealthCheckState string
 const (
 	// HealthCheckLive indicates Envoy is live and ready to serve requests
 	HealthCheckLive HealthCheckState = "LIVE"
-	// HealthCheckDraining indicates Envoy is not currently capable of serving requests
-	HealthCheckDraining HealthCheckState = "DRAINING"
 )
 
 const (

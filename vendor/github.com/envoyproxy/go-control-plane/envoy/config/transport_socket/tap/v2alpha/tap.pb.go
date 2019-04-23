@@ -8,8 +8,8 @@ import (
 	io "io"
 	math "math"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/common/tap/v2alpha"

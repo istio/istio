@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/log"
+
 	"strings"
 
 	"istio.io/istio/tests/util"
@@ -28,7 +30,7 @@ const (
 	rbacRulesTmpl  = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
 )
 
-func TestRBAC(t *testing.T) {
+func setupRbacRules(t *testing.T, rules []string) *deployableConfig {
 	if !tc.Kube.RBACEnabled {
 		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
 	}
@@ -37,25 +39,35 @@ func TestRBAC(t *testing.T) {
 		"IstioNamespace": tc.Kube.IstioSystemNamespace(),
 		"Namespace":      tc.Kube.Namespace,
 	}
-	rbackEnableYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacEnableTmpl, params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rbackRulesYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacRulesTmpl, params)
-	if err != nil {
-		t.Fatal(err)
+	var yamlFiles []string
+	for _, rule := range rules {
+		yamlFile, err := util.CreateAndFill(tc.Info.TempDir, rule, params)
+		if err != nil {
+			t.Fatal(err)
+			return nil
+		}
+		yamlFiles = append(yamlFiles, yamlFile)
 	}
 
 	// Push all of the configs
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
+		YamlFiles:  yamlFiles,
 		kubeconfig: tc.Kube.KubeConfig,
 	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
+	return cfgs
+}
+
+func TestRBACForSidecar(t *testing.T) {
+	cfgs := setupRbacRules(t, []string{rbacEnableTmpl, rbacRulesTmpl})
+	if cfgs != nil {
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
+	} else {
+		return
 	}
-	defer cfgs.Teardown()
 
 	// Some services are only accessible when auth is enabled.
 	allow := false
@@ -157,6 +169,71 @@ func TestRBAC(t *testing.T) {
 					}
 				}
 
+				return errAgain
+			})
+		}
+	}
+}
+
+func TestRBACForEgressGateway(t *testing.T) {
+	// Only test when Authentication enabled, otherwise there is no client certificate for the source identity.
+	if !tc.Kube.AuthEnabled {
+		return
+	}
+
+	// 1. Enable RBAC on egress gateway
+	// 2. Apply RBAC rules that only allow pod a to access the egressgateway
+	// 3. Apply the following networking rules
+	//    a) Route all sidecar requests for eu.bookinfo.com to egress gateway
+	//    b) Route egress gateway traffic to service entry eu.bookinfo.com
+	//    c) Create service entry eu.bookinfo.com served by pod t
+	cfgs := setupRbacRules(t, []string{
+		"testdata/rbac/v1alpha1/istio-rbac-enable-gateway.yaml.tmpl",
+		"testdata/rbac/v1alpha1/istio-rbac-rules-gateway.yaml.tmpl",
+		"testdata/rbac/v1alpha1/istio-egressgateway.yaml"})
+	if cfgs != nil {
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
+	} else {
+		return
+	}
+
+	testCases := []struct {
+		app  string
+		want bool
+	}{
+		{app: "a", want: true},
+		{app: "b", want: false},
+	}
+
+	for _, test := range testCases {
+		for cluster := range tc.Kube.Clusters {
+			name := fmt.Sprintf("%s from %s cluster->istio-egressgateway[%v]", test.app, cluster, test.want)
+			runRetriableTest(t, name, 30, func() error {
+				// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
+				reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
+				resp := ClientRequest(cluster, test.app, reqURL, 100, "-key Host -val eu.bookinfo.com")
+				count := make(map[string]int)
+				for _, elt := range resp.Host {
+					count[elt]++
+				}
+				for _, elt := range resp.Code {
+					count[elt]++
+				}
+				handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
+				log.Infof("request counts %v", count)
+
+				if test.want {
+					if count["eu.bookinfo.com"] >= 90 && count[httpOK] >= 90 && handledByEgress >= 90 {
+						return nil
+					}
+				} else {
+					if count["403"] >= 90 {
+						return nil
+					}
+				}
 				return errAgain
 			})
 		}

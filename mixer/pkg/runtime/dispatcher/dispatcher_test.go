@@ -56,9 +56,6 @@ var tests = []struct {
 	// attributes to use. If left empty, a default bag will be used.
 	attr map[string]interface{}
 
-	// the variety of the operation to apply.
-	variety tpb.TemplateVariety
-
 	// quota method arguments to pass
 	qma *QuotaMethodArgs
 
@@ -74,6 +71,9 @@ var tests = []struct {
 
 	// expected adapter/template log.
 	log string
+
+	// the variety of the operation to apply.
+	variety tpb.TemplateVariety
 
 	// print out the full log for this test. Useful for debugging.
 	fullLog bool

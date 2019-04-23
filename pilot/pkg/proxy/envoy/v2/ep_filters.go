@@ -39,6 +39,21 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		network = ""
 	}
 
+	// calculate the multiples of weight.
+	// It is needed to normalize the LB Weight across different networks.
+	multiples := 1
+	for _, network := range env.MeshNetworks.Networks {
+		num := 0
+		for _, gw := range network.Gateways {
+			if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+				num++
+			}
+		}
+		if num > 1 {
+			multiples *= num
+		}
+	}
+
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
 	filtered := []endpoint.LocalityLbEndpoints{}
@@ -56,21 +71,13 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			if epNetwork == network {
 				// This is a local endpoint
 				lbEp.LoadBalancingWeight = &types.UInt32Value{
-					Value: uint32(1),
+					Value: uint32(multiples),
 				}
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
 				// Remote endpoint. Increase the weight counter
 				remoteEps[epNetwork]++
 			}
-		}
-
-		// If there is no MeshNetworks configuration, we don't have gateways information
-		// so just keep the endpoint with the local ones
-		if env.MeshNetworks == nil {
-			newEp := createLocalityLbEndpoints(&ep, lbEndpoints)
-			filtered = append(filtered, *newEp)
-			continue
 		}
 
 		// Add endpoints to remote networks' gateways
@@ -81,14 +88,17 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		for n, w := range remoteEps {
 			networkConf, found := env.MeshNetworks.Networks[n]
 			if !found {
+				adsLog.Infof("the endpoints within network %s will be ignored for no network configured", n)
 				continue
 			}
 			gws := networkConf.Gateways
 			if len(gws) == 0 {
+				adsLog.Infof("the endpoints within network %s will be ignored for no gateways configured", n)
 				continue
 			}
 
-			// There may be multiple gateways for the network. Add an LbEndpoint for
+			gwEps := []endpoint.LbEndpoint{}
+			// There may be multiples gateways for the network. Add an LbEndpoint for
 			// each one of them
 			for _, gw := range gws {
 				var gwEp *endpoint.LbEndpoint
@@ -111,8 +121,13 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				}
 
 				if gwEp != nil {
-					lbEndpoints = append(lbEndpoints, *gwEp)
+					gwEps = append(gwEps, *gwEp)
 				}
+			}
+			weight := w * uint32(multiples/len(gwEps))
+			for _, gwEp := range gwEps {
+				gwEp.LoadBalancingWeight.Value = weight
+				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}
 
@@ -147,8 +162,9 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 	if len(lbEndpoints) == 0 {
 		weight = nil
 	} else {
-		weight = &types.UInt32Value{
-			Value: uint32(len(lbEndpoints)),
+		weight = &types.UInt32Value{}
+		for _, lbEp := range lbEndpoints {
+			weight.Value += lbEp.GetLoadBalancingWeight().Value
 		}
 	}
 	ep := &endpoint.LocalityLbEndpoints{

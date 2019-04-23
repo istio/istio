@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type argsTopic struct {
@@ -39,13 +40,9 @@ func (argsTopic) Prefix() string {
 }
 
 func (argsTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/args.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/args.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		fw.RenderHTML(w, tmpl, os.Args)
-	})
-
-	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("GET").Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fw.RenderJSON(w, http.StatusOK, os.Args)
 	})
 }

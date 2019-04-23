@@ -23,7 +23,7 @@ import (
 	"net"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,23 +53,23 @@ type AttributesServer struct {
 	// GlobalDict controls the known global dictionary for attribute processing.
 	GlobalDict map[string]int32
 
-	// GenerateGRPCError instructs the server whether or not to fail-fast with
-	// an error that will manifest as a GRPC error.
-	GenerateGRPCError bool
-
 	// Handler is what the server will call to simulate passing attribute bags
 	// and method args within the Mixer server. It allows tests to gain access
 	// to the attribute handling pipeline within Mixer and to set the response
 	// details.
 	Handler AttributesHandler
 
-	// CheckGlobalDict indicates whether to check if proxy global dictionary
-	// is ahead of the one in mixer.
-	checkGlobalDict bool
-
 	// CheckMetadata indicates whether to check for presence of gRPC metadata for
 	// forwarded attributes.
 	checkMetadata func(*mixerpb.Attributes) error
+
+	// GenerateGRPCError instructs the server whether or not to fail-fast with
+	// an error that will manifest as a GRPC error.
+	GenerateGRPCError bool
+
+	// CheckGlobalDict indicates whether to check if proxy global dictionary
+	// is ahead of the one in mixer.
+	checkGlobalDict bool
 }
 
 // NewAttributesServer creates an AttributesServer. All channels are set to
@@ -135,7 +135,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 		return nil, fmt.Errorf("global dictionary mismatch: proxy %d and mixer %d", req.GlobalWordCount, len(a.GlobalDict))
 	}
 
-	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
+	requestBag := attribute.GetProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
 	defer requestBag.Done()
 
 	result := a.Handler.Check(requestBag)
@@ -202,7 +202,7 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 		}
 	}
 
-	protoBag := attribute.NewProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
+	protoBag := attribute.GetProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
 	requestBag := attribute.GetMutableBag(protoBag)
 	defer requestBag.Done()
 	defer protoBag.Done()

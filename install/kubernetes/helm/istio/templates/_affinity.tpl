@@ -41,3 +41,53 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{- define "podAntiAffinity" }}
+{{- if or .Values.podAntiAffinityLabelSelector .Values.podAntiAffinityTermLabelSelector}}
+  podAntiAffinity:
+    {{- if .Values.podAntiAffinityLabelSelector }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
+    {{- end }}
+    {{- if or .Values.podAntiAffinityTermLabelSelector}}
+    preferredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityRequiredDuringScheduling" }}
+    {{- range $index, $item := .Values.podAntiAffinityLabelSelector }}
+    - labelSelector:
+        matchExpressions:
+        - key: {{ $item.key }}
+          operator: {{ $item.operator }}
+          {{- if $item.value }}
+          values:
+          {{- $vals := split "," $item.values }}
+          {{- range $i, $v := $vals }}
+          - {{ $v }}
+          {{- end }}
+          {{- end }}
+      topologyKey: {{ $item.topologyKey }}
+    {{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityPreferredDuringScheduling" }}
+    {{- range $index, $item := .Values.podAntiAffinityTermLabelSelector }}
+    - podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: {{ $item.key }}
+            operator: {{ $item.operator }}
+            {{- if $item.values }}
+            values:
+            {{- $vals := split "," $item.values }}
+            {{- range $i, $v := $vals }}
+            - {{ $v }}
+            {{- end }}
+            {{- end }}
+        topologyKey: {{ $item.topologyKey }}
+      weight: 100
+    {{- end }}
+{{- end }}

@@ -207,7 +207,7 @@ func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServe
 				resp.Header().Set("Content-Type", "application/json")
 				resp.Write(resultJSON)
 			}
-			break
+
 		default:
 			t.Logf("The request contains invalid path: %v", req.URL.Path)
 			result := &k8sauth.TokenReview{

@@ -38,4 +38,7 @@ if [ $BRANCH_NAME != '(no branch)' ]; then
 
   echo "Checking lint"
   make lint
+
+  echo "Checking repositories definitions"
+  scripts/check-repositories
 fi

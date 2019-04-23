@@ -655,9 +655,9 @@ func (m *Attributes) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintAttributes(dAtA, i, uint64(v.Size()))
-				n1, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n1, err1 := v.MarshalTo(dAtA[i:])
+				if err1 != nil {
+					return 0, err1
 				}
 				i += n1
 			}
@@ -682,9 +682,9 @@ func (m *Attributes_AttributeValue) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Value != nil {
-		nn2, err := m.Value.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn2, err2 := m.Value.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += nn2
 	}
@@ -742,9 +742,9 @@ func (m *Attributes_AttributeValue_TimestampValue) MarshalTo(dAtA []byte) (int, 
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintAttributes(dAtA, i, uint64(m.TimestampValue.Size()))
-		n3, err := m.TimestampValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.TimestampValue.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -756,9 +756,9 @@ func (m *Attributes_AttributeValue_DurationValue) MarshalTo(dAtA []byte) (int, e
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintAttributes(dAtA, i, uint64(m.DurationValue.Size()))
-		n4, err := m.DurationValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.DurationValue.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -770,9 +770,9 @@ func (m *Attributes_AttributeValue_StringMapValue) MarshalTo(dAtA []byte) (int, 
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintAttributes(dAtA, i, uint64(m.StringMapValue.Size()))
-		n5, err := m.StringMapValue.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.StringMapValue.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -957,9 +957,9 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintAttributes(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdTime(*(&v))))
-			n6, err := github_com_gogo_protobuf_types.StdTimeMarshalTo(*(&v), dAtA[i:])
-			if err != nil {
-				return 0, err
+			n6, err6 := github_com_gogo_protobuf_types.StdTimeMarshalTo(*(&v), dAtA[i:])
+			if err6 != nil {
+				return 0, err6
 			}
 			i += n6
 		}
@@ -987,9 +987,9 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintAttributes(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*(&v))))
-			n7, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*(&v), dAtA[i:])
-			if err != nil {
-				return 0, err
+			n7, err7 := github_com_gogo_protobuf_types.StdDurationMarshalTo(*(&v), dAtA[i:])
+			if err7 != nil {
+				return 0, err7
 			}
 			i += n7
 		}
@@ -1044,9 +1044,9 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintAttributes(dAtA, i, uint64((&v).Size()))
-			n8, err := (&v).MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			n8, err8 := (&v).MarshalTo(dAtA[i:])
+			if err8 != nil {
+				return 0, err8
 			}
 			i += n8
 		}

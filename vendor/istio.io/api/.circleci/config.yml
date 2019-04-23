@@ -2,7 +2,7 @@ version: 2
 defaults: &defaults
   working_directory: /src/istio.io/api
   docker:
-    - image: gcr.io/istio-testing/api-build-tools:2019-02-25
+    - image: gcr.io/istio-testing/api-build-tools:2019-03-29
   environment:
     GOPATH: /go
     OUT_PATH: /src
@@ -17,6 +17,7 @@ jobs:
             ./scripts/generate-protos.sh || die "could not generate *.pb.go"
             make proto-commit || die "could not regenerate proto.lock"
             make lint || die "Lint errors"
+            make release-lock-status || die "Proto changes affect compatibility with older release."
             if [[ -n $(git status --porcelain) ]]; then
               git status
               git --no-pager diff

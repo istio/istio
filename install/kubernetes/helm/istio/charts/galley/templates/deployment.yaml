@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-galley
@@ -11,6 +11,9 @@ metadata:
     istio: galley
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      istio: galley
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -25,7 +28,6 @@ spec:
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
 {{- if .Values.global.priorityClassName }}
@@ -33,7 +35,11 @@ spec:
 {{- end }}
       containers:
         - name: galley
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
@@ -58,6 +64,9 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
@@ -104,3 +113,4 @@ spec:
           name: istio
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}

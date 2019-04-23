@@ -8,10 +8,10 @@ import (
 	io "io"
 	math "math"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

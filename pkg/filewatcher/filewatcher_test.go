@@ -134,10 +134,8 @@ func TestWatchFile(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
-			select {
-			case <-events:
-				wg.Done()
-			}
+			<-events
+			wg.Done()
 		}()
 
 		// Overwriting the file and waiting its event to be received.
@@ -163,10 +161,8 @@ func TestWatchFile(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
-			select {
-			case <-events:
-				wg.Done()
-			}
+			<-events
+			wg.Done()
 		}()
 
 		// Link to another `test.conf` file
@@ -200,10 +196,8 @@ func TestWatchFile(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
-			select {
-			case <-events:
-				wg.Done()
-			}
+			<-events
+			wg.Done()
 		}()
 
 		// Overwriting the file and waiting its event to be received.

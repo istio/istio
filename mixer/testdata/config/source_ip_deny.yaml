@@ -7,7 +7,7 @@ metadata:
   name: mixerdenyip
   namespace: istio-system
 spec:
-  match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13") && context.protocol == "tcp"
+  match: destination.service.host == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13") && context.protocol == "tcp"
   actions:
   - handler: denyall
     instances:

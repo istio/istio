@@ -116,7 +116,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		}
 
 		if resp.Status.Code != int32(codes.OK) {
-			ce = ce.Appendf("params", "validation error: $d/%s", resp.Status.Code, resp.Status.Message)
+			ce = ce.Appendf("params", "validation error: %d/%s", resp.Status.Code, resp.Status.Message)
 			return
 		}
 	}

@@ -68,6 +68,7 @@ type Webhook struct {
 	server     *http.Server
 	meshFile   string
 	configFile string
+	valuesFile string
 	watcher    *fsnotify.Watcher
 	certFile   string
 	keyFile    string
@@ -103,6 +104,8 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 type WebhookParameters struct {
 	// ConfigFile is the path to the sidecar injection configuration file.
 	ConfigFile string
+
+	ValuesFile string
 
 	// MeshFile is the path to the mesh configuration file.
 	MeshFile string
@@ -158,6 +161,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
+		valuesFile:             p.ValuesFile,
 		meshFile:               p.MeshFile,
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
@@ -327,7 +331,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			first = false
 			value = []corev1.Container{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -357,7 +361,7 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 			first = false
 			value = []corev1.Volume{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -378,7 +382,7 @@ func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath s
 			first = false
 			value = []corev1.LocalObjectReference{add}
 		} else {
-			path = path + "/-"
+			path += "/-"
 		}
 		patch = append(patch, rfc6902PatchOperation{
 			Op:    "add",
@@ -440,7 +444,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
-	rewrite := ShouldRewriteAppProbers(sic)
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
 	addAppProberCmd := func() {
 		if !rewrite {
 			return
@@ -473,7 +477,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
 	if rewrite {
-		patch = append(patch, createProbeRewritePatch(&pod.Spec, sic)...)
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
 	}
 
 	return json.Marshal(patch)
@@ -490,7 +494,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotationStatus]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -558,14 +562,19 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 			FSGroup: &grp,
 		}
 	}
+	valuesConfig, err := ioutil.ReadFile(wh.valuesFile)
+	if err != nil {
+		log.Errorf("failed to read values file: err=%v\n", err)
+		return toAdmissionResponse(err)
+	}
 
-	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, status, err := InjectionData(wh.sidecarConfig.Template, string(valuesConfig), wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)
 		return toAdmissionResponse(err)
 	}
 
-	annotations := map[string]string{annotationStatus.name: status}
+	annotations := map[string]string{annotationStatus: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

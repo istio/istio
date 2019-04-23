@@ -43,7 +43,7 @@ import (
 #define LOAD_OP_CODE2(target1, target2) \
       target1 = body[ip]; \
       target2 = body[ip + 1]; \
-      ip = ip + 2;
+      ip += 2;
 
 #define SET_REGISTER(index, value) \
       registers[index] = value
@@ -57,7 +57,7 @@ import (
       sp--;
 
 #define STACK_REMOVE2() \
-      sp = sp - 2;
+      sp -= 2;
 
 #define STACK_POP(target) \
       sp--; \
@@ -72,7 +72,7 @@ import (
 
 #define STACK_POP2(t1, t2) \
       STACK_PEEK2(t1, t2) \
-      sp = sp - 2;
+      sp -= 2;
 
 #define STACK_PUSH(value) \
       opstack[sp] = value; \
@@ -81,7 +81,7 @@ import (
 #define STACK_PUSH2(t1, t2) \
       opstack[sp] = t1; \
       opstack[sp + 1] = t2; \
-      sp = sp + 2;
+      sp += 2;
 
 #define GET_HEAP_VALUE(index, target) \
   HEAP_ACCESS_GUARD(index) \

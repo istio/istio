@@ -1,42 +1,46 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: redisquota
+kind: handler
 metadata:
-  name: handler
+  name: redisquotahandler
   namespace: istio-system
 spec:
-  quotas:
-  - name: requestcount.quota.istio-system
-    maxAmount: 5000
-    validDuration: 30s
-    rateLimitAlgorithm: FIXED_WINDOW
-    # The first matching override is applied.
-    # A requestcount instance is checked against override dimensions.
-    overrides:
-    # The following override applies to 'ratings' when
-    # the source is 'reviews'.
-    - dimensions:
-        destination: ratings
-        source: reviews
-      maxAmount: 50
-    # The following override applies to 'ratings' regardless
-    # of the source.
-    - dimensions:
-        destination: ratings
-      maxAmount: 100
-  redisServerUrl: "redis-release-master.istio-system.svc.cluster.local:6379"
-  connectionPoolSize: 10
+  compiledAdapter: redisquota
+  params:
+    quotas:
+    - name: requestcountquota.instance.istio-system
+      maxAmount: 5000
+      validDuration: 30s
+      rateLimitAlgorithm: FIXED_WINDOW
+      # The first matching override is applied.
+      # A requestcount instance is checked against override dimensions.
+      overrides:
+      # The following override applies to 'ratings' when
+      # the source is 'reviews'.
+      - dimensions:
+          destination: ratings
+          source: reviews
+        maxAmount: 50
+      # The following override applies to 'ratings' regardless
+      # of the source.
+      - dimensions:
+          destination: ratings
+        maxAmount: 100
+    redisServerUrl: "redis-release-master.istio-system.svc.cluster.local:6379"
+    connectionPoolSize: 10
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: quota
+kind: instance
 metadata:
-  name: requestcount
+  name: requestcountquota
   namespace: istio-system
 spec:
-  dimensions:
-    source: source.labels["app"] | "unknown"
-    sourceVersion: source.labels["version"] | "unknown"
-    destination: destination.labels["app"] | "unknown"
-    destinationVersion: destination.labels["version"] | "unknown"
+  compiledTemplate: quota
+  params:
+    dimensions:
+      source: source.labels["app"] | "unknown"
+      sourceVersion: source.labels["version"] | "unknown"
+      destination: destination.labels["app"] | "unknown"
+      destinationVersion: destination.labels["version"] | "unknown"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -47,9 +51,8 @@ metadata:
 spec:
   match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
-  - handler: handler.redisquota
-    instances:
-    - requestcount.quota
+  - handler: redisquotahandler
+    instances: [ requestcountquota ]
 
 ---
 apiVersion: config.istio.io/v1alpha2
@@ -62,7 +65,7 @@ spec:
   rules:
   - quotas:
     - charge: 1
-      quota: requestcount
+      quota: requestcountquota
 
 ---
 apiVersion: config.istio.io/v1alpha2

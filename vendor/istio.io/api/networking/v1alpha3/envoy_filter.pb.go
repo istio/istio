@@ -16,8 +16,11 @@
 // The behavior is undefined if multiple EnvoyFilter configurations conflict
 // with each other.
 //
+// NOTE 3: For filters of `filterType: HTTP` you must include a `listenerMatch` section
+// with a `listenerProtocol: HTTP` or the filter have no effect.
+//
 // The following example for Kubernetes enables Envoy's Lua filter for all
-// inbound calls arriving at service port 8080 of the reviews service pod with
+// inbound HTTP calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
 // ```yaml
@@ -32,6 +35,7 @@
 //   - listenerMatch:
 //       portNumber: 8080
 //       listenerType: SIDECAR_INBOUND # will match with the inbound listener for reviews:8080
+//       listenerProtocol: HTTP
 //     filterName: envoy.lua
 //     filterType: HTTP
 //     filterConfig:
@@ -194,15 +198,12 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 }
 
 type EnvoyFilter struct {
-	// One or more labels that indicate a specific set of pods/VMs whose
+	// Zero or more labels that indicate a specific set of pods/VMs whose
 	// proxies should be configured to use these additional filters.  The
 	// scope of label search is platform dependent. On Kubernetes, for
 	// example, the scope includes pods running in all reachable
 	// namespaces. Omitting the selector applies the filter to all proxies in
 	// the mesh.
-	// NOTE: There can be only one EnvoyFilter bound to a specific workload.
-	// The behavior is undefined if multiple EnvoyFilter configurations are
-	// specified for the same workload.
 	WorkloadLabels map[string]string `protobuf:"bytes,1,rep,name=workload_labels,json=workloadLabels,proto3" json:"workload_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// REQUIRED: Envoy network filters/http filters to be added to matching
 	// listeners.  When adding network filters to http connections, care
@@ -278,11 +279,11 @@ type EnvoyFilter_ListenerMatch struct {
 	// Inbound vs outbound sidecar listener or gateway listener. If not specified,
 	// matches all listeners.
 	ListenerType EnvoyFilter_ListenerMatch_ListenerType `protobuf:"varint,3,opt,name=listener_type,json=listenerType,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_ListenerMatch_ListenerType" json:"listener_type,omitempty"`
-	// Selects a class of listeners for the same protocol. If not
-	// specified, applies to listeners on all protocols. Use the protocol
+	// Selects a class of listeners for the same protocol. Use the protocol
 	// selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
 	// where Envoy terminates TLS) or all TCP listeners (includes HTTPS
-	// passthrough using SNI).
+	// passthrough using SNI). When adding a HTTP filter, the listenerProtocol
+	// should be set to HTTP.
 	ListenerProtocol EnvoyFilter_ListenerMatch_ListenerProtocol `protobuf:"varint,4,opt,name=listener_protocol,json=listenerProtocol,proto3,enum=istio.networking.v1alpha3.EnvoyFilter_ListenerMatch_ListenerProtocol" json:"listener_protocol,omitempty"`
 	// One or more IP addresses to which the listener is bound. If
 	// specified, should match at least one address in the list.
@@ -421,8 +422,11 @@ func (m *EnvoyFilter_InsertPosition) GetRelativeTo() string {
 
 // Envoy filters to be added to a network or http filter chain.
 type EnvoyFilter_Filter struct {
-	// Filter will be added to the listener only if the match conditions are true.
-	// If not specified, the filters will be applied to all listeners.
+	// Filter will be added to the listener only if the match
+	// conditions are true.  If not specified, the filters will be
+	// applied to all listeners where possible, potentially resulting
+	// in invalid configurations. It is recommended to specify the
+	// listener match criteria for all filter insertions.
 	ListenerMatch *EnvoyFilter_ListenerMatch `protobuf:"bytes,1,opt,name=listener_match,json=listenerMatch,proto3" json:"listener_match,omitempty"`
 	// Insert position in the filter chain. Defaults to FIRST
 	InsertPosition *EnvoyFilter_InsertPosition `protobuf:"bytes,2,opt,name=insert_position,json=insertPosition,proto3" json:"insert_position,omitempty"`
@@ -730,9 +734,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.ListenerMatch.Size()))
-		n1, err := m.ListenerMatch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.ListenerMatch.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -740,9 +744,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.InsertPosition.Size()))
-		n2, err := m.InsertPosition.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.InsertPosition.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -761,9 +765,9 @@ func (m *EnvoyFilter_Filter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintEnvoyFilter(dAtA, i, uint64(m.FilterConfig.Size()))
-		n3, err := m.FilterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.FilterConfig.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}

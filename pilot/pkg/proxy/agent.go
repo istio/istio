@@ -238,7 +238,7 @@ func (a *agent) Run(ctx context.Context) {
 						delayDuration := a.retry.InitialInterval * (1 << uint(a.retry.MaxRetries-a.retry.budget))
 						restart := time.Now().Add(delayDuration)
 						a.retry.restart = &restart
-						a.retry.budget = a.retry.budget - 1
+						a.retry.budget--
 						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
 					} else {
 						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")

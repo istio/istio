@@ -32,6 +32,7 @@ import (
 	"github.com/onsi/gomega"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -133,7 +134,7 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 				} else if m.MessageName == model.Gateway.MessageName {
 					gw, err := generateGateway()
 					if err != nil {
-						t.Fatal(err)
+						t.Log(err)
 					}
 					b.Set(model.Gateway.Collection, version, gw)
 				} else {
@@ -206,7 +207,12 @@ func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string
 
 func addMcpAddrs(mcpPort int) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{fmt.Sprintf("mcp://127.0.0.1:%d", mcpPort)}
+		if arg.MeshConfig == nil {
+			arg.MeshConfig = &meshconfig.MeshConfig{}
+		}
+		arg.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+			{Address: fmt.Sprintf("127.0.0.1:%d", mcpPort)},
+		}
 	}
 }
 
@@ -295,7 +301,7 @@ func marshaledServiceEntry(servicePort, backendPort int, host string) (*types.An
 func generateGateway() ([]*mcp.Resource, error) {
 	gateway := &networking.Gateway{
 		Servers: []*networking.Server{
-			&networking.Server{
+			{
 				Port: &networking.Port{
 					Name:     "http-8099",
 					Number:   8099,

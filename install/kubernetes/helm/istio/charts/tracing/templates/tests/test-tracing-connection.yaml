@@ -10,7 +10,6 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
   annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
     helm.sh/hook: test-success
 spec:
@@ -30,4 +29,5 @@ spec:
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "podAntiAffinity" . | indent 4 }}
 {{- end }}

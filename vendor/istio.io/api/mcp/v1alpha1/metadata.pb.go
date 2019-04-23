@@ -250,9 +250,9 @@ func (m *Metadata) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintMetadata(dAtA, i, uint64(m.CreateTime.Size()))
-		n1, err := m.CreateTime.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.CreateTime.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}

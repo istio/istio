@@ -33,12 +33,12 @@ const secretNameSpace string = "istio-system"
 var testCreateControllerCalled bool
 var testDeleteControllerCalled bool
 
-func testCreateController(k8sInterface kubernetes.Interface, clusterID string) error {
+func testCreateController(_ kubernetes.Interface, _ string) error {
 	testCreateControllerCalled = true
 	return nil
 }
 
-func testDeleteController(clusterID string) error {
+func testDeleteController(_ string) error {
 	testDeleteControllerCalled = true
 	return nil
 }
@@ -69,15 +69,15 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 		secretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
+func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
-func mockValidateClientConfig(config clientcmdapi.Config) error {
+func mockValidateClientConfig(_ clientcmdapi.Config) error {
 	return nil
 }
 
-func mockCreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 

@@ -9,11 +9,11 @@ import (
 	math "math"
 	time "time"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/gogo/protobuf/types"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

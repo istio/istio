@@ -169,7 +169,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Appendf("tracing_sample_probability", "must be between 0.0 and 1.0 inclusive")
 	}
 
-	if b.config.TracingBufferSize <= 0 {
+	if b.config.TracingBufferSize == 0 {
 		ce = ce.Appendf("tracing_buffer_size", "must be greater than 0")
 	}
 

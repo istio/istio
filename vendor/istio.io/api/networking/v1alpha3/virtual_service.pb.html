@@ -123,7 +123,7 @@ spec:
       allowCredentials: false
       allowHeaders:
       - X-Foo-Bar
-      maxAge: &quot;1d&quot;
+      maxAge: &quot;24h&quot;
 </code></pre>
 
 <table class="message-fields">
@@ -712,6 +712,25 @@ independent of sourceLabels.</p>
 
 </td>
 </tr>
+<tr id="HTTPMatchRequest-query_params">
+<td><code>queryParams</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td>
+<p>Query parameters for matching.</p>
+
+<p>Ex:
+- For a query parameter like &ldquo;?key=true&rdquo;, the map key would be &ldquo;key&rdquo; and
+  the string match could be defined as <code>exact: &quot;true&quot;</code>.
+- For a query parameter like &ldquo;?key&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>exact: &quot;&quot;</code>.
+- For a query parameter like &ldquo;?key=123&rdquo;, the map key would be &ldquo;key&rdquo; and the
+  string match could be defined as <code>regex: &quot;\d+$&quot;</code>. Note that this
+  configuration will only match values like &ldquo;123&rdquo; but not &ldquo;a123&rdquo; or &ldquo;123a&rdquo;.</p>
+
+<p><strong>Note:</strong> <code>prefix</code> matching is currently not supported.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -734,9 +753,9 @@ spec:
   - match:
     - uri:
         exact: /v1/getProductRatings
-  redirect:
-    uri: /v1/bookRatings
-    authority: newratings.default.svc.cluster.local
+    redirect:
+      uri: /v1/bookRatings
+      authority: newratings.default.svc.cluster.local
   ...
 </code></pre>
 

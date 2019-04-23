@@ -351,6 +351,15 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			},
 			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
+		"httpbin": {
+			Targets: []*authn.TargetSelector{{
+				Name:   "hello",
+				Labels: map[string]string{"app": "httpbin", "version": "v1"},
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
 	}
 	for key, value := range authNPolicies {
 		config := model.Config{
@@ -374,6 +383,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		namespace string
 		port      int
 		expected  string
+		labels    map[string]string
 	}{
 		{
 			hostname:  "hello.default.svc.cluster.local",
@@ -399,6 +409,13 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			port:      8080,
 			expected:  "",
 		},
+		{
+			hostname:  "httpbin.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  "httpbin",
+			labels:    map[string]string{"app": "httpbin", "version": "v1", "env": "prod"},
+		},
 	}
 
 	for _, testCase := range cases {
@@ -408,7 +425,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
 		}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyByDestination(service, port)
+		out := store.AuthenticationPolicyForWorkload(service, testCase.labels, port)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
@@ -530,10 +547,10 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 				Namespace: testCase.namespace,
 			},
 		}
-		out := store.AuthenticationPolicyByDestination(service, port)
+		out := store.AuthenticationPolicyForWorkload(service, nil, port)
 
 		if out == nil {
-			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
+			// With global authentication policy, it's guarantee AuthenticationPolicyForWorkload always
 			// return non `nill` config.
 			t.Errorf("AuthenticationPolicy(%s:%d) => cannot be nil", testCase.hostname, testCase.port)
 		} else {
@@ -671,6 +688,34 @@ func TestServiceRoleBindings(t *testing.T) {
 	}
 }
 
+func TestAuthorizationPolicies(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy1", "istio-system", store, t)
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy2", "default", store, t)
+	addRbacConfigToStore(model.AuthorizationPolicy.Type, "policy3", "istio-system", store, t)
+	tests := []struct {
+		namespace  string
+		expectName map[string]bool
+	}{
+		{namespace: "wrong", expectName: nil},
+		{namespace: "default", expectName: map[string]bool{"policy2": true}},
+		{namespace: "istio-system", expectName: map[string]bool{"policy1": true, "policy3": true}},
+	}
+
+	for _, tt := range tests {
+		config := store.AuthorizationPolicies(tt.namespace)
+		if tt.expectName != nil {
+			for _, cfg := range config {
+				if !tt.expectName[cfg.Name] {
+					t.Errorf("model.AuthorizationPolicy: expecting %v, but got %v", tt.expectName, config)
+				}
+			}
+		} else if len(config) != 0 {
+			t.Errorf("model.AuthorizationPolicy: expecting nil, but got %v", config)
+		}
+	}
+}
+
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	addRbacConfigToStore(model.RbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
@@ -699,6 +744,12 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 		value = &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{{User: "User0"}},
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
+	case model.AuthorizationPolicy.Type:
+		value = &rbacproto.AuthorizationPolicy{
+			WorkloadSelector: &rbacproto.WorkloadSelector{
+				Labels: map[string]string{"app": "test"},
+			},
+		}
 	default:
 		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
 	}

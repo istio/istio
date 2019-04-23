@@ -53,7 +53,7 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 				},
 			},
 			Secrets: []v1.ObjectReference{
-				v1.ObjectReference{
+				{
 					Name: "default-token-2",
 					UID:  "1",
 				},

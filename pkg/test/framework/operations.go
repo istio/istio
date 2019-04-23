@@ -17,19 +17,34 @@ package framework
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/runtime"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
-var r = runtime.New()
+// Main runs the test suite. The Main will run the supplied setup functions before starting test execution.
+// It will not return, and will exit the process after running tests.
+func Main(testID string, m *testing.M, setupFn ...SetupFn) {
+	r := NewSuite(testID, m)
+	for _, fn := range setupFn {
+		r = r.Setup(fn)
+	}
 
-// Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
-// It allows us to do post-run doCleanup, and flag parsing.
-func Run(testID string, m *testing.M) (int, error) {
-	return r.Run(testID, m)
+	r.Run()
 }
 
-// GetContext resets and returns the environment. Should be called exactly once per test.
-func GetContext(t testing.TB) context.Instance {
-	return r.GetContext(t)
+// Run runs the given test.
+func Run(t *testing.T, fn func(ctx TestContext)) {
+	NewTest(t).Run(fn)
+}
+
+// NewContext creates a new test context and returns. It is upto the caller to close to context by calling
+// .Done() at the end of the test run.
+func NewContext(t *testing.T, labels ...label.Instance) TestContext {
+	rtMu.Lock()
+	defer rtMu.Unlock()
+
+	if rt == nil {
+		panic("call to scope without running the test framework")
+	}
+
+	return rt.NewTestContext(t, nil, label.NewSet(labels...))
 }

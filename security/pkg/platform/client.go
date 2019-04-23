@@ -38,7 +38,7 @@ type Client interface {
 }
 
 // NewClient is the function to create implementations of the platform metadata client.
-func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (Client, error) {
+func NewClient(platform, rootCertFile, keyFile, certChainFile string) (Client, error) {
 	switch platform {
 	case "onprem":
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)

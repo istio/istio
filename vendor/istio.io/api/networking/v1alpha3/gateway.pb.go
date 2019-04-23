@@ -35,7 +35,7 @@
 //       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
-//       name: https
+//       name: https-443
 //       protocol: HTTPS
 //     hosts:
 //     - uk.bookinfo.com
@@ -46,7 +46,7 @@
 //       privateKey: /etc/certs/privatekey.pem
 //   - port:
 //       number: 9443
-//       name: https
+//       name: https-9443
 //       protocol: HTTPS
 //     hosts:
 //     - "bookinfo-namespace/*.bookinfo.com"
@@ -100,19 +100,19 @@
 //   - match:
 //     - headers:
 //         cookie:
-//           user: dev-123
+//           exact: "user=dev-123"
 //     route:
 //     - destination:
 //         port:
 //           number: 7777
 //         host: reviews.qa.svc.cluster.local
 //   - match:
-//       uri:
+//     - uri:
 //         prefix: /reviews/
 //     route:
 //     - destination:
 //         port:
-//           number: 9080 # can be omitted if its the only port for reviews
+//           number: 9080 # can be omitted if it's the only port for reviews
 //         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
@@ -288,7 +288,7 @@ type Gateway struct {
 	// on which this gateway configuration should be applied. The scope of
 	// label search is restricted to the configuration namespace in which the
 	// the resource is present. In other words, the Gateway resource must
-	// reside in the same namespace as the gateway workload.
+	// reside in the same namespace as the gateway workload instance.
 	Selector             map[string]string `protobuf:"bytes,2,rep,name=selector,proto3" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
@@ -545,13 +545,13 @@ type Server_TLSOptions struct {
 	// as Kubernetes secrets, will be configured to retrieve the
 	// serverCertificate and the privateKey using credentialName, instead
 	// of using the file system paths specified above. If using mutual TLS,
-	// gateway workloads will retrieve the CaCertificates using
+	// gateway workload instances will retrieve the CaCertificates using
 	// credentialName-cacert. The semantics of the name are platform
 	// dependent.  In Kubernetes, the default Istio supplied credential
 	// server expects the credentialName to match the name of the
 	// Kubernetes secret that holds the server certificate, the private
 	// key, and the CA certificate (if using mutual TLS). Set the
-	// ISTIO_META_USER_SDS metadata variable in the gateway's proxy to
+	// `ISTIO_META_USER_SDS` metadata variable in the gateway's proxy to
 	// enable the dynamic credential fetching feature.
 	CredentialName string `protobuf:"bytes,10,opt,name=credential_name,json=credentialName,proto3" json:"credential_name,omitempty"`
 	// A list of alternate names to verify the subject identity in the
@@ -870,9 +870,9 @@ func (m *Server) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(m.Port.Size()))
-		n1, err := m.Port.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Port.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -895,9 +895,9 @@ func (m *Server) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(m.Tls.Size()))
-		n2, err := m.Tls.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Tls.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}

@@ -28,9 +28,8 @@ func TestComparator_RouteDiff(t *testing.T) {
 		name          string
 		envoy         []byte
 		pilot         map[string][]byte
-		wantRouteDump bool
-		wantMatch     bool
 		wantDiff      string
+		wantRouteDump bool
 	}{
 		{
 			name:     "prints a diff",

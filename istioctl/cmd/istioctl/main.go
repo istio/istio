@@ -36,13 +36,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const (
-	kubePlatform = "kube"
-)
-
 var (
-	platform string
-
 	kubeconfig       string
 	configContext    string
 	namespace        string
@@ -72,12 +66,13 @@ debug and diagnose their Istio mesh.
 	}
 
 	experimentalCmd = &cobra.Command{
-		Use:   "experimental",
-		Short: "Experimental commands that may be modified or deprecated",
+		Use:     "experimental",
+		Aliases: []string{"x", "exp"},
+		Short:   "Experimental commands that may be modified or deprecated",
 	}
 )
 
-func istioPersistentPreRunE(c *cobra.Command, args []string) error {
+func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
@@ -86,9 +81,6 @@ func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
-		"Istio host platform")
-
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
@@ -103,13 +95,18 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+	hiddenFlags := []string{"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
+		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller"}
+	for _, opt := range hiddenFlags {
+		_ = rootCmd.PersistentFlags().MarkHidden(opt)
+	}
 
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
-	experimentalCmd.AddCommand(install.NewVerifyCommand())
+	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
 	rootCmd.AddCommand(experimentalCmd)
 
@@ -139,10 +136,6 @@ func getRemoteInfo() (*version.MeshInfo, error) {
 }
 
 func main() {
-	if platform != kubePlatform {
-		log.Warnf("Platform '%s' not supported.", platform)
-	}
-
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

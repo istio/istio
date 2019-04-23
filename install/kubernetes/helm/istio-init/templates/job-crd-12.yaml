@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-init-crd-12
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-init-service-account
+      containers:
+        - name: istio-init-crd-12
+          image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          volumeMounts:
+            - name: crd-12
+              mountPath: /etc/istio/crd-12
+              readOnly: true
+          command: ["kubectl",  "apply", "-f", "/etc/istio/crd-12/crd-12.yaml"]
+      volumes:
+        - name: crd-12
+          configMap:
+            name: istio-crd-12
+      restartPolicy: OnFailure

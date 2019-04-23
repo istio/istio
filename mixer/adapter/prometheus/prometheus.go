@@ -295,12 +295,12 @@ func key(name, kind string, labels prometheus.Labels, sortedLabelKeys []string) 
 		buf.WriteString(k + "=" + labels[k] + ";") // nolint: gas
 	}
 	h := fnv.New64()
-	buf.WriteTo(h)
+	_, _ = buf.WriteTo(h)
 	pool.PutBuffer(buf)
 	return h.Sum64()
 }
 
-func deleteOldMetrics(key, value interface{}) {
+func deleteOldMetrics(_, value interface{}) {
 	if entry, ok := value.(*cacheEntry); ok {
 		switch v := entry.vec.(type) {
 		case *prometheus.CounterVec:
@@ -445,5 +445,5 @@ type promLogger struct {
 }
 
 func (pl *promLogger) Println(v ...interface{}) {
-	pl.logger.Errorf("Prometheus handler error: %s", fmt.Sprintln(v...)) // nolint: gas
+	_ = pl.logger.Errorf("Prometheus handler error: %s", fmt.Sprintln(v...)) // nolint: gas
 }

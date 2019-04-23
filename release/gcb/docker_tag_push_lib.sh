@@ -25,13 +25,32 @@ if [[ -z "$(command -v docker)" ]]; then
     exit 1
 fi
 
-function add_license_to_tar_images() {
+# Add extra artifacts into each Docker image's tarball in OUT_PATH. The extra
+# artifacts are specified in the 4th argument as a space-delimited list.
+function add_extra_artifacts_to_tar_images() {
   local HUB
   HUB="$1"
   local TAG
   TAG="$2"
   local OUT_PATH
   OUT_PATH="$3"
+  read -r -a extra_artifacts <<< "$4"
+  local add_cmd=""
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  pushd "${tmpdir}" || return 1
+  for extra_artifact in "${extra_artifacts[@]}"; do
+    # Copy artifact into current directory to bring it into the context of the
+    # Docker daemon when we run 'dockre build' below.
+    cp -r "${extra_artifact}" .
+    add_cmd="${add_cmd}COPY $(basename "${extra_artifact}") /"$'\n'
+  done
+
+  if [[ -z "${add_cmd}" ]]; then
+    echo >&2 "there was nothing to inject into the tar image"
+    return 1
+  fi
 
   for TAR_PATH in "${OUT_PATH}"/docker/*.tar.gz; do
     BASE_NAME=$(basename "$TAR_PATH")
@@ -43,12 +62,17 @@ function add_license_to_tar_images() {
       break
     fi
     docker load -i "${TAR_PATH}"
-    echo "FROM istio/${IMAGE_NAME}:${TAG}
-COPY LICENSES.txt /" > Dockerfile
+
+    cat >Dockerfile <<EOF
+FROM istio/${IMAGE_NAME}:${TAG}
+${add_cmd}
+EOF
+
     docker build -t              "${HUB}/${IMAGE_NAME}:${TAG}" .
     # Include the license text in the tarball as well (overwrite old $TAR_PATH).
     docker save -o "${TAR_PATH}" "${HUB}/${IMAGE_NAME}:${TAG}"
   done
+  popd || return 1
 }
 
 function docker_tag_images() {

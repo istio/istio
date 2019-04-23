@@ -1,9 +1,14 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-host-network
 spec:
   replicas: 7
+  selector:
+    matchLabels:
+      app: hello-host-network  
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:

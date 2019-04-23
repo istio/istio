@@ -431,12 +431,10 @@ func TestExternMatches(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m, err := externMatches(c.p, c.s)
-		if err != nil {
-			t.Fatalf("Unexpected error: %+v, %v", c, err)
-			if m != c.e {
-				t.Fatalf("matches failure: %+v", c)
-			}
+		if m, err := externMatches(c.p, c.s); err != nil {
+			t.Errorf("Unexpected error: %+v, %v", c, err)
+		} else if m != c.e {
+			t.Errorf("matches failure: %+v", c)
 		}
 	}
 }
@@ -491,9 +489,8 @@ func TestExternEmptyStringMap(t *testing.T) {
 }
 
 func TestExternConditionalString(t *testing.T) {
-	boolExpr := true
-	got := externConditionalString(boolExpr, "yes", "no")
+	got := externConditionalString(true, "yes", "no")
 	if got != "yes" {
-		t.Errorf("externIfElse(%t, \"yes\", \"no\") => %s, wanted: %s", boolExpr, got, "yes")
+		t.Errorf("externIfElse(true, \"yes\", \"no\") => %s, wanted: yes", got)
 	}
 }

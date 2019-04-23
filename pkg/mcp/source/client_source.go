@@ -123,7 +123,7 @@ func (c *Client) Run(ctx context.Context) {
 			break
 		}
 
-		err := c.source.processStream(c.stream)
+		err := c.source.ProcessStream(c.stream)
 		if err != nil && err != io.EOF {
 			c.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("Error receiving MCP response: %v", err)

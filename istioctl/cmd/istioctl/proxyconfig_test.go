@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/version"
@@ -37,7 +39,7 @@ type execTestCase struct {
 	wantException bool
 }
 
-// mockExecFactory lets us mock calls to remote Envoy and Istio instances
+// mockExecConfig lets us mock calls to remote Envoy and Istio instances
 type mockExecConfig struct {
 	// results is a map of pod to the results of the expected test on the pod
 	results map[string][]byte
@@ -83,8 +85,8 @@ func TestProxyConfig(t *testing.T) {
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config clusters details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
-istio-policy.istio-system.svc.cluster.local     15004     -          outbound      &{EDS}
-xds-grpc                                        -         -          -             &{STRICT_DNS}
+istio-policy.istio-system.svc.cluster.local     15004     -          outbound      EDS
+xds-grpc                                        -         -          -             STRICT_DNS
 `,
 		},
 		{ // case 7 listeners valid
@@ -207,4 +209,12 @@ func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path strin
 
 func (client mockExecConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
 	return nil, nil
+}
+
+func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
+	return &v1.PodList{}, nil
+}
+
+func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+	return nil, fmt.Errorf("mock k8s does not forward")
 }

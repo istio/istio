@@ -120,7 +120,7 @@ func getGCloudProjectID() string {
 	if err != nil {
 		return ""
 	}
-	re, _ := regexp.Compile(".*project = (.*?)\n.*")
+	re := regexp.MustCompile(".*project = (.*?)\n.*")
 	match := re.FindStringSubmatch(output)
 	if len(match) < 1 {
 		return ""

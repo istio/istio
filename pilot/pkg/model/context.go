@@ -21,9 +21,11 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/annotations"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -83,20 +85,31 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where Envoy proxy runs.
+	// Locality is the location of where Envoy proxy runs. This is extracted from
+	// the registry where possible. If the registry doesn't provide a locality for the
+	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
 	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	DNSDomain string
 
+	// TrustDomain defines the trust domain of the certificate
+	TrustDomain string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to pilot
+	//spiffe://{TrustDomain}/{PilotIdentity}
+	PilotIdentity string
+
+	//identity that will be the suffix of the spiffe id for SAN verification when connecting to mixer
+	//spiffe://{TrustDomain}/{MixerIdentity}
+	//this value would only be used by pilot's proxy to connect to mixer.  All proxies would get mixer SAN pushed through pilot
+	MixerIdentity string
+
 	// ConfigNamespace defines the namespace where this proxy resides
 	// for the purposes of network scoping.
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
-
-	// TrustDomain defines the trust domain of the certificate
-	TrustDomain string
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
@@ -165,8 +178,7 @@ const (
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
 	if modestr, found := node.Metadata[NodeMetadataRouterMode]; found {
-		switch RouterMode(modestr) {
-		case SniDnatRouter:
+		if RouterMode(modestr) == SniDnatRouter {
 			return SniDnatRouter
 		}
 	}
@@ -288,6 +300,18 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	return out, nil
 }
 
+// GetOrDefaultFromMap returns either the value found for key or the default value if the map is nil
+// or does not contain the key. Useful when retrieving node metadata fields.
+func GetOrDefaultFromMap(stringMap map[string]string, key, defaultVal string) string {
+	if stringMap == nil {
+		return defaultVal
+	}
+	if valFromMap, ok := stringMap[key]; ok {
+		return valFromMap
+	}
+	return defaultVal
+}
+
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
 // from the proxy metadata or the proxy ID
 func GetProxyConfigNamespace(proxy *Proxy) string {
@@ -323,11 +347,20 @@ const (
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
 
+	// DefaultServerCertChain is the default path to the mTLS chain file
+	DefaultCertChain = AuthCertsPath + CertChainFilename
+
 	// KeyFilename is mTLS private key
 	KeyFilename = "key.pem"
 
+	// DefaultServerKey is the default path to the mTLS private key file
+	DefaultKey = AuthCertsPath + KeyFilename
+
 	// RootCertFilename is mTLS root cert
 	RootCertFilename = "root-cert.pem"
+
+	// DefaultRootCert is the default path to the mTLS root cert file
+	DefaultRootCert = AuthCertsPath + RootCertFilename
 
 	// IngressCertFilename is the ingress cert file name
 	IngressCertFilename = "tls.crt"
@@ -528,11 +561,29 @@ const (
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
 	NodeMetadataInstanceIPs = "INSTANCE_IPS"
 
-	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Enovy proxy.
+	// NodeMetadataSdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
 	NodeMetadataSdsTokenPath = "SDS_TOKEN_PATH"
 
-	// NodeMetadataPolicyCheckRetries determines the policy for behavior when unable to connect to mixer
+	// NodeMetadataTLSServerCertChain is the absolute path to server cert-chain file
+	NodeMetadataTLSServerCertChain = "TLS_SERVER_CERT_CHAIN"
+
+	// NodeMetadataTLSServerKey is the absolute path to server private key file
+	NodeMetadataTLSServerKey = "TLS_SERVER_KEY"
+
+	// NodeMetadataTLSServerRootCert is the absolute path to server root cert file
+	NodeMetadataTLSServerRootCert = "TLS_SERVER_ROOT_CERT"
+
+	// NodeMetadataTLSClientCertChain is the absolute path to client cert-chain file
+	NodeMetadataTLSClientCertChain = "TLS_CLIENT_CERT_CHAIN"
+
+	// NodeMetadataTLSClientKey is the absolute path to client private key file
+	NodeMetadataTLSClientKey = "TLS_CLIENT_KEY"
+
+	// NodeMetadataTLSClientRootCert is the absolute path to client root cert file
+	NodeMetadataTLSClientRootCert = "TLS_CLIENT_ROOT_CERT"
+
+	// NodeMetadataPolicyCheck determines the policy for behavior when unable to connect to mixer
 	// If not set, FAIL_CLOSE is set, rejecting requests.
 	NodeMetadataPolicyCheck = "policy.istio.io/check"
 
@@ -547,6 +598,17 @@ const (
 	// NodeMetadataPolicyCheckMaxRetryWaitTime for max time to wait between retries
 	// In duration format. If not set, this will be 1000ms.
 	NodeMetadataPolicyCheckMaxRetryWaitTime = "policy.istio.io/checkMaxRetryWaitTime"
+)
+
+var (
+	_ = annotations.Register(NodeMetadataPolicyCheck,
+		"Determines the policy for behavior when unable to connect to Mixer. If not set, FAIL_CLOSE is set, rejecting requests.")
+	_ = annotations.Register(NodeMetadataPolicyCheckRetries,
+		"The maximum number of retries on transport errors to Mixer. If not set, this will be 0, indicating no retries.")
+	_ = annotations.Register(NodeMetadataPolicyCheckBaseRetryWaitTime,
+		"Base time to wait between retries, will be adjusted by backoff and jitter. In duration format. If not set, this will be 80ms.")
+	_ = annotations.Register(NodeMetadataPolicyCheckMaxRetryWaitTime,
+		"Maximum time to wait between retries to Mixer. In duration format. If not set, this will be 1000ms.")
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

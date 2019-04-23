@@ -43,11 +43,11 @@ func Stringify(v interface{}) string {
 			return strconv.FormatFloat(vv, 'f', -1, 64)
 		case bool:
 			return strconv.FormatBool(vv)
+		case []byte:
+			return net.IP(vv).String()
 		case time.Time:
 			return string(serializeTime(vv))
 		case time.Duration:
-			return vv.String()
-		case net.IP:
 			return vv.String()
 		case EmailAddress:
 			return string(vv)

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -37,9 +38,12 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/log"
+	configz "istio.io/istio/pkg/mcp/configz/server"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
+	mcprate "istio.io/istio/pkg/mcp/rate"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
@@ -54,7 +58,6 @@ type Server struct {
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
 	processor     *runtime.Processor
-	mcp           *server.Server
 	mcpSource     *source.Server
 	reporter      monitoring.Reporter
 	listenerMutex sync.Mutex
@@ -66,7 +69,7 @@ type Server struct {
 
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
-	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) error
+	verifyResourceTypesPresence func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	findSupportedResources      func(client.Interfaces, []schema.ResourceSpec) ([]schema.ResourceSpec, error)
 	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
@@ -126,17 +129,17 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
+		var found []schema.ResourceSpec
+
 		if !a.DisableResourceReadyCheck {
-			if err := p.verifyResourceTypesPresence(k, sourceSchema.All()); err != nil {
-				return nil, err
-			}
+			found, err = p.verifyResourceTypesPresence(k, sourceSchema.All())
 		} else {
-			found, err := p.findSupportedResources(k, sourceSchema.All())
-			if err != nil {
-				return nil, err
-			}
-			sourceSchema = schema.New(found...)
+			found, err = p.findSupportedResources(k, sourceSchema.All())
 		}
+		if err != nil {
+			return nil, err
+		}
+		sourceSchema = schema.New(found...)
 		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
 			return nil, err
@@ -155,7 +158,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	var checker server.AuthChecker = server.NewAllowAllChecker()
+	var checker source.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -176,9 +179,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
-		Watcher:           distributor,
-		Reporter:          s.reporter,
-		CollectionOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		Watcher:            distributor,
+		Reporter:           s.reporter,
+		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
 	if a.SinkAddress != "" {
@@ -189,9 +193,11 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
-	s.mcp = server.New(options, checker)
+	serverOptions := &source.ServerOptions{
+		AuthChecker: checker,
+		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+	}
 
-	serverOptions := &source.ServerOptions{AuthChecker: checker}
 	s.mcpSource = source.NewServer(options, serverOptions)
 
 	// get the network stuff setup
@@ -209,10 +215,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
-	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, []fw.Topic{configz.CreateTopic(distributor)})
 
 	return s, nil
 }

@@ -1,0 +1,17 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: prometheusdouble
+  namespace: istio-system
+spec:
+  compiledAdapter: prometheus
+  params:
+    metrics:
+    - name: double_request_count # Prometheus metric name
+      instance_name: doublerequestcount.metric.istio-system # Mixer instance name (fully-qualified)
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source
+      - destination
+      - message

@@ -56,16 +56,6 @@ type GcpClientImpl struct {
 	fetcher cred.TokenFetcher
 }
 
-// NewGcpClientImpl creates a new GcpClientImpl.
-func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
-	return &GcpClientImpl{
-		rootCertFile: rootCert,
-		caAddr:       ca,
-		// The expected token is independent of the URL of the server.
-		fetcher: &cred.GcpTokenFetcher{Aud: "grpc://istio-citadel:8060"},
-	}
-}
-
 // IsProperPlatform returns whether the client is on GCE.
 func (ci *GcpClientImpl) IsProperPlatform() bool {
 	return metadata.OnGCE()

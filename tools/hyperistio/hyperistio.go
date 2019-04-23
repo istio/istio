@@ -117,7 +117,7 @@ func startEnvoy() error {
 		ConfigPath:       env.IstioOut,
 		BinaryPath:       env.IstioBin + "/envoy",
 		ServiceCluster:   "test",
-		CustomConfigFile: env.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
+		CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
 		ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
@@ -131,11 +131,10 @@ func startEnvoy() error {
 	if err != nil {
 		envoyLog = os.Stderr
 	}
-	agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
+	_, err = agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
 		"--disable-hot-restart", // "-l", "trace",
 	})
-
-	return nil
+	return err
 }
 
 // startPilot with defaults:

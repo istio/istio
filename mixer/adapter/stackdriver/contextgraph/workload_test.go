@@ -167,64 +167,64 @@ func TestTrafficAssertionReify(t *testing.T) {
 			},
 			[]edge{
 				// policy memberships
-				edge{policyWorkloadEntity.fullName, policyOwnerEntity.fullName, membershipTypeName},
-				edge{policyOwnerEntity.fullName, policyWorkloadInstanceEntity.fullName, membershipTypeName},
+				{policyWorkloadEntity.fullName, policyOwnerEntity.fullName, membershipTypeName},
+				{policyOwnerEntity.fullName, policyWorkloadInstanceEntity.fullName, membershipTypeName},
 
 				// policy -> k8s membership
-				edge{policyOwnerEntity.fullName,
+				{policyOwnerEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
 						"k8s/namespaces/istio-system/extensions/deployments/istio-policy",
 					membershipTypeName},
-				edge{policyWorkloadInstanceEntity.fullName,
+				{policyWorkloadInstanceEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
 						"k8s/namespaces/istio-system/pods/istio-policy-65db5b46fc-r7qhq",
 					membershipTypeName},
 
 				// policy -> service comms
-				edge{policyWorkloadInstanceEntity.fullName, svcEntity.fullName, httpComm},
-				edge{policyOwnerEntity.fullName, svcEntity.fullName, httpComm},
-				edge{policyWorkloadEntity.fullName, svcEntity.fullName, httpComm},
+				{policyWorkloadInstanceEntity.fullName, svcEntity.fullName, httpComm},
+				{policyOwnerEntity.fullName, svcEntity.fullName, httpComm},
+				{policyWorkloadEntity.fullName, svcEntity.fullName, httpComm},
 
 				// telemetry memberships
-				edge{telemetryWorkloadEntity.fullName, telemetryOwnerEntity.fullName, membershipTypeName},
-				edge{telemetryOwnerEntity.fullName, telemetryWorkloadInstanceEntity.fullName, membershipTypeName},
+				{telemetryWorkloadEntity.fullName, telemetryOwnerEntity.fullName, membershipTypeName},
+				{telemetryOwnerEntity.fullName, telemetryWorkloadInstanceEntity.fullName, membershipTypeName},
 
 				// telemetry -> k8s membership
-				edge{telemetryOwnerEntity.fullName,
+				{telemetryOwnerEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
 						"k8s/namespaces/istio-system/extensions/deployments/istio-telemetry",
 					membershipTypeName},
-				edge{telemetryWorkloadInstanceEntity.fullName,
+				{telemetryWorkloadInstanceEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
 						"k8s/namespaces/istio-system/pods/istio-telemetry-65db5b46fc-r7qhq",
 					membershipTypeName},
 
 				// policy sources -> telemetry workload instance
-				edge{policyWorkloadInstanceEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
-				edge{policyOwnerEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
-				edge{policyWorkloadEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
+				{policyWorkloadInstanceEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
+				{policyOwnerEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
+				{policyWorkloadEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
 
 				// service -> workload instance comms
-				edge{svcEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
+				{svcEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
 
 				// policy sources -> telemetry owner
-				edge{policyWorkloadInstanceEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
-				edge{policyOwnerEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
-				edge{policyWorkloadEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
+				{policyWorkloadInstanceEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
+				{policyOwnerEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
+				{policyWorkloadEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
 
 				// service -> owner comms
-				edge{svcEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
+				{svcEntity.fullName, telemetryOwnerEntity.fullName, httpComm},
 
 				// policy sources -> telemetry workload
-				edge{policyWorkloadInstanceEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
-				edge{policyOwnerEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
-				edge{policyWorkloadEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
+				{policyWorkloadInstanceEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
+				{policyOwnerEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
+				{policyWorkloadEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
 
 				// service -> workload comms
-				edge{svcEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
+				{svcEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
 
 				// svc -> k8s svc membership
-				edge{svcEntity.fullName,
+				{svcEntity.fullName,
 					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/svc-ns/services/my-svc",
 					membershipTypeName},
 			},

@@ -16,17 +16,29 @@ package groups
 
 import (
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 const (
 	// Default group for MCP requests.
 	Default = "default"
+
+	// SyntheticServiceEntry is the group used for the SynetheticServiceEntry collection.
+	SyntheticServiceEntry = "syntheticServiceEntry"
 )
 
 var _ snapshot.GroupIndexFn = IndexFunction
 
 // IndexFunction is a snapshot.GroupIndexFn used internally by Galley.
-func IndexFunction(_ string, _ *mcp.SinkNode) string {
-	return Default
+// If the request is for the collection metadata.SyntheticServiceEntry,
+// the SyntheticServiceEntry snapshot is used. Otherwise the Default
+// snapshot is used.
+func IndexFunction(collection string, _ *mcp.SinkNode) string {
+	switch collection {
+	case metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String():
+		return SyntheticServiceEntry
+	default:
+		return Default
+	}
 }

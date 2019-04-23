@@ -27,12 +27,15 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/annotations"
 
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -40,8 +43,6 @@ const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
 	// IstioMetaPrefix is used to pass env vars as node metadata.
 	IstioMetaPrefix = "ISTIO_META_"
@@ -54,6 +55,8 @@ const (
 	// statsPatterns gives the developer control over Envoy stats collection
 	EnvoyStatsMatcherInclusionPatterns = "sidecar.istio.io/statsInclusionPrefixes"
 )
+
+var _ = annotations.Register(EnvoyStatsMatcherInclusionPatterns, "Control over Envoy stats collection.")
 
 var (
 	// default value for EnvoyStatsMatcherInclusionPatterns
@@ -100,9 +103,7 @@ func createArgs(config *meshconfig.ProxyConfig, node, fname string, epoch int, c
 		"--allow-unknown-fields",
 	}
 
-	for _, v := range cliarg {
-		startupArgs = append(startupArgs, v)
-	}
+	startupArgs = append(startupArgs, cliarg...)
 
 	if config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(config.Concurrency))
@@ -196,6 +197,8 @@ func getNodeMetaData(envs []string) map[string]string {
 	return meta
 }
 
+var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string,
@@ -217,7 +220,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		cfg = DefaultCfgDir
 	}
 
-	override := os.Getenv("ISTIO_BOOTSTRAP")
+	override := overrideVar.Get()
 	if len(override) > 0 {
 		cfg = override
 	}
@@ -243,6 +246,15 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
+
+	// Populate the platform locality if available.
+	l := platform.GetPlatformLocality()
+	if l.Region != "" {
+		opts["region"] = l.Region
+	}
+	if l.Zone != "" {
+		opts["zone"] = l.Zone
+	}
 
 	// Support passing extra info from node environment as metadata
 	meta := getNodeMetaData(localEnv)
@@ -302,6 +314,12 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 			opts["lightstepToken"] = lightstepAccessTokenPath
 			opts["lightstepSecure"] = tracer.Lightstep.Secure
 			opts["lightstepCacertPath"] = tracer.Lightstep.CacertPath
+		case *meshconfig.Tracing_Datadog_:
+			h, p, err = GetHostPort("Datadog", tracer.Datadog.Address)
+			if err != nil {
+				return "", err
+			}
+			StoreHostPort(h, p, "datadog", opts)
 		}
 	}
 
