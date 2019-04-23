@@ -17,9 +17,11 @@ resources:
     cpu: 500m
     memory: 2048Mi
 
+# Namespace for Istio config
+configNamespace: istio-config
+
 env:
   GODEBUG: gctrace=1
-  CONFIG_NAMESPACE: "istio-config"
 
 cpu:
   targetAverageUtilization: 80
@@ -51,10 +53,7 @@ podAntiAffinityTermLabelSelector: {}
 keepaliveMaxServerConnectionAge: 30m
 
 # Additional labels to apply to the deployment.
-# The settings will auto-update pilot if keel is installed.
 deploymentLabels:
-  keel.sh/policy: major
-  keel.sh/trigger: poll
 
 
 ## Mesh config settings

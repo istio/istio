@@ -103,6 +103,8 @@ spec:
 {{- end }}
           - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
             value: "1"
+          - name: CONFIG_NAMESPACE
+            value: {{ .Values.configNamespace }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
