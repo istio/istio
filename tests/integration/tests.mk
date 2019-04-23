@@ -28,7 +28,7 @@ endif
 
 _INTEGRATION_TEST_PROW_FLAG =
 ifneq ($(MASON_INFO_PATH),)
-    _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow
+    _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow --deb_url=https://storage.googleapis.com/istio-release/releases/1.1.3/deb
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
