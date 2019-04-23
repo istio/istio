@@ -268,8 +268,17 @@ run-simple: ${TMPDIR}
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
-	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; make e2e_simple_noauth_run ${TEST_FLAGS} \
-		E2E_ARGS="${E2E_ARGS} --namespace=simple") 2>&1 | tee ${GOPATH}/out/logs/$@.log
+	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
+	  go test -v -timeout 25m ./tests/e2e/tests/simple -args \
+	     --auth_enable=false \
+         --egress=false --ingress=false \
+         --rbac_enable=false --cluster_wide \
+         --skip_setup \
+         --use_local_cluster=true \
+         --istio_namespace=${ISTIO_NS} \
+         --namespace=simple   \
+         --istioctl=${ISTIOCTL_BIN} \
+           2>&1 | tee ${GOPATH}/out/logs/$@.log)
 
 # Simple test, strict mode
 run-simple-strict: ${TMPDIR}
@@ -393,7 +402,9 @@ docker.buildkite: test/buildkite/Dockerfile ${GOPATH}/bin/kind ${GOPATH}/bin/hel
 	docker build -t istionightly/buildkite ${GOPATH}/out/istio-buildkite
 
 # Build or get the dependencies.
-dep: ${GOPATH}/bin/kind ${GOPATH}/bin/helm
+dep:
+
+#${GOPATH}/bin/kind ${GOPATH}/bin/helm
 
 GITBASE ?= "https://github.com"
 

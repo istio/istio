@@ -166,10 +166,10 @@ jobs:
             make git.dep ${GOPATH}/out/tmp
             # TODO: execute the tests in the KIND docker image ( even if running with minikube)
             make git.dep /go/bin/istioctl
-            #make run-simple ISTIOCTL_BIN=/go/bin/istioctl
+            make run-test.integration.kube.presubmit ISTIOCTL_BIN=/go/bin/istioctl
 
             # Bookinfo test
-            WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
+            #WAIT_TIMEOUT=10m bin/test.sh $GOPATH/src/istio.io/istio
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
