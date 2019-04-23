@@ -3,13 +3,25 @@
 # Eclipse artifacts
 .project
 .pydevproject
+#Vagrant
+tools/vagrant/.vagrant/
 # Intellij
 *.iml
 .idea/
 # Visual Studio Code
 .vscode/
+# Bazel
+/bazel-*
 # vi backups
 *.bak
 # python artifacts
 *.pyc
+# Vm setup generated files
+cluster.env
+kubedns
+# codegen stuff
+bin/protoc-gen-gogoslick*
+bin/protoc-min-version*
+bin/protoc-gen-docs*
 *.orig
+
