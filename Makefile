@@ -77,7 +77,7 @@ test: info clean prepare sync run-test clean
 # TODO: minimize 'ifs' in templates, and generate alternative files for cases we can't remove.
 build:
 	mkdir ${OUT}/release
-	cp crds.yaml ${OUT}/release
+	cp -aR crds/ ${OUT}/release
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel -t > ${OUT}/release/citadel.yaml
 	bin/iop istio-control istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
 	bin/iop istio-control istio-discovery ${BASE}/istio-control/istio-discovery -t > ${OUT}/release/istio-discovery.yaml
@@ -111,13 +111,13 @@ ifeq ($(SKIP_CLEANUP), 0)
 endif
 
 # Install CRDS
-${GOPATH}/out/yaml/crds.yaml: crds.yaml
+${GOPATH}/out/yaml/crds: crds
 	mkdir -p ${GOPATH}/out/yaml
-	cp crds.yaml ${GOPATH}/out/yaml/crds.yaml
-	kubectl apply -f crds.yaml
-	kubectl wait --for=condition=Established -f crds.yaml
+	cp -aR crds ${GOPATH}/out/yaml/crds
+	kubectl apply -f crds/
+	kubectl wait --for=condition=Established -f crds/
 
-install-crds: ${GOPATH}/out/yaml/crds.yaml
+install-crds: ${GOPATH}/out/yaml/crds
 
 # Individual step to install or update base istio.
 install-base: install-crds
