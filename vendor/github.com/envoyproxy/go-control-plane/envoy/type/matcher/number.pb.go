@@ -9,8 +9,8 @@ import (
 	io "io"
 	math "math"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 
 	_type "github.com/envoyproxy/go-control-plane/envoy/type"
 )

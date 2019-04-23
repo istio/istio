@@ -109,7 +109,7 @@ func generateDestinationPortRule(destinationPort []uint32) *policy.Permission_Or
 }
 
 // nolint:deadcode
-func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32) *policy.Permission_OrRules {
+func generateDestinationCidrRule(destinationPrefix []string, prefixLen []uint32) *policy.Permission_OrRules {
 	rules := &policy.Permission_OrRules{
 		OrRules: &policy.Permission_Set{},
 	}
@@ -118,7 +118,7 @@ func generateDestinationCidrRule(destinationPrefix []string, PrefixLen []uint32)
 			Rule: &policy.Permission_DestinationIp{
 				DestinationIp: &core.CidrRange{
 					AddressPrefix: destinationPrefix[i],
-					PrefixLen:     &types.UInt32Value{Value: PrefixLen[i]},
+					PrefixLen:     &types.UInt32Value{Value: prefixLen[i]},
 				},
 			}})
 	}
@@ -169,6 +169,23 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 								},
 							},
 						},
+						{
+							Rule: &policy.Permission_NotRule{
+								NotRule: &policy.Permission{
+									Rule: &policy.Permission_OrRules{
+										OrRules: &policy.Permission_Set{
+											Rules: []*policy.Permission{
+												{
+													Rule: &policy.Permission_Header{
+														Header: convertToHeaderMatcher(":method", "*"),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -187,5 +204,35 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 				},
 			},
 		}},
+	}
+}
+
+// nolint:deadcode
+func generateExpectRBACForSinglePolicy(authzPolicyKey string, rbacPolicy *policy.Policy) *policy.RBAC {
+	// If |serviceRoleName| is empty, which means the current service does not have any matched ServiceRoles.
+	if authzPolicyKey == "" {
+		return &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		}
+	}
+	return &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			authzPolicyKey: rbacPolicy,
+		},
+	}
+}
+
+// nolint: deadcode
+func generateExpectRBACWithAuthzPolicyKeysAndRbacPolicies(authzPolicyKeys []string, rbacPolicies []*policy.Policy) *policy.RBAC {
+	policies := map[string]*policy.Policy{}
+	for i, authzPolicyKey := range authzPolicyKeys {
+		policies[authzPolicyKey] = rbacPolicies[i]
+	}
+
+	return &policy.RBAC{
+		Action:   policy.RBAC_ALLOW,
+		Policies: policies,
 	}
 }

@@ -1012,8 +1012,9 @@ include Istio CA certificates and system certificates in cert pool.</p>
 <td><code>serverName</code></td>
 <td><code>string</code></td>
 <td>
-<p>Indicates the name of adapter backend server which is useful for routing with
-proxy-fronted backend.</p>
+<p>Used to configure mixer mutual TLS client to supply server name for SNI.
+It is not used to verify the hostname of the peer certificate, since
+Istio verifies whitelisted SAN fields in mutual TLS.</p>
 
 </td>
 </tr>
@@ -1328,8 +1329,8 @@ passed as what it is.</p>
 <td><code>serverName</code></td>
 <td><code>string</code></td>
 <td>
-<p>Indicates the name of adapter backend which is useful for routing with
-proxy-fronted backend.</p>
+<p>Used to configure mixer TLS client to verify the hostname on the returned
+certificates. It is also included in the client&rsquo;s handshake to support SNI.</p>
 
 </td>
 </tr>

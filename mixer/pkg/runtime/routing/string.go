@@ -146,9 +146,7 @@ func (i *InstanceGroup) write(w io.Writer, indent int, debugInfo *tableDebugInfo
 
 		for j, name := range instanceNames {
 			fmt.Fprintf(w, "%s[#%d]", idnt, j)
-			if debugInfo != nil {
-				fmt.Fprintf(w, " %s {I}", name)
-			}
+			fmt.Fprintf(w, " %s {I}", name)
 			fmt.Fprintln(w)
 		}
 	} else {

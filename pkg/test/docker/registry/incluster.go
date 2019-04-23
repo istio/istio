@@ -108,11 +108,7 @@ func (r *InClusterRegistry) Start() error {
 	}
 
 	// Registry is up now, try to get the registry pod for port-forwarding
-	options := &kube.PodSelectOptions{
-		PodNamespace: r.namespace,
-		PodName:      registryPod.Name,
-	}
-	forwarder, err := r.accessor.NewPortForwarder(options, r.localRegistryPort, r.localRegistryPort)
+	forwarder, err := r.accessor.NewPortForwarder(registryPod, r.localRegistryPort, r.localRegistryPort)
 	if err != nil {
 		return err
 	}

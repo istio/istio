@@ -63,6 +63,7 @@ make generate
 4. Format, vet and lint the code
 
 ```sh
+make format
 make check
 ```
 
@@ -113,7 +114,7 @@ func main() {
 }
 ```
 
-As mentioned in [Scope](https://github.com/envoyproxy/go-control-plane/blob/master/README.md#scope), you need to cache Envoy configurations.  
+As mentioned in [Scope](https://github.com/envoyproxy/go-control-plane/blob/master/README.md#scope), you need to cache Envoy configurations.
 Generate the key based on the node information as follows and cache the configurations.
 
 ```go

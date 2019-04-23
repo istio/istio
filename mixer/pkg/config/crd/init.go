@@ -76,8 +76,6 @@ func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options, ck []string
 	if err != nil {
 		return nil, err
 	}
-	conf.APIPath = "/apis"
-	conf.GroupVersion = gv
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,

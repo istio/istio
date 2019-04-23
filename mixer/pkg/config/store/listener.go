@@ -17,13 +17,11 @@ package store
 import (
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	"istio.io/istio/pkg/log"
 )
 
 // StartWatch registers with store, initiates a watch, and returns the current config state.
-func StartWatch(s Store, kinds map[string]proto.Message) (map[Key]*Resource, <-chan Event, error) {
+func StartWatch(s Store) (map[Key]*Resource, <-chan Event, error) {
 
 	// create channel before listing.
 	watchChan, err := s.Watch()

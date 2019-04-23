@@ -17,9 +17,11 @@
 package crd
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -111,8 +113,8 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 	return cs, nil
 }
 
-func (rc *restClient) init(kubeconfig string, context string) error {
-	cfg, err := rc.createRESTConfig(kubeconfig, context)
+func (rc *restClient) init(cfg *rest.Config) error {
+	cfg, err := rc.updateRESTConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -128,13 +130,8 @@ func (rc *restClient) init(kubeconfig string, context string) error {
 }
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
-func (rc *restClient) createRESTConfig(kubeconfig string, context string) (config *rest.Config, err error) {
-	config, err = kubecfg.BuildClientConfig(kubeconfig, context)
-
-	if err != nil {
-		return nil, err
-	}
-
+func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, err error) {
+	config = cfg
 	config.GroupVersion = &rc.apiVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
@@ -154,11 +151,8 @@ func (rc *restClient) createRESTConfig(kubeconfig string, context string) (confi
 	return
 }
 
-// NewClient creates a client to Kubernetes API using a kubeconfig file.
-// Use an empty value for `kubeconfig` to use the in-cluster config.
-// If the kubeconfig file is empty, defaults to in-cluster config as well.
-// You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
+// NewForConfig creates a client to the Kubernetes API using a rest config.
+func NewForConfig(cfg *rest.Config, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -170,7 +164,7 @@ func NewClient(config string, context string, descriptor model.ConfigDescriptor,
 	}
 
 	for _, v := range out.clientset {
-		if err := v.init(config, context); err != nil {
+		if err := v.init(cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -178,15 +172,30 @@ func NewClient(config string, context string, descriptor model.ConfigDescriptor,
 	return out, nil
 }
 
+// NewClient creates a client to Kubernetes API using a kubeconfig file.
+// Use an empty value for `kubeconfig` to use the in-cluster config.
+// If the kubeconfig file is empty, defaults to in-cluster config as well.
+// You can also choose a config context by providing the desired context name.
+func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
+	cfg, err := kubecfg.BuildClientConfig(config, context)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewForConfig(cfg, descriptor, domainSuffix)
+}
+
 // RegisterResources sends a request to create CRDs and waits for them to initialize
 func (cl *Client) RegisterResources() error {
+	g, _ := errgroup.WithContext(context.Background())
 	for k, rc := range cl.clientset {
-		log.Infof("registering for apiVersion %v", k)
-		if err := rc.registerResources(); err != nil {
-			return err
-		}
+		k, rc := k, rc
+		g.Go(func() error {
+			log.Infof("registering for apiVersion %v", k)
+			return rc.registerResources()
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
 func (rc *restClient) registerResources() error {

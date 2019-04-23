@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -130,18 +129,13 @@ func (s *Store) checkAndCreateCaches(
 			continue
 		}
 		if _, ok := kindsSet[res.Kind]; ok {
-			res.Group = ConfigAPIGroup
-			res.Version = ConfigAPIVersion
 			cl := lwBuilder.build(res)
 			informer := cache.NewSharedInformer(
 				&cache.ListWatch{
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 						return cl.List(options)
 					},
-					WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-						options.Watch = true
-						return cl.Watch(options)
-					},
+					WatchFunc: cl.Watch,
 				},
 				&unstructured.Unstructured{}, 0)
 			s.caches[res.Kind] = informer.GetStore()
@@ -181,17 +175,18 @@ func (s *Store) Init(kinds []string) error {
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
 	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
 	timeout := time.After(s.retryTimeout)
-	tick := time.Tick(s.retryInterval)
+	ticker := time.NewTicker(s.retryInterval)
+	defer ticker.Stop()
 	stopRetry := false
 	for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
 		select {
 		case <-timeout:
 			stopRetry = true
-		case <-tick:
+		case <-ticker.C:
 			remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
-		default:
 		}
 	}
+	ticker.Stop()
 	if len(remaining) > 0 {
 		if cks := s.extractCriticalKinds(remaining); len(cks) != 0 {
 			return fmt.Errorf("failed to discover critical kinds: %v", cks)

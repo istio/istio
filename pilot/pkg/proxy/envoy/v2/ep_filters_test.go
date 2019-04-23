@@ -72,12 +72,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 2 local endpoints
-						{address: "10.0.0.1", weight: 1},
-						{address: "10.0.0.2", weight: 1},
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 3,
+					weight: 6,
 				},
 			},
 		},
@@ -90,11 +91,11 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint
-						{address: "20.0.0.1", weight: 1},
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
+						{address: "20.0.0.1", weight: 2},
+						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 4},
 					},
-					weight: 2,
+					weight: 6,
 				},
 			},
 		},
@@ -106,12 +107,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
-						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 4},
+						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 2,
+					weight: 6,
 				},
 			},
 		},
@@ -124,13 +126,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint
-						{address: "40.0.0.1", weight: 1},
+						{address: "40.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
+						{address: "1.1.1.1", weight: 4},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.20", weight: 1},
 					},
-					weight: 3,
+					weight: 8,
 				},
 			},
 		},
@@ -197,7 +200,7 @@ func environment() *model.Environment {
 	return &model.Environment{
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
-				"network1": &meshconfig.Network{
+				"network1": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -207,7 +210,7 @@ func environment() *model.Environment {
 						},
 					},
 				},
-				"network2": &meshconfig.Network{
+				"network2": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -215,9 +218,15 @@ func environment() *model.Environment {
 							},
 							Port: 80,
 						},
+						{
+							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+								Address: "2.2.2.20",
+							},
+							Port: 80,
+						},
 					},
 				},
-				"network3": &meshconfig.Network{
+				"network3": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
 						{
 							Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -227,7 +236,7 @@ func environment() *model.Environment {
 						},
 					},
 				},
-				"network4": &meshconfig.Network{
+				"network4": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{},
 				},
 			},
@@ -275,14 +284,14 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 			},
 			Metadata: &core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					"istio": &types.Struct{
+					"istio": {
 						Fields: map[string]*types.Value{
-							"network": &types.Value{
+							"network": {
 								Kind: &types.Value_StringValue{
 									StringValue: lbEpInfo.network,
 								},
 							},
-							"uid": &types.Value{
+							"uid": {
 								Kind: &types.Value_StringValue{
 									StringValue: "kubernetes://dummy",
 								},

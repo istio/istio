@@ -15,6 +15,7 @@
 package ilt
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -147,6 +148,8 @@ end`,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
+		// top-level idents do not support presence
+		CEL:        true,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"-a"},
@@ -158,6 +161,8 @@ end`,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
+		// top-level idents do not support presence
+		CEL:        true,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"-a"},
@@ -292,6 +297,8 @@ L0:
 L1:
   ret
 end`,
+		// top-level idents do not support presence
+		CEL:    false,
 		Err:    "lookup failed: 'x'",
 		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
@@ -319,9 +326,8 @@ end`,
 		conf: istio06AttributeSet,
 	},
 	{
-		E:     `request.headers[toLower("USER-AGENT")] == "curlish"`,
-		Bench: true,
-		Type:  descriptor.BOOL,
+		E:    `request.headers[toLower("USER-AGENT")] == "curlish"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
 				"user-agent": "curlish",
@@ -368,7 +374,9 @@ end
 		I: map[string]interface{}{
 			"request.headers": map[string]string{},
 		},
-		R:    false,
+		R: false,
+		// CEL produces errors on map lookup
+		CEL:  errors.New("no such key"),
 		conf: istio06AttributeSet,
 	},
 	{
@@ -407,6 +415,12 @@ end
 				"myheader": "bbb",
 			},
 		},
+		R:    "unknown",
+		conf: exprEvalAttrs,
+	},
+	{
+		E:    `request.header["user"] | "unknown"`,
+		Type: descriptor.STRING,
 		R:    "unknown",
 		conf: exprEvalAttrs,
 	},
@@ -512,10 +526,14 @@ end
 			"service.name1": "svc1.ns2.cluster",
 			"servicename":   "*.aaa",
 		},
-		Err:        "lookup failed: 'service.name'",
+		Err: "lookup failed: 'service.name'",
+		// CEL always resolves attributes
+		CEL:        false,
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"-service.name"},
-		conf:       exprEvalAttrs,
+		// CEL evaluates all arguments to a function since it does not error out on the first lookup failure
+		ReferencedCEL: []string{"-service.name", "servicename"},
+		conf:          exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, servicename)`,
@@ -523,7 +541,9 @@ end
 		I: map[string]interface{}{
 			"service.name": "svc1.ns2.cluster",
 		},
-		Err:    "lookup failed: 'servicename'",
+		Err: "lookup failed: 'servicename'",
+		// CEL always resolves attributes
+		CEL:    false,
 		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
@@ -658,10 +678,12 @@ end
 		conf: exprEvalAttrs,
 	},
 	{
-		E:      "a == 2",
-		Type:   descriptor.BOOL,
-		I:      map[string]interface{}{},
-		Err:    "lookup failed: 'a'",
+		E:    "a == 2",
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		Err:  "lookup failed: 'a'",
+		// CEL always resolves attributes
+		CEL:    false,
 		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
@@ -673,10 +695,12 @@ end
 		conf: exprEvalAttrs,
 	},
 	{
-		E:      "a == 2",
-		Type:   descriptor.BOOL,
-		I:      map[string]interface{}{},
-		Err:    "lookup failed: 'a'",
+		E:    "a == 2",
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		Err:  "lookup failed: 'a'",
+		// CEL always resolves attributes
+		CEL:    false,
 		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
@@ -1138,6 +1162,8 @@ end
 		Type: descriptor.DNS_NAME,
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "adns"
@@ -1154,6 +1180,8 @@ end`,
 		Type: descriptor.DNS_NAME,
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "adns"
@@ -1173,6 +1201,8 @@ end
 		Type: descriptor.DNS_NAME,
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "adns"
@@ -1217,6 +1247,8 @@ end`,
 		E:    `dnsName(as | bs | "foo")`,
 		Type: descriptor.DNS_NAME,
 		R:    "foo",
+		// CEL does not support top-level ident presence
+		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
   tresolve_s "as"
@@ -1297,6 +1329,8 @@ end`,
 		E:    `(adns | dnsName("foo.bar.baz")) == dnsName("foo.Bar.baz.")`,
 		Type: descriptor.BOOL,
 		R:    true,
+		// CEL does not have top-level ident presence
+		CEL: false,
 	},
 
 	{
@@ -1386,6 +1420,8 @@ end
 		Type: descriptor.EMAIL_ADDRESS,
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "amail"
@@ -1402,6 +1438,8 @@ end`,
 		Type: descriptor.EMAIL_ADDRESS,
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "amail"
@@ -1421,6 +1459,8 @@ end
 		Type: descriptor.EMAIL_ADDRESS,
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "amail"
@@ -1465,6 +1505,8 @@ end`,
 		E:    `email(as | bs | "istio@istio.io")`,
 		Type: descriptor.EMAIL_ADDRESS,
 		R:    "istio@istio.io",
+		// CEL does not support top-level ident presence
+		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
   tresolve_s "as"
@@ -1610,6 +1652,8 @@ end
 		Type: descriptor.URI,
 		I:    map[string]interface{}{},
 		R:    "urn:foo",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "auri"
@@ -1626,6 +1670,8 @@ end`,
 		Type: descriptor.URI,
 		I:    map[string]interface{}{},
 		R:    "https://kubernetes.io",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "auri"
@@ -1645,6 +1691,8 @@ end
 		Type: descriptor.URI,
 		I:    map[string]interface{}{},
 		R:    "https://kubernetes.io",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "auri"
@@ -1689,6 +1737,8 @@ end`,
 		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
 		Type: descriptor.URI,
 		R:    "ftp://ftp.istio.io/releases",
+		// CEL does not support top-level ident presence
+		CEL: errors.New("error converting"),
 		IL: `
  fn eval() string
   tresolve_s "as"
@@ -1769,6 +1819,8 @@ end`,
 		E:    `(auri | uri("http://foo.bar.baz")) == uri("http://foo.Bar.baz.")`,
 		Type: descriptor.BOOL,
 		R:    true,
+		// top-level idents do not support presence
+		CEL: false,
 	},
 
 	{
@@ -1849,6 +1901,8 @@ end`,
 		Type: descriptor.BOOL,
 		Err:  "lookup failed: 'ab'",
 		R:    true, // Keep the return type, so that the special-purpose methods can be tested.
+		// top-level idents do not support presence
+		CEL: false,
 	},
 	{
 		E:    `as`,
@@ -1949,6 +2003,8 @@ end`,
 		E:    `as | "user1"`,
 		Type: descriptor.STRING,
 		R:    "user1",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "as"
@@ -1970,6 +2026,8 @@ end`,
 		E:    `as | bs | "user1"`,
 		Type: descriptor.STRING,
 		R:    "user1",
+		// top-level idents do not support presence
+		CEL: "",
 		IL: `
 fn eval() string
   tresolve_s "as"
@@ -1996,8 +2054,11 @@ end`,
 		I: map[string]interface{}{
 			"bs": "b2",
 		},
-		R:          "b2",
-		Referenced: []string{"-as", "bs"},
+		R: "b2",
+		// top-level idents do not support presence
+		CEL:           "",
+		Referenced:    []string{"-as", "bs"},
+		ReferencedCEL: []string{"-as"},
 	},
 	{
 		E:    `as | bs | "user1"`,
@@ -2032,6 +2093,8 @@ end`,
 		Type: descriptor.BOOL,
 		I:    map[string]interface{}{},
 		R:    true,
+		// top-level idents do not support presence
+		CEL: false,
 	},
 	{
 		E:    `ab | bb | true`,
@@ -2058,15 +2121,19 @@ end`,
 		I: map[string]interface{}{
 			"bb": false,
 		},
-		R:          false,
-		Referenced: []string{"-ab", "bb"},
+		R:             false,
+		Referenced:    []string{"-ab", "bb"},
+		ReferencedCEL: []string{"-ab"},
 	},
 	{
-		E:          `ab | bb | true`,
-		Type:       descriptor.BOOL,
-		I:          map[string]interface{}{},
-		R:          true,
-		Referenced: []string{"-ab", "-bb"},
+		E:    `ab | bb | true`,
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		R:    true,
+		// top-level idents do not support presence
+		CEL:           false,
+		Referenced:    []string{"-ab", "-bb"},
+		ReferencedCEL: []string{"-ab"},
 	},
 
 	{
@@ -2087,10 +2154,12 @@ L0:
 end`,
 	},
 	{
-		E:          `ai | 42`,
-		Type:       descriptor.INT64,
-		I:          map[string]interface{}{},
-		R:          int64(42),
+		E:    `ai | 42`,
+		Type: descriptor.INT64,
+		I:    map[string]interface{}{},
+		R:    int64(42),
+		// top-level idents do not support presence
+		CEL:        int64(0),
 		Referenced: []string{"-ai"},
 	},
 	{
@@ -2118,15 +2187,22 @@ end`,
 		I: map[string]interface{}{
 			"bi": int64(20),
 		},
-		R:          int64(20),
-		Referenced: []string{"-ai", "bi"},
+		R: int64(20),
+		// top-level idents do not support presence
+		CEL:           int64(0),
+		Referenced:    []string{"-ai", "bi"},
+		ReferencedCEL: []string{"-ai"},
 	},
+
 	{
-		E:          `ai | bi | 42`,
-		Type:       descriptor.INT64,
-		I:          map[string]interface{}{},
-		R:          int64(42),
-		Referenced: []string{"-ai", "-bi"},
+		E:    `ai | bi | 42`,
+		Type: descriptor.INT64,
+		I:    map[string]interface{}{},
+		R:    int64(42),
+		// top-level idents do not support presence
+		CEL:           int64(0),
+		Referenced:    []string{"-ai", "-bi"},
+		ReferencedCEL: []string{"-ai"},
 	},
 
 	{
@@ -2150,6 +2226,8 @@ end`,
 		Type: descriptor.DOUBLE,
 		I:    map[string]interface{}{},
 		R:    float64(42.1),
+		// top-level idents do not support presence
+		CEL: float64(0),
 	},
 	{
 		E:    `ad | bd | 42.1`,
@@ -2176,12 +2254,16 @@ end`,
 			"bd": float64(20),
 		},
 		R: float64(20),
+		// top-level idents do not support presence
+		CEL: float64(0),
 	},
 	{
 		E:    `ad | bd | 42.1`,
 		Type: descriptor.DOUBLE,
 		I:    map[string]interface{}{},
 		R:    float64(42.1),
+		// top-level idents do not support presence
+		CEL: float64(0),
 	},
 
 	{
@@ -2217,7 +2299,9 @@ end`,
 				"foo": "far",
 			},
 		},
-		R:          "far",
+		R: "far",
+		// CEL does not support top-level ident presence
+		CEL:        errors.New("no such key"),
 		Referenced: []string{"-ar", "br", "br[foo]"},
 	},
 
@@ -2390,6 +2474,8 @@ end`,
 		I:          map[string]interface{}{},
 		R:          "foo",
 		Referenced: []string{"-ar"},
+		// CEL index operator is a function that always resolves the index
+		ReferencedCEL: []string{"-ar", "-as"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -2416,6 +2502,8 @@ end`,
 		},
 		R:          "foo",
 		Referenced: []string{"-as", "ar"},
+		// CEL resolved missing stringmap attributes to an empty map
+		ReferencedCEL: []string{"-ar[]", "-as", "ar"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2425,6 +2513,8 @@ end`,
 		},
 		R:          "foo",
 		Referenced: []string{"-ar"},
+		// CEL index operator is a function that always resolves the index
+		ReferencedCEL: []string{"-ar", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2529,6 +2619,8 @@ end`,
 		Type: descriptor.DURATION,
 		I:    map[string]interface{}{},
 		R:    duration19,
+		// top-level idents do not support presence
+		CEL: time.Duration(0),
 		IL: `
 fn eval() duration
   tresolve_i "adur"
@@ -2570,6 +2662,8 @@ end`,
 			"bt": time1977,
 		},
 		R: time1977,
+		// CEL does not support top-level ident presence
+		CEL: time.Unix(0, 0).UTC(),
 	},
 	{
 		E:    `aip`,
@@ -2586,6 +2680,8 @@ end`,
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
 		R: []byte{0x4, 0x5, 0x6, 0x7},
+		// top-level idents do not support presence
+		CEL: []byte{},
 	},
 	{
 		E:    `aip | bip`,
@@ -2830,6 +2926,8 @@ end`,
 			"t2": t2,
 		},
 		R: t2,
+		// CEL does not support top-level ident presence
+		CEL: time.Unix(0, 0).UTC(),
 	},
 	{
 		E:    `t1 | t2`,
@@ -2925,6 +3023,8 @@ L0:
 end
 `,
 		R: []byte(net.ParseIP("5.6.7.8")),
+		// CEL does not support top-level ident presence
+		CEL: errors.New("could not convert"),
 	},
 
 	{
@@ -2934,12 +3034,16 @@ end
 			"bs": "1.2.3.4",
 		},
 		R: []byte(net.ParseIP("1.2.3.4")),
+		// CEL does not support top-level ident presence
+		CEL: errors.New("could not convert"),
 	},
 
 	{
 		E:    `ip(as | bs)`,
 		Type: descriptor.IP_ADDRESS,
 		Err:  "lookup failed: 'bs'",
+		// CEL does not support top-level ident presence
+		CEL: errors.New("could not convert"),
 	},
 
 	{
@@ -3082,6 +3186,8 @@ end`,
 		E:    `ab | "foo".startsWith("f")`,
 		Type: descriptor.BOOL,
 		R:    true,
+		// CEL does not support top-level ident presence
+		CEL: false,
 		IL: `
 fn eval() bool
   tresolve_b "ab"
@@ -3179,6 +3285,8 @@ end
 		E:    `ab | bb | "foo".startsWith("bar")`,
 		Type: descriptor.BOOL,
 		R:    true,
+		// CEL does not support top-level ident presence
+		CEL: false,
 		I: map[string]interface{}{
 			"bb": true,
 		},
@@ -3187,6 +3295,8 @@ end
 		E:    `ab | true | "foo".startsWith("bar")`,
 		Type: descriptor.BOOL,
 		R:    true,
+		// CEL does not support top-level ident presence
+		CEL: false,
 		IL: `
 fn eval() bool
   tresolve_b "ab"
@@ -4336,11 +4446,15 @@ fn eval() bool
 end
 `,
 		R: true,
+		// CEL reverse the arguments of matches overload
+		CEL: false,
 	},
 	{
 		E:    `"ab.*d".matches("abc")`,
 		Type: descriptor.BOOL,
 		R:    false,
+		// CEL reverse the arguments of matches overload
+		CEL: false,
 	},
 	{
 		E:    `as.matches(bs)`,
@@ -4357,6 +4471,8 @@ end`,
 			"bs": "str1",
 		},
 		R: true,
+		// CEL reverse the arguments of matches overload
+		CEL: false,
 	},
 	{
 		E:    `as.matches(bs)`,
@@ -4366,6 +4482,8 @@ end`,
 			"bs": "sqr1",
 		},
 		R: false,
+		// CEL reverse the arguments of matches overload
+		CEL: false,
 	},
 
 	{
@@ -4644,6 +4762,8 @@ end
 		E:    `as | conditional(ab, "foo", "bar") | bs`,
 		Type: descriptor.STRING,
 		R:    "bar",
+		// top-level idents do not support presence
+		CEL: "",
 		I: map[string]interface{}{
 			"ab": false,
 		},
@@ -4669,6 +4789,8 @@ end
 		E:    `as | conditional(ab, "foo", "bar") | bs`,
 		Type: descriptor.STRING,
 		R:    "foo",
+		// top-level idents do not support presence
+		CEL: "",
 		I: map[string]interface{}{
 			"ab": true,
 		},
@@ -4677,6 +4799,8 @@ end
 		E:    `as | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "bar",
+		// top-level idents do not support presence
+		CEL: "",
 		I: map[string]interface{}{
 			"ab": false,
 		},
@@ -4701,6 +4825,8 @@ end
 		E:    `as | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "foo",
+		// top-level idents do not support presence
+		CEL: "",
 		I: map[string]interface{}{
 			"ab": true,
 		},
@@ -4717,6 +4843,8 @@ end
 		E:    `as | bs | conditional(ab, "foo", "bar")`,
 		Type: descriptor.STRING,
 		R:    "zoo",
+		// top-level idents do not support presence
+		CEL: "",
 		I: map[string]interface{}{
 			"bs": "zoo",
 		},
@@ -4903,11 +5031,15 @@ end
 		E:    `as | "a" + "b"`,
 		Type: descriptor.STRING,
 		R:    "ab",
+		// top-level idents do not support presence
+		CEL: "b",
 	},
 	{
 		E:    `as | "a" + bs + "c"`,
 		Type: descriptor.STRING,
 		R:    "abc",
+		// top-level idents do not support presence
+		CEL: "bc",
 		I: map[string]interface{}{
 			"bs": "b",
 		},
@@ -4929,6 +5061,8 @@ end
 		E:    `as + (bs | "b") + "c"`,
 		Type: descriptor.STRING,
 		R:    "abc",
+		// top-level idents do not support presence
+		CEL: "ac",
 		I: map[string]interface{}{
 			"as": "a",
 		},
@@ -5109,9 +5243,15 @@ type TestInfo struct {
 	// R contains the expected result of a successful evaluation.
 	R interface{}
 
+	// CEL contains the expected result for CEL interpreter (if distinct)
+	CEL interface{}
+
 	// Referenced contains a list of attributes that should be referenced. If nil, attribute
 	// tracking checks will be skipped.
 	Referenced []string
+
+	// ReferencedCEL overrides Referenced field for CEL-specific differences
+	ReferencedCEL []string
 
 	// Err contains the expected error message of a failed evaluation.
 	Err string

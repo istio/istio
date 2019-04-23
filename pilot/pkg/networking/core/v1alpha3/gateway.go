@@ -73,7 +73,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
-			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers[0], nil)}
+			routeName := mergedGateway.RouteNamesByServer[servers[0]]
+			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName)}
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
 			// build listener with tcp proxy, with or without TLS context, for TCP servers
@@ -85,10 +86,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			for _, server := range servers {
 				if model.IsTLSServer(server) && model.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, env, push, server, nil))
+					routeName := mergedGateway.RouteNamesByServer[server]
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push, server, mergedGateway.Names)...)
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayTCPFilterChainOpts(node, env, push,
+						server, map[string]bool{mergedGateway.GatewayNameForServer[server]: true})...)
 				}
 			}
 			opts.filterChainOpts = filterChainOpts
@@ -207,73 +210,63 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
 	// make sure that there is some server listening on this port
-	if _, ok := merged.RDSRouteConfigNames[routeName]; !ok {
-		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
-		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
+	if _, ok := merged.ServersByRouteName[routeName]; !ok {
+		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
+		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
 	}
 
-	servers := merged.RDSRouteConfigNames[routeName]
+	servers := merged.ServersByRouteName[routeName]
+	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	gatewayHosts := make(map[model.Hostname]bool)
-	tlsRedirect := make(map[model.Hostname]bool)
-
+	vHostDedupMap := make(map[model.Hostname]*route.VirtualHost)
 	for _, server := range servers {
-		for _, host := range server.Hosts {
-			gatewayHosts[model.Hostname(host)] = true
-			if server.Tls != nil && server.Tls.HttpsRedirect {
-				tlsRedirect[model.Hostname(host)] = true
+		gatewayName := merged.GatewayNameForServer[server]
+		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
+		for _, virtualService := range virtualServices {
+			virtualServiceHosts := model.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
+			serverHosts := model.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
+
+			// We have two cases here:
+			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and server hosts are ns/*.foo.com
+			// 2. virtualService hosts are *.foo.com, and server hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+			intersectingHosts := serverHosts.Intersection(virtualServiceHosts)
+			if len(intersectingHosts) == 0 {
+				continue
+			}
+
+			routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, nil, map[string]bool{gatewayName: true})
+			if err != nil {
+				log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, virtualService, err)
+				continue
+			}
+
+			for _, host := range intersectingHosts {
+				if vHost, exists := vHostDedupMap[host]; exists {
+					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
+				} else {
+					newVHost := &route.VirtualHost{
+						Name:    fmt.Sprintf("%s:%d", host, port),
+						Domains: []string{string(host), fmt.Sprintf("%s:%d", host, port)},
+						Routes:  routes,
+					}
+					if server.Tls != nil && server.Tls.HttpsRedirect {
+						newVHost.RequireTls = route.VirtualHost_ALL
+					}
+					vHostDedupMap[host] = newVHost
+				}
 			}
 		}
 	}
 
-	port := int(servers[0].Port.Number)
-	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := push.VirtualServices(node, merged.Names)
-	vHostDedupMap := make(map[string]*route.VirtualHost)
-
-	for _, v := range virtualServices {
-		// We have two cases here:
-		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
-		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
-		// The logic below only handles case 1.
-		// TODO: handle case 2
-		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, v)
-		if len(matchingHosts) == 0 {
-			log.Debugf("%s omitting virtual service %q because its hosts don't match gateways %v server %d", node.ID, v.Name, gateways, port)
-			continue
-		}
-		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, push, v, nameToServiceMap, port, nil, merged.Names)
-		if err != nil {
-			log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
-			continue
-		}
-
-		for vsvcHost, gatewayHost := range matchingHosts {
-			if currentVhost, exists := vHostDedupMap[vsvcHost]; exists {
-				currentVhost.Routes = istio_route.CombineVHostRoutes(currentVhost.Routes, routes)
-			} else {
-				newVhost := &route.VirtualHost{
-					Name:    fmt.Sprintf("%s:%d", vsvcHost, port),
-					Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
-					Routes:  routes,
-				}
-				if tlsRedirect[gatewayHost] {
-					newVhost.RequireTls = route.VirtualHost_ALL
-				}
-				vHostDedupMap[vsvcHost] = newVhost
-			}
-		}
-	}
-
-	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
+	var virtualHosts []route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = append(virtualHosts, route.VirtualHost{
+		virtualHosts = []route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
 			Routes: []route.Route{
@@ -288,8 +281,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 					},
 				},
 			},
-		})
+		}}
 	} else {
+		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
 			virtualHosts = append(virtualHosts, *v)
 		}
@@ -318,13 +312,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, _ *model.Environment, _ *model.PushContext, server *networking.Server, _ map[string]bool) *filterChainOpts {
+	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
 	serverProto := model.ParseProtocol(server.Port.Protocol)
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if serverProto.IsHTTP() {
-		rdsName := model.GatewayRDSRouteName(server)
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
 			// and that no two non-HTTPS servers can be on same port or share port names.
@@ -332,7 +325,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				rds:              rdsName,
+				rds:              routeName,
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 				connectionManager: &http_conn.HttpConnectionManager{
@@ -340,6 +333,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
+						Cert:    true,
 						Uri:     true,
 						Dns:     true,
 					},
@@ -365,7 +359,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		sniHosts:   getSNIHostsForServer(server),
 		tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
 		httpOpts: &httpListenerOpts{
-			rds:              model.GatewayRDSRouteName(server),
+			rds:              routeName,
 			useRemoteAddress: true,
 			direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			connectionManager: &http_conn.HttpConnectionManager{
@@ -373,6 +367,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				ForwardClientCertDetails: http_conn.SANITIZE_SET,
 				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
+					Cert:    true,
 					Uri:     true,
 					Dns:     true,
 				},
@@ -634,7 +629,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
 func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
-	matchingHosts := make(map[string]model.Hostname, 0)
+	matchingHosts := make(map[string]model.Hostname)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {

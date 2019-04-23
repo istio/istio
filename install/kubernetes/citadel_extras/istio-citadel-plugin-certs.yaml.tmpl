@@ -7,13 +7,18 @@ metadata:
   name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
   namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio: citadel
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      istio: citadel
   template:
     metadata:
       labels:
@@ -31,7 +36,6 @@ spec:
           - --append-dns-names=true
           - --citadel-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
-          - --grpc-hostname=citadel
           - --self-signed-ca=false
           - --signing-cert=/etc/cacerts/ca-cert.pem
           - --signing-key=/etc/cacerts/ca-key.pem

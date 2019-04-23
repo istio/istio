@@ -22,14 +22,12 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // DumpPodState logs the current pod state.
-func DumpPodState(namespace string, accessor *kube.Accessor) {
+func DumpPodState(workDir string, namespace string, accessor *kube.Accessor) {
 	pods, err := accessor.GetPods(namespace)
 	if err != nil {
 		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
@@ -40,18 +38,61 @@ func DumpPodState(namespace string, accessor *kube.Accessor) {
 		Indent: "  ",
 	}
 
-	output := ""
 	for _, pod := range pods {
-		output += fmt.Sprintf("Pod: %s/%s\n", pod.Namespace, pod.Name)
-		if str, err := marshaler.MarshalToString(&pod); err != nil {
-			output += fmt.Sprintf("Error converting to pod to JSON: %v\n", err.Error())
-		} else {
-			output += str + "\n"
+		str, err := marshaler.MarshalToString(&pod)
+		if err != nil {
+			scopes.CI.Errorf("Error marshaling pod state for output: %v", err)
+			continue
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("pod_%s_%s.yaml", namespace, pod.Name))
+
+		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
-	scopes.CI.Infof("Pods (from Kubectl):\n%s", output)
 }
 
+// DumpPodEvents logs the current pod event.
+func DumpPodEvents(workDir, namespace string, accessor *kube.Accessor) {
+	pods, err := accessor.GetPods(namespace)
+	if err != nil {
+		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
+		return
+	}
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+
+	for _, pod := range pods {
+		events, err := accessor.GetEvents(namespace, pod.Name)
+		if err != nil {
+			scopes.CI.Errorf("Error getting events list for pod %s/%s via kubectl: %v", namespace, pod.Name, err)
+			return
+		}
+
+		outPath := path.Join(workDir, fmt.Sprintf("pod_events_%s_%s.yaml", namespace, pod.Name))
+
+		eventsStr := ""
+		for _, event := range events {
+			eventStr, err := marshaler.MarshalToString(&event)
+			if err != nil {
+				scopes.CI.Errorf("Error marshaling pod event for output: %v", err)
+				continue
+			}
+
+			eventsStr += eventStr
+			eventsStr += "\n"
+		}
+
+		if err := ioutil.WriteFile(outPath, []byte(eventsStr), os.ModePerm); err != nil {
+			scopes.CI.Infof("Error writing out pod events to file: %v", err)
+		}
+	}
+}
+
+/*
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.
 func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 	pods, err := accessor.GetPods(namespace)
@@ -82,7 +123,7 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 	for _, pod := range pods {
 		by, err := yaml.Marshal(pod)
 		if err != nil {
-			scopes.CI.Infof("Error marshalling pod state: %s: %v", pod.Name, err)
+			scopes.CI.Infof("Error marshaling pod state: %s: %v", pod.Name, err)
 			continue
 		}
 
@@ -93,3 +134,4 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 		}
 	}
 }
+*/

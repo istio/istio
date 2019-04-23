@@ -114,7 +114,7 @@ func createTestWatch(c source.Watcher, collection, version string, responseC cha
 		}
 	} else {
 		if cancel != nil {
-			return nil, nil, fmt.Errorf("wanted no cancel() function, got %v", cancel)
+			return nil, nil, fmt.Errorf("wanted no cancel() function, got %p", cancel)
 		}
 	}
 

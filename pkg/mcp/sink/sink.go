@@ -179,10 +179,10 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 	return initialRequests
 }
 
-// processStream implements the MCP message exchange for the resource sink. It accepts the sink
-// stream interface and returns when a send or receive error occurs. The caller is responsible for handling gRPC
-// client/server specific error handling.
-func (sink *Sink) processStream(stream Stream) error {
+// ProcessStream implements the MCP message exchange for the resource sink. It accepts the sink
+// stream interface and returns when a send or receive error occurs. The caller is responsible for
+// handling gRPC client/server specific error handling.
+func (sink *Sink) ProcessStream(stream Stream) error {
 	// send initial requests for each supported type
 	initialRequests := sink.createInitialRequests()
 	for {

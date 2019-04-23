@@ -66,7 +66,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
@@ -101,7 +101,7 @@ func TestGateway_HTTPSIngress(t *testing.T) {
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
@@ -136,7 +136,7 @@ func TestGateway_TCPIngress(t *testing.T) {
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			log.Infof("request counts %+v", count)
 			if count["v1"] >= 95 {
@@ -251,7 +251,7 @@ cleanup:
 		if len(resp.Code) > 0 {
 			count := make(map[string]int)
 			for _, elt := range resp.Code {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			if count["200"] != len(resp.Code) {
 				// have entries other than 200
@@ -289,7 +289,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			log.Infof("request counts %v", count)
 			if count["v1"] == 10 {
@@ -303,7 +303,7 @@ func TestVirtualServiceMergingAtGateway(t *testing.T) {
 			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
+				count[elt]++
 			}
 			log.Infof("request counts %v", count)
 			if count["v2"] == 10 {

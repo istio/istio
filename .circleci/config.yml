@@ -64,10 +64,10 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
   run:
     when: always
     command: |
-      make dumpsys || true
       make junit-report || true
       # TODO: upload the artifacts as well, for debugging !
       bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
+      make dumpsys || true
 
 jobs:
   e2e-simple:
@@ -472,7 +472,7 @@ jobs:
               export PATH=$GOPATH/bin:$PATH
               make localTestEnv
               set -o pipefail
-              make test.integration.local T=-v | tee -a /go/out/tests/build-log.txt
+              make test.integration.local.presubmit T=-v | tee -a /go/out/tests/build-log.txt
         - <<: *recordZeroExitCodeIfTestPassed
         - <<: *recordNonzeroExitCodeIfTestFailed
         - <<: *markJobFinishesOnGCS
@@ -480,6 +480,44 @@ jobs:
             path: /go/out/tests
         - store_artifacts:
             path: /tmp
+
+  test-integration-kubernetes:
+    <<: *integrationDefaults
+    environment:
+      - KUBECONFIG: /go/out/minikube.conf
+      - TEST_ENV: minikube-none
+      - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_e2e_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run:
+          no_output_timeout: 20m
+          name: make test.integration.kube
+          command: |
+            make test.integration.kube.presubmit T="-v" | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-pilot-auth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
@@ -797,6 +835,12 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
+      - test-integration-local:
+          requires:
+            - build
+      - test-integration-kubernetes:
+          requires:
+            - build
 
   all:
     jobs:
@@ -835,3 +879,7 @@ workflows:
       - test-integration-local:
           requires:
             - build
+      - test-integration-kubernetes:
+          requires:
+            - build
+

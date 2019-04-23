@@ -33,7 +33,6 @@ import (
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
 		CAClientConfig: caclient.Config{
-			// nolint: goimports
 			CAAddress:                 "ca_addr",
 			Org:                       "Google Inc.",
 			RSAKeySize:                512,
@@ -90,7 +89,6 @@ func TestStartWithArgs(t *testing.T) {
 
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					// nolint: goimports
 					CAAddress:                 "ca_addr",
 					Org:                       "Google Inc.",
 					RSAKeySize:                128,

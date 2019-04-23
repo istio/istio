@@ -84,7 +84,7 @@ func (c *Client) Run(ctx context.Context) {
 			scope.Errorf("Failed to create a new MCP sink stream: %v", err)
 		}
 
-		err := c.processStream(c.stream)
+		err := c.ProcessStream(c.stream)
 		if err != nil && err != io.EOF {
 			c.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("Error receiving MCP response: %v", err)

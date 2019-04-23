@@ -88,7 +88,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 		retries++
 		timer := time.NewTimer(retrialInterval)
 		// Exponentially increase the backoff time.
-		retrialInterval = retrialInterval * 2
+		retrialInterval *= 2
 		<-timer.C
 	}
 }

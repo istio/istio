@@ -39,7 +39,7 @@ spec:
       httpsRedirect: true # sends 301 redirect for http requests
   - port:
       number: 443
-      name: https
+      name: https-443
       protocol: HTTPS
     hosts:
     - uk.bookinfo.com
@@ -50,7 +50,7 @@ spec:
       privateKey: /etc/certs/privatekey.pem
   - port:
       number: 9443
-      name: https
+      name: https-9443
       protocol: HTTPS
     hosts:
     - &quot;bookinfo-namespace/*.bookinfo.com&quot;
@@ -103,19 +103,19 @@ spec:
   - match:
     - headers:
         cookie:
-          user: dev-123
+          exact: &quot;user=dev-123&quot;
     route:
     - destination:
         port:
           number: 7777
         host: reviews.qa.svc.cluster.local
   - match:
-      uri:
+    - uri:
         prefix: /reviews/
     route:
     - destination:
         port:
-          number: 9080 # can be omitted if its the only port for reviews
+          number: 9080 # can be omitted if it's the only port for reviews
         host: reviews.prod.svc.cluster.local
       weight: 80
     - destination:
@@ -200,7 +200,7 @@ spec:
 on which this gateway configuration should be applied. The scope of
 label search is restricted to the configuration namespace in which the
 the resource is present. In other words, the Gateway resource must
-reside in the same namespace as the gateway workload.</p>
+reside in the same namespace as the gateway workload instance.</p>
 
 </td>
 </tr>
@@ -453,13 +453,13 @@ capable of fetching credentials from a remote credential store such
 as Kubernetes secrets, will be configured to retrieve the
 serverCertificate and the privateKey using credentialName, instead
 of using the file system paths specified above. If using mutual TLS,
-gateway workloads will retrieve the CaCertificates using
+gateway workload instances will retrieve the CaCertificates using
 credentialName-cacert. The semantics of the name are platform
 dependent.  In Kubernetes, the default Istio supplied credential
 server expects the credentialName to match the name of the
 Kubernetes secret that holds the server certificate, the private
 key, and the CA certificate (if using mutual TLS). Set the
-ISTIO<em>META</em>USER_SDS metadata variable in the gateway&rsquo;s proxy to
+<code>ISTIO_META_USER_SDS</code> metadata variable in the gateway&rsquo;s proxy to
 enable the dynamic credential fetching feature.</p>
 
 </td>

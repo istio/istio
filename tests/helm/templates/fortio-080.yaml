@@ -12,12 +12,16 @@ spec:
   selector:
     app: fortiov080
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiov080
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: fortiov080
+      version: fortio080
   template:
     metadata:
       labels:

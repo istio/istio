@@ -63,7 +63,7 @@ var _ listentry.HandleListEntryServiceServer = &nosessionServer{}
 
 func (s *nosessionServer) getHandler(rawcfg []byte) (listentry.Handler, error) {
 	s.builderLock.RLock()
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		h := s.h
 		s.builderLock.RUnlock()
 		return h, nil
@@ -79,7 +79,7 @@ func (s *nosessionServer) getHandler(rawcfg []byte) (listentry.Handler, error) {
 	s.builderLock.Lock()
 	defer s.builderLock.Unlock()
 
-	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
+	if bytes.Equal(rawcfg, s.rawcfg) {
 		return s.h, nil
 	}
 

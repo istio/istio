@@ -50,7 +50,7 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain s
 		return nil, fmt.Errorf("failed to read Citadel JWT: %v", err)
 	}
 	return &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT[:])),
+		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
 		trustDomain: trustDomain,
 	}, nil
 }

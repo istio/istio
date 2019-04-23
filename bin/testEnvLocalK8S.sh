@@ -28,7 +28,9 @@ export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export ISTIO_GO=${GO_TOP}/src/istio.io/istio
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-   export GOOS_LOCAL=darwin
+  export GOOS_LOCAL=darwin
+  echo "kube-apiserver not supported on mac, skipping."
+  exit 0
 else
   export GOOS_LOCAL=${GOOS_LOCAL:-linux}
 fi

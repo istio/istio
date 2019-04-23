@@ -60,7 +60,7 @@ func TestCertificateRotation(t *testing.T) {
 		if i > 0 {
 			t.Logf("checking certificate rotation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
-			term = term * 2
+			term *= 2
 		}
 
 		secret, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.NameSpace, "istio.default",

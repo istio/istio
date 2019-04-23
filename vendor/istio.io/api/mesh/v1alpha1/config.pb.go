@@ -1114,9 +1114,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n1, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -1146,9 +1146,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.RdsRefreshDelay.Size()))
-		n2, err := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -1172,9 +1172,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n3, err := m.DefaultConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.DefaultConfig.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -1192,9 +1192,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n4, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -1224,9 +1224,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.SdsRefreshDelay.Size()))
-		n5, err := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -1297,9 +1297,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.TcpKeepalive.Size()))
-		n6, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.TcpKeepalive.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -1392,9 +1392,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.LocalityLbSetting.Size()))
-		n7, err := m.LocalityLbSetting.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.LocalityLbSetting.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -1404,9 +1404,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DnsRefreshRate.Size()))
-		n8, err := m.DnsRefreshRate.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.DnsRefreshRate.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}
@@ -1467,9 +1467,9 @@ func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.TlsSettings.Size()))
-		n9, err := m.TlsSettings.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n9, err9 := m.TlsSettings.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
 		}
 		i += n9
 	}

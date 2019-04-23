@@ -21,7 +21,7 @@ import (
 	"context"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"

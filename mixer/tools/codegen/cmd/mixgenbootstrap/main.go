@@ -50,7 +50,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			"-o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			if len(args) <= 0 && len(mappingFile) == 0 {
+			if len(args) == 0 && len(mappingFile) == 0 {
 				errorf("Must specify at least one file descriptor set protobuf file.")
 			}
 

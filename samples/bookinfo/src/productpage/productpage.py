@@ -15,6 +15,7 @@
 #   limitations under the License.
 
 
+from __future__ import print_function
 from flask import Flask, request, session, render_template, redirect, url_for
 from flask import _request_ctx_stack as stack
 from jaeger_client import Tracer, ConstSampler
@@ -56,27 +57,30 @@ from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") == None) else "." + os.environ.get("SERVICES_DOMAIN")
+detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") == None) else os.environ.get("DETAILS_HOSTNAME")
+ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") == None) else os.environ.get("RATINGS_HOSTNAME")
+reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") == None) else os.environ.get("REVIEWS_HOSTNAME")
 
 details = {
-    "name" : "http://details{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
     "endpoint" : "details",
     "children" : []
 }
 
 ratings = {
-    "name" : "http://ratings{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
     "endpoint" : "ratings",
     "children" : []
 }
 
 reviews = {
-    "name" : "http://reviews{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
     "endpoint" : "reviews",
     "children" : [ratings]
 }
 
 productpage = {
-    "name" : "http://details{0}:9080".format(servicesDomain),
+    "name" : "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
     "endpoint" : "details",
     "children" : [details, reviews]
 }
@@ -344,12 +348,12 @@ class Writer(object):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "usage: %s port" % (sys.argv[0])
+        print("usage: %s port" % (sys.argv[0]))
         sys.exit(-1)
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
-    print "start at port %s" % (p)
+    print("start at port %s" % (p))
     app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
 

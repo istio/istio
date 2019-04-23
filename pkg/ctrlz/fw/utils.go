@@ -40,7 +40,7 @@ func RenderHTML(w http.ResponseWriter, t *template.Template, data interface{}) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	b.WriteTo(w)
+	_, _ = b.WriteTo(w)
 }
 
 // RenderJSON outputs the given data as JSON

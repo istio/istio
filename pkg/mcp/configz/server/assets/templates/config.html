@@ -1,0 +1,128 @@
+{{ define "content" }}
+
+    <p>
+        The Mesh Configuration Protocol (MCP) server state for this process. MCP can serve multiple different types of snapshots to different clients.
+    </p>
+
+    <style>
+    .metadata-table-cell {
+        margin: 0;
+        padding: 0;
+    }
+
+    .metadata-table {
+        margin: 0;
+        padding: 0;
+    }
+    </style>
+
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav mr-auto">
+                {{ range $value := .Groups }}
+                    <li class="nav-item" id="nav-{{$value}}">
+                        <a class="nav-link" href="#" onclick="refreshRecentRequests('{{$value}}')">{{$value}}</a>
+                    </li>
+                {{end}}
+            </ul>
+        </div>
+    </nav>
+    <div>
+        <table id="recent-requests-table">
+            <thead>
+            <tr>
+                <th>Collection</th>
+                <th>Version</th>
+                <th>Resources</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict";
+
+    var defaultGroup = '{{index .Groups 0}}';
+
+    function resetActiveTab(tabId) {
+        var tabs = document.getElementsByClassName("nav-item");
+        tabId = "nav-" + tabId;
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].id === tabId) {
+                tabs[i].className = "nav-item active";
+            } else {
+                tabs[i].className = "nav-item";
+            }
+        }
+    }
+
+    function refreshRecentRequests(group) {
+        //reset the default group to ensure refresh the desired data
+        defaultGroup = group
+
+        //reset the selected tab
+        resetActiveTab(group)
+
+        var url = window.location.protocol + "//" + window.location.host + "/configj?group="+group;
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var data = JSON.parse(this.responseText);
+
+                var table = document.getElementById("recent-requests-table");
+
+                var tbody = document.createElement("tbody");
+
+                if (null != data.Snapshots) {
+                    for (var i = 0; i < data.Snapshots.length; i++) {
+                        var row = document.createElement("tr");
+
+                        var c1 = document.createElement("td");
+                        c1.innerText = data.Snapshots[i].Collection;
+                        row.appendChild(c1);
+
+                        var c2 = document.createElement("td");
+                        c2.innerText = data.Snapshots[i].Version;
+                        row.appendChild(c2);
+
+                        var c3 = document.createElement("td");
+                        var c3_ul = document.createElement("ul");
+                        for (var j = 0; j < data.Snapshots[i].Names.length; j++) {
+                            var c3_li = document.createElement("li");
+                            c3_li.innerText =  data.Snapshots[i].Names[j];
+                            c3_ul.appendChild(c3_li);
+                        }
+                        c3.appendChild(c3_ul)
+                        row.appendChild(c3);
+
+                        tbody.appendChild(row)
+                    }
+                }
+                table.removeChild(table.tBodies[0]);
+                table.appendChild(tbody);
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshRecentRequests(defaultGroup);
+    window.setInterval(refreshRecentRequests(defaultGroup), 1000);
+
+</script>
+
+{{ end }}

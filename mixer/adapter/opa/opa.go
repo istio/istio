@@ -121,10 +121,8 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	if len(b.configErrors) >= 0 {
-		for _, err := range b.configErrors {
-			_ = env.Logger().Errorf("%v", err)
-		}
+	for _, err := range b.configErrors {
+		_ = env.Logger().Errorf("%v", err)
 	}
 
 	return &handler{

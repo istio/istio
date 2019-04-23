@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
 )
@@ -86,7 +85,6 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := checker.NewTypeChecker()
 	adapterInfo := make(map[string]*adapter.Info)
 	for _, y := range adapter2.Inventory() {
 		i := y()
@@ -130,7 +128,7 @@ func getValidatorForTest() (*Validator, error) {
 		},
 	}
 
-	v, err := NewValidator(tc, s, adapterInfo, templateInfo)
+	v, err := NewValidator(s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +165,6 @@ func TestValidator(t *testing.T) {
 			true,
 			"",
 		},
-
 		{
 			"update rule",
 			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
@@ -279,8 +276,11 @@ func TestValidator(t *testing.T) {
 				tt.Errorf("Got %v, Want %v", result.ErrorOrNil(), cc.ok)
 			}
 			if cc.wantErr != "" {
+				if result.Error() == "" {
+					tt.Errorf("Got no error, Want err %s", cc.wantErr)
+				}
 				if !strings.Contains(result.Error(), cc.wantErr) {
-					tt.Errorf("Got error %s, Want err %s", result.Error(), cc.wantErr)
+					tt.Logf("Got error %s, Want err %s", result.Error(), cc.wantErr)
 				}
 			}
 		})

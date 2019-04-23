@@ -45,7 +45,7 @@ spec:
   startTime: request.time
   endTime: response.time
   httpStatusCode: response.code | 0
-  sourceName: source.service | ""
+  sourceName: source.name | ""
   sourceIp: source.ip | ip("0.0.0.0")
   requestSize: request.size | 0
   requestTotalSize: request.total_size | 0
@@ -122,20 +122,20 @@ func TestReport(t *testing.T) {
 							"x-b3-spanid":       "a2fb4a1d1a96d312",
 							"x-b3-parentspanid": "0020000000000001",
 						},
-						"request.path":        "/foo/bar",
-						"request.host":        "example.istio.com",
-						"request.useragent":   "xxx",
-						"request.size":        int64(100),
-						"request.total_size":  int64(128),
-						"response.size":       int64(500),
-						"response.total_size": int64(512),
-						"source.service":      "srcsvc",
-						"destination.service": "destsvc",
-						"source.labels":       map[string]string{"version": "v1"},
-						"source.ip":           []uint8{10, 0, 0, 1},
-						"api.protocol":        "http",
-						"request.method":      "POST",
-						"response.code":       int64(200),
+						"request.path":             "/foo/bar",
+						"request.host":             "example.istio.com",
+						"request.useragent":        "xxx",
+						"request.size":             int64(100),
+						"request.total_size":       int64(128),
+						"response.size":            int64(500),
+						"response.total_size":      int64(512),
+						"source.name":              "srcsvc",
+						"destination.service.name": "destsvc",
+						"source.labels":            map[string]string{"version": "v1"},
+						"source.ip":                []uint8{10, 0, 0, 1},
+						"api.protocol":             "http",
+						"request.method":           "POST",
+						"response.code":            int64(200),
 					},
 				},
 			},

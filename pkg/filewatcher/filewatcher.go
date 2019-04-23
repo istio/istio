@@ -118,13 +118,10 @@ func (w *fsNotifyWatcher) Add(path string) error {
 			watcher.Close()
 			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
 		}
-	} else {
-		if !os.IsNotExist(err) {
-			watcher.Close()
-			return fmt.Errorf("failed to stat file: %s: %v", path, err)
-		}
-
+	} else if !os.IsNotExist(err) {
 		// if the file doesn't exist, ignore the md5 sum.
+		watcher.Close()
+		return fmt.Errorf("failed to stat file: %s: %v", path, err)
 	}
 
 	wk := &worker{

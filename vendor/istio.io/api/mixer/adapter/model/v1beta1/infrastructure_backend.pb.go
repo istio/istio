@@ -857,9 +857,9 @@ func (m *CreateSessionRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n1, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -883,9 +883,9 @@ func (m *CreateSessionRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintInfrastructureBackend(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n2, err2 := v.MarshalTo(dAtA[i:])
+				if err2 != nil {
+					return 0, err2
 				}
 				i += n2
 			}
@@ -919,9 +919,9 @@ func (m *CreateSessionResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n3, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Status.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -947,9 +947,9 @@ func (m *ValidateRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.AdapterConfig.Size()))
-		n4, err := m.AdapterConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.AdapterConfig.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -973,9 +973,9 @@ func (m *ValidateRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintInfrastructureBackend(dAtA, i, uint64(v.Size()))
-				n5, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n5, err5 := v.MarshalTo(dAtA[i:])
+				if err5 != nil {
+					return 0, err5
 				}
 				i += n5
 			}
@@ -1003,9 +1003,9 @@ func (m *ValidateResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n6, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.Status.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -1055,9 +1055,9 @@ func (m *CloseSessionResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintInfrastructureBackend(dAtA, i, uint64(m.Status.Size()))
-		n7, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.Status.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}

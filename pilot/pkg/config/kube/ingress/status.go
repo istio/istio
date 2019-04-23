@@ -39,6 +39,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
@@ -70,6 +71,8 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	<-stopCh
 	// TODO: should we remove current IPs on shutting down?
 }
+
+var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(mesh *meshconfig.MeshConfig,
@@ -139,7 +142,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		Component: "ingress-leader-elector",
 		Host:      hostname,
 	})
-	podName := os.Getenv("POD_NAME")
+	podName := podNameVar.Get()
 
 	lock := resourcelock.ConfigMapLock{
 		ConfigMapMeta: meta_v1.ObjectMeta{Namespace: pilotNamespace, Name: electionID},

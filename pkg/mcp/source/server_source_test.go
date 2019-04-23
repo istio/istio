@@ -45,18 +45,63 @@ func (h *serverHarness) Context() context.Context {
 	return h.sourceTestHarness.Context()
 }
 
+func TestServerSinkRateLimitter(t *testing.T) {
+	h := &serverHarness{
+		sourceTestHarness: newSourceTestHarness(t),
+	}
+
+	fakeLimiter := test.NewFakeRateLimiter()
+	authChecker := test.NewFakeAuthChecker()
+	options := &Options{
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    test.NewFakePerConnLimiter(),
+	}
+	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
+	s.rateLimiter = fakeLimiter
+
+	// when rate limit returns an error
+	errc := make(chan error)
+	go func() {
+		errc <- s.EstablishResourceStream(h)
+	}()
+
+	expectedErr := "something went wrong while waiting"
+
+	fakeLimiter.WaitErr <- errors.New(expectedErr)
+
+	err := <-errc
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
+	}
+}
+
 func TestServerSource(t *testing.T) {
 	h := &serverHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
 
 	authChecker := test.NewFakeAuthChecker()
+	rateLimiter := test.NewFakePerConnLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
+	close(rateLimiter.ErrCh)
 	options := &Options{
-		Watcher:           h,
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:          monitoring.NewInMemoryStatsContext(),
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		ConnRateLimiter:    rateLimiter,
 	}
-	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
+
+	fakeLimiter := test.NewFakeRateLimiter()
+	// force ratelimiter Wait to return nil by closing WaitErr
+	close(fakeLimiter.WaitErr)
+
+	srvOptions := &ServerOptions{
+		AuthChecker: authChecker,
+		RateLimiter: fakeLimiter,
+	}
+	s := NewServer(options, srvOptions)
 
 	errc := make(chan error)
 	go func() {
@@ -69,7 +114,7 @@ func TestServerSource(t *testing.T) {
 		t.Fatalf("Stream exited with error: got %v", err)
 	}
 
-	// processStream error
+	// ProcessStream error
 	go func() {
 		errc <- s.EstablishResourceStream(h)
 	}()

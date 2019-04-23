@@ -44,9 +44,9 @@ type configMap interface {
 }
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []byte, vaultAddr, vaultRole,
+func NewCAClient(endpoint, caProviderName string, tlsFlag bool, tlsRootCert []byte, vaultAddr, vaultRole,
 	vaultAuthPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
-	switch CAProviderName {
+	switch caProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case vaultCAName:
@@ -64,7 +64,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []by
 		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert)
 	default:
 		return nil, fmt.Errorf(
-			"CA provider %q isn't supported. Currently Istio supports %q", CAProviderName, strings.Join([]string{googleCAName, citadelName, vaultCAName}, ","))
+			"CA provider %q isn't supported. Currently Istio supports %q", caProviderName, strings.Join([]string{googleCAName, citadelName, vaultCAName}, ","))
 	}
 }
 

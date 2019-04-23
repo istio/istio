@@ -53,14 +53,14 @@ type Cache struct {
 
 // Value holds the data that the check cache stores.
 type Value struct {
-	// StatusCode for the Check operation
-	StatusCode int32
-
 	// StatusMessage for the Check operation
 	StatusMessage string
 
 	// Expiration is the point at which this cache value becomes stale and shouldn't be used
 	Expiration time.Time
+
+	// StatusCode for the Check operation
+	StatusCode int32
 
 	// ValidUseCount for the Check operation
 	ValidUseCount int32

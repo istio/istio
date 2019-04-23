@@ -150,8 +150,6 @@ spec:
         valueType: STRING
       source.owner:
         valueType: STRING
-      source.service:  # DEPRECATED
-        valueType: STRING
       source.serviceAccount:
         valueType: STRING
       source.services:
@@ -173,8 +171,6 @@ spec:
       destination.namespace:
         valueType: STRING
       destination.owner:
-        valueType: STRING
-      destination.service: # DEPRECATED
         valueType: STRING
       destination.service.uid:
         valueType: STRING

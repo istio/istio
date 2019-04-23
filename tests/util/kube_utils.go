@@ -641,10 +641,22 @@ func CheckDeployments(namespace string, timeout time.Duration, kubeconfig string
 func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string) error {
 	var multiErr error
 	fetchAndWrite := func(pod string) error {
+		// Log the description; if we fail to get the logs it may help
+		describeCmd := fmt.Sprintf("kubectl -n %s describe pod %s --kubeconfig=%s",
+			namespace, pod, kubeconfig)
+		describeOutput, errDescribe := Shell(describeCmd)
+		if errDescribe != nil {
+			log.Warnf("Error getting description for pod %s: %v\n", pod, errDescribe)
+			// don't bail, keep going
+		} else {
+			log.Info(describeOutput)
+		}
+
 		cmd := fmt.Sprintf(
 			"kubectl get pods -n %s %s -o jsonpath={.spec.containers[*].name} --kubeconfig=%s", namespace, pod, kubeconfig)
 		containersString, err := Shell(cmd)
 		if err != nil {
+			log.Warnf("Error getting containers for pod %s: %v\n", pod, err)
 			return err
 		}
 		containers := strings.Split(containersString, " ")
@@ -652,6 +664,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.log", pod, container))
 			f, err := os.Create(filePath)
 			if err != nil {
+				log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
 				return err
 			}
 			defer func() {
@@ -662,21 +675,24 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			dump, err := ShellMuteOutput(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				return err
+				log.Warnf("Error getting logs for pod %s/%s container %s: %v\n", namespace, pod, container, err)
+				// don't stop if we can't get the current log; keep going
 			}
 
 			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
+				log.Warnf("Error writing log dump to %s for pod %s/%s container %s: %v\n", filePath, namespace, pod, container, err)
 				return err
 			}
 
-			dump1, err := ShellMuteOutput(
+			dump1, err := ShellMuteOutputError(
 				fmt.Sprintf("kubectl logs %s -n %s -c %s -p --kubeconfig=%s", pod, namespace, container, kubeconfig))
 			if err != nil {
-				log.Infof("No previous log %v", err)
+				log.Infof("No previous log for %s", pod)
 			} else if len(dump1) > 0 {
 				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.prev.log", pod, container))
 				f1, err := os.Create(filePath)
 				if err != nil {
+					log.Warnf("Error creating %s for pod %s: %v\n", filePath, pod, err)
 					return err
 				}
 				defer func() {
@@ -685,6 +701,7 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 					}
 				}()
 				if _, err = f1.WriteString(fmt.Sprintf("%s\n", dump1)); err != nil {
+					log.Warnf("Error writing log dump to %s for pod %s/%s container %s: %v\n", filePath, namespace, pod, container, err)
 					return err
 				}
 			}
@@ -719,14 +736,10 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 		if yaml, err0 := ShellMuteOutput(
 			fmt.Sprintf("kubectl get %s -n %s -o yaml --kubeconfig=%s", resrc, namespace, kubeconfig)); err0 != nil {
 			multiErr = multierror.Append(multiErr, err0)
-		} else {
-			if f, err1 := os.Create(filePath); err1 != nil {
-				multiErr = multierror.Append(multiErr, err1)
-			} else {
-				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
-					multiErr = multierror.Append(multiErr, err2)
-				}
-			}
+		} else if f, err1 := os.Create(filePath); err1 != nil {
+			multiErr = multierror.Append(multiErr, err1)
+		} else if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+			multiErr = multierror.Append(multiErr, err2)
 		}
 	}
 	return multiErr
@@ -759,7 +772,7 @@ func WaitForDeploymentsReady(ns string, timeout time.Duration, kubeconfig string
 // CheckDeploymentsReady checks if deployment resources are ready.
 // get podsReady() sometimes gets pods created by the "Job" resource which never reach the "Running" steady state.
 func CheckDeploymentsReady(ns string, kubeconfig string) (int, error) {
-	CMD := "kubectl -n %s get deployments -ao jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
+	CMD := "kubectl -n %s get deployments -o jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
 		"{@.status.availableReplicas}{\"\\n\"}{end}' --kubeconfig=%s"
 	out, err := Shell(fmt.Sprintf(CMD, ns, kubeconfig))
 
@@ -828,14 +841,14 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 }
 
 // CreateMultiClusterSecret will create the secret associated with the remote cluster
-func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
+func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretLabel = "istio/multiCluster"
 		labelValue  = "true"
 	)
-	secretName := filepath.Base(RemoteKubeConfig)
+	secretName := filepath.Base(remoteKubeConfig)
 
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, remoteKubeConfig, namespace, localKubeConfig)
 	if err != nil {
 		log.Infof("Failed to create secret %s\n", secretName)
 		return err
@@ -849,13 +862,13 @@ func CreateMultiClusterSecret(namespace string, RemoteKubeConfig string, localKu
 		return err
 	}
 
-	log.Infof("Secret %s labelled with %s=%s\n", secretName, secretLabel, labelValue)
+	log.Infof("Secret %s labeled with %s=%s\n", secretName, secretLabel, labelValue)
 	return nil
 }
 
 // DeleteMultiClusterSecret delete the remote cluster secret
-func DeleteMultiClusterSecret(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
-	secretName := filepath.Base(RemoteKubeConfig)
+func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
+	secretName := filepath.Base(remoteKubeConfig)
 	_, err := ShellMuteOutput("kubectl delete secret %s -n %s --kubeconfig=%s", secretName, namespace, localKubeConfig)
 	if err != nil {
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)

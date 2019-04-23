@@ -31,7 +31,7 @@ type attrCase struct {
 }
 
 func TestKeyShape(t *testing.T) {
-	allKeys := make(map[string]struct{}, 0)
+	allKeys := make(map[string]struct{})
 	globalWords := attribute.GlobalList()
 
 	cases := []struct {

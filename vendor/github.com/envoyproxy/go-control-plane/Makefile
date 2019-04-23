@@ -158,4 +158,4 @@ $(BINDIR)/gogofast: vendor
 
 $(BINDIR)/validate: vendor
 	@echo "--> building $@"
-	@go build -o $@ vendor/github.com/lyft/protoc-gen-validate/main.go
+	@go build -o $@ vendor/github.com/envoyproxy/protoc-gen-validate/main.go

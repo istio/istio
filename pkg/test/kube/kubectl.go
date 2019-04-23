@@ -23,7 +23,7 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
@@ -57,7 +57,7 @@ func (c *kubectl) getWorkDir() (string, error) {
 
 // applyContents applies the given config contents using kubectl.
 func (c *kubectl) applyContents(namespace string, contents string) ([]string, error) {
-	files, err := c.contentsToFileList(contents, "accessor_apply_contents")
+	files, err := c.contentsToFileList(contents, "accessor_applyc")
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +81,11 @@ func (c *kubectl) apply(namespace string, filename string) error {
 
 func (c *kubectl) applyInternal(namespace string, files []string) error {
 	for _, f := range files {
-		scopes.CI.Infof("Applying YAML file: %s", f)
-		s, err := shell.Execute("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
+		command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
+		scopes.CI.Infof("Applying YAML: %s", command)
+		s, err := shell.Execute(command)
 		if err != nil {
+			scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)
 			return fmt.Errorf("%v: %s", err, s)
 		}
 	}
@@ -92,7 +94,7 @@ func (c *kubectl) applyInternal(namespace string, files []string) error {
 
 // deleteContents deletes the given config contents using kubectl.
 func (c *kubectl) deleteContents(namespace, contents string) error {
-	files, err := c.contentsToFileList(contents, "accessor_delete_contents")
+	files, err := c.contentsToFileList(contents, "accessor_deletec")
 	if err != nil {
 		return err
 	}
@@ -113,7 +115,7 @@ func (c *kubectl) delete(namespace string, filename string) error {
 func (c *kubectl) deleteInternal(namespace string, files []string) (err error) {
 	for i := len(files) - 1; i >= 0; i-- {
 		scopes.CI.Infof("Deleting YAML file: %s", files[i])
-		s, e := shell.Execute("kubectl delete %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
+		s, e := shell.Execute("kubectl delete --ignore-not-found %s %s -f %s", c.configArg(), namespaceArg(namespace), files[i])
 		if e != nil {
 			return multierror.Append(err, fmt.Errorf("%v: %s", e, s))
 		}
@@ -300,7 +302,7 @@ func (d *yamlDoc) toTempFile(workDir, fileNamePrefix string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	name := f.Name()
 

@@ -86,7 +86,7 @@ func getOOPAdapterAndTempls() (string, error) {
 		} else if f, err := ioutil.ReadFile(f); err != nil {
 			return "", fmt.Errorf("cannot load attributes.yaml: %v", err)
 		} else {
-			data = data + string(f)
+			data += string(f)
 		}
 	}
 	return data, nil

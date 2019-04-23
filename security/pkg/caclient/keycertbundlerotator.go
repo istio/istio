@@ -31,7 +31,7 @@ func NewKeyCertBundleRotator(cfg *Config, keyCertBundle pkiutil.KeyCertBundle) (
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
-	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
+	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile)
 	if err != nil {
 		return nil, err
 	}

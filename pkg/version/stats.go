@@ -16,8 +16,5 @@
 
 package version
 
-// RecordComponentBuildTag sets the value for a metric that will be used to track component build tags for
-// tracking rollouts, etc.
 func (b BuildInfo) RecordComponentBuildTag(component string) {
-	// only for Linux
 }

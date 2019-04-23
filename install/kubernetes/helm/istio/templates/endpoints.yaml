@@ -47,7 +47,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remoteTelemetryAddress }}

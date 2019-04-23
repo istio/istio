@@ -16,6 +16,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -23,9 +24,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/ghodss/yaml"
-	"github.com/howeyc/fsnotify"
 
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
@@ -35,6 +36,8 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/util"
+	"istio.io/istio/pkg/appsignals"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -59,8 +62,6 @@ type source struct {
 	// Config File Path
 	root string
 
-	donec chan struct{}
-
 	mu sync.RWMutex
 
 	// map to store namespace/name : shas
@@ -71,13 +72,10 @@ type source struct {
 	// map to store kind : bool to indicate whether we need to deal with the resource or not
 	kinds map[string]bool
 
-	// map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
-	fileResourceKeys map[string][]*fileResourceKey
-
 	// fsresource version
 	version int64
 
-	watcher *fsnotify.Watcher
+	worker *util.Worker
 }
 
 func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
@@ -87,15 +85,11 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 		if err != nil {
 			return err
 		}
-		result := s.readFile(path, info, true)
-		if result != nil && len(result) != 0 {
+		result := s.readFile(path, info)
+		if len(result) != 0 {
 			for _, r := range result {
 				results[r.newKey()] = r
 			}
-		}
-		//add watcher for sub folders
-		if info.Mode().IsDir() {
-			_ = s.watcher.Watch(path)
 		}
 		return nil
 	})
@@ -105,8 +99,8 @@ func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
 	return results
 }
 
-func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileResource {
-	result := []*fileResource{}
+func (s *source) readFile(path string, info os.FileInfo) []*fileResource {
+	result := make([]*fileResource, 0)
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -117,102 +111,14 @@ func (s *source) readFile(path string, info os.FileInfo, initial bool) []*fileRe
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resourceKeyList := make([]*fileResourceKey, 0, 10)
+
 	for _, r := range s.parseFile(path, data) {
 		if !s.kinds[r.spec.Kind] {
 			continue
 		}
 		result = append(result, r)
-		key := r.newKey()
-		resourceKeyList = append(resourceKeyList, &key)
-	}
-	if initial {
-		s.fileResourceKeys[path] = resourceKeyList
 	}
 	return result
-}
-
-//process delete part of the resources in a file
-func (s *source) processPartialDelete(fileName string, newData []*fileResource) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if resourceKeys, ok := s.fileResourceKeys[fileName]; ok {
-		for i := len(resourceKeys) - 1; i >= 0; i-- {
-			if resourceKeys[i] != nil {
-				found := false
-				for _, r := range newData {
-					if r.newKey() == *resourceKeys[i] {
-						found = true
-						break
-					}
-				}
-				if !found {
-					delete(s.shas, *resourceKeys[i])
-					s.process(resource.Deleted, *resourceKeys[i], nil)
-					resourceKeys = append(resourceKeys[:i], resourceKeys[i+1:]...)
-				}
-			}
-		}
-		if len(resourceKeys) > 0 {
-			s.fileResourceKeys[fileName] = resourceKeys
-		} else {
-			delete(s.fileResourceKeys, fileName)
-		}
-	}
-
-}
-
-func (s *source) processAddOrUpdate(fileName string, newData []*fileResource) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
-	versionUpdated := false
-	for _, r := range newData {
-		k := r.newKey()
-		if _, ok := s.shas[k]; ok {
-			if s.shas[k] != r.sha {
-				versionUpdated = true
-				break
-			}
-		} else {
-			versionUpdated = true
-			break
-		}
-	}
-	if versionUpdated {
-		s.version++
-	}
-	for _, r := range newData {
-		k := r.newKey()
-		if _, ok := s.shas[k]; ok {
-			if s.shas[k] != r.sha {
-				s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], &k)
-				s.process(resource.Updated, k, r)
-			}
-			s.shas[k] = r.sha
-			continue
-		}
-		if s.fileResourceKeys != nil {
-			s.fileResourceKeys[fileName] = append(s.fileResourceKeys[fileName], &k)
-		}
-		s.process(resource.Added, k, r)
-		s.shas[k] = r.sha
-	}
-}
-
-//process delete all resources in a file
-func (s *source) processDelete(fileName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if fileResourceKeys, ok := s.fileResourceKeys[fileName]; ok {
-		for _, fileResourceKey := range fileResourceKeys {
-			if fileResourceKey != nil {
-				delete(s.shas, *fileResourceKey)
-				s.process(resource.Deleted, *fileResourceKey, nil)
-			}
-		}
-		delete(s.fileResourceKeys, fileName)
-	}
 }
 
 func (s *source) initialCheck() {
@@ -226,10 +132,39 @@ func (s *source) initialCheck() {
 	s.handler(resource.FullSyncEvent)
 }
 
+func (s *source) reload() {
+	newData := s.readFiles(s.root)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	newShas := map[fileResourceKey][sha1.Size]byte{}
+	// Compute the deltas using sha comparisons
+	nextVersion := s.version + 1
+	for k, r := range newData {
+		newShas[k] = r.sha
+		sha, exists := s.shas[k]
+		if exists && sha != r.sha {
+			if s.version != nextVersion {
+				s.version = nextVersion
+			}
+			s.process(resource.Updated, k, r)
+		} else if !exists {
+			if s.version != nextVersion {
+				s.version = nextVersion
+			}
+			s.process(resource.Added, k, r)
+		}
+	}
+	for k := range s.shas {
+		if _, exists := newShas[k]; !exists {
+			s.process(resource.Deleted, k, nil)
+		}
+	}
+	s.shas = newShas
+}
+
 // Stop implements runtime.Source
 func (s *source) Stop() {
-	close(s.donec)
-	_ = s.watcher.Close()
+	s.worker.Stop()
 }
 
 func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *fileResource) {
@@ -274,75 +209,31 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 
 // Start implements runtime.Source
 func (s *source) Start(handler resource.EventHandler) error {
-	s.handler = handler
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	s.watcher = watcher
-	_ = s.watcher.Watch(s.root)
-	s.initialCheck()
-	go func() {
-		for {
-			select {
-			// watch for events
-			case ev, more := <-s.watcher.Event:
-				if !more {
-					break
+	return s.worker.Start(nil, func(ctx context.Context) {
+		s.handler = handler
+		s.initialCheck()
+		c := make(chan appsignals.Signal)
+		appsignals.Watch(c)
+		go func() {
+			for trigger := range c {
+				if trigger.Signal == syscall.SIGUSR1 {
+					log.Scope.Infof("Triggering reload in response to: %v", trigger.Source)
+					s.reload()
 				}
-				if ev.IsDelete() {
-					s.processDelete(ev.Name)
-				} else if ev.IsCreate() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							log.Scope.Debugf("add watcher for new folder %s", ev.Name)
-							_ = s.watcher.Watch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, true)
-							if newData != nil && len(newData) != 0 {
-								s.processAddOrUpdate(ev.Name, newData)
-							}
-						}
-					}
-				} else if ev.IsModify() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							_ = s.watcher.RemoveWatch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, false)
-							if newData != nil && len(newData) != 0 {
-								s.processPartialDelete(ev.Name, newData)
-								s.processAddOrUpdate(ev.Name, newData)
-							} else {
-								s.processDelete(ev.Name)
-							}
-						}
-					}
-				}
-			case <-s.donec:
-				return
 			}
-		}
-	}()
-	return nil
+		}()
+	})
 }
 
 // New returns a File System implementation of runtime.Source.
 func New(root string, schema *schema.Instance, config *converter.Config) (runtime.Source, error) {
 	fs := &source{
-		config:           config,
-		root:             root,
-		kinds:            map[string]bool{},
-		fileResourceKeys: map[string][]*fileResourceKey{},
-		donec:            make(chan struct{}),
-		shas:             map[fileResourceKey][sha1.Size]byte{},
-		version:          0,
+		config:  config,
+		root:    root,
+		kinds:   map[string]bool{},
+		shas:    map[fileResourceKey][sha1.Size]byte{},
+		worker:  util.NewWorker("fs source", log.Scope),
+		version: 0,
 	}
 	for _, spec := range schema.All() {
 		fs.kinds[spec.Kind] = true
@@ -447,7 +338,7 @@ func (s *source) parseChunk(yamlChunk []byte) (*fileResource, error) {
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("did not receive any entries from converter: kind=%v, fullName=%v, rv=%s",
+		return nil, fmt.Errorf("did not receive any entries from converter: kind=%v, key=%v, rv=%s",
 			u.GetKind(), key, u.GetResourceVersion())
 	}
 

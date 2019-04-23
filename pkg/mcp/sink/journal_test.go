@@ -39,12 +39,7 @@ func TestJournal(t *testing.T) {
 
 		j.RecordRequestResources(req)
 
-		want = append(want, RecentRequestInfo{Request: &JournaledRequest{
-			Collection:    req.Collection,
-			ResponseNonce: req.ResponseNonce,
-			ErrorDetail:   req.ErrorDetail,
-			SinkNode:      req.SinkNode,
-		}})
+		want = append(want, RecentRequestInfo{Request: req})
 	}
 	want = want[wrap:]
 
@@ -63,12 +58,7 @@ func TestJournal(t *testing.T) {
 	}
 	j.RecordRequestResources(req)
 
-	want = append(want, RecentRequestInfo{Request: &JournaledRequest{
-		Collection:    req.Collection,
-		ResponseNonce: req.ResponseNonce,
-		ErrorDetail:   req.ErrorDetail,
-		SinkNode:      req.SinkNode,
-	}})
+	want = append(want, RecentRequestInfo{Request: req})
 	want = want[1:]
 
 	got = j.Snapshot()

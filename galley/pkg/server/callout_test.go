@@ -36,19 +36,19 @@ func TestCallout(t *testing.T) {
 	if len(co.metadata) != 2 || co.metadata[0] != "foo" || co.metadata[1] != "bar" {
 		t.Errorf("Callout meta not set: %v", co.metadata)
 	}
-	co, err = newCallout("foo", "NONE", []string{"foo"}, &source.Options{})
+	_, err = newCallout("foo", "NONE", []string{"foo"}, &source.Options{})
 	if err == nil {
 		t.Error("did not error with malformed metadata, no =")
 	}
-	co, err = newCallout("foo", "NONE", []string{"foo="}, &source.Options{})
+	_, err = newCallout("foo", "NONE", []string{"foo="}, &source.Options{})
 	if err == nil {
 		t.Error("did not error with malformed metadata, no value")
 	}
-	co, err = newCallout("foo", "NONE", []string{"=foo"}, &source.Options{})
+	_, err = newCallout("foo", "NONE", []string{"=foo"}, &source.Options{})
 	if err == nil {
 		t.Error("did not error with malformed metadata, no key")
 	}
-	co, err = newCallout("foo", "NONE", []string{"="}, &source.Options{})
+	_, err = newCallout("foo", "NONE", []string{"="}, &source.Options{})
 	if err == nil {
 		t.Error("did not error with malformed metadata, no key or value")
 	}

@@ -222,8 +222,8 @@ func TestLogEntry(t *testing.T) {
 						"Time":      tm,
 						"Duration":  1 * time.Second,
 						"StringMap": map[string]string{"A": "B", "C": "D"},
-						"IPAddress": net.IPv4zero,
 						"Bytes":     []byte{'b'},
+						"IPAddress": []byte(net.ParseIP("1.0.0.127")),
 						"DNSName":   "foo.bar.com",
 						"URL":       "http://foo.com",
 						"EmailAddr": "foo@bar.com",
@@ -241,7 +241,7 @@ func TestLogEntry(t *testing.T) {
 					`"Double":1.23,` +
 					`"Duration":"1s",` +
 					`"EmailAddr":"foo@bar.com",` +
-					`"IPAddress":"0.0.0.0",` +
+					`"IPAddress":"1.0.0.127",` +
 					`"Int64":123,` +
 					`"String":"a string",` +
 					`"StringMap":{"A":"B","C":"D"},` +

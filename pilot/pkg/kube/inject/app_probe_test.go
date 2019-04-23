@@ -43,3 +43,67 @@ func TestFindSidecar(t *testing.T) {
 		}
 	}
 }
+
+func TestShouldRewriteAppHTTPProbers(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		sidecarInjectionSpec SidecarInjectionSpec
+		annotations          map[string]string
+		expected             bool
+	}{
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
+			annotations:          nil,
+			expected:             false,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
+			annotations:          nil,
+			expected:             true,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
+			annotations:          map[string]string{},
+			expected:             false,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
+			annotations:          map[string]string{},
+			expected:             true,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
+			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "true"},
+			expected:             true,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
+			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "true"},
+			expected:             true,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: false},
+			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "false"},
+			expected:             false,
+		},
+		{
+			name:                 "RewriteAppHTTPProbe-set-in-sidecar-injection-spec-&-annotations",
+			sidecarInjectionSpec: SidecarInjectionSpec{RewriteAppHTTPProbe: true},
+			annotations:          map[string]string{annotationRewriteAppHTTPProbers: "false"},
+			expected:             false,
+		},
+	} {
+		got := ShouldRewriteAppHTTPProbers(tc.annotations, &tc.sidecarInjectionSpec)
+		want := tc.expected
+		if got != want {
+			t.Errorf("[%v] failed, want %v, got %v", tc.name, want, got)
+		}
+	}
+}

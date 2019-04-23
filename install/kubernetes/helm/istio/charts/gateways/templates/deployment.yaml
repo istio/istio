@@ -1,7 +1,7 @@
 {{- range $key, $spec := .Values }}
 {{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $key }}
@@ -21,6 +21,11 @@ spec:
   replicas: 1
 {{- end }}
 {{- end }}
+  selector:
+    matchLabels:
+      {{- range $key, $val := $spec.labels }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
   template:
     metadata:
       labels:
@@ -32,7 +37,6 @@ spec:
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if $spec.podAnnotations }}
 {{ toYaml $spec.podAnnotations | indent 8 }}
 {{ end }}
@@ -102,8 +106,12 @@ spec:
           - router
           - --domain
           - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
-          - --log_output_level
-          - 'info'
+        {{- if $.Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+        {{- end}}
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -171,6 +179,11 @@ spec:
 {{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -186,6 +199,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -210,7 +228,8 @@ spec:
           volumeMounts:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
-            mountPath: /var/run/sds
+            mountPath: /var/run/sds/uds_path
+            readOnly: true
           {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -243,7 +262,8 @@ spec:
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
-          path: /var/run/sds
+          path: /var/run/sds/uds_path
+          type: Socket
       {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
@@ -272,6 +292,7 @@ spec:
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
+      {{- include "gatewaypodAntiAffinity" (dict "podAntiAffinityLabelSelector" $spec.podAntiAffinityLabelSelector "podAntiAffinityTermLabelSelector" $spec.podAntiAffinityTermLabelSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

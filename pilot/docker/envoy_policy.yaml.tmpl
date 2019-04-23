@@ -72,6 +72,7 @@ static_resources:
           - {{ .MixerSubjectAltName }}
 {{- end }}
     type: STRICT_DNS
+    dns_lookup_family: V4_ONLY
   listeners:
   - address:
       socket_address:

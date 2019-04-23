@@ -117,9 +117,9 @@ func Verify(b *attribute.MutableBag, expectedJSON string) error {
 		case map[string]interface{}:
 			if val, ok := b.Get(k); ok {
 				var err error
-				switch val.(type) {
+				switch vvv := val.(type) {
 				case attribute.StringMap:
-					err = verifyObjStringMap(val.(attribute.StringMap), v.(map[string]interface{}))
+					err = verifyObjStringMap(vvv, vv)
 				default:
 					return fmt.Errorf("attribute %+v is of a unknown type %+v",
 						k, reflect.TypeOf(val))

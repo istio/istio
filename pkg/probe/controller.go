@@ -167,9 +167,7 @@ func (fc *fileController) onUpdate(newStatus error) {
 			return
 		}
 		_ = f.Close()
-	} else {
-		if err := os.Remove(fc.path); err != nil && !os.IsNotExist(err) {
-			log.Errorf("Failed to remove the path %s: %v", fc.path, err)
-		}
+	} else if err := os.Remove(fc.path); err != nil && !os.IsNotExist(err) {
+		log.Errorf("Failed to remove the path %s: %v", fc.path, err)
 	}
 }

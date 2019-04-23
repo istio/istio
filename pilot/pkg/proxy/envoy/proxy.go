@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
@@ -94,6 +95,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	return startupArgs
 }
 
+var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 	var fname string
@@ -116,7 +119,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	}
 
 	// spin up a new Envoy process
-	args := e.args(fname, epoch, os.Getenv("ISTIO_BOOTSTRAP_OVERRIDE"))
+	args := e.args(fname, epoch, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */

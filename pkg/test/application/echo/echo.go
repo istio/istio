@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"os"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -83,7 +83,7 @@ func (a *echo) GetPorts() model.PortList {
 func (a *echo) start() (err error) {
 	defer func() {
 		if err != nil {
-			a.Close()
+			_ = a.Close()
 		}
 	}()
 
@@ -273,7 +273,7 @@ func listenOnPort(port int) (net.Listener, int, error) {
 }
 
 func listenOnUDS(uds string) (net.Listener, error) {
-	os.Remove(uds)
+	_ = os.Remove(uds)
 	ln, err := net.Listen("unix", uds)
 	if err != nil {
 		return nil, err

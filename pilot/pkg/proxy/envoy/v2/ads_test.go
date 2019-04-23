@@ -29,7 +29,7 @@ import (
 
 const (
 	routeA = "http.80"
-	routeB = "https.443.https"
+	routeB = "https.443.https.my-gateway.testns"
 )
 
 // Regression for envoy restart and overlapping connections
@@ -224,7 +224,7 @@ func TestAdsUpdate(t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.2.0.1" != lbe[0].GetEndpoint().Address.GetSocketAddress().Address {
+	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
 		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
 	strResponse, _ := model.ToJSONWithIndent(res1, " ")

@@ -28,7 +28,6 @@ func TestComparator_ClusterDiff(t *testing.T) {
 		envoy           []byte
 		pilot           map[string][]byte
 		wantClusterDump bool
-		wantMatch       bool
 		wantDiff        string
 	}{
 		{

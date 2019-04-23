@@ -16,10 +16,12 @@ package v1alpha3
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -153,7 +155,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		routeName     string
 		sidecarConfig *model.Config
 		// virtualHost Name and domains
-		expectedHosts map[string]map[string]bool
+		expectedHosts    map[string]map[string]bool
+		fallthroughRoute bool
+		registryOnly     bool
 	}{
 		{
 			name:          "sidecar config port that is not in any service",
@@ -250,15 +254,44 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"bookinfo.com:70": {"bookinfo.com": true, "bookinfo.com:70": true},
 			},
 		},
+		{
+			name:          "no sidecar config - import public services from other namespaces: 80 with fallthrough",
+			routeName:     "80",
+			sidecarConfig: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+		},
+		{
+			name:          "no sidecar config - import public services from other namespaces: 80 with fallthrough and registry only",
+			routeName:     "80",
+			sidecarConfig: nil,
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"block_all": {
+					"*": true,
+				},
+			},
+			fallthroughRoute: true,
+			registryOnly:     true,
+		},
 	}
 
 	for _, c := range cases {
-		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.routeName, c.expectedHosts)
+		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
 	}
 }
 
 func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Service, sidecarConfig *model.Config,
-	routeName string, expectedHosts map[string]map[string]bool) {
+	routeName string, expectedHosts map[string]map[string]bool, fallthroughRoute bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
@@ -272,6 +305,13 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	}
+	os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "")
+	if fallthroughRoute {
+		os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
+	}
+	if registryOnly {
+		env.Mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY}
 	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)

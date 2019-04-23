@@ -27,9 +27,8 @@ func TestComparator_ListenerDiff(t *testing.T) {
 		name             string
 		envoy            []byte
 		pilot            map[string][]byte
-		wantListenerDump bool
-		wantMatch        bool
 		wantDiff         string
+		wantListenerDump bool
 	}{
 		{
 			name:     "prints a diff",

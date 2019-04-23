@@ -88,7 +88,7 @@ func Load() ([]*TestInfo, error) {
 		}
 
 		if info.files[index] != nil {
-			return nil, fmt.Errorf("Duplicate entry found for %q at index %d", baseFileName, index)
+			return nil, fmt.Errorf("duplicate entry found for %q at index %d", baseFileName, index)
 		}
 		info.files[index] = fs
 	}

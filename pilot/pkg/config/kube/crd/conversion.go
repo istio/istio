@@ -130,7 +130,7 @@ func KebabCaseToCamelCase(s string) string {
 		words := strings.Split(s, "-")
 		out := ""
 		for _, word := range words {
-			out = out + strings.Title(word)
+			out += strings.Title(word)
 		}
 		return out
 	}

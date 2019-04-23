@@ -97,7 +97,7 @@ func TestRouteSNIViaEgressGateway(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		for _, url := range []string{"https://www.google.com", "https://www.bing.com"} {
 			runRetriableTest(t, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
-				reqURL := fmt.Sprintf(url)
+				reqURL := url
 				resp := ClientRequest(cluster, "a", reqURL, 100, "")
 				count := make(map[string]int)
 				for _, elt := range resp.Code {

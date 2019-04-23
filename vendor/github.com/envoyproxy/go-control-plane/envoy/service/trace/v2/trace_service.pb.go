@@ -9,9 +9,9 @@ import (
 	io "io"
 	math "math"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/googleapis/google/api"
 	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	grpc "google.golang.org/grpc"
 	v1 "istio.io/gogo-genproto/opencensus/proto/trace/v1"
 

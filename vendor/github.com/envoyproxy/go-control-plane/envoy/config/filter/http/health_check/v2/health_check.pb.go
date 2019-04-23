@@ -9,12 +9,12 @@ import (
 	math "math"
 	time "time"
 
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	types "github.com/gogo/protobuf/types"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	_type "github.com/envoyproxy/go-control-plane/envoy/type"

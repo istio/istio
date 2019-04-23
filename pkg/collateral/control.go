@@ -23,9 +23,13 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/annotations"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
+
+	"istio.io/istio/pkg/env"
 )
 
 // Control determines the behavior of the EmitCollateral function
@@ -137,7 +141,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 		count++
 	}
 
-	g.genFileHeader(cmd, count)
+	g.genFrontMatter(cmd, count)
 	for _, n := range names {
 		if commands[n].Name() == help {
 			continue
@@ -145,6 +149,9 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 
 		g.genCommand(commands[n])
 	}
+
+	g.genVars(cmd)
+	g.genAnnotations(cmd)
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -156,7 +163,7 @@ func genHTMLFragment(cmd *cobra.Command, path string) error {
 	return err
 }
 
-func (g *generator) genFileHeader(root *cobra.Command, numEntries int) {
+func (g *generator) genFrontMatter(root *cobra.Command, numEntries int) {
 	g.emit("---")
 	g.emit("title: ", root.Name())
 	g.emit("description: ", root.Short)
@@ -236,11 +243,13 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 
 			g.emit("<table class=\"command-flags\">")
 			g.emit("<thead>")
+			g.emit("<tr>")
 			g.emit("<th>Flags</th>")
 			if genShorthand {
 				g.emit("<th>Shorthand</th>")
 			}
 			g.emit("<th>Description</th>")
+			g.emit("</tr>")
 			g.emit("</thead>")
 			g.emit("<tbody>")
 
@@ -348,4 +357,116 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 func normalizeID(id string) string {
 	id = strings.Replace(id, " ", "-", -1)
 	return strings.Replace(id, ".", "-", -1)
+}
+
+func (g *generator) genVars(root *cobra.Command) {
+	envVars := env.VarDescriptions()
+
+	count := 0
+	for _, v := range envVars {
+		if v.Hidden {
+			continue
+		}
+		count++
+	}
+
+	if count == 0 {
+		return
+	}
+
+	g.emit("<h2 id=\"envvars\">Environment variables</h2>")
+
+	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command.")
+
+	g.emit("<table class=\"envvars\">")
+	g.emit("<thead>")
+	g.emit("<tr>")
+	g.emit("<th>Variable Name</th>")
+	g.emit("<th>Type</th>")
+	g.emit("<th>Default Value</th>")
+	g.emit("<th>Description</th>")
+	g.emit("</tr>")
+	g.emit("</thead>")
+	g.emit("<tbody>")
+
+	for _, v := range envVars {
+		if v.Hidden {
+			continue
+		}
+
+		if v.Deprecated {
+			g.emit("<tr class='deprecated'>")
+		} else {
+			g.emit("<tr>")
+		}
+		g.emit("<td><code>", html.EscapeString(v.Name), "</code></td>")
+
+		switch v.Type {
+		case env.STRING:
+			g.emit("<td>String</td>")
+		case env.BOOL:
+			g.emit("<td>Boolean</td>")
+		case env.INT:
+			g.emit("<td>Integer</td>")
+		case env.FLOAT:
+			g.emit("<td>Floating-Point</td>")
+		case env.DURATION:
+			g.emit("<td>Time Duration</td>")
+		}
+
+		g.emit("<td><code>", html.EscapeString(v.DefaultValue), "</code></td>")
+		g.emit("<td>", html.EscapeString(v.Description), "</td>")
+		g.emit("</tr>")
+	}
+
+	g.emit("</tbody>")
+	g.emit("</table>")
+}
+
+func (g *generator) genAnnotations(root *cobra.Command) {
+	anns := annotations.Descriptions()
+
+	count := 0
+	for _, a := range anns {
+		if a.Hidden {
+			continue
+		}
+		count++
+	}
+
+	if count == 0 {
+		return
+	}
+
+	g.emit("<h2 id=\"annotations\">Annotations</h2>")
+
+	g.emit("These resource annotations are used by the <code>", root.Name(), "</code> command.")
+
+	g.emit("<table class=\"annotations\">")
+	g.emit("<thead>")
+	g.emit("<tr>")
+	g.emit("<th>Annotation Name</th>")
+	g.emit("<th>Description</th>")
+	g.emit("</tr>")
+	g.emit("</thead>")
+	g.emit("<tbody>")
+
+	for _, a := range anns {
+		if a.Hidden {
+			continue
+		}
+
+		if a.Deprecated {
+			g.emit("<tr class='deprecated'>")
+		} else {
+			g.emit("<tr>")
+		}
+		g.emit("<td><code>", html.EscapeString(a.Name), "</code></td>")
+
+		g.emit("<td>", html.EscapeString(a.Description), "</td>")
+		g.emit("</tr>")
+	}
+
+	g.emit("</tbody>")
+	g.emit("</table>")
 }

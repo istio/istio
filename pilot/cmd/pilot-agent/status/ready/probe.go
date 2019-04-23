@@ -17,7 +17,7 @@ package ready
 import (
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )

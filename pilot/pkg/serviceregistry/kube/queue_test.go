@@ -30,7 +30,7 @@ func TestQueue(t *testing.T) {
 	err := true
 	add := func(obj interface{}, event model.Event) error {
 		t.Logf("adding %d, error: %t", obj.(int), err)
-		out = out + obj.(int)
+		out += obj.(int)
 		if out == 4 {
 			close(done)
 		}
@@ -45,7 +45,7 @@ func TestQueue(t *testing.T) {
 	q.Push(Task{handler: add, obj: 1})
 	q.Push(Task{handler: add, obj: 1})
 	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
-		out = out + obj.(int)
+		out += obj.(int)
 		if out != 3 {
 			t.Errorf("Queue => %d, want %d", out, 3)
 		}
@@ -64,7 +64,7 @@ func TestChainedHandler(t *testing.T) {
 	out := 0
 	f := func(i int) Handler {
 		return func(obj interface{}, event model.Event) error {
-			out = out + i
+			out += i
 			return nil
 		}
 	}

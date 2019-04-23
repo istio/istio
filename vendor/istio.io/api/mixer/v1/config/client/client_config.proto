@@ -23,7 +23,9 @@ import "mixer/v1/config/client/quota.proto";
 
 // $title: Mixer Client
 // $description: Configuration state for the Mixer client library.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.mixer.v1.config.client
 
+// Describes the configuration state for the Mixer client library that's built into Envoy.
 package istio.mixer.v1.config.client;
 
 option go_package = "istio.io/api/mixer/v1/config/client";

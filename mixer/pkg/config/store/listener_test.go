@@ -44,7 +44,7 @@ func TestStartWatch_Basic(t *testing.T) {
 	if err := s.Init(kinds); err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
-	initialResources, _, err := StartWatch(s, kinds)
+	initialResources, _, err := StartWatch(s)
 
 	if !s.initCalled {
 		t.Fatal("Init should have been called")
@@ -76,11 +76,7 @@ func TestStartWatch_WatchFailure(t *testing.T) {
 		watchErrorToReturn: errors.New("cannot watch"),
 	}
 
-	kinds := map[string]proto.Message{
-		"foo": &mockProto{},
-	}
-
-	_, _, err := StartWatch(s, kinds)
+	_, _, err := StartWatch(s)
 	if err != s.watchErrorToReturn {
 		t.Fatalf("Expected error was not returned: %v", err)
 	}
@@ -119,19 +115,15 @@ func TestWatchChanges(t *testing.T) {
 }
 
 type mockStore struct {
-	// Init method related fields
-	initCalled        bool
-	initKinds         map[string]proto.Message
-	initErrorToReturn error
-
-	// Watch method related fields
-	watchCalled          bool
+	initKinds            map[string]proto.Message
+	initErrorToReturn    error
 	watchChannelToReturn chan Event
 	watchErrorToReturn   error
+	listResultToReturn   map[Key]*Resource
 
-	// List method related fields
-	listCalled         bool
-	listResultToReturn map[Key]*Resource
+	initCalled  bool
+	watchCalled bool
+	listCalled  bool
 }
 
 var _ Store = &mockStore{}
