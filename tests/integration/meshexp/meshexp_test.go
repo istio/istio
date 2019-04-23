@@ -66,15 +66,24 @@ func setupVMInstance(ctx resource.Context) error {
 	return nil
 }
 
+// TODO(incfly): change to config_dump and convert to xDS proto might be better.
 func TestPilotIsReachable(t *testing.T) {
-	output, err := vmInstance.Execute("/bin/sh -c curl localhost:15000/clusters")
+	output, err := vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
 	if err != nil {
 		t.Errorf("VM instance failed to get Envoy CDS, %v", err)
 	}
 	// Examine sidecar CDS config to see if control plane exists or not.
-	for _, cluster := range []string{"istio-pilot", "istio-citadel"} {
+	for _, cluster := range []string{
+		"istio-pilot.istio-system.svc.cluster.local",
+		"istio-citadel.istio-system.svc.cluster.local",
+	} {
 		if !strings.Contains(output, cluster) {
 			t.Errorf("%v not found in VM sidecar CDS config", cluster)
+			t.Errorf(`
+================================
+Dump CDS Output for debugging
+%s
+================================`, output)
 		}
 	}
 }

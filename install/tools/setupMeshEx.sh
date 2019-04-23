@@ -108,6 +108,7 @@ function istioClusterEnv() {
 
   # TODO: parse it all from $(kubectl config current-context)
   # shellcheck disable=SC2086
+  # TODO(incfly): make this provider angnostic way.
   CIDR=$(gcloud container clusters describe "${K8S_CLUSTER}" ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env

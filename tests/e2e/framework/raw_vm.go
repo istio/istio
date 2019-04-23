@@ -105,17 +105,6 @@ func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 		return g, nil
 	}
 	vmName := fmt.Sprintf("vm-%v", time.Now().UnixNano())
-	if *clusterName == "" {
-		// Use default cluster. Determine clusterName at run time since cluster that
-		// enables alpha features expires every month and is recreated with different
-		// rotation number
-		*clusterName = "istio-e2e-rbac-rotation-1"
-		cmd := fmt.Sprintf("gcloud container clusters describe %s --project %s --zone %s",
-			*clusterName, *projectID, *zone)
-		if _, err := u.ShellMuteOutput(cmd); err != nil { // use rotation-2 if 1 is not up
-			*clusterName = "istio-e2e-rbac-rotation-2"
-		}
-	}
 	return &GCPRawVM{
 		Name:           vmName,
 		ClusterName:    *clusterName,
