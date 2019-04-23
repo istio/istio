@@ -89,6 +89,8 @@ func TestPilotIsReachable(t *testing.T) {
 		}
 		time.Sleep(time.Second * 5)
 	}
+	fmt.Println("jianfeih debug, sleep to hang the Vm")
+	time.Sleep(time.Second * 1200)
 	if output == "" {
 		t.Errorf("failed to get Envoy cluster config")
 	}

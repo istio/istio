@@ -53,7 +53,8 @@ function cleanup() {
 
 trap cleanup EXIT
 
-export MASON_INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+MASON_INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+export MASON_INFO_PATH
 FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
 setup_and_export_git_sha
