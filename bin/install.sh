@@ -26,9 +26,9 @@ function step() {
 
 function install_crds() {
     step "custom ressource definitions"
-    kubectl apply -f crds.yaml
+    kubectl apply -f crds/
     
-    kubectl wait --for=condition=Established -f crds.yaml
+    kubectl wait --for=condition=Established -f crds/
 }
 
 # Install citadel into namespace istio-system

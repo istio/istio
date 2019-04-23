@@ -126,10 +126,13 @@ TODO: replicas, cpu allocs, etc.
 
 This is the first step of the install. Please do not remove or edit any CRD - config currently requires 
 all CRDs to be present. On each upgrade it is recommended to reapply the file, to make sure 
-you get all CRDs.
+you get all CRDs.  CRDs are separated by release and by component type in the CRD directory.
+
+Istio has strong integration with certmanager.  Some operators may want to keep their current certmanager
+CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
 
 ```bash
- kubectl apply -f crds.yaml
+ kubectl apply -f crds/
 ```
 
 ## Install Security
