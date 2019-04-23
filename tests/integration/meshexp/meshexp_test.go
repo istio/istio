@@ -31,12 +31,19 @@ const (
 	serviceName = ""
 )
 
+// Note, status
+// - Locally pass
+// - Remote fail on:
+//				a) genearteClusterEnv, cluster name needs to be passed.
+// 				b) prow user for machineSetup.
 // How to run this test suite locally
-// go test -v ./tests/integration/meshexp   -istio.test.env  kube \
-// -istio.test.hub "gcr.io/istio-release" -istio.test.tag "master-latest-daily" \
-// --project_number=<your-gcp-project-number>  --project_id=<your-gcp-project>  \
+// go test -v ./tests/integration/meshexp   \
+// -istio.test.env  kube -istio.test.hub "gcr.io/istio-release" \
+// -istio.test.tag "master-latest-daily" \
+// --project_number=895429144602  --project_id=jianfeih-test  \
 // --log_output_level=tf:debug,CI:debug  --zone=us-central1-a \
-// --deb_url=https://storage.googleapis.com/istio-release/releases/1.1.3/deb
+// --deb_url=https://storage.googleapis.com/istio-release/releases/1.1.3/deb  \
+// --cluster_name=istio-dev --istio.test.nocleanup
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshexp_test", m).
