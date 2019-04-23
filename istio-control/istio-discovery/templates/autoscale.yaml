@@ -1,16 +1,17 @@
-{{- if .Values.autoscaleMin }}
+{{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
+    app: pilot
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ .Values.autoscaleMax }}
   minReplicas: {{ .Values.autoscaleMin }}
   scaleTargetRef:
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
   metrics:

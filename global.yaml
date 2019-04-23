@@ -38,7 +38,13 @@ global:
 
   # Default tag for Istio images.
   #tag: release-1.1-latest-daily
-  tag: 1.1.0
+  tag: 1.1.2
+
+  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  # The control plane has different scopes depending on component, but can configure default log level across all components
+  # If empty, default scope and level will be used as configured in code
+  logging:
+    level: "default:info"
 
   # TODO: specific to control, move there
   k8sIngress:
@@ -154,10 +160,6 @@ global:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
 
-  # imagePullPolicy is applied to istio control plane components.
-  # local tests require IfNotPresent, to avoid uploading to dockerhub.
-  imagePullPolicy: Always
-
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
@@ -207,6 +209,8 @@ global:
   # Must be set for any clustser configured with private docker registry.
   imagePullSecrets:
   # - private-registry-key
+
+  imagePullPolicy: Always
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -267,6 +271,7 @@ global:
     #   memory: 128Mi
 
   defaultPodDisruptionBudget:
+    enabled: true
     minAvailable: 1
     # maxUnavailable: 1
 
