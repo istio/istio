@@ -23,15 +23,10 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"sort"
 	"strings"
-	"text/tabwriter"
-	"time"
 
-	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,67 +36,18 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	// Headings for short format listing of unknown types
-	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE\tAGE"
-)
-
 var (
-	istioContext     string
-	istioAPIServer   string
-	getAllNamespaces bool
+	istioContext   string
+	istioAPIServer string
 
 	// Create a model.ConfigStore (or sortedConfigStore)
 	clientFactory = newClient
-
-	// sortWeight defines the output order for "get all".  We show the V3 types first.
-	sortWeight = map[string]int{
-		model.Gateway.Type:         10,
-		model.VirtualService.Type:  5,
-		model.DestinationRule.Type: 3,
-		model.ServiceEntry.Type:    1,
-	}
-
-	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
-	// The user wants reasonable error messages when doing `get all` against a different
-	// server version.
-	mustList = map[string]bool{
-		model.Gateway.Type:              true,
-		model.VirtualService.Type:       true,
-		model.DestinationRule.Type:      true,
-		model.ServiceEntry.Type:         true,
-		model.HTTPAPISpec.Type:          true,
-		model.HTTPAPISpecBinding.Type:   true,
-		model.QuotaSpec.Type:            true,
-		model.QuotaSpecBinding.Type:     true,
-		model.AuthenticationPolicy.Type: true,
-		model.ServiceRole.Type:          true,
-		model.ServiceRoleBinding.Type:   true,
-		model.RbacConfig.Type:           true,
-	}
-
-	// Headings for short format listing specific to type
-	shortOutputHeadings = map[string]string{
-		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
-		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
-		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
-		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
-	}
-
-	// Formatters for short format listing specific to type
-	shortOutputters = map[string]func(model.Config, io.Writer){
-		"gateway":          printShortGateway,
-		"virtual-service":  printShortVirtualService,
-		"destination-rule": printShortDestinationRule,
-		"service-entry":    printShortServiceEntry,
-	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
@@ -273,97 +219,6 @@ var (
 
 			return nil
 		},
-	}
-
-	getCmd = &cobra.Command{
-		Use:        "get <type> [<name>]",
-		Deprecated: "Use `kubectl get` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)",
-		Short:      "Retrieve policies and rules",
-		Example: `# List all virtual services
-istioctl get virtualservices
-
-# List all destination rules
-istioctl get destinationrules
-
-# Get a specific virtual service named bookinfo
-istioctl get virtualservice bookinfo
-`,
-		RunE: func(c *cobra.Command, args []string) error {
-			configClient, err := clientFactory()
-			if err != nil {
-				return err
-			}
-			if len(args) < 1 {
-				c.Println(c.UsageString())
-				return fmt.Errorf("specify the type of resource to get. Types are %v",
-					strings.Join(supportedTypes(configClient), ", "))
-			}
-
-			getByName := len(args) > 1
-			if getAllNamespaces && getByName {
-				return errors.New("a resource cannot be retrieved by name across all namespaces")
-			}
-
-			var typs []model.ProtoSchema
-			if !getByName && strings.EqualFold(args[0], "all") {
-				typs = configClient.ConfigDescriptor()
-			} else {
-				typ, err := protoSchema(configClient, args[0])
-				if err != nil {
-					c.Println(c.UsageString())
-					return err
-				}
-				typs = []model.ProtoSchema{typ}
-			}
-
-			var ns string
-			if getAllNamespaces {
-				ns = v1.NamespaceAll
-			} else {
-				ns, _ = handleNamespaces(namespace)
-			}
-
-			var errs error
-			var configs []model.Config
-			if getByName {
-				config := configClient.Get(typs[0].Type, args[1], ns)
-				if config != nil {
-					configs = append(configs, *config)
-				}
-			} else {
-				for _, typ := range typs {
-					typeConfigs, err := configClient.List(typ.Type, ns)
-					if err == nil {
-						configs = append(configs, typeConfigs...)
-					} else {
-						if mustList[typ.Type] {
-							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
-						}
-					}
-				}
-			}
-
-			if len(configs) == 0 {
-				c.Println("No resources found.")
-				return errs
-			}
-
-			var outputters = map[string]func(io.Writer, model.ConfigStore, []model.Config){
-				"yaml":  printYamlOutput,
-				"short": printShortOutput,
-			}
-
-			if outputFunc, ok := outputters[outputFormat]; ok {
-				outputFunc(c.OutOrStdout(), configClient, configs)
-			} else {
-				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
-			}
-
-			return errs
-		},
-
-		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
-		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -578,159 +433,6 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	return crd.ParseInputsWithoutValidation(string(input))
 }
 
-// Print a simple list of names
-func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
-	// Sort configList by Type
-	sort.Slice(configList, func(i, j int) bool { return sortWeight[configList[i].Type] < sortWeight[configList[j].Type] })
-
-	var w tabwriter.Writer
-	w.Init(writer, 10, 4, 3, ' ', 0)
-	prevType := ""
-	var outputter func(model.Config, io.Writer)
-	for _, c := range configList {
-		if prevType != c.Type {
-			if prevType != "" {
-				// Place a newline between types when doing 'get all'
-				fmt.Fprintf(&w, "\n")
-			}
-			heading, ok := shortOutputHeadings[c.Type]
-			if !ok {
-				heading = unknownShortOutputHeading
-			}
-			fmt.Fprintf(&w, "%s\n", heading)
-			prevType = c.Type
-
-			if outputter, ok = shortOutputters[c.Type]; !ok {
-				outputter = printShortConfig
-			}
-		}
-
-		outputter(c, &w)
-	}
-	w.Flush() // nolint: errcheck
-}
-
-func kindAsString(config model.Config) string {
-	return fmt.Sprintf("%s.%s.%s",
-		crd.KebabCaseToCamelCase(config.Type),
-		config.Group,
-		config.Version,
-	)
-}
-
-func printShortConfig(config model.Config, w io.Writer) {
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-		config.Name,
-		kindAsString(config),
-		config.Namespace,
-		renderTimestamp(config.CreationTimestamp))
-}
-
-func printShortVirtualService(config model.Config, w io.Writer) {
-	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
-	if !ok {
-		fmt.Fprintf(w, "Not a virtualservice: %v", config)
-		return
-	}
-
-	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
-		config.Name,
-		strings.Join(virtualService.Gateways, ","),
-		strings.Join(virtualService.Hosts, ","),
-		len(virtualService.Http),
-		len(virtualService.Tcp),
-		config.Namespace,
-		renderTimestamp(config.CreationTimestamp))
-}
-
-func printShortDestinationRule(config model.Config, w io.Writer) {
-	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
-	if !ok {
-		fmt.Fprintf(w, "Not a destinationrule: %v", config)
-		return
-	}
-
-	subsets := make([]string, 0)
-	for _, subset := range destinationRule.Subsets {
-		subsets = append(subsets, subset.Name)
-	}
-
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-		config.Name,
-		destinationRule.Host,
-		strings.Join(subsets, ","),
-		config.Namespace,
-		renderTimestamp(config.CreationTimestamp))
-}
-
-func printShortServiceEntry(config model.Config, w io.Writer) {
-	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
-	if !ok {
-		fmt.Fprintf(w, "Not a serviceentry: %v", config)
-		return
-	}
-
-	ports := make([]string, 0)
-	for _, port := range serviceEntry.Ports {
-		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
-	}
-
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-		config.Name,
-		strings.Join(serviceEntry.Hosts, ","),
-		strings.Join(ports, ","),
-		config.Namespace,
-		renderTimestamp(config.CreationTimestamp))
-}
-
-func printShortGateway(config model.Config, w io.Writer) {
-	gateway, ok := config.Spec.(*v1alpha3.Gateway)
-	if !ok {
-		fmt.Fprintf(w, "Not a gateway: %v", config)
-		return
-	}
-
-	// Determine the servers
-	servers := make(map[string]bool)
-	for _, server := range gateway.Servers {
-		for _, host := range server.Hosts {
-			servers[host] = true
-		}
-	}
-	hosts := make([]string, 0)
-	for host := range servers {
-		hosts = append(hosts, host)
-	}
-
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-		config.Name, strings.Join(hosts, ","), config.Namespace,
-		renderTimestamp(config.CreationTimestamp))
-}
-
-// Print as YAML
-func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
-	descriptor := configClient.ConfigDescriptor()
-	for _, config := range configList {
-		schema, exists := descriptor.GetByType(config.Type)
-		if !exists {
-			log.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
-			continue
-		}
-		obj, err := crd.ConvertConfig(schema, config)
-		if err != nil {
-			log.Errorf("Could not decode %v: %v", config.Name, err)
-			continue
-		}
-		bytes, err := yaml.Marshal(obj)
-		if err != nil {
-			log.Errorf("Could not convert %v to YAML: %v", config, err)
-			continue
-		}
-		fmt.Fprint(writer, string(bytes))
-		fmt.Fprintln(writer, "---")
-	}
-}
-
 func newClient() (model.ConfigStore, error) {
 	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
@@ -840,35 +542,6 @@ func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string 
 	return resourceNames
 }
 
-// renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
-func renderTimestamp(ts time.Time) string {
-	if ts.IsZero() {
-		return "<unknown>"
-	}
-
-	seconds := int(time.Since(ts).Seconds())
-	if seconds < -2 {
-		return fmt.Sprintf("<invalid>")
-	} else if seconds < 0 {
-		return fmt.Sprintf("0s")
-	} else if seconds < 60 {
-		return fmt.Sprintf("%ds", seconds)
-	}
-
-	minutes := int(time.Since(ts).Minutes())
-	if minutes < 60 {
-		return fmt.Sprintf("%dm", minutes)
-	}
-
-	hours := int(time.Since(ts).Hours())
-	if hours < 24 {
-		return fmt.Sprintf("%dh", hours)
-	} else if hours < 365*24 {
-		return fmt.Sprintf("%dd", hours/24)
-	}
-	return fmt.Sprintf("%dy", hours/24/365)
-}
-
 func init() {
 	defaultContext := "istio"
 	contextCmd.PersistentFlags().StringVar(&istioContext, "context", defaultContext,
@@ -881,9 +554,4 @@ func init() {
 	putCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 	deleteCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 
-	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
-		"Output format. One of:yaml|short")
-	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
-		"If present, list the requested object(s) across all namespaces. Namespace in current "+
-			"context is ignored even if specified with --namespace.")
 }

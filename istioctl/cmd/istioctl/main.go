@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
+	"istio.io/istio/istioctl/pkg/get"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -115,11 +116,11 @@ func init() {
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
 	}))
+	rootCmd.AddCommand(get.NewGetCommand())
 
 	// Deprecated commands
 	rootCmd.AddCommand(postCmd)
 	rootCmd.AddCommand(putCmd)
-	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
 
