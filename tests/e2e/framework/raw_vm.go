@@ -17,7 +17,6 @@ package framework
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"time"
@@ -48,10 +47,7 @@ var (
 	sshUser       = flag.String("istio.test.prow.gceuser", "", "The user for gcloud compute ssh into.")
 	// paths
 	setupMeshExScript  = ""
-	mashExpansionYaml  = ""
 	setupIstioVMScript = ""
-	// kubectl delete resources on tear down
-	kubeDeleteYaml = []string{}
 )
 
 const (
@@ -59,7 +55,7 @@ const (
 )
 
 // setupMeshExOpts includes the options to run the setupMeshEx.sh script.
-// TODO(incfly): refactor setupMeshEx.sh to use different environment var.
+// TODO(incfly): refactor setupMeshEx.sh to use different environment var for cluster and vm zone.
 type setupMeshExOpts struct {
 	// zone will be set as an evironment variable.
 	zone string
@@ -86,12 +82,13 @@ type GCPRawVM struct {
 	ImageProject   string
 }
 
+// GCPVMOpts specifies the options when creating a new GCE instance for mesh expansion.
 type GCPVMOpts struct {
 	// Namespace is the namespace for the app running on VM belongs to.
 	Namespace string
 }
 
-// NewGCPRawVM creates a new vm on GCP
+// NewGCPRawVM creates a new vm on GCP.
 func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 	if *masonInfoFile != "" {
 		info, err := parseInfoFile(*masonInfoFile)
@@ -154,12 +151,6 @@ func (vm *GCPRawVM) SecureCopy(files ...string) (string, error) {
 
 // Teardown releases the VM to resource manager
 func (vm *GCPRawVM) Teardown() error {
-	for _, yaml := range kubeDeleteYaml {
-		cmd := fmt.Sprintf("cat <<EOF | kubectl delete -f -\n%sEOF", yaml)
-		if _, err := u.Shell(cmd); err != nil {
-			return err
-		}
-	}
 	if !vm.UseMason {
 		_, err := u.Shell(vm.baseCommand("delete"))
 		return err
@@ -257,38 +248,11 @@ func (vm *GCPRawVM) setupMeshEx(op string, opts setupMeshExOpts) error {
 		export SETUP_ISTIO_VM_SCRIPT="%s";`,
 		vm.ProjectID, zone, setupIstioVMScript)
 	if *sshUser != "" {
-		env = fmt.Sprintf("%v\nexport GCP_SSH_USER=%v;", env, *sshUser)
+		env = fmt.Sprintf("%v\nexport GCP_SSH_USER=%v;\n", env, *sshUser)
 	}
 	cmd := fmt.Sprintf("%s %s %s", setupMeshExScript, op, argsStr)
 	_, err := u.Shell(env + cmd)
 	return err
-}
-
-// Initialize the K8S cluster, generating config files for the raw VMs.
-// Must be run once, will generate files in the CWD. The files must be installed on the VM.
-// This assumes the recommended dnsmasq config option.
-func (vm *GCPRawVM) prepareCluster() error {
-	kv := map[string]string{
-		"istio-system": vm.Namespace,
-	}
-	return replaceKVInYamlThenKubectlApply(mashExpansionYaml, kv)
-}
-
-func replaceKVInYamlThenKubectlApply(yamlPath string, kv map[string]string) error {
-	bytes, err := ioutil.ReadFile(yamlPath)
-	if err != nil {
-		return err
-	}
-	yaml := string(bytes)
-	for k, v := range kv {
-		yaml = strings.Replace(yaml, k, v, -1)
-	}
-	cmd := fmt.Sprintf("cat <<EOF | kubectl apply -f -\n%sEOF", yaml)
-	if _, err = u.Shell(cmd); err != nil {
-		return err
-	}
-	kubeDeleteYaml = append(kubeDeleteYaml, yaml)
-	return nil
 }
 
 func prepareConstants() error {
@@ -297,9 +261,6 @@ func prepareConstants() error {
 		return err
 	}
 	setupMeshExScript = filepath.Join(root, "install/tools/setupMeshEx.sh")
-	mashExpansionYaml = filepath.Join(root, "install/kubernetes/mesh-expansion.yaml")
 	setupIstioVMScript = filepath.Join(root, "install/tools/setupIstioVM.sh")
-	fmt.Printf("jianfeih debug setupMeshExScript %v, setupVmScript %v\n",
-		setupMeshExScript, setupIstioVMScript)
 	return nil
 }

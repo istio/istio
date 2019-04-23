@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -77,10 +79,18 @@ func setupVMInstance(ctx resource.Context) error {
 
 // TODO(incfly): change to config_dump and convert to xDS proto might be better.
 func TestPilotIsReachable(t *testing.T) {
-	output, err := vmInstance.Execute(
-		`/bin/sh -c 'curl localhost:15000/clusters'`)
-	if err != nil {
-		t.Errorf("VM instance failed to get Envoy CDS, %v", err)
+	// Retry several times to reduce the flakes.
+	output := ""
+	var err error
+	for i := 0; i < 10; i++ {
+		output, err = vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
+		if err != nil {
+			log.Errorf("[Attempt %v] VM instance failed to get Envoy CDS, %v\n", i, err)
+		}
+		time.Sleep(time.Second * 5)
+	}
+	if output == "" {
+		t.Errorf("failed to get Envoy cluster config")
 	}
 	// Examine sidecar CDS config to see if control plane exists or not.
 	for _, cluster := range []string{

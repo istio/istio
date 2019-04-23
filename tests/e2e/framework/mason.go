@@ -23,11 +23,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-type instanceInfo struct {
-	Name string `json:"name"`
-	Zone string `json:"zone"`
-}
-
 // ParseGCEInstance returns a GCEInstance from an given mason file.
 func ParseGCEInstance(filePath string) (*GCPRawVM, error) {
 	info, err := parseInfoFile(filePath)

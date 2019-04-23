@@ -249,7 +249,7 @@ function istioCopy() {
   local NAME=$1
   shift
   local FILES=$*
-  if [ ${GCP_SSH_USER} != "" ] ; then
+  if [ "${GCP_SSH_USER}" != "" ] ; then
     NAME="${GCP_SSH_USER}@${NAME}"
   fi
   # shellcheck disable=SC2086
@@ -262,7 +262,7 @@ function istioCopy() {
 function istioRun() {
   local NAME=$1
   local CMD=$2
-  if [ ${GCP_SSH_USER} != "" ] ; then
+  if [ "${GCP_SSH_USER}" != "" ] ; then
     NAME="${GCP_SSH_USER}@${NAME}"
   fi
   ${ISTIO_RUN:-gcloud compute ssh ${GCP_OPTS:-}} "$NAME" --command "$CMD"
