@@ -1,4 +1,11 @@
-FROM istionightly/base_debug
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+FROM istionightly/base_debug as default
+
+FROM gcr.io/distroless/static as distroless
+
+FROM ${BASE_DISTRIBUTION}
 
 ADD pilot-discovery /usr/local/bin/
 ADD cacert.pem /cacert.pem

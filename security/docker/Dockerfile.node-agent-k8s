@@ -1,5 +1,11 @@
-FROM ubuntu:16.04
-ADD node_agent_k8s /
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+FROM ubuntu:16.04 as default
 RUN apt-get update && apt-get install -y ca-certificates
-RUN chmod 755 /node_agent_k8s
+
+FROM gcr.io/distroless/static as distroless
+
+FROM ${BASE_DISTRIBUTION}
+ADD node_agent_k8s /
 ENTRYPOINT ["/node_agent_k8s"]
