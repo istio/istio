@@ -50,7 +50,7 @@ jobs:
           path: /go/out/
 
   # Pipeline running KIND and installer in the remote-docker environment.
-  install-docker:
+  integration-presubmit-remotedocker:
     working_directory: /go/src/github.com/istio-ecosystem/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
@@ -94,6 +94,52 @@ jobs:
       - store_artifacts:
           path: /workspace/go/out/logs
 
+  integration-old-remotedocker:
+    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
+    docker:
+      # Image with KIND installed, based on Istio Kind node-image
+      # Should have all tools we need, recreated when we rev the tool versions.
+      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+        environment:
+          GOPATH: /go
+          SKIP_CLEANUP: 1
+          TMPDIR: /go/tmp
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - setup_remote_docker: {}
+      # Only on paid version
+      #    docker_layer_caching: true
+      - run:
+          command: |
+            mkdir -p $GOPATH/tmp
+            mkdir -p $GOPATH/src/istio.io/
+            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
+            git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
+      - run:
+          # TODO: include in the istio base image
+          command: make ${GOPATH}/bin/kind
+      - run:
+          # Create KIND cluster (separate so we get time info)
+          command: make info dep prepare
+      - run:
+          command: make sync
+      - run:
+          command: make docker-run-test TEST_TARGET="install-crds install-base install-ingress"
+      - run:
+          command: make docker-run-test TEST_TARGET="run-simple run-simple-strict"
+      - run:
+          command: make docker-run-test TEST_TARGET="run-bookinfo"
+          # simple is currently failing
+      - run:
+          when: always
+          command: make kind-logs
+      - store_test_results:
+          path: /workspace/go/out/tests
+      - store_artifacts:
+          path: /workspace/go/out/logs
+
   # Uses machine and minikube --root, using one-step installation
   install-minikube:
     <<: *integrationDefaults
@@ -124,9 +170,9 @@ jobs:
             make git.dep /go/bin/istioctl
       - run:
           command: |
-            make run-simple ISTIOCTL_BIN=/go/bin/istioctl
-
-            #bin/test.sh $GOPATH/src/istio.io/istio
+            # Install an ingress in istio-control, the test assumes it.
+            make install-ingress
+            make run-simple-strict ISTIOCTL_BIN=/go/bin/istioctl
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -194,13 +240,14 @@ workflows:
                  - master
                  - dev
     jobs:
-      - install-docker
+      - integration-presubmit-remotedocker
       - install-minikube
       - modular-installation
 
   all:
     jobs:
       - build
-      - install-docker
+      - integration-presubmit-remotedocker
+      - integration-old-remotedocker
       - install-minikube
       - modular-installation
