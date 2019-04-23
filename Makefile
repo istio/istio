@@ -330,7 +330,7 @@ run-test.integration.kube.presubmit:
 	--istio.test.ci -timeout 30m \
     --istio.test.select +presubmit \
  	--istio.test.env kube \
-	--istio.test.kube.config /etc/kubernetes/admin.conf \
+	--istio.test.kube.config ${KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
 	--istio.test.pullpolicy=IfNotPresent  2>&1 | tee ${GOPATH}/out/logs/$@.log
