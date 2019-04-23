@@ -336,6 +336,22 @@ func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
 	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, deleteOptionsForeground())
 }
 
+// GetZone returns the zone of the Kuberentes cluster.
+func (a *Accessor) GetZone() (string, error) {
+	nodes, err := a.set.CoreV1().Nodes().List(kubeApiMeta.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, node := range nodes.Items {
+		labels := node.GetObjectMeta().GetLabels()
+		zone, ok := labels["failure-domain.beta.kubernetes.io/zone"]
+		if !ok {
+			return zone, nil
+		}
+	}
+	return "", fmt.Errorf("no zone found")
+}
+
 // GetService returns the service entry with the given name/namespace.
 func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, error) {
 	return a.set.CoreV1().Services(ns).Get(name, kubeApiMeta.GetOptions{})

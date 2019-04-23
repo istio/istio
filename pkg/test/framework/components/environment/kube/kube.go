@@ -83,6 +83,11 @@ func (e *Environment) Settings() *Settings {
 	return e.s.clone()
 }
 
+// Zone returns the zone of the Kuberenetes clusters.
+func (e *Environment) Zone() (string, error) {
+	return e.Accessor.GetZone()
+}
+
 // ApplyContents applies the given yaml contents to the namespace.
 func (e *Environment) ApplyContents(namespace, yml string) error {
 	_, err := e.Accessor.ApplyContents(namespace, yml)

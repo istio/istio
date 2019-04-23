@@ -6,6 +6,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/resource"
+	old_framework "istio.io/istio/tests/e2e/framework"
 )
 
 // Instance represents a VM instance running the workload via Istio
@@ -30,7 +31,8 @@ const (
 
 // Config for VM instance.
 type Config struct {
-	Type Type
+	Type        Type
+	GCPVMConfig old_framework.GCPVMOpts
 }
 
 // New returns a VMInstance.

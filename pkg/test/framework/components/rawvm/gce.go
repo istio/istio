@@ -19,7 +19,7 @@ type gceComponent struct {
 // NewGCE creates a GCE instance that finishes the setup with specified application.
 func NewGCE(ctx resource.Context, config Config) (Instance, error) {
 	c := &gceComponent{}
-	if err := c.setup(); err != nil {
+	if err := c.setup(config); err != nil {
 		return nil, err
 	}
 	c.id = ctx.TrackResource(c)
@@ -27,8 +27,8 @@ func NewGCE(ctx resource.Context, config Config) (Instance, error) {
 }
 
 // setup is responsible for necessary setup work on the GCE instance.
-func (c *gceComponent) setup() error {
-	vm, err := old_framework.NewGCPRawVM("default")
+func (c *gceComponent) setup(cfg Config) error {
+	vm, err := old_framework.NewGCPRawVM(cfg.GCPVMConfig)
 	if err != nil {
 		return err
 	}
@@ -36,13 +36,6 @@ func (c *gceComponent) setup() error {
 		return fmt.Errorf("failed in gce instance setup stage. %v", err)
 	}
 	c.rawVM = vm
-	// fmt.Println("jianfeih debug, start to send hello world ssh command")
-	// output, err := c.rawVM.SecureShell("echo hello && cat /etc/hosts")
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("jianfeih debug, the output is %v\n", output)
-	// time.Sleep(time.Second * 360000)
 	return nil
 }
 

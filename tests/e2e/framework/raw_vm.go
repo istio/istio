@@ -57,13 +57,25 @@ const (
 	debURLFmt = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
 )
 
+// setupMeshExOpts includes the options to run the setupMeshEx.sh script.
+// TODO(incfly): refactor setupMeshEx.sh to use different environment var.
+type setupMeshExOpts struct {
+	// zone will be set as an evironment variable.
+	zone string
+	// args is passing as cmd flag to setupMeshEx script.
+	args []string
+}
+
 // GCPRawVM is hosted on Google Cloud Platform
 type GCPRawVM struct {
 	Name        string
 	ClusterName string
+	// ClusterZone is the zone where GKE cluster locates.
+	ClusterZone string
 	Namespace   string
 	ProjectID   string
-	Zone        string
+	// Zone is the GCP zone where GCE instances locates.
+	Zone string
 	// Use Mason does not require provisioning, and therefore all following fields are not required
 	UseMason bool
 	// ServiceAccount must have iam.serviceAccountActor or owner permissions
@@ -73,14 +85,19 @@ type GCPRawVM struct {
 	ImageProject   string
 }
 
+type GCPVMOpts struct {
+	// Namespace is the namespace for the app running on VM belongs to.
+	Namespace string
+}
+
 // NewGCPRawVM creates a new vm on GCP
-func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
+func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 	if *masonInfoFile != "" {
 		info, err := parseInfoFile(*masonInfoFile)
 		if err != nil {
 			return nil, err
 		}
-		g, err := resourceInfoToGCPRawVM(*info, namespace)
+		g, err := resourceInfoToGCPRawVM(*info, opts.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +118,7 @@ func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
 	return &GCPRawVM{
 		Name:           vmName,
 		ClusterName:    *clusterName,
-		Namespace:      namespace,
+		Namespace:      opts.Namespace,
 		ServiceAccount: fmt.Sprintf("%s-compute@developer.gserviceaccount.com", *projectNumber),
 		ProjectID:      *projectID,
 		Zone:           *zone,
@@ -165,13 +182,17 @@ func (vm *GCPRawVM) Setup() error {
 		return err
 	}
 	// TODO: restore before submit.
-	if err := vm.setupMeshEx("generateClusterEnv", vm.ClusterName); err != nil {
+	opts := setupMeshExOpts{
+		zone: vm.ClusterZone,
+		args: []string{vm.ClusterName},
+	}
+	if err := vm.setupMeshEx("generateClusterEnv", opts); err != nil {
 		return err
 	}
-	if _, err := u.Shell("cat cluster.env"); err != nil {
+	if _, err := u.Shell("cat cluster.env", setupMeshExOpts{}); err != nil {
 		return err
 	}
-	if err := vm.setupMeshEx("generateDnsmasq"); err != nil {
+	if err := vm.setupMeshEx("generateDnsmasq", setupMeshExOpts{}); err != nil {
 		return err
 	}
 	if _, err := u.Shell("cat kubedns"); err != nil {
@@ -183,7 +204,10 @@ func (vm *GCPRawVM) Setup() error {
 	if _, err := u.Shell("cat istio.VERSION"); err != nil {
 		return err
 	}
-	return vm.setupMeshEx("machineSetup", vm.Name)
+	opts = setupMeshExOpts{
+		args: []string{vm.Name},
+	}
+	return vm.setupMeshEx("machineSetup", opts)
 }
 
 func buildIstioVersion() error {
@@ -229,12 +253,16 @@ func (vm *GCPRawVM) baseCommand(action string) string {
 		vm.ProjectID, action, vm.Name, vm.Zone)
 }
 
-func (vm *GCPRawVM) setupMeshEx(op string, args ...string) error {
-	argsStr := strings.Join(args, " ")
+func (vm *GCPRawVM) setupMeshEx(op string, opts setupMeshExOpts) error {
+	argsStr := strings.Join(opts.args, " ")
+	zone := vm.Zone
+	if opts.zone != "" {
+		zone = opts.zone
+	}
 	env := fmt.Sprintf(`
 		export GCP_OPTS="--project %s --zone %s";
 		export SETUP_ISTIO_VM_SCRIPT="%s";`,
-		vm.ProjectID, vm.Zone, setupIstioVMScript)
+		vm.ProjectID, zone, setupIstioVMScript)
 	cmd := fmt.Sprintf("%s %s %s", setupMeshExScript, op, argsStr)
 	_, err := u.Shell(env + cmd)
 	return err
