@@ -466,7 +466,6 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
-	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -630,11 +629,6 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	dst, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
 	}
 
 	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
