@@ -66,7 +66,7 @@ data:
     {{- end }}
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: {{ .Values.global.sds.useTrustworthyJwt }}
+    sdsUdsPath: {{ .Values.global.sds.udsPath }}
 
     {{- if .Values.global.sds.enableTokenMount }}
     # This flag is used by secret discovery service(SDS).
