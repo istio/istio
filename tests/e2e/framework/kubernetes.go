@@ -1214,7 +1214,7 @@ func (k *KubeInfo) deployCNI() error {
 		//Assumes the CNI helm repo is available alongside the istio repo
 		err := util.HelmInstall(*cniHelmRepo, "istio-cni", "", k.Namespace, setValue)
 		if err != nil {
-			log.Errorf("Helm install istio-cni chart failed %s, setValue=%s, namespace=%s",
+			log.Errorf("Helm install istio-cni chart failed, setValue=%s, namespace=%s",
 				setValue, k.Namespace)
 			return err
 		}
