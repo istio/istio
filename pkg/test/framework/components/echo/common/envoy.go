@@ -91,12 +91,6 @@ func OutboundConfigAcceptFunc(outboundInstances ...echo.Instance) ConfigAcceptFu
 		validator := structpath.ForProto(cfg)
 
 		for _, target := range outboundInstances {
-
-			// First, wait for the outbound instance to be ready.
-			if err := target.WaitUntilReady(); err != nil {
-				return false, err
-			}
-
 			for _, port := range target.Config().Ports {
 				// Ensure that we have an outbound configuration for the target port.
 				if err := CheckOutboundConfig(target, port, validator); err != nil {
@@ -127,16 +121,12 @@ func CheckOutboundConfig(target echo.Instance, port echo.Port, validator *struct
 			clusterName).Check()
 	}
 
-	// TCP case: Make sure we have an outbound listener configured for each workload.
-	workloads, err := target.Workloads()
-	if err != nil {
-		return err
+	if !target.Config().Headless {
+		// TCP case: Make sure we have an outbound listener configured.
+		listenerName := listenerName(target.Address(), port)
+		return validator.Exists("{.configs[*].dynamicActiveListeners[?(@.listener.name == '%s')]}", listenerName).Check()
 	}
-	for _, w := range workloads {
-		listenerName := listenerName(w.Address(), port)
-		validator.Exists("{.configs[*].dynamicActiveListeners[?(@.listener.name == '%s')]}", listenerName)
-	}
-	return validator.Check()
+	return nil
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {

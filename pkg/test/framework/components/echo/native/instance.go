@@ -76,6 +76,13 @@ func (c *instance) WaitUntilReady(outboundInstances ...echo.Instance) error {
 		return nil
 	}
 
+	// Wait until all of the outbound instances are ready.
+	for _, outbound := range outboundInstances {
+		if err := outbound.WaitUntilReady(); err != nil {
+			return err
+		}
+	}
+
 	return c.workload.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(outboundInstances...))
 }
 
@@ -83,6 +90,10 @@ func (c *instance) WaitUntilReadyOrFail(t testing.TB, outboundInstances ...echo.
 	if err := c.WaitUntilReady(outboundInstances...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (c *instance) Address() string {
+	return localhost
 }
 
 func (c *instance) Config() echo.Config {

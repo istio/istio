@@ -61,10 +61,8 @@ func newWorkload(pod coreV1.Pod, useSidecar bool, grpcPort uint16, accessor *kub
 
 	var s *sidecar
 	if useSidecar {
-		s = &sidecar{
-			podNamespace: pod.Namespace,
-			podName:      pod.Name,
-			accessor:     accessor,
+		if s, err = newSidecar(pod, accessor); err != nil {
+			return nil, err
 		}
 	}
 

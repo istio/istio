@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	envoyLogLovel = envoy.LogLevelWarning
+	envoyLogLovel = envoy.LogLevelTrace
 )
 
 var _ echo.Workload = &workload{}
