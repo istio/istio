@@ -4,9 +4,9 @@ metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-pilot
-    istio: pilot
+    app: pilot
     release: {{ .Release.Name }}
+    istio: pilot
 spec:
   ports:
   - port: 15010

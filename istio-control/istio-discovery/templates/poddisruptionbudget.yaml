@@ -1,18 +1,20 @@
-{{- if or .Values.podDisruptionBudget .Values.global.defaultPodDisruptionBudget }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
+    app: pilot
     release: {{ .Release.Name }}
+    istio: pilot
 spec:
-{{- if .Values.podDisruptionBudget }}
-{{ include "podDisruptionBudget.spec" .Values.podDisruptionBudget }}
-{{- else if .Values.global.defaultPodDisruptionBudget }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 {{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
 {{- end }}
   selector:
     matchLabels:
       app: pilot
+      release: {{ .Release.Name }}
+      istio: pilot
 {{- end }}
