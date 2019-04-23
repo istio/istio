@@ -91,6 +91,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		buildHTTPService("private.com", model.VisibilityPrivate, wildcardIP, "default", 9999, 80),
 		buildHTTPService("test.com", model.VisibilityPublic, "8.8.8.8", "not-default", 8080),
 		buildHTTPService("test-private.com", model.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", model.VisibilityPrivate, "9.9.9.10", "not-default", 60),
 	}
 
 	sidecarConfig := &model.Config{
@@ -137,6 +138,97 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 
+	virtualServiceSpec1 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							//Subset: "some-subset",
+							Host: "example.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 61,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec2 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 62,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec3 := &networking.VirtualService{
+		Hosts:    []string{"test-private-3.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 63,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualService1 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Version:   model.VirtualService.Version,
+			Name:      "acme2-v1",
+			Namespace: "not-default",
+		},
+		Spec: virtualServiceSpec1,
+	}
+	virtualService2 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Version:   model.VirtualService.Version,
+			Name:      "acme-v2",
+			Namespace: "not-default",
+		},
+		Spec: virtualServiceSpec2,
+	}
+	virtualService3 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Version:   model.VirtualService.Version,
+			Name:      "acme-v3",
+			Namespace: "not-default",
+		},
+		Spec: virtualServiceSpec3,
+	}
 	// With the config above, RDS should return a valid route for the following route names
 	// port 9000 - [bookinfo.com:9999], [bookinfo.com:70] but no bookinfo.com
 	// unix://foo/bar/baz - [bookinfo.com:9999], [bookinfo.com:70] but no bookinfo.com
@@ -151,36 +243,40 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	// 80 - [test-private.com, test-private.com:80, 9.9.9.9:80, 9.9.9.9]
 	// 70 - [bookinfo.com, bookinfo.com:70],[test-private.com, test-private.com:70, 9.9.9.9:70, 9.9.9.9]
 	cases := []struct {
-		name          string
-		routeName     string
-		sidecarConfig *model.Config
+		name                  string
+		routeName             string
+		sidecarConfig         *model.Config
+		virtualServiceConfigs []*model.Config
 		// virtualHost Name and domains
 		expectedHosts    map[string]map[string]bool
 		fallthroughRoute bool
 		registryOnly     bool
 	}{
 		{
-			name:          "sidecar config port that is not in any service",
-			routeName:     "9000",
-			sidecarConfig: sidecarConfig,
+			name:                  "sidecar config port that is not in any service",
+			routeName:             "9000",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {"bookinfo.com:9999": true},
 				"bookinfo.com:70":   {"bookinfo.com:70": true},
 			},
 		},
 		{
-			name:          "sidecar config with unix domain socket listener",
-			routeName:     "unix://foo/bar/baz",
-			sidecarConfig: sidecarConfig,
+			name:                  "sidecar config with unix domain socket listener",
+			routeName:             "unix://foo/bar/baz",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {"bookinfo.com:9999": true},
 				"bookinfo.com:70":   {"bookinfo.com:70": true},
 			},
 		},
 		{
-			name:          "sidecar config port that is in one of the services",
-			routeName:     "8080",
-			sidecarConfig: sidecarConfig,
+			name:                  "sidecar config port that is in one of the services",
+			routeName:             "8080",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {"bookinfo.com:9999": true},
 				"bookinfo.com:70":   {"bookinfo.com:70": true},
@@ -188,17 +284,19 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "wildcard egress importing from all namespaces: 9999",
-			routeName:     "9999",
-			sidecarConfig: sidecarConfig,
+			name:                  "wildcard egress importing from all namespaces: 9999",
+			routeName:             "9999",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true},
 			},
 		},
 		{
-			name:          "wildcard egress importing from all namespaces: 80",
-			routeName:     "80",
-			sidecarConfig: sidecarConfig,
+			name:                  "wildcard egress importing from all namespaces: 80",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
@@ -206,9 +304,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "wildcard egress importing from all namespaces: 70",
-			routeName:     "70",
-			sidecarConfig: sidecarConfig,
+			name:                  "wildcard egress importing from all namespaces: 70",
+			routeName:             "70",
+			sidecarConfig:         sidecarConfig,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
@@ -217,26 +316,29 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "no sidecar config - import public service from other namespaces: 9999",
-			routeName:     "9999",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public service from other namespaces: 9999",
+			routeName:             "9999",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {"bookinfo.com:9999": true, "bookinfo.com": true},
 			},
 		},
 		{
-			name:          "no sidecar config - import public service from other namespaces: 8080",
-			routeName:     "8080",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public service from other namespaces: 8080",
+			routeName:             "8080",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test.com:8080": {
 					"test.com:8080": true, "test.com": true, "8.8.8.8": true, "8.8.8.8:8080": true},
 			},
 		},
 		{
-			name:          "no sidecar config - import public services from other namespaces: 80",
-			routeName:     "80",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public services from other namespaces: 80",
+			routeName:             "80",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
@@ -244,9 +346,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "no sidecar config - import public services from other namespaces: 70",
-			routeName:     "70",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public services from other namespaces: 70",
+			routeName:             "70",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
 					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
@@ -255,9 +358,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
-			name:          "no sidecar config - import public services from other namespaces: 80 with fallthrough",
-			routeName:     "80",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public services from other namespaces: 80 with fallthrough",
+			routeName:             "80",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
@@ -269,9 +373,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			fallthroughRoute: true,
 		},
 		{
-			name:          "no sidecar config - import public services from other namespaces: 80 with fallthrough and registry only",
-			routeName:     "80",
-			sidecarConfig: nil,
+			name:                  "no sidecar config - import public services from other namespaces: 80 with fallthrough and registry only",
+			routeName:             "80",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
@@ -283,15 +388,42 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			fallthroughRoute: true,
 			registryOnly:     true,
 		},
+		{
+			name:                  "no sidecar config with virtual services with duplicate entries",
+			routeName:             "60",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: []*model.Config{&virtualService1, &virtualService2},
+			expectedHosts: map[string]map[string]bool{
+				"test-private-2.com:60": {
+					"test-private-2.com": true, "test-private-2.com:60": true, "9.9.9.10": true, "9.9.9.10:60": true,
+				},
+			},
+		},
+		{
+			name:                  "no sidecar config with virtual services with no service in registry",
+			routeName:             "80", // no service for the host in registry; use port 80 by default
+			sidecarConfig:         nil,
+			virtualServiceConfigs: []*model.Config{&virtualService3},
+			expectedHosts: map[string]map[string]bool{
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"test-private-3.com:80": {
+					"test-private-3.com": true, "test-private-3.com:80": true,
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {
-		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
+		testSidecarRDSVHosts(t, c.name, services, c.sidecarConfig, c.virtualServiceConfigs,
+			c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
 	}
 }
 
-func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Service, sidecarConfig *model.Config,
-	routeName string, expectedHosts map[string]map[string]bool, fallthroughRoute bool, registryOnly bool) {
+func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Service,
+	sidecarConfig *model.Config, virtualServices []*model.Config, routeName string,
+	expectedHosts map[string]map[string]bool, fallthroughRoute bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
@@ -301,6 +433,10 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	if err := env.PushContext.InitContext(&env); err != nil {
 		t.Fatalf("testSidecarRDSVhosts(%s): failed to initialize push context", testName)
 	}
+	for _, virtualService := range virtualServices {
+		env.PushContext.AddVirtualServiceForTesting(virtualService)
+	}
+
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -319,7 +455,10 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 		t.Fatalf("testSidecarRDSVhosts(%s): got nil route for %s", testName, routeName)
 	}
 
+	expectedNumberOfRoutes := len(expectedHosts)
+	numberOfRoutes := 0
 	for _, vhost := range route.VirtualHosts {
+		numberOfRoutes += len(vhost.Routes)
 		if _, found := expectedHosts[vhost.Name]; !found {
 			t.Fatalf("testSidecarRDSVhosts(%s): unexpected vhost block %s for route %s", testName,
 				vhost.Name, routeName)
@@ -330,6 +469,9 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 					testName, domain, vhost.Name, routeName)
 			}
 		}
+	}
+	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
+		t.Errorf("testSidecarRDSVhosts(%s): expected: %v, Got: %v", testName, expectedNumberOfRoutes, numberOfRoutes)
 	}
 }
 

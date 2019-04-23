@@ -957,3 +957,12 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	}
 	return nil
 }
+
+// AddVirtualServiceForTesting adds a virtual service to the push context.
+// It is to be used for TESTING ONLY.
+func (ps *PushContext) AddVirtualServiceForTesting(config *Config) {
+	// check if the config is a virtual service
+	if config.Type == VirtualService.Type {
+		ps.publicVirtualServices = append(ps.publicVirtualServices, *config)
+	}
+}
