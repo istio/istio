@@ -534,9 +534,6 @@ func TestRefreshAndPurge(t *testing.T) {
 	if err == nil {
 		t.Error("Got success, expected error")
 	}
-
-	// wait for ScheduleDaemon to finish logging
-	time.Sleep(1 * time.Second)
 }
 
 func TestValidateConfig(t *testing.T) {
