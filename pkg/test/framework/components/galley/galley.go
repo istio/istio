@@ -49,6 +49,9 @@ type Instance interface {
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
 	WaitForSnapshot(collection string, validator SnapshotValidatorFunc) error
+
+	// WaitForSnapshotOrFail calls WaitForSnapshot and fails the test if it fails.
+	WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc)
 }
 
 // Config for Galley
@@ -68,8 +71,7 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 		i, err = newNative(ctx, cfg)
 	})
 	ctx.Environment().Case(environment.Kube, func() {
-		i = newKube(ctx, cfg)
-		err = nil
+		i, err = newKube(ctx, cfg)
 	})
 	return
 }

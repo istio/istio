@@ -286,6 +286,14 @@ func (c *nativeComponent) WaitForSnapshot(collection string, validator SnapshotV
 	return c.client.waitForSnapshot(collection, validator)
 }
 
+// WaitForSnapshotOrFail implements Galley.WaitForSnapshotOrFail.
+func (c *nativeComponent) WaitForSnapshotOrFail(t *testing.T, collection string, validator SnapshotValidatorFunc) {
+	t.Helper()
+	if err := c.WaitForSnapshot(collection, validator); err != nil {
+		t.Fatalf("WaitForSnapshotOrFail: %v", err)
+	}
+}
+
 // Reset implements Resettable.Reset.
 func (c *nativeComponent) Reset() error {
 	_ = c.Close()

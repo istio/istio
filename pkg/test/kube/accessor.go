@@ -409,6 +409,16 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 	return err
 }
 
+// GetNamespace returns the K8s namespaceresource with the given name.
+func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
+	n, err := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
 	return a.ctl.applyContents(namespace, contents)

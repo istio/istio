@@ -65,7 +65,7 @@ func New(ctx resource.Context, prefix string, inject bool) (i Instance, err erro
 func NewOrFail(t *testing.T, ctx resource.Context, prefix string, inject bool) Instance {
 	i, err := New(ctx, prefix, inject)
 	if err != nil {
-		t.Fatalf("namespace.NewOrFail:: %v", err)
+		t.Fatalf("namespace.NewOrFail: %v", err)
 	}
 	return i
 }
