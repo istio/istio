@@ -44,8 +44,8 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	return NewGCE(ctx, cfg)
 }
 
-// Register reigsters a VM service by creating necessary Kubernetes resources. Specifically, a
-// Kubernetes service and ServiceEntry.
+// Register reigsters a VM service by creating necessary Kubernetes resources.
+// Speicifically, a Kubernetes service and ServiceEntry.
 func Register(serviceName string, portList model.PortList) error {
 	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/rawvm"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -33,11 +32,6 @@ const (
 	serviceName = ""
 )
 
-// Note, status
-// - Locally pass
-// - Remote fail on:
-//				a) genearteClusterEnv, cluster name needs to be passed.
-// 				b) prow user for machineSetup.
 // How to run this test suite locally
 // go test -v ./tests/integration/meshexp   \
 // -istio.test.env  kube -istio.test.hub "gcr.io/istio-release" \
@@ -49,7 +43,6 @@ const (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshexp_test", m).
-		Label(label.Postsubmit).
 		// Restrict the test to the K8s environment only, tests will be skipped in native environment.
 		RequireEnvironment(environment.Kube).
 		// Deploy Istio on the cluster
@@ -78,7 +71,7 @@ func setupVMInstance(ctx resource.Context) error {
 }
 
 // TODO(incfly): change to config_dump and convert to xDS proto might be better.
-func TestPilotIsReachable(t *testing.T) {
+func TestIstioControlPlaneReachability(t *testing.T) {
 	// Retry several times to reduce the flakes.
 	output := ""
 	var err error
