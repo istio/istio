@@ -1756,6 +1756,83 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
+		{name: "good origin ", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with http", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with https and port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"https://example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "good origin with port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:80"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "bad origin", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com", "error$.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"http://", "https://"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:port"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"example.com:100000"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad origin with star", in: &networking.CorsPolicy{
+			AllowOrigin:   []string{"*.example.com"},
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &types.Duration{Seconds: 2},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2345,7 +2422,7 @@ func TestValidateRouteDestination(t *testing.T) {
 		}}, valid: true},
 		{name: "wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "*"},
-		}}, valid: true},
+		}}, valid: false},
 		{name: "bad wildcard", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.*"},
 		}}, valid: false},

@@ -866,17 +866,17 @@ func applyLocalityLBSetting(
 	// locality LB is being used. For now, we sacrifice memory and create clones of
 	// clusters for every proxy that asks for locality specific clusters
 	for i, cluster := range clusters {
+		// Failover should only be applied with outlier detection, or traffic will never failover.
+		enabledFailover := cluster.OutlierDetection != nil
 		if shared {
-			// update the locality settings only if the cluster has
-			// outlier detection settings
-			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
+			if cluster.LoadAssignment != nil {
 				clone := util.CloneCluster(cluster)
-				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB)
+				loadbalancer.ApplyLocalityLBSetting(locality, clone.LoadAssignment, localityLB, enabledFailover)
 				clusters[i] = &clone
 			}
 		} else {
-			if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
-				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB)
+			if cluster.LoadAssignment != nil {
+				loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 			}
 		}
 	}

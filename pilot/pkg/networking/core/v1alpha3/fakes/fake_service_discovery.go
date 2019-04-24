@@ -32,34 +32,6 @@ type ServiceDiscovery struct {
 		result1 *model.Service
 		result2 error
 	}
-	GetServiceAttributesStub        func(hostname model.Hostname) (*model.ServiceAttributes, error)
-	getServiceAttributesMutex       sync.RWMutex
-	getServiceAttributesArgsForCall []struct {
-		hostname model.Hostname
-	}
-	getServiceAttributesReturns struct {
-		result1 *model.ServiceAttributes
-		result2 error
-	}
-	getServiceAttributesReturnsOnCall map[int]struct {
-		result1 *model.ServiceAttributes
-		result2 error
-	}
-	InstancesStub        func(hostname model.Hostname, ports []string, labels model.LabelsCollection) ([]*model.ServiceInstance, error)
-	instancesMutex       sync.RWMutex
-	instancesArgsForCall []struct {
-		hostname model.Hostname
-		ports    []string
-		labels   model.LabelsCollection
-	}
-	instancesReturns struct {
-		result1 []*model.ServiceInstance
-		result2 error
-	}
-	instancesReturnsOnCall map[int]struct {
-		result1 []*model.ServiceInstance
-		result2 error
-	}
 	InstancesByPortStub        func(hostname model.Hostname, servicePort int, labels model.LabelsCollection) ([]*model.ServiceInstance, error)
 	instancesByPortMutex       sync.RWMutex
 	instancesByPortArgsForCall []struct {
@@ -88,6 +60,19 @@ type ServiceDiscovery struct {
 		result1 []*model.ServiceInstance
 		result2 error
 	}
+	GetProxyWorkloadLabelsStub        func(*model.Proxy) (model.LabelsCollection, error)
+	getProxyWorkloadLabelsMutex       sync.RWMutex
+	getProxyWorkloadLabelsArgsForCall []struct {
+		arg1 *model.Proxy
+	}
+	getProxyWorkloadLabelsReturns struct {
+		result1 model.LabelsCollection
+		result2 error
+	}
+	getProxyWorkloadLabelsReturnsOnCall map[int]struct {
+		result1 model.LabelsCollection
+		result2 error
+	}
 	ManagementPortsStub        func(addr string) model.PortList
 	managementPortsMutex       sync.RWMutex
 	managementPortsArgsForCall []struct {
@@ -110,10 +95,20 @@ type ServiceDiscovery struct {
 	workloadHealthCheckInfoReturnsOnCall map[int]struct {
 		result1 model.ProbeList
 	}
+	GetIstioServiceAccountsStub        func(hostname model.Hostname, ports []int) []string
+	getIstioServiceAccountsMutex       sync.RWMutex
+	getIstioServiceAccountsArgsForCall []struct {
+		hostname model.Hostname
+		ports    []int
+	}
+	getIstioServiceAccountsReturns struct {
+		result1 []string
+	}
+	getIstioServiceAccountsReturnsOnCall map[int]struct {
+		result1 []string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-
-	ServiceAccounts
 }
 
 func (fake *ServiceDiscovery) Services() ([]*model.Service, error) {
@@ -206,74 +201,6 @@ func (fake *ServiceDiscovery) GetServiceReturnsOnCall(i int, result1 *model.Serv
 	}
 	fake.getServiceReturnsOnCall[i] = struct {
 		result1 *model.Service
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ServiceDiscovery) GetServiceAttributesCallCount() int {
-	fake.getServiceAttributesMutex.RLock()
-	defer fake.getServiceAttributesMutex.RUnlock()
-	return len(fake.getServiceAttributesArgsForCall)
-}
-
-func (fake *ServiceDiscovery) GetServiceAttributesArgsForCall(i int) model.Hostname {
-	fake.getServiceAttributesMutex.RLock()
-	defer fake.getServiceAttributesMutex.RUnlock()
-	return fake.getServiceAttributesArgsForCall[i].hostname
-}
-
-func (fake *ServiceDiscovery) GetServiceAttributesReturns(result1 *model.ServiceAttributes, result2 error) {
-	fake.GetServiceAttributesStub = nil
-	fake.getServiceAttributesReturns = struct {
-		result1 *model.ServiceAttributes
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ServiceDiscovery) GetServiceAttributesReturnsOnCall(i int, result1 *model.ServiceAttributes, result2 error) {
-	fake.GetServiceAttributesStub = nil
-	if fake.getServiceAttributesReturnsOnCall == nil {
-		fake.getServiceAttributesReturnsOnCall = make(map[int]struct {
-			result1 *model.ServiceAttributes
-			result2 error
-		})
-	}
-	fake.getServiceAttributesReturnsOnCall[i] = struct {
-		result1 *model.ServiceAttributes
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ServiceDiscovery) InstancesCallCount() int {
-	fake.instancesMutex.RLock()
-	defer fake.instancesMutex.RUnlock()
-	return len(fake.instancesArgsForCall)
-}
-
-func (fake *ServiceDiscovery) InstancesArgsForCall(i int) (model.Hostname, []string, model.LabelsCollection) {
-	fake.instancesMutex.RLock()
-	defer fake.instancesMutex.RUnlock()
-	return fake.instancesArgsForCall[i].hostname, fake.instancesArgsForCall[i].ports, fake.instancesArgsForCall[i].labels
-}
-
-func (fake *ServiceDiscovery) InstancesReturns(result1 []*model.ServiceInstance, result2 error) {
-	fake.InstancesStub = nil
-	fake.instancesReturns = struct {
-		result1 []*model.ServiceInstance
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ServiceDiscovery) InstancesReturnsOnCall(i int, result1 []*model.ServiceInstance, result2 error) {
-	fake.InstancesStub = nil
-	if fake.instancesReturnsOnCall == nil {
-		fake.instancesReturnsOnCall = make(map[int]struct {
-			result1 []*model.ServiceInstance
-			result2 error
-		})
-	}
-	fake.instancesReturnsOnCall[i] = struct {
-		result1 []*model.ServiceInstance
 		result2 error
 	}{result1, result2}
 }
@@ -382,6 +309,57 @@ func (fake *ServiceDiscovery) GetProxyServiceInstancesReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
+func (fake *ServiceDiscovery) GetProxyWorkloadLabels(arg1 *model.Proxy) (model.LabelsCollection, error) {
+	fake.getProxyWorkloadLabelsMutex.Lock()
+	ret, specificReturn := fake.getProxyWorkloadLabelsReturnsOnCall[len(fake.getProxyWorkloadLabelsArgsForCall)]
+	fake.getProxyWorkloadLabelsArgsForCall = append(fake.getProxyWorkloadLabelsArgsForCall, struct {
+		arg1 *model.Proxy
+	}{arg1})
+	fake.recordInvocation("GetProxyWorkloadLabels", []interface{}{arg1})
+	fake.getProxyWorkloadLabelsMutex.Unlock()
+	if fake.GetProxyWorkloadLabelsStub != nil {
+		return fake.GetProxyWorkloadLabelsStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getProxyWorkloadLabelsReturns.result1, fake.getProxyWorkloadLabelsReturns.result2
+}
+
+func (fake *ServiceDiscovery) GetProxyWorkloadLabelsCallCount() int {
+	fake.getProxyWorkloadLabelsMutex.RLock()
+	defer fake.getProxyWorkloadLabelsMutex.RUnlock()
+	return len(fake.getProxyWorkloadLabelsArgsForCall)
+}
+
+func (fake *ServiceDiscovery) GetProxyWorkloadLabelsArgsForCall(i int) *model.Proxy {
+	fake.getProxyWorkloadLabelsMutex.RLock()
+	defer fake.getProxyWorkloadLabelsMutex.RUnlock()
+	return fake.getProxyWorkloadLabelsArgsForCall[i].arg1
+}
+
+func (fake *ServiceDiscovery) GetProxyWorkloadLabelsReturns(result1 model.LabelsCollection, result2 error) {
+	fake.GetProxyWorkloadLabelsStub = nil
+	fake.getProxyWorkloadLabelsReturns = struct {
+		result1 model.LabelsCollection
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ServiceDiscovery) GetProxyWorkloadLabelsReturnsOnCall(i int, result1 model.LabelsCollection, result2 error) {
+	fake.GetProxyWorkloadLabelsStub = nil
+	if fake.getProxyWorkloadLabelsReturnsOnCall == nil {
+		fake.getProxyWorkloadLabelsReturnsOnCall = make(map[int]struct {
+			result1 model.LabelsCollection
+			result2 error
+		})
+	}
+	fake.getProxyWorkloadLabelsReturnsOnCall[i] = struct {
+		result1 model.LabelsCollection
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	fake.managementPortsMutex.Lock()
 	ret, specificReturn := fake.managementPortsReturnsOnCall[len(fake.managementPortsArgsForCall)]
@@ -478,6 +456,60 @@ func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturnsOnCall(i int, result
 	}{result1}
 }
 
+func (fake *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+	var portsCopy []int
+	if ports != nil {
+		portsCopy = make([]int, len(ports))
+		copy(portsCopy, ports)
+	}
+	fake.getIstioServiceAccountsMutex.Lock()
+	ret, specificReturn := fake.getIstioServiceAccountsReturnsOnCall[len(fake.getIstioServiceAccountsArgsForCall)]
+	fake.getIstioServiceAccountsArgsForCall = append(fake.getIstioServiceAccountsArgsForCall, struct {
+		hostname model.Hostname
+		ports    []int
+	}{hostname, portsCopy})
+	fake.recordInvocation("GetIstioServiceAccounts", []interface{}{hostname, portsCopy})
+	fake.getIstioServiceAccountsMutex.Unlock()
+	if fake.GetIstioServiceAccountsStub != nil {
+		return fake.GetIstioServiceAccountsStub(hostname, ports)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.getIstioServiceAccountsReturns.result1
+}
+
+func (fake *ServiceDiscovery) GetIstioServiceAccountsCallCount() int {
+	fake.getIstioServiceAccountsMutex.RLock()
+	defer fake.getIstioServiceAccountsMutex.RUnlock()
+	return len(fake.getIstioServiceAccountsArgsForCall)
+}
+
+func (fake *ServiceDiscovery) GetIstioServiceAccountsArgsForCall(i int) (model.Hostname, []int) {
+	fake.getIstioServiceAccountsMutex.RLock()
+	defer fake.getIstioServiceAccountsMutex.RUnlock()
+	return fake.getIstioServiceAccountsArgsForCall[i].hostname, fake.getIstioServiceAccountsArgsForCall[i].ports
+}
+
+func (fake *ServiceDiscovery) GetIstioServiceAccountsReturns(result1 []string) {
+	fake.GetIstioServiceAccountsStub = nil
+	fake.getIstioServiceAccountsReturns = struct {
+		result1 []string
+	}{result1}
+}
+
+func (fake *ServiceDiscovery) GetIstioServiceAccountsReturnsOnCall(i int, result1 []string) {
+	fake.GetIstioServiceAccountsStub = nil
+	if fake.getIstioServiceAccountsReturnsOnCall == nil {
+		fake.getIstioServiceAccountsReturnsOnCall = make(map[int]struct {
+			result1 []string
+		})
+	}
+	fake.getIstioServiceAccountsReturnsOnCall[i] = struct {
+		result1 []string
+	}{result1}
+}
+
 func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -485,18 +517,18 @@ func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	defer fake.servicesMutex.RUnlock()
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
-	fake.getServiceAttributesMutex.RLock()
-	defer fake.getServiceAttributesMutex.RUnlock()
-	fake.instancesMutex.RLock()
-	defer fake.instancesMutex.RUnlock()
 	fake.instancesByPortMutex.RLock()
 	defer fake.instancesByPortMutex.RUnlock()
 	fake.getProxyServiceInstancesMutex.RLock()
 	defer fake.getProxyServiceInstancesMutex.RUnlock()
+	fake.getProxyWorkloadLabelsMutex.RLock()
+	defer fake.getProxyWorkloadLabelsMutex.RUnlock()
 	fake.managementPortsMutex.RLock()
 	defer fake.managementPortsMutex.RUnlock()
 	fake.workloadHealthCheckInfoMutex.RLock()
 	defer fake.workloadHealthCheckInfoMutex.RUnlock()
+	fake.getIstioServiceAccountsMutex.RLock()
+	defer fake.getIstioServiceAccountsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -42,6 +42,17 @@ var (
 		},
 		Type: "test-secret",
 	}
+	k8sInvalidTestGenericSecretA = &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtKey:    k8sKeyA,
+			genericScrtCaCert: k8sCaCertA,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameA,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
 
 	k8sKeyB               = []byte("k8sKeyB private fake")
 	k8sCertChainB         = []byte("B chain cert fake")
@@ -177,6 +188,174 @@ func TestSecretFetcher(t *testing.T) {
 	testUpdateSecret(t, gSecretFetcher, k8sTestGenericSecretA, k8sTestGenericSecretB, expectedUpdateSecrets, &secretVersionThree)
 	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
 		t.Errorf("updated secret should have different version")
+	}
+}
+
+// TestSecretFetcherInvalidSecret verifies that if a secret does not have key or cert, secret fetcher
+// will skip adding or updating with the invalid secret.
+func TestSecretFetcherInvalidSecret(t *testing.T) {
+	gSecretFetcher := &SecretFetcher{
+		UseCaClient: false,
+		DeleteCache: func(secretName string) {},
+		UpdateCache: func(secretName string, ns model.SecretItem) {},
+	}
+	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	if gSecretFetcher.UseCaClient {
+		t.Error("secretFetcher should not use ca client")
+	}
+	ch := make(chan struct{})
+	gSecretFetcher.Run(ch)
+
+	gSecretFetcher.scrtAdded(k8sInvalidTestGenericSecretA)
+	if _, ok := gSecretFetcher.FindIngressGatewaySecret(k8sInvalidTestGenericSecretA.GetName()); ok {
+		t.Errorf("invalid secret should not be added into secret fetcher.")
+	}
+
+	var secretVersionOne string
+	// Add test secret and verify that key/cert pair is stored.
+	expectedAddedSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameA,
+				CertificateChain: k8sCertChainB,
+				PrivateKey:       k8sKeyB,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				RootCert:     k8sCaCertB,
+			},
+		},
+	}
+	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretB, expectedAddedSecrets, &secretVersionOne)
+	// Try to update with an invalid secret, and verify that the invalid secret is not added.
+	// Secret fetcher still owns old secret k8sTestGenericSecretB.
+	gSecretFetcher.scrtUpdated(k8sTestGenericSecretB, k8sInvalidTestGenericSecretA)
+	secret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	if !ok {
+		t.Errorf("secretFetcher failed to find secret %s", k8sSecretNameA)
+	}
+	if secretVersionOne != secret.Version {
+		t.Errorf("version number does not match.")
+	}
+	if !bytes.Equal(k8sCertChainB, secret.CertificateChain) {
+		t.Errorf("cert chain verification error: expected %v but got %v", k8sCertChainB, secret.CertificateChain)
+	}
+	if !bytes.Equal(k8sKeyB, secret.PrivateKey) {
+		t.Errorf("private key verification error: expected %v but got %v", k8sKeyB, secret.PrivateKey)
+	}
+	casecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA + IngressGatewaySdsCaSuffix)
+	if !ok || !bytes.Equal(k8sCaCertB, casecret.RootCert) {
+		t.Errorf("root cert verification error: expected %v but got %v", k8sCaCertB, secret.RootCert)
+	}
+}
+
+// TestSecretFetcherSkipSecret verifies that secret fetcher skips adding secrets if that secret
+// is not a gateway secret.
+func TestSecretFetcherSkipSecret(t *testing.T) {
+	gSecretFetcher := &SecretFetcher{
+		UseCaClient: false,
+		DeleteCache: func(secretName string) {},
+		UpdateCache: func(secretName string, ns model.SecretItem) {},
+	}
+	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	if gSecretFetcher.UseCaClient {
+		t.Error("secretFetcher should not use ca client")
+	}
+	ch := make(chan struct{})
+	gSecretFetcher.Run(ch)
+
+	istioPrefixSecret := &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainA,
+			genericScrtKey:    k8sKeyA,
+			genericScrtCaCert: k8sCaCertA,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istioSecret",
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
+
+	gSecretFetcher.scrtAdded(istioPrefixSecret)
+	if _, ok := gSecretFetcher.FindIngressGatewaySecret(istioPrefixSecret.GetName()); ok {
+		t.Errorf("istio secret should not be added into secret fetcher.")
+	}
+
+	prometheusPrefixSecret := &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainA,
+			genericScrtKey:    k8sKeyA,
+			genericScrtCaCert: k8sCaCertA,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "prometheusSecret",
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
+
+	gSecretFetcher.scrtAdded(prometheusPrefixSecret)
+	if _, ok := gSecretFetcher.FindIngressGatewaySecret(prometheusPrefixSecret.GetName()); ok {
+		t.Errorf("prometheus secret should not be added into secret fetcher.")
+	}
+
+	var secretVersionOne string
+	// Add test secret and verify that key/cert pair is stored.
+	expectedAddedSecrets := []expectedSecret{
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName:     k8sSecretNameA,
+				CertificateChain: k8sCertChainB,
+				PrivateKey:       k8sKeyB,
+			},
+		},
+		{
+			exist: true,
+			secret: &model.SecretItem{
+				ResourceName: k8sSecretNameA + IngressGatewaySdsCaSuffix,
+				RootCert:     k8sCaCertB,
+			},
+		},
+	}
+	testAddSecret(t, gSecretFetcher, k8sTestGenericSecretB, expectedAddedSecrets, &secretVersionOne)
+	// Try to update with an invalid secret, and verify that the invalid secret is not added.
+	// Secret fetcher still owns old secret k8sTestGenericSecretB.
+	tokenSecretB := &v1.Secret{
+		Data: map[string][]byte{
+			genericScrtCert:   k8sCertChainB,
+			genericScrtKey:    k8sKeyB,
+			genericScrtCaCert: k8sCaCertB,
+			scrtTokenField:    []byte("fake token"),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretNameA,
+			Namespace: "test-namespace",
+		},
+		Type: "test-secret",
+	}
+	gSecretFetcher.scrtUpdated(k8sTestGenericSecretB, tokenSecretB)
+	secret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA)
+	if !ok {
+		t.Errorf("secretFetcher failed to find secret %s", k8sSecretNameA)
+	}
+	if secretVersionOne != secret.Version {
+		t.Errorf("version number does not match.")
+	}
+	if !bytes.Equal(k8sCertChainB, secret.CertificateChain) {
+		t.Errorf("cert chain verification error: expected %v but got %v", k8sCertChainB, secret.CertificateChain)
+	}
+	if !bytes.Equal(k8sKeyB, secret.PrivateKey) {
+		t.Errorf("private key verification error: expected %v but got %v", k8sKeyB, secret.PrivateKey)
+	}
+	casecret, ok := gSecretFetcher.FindIngressGatewaySecret(k8sSecretNameA + IngressGatewaySdsCaSuffix)
+	if !ok || !bytes.Equal(k8sCaCertB, casecret.RootCert) {
+		t.Errorf("root cert verification error: expected %v but got %v", k8sCaCertB, secret.RootCert)
 	}
 }
 
