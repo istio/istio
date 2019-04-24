@@ -219,7 +219,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
+	push.Mutex.Lock()
 	ports, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -704,7 +706,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
+	push.Mutex.Lock()
 	portMap, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
