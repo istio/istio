@@ -151,8 +151,6 @@ var (
 			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
-			proxyConfig := model.DefaultProxyConfig()
-
 			// Check for custom cert paths
 			tlsServerCertChain = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerCertChain, model.DefaultCertChain)
 			tlsServerKey = getEnvVarOrDefault(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerKey, model.DefaultKey)
@@ -174,6 +172,8 @@ var (
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
+
+			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
