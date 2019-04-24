@@ -141,7 +141,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Ingress, Router:
+	case SidecarProxy, Router:
 		return true
 	default:
 		return false
@@ -284,10 +284,8 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 
 	out.Type = NodeType(parts[0])
 
-	switch out.Type {
-	case SidecarProxy, Ingress, Router:
-	default:
-		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
+	if !IsApplicationNodeType(out.Type) {
+		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
 
 	// Get all IP Addresses from Metadata
@@ -539,7 +537,6 @@ func isValidIPAddress(ip string) bool {
 
 // Pile all node metadata constants here
 const (
-
 	// NodeMetadataIstioProxyVersion specifies the Envoy version associated with the proxy
 	NodeMetadataIstioProxyVersion = "ISTIO_PROXY_VERSION"
 
