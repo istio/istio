@@ -54,6 +54,7 @@ install/kubernetes/istio.yaml
 install/kubernetes/istio-init.yaml
 install/kubernetes/istio-all.yaml
 install/kubernetes/istio-multicluster.yaml
+install/kubernetes/istio-multicluster-split-horizon.yaml
 install/kubernetes/istio-remote.yaml
 install/kubernetes/istio-mcp.yaml
 install/kubernetes/istio-auth-mcp.yaml
