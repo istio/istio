@@ -219,15 +219,19 @@ func (i *pilotInfo) String() string {
 }
 
 func getPilotInfos() (pilotInfos, error) {
-	pods, err := getPilotPods()
+	podIPs, err := getPilotIPs()
+	if err != nil {
+		return nil, err
+	}
+	appPod, err := getAppPod()
 	if err != nil {
 		return nil, err
 	}
 
-	statuses := make(pilotInfos, len(pods))
-	for i, pod := range pods {
+	statuses := make(pilotInfos, len(podIPs))
+	for i, podIP := range podIPs {
 		var err error
-		statuses[i], err = getPilotInfo(pod)
+		statuses[i], err = getPilotInfo(podIP, appPod)
 		if err != nil {
 			return nil, err
 		}
@@ -235,9 +239,9 @@ func getPilotInfos() (pilotInfos, error) {
 	return statuses, nil
 }
 
-func getPilotInfo(pod string) (*pilotInfo, error) {
-	command := "curl http://127.0.0.1:8080/debug/push_status"
-	result, err := util.PodExec(tc.Kube.Namespace, pod, "discovery", command, true, tc.Kube.KubeConfig)
+func getPilotInfo(podIP string, pod string) (*pilotInfo, error) {
+	command := fmt.Sprintf("curl http://%s:8080/debug/push_status", podIP)
+	result, err := util.PodExec(tc.Kube.Namespace, pod, "app", command, true, tc.Kube.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +269,8 @@ func getPilotInfo(pod string) (*pilotInfo, error) {
 	}, nil
 }
 
-func getPilotPods() ([]string, error) {
-	res, err := util.Shell("kubectl get pods -n %s --kubeconfig=%s --selector istio=pilot -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}'",
+func getPilotIPs() ([]string, error) {
+	res, err := util.Shell("kubectl get pods -n %s --kubeconfig=%s --selector istio=pilot -o=jsonpath='{range .items[*]}{.status.podIP}{\" \"}'",
 		tc.Kube.Namespace, tc.Kube.KubeConfig)
 	if err != nil {
 		return nil, err
@@ -274,4 +278,15 @@ func getPilotPods() ([]string, error) {
 	pods := strings.Split(res, " ")
 	// Trim off the last (empty) element.
 	return pods[0 : len(pods)-1], nil
+}
+
+// Use a pod without sidecar and with a full distribution to run the HTTP status query
+func getAppPod() (string, error) {
+	res, err := util.Shell("kubectl get pods -n %s --kubeconfig=%s --selector app=t -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}'",
+		tc.Kube.Namespace, tc.Kube.KubeConfig)
+	if err != nil {
+		return "", err
+	}
+	pods := strings.Split(res, " ")
+	return pods[0], nil
 }
