@@ -32,7 +32,7 @@ running. Pod annotations can also select a different control plane.
 # Installing
 
 The new installer is intended to be modular and very explicit about what is installed. It has 
-far more steps then the Istio installer - but each step is smaller and focused on a specific 
+far more steps than the Istio installer - but each step is smaller and focused on a specific 
 feature, and can be performed by different people/teams at different times.
 
 It is strongly recommended that different namespaces are used, with different service accounts.
