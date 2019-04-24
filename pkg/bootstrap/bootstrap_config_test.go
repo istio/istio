@@ -26,7 +26,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/stretchr/testify/assert"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -366,87 +365,33 @@ func TestNodeMetadata(t *testing.T) {
 		"istio.io/enable": "{20: 20}",
 	}
 
-	testCases := []struct {
-		name             string
-		initialMetadata  map[string]string
-		envFunc          func() []string
-		expectedMetadata map[string]string
-	}{
-		{
-			name:            "Empty initial map. populate from labels env vars",
-			initialMetadata: nil,
-			envFunc: func() []string {
-				_, testEnv := createEnv(t, labels, nil)
-				return testEnv
-			},
-			expectedMetadata: map[string]string{
-				"l1":    "v1",
-				"l2":    "v2",
-				"istio": "sidecar",
-			},
-		},
-		{
-			name:            "Empty initial map. populate from labels + annotations env vars",
-			initialMetadata: nil,
-			envFunc: func() []string {
-				_, testEnv := createEnv(t, labels, anno)
-				return testEnv
-			},
-			expectedMetadata: map[string]string{
-				"l1":              "v1",
-				"l2":              "v2",
-				"istio":           "sidecar",
-				"istio.io/enable": "{20: 20}",
-			},
-		},
-		{
-			name:            "Empty initial map. populate from labels. Invalid string encoding is ignored",
-			initialMetadata: nil,
-			envFunc: func() []string {
-				// encode string incorrectly,
-				// a warning is logged, but everything else works.
-				_, testEnv := createEnv(t, labels, anno)
-				return envEncode(anno, IstioMetaJSONPrefix, func(s string) string {
-					return s
-				}, testEnv)
-			},
-			expectedMetadata: map[string]string{
-				"l1":              "v1",
-				"l2":              "v2",
-				"istio":           "sidecar",
-				"istio.io/enable": "{20: 20}",
-			},
-		},
-		{
-			name: "Initial map with values. populate from labels + annotations env vars",
-			initialMetadata: map[string]string{
-				"cartPath1": "/etc/cert1",
-				"cartPath2": "/etc/cert2",
-				"l1":        "to be replaced",
-				"special":   "not to be replaced",
-			},
-			envFunc: func() []string {
-				_, testEnv := createEnv(t, labels, anno)
-				return testEnv
-			},
-			expectedMetadata: map[string]string{
-				"cartPath1":       "/etc/cert1",
-				"cartPath2":       "/etc/cert2",
-				"l1":              "v1",
-				"l2":              "v2",
-				"istio":           "sidecar",
-				"istio.io/enable": "{20: 20}",
-				"special":         "not to be replaced",
-			},
-		},
+	_, envs := createEnv(t, labels, nil)
+	nm := getNodeMetaData(envs)
+
+	if !reflect.DeepEqual(nm, labels) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, labels)
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			actual := updateNodeMetadataFromEnv(tc.envFunc(), tc.initialMetadata)
-			assert.Equal(t, tc.expectedMetadata, actual)
-		})
+	merged, envs := createEnv(t, labels, anno)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
 	}
+
+	t.Logf("envs => %v\nnm=> %v", envs, nm)
+
+	// encode string incorrectly,
+	// a warning is logged, but everything else works.
+	envs = envEncode(anno, IstioMetaJSONPrefix, func(s string) string {
+		return s
+	}, envs)
+
+	nm = getNodeMetaData(envs)
+	if !reflect.DeepEqual(nm, merged) {
+		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
+	}
+
 }
 
 func mergeMap(to map[string]string, from map[string]string) {

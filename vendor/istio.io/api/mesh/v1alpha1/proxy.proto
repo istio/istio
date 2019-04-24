@@ -177,8 +177,4 @@ message ProxyConfig {
 
   // Tracing configuration to be used by the proxy.
   Tracing tracing = 19;
-
-  // Envoy node metadata as described [here](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/core/base.proto)
-  // Values in this map may be overloaded by environment variables.
-  map<string, string> envoy_node_metadata = 21;
 }
