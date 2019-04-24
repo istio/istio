@@ -54,6 +54,11 @@ ignored = [
   name = "github.com/golang/glog"
   source = "github.com/istio/glog"
 
+# our mock klog
+[[override]]
+  name = "k8s.io/klog"
+  source = "github.com/istio/klog"
+
 [[constraint]]
   name = "cloud.google.com/go"
   version = ">=0.20.0, <1.0.0"

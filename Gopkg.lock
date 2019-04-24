@@ -1332,7 +1332,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:27bbf2729fe0b7056e51038163fba3aa443de7a5cf7dbba7467f11124887af9c"
+  digest = "1:cb65d15dcf60c2729636ea04b10d108c8dda94396669badaac88dd2d0f55e9c8"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -1344,8 +1344,8 @@
     "zapgrpc",
   ]
   pruneopts = "NUT"
-  revision = "35aad584952c3e7020db7b839f6b102de6271f89"
-  version = "v1.7.1"
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
@@ -2021,12 +2021,13 @@
   version = "v2.9.1"
 
 [[projects]]
-  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  branch = "master"
+  digest = "1:5e76fd3778193b9ab161c8bbfa501c33b831138f55f7c650b3647b175df72ff1"
   name = "k8s.io/klog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
-  version = "v0.2.0"
+  revision = "fb7481ea8bcf1368bbaefc4e63e989d835ef0a17"
+  source = "github.com/istio/klog"
 
 [[projects]]
   branch = "master"
@@ -2365,7 +2366,6 @@
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
-    "k8s.io/klog",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubelet/apis",
   ]

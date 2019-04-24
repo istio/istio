@@ -37,7 +37,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
@@ -109,11 +108,6 @@ func (b *builder) SetAdapterConfig(c adapter.Config) {
 // correct.
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	return
-}
-
-func init() {
-	// Set up Kubernetes client log to stderr, rather than to file
-	klog.InitFlags(nil)
 }
 
 var kubeConfigVar = env.RegisterStringVar("KUBECONFIG", "", "")
