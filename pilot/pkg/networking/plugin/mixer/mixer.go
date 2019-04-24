@@ -106,7 +106,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		return nil
 	case plugin.ListenerProtocolTCP:
 		tcpFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Push)
-		if in.Node.Type == model.Router || in.Node.Type == model.Ingress {
+		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
 			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
 			// to decide the type of filter to attach

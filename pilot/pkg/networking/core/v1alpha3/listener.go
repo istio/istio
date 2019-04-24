@@ -175,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
-	case model.Router, model.Ingress:
+	case model.Router:
 		return configgen.buildGatewayListeners(env, node, push)
 	}
 	return nil, nil

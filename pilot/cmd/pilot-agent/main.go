@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,11 +181,6 @@ var (
 			tlsCertsToWatch = []string{
 				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
 				tlsClientCertChain, tlsClientKey, tlsClientCertChain,
-			}
-
-			if role.Type == model.Ingress {
-				tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressCertFilename))
-				tlsCertsToWatch = append(tlsCertsToWatch, path.Join(model.IngressCertsPath, model.IngressKeyFilename))
 			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
