@@ -21,6 +21,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/apps"
 )
 
+const (
+	AllowHTTPRespCode = "200"
+	DenyHTTPRespCode  = "403"
+	TCPPort           = 90
+)
+
 type Connection struct {
 	From            apps.KubeApp
 	To              apps.KubeApp
@@ -38,7 +44,7 @@ func CheckConnection(t *testing.T, conn Connection) error {
 
 	results, err := conn.From.Call(ep, apps.AppCallOptions{Protocol: conn.Protocol, Path: conn.Path})
 	if conn.ExpectedSuccess {
-		if err != nil || len(results) == 0 || results[0].Code != "200" {
+		if err != nil || len(results) == 0 || results[0].Code != AllowHTTPRespCode {
 			// Addition log for debugging purpose.
 			if err != nil {
 				t.Logf("Error: %#v\n", err)
@@ -51,7 +57,7 @@ func CheckConnection(t *testing.T, conn Connection) error {
 				conn.From.Name(), conn.To.Name(), conn.Port, conn.Protocol)
 		}
 	} else {
-		if err == nil && len(results) > 0 && results[0].Code == "200" {
+		if err == nil && len(results) > 0 && results[0].Code == AllowHTTPRespCode {
 			return fmt.Errorf("%s to %s:%d using %s: expected failed, actually success",
 				conn.From.Name(), conn.To.Name(), conn.Port, conn.Protocol)
 		}

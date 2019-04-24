@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/features/pilot"
 )
@@ -192,7 +193,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
+	push.Mutex.Lock()
 	ports, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -298,10 +301,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// hostname --> service account
 	svc2account := map[string]map[string]bool{}
 
-	for _, registry := range registries {
-		// Each registry acts as a shard - we don't want to combine them because some
-		// may individually update their endpoints incrementally
-		for _, svc := range push.Services(nil) {
+	// Each registry acts as a shard - we don't want to combine them because some
+	// may individually update their endpoints incrementally
+	for _, svc := range push.Services(nil) {
+		for _, registry := range registries {
+			// in case this svc does not belong to the registry
+			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
+				continue
+			}
+
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
@@ -412,7 +420,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
-	if cluster == "" {
+	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
+	if cluster == string(serviceregistry.KubernetesRegistry) {
 		pl := model.PortList{}
 		for k, v := range ports {
 			pl = append(pl, &model.Port{
@@ -664,7 +673,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
+	push.Mutex.Lock()
 	portMap, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
@@ -790,7 +801,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
+			// TODO(#12961) get outlierDetection from the cluster
+			// For now, we should default to allowing Failover rather than rejecting. Even if we do not know
+			// what the outlierDetection is for the Cluster, it is reasonable to require the user to provide
+			// outlier detection without enforcing this in code, as this is an alpha feature behind a flag.
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
 		}
 
 		endpoints += len(l.Endpoints)

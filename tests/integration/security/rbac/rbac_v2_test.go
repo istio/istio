@@ -15,6 +15,8 @@
 package rbac
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,23 +40,29 @@ const (
 )
 
 var (
-	inst                 istio.Instance
-	successIfAuthEnabled bool
+	inst          istio.Instance
+	isMtlsEnabled bool
 )
 
+type testCase struct {
+	request       connection.Connection
+	expectAllowed bool
+}
+
 func TestMain(m *testing.M) {
-	framework.Main("rbac_v2_test", m, istio.SetupOnKube(&inst, setupConfig))
+	framework.
+		NewSuite("rbac_v2", m).
+		// TODO(pitlv2109: Turn on the presubmit label once the test is stable.
+		RequireEnvironment(environment.Kube).
+		Setup(istio.SetupOnKube(&inst, setupConfig)).
+		Run()
 }
 
 func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	if cfg.IsMtlsEnabled() {
-		successIfAuthEnabled = true
-	} else {
-		successIfAuthEnabled = false
-	}
+	isMtlsEnabled = cfg.IsMtlsEnabled()
 	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
 }
 
@@ -75,40 +83,40 @@ func TestRBACV2(t *testing.T) {
 	appC, _ := appInst.GetAppOrFail("c", t).(apps.KubeApp)
 	appD, _ := appInst.GetAppOrFail("d", t).(apps.KubeApp)
 
-	connections := []connection.Connection{
-		// Port 80 is where HTTP is served, 90 is where TCP is served.
-		// In RBAC, ExpectedSuccess = true means that the client receives a valid, non-RBAC denied response from the server.
-		{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz", ExpectedSuccess: false},
-		{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: false},
-		{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appA, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: false},
-		{To: appA, From: appD, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
+	cases := []testCase{
+		// Port 80 is where HTTP is served, 90 is where TCP is served. When an HTTP request is at port
+		// 90, this means it is a TCP request. The test framework uses HTTP to mimic TCP calls in this case.
+		{request: connection.Connection{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, expectAllowed: false},
+		{request: connection.Connection{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: false},
+		{request: connection.Connection{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appA, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: false},
+		{request: connection.Connection{To: appA, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
 
-		{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz", ExpectedSuccess: successIfAuthEnabled},
-		{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret", ExpectedSuccess: false},
-		{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: successIfAuthEnabled},
-		{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: successIfAuthEnabled},
-		{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: successIfAuthEnabled},
-		{To: appB, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: successIfAuthEnabled},
-		{To: appB, From: appD, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: successIfAuthEnabled},
+		{request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret"}, expectAllowed: false},
+		{request: connection.Connection{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appB, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appB, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: isMtlsEnabled},
 
-		{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: false},
-		{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secrets/admin", ExpectedSuccess: false},
-		{To: appC, From: appA, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: false},
-		{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/credentials/admin", ExpectedSuccess: false},
-		{To: appC, From: appB, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: successIfAuthEnabled},
-		{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path/admin", ExpectedSuccess: false},
-		{To: appC, From: appD, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
+		{request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secrets/admin"}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/credentials/admin"}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: isMtlsEnabled},
+		{request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path/admin"}, expectAllowed: false},
+		{request: connection.Connection{To: appC, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
 
-		{To: appD, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz", ExpectedSuccess: true},
-		{To: appD, From: appA, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appD, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/", ExpectedSuccess: true},
-		{To: appD, From: appB, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
-		{To: appD, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path", ExpectedSuccess: true},
-		{To: appD, From: appC, Port: 90, Protocol: apps.AppProtocolTCP, ExpectedSuccess: false},
+		{request: connection.Connection{To: appD, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, expectAllowed: true},
+		{request: connection.Connection{To: appD, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appD, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, expectAllowed: true},
+		{request: connection.Connection{To: appD, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
+		{request: connection.Connection{To: appD, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path"}, expectAllowed: true},
+		{request: connection.Connection{To: appD, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, expectAllowed: false},
 	}
 
 	testDir := ctx.WorkDir()
@@ -120,11 +128,50 @@ func TestRBACV2(t *testing.T) {
 	// Sleep 5 seconds for the policy to take effect.
 	// TODO(pitlv2109: Check to make sure policies have been created instead.
 	time.Sleep(5 * time.Second)
-	for _, conn := range connections {
+	for _, tc := range cases {
 		retry.UntilSuccessOrFail(t, func() error {
-			return connection.CheckConnection(t, conn)
+			return checkRBACRequest(tc)
 		}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 	}
+}
+
+// checkRBACRequest checks if a request is successful under RBAC policies.
+// Under RBAC policies, a request is consider successful if:
+// * If the policy is deny:
+// *** For HTTP: response code is 403
+// *** For TCP: EOF error
+// * If the policy is allow:
+// *** Response code is 200
+func checkRBACRequest(tc testCase) error {
+	req := tc.request
+	ep := req.To.EndpointForPort(req.Port)
+	if ep == nil {
+		return fmt.Errorf("cannot get upstream endpoint for connection test %v", req)
+	}
+	resp, err := req.From.Call(ep, apps.AppCallOptions{Protocol: req.Protocol, Path: req.Path})
+	if err != nil && !strings.Contains(err.Error(), "EOF") {
+		return fmt.Errorf("connection error with %v", err)
+	}
+	if tc.expectAllowed {
+		if !(len(resp) > 0 && resp[0].Code == connection.AllowHTTPRespCode) {
+			return fmt.Errorf("%s to %s:%d%s using %s: expected allow, actually deny",
+				req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
+		}
+	} else {
+		if req.Port == connection.TCPPort {
+			if !strings.Contains(err.Error(), "EOF") {
+				return fmt.Errorf("%s to %s:%d%s using %s: expected deny with EOF error, actually %v",
+					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, err)
+			}
+		} else {
+			if !(len(resp) > 0 && resp[0].Code == connection.DenyHTTPRespCode) {
+				return fmt.Errorf("%s to %s:%d%s using %s: expected deny, actually allow",
+					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
+			}
+		}
+	}
+	// Success
+	return nil
 }
 
 // getRbacYamlFiles fills the template RBAC policy files with the given namespace, writes the files to outDir

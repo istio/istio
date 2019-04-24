@@ -421,12 +421,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
-
-	var workloadLabels LabelsCollection
-	for _, w := range proxyInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels LabelsCollection) *SidecarScope {
 
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
@@ -956,4 +951,13 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 		return err
 	}
 	return nil
+}
+
+// AddVirtualServiceForTesting adds a virtual service to the push context.
+// It is to be used for TESTING ONLY.
+func (ps *PushContext) AddVirtualServiceForTesting(config *Config) {
+	// check if the config is a virtual service
+	if config.Type == VirtualService.Type {
+		ps.publicVirtualServices = append(ps.publicVirtualServices, *config)
+	}
 }

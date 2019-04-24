@@ -1,0 +1,45 @@
+# Configuration for metric instances
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: doublerequestcount
+  namespace: istio-system
+spec:
+  compiledTemplate: metric
+  params:
+    value: "2" # count each request twice
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+      source: source.workload.name | "unknown"
+      destination: destination.workload.name | "unknown"
+      message: '"twice the fun!"'
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Configuration for a Prometheus handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: doublehandler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: double_request_count # Prometheus metric name
+    instance_name: doublerequestcount.instance.istio-system # Mixer instance name (fully-qualified)
+    kind: COUNTER
+    label_names:
+    - reporter
+    - source
+    - destination
+    - message
+---
+# Rule to send metric instances to a Prometheus handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: doubleprom
+  namespace: istio-system
+spec:
+  actions:
+  - handler: doublehandler.prometheus
+    instances:
+    - doublerequestcount

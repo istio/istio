@@ -200,6 +200,10 @@ type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
 
+	// Name of the (go) object define the schema. Leave blank to infer from the 'Type' below.
+	// This field is used to generate Kube CRD types map (pilot/pkg/config/kube/crd/types.go).
+	SchemaObjectName string
+
 	// Type is the config proto type.
 	Type string
 
@@ -448,25 +452,27 @@ var (
 
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
-		Type:        "policy",
-		Plural:      "policies",
-		Group:       "authentication",
-		Version:     "v1alpha1",
-		MessageName: "istio.authentication.v1alpha1.Policy",
-		Validate:    ValidateAuthenticationPolicy,
-		Collection:  metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
+		SchemaObjectName: "AuthenticationPolicy",
+		Type:             "policy",
+		Plural:           "policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Policies.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
 	AuthenticationMeshPolicy = ProtoSchema{
-		ClusterScoped: true,
-		Type:          "mesh-policy",
-		Plural:        "mesh-policies",
-		Group:         "authentication",
-		Version:       "v1alpha1",
-		MessageName:   "istio.authentication.v1alpha1.Policy",
-		Validate:      ValidateAuthenticationPolicy,
-		Collection:    metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
+		ClusterScoped:    true,
+		SchemaObjectName: "AuthenticationMeshPolicy",
+		Type:             "mesh-policy",
+		Plural:           "mesh-policies",
+		Group:            "authentication",
+		Version:          "v1alpha1",
+		MessageName:      "istio.authentication.v1alpha1.Policy",
+		Validate:         ValidateAuthenticationPolicy,
+		Collection:       metadata.IstioAuthenticationV1alpha1Meshpolicies.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.

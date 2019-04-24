@@ -18,11 +18,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Main runs the test suite. The Main will run the supplied setup functions before starting test execution.
 // It will not return, and will exit the process after running tests.
-func Main(testID string, m *testing.M, setupFn ...SetupFn) {
+func Main(testID string, m *testing.M, setupFn ...resource.SetupFn) {
 	r := NewSuite(testID, m)
 	for _, fn := range setupFn {
 		r = r.Setup(fn)

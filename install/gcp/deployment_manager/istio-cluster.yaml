@@ -15,6 +15,5 @@ resources:
     enablePrometheus: true
     enableGrafana: true
     enableTracing: true
-    enableServiceGraph: true
     enableBookInfoSample: true
     installIstioRelease: 1.0.0

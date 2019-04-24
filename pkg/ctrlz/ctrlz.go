@@ -195,7 +195,8 @@ func (s *Server) listen() {
 // Close is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func (s *Server) Close() {
-	log.Info("Closing closing ControlZ")
+	log.Info("Closing ControlZ")
+
 	if s.listener != nil {
 		if err := s.listener.Close(); err != nil {
 			log.Warnf("Error closing ControlZ: %v", err)

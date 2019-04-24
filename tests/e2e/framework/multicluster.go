@@ -139,6 +139,53 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 	return nil
 }
 
+func (k *KubeInfo) generateRemoteIstioForSplitHorizon(dst string, network string, proxyHub, proxyTag string) (err error) {
+	// Get the ingress gateway address of the primary cluster
+	var primaryGwAddr string
+	if k.localCluster {
+		primaryGwAddr, err = util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+			k.Namespace, k.KubeConfig, util.NodePortServiceType, false)
+	} else {
+		primaryGwAddr, err = util.GetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType, false)
+	}
+	if err != nil {
+		log.Errora("failed to get the ingress gateway address of the primary cluster", err)
+		return err
+	}
+
+	var helmSetContent string
+	helmSetContent += " --set global.mtls.enabled=true"
+	helmSetContent += " --set gateways.enabled=true"
+	helmSetContent += " --set security.selfSigned=false"
+	helmSetContent += " --set global.controlPlaneSecurityEnabled=true"
+	helmSetContent += " --set global.createRemoteSvcEndpoints=true"
+	helmSetContent += " --set global.remotePilotCreateSvcEndpoint=true"
+	helmSetContent += " --set global.remotePilotAddress=" + primaryGwAddr
+	helmSetContent += " --set global.remotePolicyAddress=" + primaryGwAddr
+	helmSetContent += " --set global.remoteTelemetryAddress=" + primaryGwAddr
+	helmSetContent += " --set gateways.istio-ingressgateway.env.ISTIO_META_NETWORK=\"" + network + "\""
+	helmSetContent += " --set global.network=\"" + network + "\""
+	if proxyHub != "" && proxyTag != "" {
+		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
+	}
+
+	err = util.HelmClientInit()
+	if err != nil {
+		log.Errorf("couldn't run helm init %v", err)
+		return err
+	}
+
+	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio")
+	helmSetContent += " --values " + filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio/values-istio-remote.yaml")
+	err = util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
+	if err != nil {
+		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
+		return err
+	}
+	return nil
+}
+
 func (k *KubeInfo) createCacerts(remoteCluster bool) (err error) {
 	kc := k.KubeConfig
 	cluster := "primary"

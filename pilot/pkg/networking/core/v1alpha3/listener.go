@@ -746,18 +746,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Name:     egressListener.IstioListener.Port.Name,
 				}
 
-				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
-				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// Bind IP + Port is specified, we will bind to the specified IP and Port.
+				// This specified IP is ideally expected to be a loopback IP.
+				//
+				// If capture mode is NONE i.e., bindToPort is true, and
+				// only Port is specified, we will bind to the default loopback IP
+				// 127.0.0.1 and the specified Port.
+				//
+				// If capture mode is NONE, i.e., bindToPort is true, and
+				// only Bind IP is specified, we will bind to the specified IP
+				// for each port as defined in the service registry.
+				//
+				// If captureMode is not NONE, i.e., bindToPort is false, then
 				// we will bind to user specified IP (if any) or to the VIPs of services in
 				// this egress listener.
-				bind := ""
-				if bindToPort {
+				bind := egressListener.IstioListener.Bind
+				if bindToPort && bind == "" {
 					bind = actualLocalHostAddress
-				} else {
-					bind = egressListener.IstioListener.Bind
-					if len(bind) == 0 {
-						bind = actualWildcard
-					}
+				} else if len(bind) == 0 {
+					bind = actualWildcard
 				}
 
 				for _, service := range services {
@@ -812,7 +820,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				bind := ""
-				if bindToPort {
+				if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
+					bind = egressListener.IstioListener.Bind
+				}
+				if bindToPort && bind == "" {
 					bind = actualLocalHostAddress
 				}
 				for _, service := range services {
@@ -1078,6 +1089,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
+	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node)
+
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
 		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
@@ -1549,6 +1562,44 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,
+	}
+}
+
+// appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
+// PassthroughCluster. This should be appended as the final filter or it will mask the others.
+// This allows external https traffic, even when port the port (usually 443) is in use by another service.
+func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy) {
+	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
+	if pilot.EnableFallthroughRoute() &&
+		opts.env.Mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+
+		wildcardMatch := &listener.FilterChainMatch{}
+		for _, fc := range l.FilterChains {
+			if fc.FilterChainMatch == nil || fc.FilterChainMatch == wildcardMatch {
+				// We can only have one wildcard match. If the filter chain already has one, skip it
+				// This happens in the case of HTTP, which will get a fallthrough route added later,
+				// or TCP, which is not supported
+				return
+			}
+		}
+		tcpFilter := listener.Filter{
+			Name: xdsutil.TCPProxy,
+		}
+		config := &tcp_proxy.TcpProxy{
+			StatPrefix:       util.PassthroughCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+		}
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+		} else {
+			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		}
+
+		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
+			networkFilters: []listener.Filter{tcpFilter},
+		})
+		l.FilterChains = append(l.FilterChains, listener.FilterChain{FilterChainMatch: wildcardMatch})
+
 	}
 }
 
