@@ -169,6 +169,8 @@ export ISTIO_ENVOY_DEBUG_PATH ?= ${ISTIO_ENVOY_DEBUG_DIR}/${ISTIO_ENVOY_DEBUG_NA
 export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
 export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
+GOOS_HOST:=$(shell GOOS= $(GO) env GOOS)
+ISTIO_HOST_OUT:=$(GO_TOP)/out/$(GOOS_HOST)
 
 GO_VERSION_REQUIRED:=1.10
 
@@ -324,10 +326,13 @@ endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
-istioctl ${ISTIO_OUT}/istioctl:
+istioctl ${ISTIO_OUT}/istioctl: ${ISTIO_HOST_OUT}/istioctl
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
-	${ISTIO_OUT}/istioctl collateral --bash && \
+	${ISTIO_HOST_OUT}/istioctl collateral --bash && \
 	mv istioctl.bash ${ISTIO_OUT}/tools
+
+${ISTIO_HOST_OUT}/istioctl:
+	GOOS=$(GOOS_HOST) bin/gobuild.sh ${ISTIO_HOST_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
