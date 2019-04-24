@@ -524,6 +524,18 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
+	// when proxy config namespace equals root namespace
+	// search for the namespace local rules at last
+	if proxy.ConfigNamespace == ps.Env.Mesh.RootNamespace {
+		// search through the DestinationRules in proxy's namespace
+		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+			if host, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+			}
+		}
+	}
+
 	return nil
 }
 
