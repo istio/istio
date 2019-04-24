@@ -68,7 +68,7 @@ function run_envvar_lint() {
 
 function run_golangcilint() {
     echo 'Running golangci-lint ...'
-    env GOGC=50 golangci-lint run -j 1 -v ./...
+    env GOGC=25 golangci-lint run -j 1 -v ./...
 }
 
 function run_helm_lint() {
