@@ -16,7 +16,7 @@
 
 
 from __future__ import print_function
-from flask import Flask, request, session, render_template, redirect, url_for
+from flask import Flask, request, session, render_template, redirect, url_for, send_from_directory
 from flask import _request_ctx_stack as stack
 from jaeger_client import Tracer, ConstSampler
 from jaeger_client.reporter import NullReporter
@@ -42,7 +42,7 @@ except ImportError:
     import httplib as http_client
 http_client.HTTPConnection.debuglevel = 1
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='/opt/microservices/static')
 logging.basicConfig(filename='microservice.log',filemode='w',level=logging.DEBUG)
 requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
@@ -275,6 +275,10 @@ def ratingsRoute(product_id):
     status, ratings = getProductRatings(product_id, headers)
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
 
+
+@app.route('/static/<path:path>')
+def send_js(path):
+    return send_from_directory(app.static_folder, path)
 
 
 # Data providers:
