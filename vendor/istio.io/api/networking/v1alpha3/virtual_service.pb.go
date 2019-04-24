@@ -2305,7 +2305,7 @@ func (m *HTTPFaultInjection) GetAbort() *HTTPFaultInjection_Abort {
 //     fault:
 //       delay:
 //         percentage:
-//           value: 0.001
+//           value: 0.1
 //         fixedDelay: 5s
 // ```
 //
@@ -2507,7 +2507,7 @@ func _HTTPFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
 //     fault:
 //       abort:
 //         percentage:
-//           value: 0.001
+//           value: 0.1
 //         httpStatus: 400
 // ```
 //

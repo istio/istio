@@ -1037,7 +1037,7 @@ message HTTPFaultInjection {
   //     fault:
   //       delay:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         fixedDelay: 5s
   // ```
   //
@@ -1083,7 +1083,7 @@ message HTTPFaultInjection {
   //     fault:
   //       abort:
   //         percentage:
-  //           value: 0.001
+  //           value: 0.1
   //         httpStatus: 400
   // ```
   //
