@@ -268,6 +268,11 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Support multiple network interfaces
 	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
 
+	if config.Sds.Enabled {
+		opts["sdsEnabled"] = true
+		opts["k8sJwtPath"] = config.Sds.K8SSaJwtPath
+	}
+
 	ba, err := json.Marshal(meta)
 	if err != nil {
 		return "", err

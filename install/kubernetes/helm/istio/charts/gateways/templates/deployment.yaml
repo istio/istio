@@ -162,6 +162,15 @@ spec:
           - istio-pilot:15010
           {{- end }}
         {{- end }}
+        {{- if $.Values.global.sds.enabled }}
+          - --sdsEnabled=true
+          - --k8sServiceAccountJWTPath
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - "/var/run/secrets/tokens/istio-token"
+          {{- else }}
+          - "/var/run/secrets/kubernetes.io/serviceaccount/token"
+          {{- end }}
+        {{- end }}
         {{- if $.Values.global.trustDomain }}
           - --trust-domain={{ $.Values.global.trustDomain }}
         {{- end }}
