@@ -365,7 +365,7 @@ func TestLBServiceConversion(t *testing.T) {
 		t.Errorf("could not convert external service")
 	}
 
-	if len(service.Attributes.LoadBalancerAddresses) == 0 {
+	if len(service.Attributes.ExternalAddresses) == 0 {
 		t.Errorf("no load balancer addresses found")
 	}
 
@@ -376,9 +376,9 @@ func TestLBServiceConversion(t *testing.T) {
 		} else {
 			want = addr.Hostname
 		}
-		got := service.Attributes.LoadBalancerAddresses[i]
+		got := service.Attributes.ExternalAddresses[i]
 		if got != want {
-			t.Errorf("Expected address %s but got %s", want, service.Attributes.LoadBalancerAddresses[i])
+			t.Errorf("Expected address %s but got %s", want, service.Attributes.ExternalAddresses[i])
 		}
 	}
 }

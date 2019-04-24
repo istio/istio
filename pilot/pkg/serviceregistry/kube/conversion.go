@@ -134,11 +134,11 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:                  svc.Name,
-			Namespace:             svc.Namespace,
-			UID:                   fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ExportTo:              exportTo,
-			LoadBalancerAddresses: lbAddrs,
+			Name:              svc.Name,
+			Namespace:         svc.Namespace,
+			UID:               fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ExportTo:          exportTo,
+			ExternalAddresses: lbAddrs,
 		},
 	}
 }

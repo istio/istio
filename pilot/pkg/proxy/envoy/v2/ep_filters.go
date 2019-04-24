@@ -206,7 +206,7 @@ func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName 
 	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
 		svc, _ := env.GetService(model.Hostname(gwSvcName))
 		if svc != nil {
-			return svc.LoadbalancerAddresses[registryName]
+			return svc.ExternalAddresses[registryName]
 		}
 	}
 
