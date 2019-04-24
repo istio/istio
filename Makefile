@@ -44,7 +44,7 @@
 SHELL := /bin/bash
 
 BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-GOPATH = $(shell cd ${BASE}/../../../..; pwd)
+GOPATH ?= $(shell cd ${BASE}/../../../..; pwd)
 TOP ?= $(GOPATH)
 export GOPATH
 # TAG of the last stable release of istio. Used for upgrade testing and to verify istioctl.
@@ -288,8 +288,8 @@ run-simple-strict: ${TMPDIR}
 
 run-bookinfo-demo:
 	kubectl create ns bookinfo-demo || /bin/true
-	kubectl -n simple apply -f test/k8s/mtls_permissive.yaml
-	kubectl -n simple apply -f test/k8s/sidecar-local.yaml
+	kubectl -n bookinfo-demo apply -f test/k8s/mtls_permissive.yaml
+	kubectl -n bookinfo-demo apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_bookinfo_run ${TEST_FLAGS} \
 		E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 
