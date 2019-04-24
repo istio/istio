@@ -19,12 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -64,11 +66,11 @@ func TestConversion(t *testing.T) {
 
 					t.Logf("==== Running iter: %d\n", i)
 					if len(d.FileSets()) == 1 {
-						runTest(t, fset, gal)
+						runTest(t, ctx, fset, gal)
 					} else {
 						testName := fmt.Sprintf("%d", i)
 						t.Run(testName, func(t *testing.T) {
-							runTest(t, fset, gal)
+							runTest(t, ctx, fset, gal)
 						})
 					}
 				}
@@ -77,7 +79,7 @@ func TestConversion(t *testing.T) {
 	}
 }
 
-func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
+func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal galley.Instance) {
 	input, err := fset.LoadInputFile()
 	if err != nil {
 		t.Fatalf("Unable to load input test data: %v", err)
@@ -96,7 +98,9 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	// We should do Ctrlz trigger based approach.
 	time.Sleep(time.Second)
 
-	if err = gal.ApplyConfig(nil, string(input)); err != nil {
+	ns := namespace.NewOrFail(t, ctx, "conv", true)
+
+	if err = gal.ApplyConfig(ns, string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)
 	}
 
@@ -193,11 +197,9 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 }
 
 func TestMain(m *testing.M) {
-	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
-	// component
 	framework.
 		NewSuite("galley_conversion", m).
 		Label(label.Presubmit).
-		RequireEnvironment(environment.Native).
+		Setup(istio.SetupOnKube(nil, nil)).
 		Run()
 }
