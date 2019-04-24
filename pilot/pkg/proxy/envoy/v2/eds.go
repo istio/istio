@@ -202,7 +202,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 	// Check that there is a matching port
 	// We don't use the port though, as there could be multiple matches
-	_, found := ports.GetByPort(clusterPort)
+	svcPort, found := ports.GetByPort(clusterPort)
 	if !found {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -215,55 +215,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	cnt := 0
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
-
-	se.mutex.RLock()
-	// The shards are updated independently, now need to filter and merge
-	// for this cluster
-	for _, endpoints := range se.Shards {
-		for _, ep := range endpoints {
-			for _, port := range ports {
-				if port.Port != clusterPort || port.Name != ep.ServicePortName {
-					continue
-				}
-				// Port labels
-				if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
-					continue
-				}
-				cnt++
-
-				locLbEps, found := localityEpMap[ep.Locality]
-				if !found {
-					locLbEps = &endpoint.LocalityLbEndpoints{
-						Locality: util.ConvertLocality(ep.Locality),
-					}
-					localityEpMap[ep.Locality] = locLbEps
-				}
-				if ep.EnvoyEndpoint == nil {
-					ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
-				}
-				locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
-			}
-		}
-	}
-	se.mutex.RUnlock()
-
-	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
-	for _, locLbEps := range localityEpMap {
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
-		}
-		locEps = append(locEps, *locLbEps)
-	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
-	if cnt == 0 {
-		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-	}
-	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
-
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -637,12 +589,12 @@ func connectionID(node string) string {
 
 // loadAssignmentsForClusterLegacy return the pre-computed, 1.0-style endpoints for a cluster
 func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContext,
-	clusterName string) (*xdsapi.ClusterLoadAssignment, bool) {
+	clusterName string) *xdsapi.ClusterLoadAssignment {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		totalXDSInternalErrors.Add(1)
 		adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
-		return nil, false
+		return nil
 	}
 
 	l := loadAssignment(c)
@@ -650,29 +602,25 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 		if err := s.updateCluster(push, clusterName, c); err != nil {
 			adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 			totalXDSInternalErrors.Add(1)
-			return nil, false
+			return nil
 		}
 		l = loadAssignment(c)
 	}
 
-	return l, true
-
+	return l
 }
 
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
 func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string) (*xdsapi.ClusterLoadAssignment, bool) {
+	clusterName string) *xdsapi.ClusterLoadAssignment {
 	// TODO: fail-safe, use the old implementation based on some flag.
 	// Users who make sure all DestinationRules are in the right namespace and don't have override may turn it on
 	// (some very-large scale customers are in this category)
 
 	// This code is similar with the update code.
-	var hostname model.Hostname
-	var port int
-	var subsetName string
-	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
+	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -705,58 +653,12 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
-	// TODO: refactor this code, shared with UpdateClusterInc (which may go away in 1.2, so low priority)
-	cnt := 0
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
-
-	se.mutex.RLock()
-	// The shards are updated independently, now need to filter and merge
-	// for this cluster
-	for _, endpoints := range se.Shards {
-		for _, ep := range endpoints {
-			if svcPort.Name != ep.ServicePortName {
-				continue
-			}
-			// Port labels
-			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
-				continue
-			}
-			cnt++
-
-			locLbEps, found := localityEpMap[ep.Locality]
-			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
-				}
-				localityEpMap[ep.Locality] = locLbEps
-			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
-			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
-		}
-	}
-	se.mutex.RUnlock()
-
-	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
-	for _, locLbEps := range localityEpMap {
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
-		}
-		locEps = append(locEps, *locLbEps)
-	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
-	if cnt == 0 {
-		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-	}
-	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
+	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, labels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
-	}, true
+	}
 }
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
@@ -781,15 +683,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		}
 
 		var l *xdsapi.ClusterLoadAssignment
-		var ok bool
 		// decide which to use based on presence of Sidecar.
 		if sidecarScope == nil || sidecarScope.Config == nil || len(pilot.DisableEDSIsolation) != 0 {
-			l, ok = s.loadAssignmentsForClusterLegacy(push, clusterName)
+			l = s.loadAssignmentsForClusterLegacy(push, clusterName)
 		} else {
-			l, ok = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
+			l = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
 		}
 
-		if !ok {
+		if l == nil {
 			continue
 		}
 
@@ -931,4 +832,60 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) 
 	}
 
 	return out
+}
+
+// build LocalityLbEndpoints for a cluster from existing EndpointShards.
+func buildLocalityLbEndpointsFromShards(
+	shards *EndpointShards,
+	svcPort *model.Port,
+	labels model.LabelsCollection,
+	clusterName string,
+	push *model.PushContext) []endpoint.LocalityLbEndpoints {
+	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+
+	shards.mutex.RLock()
+	// The shards are updated independently, now need to filter and merge
+	// for this cluster
+	for _, endpoints := range shards.Shards {
+		for _, ep := range endpoints {
+			if svcPort.Name != ep.ServicePortName {
+				continue
+			}
+			// Port labels
+			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
+				continue
+			}
+
+			locLbEps, found := localityEpMap[ep.Locality]
+			if !found {
+				locLbEps = &endpoint.LocalityLbEndpoints{
+					Locality: util.ConvertLocality(ep.Locality),
+				}
+				localityEpMap[ep.Locality] = locLbEps
+			}
+			if ep.EnvoyEndpoint == nil {
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+			}
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
+
+		}
+	}
+	shards.mutex.RUnlock()
+
+	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	for _, locLbEps := range localityEpMap {
+		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEps.LbEndpoints)),
+		}
+		locEps = append(locEps, *locLbEps)
+	}
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
+
+	if len(locEps) == 0 {
+		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+	}
+	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(locEps)))
+
+	return locEps
 }
