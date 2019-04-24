@@ -12,27 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agent
+package forwarder
 
 import (
-	"net"
-
-	"istio.io/istio/pkg/test/echo/server"
-	"istio.io/istio/pkg/test/envoy"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/reserveport"
+	"bytes"
+	"fmt"
+	"net/http"
+	"net/textproto"
 )
 
-type Config struct {
-	Domain           string
-	Namespace        namespace.Instance
-	Galley           galley.Instance
-	EchoServer       *server.Instance
-	PortManager      reserveport.PortManager
-	ServiceName      string
-	Version          string
-	DiscoveryAddress *net.TCPAddr
-	TmpDir           string
-	EnvoyLogLevel    envoy.LogLevel
+const (
+	hostHeader = "Host"
+)
+
+func writeHeaders(requestID int, header http.Header, outBuffer bytes.Buffer, addFn func(string, string)) {
+	for key, values := range header {
+		key = textproto.CanonicalMIMEHeaderKey(key)
+		for _, v := range values {
+			addFn(key, v)
+			if key == hostHeader {
+				outBuffer.WriteString(fmt.Sprintf("[%d] Host=%s\n", requestID, v))
+			} else {
+				outBuffer.WriteString(fmt.Sprintf("[%d] Header=%s:%s\n", requestID, key, v))
+			}
+		}
+	}
 }

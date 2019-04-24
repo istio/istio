@@ -46,7 +46,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # generates rules like the following:
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
-DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-application-echo-client pkg-test-application-echo-server \
+DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-echo-cmd-client pkg-test-echo-cmd-server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
@@ -148,8 +148,8 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 
 # Test application
 docker.app: tests/docker/Dockerfile.app
-docker.app: $(ISTIO_OUT)/pkg-test-application-echo-client
-docker.app: $(ISTIO_OUT)/pkg-test-application-echo-server
+docker.app: $(ISTIO_OUT)/pkg-test-echo-cmd-client
+docker.app: $(ISTIO_OUT)/pkg-test-echo-cmd-server
 docker.app: tests/testdata/certs/cert.crt
 docker.app: tests/testdata/certs/cert.key
 	mkdir -p $(ISTIO_DOCKER)/testapp
