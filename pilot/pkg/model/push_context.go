@@ -663,21 +663,21 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
-		for i, h := range rule.Hosts {
-			rule.Hosts[i] = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
+		for _, h := range rule.Hosts {
+			h = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
 		}
 		// resolve gateways to bind to
-		for i, g := range rule.Gateways {
+		for _, g := range rule.Gateways {
 			if g != IstioMeshGateway {
-				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
+				g = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
 		// resolve host in http route.destination, route.mirror
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
-				for i, g := range m.Gateways {
+				for _, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
+						g = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
@@ -691,9 +691,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		//resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
-				for i, g := range m.Gateways {
+				for _, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
+						g = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
@@ -704,9 +704,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		//resolve host in tls route.destination
 		for _, tls := range rule.Tls {
 			for _, m := range tls.Match {
-				for i, g := range m.Gateways {
+				for _, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
+						g = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
@@ -870,26 +870,26 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		destRule: map[Hostname]*combinedDestinationRule{},
 	}
 
-	for i := range configs {
-		rule := configs[i].Spec.(*networking.DestinationRule)
-		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta))
+	for _, config := range configs {
+		rule := config.Spec.(*networking.DestinationRule)
+		rule.Host = string(ResolveShortnameToFQDN(rule.Host, config.ConfigMeta))
 		// Store in an index for the config's namespace
 		// a proxy from this namespace will first look here for the destination rule for a given service
 		// This pool consists of both public/private destination rules.
 		// TODO: when exportTo is fully supported, only add the rule here if exportTo is '.'
 		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
-		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
-			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
+		if _, exist := namespaceLocalDestRules[config.Namespace]; !exist {
+			namespaceLocalDestRules[config.Namespace] = &processedDestRules{
 				hosts:    make([]Hostname, 0),
 				destRule: map[Hostname]*combinedDestinationRule{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
-			namespaceLocalDestRules[configs[i].Namespace].hosts,
-			namespaceLocalDestRules[configs[i].Namespace].destRule,
-			configs[i])
+		namespaceLocalDestRules[config.Namespace].hosts, _ = ps.combineSingleDestinationRule(
+			namespaceLocalDestRules[config.Namespace].hosts,
+			namespaceLocalDestRules[config.Namespace].destRule,
+			config)
 
 		isPubliclyExported := false
 		if len(rule.ExportTo) == 0 {
@@ -909,23 +909,23 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		}
 
 		if isPubliclyExported {
-			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
-				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
+			if _, exist := namespaceExportedDestRules[config.Namespace]; !exist {
+				namespaceExportedDestRules[config.Namespace] = &processedDestRules{
 					hosts:    make([]Hostname, 0),
 					destRule: map[Hostname]*combinedDestinationRule{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
-				namespaceExportedDestRules[configs[i].Namespace].hosts,
-				namespaceExportedDestRules[configs[i].Namespace].destRule,
-				configs[i])
+			namespaceExportedDestRules[config.Namespace].hosts, _ = ps.combineSingleDestinationRule(
+				namespaceExportedDestRules[config.Namespace].hosts,
+				namespaceExportedDestRules[config.Namespace].destRule,
+				config)
 
 			// Merge this destination rule with any public dest rule for the same host
 			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
 			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
-				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
+				allExportedDestRules.hosts, allExportedDestRules.destRule, config)
 		}
 	}
 
