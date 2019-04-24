@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rbac
+package grouplist
 
 import (
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio"
+
+	"istio.io/istio/tests/integration/security/rbac/util"
 
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -31,7 +35,8 @@ import (
 )
 
 const (
-	rbacGroupListRulesTmpl = "testdata/grouplist/istio-group-list-rbac-rules.yaml.tmpl"
+	rbacClusterConfigTmpl  = "testdata/istio-clusterrbacconfig.yaml.tmpl"
+	rbacGroupListRulesTmpl = "testdata/istio-group-list-rbac-rules.yaml.tmpl"
 	groupsScopeJwt         = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
 		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjM1MzczOTExMDQsImdyb3VwcyI6WyJncm91cD" +
 		"EiLCJncm91cDIiXSwiaWF0IjoxNTM3MzkxMTA0LCJpc3MiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyIsInNjb3BlI" +
@@ -42,6 +47,27 @@ const (
 		"NUGeLUcif3wpry1R5tBXRicx2sXMQ7LyuDremDbcNy_iE76Upg"
 	rbacTestRejectionCode = "401"
 )
+
+var (
+	inst          istio.Instance
+	isMtlsEnabled bool
+)
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	isMtlsEnabled = cfg.IsMtlsEnabled()
+	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
+}
+
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("rbac_group_list", m).
+		RequireEnvironment(environment.Kube).
+		Setup(istio.SetupOnKube(&inst, setupConfig)).
+		Run()
+}
 
 func TestGroupListRBAC(t *testing.T) {
 	ctx := framework.NewContext(t)
@@ -59,18 +85,18 @@ func TestGroupListRBAC(t *testing.T) {
 	appB, _ := appInst.GetAppOrFail("b", t).(apps.KubeApp)
 	appC, _ := appInst.GetAppOrFail("c", t).(apps.KubeApp)
 
-	cases := []testCase{
+	cases := []util.TestCase{
 		// Port 80 is where HTTP is served
-		{request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, expectAllowed: false},
-		{request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, jwt: groupsScopeJwt, expectAllowed: true},
-		{request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, expectAllowed: false},
-		{request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, jwt: groupsScopeJwt, expectAllowed: true},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true},
 	}
 
 	testDir := ctx.WorkDir()
 	testNameSpace := appInst.Namespace().Name()
 	rbacTmplFiles := []string{rbacClusterConfigTmpl, rbacGroupListRulesTmpl}
-	rbacYamlFiles := getRbacYamlFiles(t, testDir, testNameSpace, rbacTmplFiles)
+	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, testNameSpace, rbacTmplFiles)
 
 	policy.ApplyPolicyFiles(t, env, testNameSpace, rbacYamlFiles)
 
@@ -78,7 +104,7 @@ func TestGroupListRBAC(t *testing.T) {
 	time.Sleep(60 * time.Second)
 	for _, tc := range cases {
 		retry.UntilSuccessOrFail(t, func() error {
-			return checkRBACRequest(tc, rbacTestRejectionCode)
+			return util.CheckRBACRequest(tc, rbacTestRejectionCode)
 		}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
 	}
 }
