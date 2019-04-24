@@ -47,8 +47,6 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		// Deploy Istio on the cluster
 		Setup(istio.SetupOnKube(nil, setupMeshExpansionInstall)).
-		// Create a VM instance before running the test.
-		Setup(resource.SetupFn(setupVMInstance)).
 		Run()
 }
 
@@ -70,34 +68,46 @@ func setupVMInstance(ctx resource.Context) error {
 	return nil
 }
 
-// TODO(incfly): change to config_dump and convert to xDS proto might be better.
 func TestIstioControlPlaneReachability(t *testing.T) {
-	// Retry several times to reduce the flakes.
-	output := ""
-	var err error
-	for i := 0; i < 10; i++ {
-		output, err = vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
-		if err == nil && output != "" {
-			log.Infof("succussfully get envoy config")
-			break
-		}
-		if err != nil {
-			log.Errorf("[Attempt %v] VM instance failed to get Envoy CDS, %v\n", i, err)
-		}
-		time.Sleep(time.Second * 5)
+	testContext := framework.NewContext(t)
+	defer testContext.Done(t)
+	// Create a VM instance before running the test.
+	// We do this setup in Test method instead of suite since the suite setup can't be supported on
+	// some environments yet, for example, circleci.
+	if err := setupVMInstance(testContext); err != nil {
+		t.Errorf("failed to setup VM instance")
 	}
-	if output == "" {
-		t.Errorf("failed to get Envoy cluster config")
-	}
-	// Examine sidecar CDS config to see if control plane exists or not.
-	for _, cluster := range []string{
-		"istio-pilot.istio-system.svc.cluster.local",
-		"istio-citadel.istio-system.svc.cluster.local",
-	} {
-		if !strings.Contains(output, cluster) {
-			t.Errorf("%v not found in VM sidecar CDS config", cluster)
-		}
-	}
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			// Retry several times to reduce the flakes.
+			output := ""
+			var err error
+			for i := 0; i < 10; i++ {
+				// TODO(incfly): change to config_dump and convert to xDS proto might be better.
+				output, err = vmInstance.Execute(`/bin/sh -c 'curl localhost:15000/clusters'`)
+				if err == nil && output != "" {
+					log.Infof("succussfully get envoy config")
+					break
+				}
+				if err != nil {
+					log.Errorf("[Attempt %v] VM instance failed to get Envoy CDS, %v\n", i, err)
+				}
+				time.Sleep(time.Second * 5)
+			}
+			if output == "" {
+				t.Errorf("failed to get Envoy cluster config")
+			}
+			// Examine sidecar CDS config to see if control plane exists or not.
+			for _, cluster := range []string{
+				"istio-pilot.istio-system.svc.cluster.local",
+				"istio-citadel.istio-system.svc.cluster.local",
+			} {
+				if !strings.Contains(output, cluster) {
+					t.Errorf("%v not found in VM sidecar CDS config", cluster)
+				}
+			}
+		})
+
 }
 
 // TestKubernetesToVM sends a request to a pod in Kubernetes cluster, then the pod sends the request
