@@ -265,12 +265,12 @@ message IstioEgressListener {
   Port port = 1;
 
   // The ip or the Unix domain socket to which the listener should be bound
-  // to. Port MUST be specified if bind is not empty. Format: `x.x.x.x` or
+  // to. Port MUST be specified if bind is not an ip. Format: `x.x.x.x` or
   // `unix:///path/to/uds` or `unix://@foobar` (Linux abstract namespace). If
   // omitted, Istio will automatically configure the defaults based on imported
   // services, the workload to which this configuration is applied to and
   // the captureMode. If captureMode is NONE, bind will default to
-  // 127.0.0.1.
+  // 127.0.0.1 if no loopback ip is specified.
   string bind = 2;
 
   // When the bind address is an IP, the captureMode option dictates

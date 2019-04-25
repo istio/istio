@@ -219,7 +219,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
+	push.Mutex.Lock()
 	ports, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -329,10 +331,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// hostname --> service account
 	svc2account := map[string]map[string]bool{}
 
-	for _, registry := range registries {
-		// Each registry acts as a shard - we don't want to combine them because some
-		// may individually update their endpoints incrementally
-		for _, svc := range push.Services(nil) {
+	// Each registry acts as a shard - we don't want to combine them because some
+	// may individually update their endpoints incrementally
+	for _, svc := range push.Services(nil) {
+		for _, registry := range registries {
+			// in case this svc does not belong to the registry
+			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
+				continue
+			}
+
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
@@ -699,7 +706,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
+	push.Mutex.Lock()
 	portMap, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)

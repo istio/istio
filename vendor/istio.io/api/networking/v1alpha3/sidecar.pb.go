@@ -415,12 +415,12 @@ type IstioEgressListener struct {
 	// port.
 	Port *Port `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// The ip or the Unix domain socket to which the listener should be bound
-	// to. Port MUST be specified if bind is not empty. Format: `x.x.x.x` or
+	// to. Port MUST be specified if bind is not an ip. Format: `x.x.x.x` or
 	// `unix:///path/to/uds` or `unix://@foobar` (Linux abstract namespace). If
 	// omitted, Istio will automatically configure the defaults based on imported
 	// services, the workload to which this configuration is applied to and
 	// the captureMode. If captureMode is NONE, bind will default to
-	// 127.0.0.1.
+	// 127.0.0.1 if no loopback ip is specified.
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
 	// When the bind address is an IP, the captureMode option dictates
 	// how traffic to the listener is expected to be captured (or not).
