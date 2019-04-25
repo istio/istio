@@ -361,3 +361,7 @@ ignored = [
 [[constraint]]
   name = "github.com/google/cel-go"
   version = "0.2.0"
+
+[[constraint]]
+  branch = "v3"
+  name = "gopkg.in/yaml.v3"

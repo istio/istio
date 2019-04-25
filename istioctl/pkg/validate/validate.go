@@ -18,32 +18,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
+	yaml "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-)
-
-// TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
-// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
-// the genericclioptions packages are organized under kubectl.
-
-var (
-	// Expect YAML to only include these top-level fields
-	validFields = map[string]bool{
-		"apiVersion": true,
-		"kind":       true,
-		"metadata":   true,
-		"spec":       true,
-		"status":     true,
-	}
 )
 
 /*
@@ -107,92 +90,57 @@ func validateResource(un *unstructured.Unstructured) error {
 	*/
 }
 
-var errMissingResource = errors.New(`error: you must specify resources by --filename.
+func validateFile(reader io.Reader) error {
+	decoder := yaml.NewDecoder(reader)
+	var errs error
+	for {
+		out := make(map[string]interface{})
+		err := decoder.Decode(&out)
+		if err == io.EOF {
+			return errs
+		}
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			return errs
+		}
+		if len(out) == 0 {
+			continue
+		}
+		un := unstructured.Unstructured{Object: out}
+		err = validateResource(&un)
+		if err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s",
+				un.GetKind(), un.GetNamespace(), un.GetName())))
+		}
+	}
+}
+
+func validateFiles(filenames []string) error {
+	if len(filenames) == 0 {
+		return errors.New(`error: you must specify resources by --filename.
 Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
-
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
-	// resource.Builder{} validates most of the CLI flags consistent
-	// with kubectl which is good. Unfortunately, it also assumes
-	// resources can be specified as '<resource> <name>' which is
-	// bad. We don't don't for file-based configuration validation. If
-	// a filename is missing, resource.Builder{} prints a warning
-	// referencing '<resource> <name>' which would be confusing to the
-	// user. Avoid this confusion by checking for missing filenames
-	// are ourselves for invoking the builder.
-	if len(options.Filenames) == 0 {
-		return errMissingResource
-	}
-
-	r := resource.NewBuilder(restClientGetter).
-		Unstructured().
-		FilenameParam(false, &options).
-		Flatten().
-		Local().
-		Do()
-	if err := r.Err(); err != nil {
-		return err
 	}
 
 	var errs error
-	_ = r.Visit(func(info *resource.Info, err error) error {
+	for _, filename := range filenames {
+		reader, err := os.Open(filename)
 		if err != nil {
-			return err
+			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
+			continue
 		}
-		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		err = validateFile(reader)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			return nil
 		}
-
-		un := &unstructured.Unstructured{Object: content}
-		for key := range content {
-			if _, ok := validFields[key]; !ok {
-				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
-					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
-			}
-		}
-
-		if err := validateResource(un); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
-				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
-		}
-		return nil
-	})
-
-	if errs != nil {
-		return errs
 	}
-	for _, fname := range options.Filenames {
-		fmt.Fprintf(writer, "%q is valid\n", fname)
-	}
-	return nil
-}
-
-func strPtr(val string) *string {
-	return &val
-}
-
-func boolPtr(val bool) *bool {
-	return &val
+	return errs
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
 func NewValidateCommand() *cobra.Command {
-	var (
-		kubeConfigFlags = &genericclioptions.ConfigFlags{
-			Context:    strPtr(""),
-			Namespace:  strPtr(""),
-			KubeConfig: strPtr(""),
-		}
-
-		filenames     = []string{}
-		fileNameFlags = &genericclioptions.FileNameFlags{
-			Filenames: &filenames,
-			Recursive: boolPtr(true),
-		}
-	)
+	var filenames []string
 
 	c := &cobra.Command{
 		Use:     "validate -f FILENAME [options]",
@@ -200,13 +148,12 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return validateFiles(filenames)
 		},
 	}
 
 	flags := c.PersistentFlags()
-	kubeConfigFlags.AddFlags(flags)
-	fileNameFlags.AddFlags(flags)
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
 
 	return c
 }

@@ -102,15 +102,6 @@ spec:
   - handler: handler-for-valid-rule.denier
     instances:
     - instance-for-valid-rule.checknothing`
-	invalidUnsupportedKey = `
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-unexpected_junk:
-   still_more_junk:
-spec:
-  host: productpage`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -196,9 +187,6 @@ func TestValidateCommand(t *testing.T) {
 	unsupportedMixerRuleFilename, closeMixerRuleFile := createTestFile(t, unsupportedMixerRule)
 	defer closeMixerRuleFile.Close()
 
-	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
-	defer closeUnsupportedKeyFile.Close()
-
 	cases := []struct {
 		name      string
 		args      []string
@@ -227,11 +215,6 @@ func TestValidateCommand(t *testing.T) {
 			args:      []string{"--filename", unsupportedMixerRuleFilename},
 			wantError: true,
 		},
-		{
-			name:      "invalid top-level key",
-			args:      []string{"--filename", unsupportedKeyFilename},
-			wantError: true,
-		},
 	}
 
 	for i, c := range cases {
@@ -245,7 +228,7 @@ func TestValidateCommand(t *testing.T) {
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {
-				tt.Fatalf("unexpected validate return status: got %v want %v: \nerr=%v",
+				tt.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
 					err != nil, c.wantError, err)
 			}
 		})
