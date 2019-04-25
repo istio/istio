@@ -23,11 +23,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-func createTestDestinationRuleConfig(name string, namespace string, host string) *Config {
+func createDrConfig(host string) *Config {
 	return &Config{
 		ConfigMeta: ConfigMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      "test",
+			Namespace: "test-namespace",
 		},
 		Spec: &networking.DestinationRule{
 			Host: host,
@@ -38,18 +38,14 @@ func createTestDestinationRuleConfig(name string, namespace string, host string)
 	}
 }
 
-func createTestDestionationRule(name Hostname, config *Config) map[Hostname]*Config {
-	return map[Hostname]*Config{name: config}
-}
-
 var (
 	pushContext1     = NewPushContext()
-	drConfig1        = createTestDestinationRuleConfig("test", "test-namespace", "test-host-1")
-	drConfig2        = createTestDestinationRuleConfig("test", "test-namespace", "test-host-2")
-	drConfig3        = createTestDestinationRuleConfig("test", "test-namespace", "test-host-3")
-	drConfig4        = createTestDestinationRuleConfig("test", "test-namespace", "test-host-4")
-	drConfig5        = createTestDestinationRuleConfig("test", "test-namespace", "test-host-5")
-	dr1              = createTestDestionationRule("test-host-1", drConfig1)
+	drConfig1        = createDrConfig("test-host-1")
+	drConfig2        = createDrConfig("test-host-2")
+	drConfig3        = createDrConfig("test-host-3")
+	drConfig4        = createDrConfig("test-host-4")
+	drConfig5        = createDrConfig("test-host-5")
+	dr1              = map[Hostname]*Config{"test-host-1": drConfig1}
 	sidecarTypeProxy = &Proxy{
 		SidecarScope: &SidecarScope{
 			Config:           drConfig1,
@@ -103,7 +99,7 @@ var (
 				hosts: []Hostname{"non-matching"},
 				destRule: map[Hostname]*combinedDestinationRule{
 					"non-matching": &combinedDestinationRule{
-						config: createTestDestinationRuleConfig("test", "test-namespace", "non-matching"),
+						config: createDrConfig("non-matching"),
 					},
 				},
 			},
@@ -149,7 +145,7 @@ var (
 				hosts: []Hostname{"non-matching1"},
 				destRule: map[Hostname]*combinedDestinationRule{
 					"non-matching1": &combinedDestinationRule{
-						config: createTestDestinationRuleConfig("test", "test-namespace", "non-matching1"),
+						config: createDrConfig("non-matching1"),
 					},
 				},
 			},
@@ -159,7 +155,7 @@ var (
 				hosts: []Hostname{"non-matching2"},
 				destRule: map[Hostname]*combinedDestinationRule{
 					"non-matching2": &combinedDestinationRule{
-						config: createTestDestinationRuleConfig("test", "test-namespace", "non-matching2"),
+						config: createDrConfig("non-matching2"),
 					},
 				},
 			},
@@ -185,8 +181,7 @@ func TestDestinationRule(t *testing.T) {
 			expectedConfig: drConfig1,
 		},
 		{
-			name: "when proxy is nil, check for a public rule in all namespaces, then return a matching rule else " +
-				"return nil",
+			name:        "when proxy is nil, check for a public rule in all namespaces, then return a matching rule",
 			pushContext: pushContext2,
 			service: &Service{
 				Hostname: "test-host-2",
