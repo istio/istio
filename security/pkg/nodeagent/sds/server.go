@@ -206,14 +206,9 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
 				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 			}
-			time.Sleep(waitTime)
-			waitTime *= 2
-		}
-		waitTime = time.Second
-		for i := 0; i < maxRetryTimes; i++ {
-			// Retry if setUpUds() fails.
-			if s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath); err != nil {
-				log.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
+			s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
+			if err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 			}
 			time.Sleep(waitTime)
 			waitTime *= 2
