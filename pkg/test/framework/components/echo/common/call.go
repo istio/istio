@@ -57,18 +57,22 @@ func CallEcho(client *appEcho.Client, opts *echo.CallOptions, outboundPortSelect
 	}
 	targetService := opts.Target.Config().Service
 
-	var headers []*proto.Header
-	headers = append(headers, &proto.Header{Key: "Host", Value: targetService})
-	for key, values := range opts.Headers {
-		for _, value := range values {
-			headers = append(headers, &proto.Header{Key: key, Value: value})
-		}
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: targetService,
+		},
+	}
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override targetService.
+	for k := range opts.Headers {
+		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
 	req := &proto.ForwardEchoRequest{
 		Url:     targetURL.String(),
 		Count:   int32(opts.Count),
-		Headers: headers,
+		Headers: protoHeaders,
 	}
 
 	resp, err := client.ForwardEcho(req)
