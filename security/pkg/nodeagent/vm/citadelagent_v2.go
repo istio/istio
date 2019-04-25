@@ -16,7 +16,10 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/log"
@@ -32,7 +35,7 @@ import (
 // However, this will implement NodeAgent using the new CA protocol which can be found here
 // https://github.com/istio/istio/blob/master/security/proto/istioca.proto
 
-type nodeAgentInternalV2 struct {
+type citadelAgent struct {
 	// Configuration specific to Node Agent
 	config   *Config
 	pc       platform.Client
@@ -41,8 +44,24 @@ type nodeAgentInternalV2 struct {
 	certUtil util.CertUtil
 }
 
+// Google Compute Engine specific consts/types.
+// Later on if we support other types of VMs, we may need to move this to another package/file.
+type googleJwtPayLoad struct {
+	Aud    string `json:"aud"`
+	Google map[string]map[string]interface{}
+}
+
+const (
+	serviceAccountSuffix = ".iam.gserviceaccount.com"
+	fsaPrefix            = "csm-fsa"
+	// Fields from JWT from GCE metadata server.
+	computeEngineField = "compute_engine"
+	projectIDField     = "project_id"
+)
+
 // Start starts the node Agent.
-func (na *nodeAgentInternalV2) Start() error {
+// TODO(pitlv2109: Needs refactoring.
+func (na *citadelAgent) Start() error {
 	if na.config == nil {
 		return fmt.Errorf("node Agent configuration is nil")
 	}
@@ -108,7 +127,7 @@ func (na *nodeAgentInternalV2) Start() error {
 	}
 }
 
-func (na *nodeAgentInternalV2) sendCSRUsingCANewProtocol() ([]byte, []string, error) {
+func (na *citadelAgent) sendCSRUsingCANewProtocol() ([]byte, []string, error) {
 	options := pkiutil.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.CAClientConfig.Org,
@@ -126,11 +145,41 @@ func (na *nodeAgentInternalV2) sendCSRUsingCANewProtocol() ([]byte, []string, er
 	}
 	stsClient := stsclient.NewPlugin()
 	// TODO(pitlv2109): Periodically update the JWT and OAuth2 token.
-	// TODO(pitlv2109): Extract the project_id field from the JWT.
-	token, _, _ := stsClient.ExchangeToken(context.Background(), "csm-fsa@mesh-expansion-235023.iam.gserviceaccount.com", string(jwt))
+	projectID, err := getProjectID(string(jwt))
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get project id wit error %v", err)
+	}
+	token, _, _ := stsClient.ExchangeToken(context.Background(), fmt.Sprintf("%s@%s%s", fsaPrefix, projectID, serviceAccountSuffix), string(jwt))
 	certChainPEM, err := na.caClient.CSRSign(context.Background(), csrPEM, token, int64(na.config.CAClientConfig.RequestedCertTTL.Minutes()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting key and cert for %q: %v", na.identity, err)
 	}
 	return keyPEM, certChainPEM, nil
+}
+
+// getProjectID returns the project id from the provided jwt or an error.
+func getProjectID(jwt string) (string, error) {
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return "", fmt.Errorf("jwt may be invalid %s", jwt)
+	}
+	payload := jwtSplit[1]
+	payloadBytes, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return "", err
+	}
+	structuredPayload := &googleJwtPayLoad{}
+	err = json.Unmarshal(payloadBytes, &structuredPayload)
+	if err != nil {
+		return "", err
+	}
+	fieldNotFoundError := "jwt does not have %s field"
+	if _, found := structuredPayload.Google[computeEngineField]; !found {
+		return "", fmt.Errorf(fieldNotFoundError, computeEngineField)
+	}
+	projectID, found := structuredPayload.Google[computeEngineField][projectIDField]
+	if !found {
+		return "", fmt.Errorf(fieldNotFoundError, projectIDField)
+	}
+	return projectID.(string), nil
 }

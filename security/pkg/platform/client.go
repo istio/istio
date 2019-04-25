@@ -47,7 +47,7 @@ const (
 )
 
 // NewClient is the function to create implementations of the platform metadata client.
-func NewClient(platform, rootCertFile, keyFile, certChainFile, caProvider string) (Client, error) {
+func NewClient(platform, rootCertFile, keyFile, certChainFile, caProvider, aud string) (Client, error) {
 	switch platform {
 	case onPremVM:
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
@@ -56,7 +56,7 @@ func NewClient(platform, rootCertFile, keyFile, certChainFile, caProvider string
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		//return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
 		// TODO(pitlv2109): Make `Aud` configurable.
-		return NewGcpClientImpl(caProvider, &cred.GcpTokenFetcher{Aud: "myaudience"})
+		return NewGcpClientImpl(caProvider, &cred.GcpTokenFetcher{Aud: aud})
 	case awsVM:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.

@@ -32,31 +32,32 @@ type NodeAgent interface {
 
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
 func NewNodeAgent(cfg *Config) (NodeAgent, error) {
+	fmt.Println("new Node Agent")
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
 	switch cfg.CAClientConfig.CAProtocol {
 	case IstioCertificateService:
-		return initNodeAgentForIstioCertificateService(cfg)
+		return initCitadelAgentForIstioCertificateService(cfg)
 	case IstioCAService:
-		return initNodeAgentForIstioCAService(cfg)
+		return initCitadelAgentForIstioCAService(cfg)
 	default:
 		return nil, fmt.Errorf("unrecognized CA protocol: %s. "+
 			"Need to be either IstioCertificateService or IstioCAService", cfg.CAClientConfig.CAProtocol)
 	}
 }
 
-// initNodeAgentForIstioCertificateService initializes nodeAgentIntervalV2 implementation of NodeAgent interface that
+// initCitadelAgentForIstioCertificateService initializes nodeAgentIntervalV2 implementation of NodeAgent interface that
 // talks to IstioCertificateService gRPC service defined at https://github.com/istio/istio/blob/master/security/proto/istioca.proto
 // It only supports talking to GoogleCA for now.
-func initNodeAgentForIstioCertificateService(cfg *Config) (*nodeAgentInternalV2, error) {
-	na := &nodeAgentInternalV2{
+func initCitadelAgentForIstioCertificateService(cfg *Config) (*citadelAgent, error) {
+	na := &citadelAgent{
 		config:   cfg,
 		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
 	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName)
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName, cfg.MapperAudience)
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +77,16 @@ func initNodeAgentForIstioCertificateService(cfg *Config) (*nodeAgentInternalV2,
 	return nil, fmt.Errorf("CAs other than GoogleCA is not supported using new CA protocol in VM")
 }
 
-// initNodeAgentForIstioCAService initializes nodeAgentIntervalV implementation of NodeAgent interface that
+// initCitadelAgentForIstioCAService initializes nodeAgentIntervalV implementation of NodeAgent interface that
 // talks to IstioCAService gRPC service defined at https://github.com/istio/istio/blob/master/security/proto/ca_service.proto
-func initNodeAgentForIstioCAService(cfg *Config) (*nodeAgentInternal, error) {
+func initCitadelAgentForIstioCAService(cfg *Config) (*nodeAgentInternal, error) {
 	na := &nodeAgentInternal{
 		config:   cfg,
 		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
 	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName)
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAProviderName, "")
 	if err != nil {
 		return nil, err
 	}

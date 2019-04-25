@@ -18,6 +18,8 @@ import (
 	"os"
 	"time"
 
+	"istio.io/istio/security/pkg/nodeagent/envvar"
+
 	"istio.io/istio/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -51,19 +53,19 @@ func init() {
 	}))
 
 	cAClientConfig := &naConfig.CAClientConfig
-	cAClientConfig.Org = env.RegisterStringVar(nvm.OrgName, "", "Organization for the cert").Get()
-	cAClientConfig.RequestedCertTTL = env.RegisterDurationVar(nvm.RequestedCertTTL, 90*24*time.Hour, "The requested TTL for the workload").Get()
-	cAClientConfig.RSAKeySize = env.RegisterIntVar(nvm.RSAKeySize, 2048, "Size of generated private key").Get()
-	cAClientConfig.CAAddress = env.RegisterStringVar(nvm.CAAddress, "", "CA's endpoint").Get()
-	cAClientConfig.CAProviderName = env.RegisterStringVar(nvm.CAProvider, "", "CA's provider name").Get()
-	cAClientConfig.CAProtocol = env.RegisterStringVar(nvm.CAProtocol, nvm.IstioCAService, "CA service protocol").Get()
-	cAClientConfig.Env = env.RegisterStringVar(nvm.NodeEnv, "unspecified", "Node Environment : unspecified | onPremVM | gcpVM | awsVM").Get()
-	cAClientConfig.Platform = env.RegisterStringVar(nvm.NodePlatform, nvm.VMPlatform, "The platform istio runs on: vm | k8s").Get()
-	cAClientConfig.CertChainFile = env.RegisterStringVar(nvm.CertChainFile, "/etc/certs/cert-chain.pem", "Citadel Agent identity cert file").Get()
-	cAClientConfig.KeyFile = env.RegisterStringVar(nvm.KeyFile, "/etc/certs/key.pem", "Citadel Agent private key file").Get()
-	cAClientConfig.RootCertFile = env.RegisterStringVar(nvm.RootCertFile, "/etc/certs/root-cert.pem", "Citadel Agent root cert file").Get()
-
-	naConfig.DualUse = env.RegisterBoolVar(nvm.DualUse, false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.").Get()
+	cAClientConfig.Org = env.RegisterStringVar(envvar.OrgName, "", "Organization for the cert").Get()
+	cAClientConfig.RequestedCertTTL = env.RegisterDurationVar(envvar.RequestedCertTTL, 90*24*time.Hour, "The requested TTL for the workload").Get()
+	cAClientConfig.RSAKeySize = env.RegisterIntVar(envvar.RSAKeySize, 2048, "Size of generated private key").Get()
+	cAClientConfig.CAAddress = env.RegisterStringVar(envvar.CAAddress, "", "CA's endpoint").Get()
+	cAClientConfig.CAProviderName = env.RegisterStringVar(envvar.CAProvider, "", "CA's provider name").Get()
+	cAClientConfig.CAProtocol = env.RegisterStringVar(envvar.CAProtocol, nvm.IstioCAService, "CA service protocol").Get()
+	cAClientConfig.Env = env.RegisterStringVar(envvar.NodeEnv, "unspecified", "Node Environment : unspecified | onPremVM | gcpVM | awsVM").Get()
+	cAClientConfig.Platform = env.RegisterStringVar(envvar.NodePlatform, nvm.VMPlatform, "The platform istio runs on: vm | k8s").Get()
+	cAClientConfig.CertChainFile = env.RegisterStringVar(envvar.CertChainFile, "/etc/certs/cert-chain.pem", "Citadel Agent identity cert file").Get()
+	cAClientConfig.KeyFile = env.RegisterStringVar(envvar.KeyFile, "/etc/certs/key.pem", "Citadel Agent private key file").Get()
+	cAClientConfig.RootCertFile = env.RegisterStringVar(envvar.RootCertFile, "/etc/certs/root-cert.pem", "Citadel Agent root cert file").Get()
+	naConfig.MapperAudience = env.RegisterStringVar(envvar.MapperAudience, "", "Audience value from the FSA mapper").Get()
+	naConfig.DualUse = env.RegisterBoolVar(envvar.DualUse, false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.").Get()
 }
 
 func main() {
