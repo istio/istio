@@ -56,7 +56,7 @@ const (
 		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
 		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
-	rbacTestRejectionCode = "401"
+	rbacTestRejectionCode = "403"
 )
 
 var (
@@ -98,10 +98,14 @@ func TestGroupV1RBAC(t *testing.T) {
 
 	cases := []util.TestCase{
 		// Port 80 is where HTTP is served
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt, ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt, ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
+			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
+			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
+			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
+			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
 	}
 
 	testDir := ctx.WorkDir()

@@ -650,7 +650,7 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 
 	// Add headers in opts.Headers, e.g., authorization header, etc.
 	// If host header is set, it will override dstServiceName
-	for k, _ := range opts.Headers {
+	for k := range opts.Headers {
 		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
