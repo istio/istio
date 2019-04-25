@@ -827,13 +827,7 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 	cleanup := func() {
 		os.RemoveAll(dir) // nolint: errcheck
 	}
-	valuesBytes := []byte(getValuesWithHelm(nil, t))
-	valuesFile := filepath.Join(dir, "values-file.yaml")
 
-	if err := ioutil.WriteFile(valuesFile, valuesBytes, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
-	}
 	return &Webhook{
 		sidecarConfig: &Config{
 			Policy:   InjectionPolicyEnabled,
@@ -841,7 +835,7 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 		},
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &mesh,
-		valuesFile:             valuesFile,
+		valuesConfig:           getValuesWithHelm(nil, t),
 	}, cleanup
 }
 
