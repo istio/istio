@@ -170,26 +170,9 @@ jobs:
             export PATH=/go/bin:$PATH
             WAIT_TIMEOUT=10m bin/install.sh
       - run:
-          command: |
-            mkdir -p $GOPATH/tmp
-            mkdir -p $GOPATH/src/istio.io/
-            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
-            git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
+          command: make info dep
       - run:
-          # TODO: include in the istio base image
-          command: make ${GOPATH}/bin/kind
-      - run:
-          command: |
-            export PATH=/go/bin:$PATH
-            # Create KIND cluster (separate so we get time info)
-            make info dep prepare
-      - run:
-          command: make sync
-      - run:
-          command: make docker-run-test TEST_TARGET="install-ingress"
-      - run:
-          command: make docker-run-test TEST_TARGET="run-test.integration.kube.presubmit"
-          # simple is currently failing
+          command: make git.dep run-test.integration.kube.presubmit
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -214,7 +197,6 @@ workflows:
       - integration-presubmit-kind
       - integration-old-kind
       - install-minikube
-      - modular-installation
 
   all:
     jobs:
