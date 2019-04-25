@@ -83,6 +83,7 @@ func TestMain(m *testing.M) {
 func TestGroupV2RBAC(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
+	// TODO(lei-tang): add the test to the native environment
 	ctx.RequireOrSkip(t, environment.Kube)
 
 	env := ctx.Environment().(*kube.Environment)
@@ -116,6 +117,7 @@ func TestGroupV2RBAC(t *testing.T) {
 	policy.ApplyPolicyFiles(t, env, testNameSpace, rbacYamlFiles)
 
 	// Sleep 60 seconds for the policy to take effect.
+	// TODO(lei-tang): programmatically check that policies have taken effect instead.
 	time.Sleep(60 * time.Second)
 	for _, tc := range cases {
 		retry.UntilSuccessOrFail(t, func() error {
