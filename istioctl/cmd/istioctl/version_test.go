@@ -73,7 +73,7 @@ func TestVersion(t *testing.T) {
 	cases := []testCase{
 		{ // case 0 client-side only, normal output
 			configs: []model.Config{},
-			args:    strings.Split("version --remote=false", " "),
+			args:    strings.Split("version --remote=false --short=false", " "),
 			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
 				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\", " +
 				"DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
