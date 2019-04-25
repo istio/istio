@@ -245,6 +245,17 @@
   revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
 
 [[projects]]
+  branch = "master"
+  digest = "1:b9fb2e329126b46d1fa47f608491c37b9f43bd5f86b10e45f03d881485112119"
+  name = "github.com/client9/gospell"
+  packages = [
+    ".",
+    "plaintext",
+  ]
+  pruneopts = "NUT"
+  revision = "90dfc71015dfebd3a7274f1ad2756c1dbf09e250"
+
+[[projects]]
   branch = "v2"
   digest = "1:c91a5363a19174cb0181832821a7bb9da0aeefb5e2180724614b1005c2269712"
   name = "github.com/coreos/go-oidc"
@@ -1528,7 +1539,7 @@
   revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
-  digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
+  digest = "1:8bd66f5d83741a82dccd6838d4e3f23df96ca36e84220129c5a0d67e6ca0636d"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -1565,8 +1576,8 @@
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "8dea3dc473e90c8179e519d91302d0597c0ca1d1"
-  version = "v1.15.0"
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   digest = "1:22b2dee6f30bc8601f087449a2a819df8388e54e9547349c658f14d8f8c590f2"
@@ -1646,6 +1657,14 @@
   ]
   pruneopts = "T"
   revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:fa55210f71a6277eb328dd4df8779f97d6c337d70fab97f27594126ae27fd09a"
+  name = "istio.io/tools"
+  packages = ["pkg/protocgen"]
+  pruneopts = "NUT"
+  revision = "3340c26d80d34bb4aa32709ac3253745a6117e4a"
 
 [[projects]]
   branch = "release-1.11"

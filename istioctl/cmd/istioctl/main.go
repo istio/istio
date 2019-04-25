@@ -108,6 +108,7 @@ func init() {
 
 	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
+	experimentalCmd.AddCommand(Auth())
 	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{

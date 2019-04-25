@@ -277,7 +277,7 @@ ignored = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  version = "^1.13.0"
+  version = "=1.16.0"
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"
