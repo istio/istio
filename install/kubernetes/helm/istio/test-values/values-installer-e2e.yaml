@@ -1,0 +1,62 @@
+# This file overrides values for e2e testing.
+
+global:
+  istioNamespace: istio-system
+  configNamespace: istio-system
+  telemetryNamespace: istio-system
+  policyNamespace: istio-system
+
+  proxy:
+    concurrency: 0
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+    accessLogFile: "/dev/stdout"
+    enableCoreDump: true
+
+  controlPlaneSecurityEnabled: true
+  disablePolicyChecks: false
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+
+policy:
+  enabled: true
+
+scrapeInterval: 5s
+
+istio-telemetry:
+  stdioAccessLog: true
+
+istio-policy:
+  replicaCount: 2
+  autoscaleEnabled: false
+
+# istio-control/istio-discovery params
+traceSampling: 100
+
+env:
+  CONFIG_NAMESPACE: "istio-system"
+
+configValidation: false
+
+# gateways params
+gateways:
+  istio-ingressgateway:
+    autoscaleMax: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# citadal params
+
+# Galley, pilot in each 'profile' must have a DNS cert.
+dnsCerts:
+  istio-pilot-service-account.istio-system: istio-pilot-service-account.istio-system
+  istio-sidecar-injector-service-account.istio-system: istio-sidecar-injector.istio-system.svc
+  istio-galley-service-account.istio-system: istio-galley.istio-system.svc

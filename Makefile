@@ -764,3 +764,33 @@ include tests/integration/tests.mk
 .PHONY: benchcheck
 benchcheck:
 	bin/perfcheck.sh
+
+#-----------------------------------------------------------------------------
+# Target: istio-ecosystem installer
+#-----------------------------------------------------------------------------
+
+export ISTIO_INSTALLER?=${GOPATH}/src/istio-ecosystem/istio-installer
+INSTALLER_OPTS="-f install/kubernetes/helm/istio/test-values/values-installer-e2e.yaml"
+INSTALLER_REPOSRC=git://github.com/istio-ecosystem/istio-installer.git
+INSTALLER_LOCALREPO=${GOPATH}/src/istio-ecosystem/istio-installer
+
+force: ;
+
+${GOPATH}/src/istio-ecosystem/istio-installer: force
+	mkdir -p ${GOPATH}/src/istio-ecosystem
+	git clone "${INSTALLER_REPOSRC}" "${INSTALLER_LOCALREPO}" 2> /dev/null || (cd "${INSTALLER_LOCALREPO}" ; git pull)
+
+generate_installer_e2e_yaml: ${GOPATH}/src/istio-ecosystem/istio-installer istio-init.yaml
+	rm install/kubernetes/istio-installer.yaml
+	for f in ${ISTIO_INSTALLER}/crds/*.yaml; do (cat $$f; echo '---') >> install/kubernetes/istio-installer.yaml; done
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-citadel ${ISTIO_INSTALLER}/security/citadel ${ARGS} -t ${INSTALLER_OPTS} >> install/kubernetes/istio-citadel.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-config ${ISTIO_INSTALLER}/istio-control/istio-config -t ${INSTALLER_OPTS} >> install/kubernetes/istio-config.yaml	
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-ingressgateway ${ISTIO_INSTALLER}/gateways/istio-ingress ${ARGS} -t ${INSTALLER_OPTS} >> install/kubernetes/istio-ingressgateway.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-discovery ${ISTIO_INSTALLER}/istio-control/istio-discovery -t ${INSTALLER_OPTS} >> install/kubernetes/istio-discovery.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-autoinject ${ISTIO_INSTALLER}/istio-control/istio-autoinject -t ${INSTALLER_OPTS} >> install/kubernetes/istio-autoinject.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-prometheus ${ISTIO_INSTALLER}/istio-telemetry/prometheus -t ${INSTALLER_OPTS} --set global.istioNamespace=istio-system >> install/kubernetes/istio-prometheus.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-telemetry ${ISTIO_INSTALLER}/istio-telemetry/mixer-telemetry -t ${INSTALLER_OPTS} --set global.istioNamespace=istio-system >> install/kubernetes/istio-telemetry.yaml
+	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-policy ${ISTIO_INSTALLER}/istio-policy -t ${INSTALLER_OPTS} --set global.istioNamespace=istio-system >> install/kubernetes/istio-policy.yaml
+	cat install/kubernetes/namespace.yaml install/kubernetes/istio-citadel.yaml install/kubernetes/istio-ingressgateway.yaml install/kubernetes/istio-config.yaml install/kubernetes/istio-discovery.yaml install/kubernetes/istio-autoinject.yaml install/kubernetes/istio-prometheus.yaml install/kubernetes/istio-telemetry.yaml install/kubernetes/istio-policy.yaml >> install/kubernetes/istio-installer.yaml
+	rm install/kubernetes/istio-citadel.yaml install/kubernetes/istio-config.yaml install/kubernetes/istio-ingressgateway.yaml install/kubernetes/istio-discovery.yaml install/kubernetes/istio-autoinject.yaml install/kubernetes/istio-prometheus.yaml install/kubernetes/istio-telemetry.yaml install/kubernetes/istio-policy.yaml
+

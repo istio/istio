@@ -120,7 +120,7 @@ var (
 		"Directory name for the cluster registry config. When provided a multicluster test is run across two clusters.")
 	splitHorizon             = flag.Bool("split_horizon", false, "Set up a split horizon EDS multi-cluster test environment")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
-	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
+	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm, or istio-installer")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
 	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
@@ -222,6 +222,11 @@ func getClusterWideInstallFile() string {
 	if *trustDomainEnable {
 		istioYaml = trustDomainFileNamespace
 	}
+
+	if strings.EqualFold(*installer, "istio-installer") {
+		istioYaml = strings.Replace(istioYaml, ".yaml", "-installer.yaml", 1)
+	}
+
 	return istioYaml
 }
 
@@ -1126,9 +1131,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	// A very flimsy and unreliable regexp to replace delays in ingress gateway pod Spec
 	// note these config nobs aren't exposed to helm
-	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
-	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
-	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
+	content = replacePattern(content, "'10s'", "'1s' #connectTimeout")
+	content = replacePattern(content, "'45s'", "'2s' #drainDuration")
+	content = replacePattern(content, "'1m0s'", "'3s' #parentShutdownDuration")
 
 	if k.BaseVersion == "" {
 		if *mixerHub != "" && *mixerTag != "" {

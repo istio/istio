@@ -70,7 +70,7 @@ e2e_kiali: istioctl generate_e2e_yaml e2e_kiali_run
 
 e2e_simple_noauth: istioctl generate_e2e_yaml e2e_simple_noauth_run
 
-e2e_mixer: istioctl generate_e2e_yaml e2e_mixer_run
+e2e_mixer: istioctl generate_installer_e2e_yaml e2e_mixer_run
 
 e2e_galley: istioctl generate_e2e_yaml e2e_galley_run
 
@@ -104,7 +104,7 @@ e2e_simple_noauth_run: out_dir
 e2e_mixer_run: out_dir
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--installer=istio-installer --use_galley_config_validator=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_galley_run: out_dir
 	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
@@ -169,10 +169,10 @@ test/local/noauth/e2e_simple: out_dir generate_e2e_yaml
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_mixer: out_dir generate_e2e_yaml
+test/local/e2e_mixer: out_dir generate_installer_e2e_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--installer=istio-installer --use_galley_config_validator=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_galley: out_dir istioctl generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/galley -args \
