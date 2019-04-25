@@ -641,21 +641,25 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
 
-	// If host header is set, override the destination with it
-	if opts.Headers.Get("Host") != "" {
-		dstServiceName = opts.Headers.Get("Host")
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: dstServiceName,
+		},
+	}
+
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override dstServiceName
+	for k, _ := range opts.Headers {
+		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
-		Count: int32(opts.Count),
-		Headers: []*proto.Header{
-			{
-				Key:   "Host",
-				Value: dstServiceName,
-			},
-		},
+		Url:     dstURL.String(),
+		Count:   int32(opts.Count),
+		Headers: protoHeaders,
 	})
+
 	if err != nil {
 		return nil, err
 	}

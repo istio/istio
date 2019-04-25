@@ -1,30 +1,6 @@
 # istio-group-list-rbac-rules.yaml to enforce access control based on
-# groups and list claims for both http and tcp services using Istio RBAC rules.
+# groups and list claims for http services using Istio RBAC rules.
 
-# For service a, allow no one to access it.
-# This will also result a default tcp rule for service a that denies all access.
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRole
-metadata:
-  name: access-a-http
-spec:
-  rules:
-    - methods: ["GET"]
-      constraints:
-        - key: "destination.labels[app]"
-          values: ["a"]
----
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: AuthorizationPolicy
-metadata:
-  name: authz-policy-access-a-http
-spec:
-  allow:
-    - subjects:
-        - not_names: ["allUsers"]
-      roleRef:
-        kind: ServiceRole
-        name: "access-a-http"
 ---
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"

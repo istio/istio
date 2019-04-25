@@ -79,37 +79,37 @@ func TestRBACV2(t *testing.T) {
 	cases := []util.TestCase{
 		// Port 80 is where HTTP is served, 90 is where TCP is served. When an HTTP request is at port
 		// 90, this means it is a TCP request. The test framework uses HTTP to mimic TCP calls in this case.
-		{Request: connection.Connection{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appA, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appA, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
+		{Request: connection.Connection{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appA, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appA, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
 
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appB, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appB, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appB, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
 
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secrets/admin"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/credentials/admin"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled},
-		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path/admin"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secrets/admin"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/credentials/admin"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path/admin"}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appC, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
 
-		{Request: connection.Connection{To: appD, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: true},
-		{Request: connection.Connection{To: appD, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appD, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: true},
-		{Request: connection.Connection{To: appD, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appD, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path"}, ExpectAllowed: true},
-		{Request: connection.Connection{To: appD, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false},
+		{Request: connection.Connection{To: appD, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appD, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appD, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"}, ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appD, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appD, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path"}, ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+		{Request: connection.Connection{To: appD, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP}, ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
 	}
 
 	testDir := ctx.WorkDir()
@@ -124,7 +124,7 @@ func TestRBACV2(t *testing.T) {
 	time.Sleep(60 * time.Second)
 	for _, tc := range cases {
 		retry.UntilSuccessOrFail(t, func() error {
-			return util.CheckRBACRequest(tc, connection.DenyHTTPRespCode)
+			return util.CheckRBACRequest(tc)
 		}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 	}
 }

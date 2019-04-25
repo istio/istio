@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grouplist
+package groupv1
 
 import (
 	"testing"
@@ -37,7 +37,10 @@ import (
 const (
 	rbacClusterConfigTmpl  = "testdata/istio-clusterrbacconfig.yaml.tmpl"
 	rbacGroupListRulesTmpl = "testdata/istio-group-list-rbac-rules.yaml.tmpl"
-	groupsScopeJwt         = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
+	// groupsScopeJwt contains the claims:
+	// "groups": ["group1", "group2"],
+	// "scope": ["scope1", "scope2"].
+	groupsScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
 		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjM1MzczOTExMDQsImdyb3VwcyI6WyJncm91cD" +
 		"EiLCJncm91cDIiXSwiaWF0IjoxNTM3MzkxMTA0LCJpc3MiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyIsInNjb3BlI" +
 		"jpbInNjb3BlMSIsInNjb3BlMiJdLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.EdJnEZSH6X8hcyEii7c" +
@@ -45,6 +48,14 @@ const (
 		"9sh0ZwTtdgK_RP01PuI7kUdbOTlkuUi2AO-qUyOm7Art2POzo36DLQlUXv8Ad7NBOqfQaKjE9ndaPWT7aexUsBHxmgi" +
 		"Gbz1SyLH879f7uHYPbPKlpHU6P9S-DaKnGLaEchnoKnov7ajhrEhGXAQRukhDPKUHO9L30oPIr5IJllEQfHYtt6IZvl" +
 		"NUGeLUcif3wpry1R5tBXRicx2sXMQ7LyuDremDbcNy_iE76Upg"
+	// noGroupScopeJwt contains no groups and scope claims.
+	noGroupScopeJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcj" +
+		"VWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdC" +
+		"I6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc" +
+		"3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7Q" +
+		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
+		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
+		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 	rbacTestRejectionCode = "401"
 )
 
@@ -69,7 +80,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func TestGroupListRBAC(t *testing.T) {
+func TestGroupV1RBAC(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
@@ -87,10 +98,10 @@ func TestGroupListRBAC(t *testing.T) {
 
 	cases := []util.TestCase{
 		// Port 80 is where HTTP is served
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, ExpectAllowed: false},
-		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt, ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt, ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt, ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
 	}
 
 	testDir := ctx.WorkDir()
@@ -104,7 +115,7 @@ func TestGroupListRBAC(t *testing.T) {
 	time.Sleep(60 * time.Second)
 	for _, tc := range cases {
 		retry.UntilSuccessOrFail(t, func() error {
-			return util.CheckRBACRequest(tc, rbacTestRejectionCode)
-		}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
+			return util.CheckRBACRequest(tc)
+		}, retry.Delay(10*time.Second), retry.Timeout(120*time.Second))
 	}
 }

@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/tests/util"
@@ -31,16 +29,17 @@ type TestCase struct {
 	Request       connection.Connection
 	ExpectAllowed bool
 	Jwt           string
+	RejectionCode string
 }
 
 // CheckRBACRequest checks if a request is successful under RBAC policies.
 // Under RBAC policies, a request is consider successful if:
 // * If the policy is deny:
-// *** For HTTP: response code is same as the rejectionCode input parameter.
+// *** For HTTP: response code is same as the tc.RejectionCode.
 // *** For TCP: EOF error
 // * If the policy is allow:
 // *** Response code is 200
-func CheckRBACRequest(tc TestCase, rejectionCode string) error {
+func CheckRBACRequest(tc TestCase) error {
 	req := tc.Request
 	ep := req.To.EndpointForPort(req.Port)
 	if ep == nil {
@@ -57,13 +56,6 @@ func CheckRBACRequest(tc TestCase, rejectionCode string) error {
 		return fmt.Errorf("connection error with %v", err)
 	}
 
-	if len(resp) > 0 {
-		log.Infof("%s to %s:%d%s using %s: ExpectAllowed %v, response code %v",
-			req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, tc.ExpectAllowed, resp[0].Code)
-	} else {
-		log.Infof("%s to %s:%d%s using %s: ExpectAllowed %v, empty response",
-			req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, tc.ExpectAllowed)
-	}
 	if tc.ExpectAllowed {
 		if !(len(resp) > 0 && resp[0].Code == connection.AllowHTTPRespCode) {
 			return fmt.Errorf("%s to %s:%d%s using %s: expected allow, actually deny",
@@ -76,7 +68,7 @@ func CheckRBACRequest(tc TestCase, rejectionCode string) error {
 					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, err)
 			}
 		} else {
-			if !(len(resp) > 0 && resp[0].Code == rejectionCode) {
+			if !(len(resp) > 0 && resp[0].Code == tc.RejectionCode) {
 				return fmt.Errorf("%s to %s:%d%s using %s: expected deny, actually allow",
 					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
 			}
