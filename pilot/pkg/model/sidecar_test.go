@@ -106,6 +106,84 @@ var (
 		{Hostname: "bar"},
 		{Hostname: "barprime"},
 	}
+
+	servicesDR = []*Service{
+		{
+			Hostname: "foo.ns1",
+			Attributes: ServiceAttributes{
+				Namespace: "ns1",
+			},
+		},
+	}
+
+	Node1 = Proxy{
+		ConfigNamespace: "ns1",
+	}
+
+	Node2 = Proxy{
+		ConfigNamespace: "ns2",
+	}
+
+	destinationRule1 = Config{
+		ConfigMeta: ConfigMeta{
+			Type:      DestinationRule.Type,
+			Version:   DestinationRule.Version,
+			Name:      "acme",
+			Namespace: "ns1",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "foo.ns1",
+			Subsets: []*networking.Subset{
+				{Name: "Subset 1"},
+			},
+			ExportTo: []string{"."},
+		},
+	}
+	destinationRule2 = Config{
+		ConfigMeta: ConfigMeta{
+			Type:      DestinationRule.Type,
+			Version:   DestinationRule.Version,
+			Name:      "acme",
+			Namespace: "ns1",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "foo.ns1",
+			Subsets: []*networking.Subset{
+				{Name: "Subset 1"},
+			},
+			ExportTo: []string{"*"},
+		},
+	}
+	destinationRule3 = Config{
+		ConfigMeta: ConfigMeta{
+			Type:      DestinationRule.Type,
+			Version:   DestinationRule.Version,
+			Name:      "acme",
+			Namespace: "istio-config",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "foo.ns1",
+			Subsets: []*networking.Subset{
+				{Name: "Subset 1"},
+			},
+			ExportTo: []string{"*"},
+		},
+	}
+	destinationRule4 = Config{
+		ConfigMeta: ConfigMeta{
+			Type:      DestinationRule.Type,
+			Version:   DestinationRule.Version,
+			Name:      "acme",
+			Namespace: "other-namespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "foo.ns1",
+			Subsets: []*networking.Subset{
+				{Name: "Subset 1"},
+			},
+			ExportTo: []string{"*"},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -114,6 +192,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		sidecarConfig *Config
 		// list of available service for a given proxy
 		services []*Service
+		// list of destination rules
+		destinationRuleConfig *Config
 		// list of services expected to be in the listener
 		excpectedServices []string
 	}{
@@ -122,11 +202,13 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 		},
 		{
 			"no-sidecar-config-with-service",
 			nil,
 			services1,
+			nil,
 			[]string{"bar"},
 		},
 		{
@@ -134,28 +216,33 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs1,
 			nil,
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-service",
 			configs1,
 			services1,
+			nil,
 			[]string{"bar"},
 		},
 		{
 			"sidecar-with-multiple-egress-with-service-on-same-port",
 			configs1,
 			services3,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-multiple-egress-with-multiple-service",
 			configs1,
 			services4,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-zero-egress",
 			configs2,
+			nil,
 			nil,
 			nil,
 		},
@@ -164,10 +251,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs2,
 			services4,
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
 			configs3,
+			nil,
 			nil,
 			nil,
 		},
@@ -175,12 +264,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			"sidecar-with-multiple-egress-noport-with-specific-service",
 			configs3,
 			services2,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-multiple-egress-noport-with-services",
 			configs3,
 			services4,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 	}
@@ -263,6 +354,81 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			// TODO destination rule
+		})
+	}
+}
+
+func TestSidecarScopeDestinationRules(t *testing.T) {
+	tests := []struct {
+		name          string
+		sidecarConfig *Config
+		// list of available service for a given proxy
+		services []*Service
+		// list of destination rules
+		destinationRuleConfig *Config
+		// list of services expected to be in the listener
+		node          Proxy
+		destRuleFound bool
+	}{
+		{
+			"no-sidecar-config-with-service-and-dr-same-ns",
+			nil,
+			servicesDR,
+			&destinationRule1,
+			Node1,
+			true,
+		},
+		{
+			"no-sidecar-config-with-service-and-dr-different-ns",
+			nil,
+			servicesDR,
+			&destinationRule1,
+			Node2,
+			false,
+		},
+		{
+			"no-sidecar-config-with-service-and-dr-public",
+			nil,
+			servicesDR,
+			&destinationRule2,
+			Node2,
+			true,
+		},
+		{
+			"no-sidecar-config-with-service-and-dr-using-root-ns",
+			nil,
+			servicesDR,
+			&destinationRule3,
+			Node2,
+			true,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			ps := NewPushContext()
+			meshConfig := DefaultMeshConfig()
+			meshConfig.DefaultDestinationRuleExportTo = []string{"."}
+			ps.Env = &Environment{
+				Mesh: &meshConfig,
+			}
+			if tt.services != nil {
+				ps.publicServices = append(ps.publicServices, tt.services...)
+			}
+
+			destinationRuleConfig := tt.destinationRuleConfig
+			if destinationRuleConfig != nil {
+				Node := tt.node
+				ps.SetDestinationRules([]Config{*destinationRuleConfig})
+				config := ps.DestinationRule(&Node, tt.services[0])
+				if tt.destRuleFound {
+					if config == nil {
+						t.Errorf("Test %v failed no destination rule found", tt.name)
+					}
+				} else if config != nil {
+					t.Errorf("Test %v failed exrdestination rule found", tt.name)
+				}
+			}
 		})
 	}
 }
