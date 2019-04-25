@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2/cache"
 	"strconv"
 	"sync"
 	"time"
@@ -106,66 +107,33 @@ type DiscoveryServer struct {
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
 
-	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
-	// shards.
-	mutex sync.RWMutex
-
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]*EndpointShards
+	EndpointShardsByService *cache.EndpointShardsByService
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
-	WorkloadsByID map[string]*Workload
+	WorkloadsByID *cache.WorkloadsByID
 
-	// edsUpdates keeps track of all service updates since last full push.
+	// edsUpdatedServices keeps track of all service updates since last full push.
 	// Key is the hostname (servicename). Value is set when any shard part of the service is
 	// updated. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]struct{}
+	edsUpdatedServices *cache.EdsUpdatedServices
 
 	updateChannel chan *updateReq
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
 
-	// mutex used for protecting proxyUpdates
-	proxyUpdatesMutex sync.RWMutex
 	// proxies that need full push during the new push epoch
 	// the key is the proxy ip address
-	proxyUpdates map[string]struct{}
+	proxyUpdates *cache.ProxyUpdates
 }
 
 // updateReq includes info about the requested update.
 type updateReq struct {
 	full bool
-}
-
-// EndpointShards holds the set of endpoint shards of a service. Registries update
-// individual shards incrementally. The shards are aggregated and split into
-// clusters when a push for the specific cluster is needed.
-type EndpointShards struct {
-	// mutex protecting below map.
-	mutex sync.RWMutex
-
-	// Shards is used to track the shards. EDS updates are grouped by shard.
-	// Current implementation uses the registry name as key - in multicluster this is the
-	// name of the k8s cluster, derived from the config (secret).
-	Shards map[string][]*model.IstioEndpoint
-
-	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
-	// This is updated on push, based on shards. If the previous list is different than
-	// current list, a full push will be forced, to trigger a secure naming update.
-	// Due to the larger time, it is still possible that connection errors will occur while
-	// CDS is updated.
-	ServiceAccounts map[string]bool
-}
-
-// Workload has the minimal info we need to detect if we need to push workloads, and to
-// cache data to avoid expensive model allocations.
-type Workload struct {
-	// Labels
-	Labels map[string]string
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -180,10 +148,10 @@ func NewDiscoveryServer(
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
 		KubeController:          kuebController,
-		EndpointShardsByService: map[string]*EndpointShards{},
-		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]struct{}{},
-		proxyUpdates:            map[string]struct{}{},
+		EndpointShardsByService: &cache.EndpointShardsByService{},
+		WorkloadsByID:           &cache.WorkloadsByID{},
+		edsUpdatedServices:      &cache.EdsUpdatedServices{},
+		proxyUpdates:            &cache.ProxyUpdates{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
@@ -354,15 +322,8 @@ func (s *DiscoveryServer) ClearCache() {
 
 // Start the actual push. Called from a timer.
 func (s *DiscoveryServer) doPush(full bool) {
-	// more config update events may happen while doPush is processing.
-	// we don't want to lose updates.
-	s.mutex.Lock()
-	// Swap the edsUpdates map - tracking requests for incremental updates.
-	// The changes to the map are protected by ds.mutex.
-	edsUpdates := s.edsUpdates
-	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]struct{}{}
-	s.mutex.Unlock()
+	// Swap the edsUpdatedServices map - tracking requests for incremental updates.
+	edsUpdates := s.edsUpdatedServices.GetAndClear()
 
 	s.Push(full, edsUpdates)
 }

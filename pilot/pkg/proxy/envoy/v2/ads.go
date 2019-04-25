@@ -838,6 +838,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 	// TODO: indicate the specific events, to only push what changed.
 
 	pendingPush := int32(len(pending))
+	proxyUpdates := s.proxyUpdates.GetAndClear()
 
 	tstart := time.Now()
 	// Will keep trying to push to sidecars until another push starts.
@@ -854,12 +855,9 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		// indicates whether to do a full push for the proxy
 		proxyFull := full
 		if !full {
-			s.proxyUpdatesMutex.Lock()
-			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
+			if _, ok := proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
 				proxyFull = true
-				delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
 			}
-			s.proxyUpdatesMutex.Unlock()
 		}
 
 		wg.Add(1)

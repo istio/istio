@@ -143,10 +143,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	s.mutex.RLock()
-	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
-	s.mutex.RUnlock()
-	_, _ = w.Write(out)
+	_, _ = w.Write([]byte(s.EndpointShardsByService.String()))
 }
 
 // Tracks info about workloads. Currently only K8S serviceregistry populates this, based
@@ -154,10 +151,7 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	s.mutex.RLock()
-	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
-	s.mutex.RUnlock()
-	_, _ = w.Write(out)
+	_, _ = w.Write([]byte(s.WorkloadsByID.String()))
 }
 
 // Endpoint debugging

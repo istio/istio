@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2/cache"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/features/pilot"
@@ -207,10 +208,8 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
-	s.mutex.RLock()
 	// The service was never updated - do the full update
-	se, f := s.EndpointShardsByService[string(hostname)]
-	s.mutex.RUnlock()
+	endpointShards, f := s.EndpointShardsByService.Get(string(hostname))
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -218,36 +217,33 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	cnt := 0
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
-	se.mutex.RLock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range se.Shards {
-		for _, ep := range endpoints {
-			for _, port := range ports {
-				if port.Port != clusterPort || port.Name != ep.ServicePortName {
-					continue
-				}
-				// Port labels
-				if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
-					continue
-				}
-				cnt++
-
-				locLbEps, found := localityEpMap[ep.Locality]
-				if !found {
-					locLbEps = &endpoint.LocalityLbEndpoints{
-						Locality: util.ConvertLocality(ep.Locality),
-					}
-					localityEpMap[ep.Locality] = locLbEps
-				}
-				if ep.EnvoyEndpoint == nil {
-					ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
-				}
-				locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
+	endpoints := endpointShards.ListIstioEndpoints()
+	for _, ep := range endpoints {
+		for _, port := range ports {
+			if port.Port != clusterPort || port.Name != ep.ServicePortName {
+				continue
 			}
+			// Port labels
+			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
+				continue
+			}
+			cnt++
+
+			locLbEps, found := localityEpMap[ep.Locality]
+			if !found {
+				locLbEps = &endpoint.LocalityLbEndpoints{
+					Locality: util.ConvertLocality(ep.Locality),
+				}
+				localityEpMap[ep.Locality] = locLbEps
+			}
+			if ep.EnvoyEndpoint == nil {
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+			}
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 		}
 	}
-	se.mutex.RUnlock()
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
@@ -351,21 +347,19 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 		}
 	}
 
-	s.mutex.Lock()
 	for k, v := range svc2account {
-		if ep := s.EndpointShardsByService[k]; ep != nil {
+		if ep, ok := s.EndpointShardsByService.Get(k); ok && ep != nil {
 			ep.ServiceAccounts = v
 			continue
 		}
 		// we have not seen this service before.
 		// We will let edsUpdate() add endpoints to the list.
 		// Just record service accounts here.
-		s.EndpointShardsByService[k] = &EndpointShards{
+		s.EndpointShardsByService.Set(k, &cache.EndpointShards{
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: v,
-		}
+		})
 	}
-	s.mutex.Unlock()
 
 	return nil
 }
@@ -473,20 +467,20 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	//s.mutex.Lock()
+	//defer s.mutex.Unlock()
+
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID, id)
+		s.WorkloadsByID.Delete(id)
 		return
 	}
-	w, f := s.WorkloadsByID[id]
+	w, f := s.WorkloadsByID.Get(id)
 	if !f {
-		s.WorkloadsByID[id] = &Workload{
+		s.WorkloadsByID.Set(id, &cache.Workload{
 			Labels: labels,
-		}
+		})
 
-		fullPush := false
 		adsClientsMutex.RLock()
 		for _, connection := range adsClients {
 			// if the workload has envoy proxy and connected to server,
@@ -496,21 +490,14 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 			//   case 2: the workload xDS connection has not been established,
 			//           also no need to trigger a full push here.
 			if connection.modelNode.IPAddresses[0] == id {
-				fullPush = true
+				// First time this workload has been seen. Maybe after the first connect,
+				// do a full push for this proxy in the next push epoch.
+				s.proxyUpdates.Set(id)
+				return
 			}
 		}
 		adsClientsMutex.RUnlock()
 
-		if fullPush {
-			// First time this workload has been seen. Maybe after the first connect,
-			// do a full push for this proxy in the next push epoch.
-			s.proxyUpdatesMutex.Lock()
-			if s.proxyUpdates == nil {
-				s.proxyUpdates = make(map[string]struct{})
-			}
-			s.proxyUpdates[id] = struct{}{}
-			s.proxyUpdatesMutex.Unlock()
-		}
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
@@ -538,7 +525,7 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	return nil
 }
 
-// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// edsUpdate updates edsUpdatedServices by shard, serviceName, IstioEndpoints,
 // and requests a full/eds push.
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
@@ -546,37 +533,27 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	requireFull := false
 
 	// To prevent memory leak.
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
 	if len(istioEndpoints) == 0 {
-		if s.EndpointShardsByService[serviceName] != nil {
-			s.EndpointShardsByService[serviceName].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName].Shards, shard)
-			svcShards := len(s.EndpointShardsByService[serviceName].Shards)
-			s.EndpointShardsByService[serviceName].mutex.Unlock()
-			if svcShards == 0 {
-				delete(s.EndpointShardsByService, serviceName)
-			}
-		}
+		s.EndpointShardsByService.DeleteServiceShard(serviceName, shard)
 		return
 	}
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
-	ep, f := s.EndpointShardsByService[serviceName]
+	epShards, f := s.EndpointShardsByService.Get(serviceName)
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
-		ep = &EndpointShards{
+		epShards = &cache.EndpointShards{
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
 		}
-		s.EndpointShardsByService[serviceName] = ep
+		s.EndpointShardsByService.Set(serviceName, epShards)
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			requireFull = true
@@ -587,8 +564,8 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// updates containing the full list of endpoints for the service in that cluster.
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			_, f = ep.ServiceAccounts[e.ServiceAccount]
-			if !f && !internal {
+			exist := epShards.ServiceAccountExist(e.ServiceAccount)
+			if !exist && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
@@ -596,10 +573,8 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 			}
 		}
 	}
-	ep.mutex.Lock()
-	ep.Shards[shard] = istioEndpoints
-	ep.mutex.Unlock()
-	s.edsUpdates[serviceName] = struct{}{}
+	epShards.SetShard(shard, istioEndpoints)
+	s.edsUpdatedServices.Set(serviceName)
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
 	// no need to trigger push here.
@@ -710,9 +685,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 
 	// The service was never updated - do the full update
-	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)]
-	s.mutex.RUnlock()
+	endpointShards, f := s.EndpointShardsByService.Get(string(hostname))
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
@@ -722,34 +695,31 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	cnt := 0
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
-	se.mutex.RLock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range se.Shards {
-		for _, ep := range endpoints {
-			if svcPort.Name != ep.ServicePortName {
-				continue
-			}
-			// Port labels
-			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
-				continue
-			}
-			cnt++
-
-			locLbEps, found := localityEpMap[ep.Locality]
-			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
-				}
-				localityEpMap[ep.Locality] = locLbEps
-			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
-			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
+	endpoints := endpointShards.ListIstioEndpoints()
+	for _, ep := range endpoints {
+		if svcPort.Name != ep.ServicePortName {
+			continue
 		}
+		// Port labels
+		if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
+			continue
+		}
+		cnt++
+
+		locLbEps, found := localityEpMap[ep.Locality]
+		if !found {
+			locLbEps = &endpoint.LocalityLbEndpoints{
+				Locality: util.ConvertLocality(ep.Locality),
+			}
+			localityEpMap[ep.Locality] = locLbEps
+		}
+		if ep.EnvoyEndpoint == nil {
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
+		}
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 	}
-	se.mutex.RUnlock()
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
