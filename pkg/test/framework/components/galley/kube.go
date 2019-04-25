@@ -102,8 +102,6 @@ type kubeComponent struct {
 
 	client *client
 
-	appliedFiles []string
-
 	// Resources, grouped by string
 	resources map[string][]string
 
