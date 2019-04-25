@@ -12,25 +12,36 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 //
-// Package meshexp contains test suite for mesh expansion.
-// How to run this test suite locally
-// go test -v ./tests/integration/meshexp   \
+// How to run this test suite locally:
+// vmconfig="{
+// 	'vm_namespace': 'default',
+// 	'project_number': '895429144602',
+// 	'project_id': 'jianfeih-test',
+// 	'gcp_vm_zone': 'us-central1-a',
+// 	'gke_cluster_name': 'istio-dev'
+// }"
+// go test -v ./tests/integration/meshexp
 // -istio.test.env  kube -istio.test.hub "gcr.io/istio-release" \
 // -istio.test.tag "master-latest-daily" \
-// --project_number=895429144602  --project_id=jianfeih-test  \
-// --log_output_level=tf:debug,CI:debug  --zone=us-central1-a \
-// --deb_url=https://storage.googleapis.com/istio-release/releases/1.1.3/deb  \
-// --cluster_name=istio-dev --istio.test.nocleanup
+// --log_output_level=tf:debug,CI:debug \
+// -istio.test.kube.meshexp.debianUrl=https://storage.googleapis.com/istio-release/releases/1.1.3/deb  \
+// -istio.test.kube.meshexp.vmconfig=$vmconfig
+// -istio.test.nocleanup
+//
+// Package meshexp contains test suite for mesh expansion.
 package meshexp
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cloudflare/cfssl/log"
+	old_framework "istio.io/istio/tests/e2e/framework"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -59,7 +70,7 @@ func TestMain(m *testing.M) {
 		NewSuite("meshexp_test", m).
 		// Restrict the test to the K8s environment only, tests will be skipped in native environment.
 		RequireEnvironment(environment.Kube).
-		// Deploy Istio on the cluster
+		// Deploy Istio on the cluster.
 		Setup(istio.SetupOnKube(nil, setupMeshExpansionInstall)).
 		Run()
 }
@@ -72,8 +83,20 @@ func setupMeshExpansionInstall(cfg *istio.Config) {
 // entry for VM application.
 func setupVMInstance(ctx resource.Context) error {
 	var err error
+	defaultConfig, err := istio.DefaultConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to access default config, %v", err)
+	}
+	gceConfig := old_framework.GCPVMOpts{
+		DebianURL: defaultConfig.MeshExpansionDebianURL,
+	}
+	if err := json.Unmarshal([]byte(defaultConfig.MeshExpansionConfig), &gceConfig); err != nil {
+		return fmt.Errorf("failed to parse the config, config str %v, error %v",
+			defaultConfig.MeshExpansionConfig, err)
+	}
 	vmInstance, err = rawvm.New(ctx, rawvm.Config{
-		Type: rawvm.GCE,
+		Type:        rawvm.GCE,
+		GCPVMConfig: gceConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create VM service %v", err)
@@ -89,7 +112,7 @@ func TestIstioControlPlaneReachability(t *testing.T) {
 	// We do this setup in Test method instead of suite since the suite setup can't be supported on
 	// some environments yet, for example, circleci.
 	if err := setupVMInstance(testContext); err != nil {
-		t.Errorf("failed to setup VM instance")
+		t.Errorf("failed to setup VM instance: %v", err)
 	}
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -121,7 +144,6 @@ func TestIstioControlPlaneReachability(t *testing.T) {
 				}
 			}
 		})
-
 }
 
 // TestKubernetesToVM sends a request to a pod in Kubernetes cluster, then the pod sends the request

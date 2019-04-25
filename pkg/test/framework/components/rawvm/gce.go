@@ -9,7 +9,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// gceComponent is the implementation for GCE VM.
+// gceComponent is the mesh expansion VM implementation on GCP.
 type gceComponent struct {
 	// id is the GCE instance id.
 	id    resource.ID
