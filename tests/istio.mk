@@ -227,10 +227,10 @@ test/local/auth/e2e_split_horizon: out_dir generate_e2e_yaml
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: export EXTRA_HELM_SETTINGS=--set mixer.adapters.stdio.enabled=false
-test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_yaml
+test/local/noauth/e2e_mixer_envoyv2: out_dir generate_installer_e2e_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--installer=istio-installer --use_galley_config_validator=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 	${ISTIO_BIN}/go-junit-report < $(OUT_DIR)/tests/build-log.txt > $(OUT_DIR)/tests/junit.xml
