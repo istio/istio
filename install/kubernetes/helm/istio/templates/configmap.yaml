@@ -88,6 +88,7 @@ data:
     # DNS refresh rate for Envoy clusters of type STRICT_DNS
     dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
 
+    {{- if .Values.global.sds.enabled }}
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
     sdsUdsPath: {{ .Values.global.sds.udsPath }}
@@ -105,6 +106,27 @@ data:
     # this flag is ignored if enableSdsTokenMount is set.
     # This isn't supported for non-k8s case.
     sdsUseK8sSaJwt: {{ .Values.global.sds.useNormalJwt }}
+    {{- else }}
+    # Set expected values when SDS is disabled
+
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    sdsUdsPath: ""
+
+    # This flag is used by secret discovery service(SDS). 
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
+    # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+    enableSdsTokenMount: false
+
+    # This flag is used by secret discovery service(SDS). 
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token' 
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod) 
+    # and pass to sds server, which will be used to request key/cert eventually. 
+    # this flag is ignored if enableSdsTokenMount is set.
+    # This isn't supported for non-k8s case.
+    sdsUseK8sSaJwt: false
+    {{- end }}
 
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
