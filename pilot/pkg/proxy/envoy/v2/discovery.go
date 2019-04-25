@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2/cache"
 	"strconv"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2/cache"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/features/pilot"
 )
@@ -141,13 +141,13 @@ func NewDiscoveryServer(
 	env *model.Environment,
 	generator core.ConfigGenerator,
 	ctl model.Controller,
-	kuebController *kube.Controller,
+	kubeController *kube.Controller,
 	configCache model.ConfigStoreCache) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
-		KubeController:          kuebController,
+		KubeController:          kubeController,
 		EndpointShardsByService: &cache.EndpointShardsByService{},
 		WorkloadsByID:           &cache.WorkloadsByID{},
 		edsUpdatedServices:      &cache.EdsUpdatedServices{},
