@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+roleRef:
+  kind: Role
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io

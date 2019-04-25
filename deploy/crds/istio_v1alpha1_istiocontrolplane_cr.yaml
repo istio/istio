@@ -1,0 +1,7 @@
+apiVersion: istio.io/v1alpha1
+kind: IstioControlPlane
+metadata:
+  name: example-istiocontrolplane
+spec:
+  # Add fields here
+  size: 3
