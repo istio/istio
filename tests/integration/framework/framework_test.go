@@ -36,8 +36,8 @@ func TestMain(m *testing.M) {
 		NewSuite("framework_test", m).
 		Label(label.Presubmit).
 		// The deployment must work. If you're breaking this, you'll break many integration tests.
-		Setup(istio.SetupOnKube(&i, nil)).
-		EnvSetup(environment.Kube, func(ctx resource.Context) error {
+		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
 			env = ctx.Environment().(*kube.Environment)
 			return nil
 		}).

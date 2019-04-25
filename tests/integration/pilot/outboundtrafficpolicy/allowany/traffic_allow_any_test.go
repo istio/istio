@@ -25,9 +25,10 @@ import (
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy_allow_any", m).
+	framework.
+		NewSuite("outbound_traffic_policy_allow_any", m).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Run()
 }
 

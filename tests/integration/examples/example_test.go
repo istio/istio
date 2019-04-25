@@ -49,12 +49,12 @@ func TestMain(m *testing.M) {
 		Setup(mysetup).
 
 		// The following two setup methods will run conditionally, depending on the environment.
-		EnvSetup(environment.Native, setupNative).
-		EnvSetup(environment.Kube, setupKube).
+		SetupOnEnv(environment.Native, setupNative).
+		SetupOnEnv(environment.Kube, setupKube).
 
 		// The following is an example of how to deploy Istio on Kubernetes, as part of the suite setup.
 		// (Since this is an example, this will not execute as the RequireEnvironment call above will stop execution on Kube.)
-		Setup(istio.SetupOnKube(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 
 		// Finally execute the test suite
 		Run()

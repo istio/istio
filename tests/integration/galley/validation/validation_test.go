@@ -117,6 +117,6 @@ func TestMain(m *testing.M) {
 		NewSuite("galley_validation", m).
 		Label(label.Presubmit).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(nil, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
 		Run()
 }
