@@ -131,7 +131,7 @@ test: info dep maybe-clean maybe-prepare sync docker-run-test maybe-clean
 # TODO: Add a local test - to check various things are in the right place (jsonpath or equivalent)
 # TODO: run a local etcd/apiserver and verify apiserver accepts the files
 run-build: dep
-	mkdir ${OUT}/release
+	mkdir -p ${OUT}/release
 	cp -aR crds/ ${OUT}/release
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel -t > ${OUT}/release/citadel.yaml
 	bin/iop ${ISTIO_NS} istio-config ${BASE}/istio-control/istio-config -t > ${OUT}/release/istio-config.yaml
