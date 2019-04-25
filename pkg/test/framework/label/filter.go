@@ -90,11 +90,6 @@ func (f *Selector) Selects(inputs Set) bool {
 	return !inputs.containsAny(f.absent) && inputs.containsAll(f.present)
 }
 
-// Allows returns true, if the
-func (f *Selector) Allows(inputs Set) bool {
-	return !inputs.containsAny(f.absent) && f.present.containsAny(inputs)
-}
-
 // Excludes returns false, if the given set of labels, even combined with new ones, could end up satisfying the Selector.
 // It returns false, if Matches would never return true, even if new labels are added to the input set.
 func (f *Selector) Excludes(inputs Set) bool {
