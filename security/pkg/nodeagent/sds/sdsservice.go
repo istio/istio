@@ -265,7 +265,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(secret, connID)
 }
 
-// NotifyProxy send notification to proxy about secret update,
+// NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
 func NotifyProxy(conID, resourceName string, secret *model.SecretItem) error {
 	key := cache.ConnKey{
