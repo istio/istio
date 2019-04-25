@@ -169,21 +169,6 @@ var (
 			ExportTo: []string{"*"},
 		},
 	}
-	destinationRule4 = Config{
-		ConfigMeta: ConfigMeta{
-			Type:      DestinationRule.Type,
-			Version:   DestinationRule.Version,
-			Name:      "acme",
-			Namespace: "other-namespace",
-		},
-		Spec: &networking.DestinationRule{
-			Host: "foo.ns1",
-			Subsets: []*networking.Subset{
-				{Name: "Subset 1"},
-			},
-			ExportTo: []string{"*"},
-		},
-	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
