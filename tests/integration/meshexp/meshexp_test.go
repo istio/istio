@@ -38,10 +38,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudflare/cfssl/log"
 	old_framework "istio.io/istio/tests/e2e/framework"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
