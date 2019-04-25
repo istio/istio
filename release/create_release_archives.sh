@@ -172,8 +172,8 @@ ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 
 TEMP_DIR=$(mktemp -d)
 pushd ${TEMP_DIR}
-  git clone -b master https://github.com/istio/cni.git
-  cp -r cni/deployments/kubernetes/install/helm/istio-cni/ "${COMMON_FILES_DIR}/install/kubernetes/helm"
+  git clone -b ${CB_BRANCH} https://github.com/istio/cni.git
+  cp -r cni/deployments/kubernetes/install/helm/istio-cni "${COMMON_FILES_DIR}/install/kubernetes/helm"
 popd
 
 # Changing dir such that tar and zip files are
