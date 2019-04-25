@@ -781,7 +781,7 @@ ${GOPATH}/src/istio-ecosystem/istio-installer: force
 	git clone "${INSTALLER_REPOSRC}" "${INSTALLER_LOCALREPO}" 2> /dev/null || (cd "${INSTALLER_LOCALREPO}" ; git pull)
 
 generate_installer_e2e_yaml: ${GOPATH}/src/istio-ecosystem/istio-installer istio-init.yaml
-	rm install/kubernetes/istio-installer.yaml
+	rm -f install/kubernetes/istio-installer.yaml
 	for f in ${ISTIO_INSTALLER}/crds/*.yaml; do (cat $$f; echo '---') >> install/kubernetes/istio-installer.yaml; done
 	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-citadel ${ISTIO_INSTALLER}/security/citadel ${ARGS} -t ${INSTALLER_OPTS} >> install/kubernetes/istio-citadel.yaml
 	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-config ${ISTIO_INSTALLER}/istio-control/istio-config -t ${INSTALLER_OPTS} >> install/kubernetes/istio-config.yaml	
