@@ -1125,6 +1125,11 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		}
 	}
 
+	if mesh.RootNamespace == IstioSystemNamespace {
+		errs = appendErrors(errs, fmt.Errorf("invalid root namespace: %s. root config namespace cannot be set to %s",
+			mesh.RootNamespace, IstioSystemNamespace))
+	}
+
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}

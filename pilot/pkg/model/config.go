@@ -310,6 +310,9 @@ const (
 
 	// IstioSystemNamespace is the namespace where Istio's components are deployed
 	IstioSystemNamespace = "istio-system"
+
+	// ConfigRootNamespace is a namespace for storing configurations
+	ConfigRootNamespace = "istio-config"
 )
 
 /*

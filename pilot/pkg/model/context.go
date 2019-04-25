@@ -440,7 +440,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DisablePolicyChecks:               true,
 		PolicyCheckFailOpen:               false,
 		SidecarToTelemetrySessionAffinity: false,
-		RootNamespace:                     IstioSystemNamespace,
+		RootNamespace:                     ConfigRootNamespace,
 		ProxyListenPort:                   15001,
 		ConnectTimeout:                    types.DurationProto(1 * time.Second),
 		IngressService:                    "istio-ingressgateway",

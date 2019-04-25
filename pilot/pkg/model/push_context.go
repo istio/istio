@@ -487,21 +487,11 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return proxy.SidecarScope.DestinationRule(service.Hostname)
 	}
 
-	// If the proxy config namespace is same as the root config namespace
-	// look for dest rules in the service's namespace first. This hack is needed
-	// because sometimes, istio-system tends to become the root config namespace.
-	// Destination rules are defined here for global purposes. We dont want these
-	// catch all destination rules to be the only dest rule, when processing CDS for
-	// proxies like the istio-ingressgateway or istio-egressgateway.
-	// If there are no service specific dest rules, we will end up picking up the same
-	// rules anyway, later in the code
-	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
-		// search through the DestinationRules in proxy's namespace first
-		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
-			if host, ok := MostSpecificHostMatch(service.Hostname,
-				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
-			}
+	// search through the DestinationRules in proxy's namespace first
+	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+		if host, ok := MostSpecificHostMatch(service.Hostname,
+			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+			return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
 		}
 	}
 
