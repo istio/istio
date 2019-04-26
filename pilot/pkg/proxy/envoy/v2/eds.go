@@ -467,9 +467,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
-	//s.mutex.Lock()
-	//defer s.mutex.Unlock()
-
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
 		s.WorkloadsByID.Delete(id)

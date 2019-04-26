@@ -73,12 +73,14 @@ func (e *EndpointShardsByService) Delete(key string) {
 }
 
 func (e *EndpointShardsByService) DeleteServiceShard(serviceName string, shard string) {
-	if epShards, _ := e.Get(serviceName); epShards != nil {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	if epShards := e.cache[serviceName]; epShards != nil {
 		epShards.mutex.Lock()
 		delete(epShards.Shards, shard)
 		// delete service shards totally
 		if len(epShards.Shards) == 0 {
-			e.Delete(serviceName)
+			delete(e.cache, serviceName)
 		}
 		epShards.mutex.Unlock()
 	}
