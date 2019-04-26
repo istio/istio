@@ -13,7 +13,7 @@ initContainers:
   command:
   - "/usr/local/bin/istio-iptables.sh"
   - "-p"
-  - "{{ .MeshConfig.ProxyListenPort }}"
+  - 15001
   - "-u"
   - 1337
   - "-m"
