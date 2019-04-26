@@ -54,7 +54,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("redis deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Redis %s ===")
+			scopes.CI.Infof("=== FAILED: Deploy Redis ===")
 			_ = c.Close()
 		} else {
 			scopes.CI.Info("=== SUCCEEDED: Deploy Redis ===")
