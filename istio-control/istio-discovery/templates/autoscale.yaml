@@ -1,4 +1,4 @@
-{{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
+{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -8,8 +8,8 @@ metadata:
     app: pilot
     release: {{ .Release.Name }}
 spec:
-  maxReplicas: {{ .Values.autoscaleMax }}
-  minReplicas: {{ .Values.autoscaleMin }}
+  maxReplicas: {{ .Values.pilot.autoscaleMax }}
+  minReplicas: {{ .Values.pilot.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -18,6 +18,6 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+      targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
 {{- end }}

@@ -1,33 +1,34 @@
-{{- if not .Values.customService }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if not $gateway.customService }}
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- range $key, $val := .Values.serviceAnnotations }}
+    {{- range $key, $val := $gateway.serviceAnnotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
     app: ingressgateway
     release: {{ .Release.Name }}
 spec:
-{{- if .Values.loadBalancerIP }}
-  loadBalancerIP: "{{ .Values.loadBalancerIP }}"
+{{- if $gateway.loadBalancerIP }}
+  loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
 {{- end }}
-{{- if .Values.loadBalancerSourceRanges }}
+{{- if $gateway.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
-{{ toYaml .Values.loadBalancerSourceRanges | indent 4 }}
+{{ toYaml $gateway.loadBalancerSourceRanges | indent 4 }}
 {{- end }}
-{{- if .Values.externalTrafficPolicy }}
-  externalTrafficPolicy: {{.Values.externalTrafficPolicy }}
+{{- if $gateway.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$gateway.externalTrafficPolicy }}
 {{- end }}
-  type: {{ .Values.type }}
+  type: {{ $gateway.type }}
   selector:
     app: ingressgateway
   ports:
 
-    {{- range $key, $val := .Values.ports }}
+    {{- range $key, $val := $gateway.ports }}
     -
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
@@ -35,14 +36,14 @@ spec:
     {{- end }}
 
     {{- if $.Values.global.meshExpansion.enabled }}
-    {{- range $key, $val := .Values.meshExpansionPorts }}
+    {{- range $key, $val := $gateway.meshExpansionPorts }}
     -
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
     {{- end }}
-  {{ range $app := .Values.ingressPorts }}
+  {{ range $app := $gateway.ingressPorts }}
     -
       port: {{ $app.port }}
       name: {{ $app.name }}

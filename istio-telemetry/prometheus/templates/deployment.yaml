@@ -10,7 +10,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.prometheus.replicaCount }}
   template:
     metadata:
       labels:
@@ -29,10 +29,10 @@ spec:
 {{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
+          image: "{{ .Values.prometheus.hub }}/prometheus:{{ .Values.prometheus.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
-            - '--storage.tsdb.retention={{ .Values.retention }}'
+            - '--storage.tsdb.retention={{ .Values.prometheus.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'
           ports:
             - containerPort: 9090
@@ -46,8 +46,8 @@ spec:
               path: /-/ready
               port: 9090
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.prometheus.resources }}
+{{ toYaml .Values.prometheus.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}

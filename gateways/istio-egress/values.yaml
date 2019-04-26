@@ -1,87 +1,59 @@
 # Standalone istio egress gateway.
 # Should be installed in a separate namespace, to minimize access to config
+gateways:
+  istio-egressgateway:
+    ports:
+    - port: 80
+      name: http2
+    - port: 443
+      name: https
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
 
-ports:
-- port: 80
-  name: http2
-- port: 443
-  name: https
-  # This is the port where sni routing happens
-- port: 15443
-  targetPort: 15443
-  name: tls
-
-# Enable cross-cluster access using SNI matching.
-# Make sure you set suffix if deploying multiple egress gateways.
-zvpn:
-  # Must be different for each egress namespace.
-  # Used to control the domain name suffix for zero vpn routing.
-  # Domain names ending with this suffix will be routed to this egress gateway
-  # automatically.
-  # This can be a real domain name ( istio.example.com )
-  suffix: global
-  enabled: true
-
-
-# Scalability tunning
-replicaCount: 1
-autoscaleMin: 1
-autoscaleMax: 5
-resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  #requests:
-  #  cpu: 1800m
-  #  memory: 256Mi
-cpu:
-  targetAverageUtilization: 80
-
-# Debug level for envoy. Can be set to 'debug'
-debug: info
-
-drainDuration: 45s
-connectTimeout: 10s
-
-serviceAnnotations: {}
-podAnnotations: {}
-type: ClusterIP
-
-### Advanced options ############
-# TODO: convert to real options, env should not be exposed
-env:
-  # A gateway with this mode ensures that pilot generates an additional
-  # set of clusters for internal services but without Istio mTLS, to
-  # enable cross cluster routing.
-  ISTIO_META_ROUTER_MODE: "sni-dnat"
-  # Needed to route traffic via egress gateway if desired.
-  #ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
+    # Enable cross-cluster access using SNI matching.
+    # Make sure you set suffix if deploying multiple egress gateways.
+    zvpn:
+      # Must be different for each egress namespace.
+      # Used to control the domain name suffix for zero vpn routing.
+      # Domain names ending with this suffix will be routed to this egress gateway
+      # automatically.
+      # This can be a real domain name ( istio.example.com )
+      suffix: global
+      enabled: true
 
 
-# Local install
-global:
-  # Default tag for Istio images.
-  hub: gcr.io/istio-release
-  #tag: master-latest-daily
-  #tag: release-1.0-latest-daily
-  tag: release-1.1-latest-daily
+    # Scalability tunning
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    cpu:
+      targetAverageUtilization: 80
 
-  # Used to locate istio-pilot and validate its certificte.
-  # The new chart is defaulting to an isolated pilot
-  istioNamespace: istio-pilot11
+    # Debug level for envoy. Can be set to 'debug'
+    debug: info
 
-  meshExpansion:
-    enabled: true
-  k8sIngress:
-    enabled: false
-  multiCluster:
-    connectUsingGateway: true
-  sds:
-    enabled: false
-  proxy:
-    enableCoreDump: false
-    image: proxyv2
+    drainDuration: 45s
+    connectTimeout: 10s
 
-  tracer:
-    zipkin:
-      address: zipkin.istio-system:9411
+    serviceAnnotations: {}
+    podAnnotations: {}
+    type: ClusterIP
+
+    ### Advanced options ############
+    # TODO: convert to real options, env should not be exposed
+    env:
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+      # Needed to route traffic via egress gateway if desired.
+      #ISTIO_META_REQUESTED_NETWORK_VIEW: "external"

@@ -1,16 +1,18 @@
-image: mixer
+mixer:
+  policy:
+    image: mixer
 
-env:
-  GODEBUG: gctrace=2
+    env:
+      GODEBUG: gctrace=2
 
-replicaCount: 1
-autoscaleEnabled: true
-autoscaleMin: 1
-autoscaleMax: 5
-cpu:
-  targetAverageUtilization: 80
+    replicaCount: 1
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
 
-podAnnotations: {}
+    podAnnotations: {}
 
 adapters:
   kubernetesenv:

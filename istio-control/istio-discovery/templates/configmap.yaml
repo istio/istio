@@ -1,4 +1,4 @@
-{{- if .Values.configMap }}
+{{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,10 +10,10 @@ data:
 
   meshNetworks: |-
     # Network config
-{{ toYaml .Values.meshNetworks | indent 4 }}
+{{ toYaml .Values.pilot.meshNetworks | indent 4 }}
 
   values.yaml: |-
-{{ toYaml .Values | indent 4 }}
+{{ toYaml .Values.pilot | indent 4 }}
 
   mesh: |-
     {{- if .Values.global.enableTracing }}
@@ -25,7 +25,7 @@ data:
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
 
-    {{- if .Values.telemetry.enabled }}
+    {{- if .Values.pilot.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
     {{- else }}
@@ -39,7 +39,7 @@ data:
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
 
-    {{- if .Values.policy.enabled }}
+    {{- if .Values.pilot.policy.enabled }}
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
@@ -57,11 +57,11 @@ data:
 
 
     # This is the k8s ingress service name, update if you used a different name
-    {{- if .Values.ingress }}
-    {{- if .Values.ingress.ingressService }}
-    ingressService: "{{ .Values.ingress.ingressService }}"
-    ingressControllerMode: "{{ .Values.ingress.ingressControllerMode }}"
-    ingressClass: "{{ .Values.ingress.ingressClass }}"
+    {{- if .Values.pilot.ingress }}
+    {{- if .Values.pilot.ingress.ingressService }}
+    ingressService: "{{ .Values.pilot.ingress.ingressService }}"
+    ingressControllerMode: "{{ .Values.pilot.ingress.ingressControllerMode }}"
+    ingressClass: "{{ .Values.pilot.ingress.ingressClass }}"
     {{- end }}
     {{- end }}
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
@@ -76,7 +76,7 @@ data:
     enableSdsTokenMount: true
     {{- end }}
 
-    {{- if .Values.useMCP }}
+    {{- if .Values.pilot.useMCP }}
     config_sources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019

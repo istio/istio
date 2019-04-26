@@ -1,4 +1,4 @@
-{{- if .Values.autoscaleMin }}
+{{- if .Values.mixer.telemetry.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -8,8 +8,8 @@ metadata:
     release: {{ .Release.Name }}
     app: istio-telemetry
 spec:
-    maxReplicas: {{ .Values.autoscaleMax }}
-    minReplicas: {{ .Values.autoscaleMin }}
+    maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
+    minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
@@ -18,6 +18,6 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+        targetAverageUtilization: {{ .Values.mixer.telemetry.cpu.targetAverageUtilization }}
 ---
 {{- end }}

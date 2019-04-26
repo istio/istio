@@ -1,3 +1,4 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 # Main Gatewaay. Apps must bind to NAMESPACE/ingressgateway
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -10,7 +11,7 @@ spec:
   selector:
     istio: ingressgateway
   servers:
-{{- if .Values.tls }}
+{{- if $gateway.tls }}
   - port:
       number: 443
       name: https-default
@@ -29,7 +30,7 @@ spec:
     hosts:
       - "*"
     # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
-{{ range $app := .Values.ingressPorts }}
+{{ range $app := $gateway.ingressPorts }}
   - port:
       number: {{ $app.port }}
       name: {{ $app.name }}

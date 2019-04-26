@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.grafana.replicaCount }}
   template:
     metadata:
       labels:
@@ -36,7 +36,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 3000
@@ -47,17 +47,17 @@ spec:
           env:
           - name: GRAFANA_PORT
             value: "3000"
-{{- if .Values.security.enabled }}
+{{- if .Values.grafana.security.enabled }}
           - name: GF_SECURITY_ADMIN_USER
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.security.secretName }}
-                key: {{ .Values.security.usernameKey }}
+                name: {{ .Values.grafana.security.secretName }}
+                key: {{ .Values.grafana.security.usernameKey }}
           - name: GF_SECURITY_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.security.secretName }}
-                key: {{ .Values.security.passphraseKey }}
+                name: {{ .Values.grafana.security.secretName }}
+                key: {{ .Values.grafana.security.passphraseKey }}
           - name: GF_AUTH_BASIC_ENABLED
             value: "true"
           - name: GF_AUTH_ANONYMOUS_ENABLED
@@ -75,8 +75,8 @@ spec:
           - name: GF_PATHS_DATA
             value: /data/grafana
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.grafana.resources }}
+{{ toYaml .Values.grafana.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
@@ -98,7 +98,7 @@ spec:
         configMap:
           name: istio-grafana
       - name: data
-{{- if .Values.persist }}
+{{- if .Values.grafana.persist }}
         persistentVolumeClaim:
           claimName: istio-grafana-pvc
 {{- else }}

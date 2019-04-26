@@ -1,3 +1,4 @@
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -10,7 +11,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ $gateway.replicaCount }}
   template:
     metadata:
       labels:
@@ -23,8 +24,8 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
-{{- if .Values.podAnnotations }}
-{{ toYaml .Values.podAnnotations | indent 8 }}
+{{- if $gateway.podAnnotations }}
+{{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
 {{- if .Values.global.priorityClassName }}
@@ -56,10 +57,10 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
-            {{- range $key, $val := .Values.ports }}
+            {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
-            {{- range $key, $val := .Values.meshExpansionPorts }}
+            {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.port }}
             {{- end }}
             - containerPort: 15090
@@ -73,17 +74,17 @@ spec:
           - {{ .Values.global.proxy.proxyDomain }}
 {{- end }}
           - --log_output_level
-          - '{{ .Values.debug | default "info" }}'
+          - '{{ $gateway.debug | default "info" }}'
           - --proxyLogLevel
-          - '{{ .Values.debug | default "info" }}'
+          - '{{ $gateway.debug | default "info" }}'
           - --drainDuration
-          - '{{ .Values.drainDuration }}' #drainDuration
+          - '{{ $gateway.drainDuration }}' #drainDuration
           - --parentShutdownDuration
           - '1m0s' #parentShutdownDuration
           - --connectTimeout
-          - '{{ .Values.connectTimeout }}' #connectTimeout
+          - '{{ $gateway.connectTimeout }}' #connectTimeout
           - --serviceCluster
-          - egressgateway{{ .Values.suffix | default "" }}
+          - egressgateway{{ $gateway.suffix | default "" }}
           - --zipkinAddress
         {{- if .Values.global.tracer.zipkin.address }}
           - {{ .Values.global.tracer.zipkin.address }}
@@ -114,8 +115,8 @@ spec:
           {{- end }}
         {{- end }}
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if $gateway.resources }}
+{{ toYaml $gateway.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
@@ -139,8 +140,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name             
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
+          {{- if $gateway.env }}
+          {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
@@ -153,13 +154,13 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-          {{- range .Values.secretVolumes }}
+          {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
-{{- if .Values.additionalContainers }}
-{{ toYaml .Values.additionalContainers | indent 8 }}
+{{- if $gateway.additionalContainers }}
+{{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
       {{ if .Values.global.sds.enabled }}
@@ -171,13 +172,13 @@ spec:
         secret:
           secretName: istio.default
           optional: true
-      {{- range .Values.secretVolumes }}
+      {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
           secretName: {{ .secretName | quote }}
           optional: true
       {{- end }}
-      {{- range .Values.configVolumes }}
+      {{- range $gateway.configVolumes }}
       - name: {{ .name }}
         configMap:
           name: {{ .configMapName | quote }}

@@ -8,7 +8,7 @@ metadata:
     istio: mixer
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.mixer.telemetry.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -27,7 +27,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
-{{- with .Values.podAnnotations }}
+{{- with .Values.mixer.telemetry.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
@@ -39,16 +39,16 @@ spec:
           optional: true
       - name: uds-socket
         emptyDir: {}
-    {{- if .Values.nodeSelector }}
+    {{- if .Values.mixer.telemetry.nodeSelector }}
       nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
+{{ toYaml .Values.mixer.telemetry.nodeSelector | indent 8 }}
     {{- end }}
       containers:
       - name: mixer
-{{- if contains "/" .Values.image }}
-        image: "{{ .Values.image }}"
+{{- if contains "/" .Values.mixer.telemetry.image }}
+        image: "{{ .Values.mixer.telemetry.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
@@ -75,16 +75,16 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.env }}
+        {{- if .Values.mixer.telemetry.env }}
         env:
-        {{- range $key, $val := .Values.env }}
+        {{- range $key, $val := .Values.mixer.telemetry.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 10 }}
+{{- if .Values.mixer.telemetry.resources }}
+{{ toYaml .Values.mixer.telemetry.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}

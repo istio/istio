@@ -1,10 +1,11 @@
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
 apiVersion: v1
 kind: Service
 metadata:
   name: egressgateway
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- range $key, $val := .Values.serviceAnnotations }}
+    {{- range $key, $val := $gateway.serviceAnnotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
@@ -17,7 +18,7 @@ spec:
   selector:
     app: egressgateway
   ports:
-    {{- range $key, $val := .Values.ports }}
+    {{- range $key, $val := $gateway.ports }}
     -
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}

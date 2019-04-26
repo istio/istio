@@ -4,7 +4,7 @@ metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- range $key, $val := .Values.service.annotations }}
+    {{- range $key, $val := .Values.grafana.service.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
@@ -13,20 +13,20 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.grafana.service.type }}
   ports:
-    - port: {{ .Values.service.externalPort }}
+    - port: {{ .Values.grafana.service.externalPort }}
       targetPort: 3000
       protocol: TCP
-      name: {{ .Values.service.name }}
+      name: {{ .Values.grafana.service.name }}
   selector:
     app: grafana
-{{- if .Values.service.loadBalancerIP }}
-  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- if .Values.grafana.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.grafana.service.loadBalancerIP }}"
 {{- end }}
-  {{if .Values.service.loadBalancerSourceRanges}}
+  {{if .Values.grafana.service.loadBalancerSourceRanges}}
   loadBalancerSourceRanges:
-    {{range $rangeList := .Values.service.loadBalancerSourceRanges}}
+    {{range $rangeList := .Values.grafana.service.loadBalancerSourceRanges}}
     - {{ $rangeList }}
     {{end}}
   {{end}}

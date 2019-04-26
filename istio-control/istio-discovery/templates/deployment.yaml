@@ -7,16 +7,16 @@ metadata:
   labels:
     app: pilot
     release: {{ .Release.Name }}
-{{- range $key, $val := .Values.deploymentLabels }}
+{{- range $key, $val := .Values.pilot.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
     istio: pilot
   annotations:
     checksum/config-volume:  {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
-{{- if not .Values.autoscaleEnabled }}
-{{- if .Values.replicaCount }}
-  replicas: {{ .Values.replicaCount }}
+{{- if not .Values.pilot.autoscaleEnabled }}
+{{- if .Values.pilot.replicaCount }}
+  replicas: {{ .Values.pilot.replicaCount }}
 {{- else }}
   replicas: 1
 {{- end }}
@@ -45,10 +45,10 @@ spec:
 {{- end }}
       containers:
         - name: discovery
-{{- if contains "/" .Values.image }}
-          image: "{{ .Values.image }}"
+{{- if contains "/" .Values.pilot.image }}
+          image: "{{ .Values.pilot.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.image | default "pilot" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -69,7 +69,7 @@ spec:
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
           - --keepaliveMaxServerConnectionAge
-          - "{{ .Values.keepaliveMaxServerConnectionAge }}"
+          - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -91,23 +91,23 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          {{- if .Values.env }}
-          {{- range $key, $val := .Values.env }}
+          {{- if .Values.pilot.env }}
+          {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
-{{- if .Values.traceSampling }}
+{{- if .Values.pilot.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
-            value: "{{ .Values.traceSampling }}"
+            value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
           - name: PILOT_DISABLE_XDS_MARSHALING_TO_ANY
             value: "1"
           - name: CONFIG_NAMESPACE
-            value: {{ .Values.configNamespace }}
+            value: {{ .Values.pilot.configNamespace }}
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.pilot.resources }}
+{{ toYaml .Values.pilot.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
@@ -231,11 +231,11 @@ spec:
                 - {{ $key }}
           {{- end }}
           {{- end }}
-      {{- if or .Values.podAntiAffinityLabelSelector .Values.podAntiAffinityTermLabelSelector}}
+      {{- if or .Values.pilot.podAntiAffinityLabelSelector .Values.pilot.podAntiAffinityTermLabelSelector}}
         podAntiAffinity:
-          {{- if .Values.podAntiAffinityLabelSelector }}
+          {{- if .Values.pilot.podAntiAffinityLabelSelector }}
           requiredDuringSchedulingIgnoredDuringExecution:
-          {{- range $index, $item := .Values.podAntiAffinityLabelSelector }}
+          {{- range $index, $item := .Values.pilot.podAntiAffinityLabelSelector }}
           - labelSelector:
               matchExpressions:
               - key: {{ $item.key }}
@@ -251,9 +251,9 @@ spec:
           {{- end }}
           {{- end }}
 
-          {{- if or .Values.podAntiAffinityTermLabelSelector}}
+          {{- if or .Values.pilot.podAntiAffinityTermLabelSelector}}
           preferredDuringSchedulingIgnoredDuringExecution:
-          {{- range $index, $item := .Values.podAntiAffinityTermLabelSelector }}
+          {{- range $index, $item := .Values.pilot.podAntiAffinityTermLabelSelector }}
           - podAffinityTerm:
               labelSelector:
                 matchExpressions:

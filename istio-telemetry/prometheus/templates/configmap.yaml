@@ -11,7 +11,7 @@ metadata:
 data:
   prometheus.yml: |-
     global:
-      scrape_interval: {{ .Values.scrapeInterval }}
+      scrape_interval: {{ .Values.prometheus.scrapeInterval }}
     scrape_configs:
 
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
@@ -22,7 +22,7 @@ data:
         namespaces:
           names:
           - {{ .Release.Namespace }}
-          {{- range $key, $value := .Values.datasources }}
+          {{- range $key, $value := .Values.prometheus.datasources }}
           - {{ $value }}
           {{- end }}
       relabel_configs:

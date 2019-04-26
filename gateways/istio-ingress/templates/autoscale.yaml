@@ -1,4 +1,5 @@
-{{- if .Values.autoscaleMin }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if $gateway.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -10,8 +11,8 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  maxReplicas: {{ .Values.autoscaleMax }}
-  minReplicas: {{ .Values.autoscaleMin }}
+  maxReplicas: {{ $gateway.autoscaleMax }}
+  minReplicas: {{ $gateway.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1beta1
     kind: Deployment
@@ -20,6 +21,6 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+        targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
 ---
 {{- end }}

@@ -8,7 +8,7 @@ metadata:
     istio: galley
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.galley.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -28,7 +28,7 @@ spec:
 {{- end }}
       containers:
         - name: galley
-          image: "{{ .Values.global.hub | default "gcr.io/istio-release"}}/{{ .Values.image | default "galley" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub | default "gcr.io/istio-release"}}/{{ .Values.galley.image | default "galley" }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           ports:
           - containerPort: 443
@@ -43,7 +43,7 @@ spec:
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.configValidation }}
+  {{- if .Values.galley.configValidation }}
           - --enable-validation=true
   {{- else }}
           - --enable-validation=false
@@ -82,8 +82,8 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.galley.resources }}
+{{ toYaml .Values.galley.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}

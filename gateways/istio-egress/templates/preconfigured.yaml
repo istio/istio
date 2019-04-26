@@ -1,4 +1,5 @@
-{{- if .Values.zvpn.enabled }}
+{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- if $gateway.zvpn.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -14,7 +15,7 @@ spec:
     istio: {{ .Release.Name }}
   servers:
   - hosts:
-    - "*.{{ .Values.zvpn.suffix }}"
+    - "*.{{ $gateway.zvpn.suffix }}"
     port:
       name: tls
       number: 15443
@@ -35,12 +36,12 @@ spec:
   gateways:
   - istio-multicluster-egressgateway
   hosts:
-  - "*.{{ .Values.zvpn.suffix }}"
+  - "*.{{ $gateway.zvpn.suffix }}"
   tls:
   - match:
     - port: 15443
       sniHosts:
-      - "*.{{ .Values.zvpn.suffix }}"
+      - "*.{{ $gateway.zvpn.suffix }}"
     route:
     - destination:
         host: non.existent.cluster
@@ -81,7 +82,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: "*.{{ .Values.zvpn.suffix }}"
+  host: "*.{{ $gateway.zvpn.suffix }}"
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL

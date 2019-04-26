@@ -1,4 +1,5 @@
-{{- if .Values.podDisruptionBudget }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if $gateway.podDisruptionBudget }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -7,8 +8,8 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 spec:
-  {{- if .Values.podDisruptionBudget }}
-  {{ include "podDisruptionBudget.spec" .Values.podDisruptionBudget }}
+  {{- if $gateway.podDisruptionBudget }}
+  {{ include "podDisruptionBudget.spec" $gateway.podDisruptionBudget }}
   {{- end }}
 selector:
   matchLabels:

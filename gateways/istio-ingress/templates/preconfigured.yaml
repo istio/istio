@@ -1,4 +1,5 @@
-{{- if .Values.k8sIngress }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if $gateway.k8sIngress }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -17,7 +18,7 @@ spec:
       name: http
     hosts:
     - "*"
-{{ if .Values.k8sIngressHttps }}
+{{ if $gateway.k8sIngressHttps }}
   - port:
       number: 443
       protocol: HTTPS
