@@ -143,8 +143,8 @@ func TestIstioControlPlaneReachability(t *testing.T) {
 					t.Errorf("%v not found in VM sidecar CDS config", cluster)
 				}
 			}
-			fmt.Println("jianfeih debugging... sleep")
-			time.Sleep(time.Second * 3600)
+			// fmt.Println("jianfeih debugging... sleep")
+			// time.Sleep(time.Second * 3600)
 		})
 }
 

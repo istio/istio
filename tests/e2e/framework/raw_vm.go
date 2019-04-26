@@ -105,6 +105,9 @@ func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 			return nil, err
 		}
 		g.sshUser = opts.SSHUser
+		// TODO(incfly): remove this line once https://github.com/istio/istio/issues/13562 is fixed.
+		// So that we are testing the debian package at head.
+		g.debianURL = opts.DebianURL
 		return g, nil
 	}
 	vmName := fmt.Sprintf("vm-%v", time.Now().UnixNano())
