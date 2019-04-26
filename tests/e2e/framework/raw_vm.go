@@ -256,11 +256,11 @@ func (vm *GCPRawVM) setupMeshEx(op string, opts setupMeshExOpts) error {
 		zone = opts.zone
 	}
 	env := fmt.Sprintf(`
-		export GCP_OPTS="--project %s --zone %s";
-		export SETUP_ISTIO_VM_SCRIPT="%s";`,
+export GCP_OPTS="--project %s --zone %s";
+export SETUP_ISTIO_VM_SCRIPT="%s";`,
 		vm.ProjectID, zone, setupIstioVMScript)
-	if *sshUser != "" {
-		env = fmt.Sprintf("%v\nexport GCP_SSH_USER=%v;\n", env, *sshUser)
+	if vm.sshUser != "" {
+		env = fmt.Sprintf("%v\nexport GCP_SSH_USER=%v;\n", env, vm.sshUser)
 	}
 	cmd := fmt.Sprintf("%s %s %s", setupMeshExScript, op, argsStr)
 	_, err := u.Shell(env + cmd)
