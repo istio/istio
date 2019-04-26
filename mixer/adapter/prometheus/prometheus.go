@@ -35,6 +35,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
@@ -91,16 +92,9 @@ func GetInfoWithAddr(addr string) (adapter.Info, Server) {
 		srv: newServer(addr),
 	}
 	singletonBuilder.clearState()
-	return adapter.Info{
-		Name:        "prometheus",
-		Impl:        "istio.io/istio/mixer/adapter/prometheus",
-		Description: "Publishes prometheus metrics",
-		SupportedTemplates: []string{
-			metric.TemplateName,
-		},
-		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
-		DefaultConfig: &config.Params{},
-	}, singletonBuilder.srv
+	info := metadata.GetInfo("prometheus")
+	info.NewBuilder = func() adapter.HandlerBuilder { return singletonBuilder }
+	return info, singletonBuilder.srv
 }
 
 // GetInfo returns the Info associated with this adapter.

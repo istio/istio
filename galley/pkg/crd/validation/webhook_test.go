@@ -60,6 +60,10 @@ func (fv *fakeValidator) Validate(*store.BackendEvent) error {
 	return fv.err
 }
 
+func (fv *fakeValidator) SupportsKind(string) bool {
+	return true
+}
+
 var (
 	dummyConfig = &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -432,7 +436,7 @@ func TestAdmitMixer(t *testing.T) {
 				Operation: admissionv1beta1.Delete,
 			},
 			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
+			allowed:   true,
 		},
 		{
 			name: "invalid delete (missing name)",

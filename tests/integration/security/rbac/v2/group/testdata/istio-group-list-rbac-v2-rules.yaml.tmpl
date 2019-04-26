@@ -1,0 +1,76 @@
+# istio-group-list-rbac-v2-rules.yaml to enforce access control based on
+# groups and list claims for http services using Istio RBAC V2 policy.
+
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "require-jwt-for-b"
+spec:
+  targets:
+  - name: b
+  origins:
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+  principalBinding: USE_ORIGIN
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: b-viewer
+spec:
+  rules:
+  - services: ["b.{{ .Namespace }}.svc.cluster.local"]
+    methods: ["GET"]
+---
+# Require a JWT with valid group claim to access service b
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: bind-b-viewer
+spec:
+  allow:
+  - subjects:
+    - groups: ["group1"]
+    roleRef:
+      kind: ServiceRole
+      name: "b-viewer"
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "require-jwt-for-c"
+spec:
+  targets:
+  - name: c
+  origins:
+  - jwt:
+      issuer: "testing@secure.istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.1/security/tools/jwt/samples/jwks.json"
+  principalBinding: USE_ORIGIN
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: c-viewer
+spec:
+  rules:
+  - services: ["c.{{ .Namespace }}.svc.cluster.local"]
+    methods: ["GET"]
+---
+# Require a JWT with valid list-typed scope claim to access service c
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: AuthorizationPolicy
+metadata:
+  name: bind-c-viewer
+spec:
+  allow:
+  - subjects:
+    - properties:
+        request.auth.claims[scope]: "scope1"
+    roleRef:
+      kind: ServiceRole
+      name: "c-viewer"
+---
+
