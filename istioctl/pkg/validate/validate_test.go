@@ -104,6 +104,20 @@ spec:
   - handler: handler-for-valid-rule.denier
     instances:
     - instance-for-valid-rule.checknothing`
+	invalidYAML = `
+(...!)`
+	validKubernetesYAML = `
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+`
+	invalidMixerKind = `
+apiVersion: config.istio.io/v1alpha2
+kind: validator
+metadata:
+  name: invalid-kind
+spec:`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -192,6 +206,15 @@ func TestValidateCommand(t *testing.T) {
 	unsupportedMixerRuleFilename, closeMixerRuleFile := createTestFile(t, unsupportedMixerRule)
 	defer closeMixerRuleFile.Close()
 
+	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
+	defer closeInvalidYAMLFile.Close()
+
+	validKubernetesYAMLFile, closeKubernetesYAMLFile := createTestFile(t, validKubernetesYAML)
+	defer closeKubernetesYAMLFile.Close()
+
+	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
+	defer closeInvalidMixerKindFile.Close()
+
 	cases := []struct {
 		name      string
 		args      []string
@@ -218,6 +241,26 @@ func TestValidateCommand(t *testing.T) {
 		{
 			name:      "unsupported mixer rule",
 			args:      []string{"--filename", unsupportedMixerRuleFilename},
+			wantError: true,
+		},
+		{
+			name:      "invalid filename",
+			args:      []string{"--filename", "INVALID_FILE_NAME"},
+			wantError: true,
+		},
+		{
+			name:      "invalid YAML",
+			args:      []string{"--filename", invalidYAMLFile},
+			wantError: true,
+		},
+		{
+			name:      "valid Kubernetes YAML",
+			args:      []string{"--filename", validKubernetesYAMLFile},
+			wantError: false,
+		},
+		{
+			name:      "invalid Mixer kind",
+			args:      []string{"--filename", invalidMixerKindFile},
 			wantError: true,
 		},
 	}
