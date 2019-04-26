@@ -103,11 +103,12 @@ func init() {
 
 	cmd.AddFlags(rootCmd)
 
-	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
+	rootCmd.AddCommand(newVersionCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
 	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
+	experimentalCmd.AddCommand(Auth())
 	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{

@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/networking/plugin/authz/matcher"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -30,7 +32,7 @@ import (
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 )
 
 func newAuthzPoliciesWithRolesAndBindings(configs ...[]model.Config) *model.AuthorizationPolicies {
@@ -747,9 +749,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Ids: []*policy.Principal{
 							{
 								Identifier: &policy.Principal_Metadata{
-									Metadata: generateMetadataStringMatcher(
+									Metadata: matcher.MetadataStringMatcher(
+										authn_v1alpha1.AuthnFilterName,
 										attrSrcPrincipal, &metadata.StringMatcher{
-											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}, authn.AuthnFilterName),
+											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}),
 								},
 							},
 						},
@@ -805,13 +808,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+								Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 									[]string{attrRequestClaims, "groups"}, "group*"),
 							},
 						},
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+								Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 									[]string{attrRequestClaims, "iss"}, "test-iss"),
 							},
 						},
@@ -835,9 +838,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						},
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataStringMatcher(
+								Metadata: matcher.MetadataStringMatcher(
+									authn_v1alpha1.AuthnFilterName,
 									attrSrcPrincipal, &metadata.StringMatcher{
-										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}, authn.AuthnFilterName),
+										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}),
 							},
 						},
 					},
@@ -1032,7 +1036,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							OrRules: &policy.Permission_Set{
 								Rules: []*policy.Permission{{
 									Rule: &policy.Permission_Metadata{
-										Metadata: generateMetadataListMatcher("envoy.filters.network.mysql_proxy", []string{"db.table"}, "update"),
+										Metadata: matcher.MetadataListMatcher("envoy.filters.network.mysql_proxy", []string{"db.table"}, "update"),
 									},
 								}},
 							},
@@ -1054,7 +1058,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
-	policy8sm := createStringMatcher("value", false, false)
+	policy8sm := matcher.StringMatcher("value")
 	policy8 := &policy.Policy{
 		Permissions: []*policy.Permission{{
 			Rule: &policy.Permission_AndRules{
@@ -1064,7 +1068,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							OrRules: &policy.Permission_Set{
 								Rules: []*policy.Permission{{
 									Rule: &policy.Permission_Metadata{
-										Metadata: generateMetadataStringMatcher("key", policy8sm, "envoy.filters.dummy"),
+										Metadata: matcher.MetadataStringMatcher("envoy.filters.dummy", "key", policy8sm),
 									},
 								}},
 							},
@@ -1181,13 +1185,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									Ids: []*policy.Principal{
 										{
 											Identifier: &policy.Principal_Metadata{
-												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+												Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 													[]string{attrRequestClaims, "groups"}, "admin-group"),
 											},
 										},
 										{
 											Identifier: &policy.Principal_Metadata{
-												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+												Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 													[]string{attrRequestClaims, "groups"}, "testing-group"),
 											},
 										},
@@ -1231,7 +1235,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									Ids: []*policy.Principal{
 										{
 											Identifier: &policy.Principal_Metadata{
-												Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+												Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 													[]string{attrRequestClaims, "groups"}, "*-group"),
 											},
 										},
@@ -1247,7 +1251,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Ids: []*policy.Principal{
 												{
 													Identifier: &policy.Principal_Metadata{
-														Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+														Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 															[]string{attrRequestClaims, "groups"}, "deprecated-group"),
 													},
 												},
@@ -1293,12 +1297,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									Ids: []*policy.Principal{
 										{
 											Identifier: &policy.Principal_Metadata{
-												Metadata: generateMetadataStringMatcher(
+												Metadata: matcher.MetadataStringMatcher(
+													authn_v1alpha1.AuthnFilterName,
 													attrSrcPrincipal, &metadata.StringMatcher{
 														MatchPattern: &metadata.StringMatcher_Regex{
 															Regex: ".*",
-														}},
-													authn.AuthnFilterName),
+														}}),
 											},
 										},
 									},
@@ -1342,9 +1346,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Ids: []*policy.Principal{
 												{
 													Identifier: &policy.Principal_Metadata{
-														Metadata: generateMetadataStringMatcher(
+														Metadata: matcher.MetadataStringMatcher(
+															authn_v1alpha1.AuthnFilterName,
 															attrSrcPrincipal, &metadata.StringMatcher{
-																MatchPattern: &metadata.StringMatcher_Exact{Exact: "cluster.local/ns/testing/sa/unstable-service"}}, authn.AuthnFilterName),
+																MatchPattern: &metadata.StringMatcher_Exact{Exact: "cluster.local/ns/testing/sa/unstable-service"}}),
 													},
 												},
 											},
@@ -1923,8 +1928,8 @@ func TestServiceMetadataMatch(t *testing.T) {
 }
 
 func TestGenerateMetadataStringMatcher(t *testing.T) {
-	actual := generateMetadataStringMatcher(
-		"aa", &metadata.StringMatcher{MatchPattern: &metadata.StringMatcher_Regex{Regex: "regex"}}, authn.AuthnFilterName)
+	actual := matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName,
+		"aa", &metadata.StringMatcher{MatchPattern: &metadata.StringMatcher_Regex{Regex: "regex"}})
 	expect := &metadata.MetadataMatcher{
 		Filter: "istio_authn",
 		Path: []*metadata.MetadataMatcher_PathSegment{
@@ -1946,75 +1951,81 @@ func TestGenerateMetadataStringMatcher(t *testing.T) {
 	}
 }
 
-func TestCreateDynamicMetadataMatcher(t *testing.T) {
+func TestPrincipalForProperty(t *testing.T) {
 	cases := []struct {
-		k      string
-		v      string
-		tcp    bool
-		expect *metadata.MetadataMatcher
+		k    string
+		v    string
+		tcp  bool
+		want *metadata.MetadataMatcher
 	}{
 		{
 			k: attrSrcNamespace, v: "test-ns*", tcp: false,
-			expect: generateMetadataStringMatcher(attrSrcPrincipal, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Regex{
-					Regex: `.*/ns/test-ns.*/.*`,
-				},
-			}, authn.AuthnFilterName),
+			want: matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName,
+				attrSrcPrincipal, &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Regex{
+						Regex: `.*/ns/test-ns.*/.*`,
+					},
+				}),
 		},
 		{
 			k: attrRequestClaims + "[groups]", v: "group*", tcp: false,
-			expect: generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, "groups"}, "group*"),
+			want: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName, []string{attrRequestClaims, "groups"}, "group*"),
 		},
 		{
 			k: attrRequestClaims + "[iss]", v: "test-iss", tcp: false,
-			expect: generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, "iss"}, "test-iss"),
+			want: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName, []string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user", tcp: false,
-			expect: generateMetadataStringMatcher(attrSrcUser, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Suffix{
-					Suffix: "test-user",
-				},
-			}, authn.AuthnFilterName),
+			want: matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName,
+				attrSrcUser, &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Suffix{
+						Suffix: "test-user",
+					},
+				}),
 		},
 		{
 			k: attrRequestAudiences, v: "test-audiences", tcp: false,
-			expect: generateMetadataStringMatcher(attrRequestAudiences, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Exact{
-					Exact: "test-audiences",
-				},
-			}, authn.AuthnFilterName),
+			want: matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName,
+				attrRequestAudiences, &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Exact{
+						Exact: "test-audiences",
+					},
+				}),
 		},
 		{
 			k: attrRequestPresenter, v: "*", tcp: false,
-			expect: generateMetadataStringMatcher(attrRequestPresenter, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Regex{
-					Regex: ".*",
-				},
-			}, authn.AuthnFilterName),
+			want: matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName,
+				attrRequestPresenter, &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Regex{
+						Regex: ".*",
+					},
+				}),
 		},
 		{
 			k: "custom.attribute", v: "custom-value", tcp: false,
-			expect: generateMetadataStringMatcher("custom.attribute", &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Exact{
-					Exact: "custom-value",
-				},
-			}, rbacHTTPFilterName),
+			want: matcher.MetadataStringMatcher(rbacHTTPFilterName,
+				"custom.attribute", &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Exact{
+						Exact: "custom-value",
+					},
+				}),
 		},
 		{
 			k: "custom.attribute", v: "custom-value", tcp: true,
-			expect: generateMetadataStringMatcher("custom.attribute", &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Exact{
-					Exact: "custom-value",
-				},
-			}, rbacTCPFilterName),
+			want: matcher.MetadataStringMatcher(rbacTCPFilterName,
+				"custom.attribute", &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Exact{
+						Exact: "custom-value",
+					},
+				}),
 		},
 	}
 
 	for _, tc := range cases {
-		actual := createDynamicMetadataMatcher(tc.k, tc.v, tc.tcp)
-		if !reflect.DeepEqual(*actual, *tc.expect) {
-			t.Errorf("(%s, %v): expecting %v, but got %v", tc.k, tc.v, *tc.expect, *actual)
+		got := principalForKeyValue(tc.k, tc.v, tc.tcp).GetMetadata()
+		if !reflect.DeepEqual(*got, *tc.want) {
+			t.Errorf("(%s, %v):\nwant: %v\n got: %v", tc.k, tc.v, *tc.want, *got)
 		}
 	}
 }

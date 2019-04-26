@@ -21,8 +21,10 @@ import (
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/networking/plugin/authz/matcher"
+
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 )
 
 // nolint:deadcode
@@ -133,9 +135,9 @@ func generatePrincipal(principalName string) *policy.Principal {
 				Ids: []*policy.Principal{
 					{
 						Identifier: &policy.Principal_Metadata{
-							Metadata: generateMetadataStringMatcher(
-								"source.principal", &metadata.StringMatcher{
-									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}, authn.AuthnFilterName),
+							Metadata: matcher.MetadataStringMatcher(
+								authn_v1alpha1.AuthnFilterName, "source.principal", &metadata.StringMatcher{
+									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}),
 						},
 					},
 				},
@@ -177,7 +179,7 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 											Rules: []*policy.Permission{
 												{
 													Rule: &policy.Permission_Header{
-														Header: convertToHeaderMatcher(":method", "*"),
+														Header: matcher.HeaderMatcher(":method", "*"),
 													},
 												},
 											},
@@ -196,7 +198,7 @@ func generatePolicyWithHTTPMethodAndGroupClaim(methodName, claimName string) *po
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
+								Metadata: matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName,
 									[]string{attrRequestClaims, "groups"}, claimName),
 							},
 						},

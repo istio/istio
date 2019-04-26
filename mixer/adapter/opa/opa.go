@@ -24,6 +24,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/opa/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -253,14 +254,7 @@ func (h *handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "opa",
-		Impl:        "istio.io/istio/mixer/adapter/opa",
-		Description: "Istio Authorization with Open Policy Agent engine",
-		SupportedTemplates: []string{
-			authorization.TemplateName,
-		},
-		DefaultConfig: &config.Params{},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("opa")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }

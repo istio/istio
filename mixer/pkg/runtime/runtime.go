@@ -148,7 +148,11 @@ func (c *Runtime) onConfigChange(events []*store.Event) {
 }
 
 func (c *Runtime) processNewConfig() {
-	newSnapshot, _ := c.ephemeral.BuildSnapshot()
+	newSnapshot, err := c.ephemeral.BuildSnapshot()
+	log.Infof("Built new config.Snapshot: id='%d'", newSnapshot.ID)
+	if err != nil {
+		log.Error(err.Error())
+	}
 
 	oldHandlers := c.handlers
 

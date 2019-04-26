@@ -24,6 +24,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	mixervalidate "istio.io/istio/mixer/pkg/validate"
 )
 
 const (
@@ -140,18 +142,21 @@ func TestValidateResource(t *testing.T) {
 		{
 			name:  "valid mixer configuration",
 			in:    validMixerRule,
-			valid: false, // TODO(https://github.com/istio/istio/issues/4887)
+			valid: true,
 		},
 		{
 			name:  "invalid mixer configuration",
 			in:    invalidMixerRule,
-			valid: false, // TODO(https://github.com/istio/istio/issues/4887)
+			valid: false,
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			err := validateResource(fromYAML(c.in))
+			v := &validator{
+				mixerValidator: mixervalidate.NewDefaultValidator(false),
+			}
+			err := v.validateResource(fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%q", err == nil, c.valid, err)
 			}

@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/configz/server/assets"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -37,6 +38,7 @@ var _ fw.Topic = &configzTopic{}
 type SnapshotTopic interface {
 	GetSnapshotInfo(group string) []snapshot.Info
 	GetGroups() []string
+	GetResource(group string, collection string, name string) *sink.Object
 }
 
 // Register the Configz topic for the snapshots.
@@ -85,6 +87,33 @@ func (c *configzTopic) Activate(context fw.TopicContext) {
 		d := c.collectData(group)
 		fw.RenderJSON(w, http.StatusOK, d)
 	})
+
+	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("GET").Path("/resource").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		keys, ok := req.URL.Query()["group"]
+		group := ""
+		if ok && len(keys[0]) > 1 {
+			group = keys[0]
+		}
+
+		keys, ok = req.URL.Query()["collection"]
+		collection := ""
+		if ok && len(keys[0]) > 1 {
+			collection = keys[0]
+		}
+
+		keys, ok = req.URL.Query()["name"]
+		name := ""
+		if ok && len(keys[0]) > 1 {
+			name = keys[0]
+		}
+
+		if group == "" || collection == "" || name == "" {
+			fw.RenderJSON(w, http.StatusOK, nil)
+		} else {
+			d := c.getResource(group, collection, name)
+			fw.RenderJSON(w, http.StatusOK, d)
+		}
+	})
 }
 
 func (c *configzTopic) collectData(group string) *data {
@@ -92,4 +121,8 @@ func (c *configzTopic) collectData(group string) *data {
 		Snapshots: c.topic.GetSnapshotInfo(group),
 		Groups:    c.topic.GetGroups(),
 	}
+}
+
+func (c *configzTopic) getResource(group string, collection string, name string) *sink.Object {
+	return c.topic.GetResource(group, collection, name)
 }

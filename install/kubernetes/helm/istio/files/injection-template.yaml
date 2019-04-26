@@ -1,4 +1,4 @@
-rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
+rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
 initContainers:
 {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
@@ -38,6 +38,7 @@ initContainers:
       memory: 50Mi
   securityContext:
     runAsUser: 0
+    runAsNonRoot: false
     capabilities:
       add:
       - NET_ADMIN
@@ -62,6 +63,8 @@ initContainers:
   imagePullPolicy: IfNotPresent
   resources: {}
   securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
     privileged: true
 {{ end }}
 {{- end }}

@@ -25,10 +25,11 @@ import (
 
 type Config struct {
 	Namespace namespace.Instance
+	Cfg       bookInfoConfig
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func Deploy(ctx resource.Context, cfg bookInfoConfig) (i deployment.Instance, err error) {
+func Deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 
 	ctx.Environment().Case(environment.Kube, func() {
@@ -39,7 +40,7 @@ func Deploy(ctx resource.Context, cfg bookInfoConfig) (i deployment.Instance, er
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test
-func DeployOrFail(t *testing.T, ctx resource.Context, cfg bookInfoConfig) deployment.Instance {
+func DeployOrFail(t *testing.T, ctx resource.Context, cfg Config) deployment.Instance {
 	t.Helper()
 
 	i, err := Deploy(ctx, cfg)

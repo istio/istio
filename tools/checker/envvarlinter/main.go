@@ -36,7 +36,8 @@ func main() {
 			exitCode = 2
 		}
 	}
-	_ = exitCode
+
+	os.Exit(exitCode)
 }
 
 func getReport(args []string) ([]string, error) {

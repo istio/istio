@@ -322,9 +322,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 
-	// Wait for the pods to transition to running.
-	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
-		return nil, err
+	c.namespace = cfg.Namespace
+	if c.namespace == nil {
+		if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
+			return nil, err
+		}
 	}
 
 	params := cfg.AppParams
@@ -464,7 +466,6 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	switch protocol {
 	case AppProtocolHTTP:
 	case AppProtocolGRPC:
-	case AppProtocolTCP:
 	case AppProtocolWebSocket:
 	default:
 		protocol = string(AppProtocolHTTP)
@@ -630,11 +631,6 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
 
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
-	}
-
 	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
 	// Normalize the count.
 	if opts.Count <= 0 {
@@ -645,36 +641,30 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
 
-	// If host header is set, override the destination with it
-	if opts.Headers.Get("Host") != "" {
-		dstServiceName = opts.Headers.Get("Host")
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: dstServiceName,
+		},
+	}
+
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override dstServiceName
+	for k := range opts.Headers {
+		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
-		Count: int32(opts.Count),
-		Headers: []*proto.Header{
-			{
-				Key:   "Host",
-				Value: dstServiceName,
-			},
-		},
+		Url:     dstURL.String(),
+		Count:   int32(opts.Count),
+		Headers: protoHeaders,
 	})
+
 	if err != nil {
 		return nil, err
 	}
-
-	if len(resp) != 1 {
+	if len(resp) != opts.Count {
 		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.networkEndpoint.ServicePort.Port) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
@@ -685,6 +675,7 @@ func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) [
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 

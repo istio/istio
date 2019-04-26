@@ -639,6 +639,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		nt.Locality = discReq.Node.Locality
 	}
 
+	if err := nt.SetWorkloadLabels(s.Env); err != nil {
+		return err
+	}
+
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
 	if nt.Type == model.Router && (nt.ServiceInstances == nil || len(nt.ServiceInstances) == 0) {
@@ -680,6 +684,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			}
 		}
 		return nil
+	}
+
+	if err := con.modelNode.SetWorkloadLabels(s.Env); err != nil {
+		return err
 	}
 
 	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
@@ -843,6 +851,17 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		client := pending[0]
 		pending = pending[1:]
 
+		// indicates whether to do a full push for the proxy
+		proxyFull := full
+		if !full {
+			s.proxyUpdatesMutex.Lock()
+			if _, ok := s.proxyUpdates[client.modelNode.IPAddresses[0]]; ok {
+				proxyFull = true
+				delete(s.proxyUpdates, client.modelNode.IPAddresses[0])
+			}
+			s.proxyUpdatesMutex.Unlock()
+		}
+
 		wg.Add(1)
 		s.concurrentPushLimit <- struct{}{}
 		go func() {
@@ -852,14 +871,14 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			}()
 
 			edsOnly := edsUpdates
-			if full {
+			if proxyFull {
 				edsOnly = nil
 			}
 
 		Retry:
 			currentVersion := versionInfo()
 			// Stop attempting to push
-			if version != currentVersion && full {
+			if version != currentVersion && proxyFull {
 				adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
 				return
 			}

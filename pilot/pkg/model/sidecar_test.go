@@ -76,7 +76,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Hosts: []string{"foo/bar", "*/*"}, // MBMBMB not valid; one no-port egress
+					Hosts: []string{"foo/bar", "*/*"},
 				},
 			},
 		},

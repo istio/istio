@@ -36,8 +36,6 @@ const (
 	AppProtocolHTTP = "http"
 	// AppProtocolGRPC calls the app with GRPC
 	AppProtocolGRPC = "grpc"
-	// AppProtocolHTTP calls the app with TCP
-	AppProtocolTCP = "tcp"
 	// AppProtocolWebSocket calls the app with WebSocket
 	AppProtocolWebSocket = "ws"
 )
@@ -77,7 +75,7 @@ type Config struct {
 	AppParams []AppParam
 }
 
-func (c Config) fillInDefaults(ctx resource.Context) (err error) {
+func (c *Config) fillInDefaults(ctx resource.Context) (err error) {
 	if c.Galley == nil {
 		return errors.New("galley must not be nil")
 	}
@@ -109,6 +107,7 @@ type AppCallOptions struct {
 	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
 	UseShortHostname bool
 
+	// Path indicates the path of a REST request.
 	Path string
 }
 
