@@ -50,6 +50,9 @@ const (
 
 	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
 	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
+
+	// PolicyDenyIPRule uses "policy/mixer-rule-deny-ip.yaml"
+	PolicyDenyIPRule ConfigFile = "policy/mixer-rule-deny-ip.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
