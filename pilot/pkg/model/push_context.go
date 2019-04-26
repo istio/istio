@@ -17,8 +17,11 @@ package model
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -347,6 +350,74 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+func boundGateways(env *Environment, proxyInstances []*ServiceInstance) []Config {
+	// collect workload labels
+	var workloadLabels LabelsCollection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	return env.Gateways(workloadLabels)
+}
+
+// FilteredGatewayServices filters the given set of services by associated hosts.
+// The association is proxy_instance --> gateways --> virtual services --> hosts.
+func (ps *PushContext) FilteredGatewayServices(proxy *Proxy, svcs []*Service) []*Service {
+
+	if !pilot.FilterGatewayServices {
+		return svcs
+	}
+
+	// gateway set.
+	gwmap := map[string]bool{}
+	// host set.
+	hm := map[string]bool{}
+
+	for _, gw := range boundGateways(ps.Env, proxy.ServiceInstances) {
+		gwmap[gw.Namespace+"/"+gw.Name] = true
+	}
+	log.Infof("FilteredGatewayServices: gateway %v has following gw resources:%v", proxy.ID, gwmap)
+
+	for _, vsc := range ps.VirtualServices(proxy, gwmap) {
+		vs, ok := vsc.Spec.(*networking.VirtualService)
+		if !ok { // should never happen
+			log.Errorf("in not a virtual service: %#v", vsc.Labels)
+			return svcs
+		}
+
+		for _, h := range vs.Http {
+			for _, r := range h.Route {
+				hm[r.Destination.Host] = true
+			}
+		}
+
+		for _, h := range vs.Tcp {
+			for _, r := range h.Route {
+				hm[r.Destination.Host] = true
+			}
+		}
+	}
+
+	log.Infof("FilteredGatewayServices: gateway %v has following hosts:%v", proxy.ID, hm)
+
+	filtered := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+
+		// explicitly associated with gateway or hidden association thru an istio component like
+		// istio-telemetry.ns.svc.cluster.local
+		// There has to be a better way to do this.
+		if hm[svcHost] || strings.HasPrefix(svcHost, "istio") || strings.Contains(svcHost, "kube-system") {
+			filtered = append(filtered, s)
+		}
+	}
+
+	log.Infof("FilteredGatewayServices: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(filtered))
+
+	return filtered
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
@@ -370,6 +441,10 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 
 	// Second add public services
 	out = append(out, ps.publicServices...)
+
+	if proxy != nil && proxy.Type != SidecarProxy {
+		return ps.FilteredGatewayServices(proxy, out)
+	}
 
 	return out
 }

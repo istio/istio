@@ -79,6 +79,10 @@ var (
 	// AzDebug indicates whether to log service registry az info.
 	AzDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 
+	// FilterGatewayServices enables service filtering on gateways.
+	// It reduces the size of cluster configuration sent to the gateways.
+	FilterGatewayServices = os.Getenv("PILOT_FILTER_GATEWAY_SERVICES") == "1"
+
 	// NetworkScopes isolates namespaces, limiting configuration for
 	// egress and other mesh services to only hosts defined in same namespace or
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
