@@ -29,9 +29,8 @@ endif
 # Flags for mesh expansion, supporting vm, tests. Currently this is only possible in prow and GKE.
 _INTEGRATION_TEST_VM_FLAG =
 ifneq ($(MASON_INFO_PATH),)
-    _INTEGRATION_TEST_VM_FLAG = --istio.test.kube.meshexp.vmconfig '{"mason_info_path":"${MASON_INFO_PATH}"}'
+    _INTEGRATION_TEST_VM_FLAG = --istio.test.kube.meshexp.vmconfig '{"mason_info_path":"${MASON_INFO_PATH}","vm_ssh_user":"Prow"}'
 		_INTEGRATION_TEST_VM_FLAG += --istio.test.kube.meshexp.debianUrl https://storage.googleapis.com/istio-release/releases/1.1.3/deb
-		#  --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow deb_url":"https://storage.googleapis.com/istio-release/releases/1.1.3/deb
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
