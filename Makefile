@@ -777,7 +777,7 @@ force: ;
 
 ${GOPATH}/src/github.com/istio-ecosystem/istio-installer: force
 	mkdir -p ${GOPATH}/src/istio-ecosystem
-	git clone "${INSTALLER_REPOSRC}" "${ISTIO_INSTALLER}" 2> /dev/null || (cd "${ISTIO_INSTALLER}" ; git pull)
+	git clone -b master "${INSTALLER_REPOSRC}" "${ISTIO_INSTALLER}" 2> /dev/null || (cd "${ISTIO_INSTALLER}" ; git pull)
 
 generate_installer_e2e_yaml: ${GOPATH}/src/github.com/istio-ecosystem/istio-installer istio-init.yaml
 	rm -f install/kubernetes/istio-installer.yaml

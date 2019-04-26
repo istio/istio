@@ -1131,6 +1131,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	// A very flimsy and unreliable regexp to replace delays in ingress gateway pod Spec
 	// note these config nobs aren't exposed to helm
+	// TODO(https://github.com/istio/istio/issues/13644): replace with real options in helm.
 	content = replacePattern(content, "'10s'", "'1s' #connectTimeout")
 	content = replacePattern(content, "'45s'", "'2s' #drainDuration")
 	content = replacePattern(content, "'1m0s'", "'3s' #parentShutdownDuration")

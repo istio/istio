@@ -478,7 +478,7 @@ func TestMetric(t *testing.T) {
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio_requests_total", srcWorkloadLabel, "istio-"+ingressName)
+	checkMetricReport(t, "istio_requests_total", srcWorkloadLabel, ingressName)
 }
 
 func TestOOPMetric(t *testing.T) {
@@ -823,7 +823,7 @@ func TestIngressCheckCache(t *testing.T) {
 		}
 		return nil
 	}
-	testCheckCache(t, visit, "istio-ingressgateway")
+	testCheckCache(t, visit, ingressName)
 }
 
 func getIngressOrFail(t *testing.T) string {
