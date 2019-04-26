@@ -71,12 +71,14 @@ func TestCheckAndCreateNewFile(t *testing.T) {
 
 func TestUpgradeLocalFile(t *testing.T) {
 	upgrader := Upgrader{
-		RoleToWorkloadLabels: make(map[string]WorkloadLabels),
+		RoleToWorkloadLabels: map[string]ServiceToWorkloadLabels{},
 	}
 	// Data from the BookExample. productpage.svc.cluster.local is the service with pod label
 	// app: productpage.
-	upgrader.RoleToWorkloadLabels["service-viewer"] = map[string]string{
-		"app": "productpage",
+	upgrader.RoleToWorkloadLabels["service-viewer"] = ServiceToWorkloadLabels{
+		"productpage": map[string]string{
+			"app": "productpage",
+		},
 	}
 	cases := []testCases{
 		{

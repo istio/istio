@@ -89,21 +89,9 @@ istioctl experimental rbac can -s source.namespace=foo POST rating /data -a dest
 func upgrade() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade <rbac-file1> <rbac-file2> ...",
-		Short: "UpgradeCRDs Authorization files to use the newest API",
+		Short: "Upgrade Istio Authorization policy files to use the newest API",
 		Long: `
-This command automatically converts your Authorization v1 policy files to v2. 
-It works as expected. However, the current version has some limitations:
-* It does not support multiple rule in a single ServiceRole yet.
-* It does not support key value pairs that are not defined in the same line.
-* It does not automatically detect if the file is using tabs or spaces for indentation. It supports 
-  spaces for now.
-* It ignores lines that have the comment sign (#).
-* It works well when yaml files follow Istio conventions. For example,
-  rules:
-  - services: ["productpage.svc.cluster.local"]
-  but not (some editors auto-indent)
-  rules:
-    - services: ["productpage.svc.cluster.local"]
+This command automatically converts your Istio Authorization v1 policy files to v2.
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -172,13 +160,13 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 func newUpgrader(rbacFiles []string) (*rbac.Upgrader, error) {
 	istioClient, err := newClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
 	}
 	k8sClient, err := kube.CreateClientset("", "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
 	}
 	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient,
-		RoleToWorkloadLabels: map[string]rbac.WorkloadLabels{}, RbacFiles: rbacFiles}
+		RoleToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFiles: rbacFiles}
 	return upgrader, nil
 }

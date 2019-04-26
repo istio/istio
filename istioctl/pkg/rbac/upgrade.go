@@ -32,12 +32,21 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 )
 
+// ServiceToWorkloadLabels maps the short service name to the workload labels that it's pointing to.
+// This service is defined in same namespace as the ServiceRole that's using it.
+type ServiceToWorkloadLabels map[string]WorkloadLabels
+
+// WorkloadLabels is the workload labels, for example, app: productpage.
 type WorkloadLabels map[string]string
 
 type Upgrader struct {
-	IstioConfigStore     model.ConfigStore
-	K8sClient            *kubernetes.Clientset
-	RoleToWorkloadLabels map[string]WorkloadLabels
+	IstioConfigStore model.ConfigStore
+	K8sClient        *kubernetes.Clientset
+	// RoleToWorkloadLabels maps the ServiceRole name to the map of service name to the workload labels
+	// that the service pointing to.
+	// We could have remove the `service` key layer to make it ServiceRole name maps to workload labels.
+	// However, this is needed for unit tests.
+	RoleToWorkloadLabels map[string]ServiceToWorkloadLabels
 	RbacFiles            []string
 	serviceRoles         []model.Config
 	serviceRoleBindings  []model.Config
@@ -140,7 +149,7 @@ func writeToFile(file *os.File, config model.Config) error {
 	return nil
 }
 
-// createRoleAndBindingLists creates lists of strings represent ServiceRole and ServiceRoleBinding policies.
+// createRoleAndBindingLists creates lists of model.Configs to store ServiceRole and ServiceRoleBinding policies.
 func (ug *Upgrader) createRoleAndBindingLists(fileName string) error {
 	rbacFileBuf, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -162,23 +171,6 @@ func (ug *Upgrader) createRoleAndBindingLists(fileName string) error {
 	return nil
 }
 
-// updateRoleToWorkloadLabels maps the ServiceRole name to workload labels that its rules originally
-// applies to.
-func (ug *Upgrader) updateRoleToWorkloadLabels(serviceRolePolicy model.Config) error {
-	roleName := serviceRolePolicy.Name
-	namespace := serviceRolePolicy.Namespace
-	serviceRoleSpec := serviceRolePolicy.Spec.(*rbacproto.ServiceRole)
-	for _, rule := range serviceRoleSpec.Rules {
-		for _, fullServiceName := range rule.Services {
-			if err := ug.mapRoleToWorkloadLabels(roleName, namespace, fullServiceName); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// TODO(pitlv2109): Handle multiple rules.
 // upgradeServiceRole simply removes the `services` field for the serviceRolePolicy.
 func (ug *Upgrader) upgradeServiceRole(serviceRolePolicy model.Config) model.Config {
 	serviceRoleSpec := serviceRolePolicy.Spec.(*rbacproto.ServiceRole)
@@ -217,14 +209,15 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 	}
 	authzPolicy := rbacproto.AuthorizationPolicy{}
 	authzPolicy.Allow = []*rbacproto.ServiceRoleBinding{bindingSpec}
-	fmt.Println("service role")
-	fmt.Println(bindingSpec.Role)
-	workloadLabels, found := ug.RoleToWorkloadLabels[bindingSpec.Role]
-	if found {
+	workloadLabels := WorkloadLabels{}
+	for _, serviceWorkloadLabels := range ug.RoleToWorkloadLabels[bindingSpec.Role] {
+		for key, value := range serviceWorkloadLabels {
+			workloadLabels[key] = value
+		}
+	}
+	if len(workloadLabels) > 0 {
 		authzPolicy.WorkloadSelector = &rbacproto.WorkloadSelector{Labels: workloadLabels}
 	}
-	fmt.Println("workload label")
-	fmt.Println(ug.RoleToWorkloadLabels)
 	authzPolicyConfig := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.AuthorizationPolicy.Type,
@@ -238,22 +231,46 @@ func (ug *Upgrader) createAuthorizationPolicyFromRoleBinding(serviceRoleBinding 
 	return authzPolicyConfig
 }
 
+// updateRoleToWorkloadLabels maps the ServiceRole name to workload labels that its rules originally
+// applies to.
+func (ug *Upgrader) updateRoleToWorkloadLabels(serviceRolePolicy model.Config) error {
+	roleName := serviceRolePolicy.Name
+	namespace := serviceRolePolicy.Namespace
+	serviceRoleSpec := serviceRolePolicy.Spec.(*rbacproto.ServiceRole)
+	for _, rule := range serviceRoleSpec.Rules {
+		for _, fullServiceName := range rule.Services {
+			if err := ug.mapRoleToWorkloadLabels(roleName, namespace, fullServiceName); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // mapRoleToWorkloadLabels maps the roleName from namespace to workload labels that its rules originally
 // applies to.
 func (ug *Upgrader) mapRoleToWorkloadLabels(roleName, namespace, fullServiceName string) error {
+	// TODO(pitlv2109): Handle when services = "*" or wildcards.
 	if strings.Contains(fullServiceName, "*") {
 		return fmt.Errorf("services with wildcard * are not supported")
 	}
-	// TODO(pitlv2109): Handle when services = "*" or wildcards.
-	if _, found := ug.RoleToWorkloadLabels[roleName]; found {
+	serviceName := strings.Split(fullServiceName, ".")[0]
+	if _, found := ug.RoleToWorkloadLabels[roleName][serviceName]; found {
 		return nil
 	}
-	serviceName := strings.Split(fullServiceName, ".")[0]
 	k8sService, err := ug.K8sClient.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	ug.RoleToWorkloadLabels[roleName] = k8sService.Spec.Selector
+	if _, found := ug.RoleToWorkloadLabels[roleName]; !found {
+		ug.RoleToWorkloadLabels[roleName] = make(ServiceToWorkloadLabels)
+	}
+	if _, found := ug.RoleToWorkloadLabels[roleName][serviceName]; !found {
+		ug.RoleToWorkloadLabels[roleName][serviceName] = make(WorkloadLabels)
+	}
+	for key, value := range k8sService.Spec.Selector {
+		ug.RoleToWorkloadLabels[roleName][serviceName][key] = value
+	}
 	return nil
 }
 
