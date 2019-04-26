@@ -1,3 +1,14 @@
+sidecarInjectorWebhook:
+  # sidecar-injector webhook configuration.
+  # If down, new pods will fail to start or restart for a short time, but they will
+  # retry.
+  replicaCount: 1
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
 
 telemetry:
   # Will not define mixerCheckServer and mixerReportServer
@@ -7,15 +18,6 @@ policy:
   # Will not define mixerCheckServer and mixerReportServer
   enabled: true
 
-# sidecar-injector webhook configuration.
-# If down, new pods will fail to start or restart for a short time, but they will
-# retry.
-replicaCount: 1
-
-# This enables injection of sidecar in all namespaces,
-# with the exception of namespaces with "istio-injection:disabled" annotation
-# Only one environment should have this enabled.
-enableNamespacesByDefault: false
 
 # If set, no iptable init will be added. It assumes CNI is installed.
 # TODO: rename to 'enableIptables' or add 'interceptionMode: CNI'

@@ -21,7 +21,7 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     namespaceSelector:
-{{- if .Values.enableNamespacesByDefault }}
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:
       - key: istio-injection
         operator: NotIn

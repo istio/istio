@@ -1,108 +1,109 @@
 # A-la-carte istio ingress gateway.
 # Must be installed in a separate namespace, to minimize access to secrets.
 
+gateways:
+  istio-ingressgateway:
+    ports:
+    ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    - port: 80
+      targetPort: 80
+      name: http2
+    - port: 443
+      name: https
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
 
-ports:
-## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
-- port: 80
-  targetPort: 80
-  name: http2
-- port: 443
-  name: https
-  # This is the port where sni routing happens
-- port: 15443
-  targetPort: 15443
-  name: tls
+    # Scalability tunning
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+    cpu:
+      targetAverageUtilization: 80
 
-# Scalability tunning
-replicaCount: 1
-autoscaleMin: 1
-autoscaleMax: 5
-resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  #requests:
-  #  cpu: 1800m
-  #  memory: 256Mi
-cpu:
-  targetAverageUtilization: 80
+    # Support legacy k8s ingress.
+    k8sIngress: false
 
-# Support legacy k8s ingress.
-k8sIngress: false
+    # Single server certificate supported, not tested
+    k8sIngressHttps: false
 
-# Single server certificate supported, not tested
-k8sIngressHttps: false
+    # Debug level for envoy. Can be set to 'debug'
+    debug: info
 
-# Debug level for envoy. Can be set to 'debug'
-debug: info
+    # If true, don't auto-generate a Service object.
+    # User can manually create one, with selector "app:ingressgateway" and any settings he needs.
+    # Note that user needs to maintain the list of ports in the manual Service.
+    customService: false
 
-# If true, don't auto-generate a Service object.
-# User can manually create one, with selector "app:ingressgateway" and any settings he needs.
-# Note that user needs to maintain the list of ports in the manual Service.
-customService: false
+    drainDuration: 45s
+    connectTimeout: 10s
 
-drainDuration: 45s
-connectTimeout: 10s
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    serviceAnnotations: {}
 
-loadBalancerIP: ""
-loadBalancerSourceRanges: []
-serviceAnnotations: {}
+    domain: ""
 
-domain: ""
+    # Enable cross-cluster access using SNI matching
+    zvpn:
+      enabled: true
+      suffix: global
 
-# Enable cross-cluster access using SNI matching
-zvpn:
-  enabled: true
-  suffix: global
+    # To generate an internal load balancer:
+    # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
+    #serviceAnnotations:
+    #    cloud.google.com/load-balancer-type: "internal"
 
-# To generate an internal load balancer:
-# --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
-#serviceAnnotations:
-#    cloud.google.com/load-balancer-type: "internal"
+    # Use SDS for ingress secrets.
+    sds:
+      enabled: false
+      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+      # This server runs in the same pod as ingress gateway.
+      image: node-agent-k8s
 
-# Use SDS for ingress secrets.
-sds:
-  enabled: false
-  # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-  # This server runs in the same pod as ingress gateway.
-  image: node-agent-k8s
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
-podAnnotations: {}
-type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    #### MESH EXPANSION PORTS  ########
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
+    # You can remove these ports if you are not using mesh expansion
+    meshExpansionPorts:
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
+    ####### end MESH EXPANSION PORTS ######
 
-#### MESH EXPANSION PORTS  ########
-# Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
-# to pilot/citadel if global.meshExpansion settings are enabled.
-# Delete these ports if mesh expansion is not enabled, to avoid
-# exposing unnecessary ports on the web.
-# You can remove these ports if you are not using mesh expansion
-meshExpansionPorts:
-- port: 15011
-  targetPort: 15011
-  name: tcp-pilot-grpc-tls
-- port: 8060
-  targetPort: 8060
-  name: tcp-citadel-grpc-tls
-- port: 853
-  targetPort: 853
-  name: tcp-dns-tls
-####### end MESH EXPANSION PORTS ######
+    ##############
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
 
-##############
-secretVolumes:
-- name: ingressgateway-certs
-  secretName: istio-ingressgateway-certs
-  mountPath: /etc/istio/ingressgateway-certs
-- name: ingressgateway-ca-certs
-  secretName: istio-ingressgateway-ca-certs
-  mountPath: /etc/istio/ingressgateway-ca-certs
-
-### Advanced options ############
-env:
-  # A gateway with this mode ensures that pilot generates an additional
-  # set of clusters for internal services but without Istio mTLS, to
-  # enable cross cluster routing.
-  ISTIO_META_ROUTER_MODE: "sni-dnat"
+    ### Advanced options ############
+    env:
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
 
 

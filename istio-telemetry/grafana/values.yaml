@@ -1,48 +1,49 @@
-enabled: true
-replicaCount: 1
-image:
-  repository: grafana/grafana
-  tag: 5.2.3
-persist: false
-storageClassName: ""
-accessMode: ReadWriteMany
-security:
-  enabled: false
-  secretName: grafana
-  usernameKey: username
-  passphraseKey: passphrase
-service:
-  annotations: {}
-  name: http
-  type: ClusterIP
-  externalPort: 3000
-  loadBalancerIP:
-  loadBalancerSourceRanges:
+grafana:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: grafana/grafana
+    tag: 5.2.3
+  persist: false
+  storageClassName: ""
+  accessMode: ReadWriteMany
+  security:
+    enabled: false
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
+  service:
+    annotations: {}
+    name: http
+    type: ClusterIP
+    externalPort: 3000
+    loadBalancerIP:
+    loadBalancerSourceRanges:
 
-# Optional: prometheus may be deployed in a different namespace
-# prometheusNamespace: istio-telemetry
+  # Optional: prometheus may be deployed in a different namespace
+  # prometheusNamespace: istio-telemetry
 
-# Additional datasources. Prometheus included in the config map.
-#datasources:
-#      - name: Prometheus2
-#        type: prometheus2
-#        orgId: 2
-#        url: http://prometheus:9090
-#        access: proxy
-#        isDefault: false
-#        jsonData:
-#          timeInterval: 5s
-#        editable: true
+  # Additional datasources. Prometheus included in the config map.
+  #datasources:
+  #      - name: Prometheus2
+  #        type: prometheus2
+  #        orgId: 2
+  #        url: http://prometheus:9090
+  #        access: proxy
+  #        isDefault: false
+  #        jsonData:
+  #          timeInterval: 5s
+  #        editable: true
 
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-      - name: 'istio'
-        orgId: 1
-        folder: 'istio'
-        type: file
-        disableDeletion: false
-        options:
-          path: /var/lib/grafana/dashboards/istio
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'istio'
+          orgId: 1
+          folder: 'istio'
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/istio
 

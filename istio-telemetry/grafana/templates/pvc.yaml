@@ -1,4 +1,4 @@
-{{- if .Values.persist }}
+{{- if .Values.grafana.persist }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -9,9 +9,9 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  storageClassName: {{ .Values.storageClassName }}
+  storageClassName: {{ .Values.grafana.storageClassName }}
   accessModes:
-    - {{ .Values.accessMode }}
+    - {{ .Values.grafana.accessMode }}
   resources:
     requests:
       storage: 5Gi

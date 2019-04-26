@@ -1,4 +1,5 @@
-{{- if .Values.sds.enabled }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if $gateway.sds.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:

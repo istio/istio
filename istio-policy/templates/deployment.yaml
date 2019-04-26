@@ -8,7 +8,7 @@ metadata:
     istio: mixer
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.mixer.policy.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -27,7 +27,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
-{{- with .Values.podAnnotations }}
+{{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
@@ -46,10 +46,10 @@ spec:
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
-{{- if contains "/" .Values.image }}
-        image: "{{ .Values.image }}"
+{{- if contains "/" .Values.mixer.policy.image }}
+        image: "{{ .Values.mixer.policy.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.hub }}/{{ .Values.mixer.policy.image }}:{{ .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
@@ -76,16 +76,16 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
-        {{- if .Values.env }}
+        {{- if .Values.mixer.policy.env }}
         env:
-        {{- range $key, $val := .Values.env }}
+        {{- range $key, $val := .Values.mixer.policy.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
         resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 10 }}
+{{- if .Values.mixer.policy.resources }}
+{{ toYaml .Values.mixer.policy.resources | indent 10 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}

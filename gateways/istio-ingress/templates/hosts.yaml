@@ -1,7 +1,8 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 
 # TODO: range TCP ports, add ports
-# {{ .Values.domain }}
-{{ range $app := .Values.hosts }}
+# {{ $gateway.domain }}
+{{ range $app := $gateway.hosts }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -12,7 +13,7 @@ metadata:
     release: {{ $.Release.Name }}
 spec:
   hosts:
-  - "{{ $app.name }}.{{ $.Values.domain }}"
+  - "{{ $app.name }}.{{ $gateway.domain }}"
   gateways:
   - ingressgateway
   http:
@@ -23,7 +24,7 @@ spec:
           number: {{ $app.destPort }}
 {{- end }}
 
-{{ range $app := .Values.ingressPorts }}
+{{ range $app := $gateway.ingressPorts }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

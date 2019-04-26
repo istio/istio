@@ -1,4 +1,4 @@
-{{- if .Values.autoscaleMin }}
+{{- if .Values.mixer.policy.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -8,8 +8,8 @@ metadata:
     app: istio-policy
     release: {{ .Release.Name }}
 spec:
-    maxReplicas: {{ .Values.autoscaleMax }}
-    minReplicas: {{ .Values.autoscaleMin }}
+    maxReplicas: {{ .Values.mixer.policy.autoscaleMax }}
+    minReplicas: {{ .Values.mixer.policy.autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
@@ -18,6 +18,6 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+        targetAverageUtilization: {{ .Values.mixer.policy.cpu.targetAverageUtilization }}
 ---
 {{- end }}

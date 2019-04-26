@@ -7,4 +7,4 @@ data:
 
   values.yaml: |-
     # Last applied config
-{{ toYaml .Values | indent 4 -}}
+{{ toYaml .Values.security | indent 4 -}}

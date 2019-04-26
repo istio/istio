@@ -5,8 +5,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     prometheus.io/scrape: 'true'
-    {{- if .Values.service }}
-    {{- range $key, $val := .Values.service.annotations }}
+    {{- if .Values.prometheus.service }}
+    {{- range $key, $val := .Values.prometheus.service.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
     {{- end }}
@@ -23,7 +23,7 @@ spec:
     protocol: TCP
     port: 9090
 
-{{- if .Values.service }}
+{{- if .Values.prometheus.service }}
 # Using separate ingress for nodeport, to avoid conflict with pilot e2e test configs.
 ---
 apiVersion: v1
@@ -40,7 +40,7 @@ spec:
   type: NodePort
   ports:
   - port: 9090
-    nodePort: {{ .Values.service.nodePort.port }}
+    nodePort: {{ .Values.prometheus.service.nodePort.port }}
     name: http-prometheus
   selector:
     app: prometheus

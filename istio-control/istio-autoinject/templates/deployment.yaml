@@ -8,7 +8,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: sidecar-injector
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.sidecarInjectorWebhook.replicaCount }}
   selector:
     matchLabels:
       istio: sidecar-injector
@@ -74,8 +74,8 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.sidecarInjectorWebhook.resources }}
+{{ toYaml .Values.sidecarInjectorWebhook.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
