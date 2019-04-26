@@ -22,7 +22,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
@@ -90,6 +90,7 @@ func (v *validator) validateFile(reader io.Reader) error {
 		if len(out) == 0 {
 			continue
 		}
+		fmt.Printf("%#v\n", out)
 		un := unstructured.Unstructured{Object: out}
 		err = v.validateResource(&un)
 		if err != nil {
