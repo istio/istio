@@ -104,6 +104,7 @@ func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 		if err != nil {
 			return nil, err
 		}
+		g.sshUser = opts.SSHUser
 		return g, nil
 	}
 	vmName := fmt.Sprintf("vm-%v", time.Now().UnixNano())
