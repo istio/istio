@@ -21,7 +21,7 @@ package rbac
 import (
 	"context"
 
-	"istio.io/istio/mixer/adapter/rbac/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/authorization"
 )
@@ -54,14 +54,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "rbac",
-		Impl:        "istio.io/istio/mixer/adapter/rbac",
-		Description: prompt,
-		SupportedTemplates: []string{
-			authorization.TemplateName,
-		},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{},
-	}
+	info := metadata.GetInfo("rbac")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
