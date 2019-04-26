@@ -113,7 +113,7 @@ func TestSecretFetcher(t *testing.T) {
 		DeleteCache: func(secretName string) {},
 		UpdateCache: func(secretName string, ns model.SecretItem) {},
 	}
-	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
@@ -199,7 +199,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 		DeleteCache: func(secretName string) {},
 		UpdateCache: func(secretName string, ns model.SecretItem) {},
 	}
-	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
@@ -261,7 +261,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 		DeleteCache: func(secretName string) {},
 		UpdateCache: func(secretName string, ns model.SecretItem) {},
 	}
-	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
@@ -367,7 +367,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		DeleteCache: func(secretName string) {},
 		UpdateCache: func(secretName string, ns model.SecretItem) {},
 	}
-	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
+	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}
