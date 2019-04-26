@@ -35,6 +35,13 @@ data:
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
 
+    {{- if .Values.global.proxy.envoyAccesslogService.enable }}
+
+    # Set envoy gRPC access log service.
+    envoyAccesslogService:
+{{ toYaml .Values.global.proxy.envoyAccesslogService.config | indent 6 }}
+    {{- end }}
+
     {{- if .Values.global.istioRemote }}
     
     {{- if .Values.global.remotePolicyAddress }}

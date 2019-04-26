@@ -17,8 +17,10 @@ package v1alpha3
 import (
 	"fmt"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
+	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
@@ -30,6 +32,8 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+const tcpEnvoyAccesslogName string = "tcp_envoy_accesslog"
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) []listener.Filter {
@@ -47,7 +51,7 @@ func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, insta
 // TcpProxy instance and builds a TCP filter out of it.
 func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
 	if env.Mesh.AccessLogFile != "" {
-		fl := &fileaccesslog.FileAccessLog{
+		fl := &accesslogconfig.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
 		}
 
@@ -63,8 +67,65 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
 		}
 
-		config.AccessLog = []*accesslog.AccessLog{acc}
+		config.AccessLog = append(config.AccessLog, acc)
 
+	}
+
+	if env.Mesh.EnvoyAccesslogService != nil && env.Mesh.EnvoyAccesslogService.Address != "" {
+		googleGrpc := &core.GrpcService_GoogleGrpc{
+			TargetUri:  env.Mesh.EnvoyAccesslogService.Address,
+			StatPrefix: tcpEnvoyAccesslogName,
+		}
+		if env.Mesh.EnvoyAccesslogService.Credentials != nil {
+			c := env.Mesh.EnvoyAccesslogService.Credentials
+			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{
+				RootCerts:  &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}},
+				PrivateKey: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}},
+				CertChain:  &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}},
+			}
+			isValid := false
+			if c.RootCerts != "" {
+				sslCred.RootCerts = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}}
+				isValid = true
+			}
+			if c.PrivateKey != "" {
+				sslCred.PrivateKey = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}}
+				isValid = true
+			}
+			if c.CertChain != "" {
+				sslCred.CertChain = &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.CertChain}}
+				isValid = true
+			}
+			if isValid {
+				googleGrpc.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
+					CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+						SslCredentials: sslCred,
+					},
+				}
+			}
+		}
+		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
+			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+				LogName: tcpEnvoyAccesslogName,
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+						GoogleGrpc: googleGrpc,
+					},
+				},
+			},
+		}
+
+		acc := &accesslog.AccessLog{
+			Name: xdsutil.HTTPGRPCAccessLog,
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		}
+
+		config.AccessLog = append(config.AccessLog, acc)
 	}
 
 	tcpFilter := &listener.Filter{
