@@ -1,6 +1,7 @@
 #!/bin/bash
 
 case "${OSTYPE}" in
+  darwin*) ./install_prereqs_macos.sh;;
   linux*)
     DISTRO="$(lsb_release -i -s)"
     case "${DISTRO}" in

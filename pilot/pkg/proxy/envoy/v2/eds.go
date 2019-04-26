@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/features/pilot"
 )
@@ -192,7 +193,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(nil, subsetName, hostname)
 
+	push.Mutex.Lock()
 	ports, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -298,10 +301,15 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// hostname --> service account
 	svc2account := map[string]map[string]bool{}
 
-	for _, registry := range registries {
-		// Each registry acts as a shard - we don't want to combine them because some
-		// may individually update their endpoints incrementally
-		for _, svc := range push.Services(nil) {
+	// Each registry acts as a shard - we don't want to combine them because some
+	// may individually update their endpoints incrementally
+	for _, svc := range push.Services(nil) {
+		for _, registry := range registries {
+			// in case this svc does not belong to the registry
+			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
+				continue
+			}
+
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
@@ -412,7 +420,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
-	if cluster == "" {
+	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
+	if cluster == string(serviceregistry.KubernetesRegistry) {
 		pl := model.PortList{}
 		for k, v := range ports {
 			pl = append(pl, &model.Port{
@@ -466,7 +475,6 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
 		delete(s.WorkloadsByID, id)
@@ -474,10 +482,34 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 	}
 	w, f := s.WorkloadsByID[id]
 	if !f {
-		// First time this workload has been seen. Likely never connected, no need to
-		// push
 		s.WorkloadsByID[id] = &Workload{
 			Labels: labels,
+		}
+
+		fullPush := false
+		adsClientsMutex.RLock()
+		for _, connection := range adsClients {
+			// if the workload has envoy proxy and connected to server,
+			// then do a full xDS push for this proxy;
+			// otherwise:
+			//   case 1: the workload has no sidecar proxy, no need xDS push at all.
+			//   case 2: the workload xDS connection has not been established,
+			//           also no need to trigger a full push here.
+			if connection.modelNode.IPAddresses[0] == id {
+				fullPush = true
+			}
+		}
+		adsClientsMutex.RUnlock()
+
+		if fullPush {
+			// First time this workload has been seen. Maybe after the first connect,
+			// do a full push for this proxy in the next push epoch.
+			s.proxyUpdatesMutex.Lock()
+			if s.proxyUpdates == nil {
+				s.proxyUpdates = make(map[string]struct{})
+			}
+			s.proxyUpdates[id] = struct{}{}
+			s.proxyUpdatesMutex.Unlock()
 		}
 		return
 	}
@@ -664,7 +696,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(proxy, subsetName, hostname)
 
+	push.Mutex.Lock()
 	portMap, f := push.ServicePort2Name[string(hostname)]
+	push.Mutex.Unlock()
 	if !f {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
@@ -790,7 +824,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting)
+			// TODO(#12961) get outlierDetection from the cluster
+			// For now, we should default to allowing Failover rather than rejecting. Even if we do not know
+			// what the outlierDetection is for the Cluster, it is reasonable to require the user to provide
+			// outlier detection without enforcing this in code, as this is an alpha feature behind a flag.
+			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
 		}
 
 		endpoints += len(l.Endpoints)

@@ -168,6 +168,8 @@ var (
 	}
 )
 
+// newSecretCache creates the cache for workload secrets and/or gateway secrets.
+// Although currently not used, Citadel Agent can serve both workload and gateway secrets at the same time.
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,

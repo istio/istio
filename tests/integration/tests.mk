@@ -26,9 +26,12 @@ else ifeq (${TEST_ENV},minikube-none)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikube
 endif
 
-_INTEGRATION_TEST_PROW_FLAG =
+# Flags for mesh expansion, supporting vm, tests. Currently this is only possible in prow and GKE.
+_INTEGRATION_TEST_VM_FLAG =
 ifneq ($(MASON_INFO_PATH),)
-    _INTEGRATION_TEST_PROW_FLAG = --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow
+    _INTEGRATION_TEST_VM_FLAG = --istio.test.kube.meshexp.vmconfig '{"mason_info_path":"${MASON_INFO_PATH}"}'
+		_INTEGRATION_TEST_VM_FLAG += --istio.test.kube.meshexp.debianUrl https://storage.googleapis.com/istio-release/releases/1.1.3/deb
+		#  --mason_info ${MASON_INFO_PATH} -istio.test.prow.gceuser Prow deb_url":"https://storage.googleapis.com/istio-release/releases/1.1.3/deb
 endif
 
 # $(INTEGRATION_TEST_WORKDIR) specifies the working directory for the tests. If not specified, then a
@@ -68,8 +71,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 # TODO: Exclude examples and qualification since they are very flaky.
-# TODO(incfly): just for faster debugging, remove before the merge.
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep meshexp)
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # All integration tests targeting local environment.
 .PHONY: test.integration.local
@@ -108,7 +110,7 @@ test.integration.kube: | $(JUNIT_REPORT)
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	${_INTEGRATION_TEST_WORK_DIR_FLAG} \
-	${_INTEGRATION_TEST_PROW_FLAG} \
+	${_INTEGRATION_TEST_VM_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Integration tests that detect race condition for native environment.

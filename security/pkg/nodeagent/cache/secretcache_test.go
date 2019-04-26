@@ -351,7 +351,7 @@ func createSecretCache() *SecretCache {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
-	fetcher.Init(fake.NewSimpleClientset().CoreV1())
+	fetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{

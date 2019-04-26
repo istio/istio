@@ -39,6 +39,8 @@
 
 # GCP_OPTS - optional parameters for gcloud command, for example
 # "--project P --zone Z".
+# GCP_SSH_USER - optional parameters for gcloud compute, determined the users for
+# `gcloud compute ssh` and `gcloud compute scp`.
 # If not set, defaults are used.
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to run a command on the VM.
@@ -247,7 +249,9 @@ function istioCopy() {
   local NAME=$1
   shift
   local FILES=$*
-
+  if [ "${GCP_SSH_USER}" != "" ] ; then
+    NAME="${GCP_SSH_USER}@${NAME}"
+  fi
   # shellcheck disable=SC2086
   ${ISTIO_CP:-gcloud compute scp --recurse ${GCP_OPTS:-}} $FILES "${NAME}:"
 }
@@ -258,7 +262,9 @@ function istioCopy() {
 function istioRun() {
   local NAME=$1
   local CMD=$2
-
+  if [ "${GCP_SSH_USER}" != "" ] ; then
+    NAME="${GCP_SSH_USER}@${NAME}"
+  fi
   ${ISTIO_RUN:-gcloud compute ssh ${GCP_OPTS:-}} "$NAME" --command "$CMD"
 }
 

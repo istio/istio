@@ -425,7 +425,11 @@ func ValidateUnixAddress(addr string) error {
 }
 
 // ValidateGateway checks gateway specifications
-func ValidateGateway(_, _ string, msg proto.Message) (errs error) {
+func ValidateGateway(name, _ string, msg proto.Message) (errs error) {
+	// Gateway name must conform to the DNS label format (no dots)
+	if !IsDNS1123Label(name) {
+		errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
+	}
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
@@ -2068,7 +2072,26 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	// TODO: additional validation for AllowOrigin?
+	for _, host := range policy.AllowOrigin {
+		if host != "*" {
+			host = strings.TrimPrefix(host, "https://")
+			host = strings.TrimPrefix(host, "http://")
+			parts := strings.Split(host, ":")
+			if len(parts) > 2 {
+				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
+			} else {
+				if len(parts) == 2 {
+					if port, err := strconv.Atoi(parts[1]); err != nil {
+						errs = appendErrors(errs, fmt.Errorf("port in CORS Allow Origin is not a number: %s", parts[1]))
+					} else {
+						errs = ValidatePort(port)
+					}
+					host = parts[0]
+				}
+				errs = appendErrors(errs, ValidateFQDN(host))
+			}
+		}
+	}
 
 	for _, method := range policy.AllowMethods {
 		errs = appendErrors(errs, validateHTTPMethod(method))
@@ -2088,8 +2111,6 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
 	}
-
-	// TODO: additional validation for AllowCredentials?
 
 	return
 }
@@ -2167,7 +2188,12 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, ValidateWildcardDomain(destination.Host))
+	host := destination.Host
+	if host == "*" {
+		errs = appendErrors(errs, fmt.Errorf("invalid destintation host %s", host))
+	} else {
+		errs = appendErrors(errs, ValidateWildcardDomain(host))
+	}
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}

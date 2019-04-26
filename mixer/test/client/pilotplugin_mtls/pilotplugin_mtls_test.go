@@ -312,6 +312,9 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
+func (mock) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	return nil, nil
+}
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
