@@ -319,15 +319,15 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
+	LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux  LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows LDFLAGS='-extldflags -static -s -w' bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/istioctl.bash: istioctl
