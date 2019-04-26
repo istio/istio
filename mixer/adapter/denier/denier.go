@@ -30,6 +30,7 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/adapter/denier/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/checknothing"
@@ -77,18 +78,9 @@ func (*handler) Close() error { return nil }
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "denier",
-		Impl:        "istio.io/istio/mixer/adapter/denier",
-		Description: "Rejects any check and quota request with a configurable error",
-		SupportedTemplates: []string{
-			checknothing.TemplateName,
-			listentry.TemplateName,
-			quota.TemplateName,
-		},
-		DefaultConfig: defaultParam(),
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("denier")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

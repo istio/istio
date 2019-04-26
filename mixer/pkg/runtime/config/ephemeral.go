@@ -193,7 +193,6 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	}
 	e.lock.RUnlock()
 
-	log.Infof("Built new config.Snapshot: id='%d'", id)
 	log.Debugf("config.Snapshot creation error=%v, contents:\n%s", errs.ErrorOrNil(), s)
 	return s, errs.ErrorOrNil()
 }
@@ -893,7 +892,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 func appendErr(ctx context.Context, errs *multierror.Error, field string, measure *stats.Int64Measure, format string, a ...interface{}) {
 	err := fmt.Errorf(format, a...)
-	log.Error(err.Error())
+	log.Debug(err.Error())
 	stats.Record(ctx, measure.M(1))
 	_ = multierror.Append(errs, adapter.ConfigError{Field: field, Underlying: err})
 }

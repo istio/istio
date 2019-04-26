@@ -26,6 +26,7 @@ import (
 	oczipkin "go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/zipkin/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/opencensus"
@@ -44,17 +45,11 @@ var _ tracespan.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "zipkin",
-		Impl:        "istio.io/istio/mixer/adapter/zipkin",
-		Description: "Publishes traces to Zipkin.",
-		SupportedTemplates: []string{
-			tracespan.TemplateName,
-		},
-		DefaultConfig: &config.Params{},
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &builder{}
-		}}
+	info := metadata.GetInfo("zipkin")
+	info.NewBuilder = func() adapter.HandlerBuilder {
+		return &builder{}
+	}
+	return info
 }
 
 func (b *builder) SetTraceSpanTypes(types map[string]*tracespan.Type) {
