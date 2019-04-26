@@ -393,7 +393,7 @@ func TestSidecarScopeDestinationRules(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := DefaultMeshConfig()
-			meshConfig.DefaultDestinationRuleExportTo = []string{"."}
+			meshConfig.RootNamespace = ConfigRootNamespace
 			ps.Env = &Environment{
 				Mesh: &meshConfig,
 			}
