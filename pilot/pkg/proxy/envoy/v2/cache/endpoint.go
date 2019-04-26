@@ -84,12 +84,12 @@ func (e *EndpointShardsByService) DeleteServiceShard(serviceName string, shard s
 	}
 }
 
-func (e *EndpointShardsByService) String() string {
+func (e *EndpointShardsByService) ToBytes() []byte {
 	e.mutex.RLock()
 	out, _ := json.MarshalIndent(e.cache, " ", " ")
 	e.mutex.RUnlock()
 
-	return string(out)
+	return out
 }
 
 func (e *EndpointShards) ServiceAccountExist(sa string) bool {

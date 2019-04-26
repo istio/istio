@@ -57,9 +57,9 @@ func (w *WorkloadsByID) Set(key string, value *Workload) {
 	w.cache[key] = value
 }
 
-func (w *WorkloadsByID) String() string {
+func (w *WorkloadsByID) ToBytes() []byte {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	out, _ := json.MarshalIndent(w.cache, " ", " ")
-	return string(out)
+	return out
 }
