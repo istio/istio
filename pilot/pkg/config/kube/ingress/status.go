@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/pkg/log"
 )
 
@@ -92,17 +93,17 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	// queue requires a time duration for a retry delay after a handler error
 	queue := kube.NewQueue(1 * time.Second)
 
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+	watchedNamespaceList := strings.Split(options.WatchedNamespaces, ",")
+	informer := cache.NewSharedIndexInformer(listwatch.MultiNamespaceListerWatcher(watchedNamespaceList, func(namespace string) cache.ListerWatcher {
+		return &cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
+				return client.ExtensionsV1beta1().Ingresses(namespace).List(opts)
 			},
 			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
+				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(opts)
 			},
-		},
-		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
-	)
+		}
+	}), &v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{})
 
 	st := StatusSyncer{
 		client:              client,

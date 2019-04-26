@@ -146,11 +146,11 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	ki := makeClient(t)
 	ctl := NewController(ki, ControllerOptions{
-		WatchedNamespace: "",
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
+		WatchedNamespaces: "",
+		ResyncPeriod:      resync,
+		DomainSuffix:      domainSuffix,
+		XDSUpdater:        fx,
+		stop:              make(chan struct{}),
 	})
 	go ctl.Run(ctl.stop)
 	return ctl, fx
@@ -160,11 +160,11 @@ func newFakeController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 	clientSet := fake.NewSimpleClientset()
 	c := NewController(clientSet, ControllerOptions{
-		WatchedNamespace: "", // tests create resources in multiple ns
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-		XDSUpdater:       fx,
-		stop:             make(chan struct{}),
+		WatchedNamespaces: "istio-system,ns-test,nsa,nsb,nsA,nsB,nsa1,nsfake", // tests create resources in multiple ns
+		ResyncPeriod:      resync,
+		DomainSuffix:      domainSuffix,
+		XDSUpdater:        fx,
+		stop:              make(chan struct{}),
 	})
 	c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {
 		t.Log("Instance event received")
