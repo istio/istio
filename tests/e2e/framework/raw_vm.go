@@ -35,6 +35,7 @@ type RawVM interface {
 
 var (
 	// flags to select vm with specific configuration
+	// TODO(incfly): delete these flags.
 	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
 	projectID     = flag.String("project_id", "istio-testing", "Project ID")
 	projectNumber = flag.String("project_number", "450874614208", "Project Number")
@@ -93,8 +94,8 @@ type GCPVMOpts struct {
 
 // NewGCPRawVM creates a new vm on GCP.
 func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
-	if *masonInfoFile != "" {
-		info, err := parseInfoFile(*masonInfoFile)
+	if opts.MasonInfoPath != "" {
+		info, err := parseInfoFile(opts.MasonInfoPath)
 		if err != nil {
 			return nil, err
 		}
