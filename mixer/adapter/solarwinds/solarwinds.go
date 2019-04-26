@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -53,17 +54,9 @@ var (
 
 // GetInfo returns the Info associated with this adapter.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "solarwinds",
-		Impl:        "istio.io/istio/mixer/adapter/solarwinds",
-		Description: "Publishes metrics to appoptics and logs to papertrail",
-		SupportedTemplates: []string{
-			metric.TemplateName,
-			logentry.TemplateName,
-		},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{},
-	}
+	info := metadata.GetInfo("solarwinds")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {

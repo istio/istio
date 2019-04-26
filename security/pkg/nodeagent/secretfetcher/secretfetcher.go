@@ -109,7 +109,7 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, caProviderName string,
 		if err != nil {
 			fatalf("Could not create k8s clientset: %v", err)
 		}
-		ret.Init(cs.CoreV1())
+		ret.InitWithKubeClient(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, caProviderName, tlsFlag, tlsRootCert,
 			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
@@ -132,8 +132,8 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 
 var namespaceVar = env.RegisterStringVar(ingressSecretNameSpace, "", "")
 
-// Init initializes SecretFetcher to watch kubernetes secrets.
-func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
+// InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
+func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // nolint:interfacer
 	namespace := namespaceVar.Get()
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{

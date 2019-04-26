@@ -107,7 +107,7 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 			log.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
 			return nil, err
 		}
-		log.Infof("SDS gRPC server start, listen %q \n", options.WorkloadUDSPath)
+		log.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
 	}
 
 	if options.EnableIngressGatewaySDS {
@@ -115,7 +115,8 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 			log.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
 			return nil, err
 		}
-		log.Infof("SDS gRPC server start, listen %q \n", options.IngressGatewayUDSPath)
+		log.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
+			options.IngressGatewayUDSPath)
 	}
 
 	return s, nil
