@@ -78,8 +78,9 @@ func (v *validator) validateFile(reader io.Reader) error {
 	decoder := yaml.NewDecoder(reader)
 	var errs error
 	for {
-		out := make(map[string]interface{})
-		err := decoder.Decode(&out)
+		// YAML allows non-string keys and the produces generic keys for nested fields
+		raw := make(map[interface{}]interface{})
+		err := decoder.Decode(&raw)
 		if err == io.EOF {
 			return errs
 		}
@@ -87,10 +88,10 @@ func (v *validator) validateFile(reader io.Reader) error {
 			errs = multierror.Append(errs, err)
 			return errs
 		}
-		if len(out) == 0 {
+		if len(raw) == 0 {
 			continue
 		}
-		fmt.Printf("%#v\n", out)
+		out := transformInterfaceMap(raw)
 		un := unstructured.Unstructured{Object: out}
 		err = v.validateResource(&un)
 		if err != nil {
@@ -144,4 +145,31 @@ func NewValidateCommand() *cobra.Command {
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c
+}
+
+func transformInterfaceArray(in []interface{}) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, v := range in {
+		out[i] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformInterfaceMap(in map[interface{}]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformMapValue(in interface{}) interface{} {
+	switch v := in.(type) {
+	case []interface{}:
+		return transformInterfaceArray(v)
+	case map[interface{}]interface{}:
+		return transformInterfaceMap(v)
+	default:
+		return v
+	}
 }
