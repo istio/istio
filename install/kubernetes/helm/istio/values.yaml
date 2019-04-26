@@ -425,7 +425,7 @@ global:
   # The namespace where globally shared configurations should be present.
   # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
   # default Sidecar configs, etc. should be added to this namespace.
-  # configRootNamespace: istio-config
+  configRootNamespace: istio-config
 
   # set the default set of namespaces to which services, service entries, virtual services, destination
   # rules should be exported to. Currently only one value can be provided in this list. This value
