@@ -42,7 +42,6 @@ var (
 	zone          = flag.String("zone", "us-east4-c", "The zone in which the VM and cluster resides")
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	debURL        = flag.String("deb_url", "", "The URL where `istio-sidecar.deb` can be accessed")
-	sshUser       = flag.String("istio.test.prow.gceuser", "", "The user for gcloud compute ssh into.")
 	// paths
 	setupMeshExScript  = ""
 	setupIstioVMScript = ""
@@ -78,6 +77,7 @@ type GCPRawVM struct {
 	// Use Mason does not require provisioning, and therefore all following fields are not required
 	UseMason  bool
 	debianURL string
+	sshUser   string
 }
 
 // GCPVMOpts specifies the options when creating a new GCE instance for mesh expansion.
@@ -90,6 +90,7 @@ type GCPVMOpts struct {
 	Zone          string `json:"gcp_vm_zone"`
 	ClusterName   string `json:"gke_cluster_name"`
 	DebianURL     string `json:"sidecar_debian_url"`
+	SSHUser       string `json:"vm_ssh_user"`
 }
 
 // NewGCPRawVM creates a new vm on GCP.
@@ -114,6 +115,7 @@ func NewGCPRawVM(opts GCPVMOpts) (*GCPRawVM, error) {
 		projectNumber: opts.ProjectNumber,
 		Zone:          opts.Zone,
 		debianURL:     opts.DebianURL,
+		sshUser:       opts.SSHUser,
 	}, nil
 }
 
@@ -142,8 +144,8 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
 	sshUserPrefix := ""
-	if *sshUser != "" {
-		sshUserPrefix = *sshUser + "@"
+	if vm.sshUser != "" {
+		sshUserPrefix = vm.sshUser + "@"
 	}
 	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s%s --command \"%s\"",
 		vm.ProjectID, vm.Zone, sshUserPrefix, vm.Name, cmd)
