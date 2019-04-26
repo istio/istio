@@ -245,17 +245,6 @@
   revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
 
 [[projects]]
-  branch = "master"
-  digest = "1:b9fb2e329126b46d1fa47f608491c37b9f43bd5f86b10e45f03d881485112119"
-  name = "github.com/client9/gospell"
-  packages = [
-    ".",
-    "plaintext",
-  ]
-  pruneopts = "NUT"
-  revision = "90dfc71015dfebd3a7274f1ad2756c1dbf09e250"
-
-[[projects]]
   branch = "v2"
   digest = "1:c91a5363a19174cb0181832821a7bb9da0aeefb5e2180724614b1005c2269712"
   name = "github.com/coreos/go-oidc"
@@ -1640,7 +1629,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f26e267647e01c727543b37bfa3481303dc78d1def53372dba0edee0f60e21d0"
+  digest = "1:40e8f8b4c684a33798c6cc5a792f7766c753f677588f14d28fd510aabcd1d724"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1656,15 +1645,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "6b8d1849e7f44ef523b4442af69b57ddc960d38b"
-
-[[projects]]
-  branch = "master"
-  digest = "1:fa55210f71a6277eb328dd4df8779f97d6c337d70fab97f27594126ae27fd09a"
-  name = "istio.io/tools"
-  packages = ["pkg/protocgen"]
-  pruneopts = "NUT"
-  revision = "3340c26d80d34bb4aa32709ac3253745a6117e4a"
+  revision = "01fd175d20ed97cd2b5b7a9c042f287a118dd89f"
 
 [[projects]]
   branch = "release-1.11"
