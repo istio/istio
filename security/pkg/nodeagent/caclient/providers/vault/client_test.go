@@ -247,6 +247,7 @@ func TestClientOnMockVaultCA(t *testing.T) {
 }
 
 func TestClientOnExampleHttpVaultCA(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/13668")
 	testCases := map[string]struct {
 		cliConfig clientConfig
 	}{
@@ -278,6 +279,7 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 }
 
 func TestClientOnExampleHttpsVaultCA(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/13668")
 	testCases := map[string]struct {
 		cliConfig clientConfig
 	}{
