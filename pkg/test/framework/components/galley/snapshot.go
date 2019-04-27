@@ -59,7 +59,7 @@ func NewSingleObjectSnapshotValidator(ns string, fn func(ns string, actual *Snap
 // a set of golden object.
 func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) SnapshotValidatorFunc {
 	for _, g := range goldens {
-		if ns != ""  {
+		if ns != "" {
 			name, err := extractName(g)
 			if err != nil {
 				return func(actuals []*SnapshotObject) error {
