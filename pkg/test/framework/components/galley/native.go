@@ -121,73 +121,10 @@ func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string)
 			return err
 		}
 
-		if _, err = c.tracker.Apply("$direct", y); err != nil {
+		if _, err = c.tracker.Apply(y); err != nil {
 			return nil
 		}
 	}
-
-	//
-	// 	// Read information for all files in configDir
-	// fileInfos, err := readFileInfos(c.configDir)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// // Create a map of the resource descriptors to file resources.
-	// // We'll use this map for handling updates.
-	// fileResourceMap := newFileResourceMap(fileInfos)
-	//
-	// for _, y := range yamlText {
-	// 	y, err = applyNamespace(ns, y)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	// Parse the file to obtain all resources and their descriptors.
-	// 	resources, err := parseResources(y)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	// Look in the existing files for the resources. If found, overwrite the original.
-	// 	for i, r := range resources {
-	// 		if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
-	// 			// Update the file resource.
-	// 			fileResource.update(r.content)
-	//
-	// 			// Mark this resource as applied so that we don't write it to a new file.
-	// 			resources[i] = nil
-	// 		}
-	// 	}
-	//
-	// 	// Generate the new content, if any.
-	// 	newFileContent := ""
-	// 	for _, r := range resources {
-	// 		if r != nil {
-	// 			newFileContent = yml.JoinString(newFileContent, r.content)
-	// 		}
-	// 	}
-	//
-	// 	// If there were new resources, write their content to a new file.
-	// 	if len(newFileContent) > 0 {
-	// 		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-	// 		fn = path.Join(c.configDir, fn)
-	//
-	// 		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, newFileContent)
-	// 		if err = ioutil.WriteFile(fn, []byte(newFileContent), os.ModePerm); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-	//
-	// // If any existing files were modified, write their contents back to configDir.
-	// for _, fi := range fileInfos {
-	// 	if fi.isUpdated() {
-	// 		if err := fi.writeFile(); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
 
 	return nil
 }
@@ -216,46 +153,6 @@ func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string
 			return err
 		}
 	}
-	//
-	// 	// Read information for all files in configDir
-	// fileInfos, err := readFileInfos(c.configDir)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// // Create a map of the resource descriptors to file resources.
-	// // We'll use this map for handling updates.
-	// fileResourceMap := newFileResourceMap(fileInfos)
-	//
-	// for _, y := range yamlText {
-	// 	y, err = applyNamespace(ns, y)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	// Parse the file to obtain all resources and their descriptors.
-	// 	resources, err := parseResources(y)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	// Look in the existing files for the resources. If found, delete it.
-	// 	for _, r := range resources {
-	// 		if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
-	// 			// Delete it.
-	// 			fileResource.update("")
-	// 		}
-	// 	}
-	// }
-	//
-	// // If any existing files were modified, write their contents back to configDir.
-	// for _, fi := range fileInfos {
-	// 	if fi.isUpdated() {
-	// 		if err := fi.writeFile(); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
 
 	return nil
 }
@@ -297,7 +194,7 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 			}
 		}
 
-		_, err = c.tracker.Apply(path, yamlText)
+		_, err = c.tracker.Apply(yamlText)
 		return err
 	})
 }

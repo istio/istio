@@ -80,7 +80,7 @@ func TestTracker_Apply_Basic(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	keys, err := tr.Apply("ctx1", gateway)
+	keys, err := tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(1))
 	expected := TrackerKey{
@@ -96,7 +96,7 @@ func TestTracker_Apply_Basic(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
-	keys, err = tr.Apply("ctx2", virtualService)
+	keys, err = tr.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(1))
 	expected = TrackerKey{
@@ -125,7 +125,7 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	keys, err := tr.Apply("ctx1", JoinString(gateway, virtualService))
+	keys, err := tr.Apply(JoinString(gateway, virtualService))
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(2))
 	expected := TrackerKey{
@@ -159,30 +159,6 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 	g.Expect(items).To(HaveLen(2))
 }
 
-func TestTracker_Apply_Add_Delete(t *testing.T) {
-	g := NewGomegaWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
-	t.Logf("Test Dir: %q", d)
-
-	tr := NewTracker(d)
-
-	keys, err := tr.Apply("ctx1", gateway)
-	g.Expect(err).To(BeNil())
-
-	file := tr.GetFileFor(keys[0])
-	by, err := ioutil.ReadFile(file)
-	g.Expect(err).To(BeNil())
-	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
-
-	keys, err = tr.Apply("ctx1", virtualService)
-	g.Expect(err).To(BeNil())
-
-	items, err := ioutil.ReadDir(d)
-	g.Expect(err).To(BeNil())
-	g.Expect(items).To(HaveLen(1))
-}
-
 func TestTracker_Apply_Add_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
@@ -191,7 +167,7 @@ func TestTracker_Apply_Add_Update(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	keys, err := tr.Apply("ctx1", gateway)
+	keys, err := tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	file := tr.GetFileFor(keys[0])
@@ -199,7 +175,7 @@ func TestTracker_Apply_Add_Update(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
-	keys, err = tr.Apply("ctx1", updatedGateway)
+	keys, err = tr.Apply(updatedGateway)
 	g.Expect(err).To(BeNil())
 	file = tr.GetFileFor(keys[0])
 	by, err = ioutil.ReadFile(file)
@@ -211,7 +187,7 @@ func TestTracker_Apply_Add_Update(t *testing.T) {
 	g.Expect(items).To(HaveLen(1))
 }
 
-func TestTracker_Apply_SameContent_DifferentContexts(t *testing.T) {
+func TestTracker_Apply_SameContent(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
@@ -219,56 +195,15 @@ func TestTracker_Apply_SameContent_DifferentContexts(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	_, err = tr.Apply("ctx1", gateway)
+	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply("ctx2", gateway)
+	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
-}
-
-func TestTracker_RemoveContext(t *testing.T) {
-	g := NewGomegaWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
-	t.Logf("Test Dir: %q", d)
-
-	tr := NewTracker(d)
-
-	_, err = tr.Apply("ctx1", gateway)
-	g.Expect(err).To(BeNil())
-
-	_, err = tr.Apply("ctx2", virtualService)
-	g.Expect(err).To(BeNil())
-
-	err = tr.RemoveContext("ctx1")
-	g.Expect(err).To(BeNil())
-
-	items, err := ioutil.ReadDir(d)
-	g.Expect(err).To(BeNil())
-	g.Expect(items).To(HaveLen(1))
-
-	by, err := ioutil.ReadFile(path.Join(d, items[0].Name()))
-	g.Expect(err).To(BeNil())
-	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
-}
-
-func TestTracker_RemoveContext_NotFound(t *testing.T) {
-	g := NewGomegaWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
-	t.Logf("Test Dir: %q", d)
-
-	tr := NewTracker(d)
-	err = tr.RemoveContext("ctx1")
-	g.Expect(err).To(BeNil())
-
-	items, err := ioutil.ReadDir(d)
-	g.Expect(err).To(BeNil())
-	g.Expect(items).To(HaveLen(0))
 }
 
 func TestTracker_Clear(t *testing.T) {
@@ -279,10 +214,10 @@ func TestTracker_Clear(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	_, err = tr.Apply("ctx1", gateway)
+	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply("ctx2", virtualService)
+	_, err = tr.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 
 	err = tr.Clear()
@@ -313,10 +248,10 @@ func TestTracker_Delete(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	_, err = tr.Apply("ctx1", gateway)
+	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply("ctx2", virtualService)
+	_, err = tr.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 
 	err = tr.Delete(gateway)
@@ -331,7 +266,6 @@ func TestTracker_Delete(t *testing.T) {
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 }
 
-
 func TestTracker_Delete_Missing(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
@@ -340,7 +274,7 @@ func TestTracker_Delete_Missing(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	_, err = tr.Apply("ctx1", gateway)
+	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
 	err = tr.Delete(virtualService)

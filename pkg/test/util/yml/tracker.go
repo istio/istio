@@ -30,7 +30,6 @@ type Tracker struct {
 
 	discriminator int64
 	resources     map[TrackerKey]*trackerState
-	contexts      map[string]map[TrackerKey]struct{}
 	dir           string
 }
 
@@ -52,14 +51,13 @@ type trackerState struct {
 func NewTracker(dir string) *Tracker {
 	return &Tracker{
 		resources: make(map[TrackerKey]*trackerState),
-		contexts:  make(map[string]map[TrackerKey]struct{}),
 		dir:       dir,
 	}
 }
 
 // Apply adds the given yamlText contents as part of a given context name. If there is an existing context
 // with the given name, then a diffgram will be generated.
-func (t *Tracker) Apply(context string, yamlText string) ([]TrackerKey, error) {
+func (t *Tracker) Apply(yamlText string) ([]TrackerKey, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -81,36 +79,17 @@ func (t *Tracker) Apply(context string, yamlText string) ([]TrackerKey, error) {
 			if err = t.deleteFile(state.file); err != nil {
 				return nil, err
 			}
-
-			if state.context != context {
-				t.removeKeyFromContext(state.context, key)
-			}
 		} else {
 			state = &trackerState{}
 			t.resources[key] = state
 		}
-		state.context = context
-		state.file = t.generateFileName(context, key)
+		state.file = t.generateFileName(key)
 		state.part = p
 
 		if err = t.writeFile(state.file, p.Contents); err != nil {
 			return nil, err
 		}
 	}
-
-	previousKeys, found := t.contexts[context]
-	if found {
-		for key := range previousKeys {
-			if _, found = newKeys[key]; !found {
-				if err = t.deleteFile(t.resources[key].file); err != nil {
-					return nil, err
-				}
-				delete(t.resources, key)
-			}
-		}
-	}
-
-	t.contexts[context] = newKeys
 
 	return result, nil
 }
@@ -130,8 +109,6 @@ func (t *Tracker) Delete(yamlText string) error {
 
 		state, found := t.resources[key]
 		if found {
-			t.removeKeyFromContext(state.context, key)
-
 			if err = t.deleteFile(state.file); err != nil {
 				return err
 			}
@@ -141,37 +118,6 @@ func (t *Tracker) Delete(yamlText string) error {
 	}
 
 	return nil
-}
-
-// RemoveContext the contents of all the items in the given context.
-func (t *Tracker) RemoveContext(context string) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	keys, found := t.contexts[context]
-	if !found {
-		return nil
-	}
-
-	for key := range keys {
-		state := t.resources[key]
-		if err := t.deleteFile(state.file); err != nil {
-			return err
-		}
-		delete(t.resources, key)
-	}
-
-	delete(t.contexts, context)
-
-	return nil
-}
-
-func (t *Tracker) removeKeyFromContext(context string, key TrackerKey) {
-	ctx, found := t.contexts[context]
-	if !found {
-		return
-	}
-	delete(ctx, key)
 }
 
 // Clear all contents froma ll contexts.
@@ -186,7 +132,6 @@ func (t *Tracker) Clear() error {
 	}
 
 	t.resources = make(map[TrackerKey]*trackerState)
-	t.contexts = make(map[string]map[TrackerKey]struct{})
 
 	return nil
 }
@@ -211,12 +156,12 @@ func (t *Tracker) deleteFile(file string) error {
 	return os.Remove(file)
 }
 
-func (t *Tracker) generateFileName(context string, key TrackerKey) string {
+func (t *Tracker) generateFileName(key TrackerKey) string {
 	t.discriminator++
 	d := t.discriminator
 
-	name := fmt.Sprintf("%s_%s_%s_%s_%s-%d.yaml",
-		sanitize(context), key.group, key.kind, key.namespace, key.name, d)
+	name := fmt.Sprintf("%s_%s_%s_%s-%d.yaml",
+		sanitize(key.group), sanitize(key.kind), sanitize(key.namespace), sanitize(key.name), d)
 
 	return path.Join(t.dir, name)
 }
