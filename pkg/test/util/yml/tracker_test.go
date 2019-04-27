@@ -90,6 +90,7 @@ func TestTracker_Apply_Basic(t *testing.T) {
 		name:      "some-ingress",
 	}
 	g.Expect(keys[0]).To(Equal(expected))
+	key1 := keys[0]
 
 	file := tr.GetFileFor(keys[0])
 	by, err := ioutil.ReadFile(file)
@@ -106,11 +107,17 @@ func TestTracker_Apply_Basic(t *testing.T) {
 		name:      "route-for-myapp",
 	}
 	g.Expect(keys[0]).To(Equal(expected))
+	key2 := keys[0]
 
 	file = tr.GetFileFor(keys[0])
 	by, err = ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
+
+	keys = tr.AllKeys()
+	g.Expect(keys).To(HaveLen(2))
+	g.Expect(keys).To(ContainElement(key1))
+	g.Expect(keys).To(ContainElement(key2))
 
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
@@ -154,6 +161,12 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 
+	applyKeys := keys
+	keys = tr.AllKeys()
+	g.Expect(keys).To(HaveLen(2))
+	g.Expect(keys).To(ContainElement(applyKeys[0]))
+	g.Expect(keys).To(ContainElement(applyKeys[1]))
+
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(2))
@@ -182,6 +195,11 @@ func TestTracker_Apply_Add_Update(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(updatedGateway)))
 
+	applyKeys := keys
+	keys = tr.AllKeys()
+	g.Expect(keys).To(HaveLen(1))
+	g.Expect(keys).To(ContainElement(applyKeys[0]))
+
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
@@ -195,11 +213,18 @@ func TestTracker_Apply_SameContent(t *testing.T) {
 
 	tr := NewTracker(d)
 
-	_, err = tr.Apply(gateway)
+	keys1, err := tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply(gateway)
+	keys2, err := tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
+
+	keys := tr.AllKeys()
+	g.Expect(keys).To(HaveLen(1))
+	g.Expect(keys1).To(HaveLen(1))
+	g.Expect(keys2).To(HaveLen(1))
+	g.Expect(keys).To(ContainElement(keys1[0]))
+	g.Expect(keys).To(ContainElement(keys2[0]))
 
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
@@ -222,6 +247,9 @@ func TestTracker_Clear(t *testing.T) {
 
 	err = tr.Clear()
 	g.Expect(err).To(BeNil())
+
+	keys := tr.AllKeys()
+	g.Expect(keys).To(HaveLen(0))
 
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())
@@ -251,11 +279,16 @@ func TestTracker_Delete(t *testing.T) {
 	_, err = tr.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply(virtualService)
+	keys1, err := tr.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 
 	err = tr.Delete(gateway)
 	g.Expect(err).To(BeNil())
+
+	keys := tr.AllKeys()
+	g.Expect(keys).To(HaveLen(1))
+	g.Expect(keys1).To(HaveLen(1))
+	g.Expect(keys).To(ContainElement(keys1[0]))
 
 	items, err := ioutil.ReadDir(d)
 	g.Expect(err).To(BeNil())

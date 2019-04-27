@@ -119,6 +119,20 @@ func (t *Tracker) Delete(yamlText string) error {
 	return nil
 }
 
+// AllKeys returns all resource keys in the tracker.
+func (t *Tracker) AllKeys() []TrackerKey {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var result []TrackerKey
+
+	for k := range t.resources {
+		result = append(result, k)
+	}
+
+	return result
+}
+
 // Clear all contents froma ll contexts.
 func (t *Tracker) Clear() error {
 	t.mu.Lock()
