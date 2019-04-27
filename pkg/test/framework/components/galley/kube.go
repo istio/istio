@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 const (
@@ -43,11 +44,16 @@ var (
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
+	dir, err := ctx.CreateTmpDirectory("galley-workdir")
+	if err != nil {
+		return nil, err
+	}
+
 	n := &kubeComponent{
 		context:     ctx,
 		environment: ctx.Environment().(*kube.Environment),
 		cfg:         cfg,
-		resources:   make(map[string][]string),
+		tracker:     yml.NewTracker(dir),
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -102,9 +108,7 @@ type kubeComponent struct {
 
 	client *client
 
-	// Resources, grouped by string
-	resources map[string][]string
-
+	tracker   *yml.Tracker
 	forwarder kube2.PortForwarder
 }
 
@@ -122,18 +126,14 @@ func (c *kubeComponent) Address() string {
 
 // ClearConfig implements Galley.ClearConfig.
 func (c *kubeComponent) ClearConfig() (err error) {
-	for ns, files := range c.resources {
-		for _, file := range files {
-			err := c.environment.Accessor.Delete(ns, file)
-			if err != nil {
-				return err
-			}
+
+	for _, k := range c.tracker.AllKeys() {
+		if err = c.environment.Accessor.Delete("", c.tracker.GetFileFor(k)); err != nil {
+			return err
 		}
 	}
 
-	c.resources = make(map[string][]string)
-
-	return nil
+	return c.tracker.Clear()
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
@@ -143,16 +143,25 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 		namespace = ns.Name()
 	}
 
+	var err error
 	for _, y := range yamlText {
-		entries, err := c.environment.Accessor.ApplyContents(namespace, y)
+		if namespace != "" {
+			if y, err = yml.ApplyNamespace(y, namespace); err != nil {
+				return err
+			}
+		}
+
+		keys, err := c.tracker.Apply(y)
 		if err != nil {
 			return err
 		}
-		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", namespace, y)
 
-		files := c.resources[namespace]
-		files = append(files, entries...)
-		c.resources[namespace] = files
+		for _, k := range keys {
+			if err = c.environment.Accessor.Apply(namespace, c.tracker.GetFileFor(k)); err != nil {
+				return err
+			}
+		}
+		scopes.Framework.Debugf("Applied config: ns: %s\n%s\n", namespace, y)
 	}
 
 	return nil
@@ -172,6 +181,10 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 	for _, txt := range yamlText {
 		err := c.environment.Accessor.DeleteContents(ns.Name(), txt)
 		if err != nil {
+			return err
+		}
+
+		if err = c.tracker.Delete(txt); err != nil {
 			return err
 		}
 	}

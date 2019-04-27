@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -197,9 +197,11 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 }
 
 func TestMain(m *testing.M) {
+	// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
+	// component
 	framework.
 		NewSuite("galley_conversion", m).
 		Label(label.Presubmit).
-		Setup(istio.SetupOnKube(nil, nil)).
+		RequireEnvironment(environment.Native).
 		Run()
 }
