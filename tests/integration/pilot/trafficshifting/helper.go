@@ -17,17 +17,18 @@ package trafficshifting
 import (
 	"bytes"
 	"fmt"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"math"
 	"net/http"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
 //	Virtual service topology
@@ -51,7 +52,7 @@ import (
 const (
 	testDuration = 10 * time.Second
 
-	errorBand = 10.0 // Error band %10. As the test duration is 10 seconds, the distribution of traffic might be different from assigned weight.
+	errorBand = 10.0
 
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -96,12 +97,13 @@ type VirtualServiceConfig struct {
 	Weight3   int32
 }
 
+// RunTrafficShiftingTest configs virtual service and runs traffic shifting test.
 func RunTrafficShiftingTest(t *testing.T, weight []int32) {
 	if len(weight) == 0 || len(weight) > 4 {
 		t.Error("Input parameter is invalid. The length of weight is in [1, 4].")
 	}
 
-	var sum int32 = 0
+	var sum int32
 	for _, v := range weight {
 		if v < 0 || 100 < v {
 			t.Error("Input parameter is invalid. The weight should be in [0, 100].")
@@ -173,10 +175,20 @@ func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 			for i, v := range hosts {
 				var actual = float64(hostnameHitCount[v] * 100 / totalRequests)
 				if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
-					t.Errorf("Traffic weight doesn't match. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%", totalRequests, weight[i], actual, errorBand)
+					t.Errorf(
+						"Traffic weight doesn't match. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
+						totalRequests,
+						weight[i],
+						actual,
+						errorBand)
 				}
 
-				t.Logf("Traffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%", totalRequests, weight[i], actual, errorBand)
+				t.Logf(
+					"Traffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
+					totalRequests,
+					weight[i],
+					actual,
+					errorBand)
 			}
 
 			return

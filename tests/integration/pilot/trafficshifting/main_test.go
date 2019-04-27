@@ -15,9 +15,10 @@
 package trafficshifting
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"testing"
 )
 
 var (
