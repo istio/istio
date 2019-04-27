@@ -84,6 +84,8 @@ type nativeComponent struct {
 	meshConfigFile string
 
 	server *server.Server
+
+	tracker *yml.Tracker
 }
 
 var _ Instance = &nativeComponent{}
@@ -100,15 +102,8 @@ func (c *nativeComponent) Address() string {
 
 // ClearConfig implements Galley.ClearConfig.
 func (c *nativeComponent) ClearConfig() (err error) {
-	infos, err := ioutil.ReadDir(c.configDir)
-	if err != nil {
+	if err := c.tracker.Clear(); err != nil {
 		return err
-	}
-	for _, i := range infos {
-		err := os.Remove(path.Join(c.configDir, i.Name()))
-		if err != nil {
-			return err
-		}
 	}
 
 	err = c.applyAttributeManifest()
@@ -119,67 +114,80 @@ func (c *nativeComponent) ClearConfig() (err error) {
 func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) error {
 	defer appsignals.Notify("galley.native.ApplyConfig", syscall.SIGUSR1)
 
-	// Read information for all files in configDir
-	fileInfos, err := readFileInfos(c.configDir)
-	if err != nil {
-		return err
-	}
-
-	// Create a map of the resource descriptors to file resources.
-	// We'll use this map for handling updates.
-	fileResourceMap := newFileResourceMap(fileInfos)
-
+	var err error
 	for _, y := range yamlText {
 		y, err = applyNamespace(ns, y)
 		if err != nil {
 			return err
 		}
 
-		// Parse the file to obtain all resources and their descriptors.
-		resources, err := parseResources(y)
-		if err != nil {
-			return err
-		}
-
-		// Look in the existing files for the resources. If found, overwrite the original.
-		for i, r := range resources {
-			if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
-				// Update the file resource.
-				fileResource.update(r.content)
-
-				// Mark this resource as applied so that we don't write it to a new file.
-				resources[i] = nil
-			}
-		}
-
-		// Generate the new content, if any.
-		newFileContent := ""
-		for _, r := range resources {
-			if r != nil {
-				newFileContent = yml.JoinString(newFileContent, r.content)
-			}
-		}
-
-		// If there were new resources, write their content to a new file.
-		if len(newFileContent) > 0 {
-			fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
-			fn = path.Join(c.configDir, fn)
-
-			scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, newFileContent)
-			if err = ioutil.WriteFile(fn, []byte(newFileContent), os.ModePerm); err != nil {
-				return err
-			}
+		if _, err = c.tracker.Apply("$direct", y); err != nil {
+			return nil
 		}
 	}
 
-	// If any existing files were modified, write their contents back to configDir.
-	for _, fi := range fileInfos {
-		if fi.isUpdated() {
-			if err := fi.writeFile(); err != nil {
-				return err
-			}
-		}
-	}
+	//
+	// 	// Read information for all files in configDir
+	// fileInfos, err := readFileInfos(c.configDir)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// // Create a map of the resource descriptors to file resources.
+	// // We'll use this map for handling updates.
+	// fileResourceMap := newFileResourceMap(fileInfos)
+	//
+	// for _, y := range yamlText {
+	// 	y, err = applyNamespace(ns, y)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	// Parse the file to obtain all resources and their descriptors.
+	// 	resources, err := parseResources(y)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	// Look in the existing files for the resources. If found, overwrite the original.
+	// 	for i, r := range resources {
+	// 		if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
+	// 			// Update the file resource.
+	// 			fileResource.update(r.content)
+	//
+	// 			// Mark this resource as applied so that we don't write it to a new file.
+	// 			resources[i] = nil
+	// 		}
+	// 	}
+	//
+	// 	// Generate the new content, if any.
+	// 	newFileContent := ""
+	// 	for _, r := range resources {
+	// 		if r != nil {
+	// 			newFileContent = yml.JoinString(newFileContent, r.content)
+	// 		}
+	// 	}
+	//
+	// 	// If there were new resources, write their content to a new file.
+	// 	if len(newFileContent) > 0 {
+	// 		fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
+	// 		fn = path.Join(c.configDir, fn)
+	//
+	// 		scopes.Framework.Debugf("Galley.ApplyConfig: %q\n%s\n----\n", fn, newFileContent)
+	// 		if err = ioutil.WriteFile(fn, []byte(newFileContent), os.ModePerm); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
+	//
+	// // If any existing files were modified, write their contents back to configDir.
+	// for _, fi := range fileInfos {
+	// 	if fi.isUpdated() {
+	// 		if err := fi.writeFile(); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }
@@ -197,45 +205,57 @@ func (c *nativeComponent) ApplyConfigOrFail(t *testing.T, ns namespace.Instance,
 func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) error {
 	defer appsignals.Notify("galley.native.DeleteConfig", syscall.SIGUSR1)
 
-	// Read information for all files in configDir
-	fileInfos, err := readFileInfos(c.configDir)
-	if err != nil {
-		return err
-	}
-
-	// Create a map of the resource descriptors to file resources.
-	// We'll use this map for handling updates.
-	fileResourceMap := newFileResourceMap(fileInfos)
-
+	var err error
 	for _, y := range yamlText {
 		y, err = applyNamespace(ns, y)
 		if err != nil {
 			return err
 		}
 
-		// Parse the file to obtain all resources and their descriptors.
-		resources, err := parseResources(y)
-		if err != nil {
+		if err = c.tracker.Delete(y); err != nil {
 			return err
 		}
-
-		// Look in the existing files for the resources. If found, delete it.
-		for _, r := range resources {
-			if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
-				// Delete it.
-				fileResource.update("")
-			}
-		}
 	}
-
-	// If any existing files were modified, write their contents back to configDir.
-	for _, fi := range fileInfos {
-		if fi.isUpdated() {
-			if err := fi.writeFile(); err != nil {
-				return err
-			}
-		}
-	}
+	//
+	// 	// Read information for all files in configDir
+	// fileInfos, err := readFileInfos(c.configDir)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// // Create a map of the resource descriptors to file resources.
+	// // We'll use this map for handling updates.
+	// fileResourceMap := newFileResourceMap(fileInfos)
+	//
+	// for _, y := range yamlText {
+	// 	y, err = applyNamespace(ns, y)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	// Parse the file to obtain all resources and their descriptors.
+	// 	resources, err := parseResources(y)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	// Look in the existing files for the resources. If found, delete it.
+	// 	for _, r := range resources {
+	// 		if fileResource := fileResourceMap[r.descriptor]; fileResource != nil {
+	// 			// Delete it.
+	// 			fileResource.update("")
+	// 		}
+	// 	}
+	// }
+	//
+	// // If any existing files were modified, write their contents back to configDir.
+	// for _, fi := range fileInfos {
+	// 	if fi.isUpdated() {
+	// 		if err := fi.writeFile(); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }
@@ -277,7 +297,8 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 			}
 		}
 
-		return ioutil.WriteFile(targetPath, []byte(yamlText), os.ModePerm)
+		_, err = c.tracker.Apply(path, yamlText)
+		return err
 	})
 }
 
@@ -310,6 +331,8 @@ func (c *nativeComponent) Reset() error {
 		return err
 	}
 	scopes.Framework.Debugf("Galley config dir: %v", c.configDir)
+
+	c.tracker = yml.NewTracker(c.configDir)
 
 	c.meshConfigDir = path.Join(c.homeDir, meshConfigDir)
 	if err = os.MkdirAll(c.meshConfigDir, os.ModePerm); err != nil {
@@ -415,107 +438,4 @@ func applyNamespace(ns namespace.Instance, yamlText string) (out string, err err
 		out, err = yml.ApplyNamespace(yamlText, ns.Name())
 	}
 	return
-}
-
-type resourceInfo struct {
-	content    string
-	descriptor yml.Descriptor
-	updated    bool
-}
-
-func (ri *resourceInfo) update(content string) {
-	ri.content = content
-	ri.updated = true
-}
-
-type fileInfo struct {
-	name      string
-	resources []*resourceInfo
-}
-
-func (fi *fileInfo) isUpdated() bool {
-	for _, r := range fi.resources {
-		if r.updated {
-			return true
-		}
-	}
-	return false
-}
-
-func (fi *fileInfo) writeFile() error {
-	// Merge all the resources into a single document.
-	resourceContent := make([]string, 0, len(fi.resources))
-	for _, r := range fi.resources {
-		if len(r.content) > 0 {
-			resourceContent = append(resourceContent, r.content)
-		}
-	}
-
-	if len(resourceContent) > 0 {
-		// Update the file
-		newContent := yml.JoinString(resourceContent...)
-		return ioutil.WriteFile(fi.name, []byte(newContent), os.ModePerm)
-	}
-
-	// The file is now empty - remove it.
-	return os.Remove(fi.name)
-}
-
-func readFileInfos(configDir string) ([]*fileInfo, error) {
-	infos, err := ioutil.ReadDir(configDir)
-	if err != nil {
-		return nil, err
-	}
-
-	fileInfos := make([]*fileInfo, 0)
-	for _, i := range infos {
-		filename := filepath.Join(configDir, i.Name())
-		content, err := ioutil.ReadFile(filename)
-		if err != nil {
-			return nil, err
-		}
-
-		resources, err := parseResources(string(content))
-		if err != nil {
-			return nil, err
-		}
-
-		fileInfos = append(fileInfos, &fileInfo{
-			name:      filename,
-			resources: resources,
-		})
-	}
-
-	return fileInfos, nil
-}
-
-func newFileResourceMap(fileInfos []*fileInfo) map[yml.Descriptor]*resourceInfo {
-	// Create a map of the resource descriptors to file resources.
-	// We'll use this map for handling updates.
-	fileResourceMap := make(map[yml.Descriptor]*resourceInfo)
-	for _, fi := range fileInfos {
-		for _, ri := range fi.resources {
-			fileResourceMap[ri.descriptor] = ri
-		}
-	}
-	return fileResourceMap
-}
-
-func parseResources(yamlText string) ([]*resourceInfo, error) {
-	splitContent := yml.SplitString(yamlText)
-	resources := make([]*resourceInfo, 0, len(splitContent))
-	for _, part := range splitContent {
-		if len(part) > 0 {
-			descriptor, err := yml.ParseDescriptor(part)
-			if err != nil {
-				return nil, err
-			}
-
-			resources = append(resources, &resourceInfo{
-				content:    part,
-				descriptor: descriptor,
-			})
-		}
-	}
-	return resources, nil
 }
