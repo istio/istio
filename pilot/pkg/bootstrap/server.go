@@ -209,12 +209,16 @@ type Server struct {
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var appNamespaceVar = env.RegisterStringVar("APP_NAMESPACE", meta_v1.NamespaceAll, "")
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
 		args.Namespace = podNamespaceVar.Get()
+	}
+	if args.Config.ControllerOptions.WatchedNamespaces == "" {
+		args.Config.ControllerOptions.WatchedNamespaces = appNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()

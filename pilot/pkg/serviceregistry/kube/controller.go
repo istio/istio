@@ -76,6 +76,8 @@ func init() {
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
+	// [DEPRECIATED]Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
+	WatchedNamespace string
 	// Namespace list the controller watches, separated by comma; if not set, controller watches all namespaces
 	WatchedNamespaces string
 	ResyncPeriod      time.Duration
