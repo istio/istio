@@ -44,7 +44,6 @@ type TrackerKey struct {
 type trackerState struct {
 	part    Part
 	file    string
-	context string
 }
 
 // NewTracker returns a new Tracker instance
