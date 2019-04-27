@@ -85,7 +85,9 @@ func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal gal
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	expected, err := fset.LoadExpectedResources()
+	ns := namespace.NewOrFail(t, ctx, "conv", true)
+
+	expected, err := fset.LoadExpectedResources(ns.Name())
 	if err != nil {
 		t.Fatalf("unable to load expected resources: %v", err)
 	}
@@ -97,8 +99,6 @@ func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal gal
 	// TODO: This is because of subsequent events confusing the filesystem code.
 	// We should do Ctrlz trigger based approach.
 	time.Sleep(time.Second)
-
-	ns := namespace.NewOrFail(t, ctx, "conv", true)
 
 	if err = gal.ApplyConfig(ns, string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)
@@ -113,10 +113,10 @@ func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal gal
 			// endpoints as annotations, which are volatile. This prevents us from using
 			// golden files for validation. Instead, we use the structpath library to
 			// validate the fields manually.
-			validator = syntheticServiceEntryValidator()
+			validator = syntheticServiceEntryValidator(ns.Name())
 		default:
 			// All other collections use golden files.
-			validator = galley.NewGoldenSnapshotValidator(e)
+			validator = galley.NewGoldenSnapshotValidator(ns.Name(), e)
 		}
 
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
@@ -125,11 +125,11 @@ func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal gal
 	}
 }
 
-func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
-	return galley.NewSingleObjectSnapshotValidator(func(actual *galley.SnapshotObject) error {
+func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
+	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
 		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
-			Equals("kube-dns", "{.Metadata.name}").
+			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
 			Check(); err != nil {
 			return err
 		}
@@ -144,10 +144,10 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 		// Compare the body
 		if err := v.Select("{.Body}").
 			Equals("10.43.240.10", "{.addresses[0]}").
-			Equals("kube-dns.default.svc.cluster.local", "{.hosts[0]}").
+			Equals(fmt.Sprintf("kube-dns.%s.svc.cluster.local", ns), "{.hosts[0]}").
 			Equals(1, "{.location}").
 			Equals(1, "{.resolution}").
-			Equals("spiffe://cluster.local/ns//sa/kube-dns", "{.subject_alt_names[0]}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subject_alt_names[0]}").
 			Check(); err != nil {
 			return err
 		}
