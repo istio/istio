@@ -31,6 +31,10 @@ spec:
         image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        args:
+        {{- if $.Values.global.logAsJson }}
+        - --log_as_json
+        {{- end }}
         volumeMounts:
         - mountPath: /var/run/sds
           name: sdsudspath

@@ -72,6 +72,9 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
+          {{- if $.Values.global.logAsJson }}
+          - --log_as_json
+          {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
@@ -131,6 +134,9 @@
       {{- end }}
       {{- if $.Values.global.trustDomain }}
         - --trust-domain={{ $.Values.global.trustDomain }}
+      {{- end }}
+      {{- if $.Values.global.logAsJson }}
+        - --log_as_json
       {{- end }}
         env:
         - name: POD_NAME
@@ -251,6 +257,9 @@
           - {{ $.Values.telemetry.loadshedding.latencyThreshold }}
           - --loadsheddingMode
           - {{ $.Values.telemetry.loadshedding.mode }}
+          {{- if $.Values.global.logAsJson }}
+          - --log_as_json
+          {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
@@ -310,6 +319,9 @@
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
+      {{- end }}
+      {{- if $.Values.global.logAsJson }}
+        - --log_as_json
       {{- end }}
         env:
         - name: POD_NAME
