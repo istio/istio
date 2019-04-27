@@ -54,6 +54,8 @@ const (
 )
 
 func TestSdsVaultCaFlow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/13674")
+
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
