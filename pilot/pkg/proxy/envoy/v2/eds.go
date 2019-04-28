@@ -531,6 +531,8 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
 	requireFull := false
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	// To prevent memory leak.
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.

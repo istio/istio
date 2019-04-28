@@ -107,6 +107,9 @@ type DiscoveryServer struct {
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
 
+	// mutex protecting global structs updated or read by ADS service, including EndpointShardsByService.
+	mutex sync.RWMutex
+
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
 	EndpointShardsByService *cache.EndpointShardsByService
