@@ -347,6 +347,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 		}
 	}
 
+	s.mutex.Lock()
 	for k, v := range svc2account {
 		if ep, ok := s.EndpointShardsByService.Get(k); ok && ep != nil {
 			ep.ServiceAccounts = v
@@ -360,6 +361,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 			ServiceAccounts: v,
 		})
 	}
+	s.mutex.Unlock()
 
 	return nil
 }
