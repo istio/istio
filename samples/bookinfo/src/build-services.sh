@@ -55,6 +55,10 @@ popd
 pushd "$SCRIPTDIR/ratings"
   docker build -t "istio/examples-bookinfo-ratings-v1:${VERSION}" -t istio/examples-bookinfo-ratings-v1:latest --build-arg service_version=v1 .
   docker build -t "istio/examples-bookinfo-ratings-v2:${VERSION}" -t istio/examples-bookinfo-ratings-v2:latest --build-arg service_version=v2 .
+  docker build -t "istio/examples-bookinfo-ratings-v-faulty:${VERSION}" -t istio/examples-bookinfo-ratings-v-faulty:latest --build-arg service_version=v-faulty .
+  docker build -t "istio/examples-bookinfo-ratings-v-delayed:${VERSION}" -t istio/examples-bookinfo-ratings-v-delayed:latest --build-arg service_version=v-delayed .
+  docker build -t "istio/examples-bookinfo-ratings-v-unavailable:${VERSION}" -t istio/examples-bookinfo-ratings-v-unavailable:latest --build-arg service_version=v-unavailable .
+  docker build -t "istio/examples-bookinfo-ratings-v-unhealthy:${VERSION}" -t istio/examples-bookinfo-ratings-v-unhealthy:latest --build-arg service_version=v-unhealthy .
 popd
 
 pushd "$SCRIPTDIR/mysql"
