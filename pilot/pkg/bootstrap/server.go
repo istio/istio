@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/serviceregistry/mesos"
 	"net"
 	"net/http"
 	"net/url"
@@ -167,6 +168,7 @@ type ConsulArgs struct {
 type ServiceArgs struct {
 	Registries []string
 	Consul     ConsulArgs
+	Mesos      mesos.ControllerOptions
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -825,6 +827,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
+		case serviceregistry.MesosRegistry:
+			if err := s.initMesosRegistry(serviceControllers, args); err != nil {
+				return err
+			}
 		case serviceregistry.MCPRegistry:
 			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
@@ -1041,6 +1047,22 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 			Name:             serviceregistry.ConsulRegistry,
 			ServiceDiscovery: conctl,
 			Controller:       conctl,
+		})
+
+	return nil
+}
+
+func (s *Server) initMesosRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Mesos Master address: %v", args.Service.Mesos.Master)
+	mesosctl, conerr := mesos.NewController(args.Service.Mesos)
+	if conerr != nil {
+		return fmt.Errorf("failed to create Mesos controller: %v", conerr)
+	}
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.MesosRegistry,
+			ServiceDiscovery: mesosctl,
+			Controller:       mesosctl,
 		})
 
 	return nil
