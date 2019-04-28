@@ -27,6 +27,8 @@ SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 pushd "$SCRIPTDIR/productpage"
   docker build -t "istio/examples-bookinfo-productpage-v1:${VERSION}" -t istio/examples-bookinfo-productpage-v1:latest .
+  #flooding
+  docker build -t "istio/examples-bookinfo-productpage-v-flooding:${VERSION}" -t istio/examples-bookinfo-productpage-v-flooding:latest --build-arg flood_factor=100 .
 popd
 
 pushd "$SCRIPTDIR/details"
