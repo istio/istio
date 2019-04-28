@@ -15,17 +15,17 @@ about: Report a bug to help us improve Istio
 
 **Environment where bug was observed (cloud vendor, OS, etc)**
 
-**Affected product area (please put an X in all that apply)***
+**Affected product area (please put an X in all that apply)**
 
-[ ] Configuration Infrastructure
-[ ] Docs
-[ ] Installation
-[ ] Networking
-[ ] Performance and Scalability
-[ ] Policies and Telemetry
-[ ] Security
-[ ] Test and Release
-[ ] User Experience
+- [] Configuration Infrastructure
+- [] Docs
+- [] Installation
+- [] Networking
+- [] Performance and Scalability
+- [] Policies and Telemetry
+- [] Security
+- [] Test and Release
+- [] User Experience
 
 Additionally, please consider attaching a [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive) by attaching
 the dump file to this issue.
