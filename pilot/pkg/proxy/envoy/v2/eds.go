@@ -288,6 +288,8 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
 	var registries []aggregate.Registry
+	var nonK8sRegistries []aggregate.Registry
+
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		registries = agg.GetRegistries()
 	} else {
@@ -298,13 +300,19 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 		}
 	}
 
-	// hostname --> service account
-	svc2account := map[string]map[string]bool{}
+	for _, registry := range registries {
+		if registry.Name != serviceregistry.KubernetesRegistry {
+			nonK8sRegistries = append(nonK8sRegistries, registry)
+		}
+	}
+	if len(nonK8sRegistries) == 0 {
+		return nil
+	}
 
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
-		for _, registry := range registries {
+		for _, registry := range nonK8sRegistries {
 			// in case this svc does not belong to the registry
 			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
 				continue
@@ -336,36 +344,12 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 					})
-					if ep.ServiceAccount != "" {
-						account, f := svc2account[hostname]
-						if !f {
-							account = map[string]bool{}
-							svc2account[hostname] = account
-						}
-						account[ep.ServiceAccount] = true
-					}
 				}
 			}
 
 			s.edsUpdate(registry.ClusterID, hostname, entries, true)
 		}
 	}
-
-	s.mutex.Lock()
-	for k, v := range svc2account {
-		if ep := s.EndpointShardsByService[k]; ep != nil {
-			ep.ServiceAccounts = v
-			continue
-		}
-		// we have not seen this service before.
-		// We will let edsUpdate() add endpoints to the list.
-		// Just record service accounts here.
-		s.EndpointShardsByService[k] = &EndpointShards{
-			Shards:          map[string][]*model.IstioEndpoint{},
-			ServiceAccounts: v,
-		}
-	}
-	s.mutex.Unlock()
 
 	return nil
 }
@@ -587,7 +571,10 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// updates containing the full list of endpoints for the service in that cluster.
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
+			ep.mutex.Lock()
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			ep.ServiceAccounts[e.ServiceAccount] = true
+			ep.mutex.Lock()
 			if !f && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
