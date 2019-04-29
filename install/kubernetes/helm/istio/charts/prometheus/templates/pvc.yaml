@@ -1,0 +1,25 @@
+{{- if .Values.persistentVolume.enabled -}}
+{{- if not .Values.persistentVolume.existingClaim -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  {{- if .Values.persistentVolume.annotations }}
+  annotations:
+{{ toYaml .Values.persistentVolume.annotations | indent 4 }}
+  {{- end }}
+  name: {{ template "prometheus.fullname" . }}
+spec:
+  accessModes:
+{{ toYaml .Values.persistentVolume.accessModes | indent 4 }}
+{{- if .Values.persistentVolume.storageClass }}
+{{- if (eq "-" .Values.persistentVolume.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.persistentVolume.storageClass }}"
+{{- end }}
+{{- end }}
+  resources:
+    requests:
+      storage: "{{ .Values.persistentVolume.size }}"
+{{- end -}}
+{{- end -}}
