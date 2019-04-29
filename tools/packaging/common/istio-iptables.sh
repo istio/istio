@@ -73,7 +73,7 @@ function isValidIP() {
 # Function return true if agrument is a valid ipv4 address
 #
 function isIPv4() {
-ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
+   local ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
    if [[ ${1} =~ ${ipv4regexp} ]]; then
       true
    else
@@ -84,7 +84,7 @@ ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
 # Function return true if agrument is a valid ipv6 address
 #
 function isIPv6() {
-  ipv6section="^[0-9a-fA-F]{1,4}$"
+  local ipv6section="^[0-9a-fA-F]{1,4}$"
   addr="$1"
   number_of_parts=0
   number_of_skip=0
