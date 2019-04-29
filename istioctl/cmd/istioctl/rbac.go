@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"istio.io/istio/pkg/kube"
 
@@ -88,18 +89,28 @@ istioctl experimental rbac can -s source.namespace=foo POST rating /data -a dest
 
 func upgrade() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "upgrade <rbac-file1> <rbac-file2> ...",
-		Short: "Upgrade Istio Authorization policy files to use the newest API",
+		Use:   "upgrade <rbac-file>",
+		Short: "Upgrade Istio Authorization policy file to use the newest API",
 		Long: `
-This command automatically converts your Istio Authorization v1 policy files to v2.
+This command automatically converts Istio Authorization v1 policy files to v2. It requires the operator 
+to have READ access to the Kubernetes cluster where the services specified in ServiceRole definitions exist. 
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(args)
+			upgrader, err := newUpgrader(args[0])
 			if err != nil {
 				return err
 			}
-			return upgrader.UpgradeCRDs()
+			convertedPolicies, err := upgrader.UpgradeCRDs()
+			if err != nil {
+				return err
+			}
+			writer := os.Stdout
+			_, err = writer.WriteString(convertedPolicies)
+			if err != nil {
+				return fmt.Errorf("failed writing config to stdout with error %v", err)
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -157,7 +168,7 @@ func newRbacStore() (*rbac.ConfigStore, error) {
 	return &rbac.ConfigStore{Roles: rolesMap}, nil
 }
 
-func newUpgrader(rbacFiles []string) (*rbac.Upgrader, error) {
+func newUpgrader(rbacFile string) (*rbac.Upgrader, error) {
 	istioClient, err := newClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Istio Config Store with error %v", err)
@@ -167,6 +178,6 @@ func newUpgrader(rbacFiles []string) (*rbac.Upgrader, error) {
 		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
 	}
 	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient,
-		RoleToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFiles: rbacFiles}
+		RoleToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFile: rbacFile}
 	return upgrader, nil
 }

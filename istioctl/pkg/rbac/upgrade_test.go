@@ -15,8 +15,6 @@
 package rbac
 
 import (
-	"io/ioutil"
-	"os"
 	"reflect"
 	"testing"
 )
@@ -27,50 +25,13 @@ const (
 )
 
 type testCases struct {
-	input    string
+	input    Upgrader
 	expected string
-}
-
-func TestCheckAndCreateNewFile(t *testing.T) {
-	// Remove ./testdata/rbac-policies-v2.yaml if it exist
-	newFilePath := "./testdata/rbac-policies-v2.yaml"
-	if _, err := os.Stat(newFilePath); !os.IsNotExist(err) {
-		// File already exist, return with error
-		err := os.Remove(newFilePath)
-		if err != nil {
-			t.Errorf(testFailedWithError, err)
-		}
-	}
-
-	cases := []testCases{
-		{
-			input:    "./testdata/rbac-policies.yaml",
-			expected: newFilePath,
-		},
-		{
-			input:    "rbac-policies.html",
-			expected: "rbac-policies.html is not a valid YAML file",
-		},
-		{
-			input:    "rbac-policiesyaml",
-			expected: "rbac-policiesyaml is not a valid YAML file",
-		},
-	}
-	for _, tc := range cases {
-		_, got, err := checkAndCreateNewFile(tc.input)
-		if err != nil {
-			got = err.Error()
-		}
-		checkResult(t, got, tc.expected)
-	}
-	err := os.Remove(newFilePath)
-	if err != nil {
-		t.Errorf(testFailedWithError, err)
-	}
 }
 
 func TestUpgradeLocalFile(t *testing.T) {
 	upgrader := Upgrader{
+		RbacFile:             "./testdata/rbac-policies.yaml",
 		RoleToWorkloadLabels: map[string]ServiceToWorkloadLabels{},
 	}
 	// Data from the BookExample. productpage.svc.cluster.local is the service with pod label
@@ -82,35 +43,50 @@ func TestUpgradeLocalFile(t *testing.T) {
 	}
 	cases := []testCases{
 		{
-			input:    "./testdata/rbac-policies.yaml",
-			expected: "./testdata/rbac-policies-v2-expected.yaml",
+			input: upgrader,
+			expected: `apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: default
+spec:
+  rules:
+  - constraints:
+    - key: destination.labels[version]
+      values:
+      - v3
+    methods:
+    - '*'
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: bind-service-viewer
+  namespace: default
+spec:
+  allow:
+  - role: service-viewer
+    subjects:
+    - properties:
+        source.namespace: istio-system
+    - groups:
+      - bar
+      names:
+      - foo
+  workloadSelector:
+    labels:
+      app: productpage
+---
+`,
 		},
 	}
 	for _, tc := range cases {
-		newFile, err := upgrader.upgradeLocalFile(tc.input)
+		gotContent, err := tc.input.UpgradeCRDs()
 		if err != nil {
 			t.Errorf(testFailedWithError, err)
 		}
-		gotFileContent, err := ioutil.ReadFile(newFile)
-		if err != nil {
-			t.Errorf(testFailedWithError, err)
+		if !reflect.DeepEqual(tc.expected, gotContent) {
+			t.Errorf(testFailedExpectedGot, tc.expected, gotContent)
 		}
-		expectedFileContent, err := ioutil.ReadFile(tc.expected)
-		if err != nil {
-			t.Errorf(testFailedWithError, err)
-		}
-		if !reflect.DeepEqual(expectedFileContent, gotFileContent) {
-			t.Errorf(testFailedExpectedGot, expectedFileContent, gotFileContent)
-		}
-		err = os.Remove(newFile)
-		if err != nil {
-			t.Errorf(testFailedWithError, err)
-		}
-	}
-}
-
-func checkResult(t *testing.T, got, expected string) {
-	if got != expected {
-		t.Errorf(testFailedExpectedGot, expected, got)
 	}
 }

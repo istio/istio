@@ -17,10 +17,9 @@ package rbac
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 
@@ -47,20 +46,13 @@ type Upgrader struct {
 	// We could have remove the `service` key layer to make it ServiceRole name maps to workload labels.
 	// However, this is needed for unit tests.
 	RoleToWorkloadLabels map[string]ServiceToWorkloadLabels
-	RbacFiles            []string
+	RbacFile             string
 	serviceRoles         []model.Config
 	serviceRoleBindings  []model.Config
 }
 
 const (
-	apiVersionField = "apiVersion: "
-	kindField       = "kind: "
-	metadataField   = "metadata:"
-	nameField       = "name: "
-	namespaceField  = "namespace: "
-	specField       = "spec:"
-
-	newFileNameSuffix = "-v2"
+	creationTimestampNilField = "creationTimestamp: null"
 )
 
 var (
@@ -72,23 +64,9 @@ var (
 )
 
 // UpgradeCRDs is the main function that converts RBAC v1 to v2 for local policy files.
-func (ug *Upgrader) UpgradeCRDs() error {
-	for _, fileName := range ug.RbacFiles {
-		_, err := ug.upgradeLocalFile(fileName)
-		if err != nil {
-			return fmt.Errorf("failed to convert file %s with error %v", fileName, err)
-		}
-	}
-	return nil
-}
-
-// upgradeLocalFile performs upgrade/conversion for all ServiceRole and ServiceRoleBinding in the fileName.
-func (ug *Upgrader) upgradeLocalFile(fileName string) (string, error) {
-	err := ug.createRoleAndBindingLists(fileName)
-	if err != nil {
-		return "", err
-	}
-	newFile, newFilePath, err := checkAndCreateNewFile(fileName)
+func (ug *Upgrader) UpgradeCRDs() (string, error) {
+	err := ug.createRoleAndBindingLists(ug.RbacFile)
+	var convertedPolicies strings.Builder
 	if err != nil {
 		return "", err
 	}
@@ -97,56 +75,47 @@ func (ug *Upgrader) upgradeLocalFile(fileName string) (string, error) {
 			return "", err
 		}
 		role := ug.upgradeServiceRole(serviceRole)
-		err = writeToFile(newFile, role)
+		convertedRole, err := parseConfigToString(role)
 		if err != nil {
 			return "", err
 		}
+		convertedPolicies.WriteString(convertedRole)
 	}
 	for _, serviceRoleBinding := range ug.serviceRoleBindings {
 		authzPolicy := ug.createAuthorizationPolicyFromRoleBinding(serviceRoleBinding)
-		err = writeToFile(newFile, authzPolicy)
+		convertedAuthzPolicy, err := parseConfigToString(authzPolicy)
 		if err != nil {
 			return "", err
 		}
+		convertedPolicies.WriteString(convertedAuthzPolicy)
 	}
-	fmt.Println(fmt.Sprintf("New authorization policies have been upgraded to %s", newFilePath))
-	return newFilePath, nil
+	return convertedPolicies.String(), nil
 }
 
-// writeToFile writes data from `config` to `file`.
-func writeToFile(file *os.File, config model.Config) error {
-	var stringBuilder strings.Builder
+// parseConfigToString parses data from `config` to string.
+func parseConfigToString(config model.Config) (string, error) {
 	schema, exists := configDescriptor.GetByType(config.Type)
 	if !exists {
-		return fmt.Errorf("unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
+		return "", fmt.Errorf("unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
 	}
 	obj, err := crd.ConvertConfig(schema, config)
 	if err != nil {
-		return fmt.Errorf("could not decode %v: %v", config.Name, err)
+		return "", fmt.Errorf("could not decode %v: %v", config.Name, err)
 	}
-	stringBuilder.WriteString(fmt.Sprintf("%s%s/%s\n", apiVersionField, config.Group, config.Version))
-	stringBuilder.WriteString(fmt.Sprintf("%s%s\n", kindField, obj.GetObjectKind().GroupVersionKind().Kind))
-	stringBuilder.WriteString(fmt.Sprintf("%s\n", metadataField))
-	stringBuilder.WriteString(fmt.Sprintf("  %s%s\n", nameField, config.Name))
-	stringBuilder.WriteString(fmt.Sprintf("  %s%s\n", namespaceField, config.Namespace))
-	stringBuilder.WriteString(fmt.Sprintf("%s\n", specField))
-	spec, err := yaml.Marshal(obj.GetSpec())
+	configInBytes, err := yaml.Marshal(obj)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("could not unmarshal %v: %v", config.Name, err)
 	}
-	specLines := strings.Split(string(spec), "\n")
-	for i, line := range specLines {
-		// If specLines has an empty line at the end, ignore it for better formatting.
-		if i == len(specLines)-1 && line == "" {
-			break
+	configLines := strings.Split(string(configInBytes), "\n")
+	var configInString strings.Builder
+	for i, configLine := range configLines {
+		if i == len(configLines)-1 && configLine == "" {
+			configInString.WriteString("---\n")
+		} else if !strings.Contains(configLine, creationTimestampNilField) {
+			configInString.WriteString(fmt.Sprintf("%s\n", configLine))
 		}
-		stringBuilder.WriteString(fmt.Sprintf("  %s\n", line))
 	}
-	stringBuilder.WriteString("---\n")
-	if _, err := file.WriteString(stringBuilder.String()); err != nil {
-		return fmt.Errorf("failed to write %s to %s because %v", config.Name, file.Name(), err)
-	}
-	return nil
+	return configInString.String(), nil
 }
 
 // createRoleAndBindingLists creates lists of model.Configs to store ServiceRole and ServiceRoleBinding policies.
@@ -161,10 +130,8 @@ func (ug *Upgrader) createRoleAndBindingLists(fileName string) error {
 	}
 	for _, config := range configsFromFile {
 		if config.Type == configDescriptor.Types()[0] {
-			// ServiceRole
 			ug.serviceRoles = append(ug.serviceRoles, config)
 		} else if config.Type == configDescriptor.Types()[1] {
-			// ServiceRoleBinding
 			ug.serviceRoleBindings = append(ug.serviceRoleBindings, config)
 		}
 	}
@@ -272,25 +239,4 @@ func (ug *Upgrader) mapRoleToWorkloadLabels(roleName, namespace, fullServiceName
 		ug.RoleToWorkloadLabels[roleName][serviceName][key] = value
 	}
 	return nil
-}
-
-// checkAndCreateNewFile check if the name of the provided file is good, then create a new file with the
-// suffix.
-func checkAndCreateNewFile(fileName string) (*os.File, string, error) {
-	yamlExtensions := ".yaml"
-	if !strings.HasSuffix(strings.ToLower(fileName), yamlExtensions) {
-		return nil, "", fmt.Errorf("%s is not a valid YAML file", fileName)
-	}
-	// Remove the .yaml part
-	fileName = fileName[:len(fileName)-len(yamlExtensions)]
-	newFilePath := fmt.Sprintf("%s%s%s", fileName, newFileNameSuffix, yamlExtensions)
-	if _, err := os.Stat(newFilePath); !os.IsNotExist(err) {
-		// File already exist, return with error
-		return nil, "", fmt.Errorf("%s already exist", newFilePath)
-	}
-	newFile, err := os.Create(newFilePath)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create file: %v", err)
-	}
-	return newFile, newFilePath, nil
 }

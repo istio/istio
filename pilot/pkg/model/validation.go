@@ -1573,7 +1573,6 @@ func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
 		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
 	}
 	if in.RoleRef != nil {
-		rbacLog.Warnf("`roleRef` is deprecated. Please use `role` instead")
 		expectKind := "ServiceRole"
 		if in.RoleRef.Kind != expectKind {
 			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
