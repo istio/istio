@@ -110,14 +110,22 @@ spec:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-system
-`
+  name: istio-system`
 	invalidMixerKind = `
 apiVersion: config.istio.io/v1alpha2
 kind: validator
 metadata:
   name: invalid-kind
 spec:`
+	invalidUnsupportedKey = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage
+unexpected_junk:
+   still_more_junk:
+spec:
+  host: productpage`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -215,6 +223,9 @@ func TestValidateCommand(t *testing.T) {
 	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
 	defer closeInvalidMixerKindFile.Close()
 
+	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
+	defer closeUnsupportedKeyFile.Close()
+
 	cases := []struct {
 		name      string
 		args      []string
@@ -261,6 +272,11 @@ func TestValidateCommand(t *testing.T) {
 		{
 			name:      "invalid Mixer kind",
 			args:      []string{"--filename", invalidMixerKindFile},
+			wantError: true,
+		},
+		{
+			name:      "invalid top-level key",
+			args:      []string{"--filename", unsupportedKeyFilename},
 			wantError: true,
 		},
 	}

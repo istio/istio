@@ -40,10 +40,28 @@ Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
 	errKindNotSupported = errors.New("kind is not supported")
+
+	validFields = map[string]struct{}{
+		"apiVersion": {},
+		"kind":       {},
+		"metadata":   {},
+		"spec":       {},
+		"status":     {},
+	}
 )
 
 type validator struct {
 	mixerValidator mixerstore.BackendValidator
+}
+
+func checkFields(un *unstructured.Unstructured) error {
+	var errs error
+	for key := range un.Object {
+		if _, ok := validFields[key]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("unknown field %q", key))
+		}
+	}
+	return errs
 }
 
 func (v *validator) validateResource(un *unstructured.Unstructured) error {
@@ -53,12 +71,18 @@ func (v *validator) validateResource(un *unstructured.Unstructured) error {
 		if err != nil {
 			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
+		if err = checkFields(un); err != nil {
+			return err
+		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
 
 	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
 		if !v.mixerValidator.SupportsKind(un.GetKind()) {
 			return errKindNotSupported
+		}
+		if err := checkFields(un); err != nil {
+			return err
 		}
 		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
 			Type: mixerstore.Update,
