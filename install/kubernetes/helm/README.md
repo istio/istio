@@ -4,6 +4,6 @@ Please follow the installation instructions from [istio.io](https://istio.io/doc
 
 # Development
 
-All development should take place in [istio-installer](https://github.com/istio-ecosystem/istio-installer). Istio 1.2 will be based on this new installer.
+Istio installation is based upon a new decomposed installation technology in Istio 1.2.  As such, all development work should occur in [istio-installer](https://github.com/istio-ecosystem/istio-installer).
 
-If for some reason changes are needed to this folder, they must be backported to istio-installer or they will not be included in 1.2.
+If you have work that you feel should be backported to resolve defects, please submit to this repository on the release-1.1 branch so it can be added to the 1.1.x stream.
