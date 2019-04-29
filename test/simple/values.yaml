@@ -1,0 +1,59 @@
+
+#sidecarInjectorWebhook:
+#  rewriteAppHTTPProbe: false
+
+istio_cni:
+  enabled: false
+
+debug: INFO
+
+global:
+  hub: gcr.io/istio-release
+  tag: master-latest-daily
+
+  imagePullPolicy: Always
+
+  controlPlaneSecurityEnabled: false
+
+  istioNamespace: istio-control
+  trustDomain: ""
+
+  #network: default
+  # podDNSSearchNamespaces:
+
+  sds:
+    enabled: false
+    # customTokenDirectory
+    #useTrustworthyJwt: true
+
+
+  proxy:
+    privileged: true
+    enableCoreDump: false
+    image: proxyv2
+    clusterDomain: "cluster.local"
+
+    excludeInboundPorts: ""
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+    statusPort: 15020
+    logLevel: ""
+    readinessInitialDelaySeconds: 1
+    readinessPeriodSeconds: 2
+    readinessFailureThreshold: 10
+
+    # resources
+
+
+    tracer: "none"
+
+    envoyStatsd:
+      enabled: false
+    envoyMetricsService:
+      enabled: false
+
+
+
+  proxy_init:
+    image: proxy_init
+

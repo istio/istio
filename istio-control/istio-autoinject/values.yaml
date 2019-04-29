@@ -10,6 +10,7 @@ sidecarInjectorWebhook:
   enableNamespacesByDefault: false
 
 
+
 telemetry:
   # Will not define mixerCheckServer and mixerReportServer
   enabled: true
