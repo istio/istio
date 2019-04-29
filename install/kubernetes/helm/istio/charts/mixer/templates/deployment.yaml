@@ -125,21 +125,21 @@
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+      {{- if $.Values.global.sds.enabled }}
+        - --sdsEnabled=true
+        - --k8sServiceAccountJWTPath
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+        - "/var/run/secrets/tokens/istio-token"
+      {{- else }}
+        - "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      {{- end }}
+      {{- end }}
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
       {{- end }}
       {{- if $.Values.global.trustDomain }}
         - --trust-domain={{ $.Values.global.trustDomain }}
-      {{- end }}
-      {{- if $.Values.global.sds.enabled }}
-        - --sdsEnabled=true
-        - --k8sServiceAccountJWTPath
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
-        - "/var/run/secrets/tokens/istio-token"
-        {{- else }}
-        - "/var/run/secrets/kubernetes.io/serviceaccount/token"
-        {{- end }}
       {{- end }}
         env:
         - name: POD_NAME
@@ -316,18 +316,18 @@
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
-      {{- else }}
-        - --controlPlaneAuthPolicy
-        - NONE
-      {{- end }}
       {{- if $.Values.global.sds.enabled }}
         - --sdsEnabled=true
         - --k8sServiceAccountJWTPath
-        {{- if $.Values.global.sds.useTrustworthyJwt }}
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
         - "/var/run/secrets/tokens/istio-token"
-        {{- else }}
+      {{- else }}
         - "/var/run/secrets/kubernetes.io/serviceaccount/token"
-        {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- else }}
+        - --controlPlaneAuthPolicy
+        - NONE
       {{- end }}
         env:
         - name: POD_NAME
