@@ -23,69 +23,69 @@ import (
 	"sync"
 )
 
-// Tracker tracks the life-cycle of Yaml based resources. It stores single-part Yaml files on disk and updates the
+// Cache tracks the life-cycle of Yaml based resources. It stores single-part Yaml files on disk and updates the
 // files as needed, as the resources change.
-type Tracker struct {
+type Cache struct {
 	mu sync.Mutex
 
 	discriminator int64
-	resources     map[TrackerKey]*trackerState
+	resources     map[CacheKey]*resourceState
 	dir           string
 }
 
-// TrackerKey is a key representing a tracked Yaml based resource.
-type TrackerKey struct {
+// CacheKey is a key representing a tracked Yaml based resource.
+type CacheKey struct {
 	group     string
 	kind      string
 	namespace string
 	name      string
 }
 
-type trackerState struct {
+type resourceState struct {
 	part Part
 	file string
 }
 
-// NewTracker returns a new Tracker instance
-func NewTracker(dir string) *Tracker {
-	return &Tracker{
-		resources: make(map[TrackerKey]*trackerState),
+// NewCache returns a new Cache instance
+func NewCache(dir string) *Cache {
+	return &Cache{
+		resources: make(map[CacheKey]*resourceState),
 		dir:       dir,
 	}
 }
 
 // Apply adds the given yamlText contents as part of a given context name. If there is an existing context
 // with the given name, then a diffgram will be generated.
-func (t *Tracker) Apply(yamlText string) ([]TrackerKey, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (c *Cache) Apply(yamlText string) ([]CacheKey, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	parts, err := Parse(yamlText)
 	if err != nil {
 		return nil, err
 	}
 
-	var result []TrackerKey
-	newKeys := make(map[TrackerKey]struct{})
+	var result []CacheKey
+	newKeys := make(map[CacheKey]struct{})
 
 	for _, p := range parts {
 		key := toKey(p.Descriptor)
 		result = append(result, key)
 		newKeys[key] = struct{}{}
 
-		state, found := t.resources[key]
+		state, found := c.resources[key]
 		if found {
-			if err = t.deleteFile(state.file); err != nil {
+			if err = c.deleteFile(state.file); err != nil {
 				return nil, err
 			}
 		} else {
-			state = &trackerState{}
-			t.resources[key] = state
+			state = &resourceState{}
+			c.resources[key] = state
 		}
-		state.file = t.generateFileName(key)
+		state.file = c.generateFileName(key)
 		state.part = p
 
-		if err = t.writeFile(state.file, p.Contents); err != nil {
+		if err = c.writeFile(state.file, p.Contents); err != nil {
 			return nil, err
 		}
 	}
@@ -94,9 +94,9 @@ func (t *Tracker) Apply(yamlText string) ([]TrackerKey, error) {
 }
 
 // Delete the resources from the given yamlText
-func (t *Tracker) Delete(yamlText string) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (c *Cache) Delete(yamlText string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	parts, err := Parse(yamlText)
 	if err != nil {
@@ -106,13 +106,13 @@ func (t *Tracker) Delete(yamlText string) error {
 	for _, p := range parts {
 		key := toKey(p.Descriptor)
 
-		state, found := t.resources[key]
+		state, found := c.resources[key]
 		if found {
-			if err = t.deleteFile(state.file); err != nil {
+			if err = c.deleteFile(state.file); err != nil {
 				return err
 			}
 
-			delete(t.resources, key)
+			delete(c.resources, key)
 		}
 	}
 
@@ -120,63 +120,63 @@ func (t *Tracker) Delete(yamlText string) error {
 }
 
 // AllKeys returns all resource keys in the tracker.
-func (t *Tracker) AllKeys() []TrackerKey {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (c *Cache) AllKeys() []CacheKey {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	var result []TrackerKey
+	var result []CacheKey
 
-	for k := range t.resources {
+	for k := range c.resources {
 		result = append(result, k)
 	}
 
 	return result
 }
 
-// Clear all contents froma ll contexts.
-func (t *Tracker) Clear() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+// Clear all tracked yaml content.
+func (c *Cache) Clear() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	for _, s := range t.resources {
-		if err := t.deleteFile(s.file); err != nil {
+	for _, s := range c.resources {
+		if err := c.deleteFile(s.file); err != nil {
 			return err
 		}
 	}
 
-	t.resources = make(map[TrackerKey]*trackerState)
+	c.resources = make(map[CacheKey]*resourceState)
 
 	return nil
 }
 
 // GetFileFor returns the file that keeps the on-disk state for the given key.
-func (t *Tracker) GetFileFor(k TrackerKey) string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (c *Cache) GetFileFor(k CacheKey) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	state, found := t.resources[k]
+	state, found := c.resources[k]
 	if !found {
 		return ""
 	}
 	return state.file
 }
 
-func (t *Tracker) writeFile(file string, contents string) error {
+func (c *Cache) writeFile(file string, contents string) error {
 	return ioutil.WriteFile(file, []byte(contents), os.ModePerm)
 }
 
-func (t *Tracker) deleteFile(file string) error {
+func (c *Cache) deleteFile(file string) error {
 	return os.Remove(file)
 }
 
-func (t *Tracker) generateFileName(key TrackerKey) string {
-	t.discriminator++
-	d := t.discriminator
+func (c *Cache) generateFileName(key CacheKey) string {
+	c.discriminator++
+	d := c.discriminator
 
 	name := fmt.Sprintf("%s_%s_%s_%s-%d.yaml",
 		sanitize(key.group), sanitize(key.kind), sanitize(key.namespace), sanitize(key.name), d)
 
-	return path.Join(t.dir, name)
+	return path.Join(c.dir, name)
 }
 
 func sanitize(c string) string {
@@ -185,8 +185,8 @@ func sanitize(c string) string {
 		".", "_", -1)
 }
 
-func toKey(d Descriptor) TrackerKey {
-	return TrackerKey{
+func toKey(d Descriptor) CacheKey {
+	return CacheKey{
 		group:     d.Group,
 		kind:      d.Kind,
 		namespace: d.Metadata.Namespace,

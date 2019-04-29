@@ -72,18 +72,18 @@ spec:
 `
 )
 
-func TestTracker_Apply_Basic(t *testing.T) {
+func TestCache_Apply_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	keys, err := tr.Apply(gateway)
+	keys, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(1))
-	expected := TrackerKey{
+	expected := CacheKey{
 		group:     "networking.istio.io",
 		kind:      "Gateway",
 		namespace: "",
@@ -92,15 +92,15 @@ func TestTracker_Apply_Basic(t *testing.T) {
 	g.Expect(keys[0]).To(Equal(expected))
 	key1 := keys[0]
 
-	file := tr.GetFileFor(keys[0])
+	file := c.GetFileFor(keys[0])
 	by, err := ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
-	keys, err = tr.Apply(virtualService)
+	keys, err = c.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(1))
-	expected = TrackerKey{
+	expected = CacheKey{
 		group:     "networking.istio.io",
 		kind:      "VirtualService",
 		namespace: "",
@@ -109,12 +109,12 @@ func TestTracker_Apply_Basic(t *testing.T) {
 	g.Expect(keys[0]).To(Equal(expected))
 	key2 := keys[0]
 
-	file = tr.GetFileFor(keys[0])
+	file = c.GetFileFor(keys[0])
 	by, err = ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 
-	keys = tr.AllKeys()
+	keys = c.AllKeys()
 	g.Expect(keys).To(HaveLen(2))
 	g.Expect(keys).To(ContainElement(key1))
 	g.Expect(keys).To(ContainElement(key2))
@@ -124,18 +124,18 @@ func TestTracker_Apply_Basic(t *testing.T) {
 	g.Expect(items).To(HaveLen(2))
 }
 
-func TestTracker_Apply_MultiPart(t *testing.T) {
+func TestCache_Apply_MultiPart(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	keys, err := tr.Apply(JoinString(gateway, virtualService))
+	keys, err := c.Apply(JoinString(gateway, virtualService))
 	g.Expect(err).To(BeNil())
 	g.Expect(keys).To(HaveLen(2))
-	expected := TrackerKey{
+	expected := CacheKey{
 		group:     "networking.istio.io",
 		kind:      "Gateway",
 		namespace: "",
@@ -143,12 +143,12 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 	}
 	g.Expect(keys[0]).To(Equal(expected))
 
-	file := tr.GetFileFor(keys[0])
+	file := c.GetFileFor(keys[0])
 	by, err := ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
-	expected = TrackerKey{
+	expected = CacheKey{
 		group:     "networking.istio.io",
 		kind:      "VirtualService",
 		namespace: "",
@@ -156,13 +156,13 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 	}
 	g.Expect(keys[1]).To(Equal(expected))
 
-	file = tr.GetFileFor(keys[1])
+	file = c.GetFileFor(keys[1])
 	by, err = ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 
 	applyKeys := keys
-	keys = tr.AllKeys()
+	keys = c.AllKeys()
 	g.Expect(keys).To(HaveLen(2))
 	g.Expect(keys).To(ContainElement(applyKeys[0]))
 	g.Expect(keys).To(ContainElement(applyKeys[1]))
@@ -172,31 +172,31 @@ func TestTracker_Apply_MultiPart(t *testing.T) {
 	g.Expect(items).To(HaveLen(2))
 }
 
-func TestTracker_Apply_Add_Update(t *testing.T) {
+func TestCache_Apply_Add_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	keys, err := tr.Apply(gateway)
+	keys, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	file := tr.GetFileFor(keys[0])
+	file := c.GetFileFor(keys[0])
 	by, err := ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
-	keys, err = tr.Apply(updatedGateway)
+	keys, err = c.Apply(updatedGateway)
 	g.Expect(err).To(BeNil())
-	file = tr.GetFileFor(keys[0])
+	file = c.GetFileFor(keys[0])
 	by, err = ioutil.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(updatedGateway)))
 
 	applyKeys := keys
-	keys = tr.AllKeys()
+	keys = c.AllKeys()
 	g.Expect(keys).To(HaveLen(1))
 	g.Expect(keys).To(ContainElement(applyKeys[0]))
 
@@ -205,21 +205,21 @@ func TestTracker_Apply_Add_Update(t *testing.T) {
 	g.Expect(items).To(HaveLen(1))
 }
 
-func TestTracker_Apply_SameContent(t *testing.T) {
+func TestCache_Apply_SameContent(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	keys1, err := tr.Apply(gateway)
+	keys1, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	keys2, err := tr.Apply(gateway)
+	keys2, err := c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	keys := tr.AllKeys()
+	keys := c.AllKeys()
 	g.Expect(keys).To(HaveLen(1))
 	g.Expect(keys1).To(HaveLen(1))
 	g.Expect(keys2).To(HaveLen(1))
@@ -231,24 +231,24 @@ func TestTracker_Apply_SameContent(t *testing.T) {
 	g.Expect(items).To(HaveLen(1))
 }
 
-func TestTracker_Clear(t *testing.T) {
+func TestCache_Clear(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	_, err = tr.Apply(gateway)
+	_, err = c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	_, err = tr.Apply(virtualService)
+	_, err = c.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 
-	err = tr.Clear()
+	err = c.Clear()
 	g.Expect(err).To(BeNil())
 
-	keys := tr.AllKeys()
+	keys := c.AllKeys()
 	g.Expect(keys).To(HaveLen(0))
 
 	items, err := ioutil.ReadDir(d)
@@ -256,36 +256,36 @@ func TestTracker_Clear(t *testing.T) {
 	g.Expect(items).To(HaveLen(0))
 }
 
-func TestTracker_GetFileFor_Empty(t *testing.T) {
+func TestCache_GetFileFor_Empty(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	f := tr.GetFileFor(TrackerKey{})
+	f := c.GetFileFor(CacheKey{})
 	g.Expect(f).To(BeEmpty())
 }
 
-func TestTracker_Delete(t *testing.T) {
+func TestCache_Delete(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	_, err = tr.Apply(gateway)
+	_, err = c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	keys1, err := tr.Apply(virtualService)
+	keys1, err := c.Apply(virtualService)
 	g.Expect(err).To(BeNil())
 
-	err = tr.Delete(gateway)
+	err = c.Delete(gateway)
 	g.Expect(err).To(BeNil())
 
-	keys := tr.AllKeys()
+	keys := c.AllKeys()
 	g.Expect(keys).To(HaveLen(1))
 	g.Expect(keys1).To(HaveLen(1))
 	g.Expect(keys).To(ContainElement(keys1[0]))
@@ -299,18 +299,18 @@ func TestTracker_Delete(t *testing.T) {
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 }
 
-func TestTracker_Delete_Missing(t *testing.T) {
+func TestCache_Delete_Missing(t *testing.T) {
 	g := NewGomegaWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
-	tr := NewTracker(d)
+	c := NewCache(d)
 
-	_, err = tr.Apply(gateway)
+	_, err = c.Apply(gateway)
 	g.Expect(err).To(BeNil())
 
-	err = tr.Delete(virtualService)
+	err = c.Delete(virtualService)
 	g.Expect(err).To(BeNil())
 
 	items, err := ioutil.ReadDir(d)

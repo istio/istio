@@ -85,7 +85,7 @@ type nativeComponent struct {
 
 	server *server.Server
 
-	tracker *yml.Tracker
+	cache *yml.Cache
 }
 
 var _ Instance = &nativeComponent{}
@@ -102,7 +102,7 @@ func (c *nativeComponent) Address() string {
 
 // ClearConfig implements Galley.ClearConfig.
 func (c *nativeComponent) ClearConfig() (err error) {
-	if err := c.tracker.Clear(); err != nil {
+	if err := c.cache.Clear(); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (c *nativeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string)
 			return err
 		}
 
-		if _, err = c.tracker.Apply(y); err != nil {
+		if _, err = c.cache.Apply(y); err != nil {
 			return nil
 		}
 	}
@@ -149,7 +149,7 @@ func (c *nativeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string
 			return err
 		}
 
-		if err = c.tracker.Delete(y); err != nil {
+		if err = c.cache.Delete(y); err != nil {
 			return err
 		}
 	}
@@ -194,7 +194,7 @@ func (c *nativeComponent) ApplyConfigDir(ns namespace.Instance, sourceDir string
 			}
 		}
 
-		_, err = c.tracker.Apply(yamlText)
+		_, err = c.cache.Apply(yamlText)
 		return err
 	})
 }
@@ -229,7 +229,7 @@ func (c *nativeComponent) Reset() error {
 	}
 	scopes.Framework.Debugf("Galley config dir: %v", c.configDir)
 
-	c.tracker = yml.NewTracker(c.configDir)
+	c.cache = yml.NewCache(c.configDir)
 
 	c.meshConfigDir = path.Join(c.homeDir, meshConfigDir)
 	if err = os.MkdirAll(c.meshConfigDir, os.ModePerm); err != nil {

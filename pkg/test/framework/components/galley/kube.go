@@ -53,7 +53,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		context:     ctx,
 		environment: ctx.Environment().(*kube.Environment),
 		cfg:         cfg,
-		tracker:     yml.NewTracker(dir),
+		cache:       yml.NewCache(dir),
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -108,7 +108,7 @@ type kubeComponent struct {
 
 	client *client
 
-	tracker   *yml.Tracker
+	cache     *yml.Cache
 	forwarder kube2.PortForwarder
 }
 
@@ -127,13 +127,13 @@ func (c *kubeComponent) Address() string {
 // ClearConfig implements Galley.ClearConfig.
 func (c *kubeComponent) ClearConfig() (err error) {
 
-	for _, k := range c.tracker.AllKeys() {
-		if err = c.environment.Accessor.Delete("", c.tracker.GetFileFor(k)); err != nil {
+	for _, k := range c.cache.AllKeys() {
+		if err = c.environment.Accessor.Delete("", c.cache.GetFileFor(k)); err != nil {
 			return err
 		}
 	}
 
-	return c.tracker.Clear()
+	return c.cache.Clear()
 }
 
 // ApplyConfig implements Galley.ApplyConfig.
@@ -151,13 +151,13 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 			}
 		}
 
-		keys, err := c.tracker.Apply(y)
+		keys, err := c.cache.Apply(y)
 		if err != nil {
 			return err
 		}
 
 		for _, k := range keys {
-			if err = c.environment.Accessor.Apply(namespace, c.tracker.GetFileFor(k)); err != nil {
+			if err = c.environment.Accessor.Apply(namespace, c.cache.GetFileFor(k)); err != nil {
 				return err
 			}
 		}
@@ -184,7 +184,7 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 			return err
 		}
 
-		if err = c.tracker.Delete(txt); err != nil {
+		if err = c.cache.Delete(txt); err != nil {
 			return err
 		}
 	}
