@@ -40,28 +40,27 @@ type Client interface {
 }
 
 const (
-	onPremVM    = "onPremVM"
-	gcpVM       = "gcpVM"
-	awsVM       = "awsVM"
-	unspecified = "unspecified"
+	OnPremVM    = "OnPremVM"
+	GcpVM       = "GcpVM"
+	AwsVM       = "AwsVM"
+	Unspecified = "Unspecified"
 )
 
 // NewClient is the function to create implementations of the platform metadata client.
 func NewClient(platform, rootCertFile, keyFile, certChainFile, caProvider, aud string) (Client, error) {
 	switch platform {
-	case onPremVM:
+	case OnPremVM:
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
-	case gcpVM:
+	case GcpVM:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		//return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
-		// TODO(pitlv2109): Make `Aud` configurable.
 		return NewGcpClientImpl(caProvider, &cred.GcpTokenFetcher{Aud: aud})
-	case awsVM:
+	case AwsVM:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		return nil, fmt.Errorf("AWS credential authentication in CSR API is disabled")
-	case unspecified:
+	case Unspecified:
 		// Temporarily disable ID token authentication on CSR API.
 		// [TODO](myidpt): enable when the Citadel authz can work correctly.
 		// if metadata.OnGCE() {

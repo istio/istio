@@ -110,5 +110,5 @@ func (ci *GcpClientImpl) GetAgentCredential() ([]byte, error) {
 
 // GetCredentialType returns the credential type as "gcp".
 func (ci *GcpClientImpl) GetCredentialType() string {
-	return "gcp"
+	return GcpVM
 }

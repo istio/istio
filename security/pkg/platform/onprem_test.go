@@ -203,7 +203,7 @@ func TestOnpremGetCredentialType(t *testing.T) {
 		t.Errorf("failed to create onprem client %v", err)
 	}
 	credentialType := onprem.GetCredentialType()
-	if credentialType != "onprem" {
+	if credentialType != OnPremVM {
 		t.Errorf("Unexpected credential type: %v.", credentialType)
 	}
 }

@@ -306,7 +306,7 @@ func TestAwsGetCredentialTypes(t *testing.T) {
 		expectedType string
 	}{
 		"Good CredentialTypes": {
-			expectedType: "aws",
+			expectedType: AwsVM,
 		},
 	}
 

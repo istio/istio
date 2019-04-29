@@ -278,7 +278,7 @@ func TestGcpGetCredentialTypes(t *testing.T) {
 	}{
 		"Good Identity": {
 			rootCertFile: "",
-			expectedType: "gcp",
+			expectedType: GcpVM,
 		},
 	}
 

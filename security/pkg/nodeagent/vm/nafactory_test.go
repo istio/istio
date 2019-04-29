@@ -17,6 +17,8 @@ package vm
 import (
 	"testing"
 
+	"istio.io/istio/security/pkg/platform"
+
 	"istio.io/istio/security/pkg/caclient"
 )
 
@@ -34,7 +36,8 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				CAClientConfig: caclient.Config{
 					CAAddress:     "something",
-					Env:           "onprem",
+					Env:           platform.OnPremVM,
+					CAProtocol:    IstioCAService,
 					RootCertFile:  "../../../pkg/platform/testdata/cert-root-good.pem",
 					KeyFile:       "../../../pkg/platform/testdata/key-from-root-good.pem",
 					CertChainFile: "../../../pkg/platform/testdata/cert-from-root-good.pem",
@@ -45,8 +48,9 @@ func TestNewNodeAgent(t *testing.T) {
 		"Unsupported env test": {
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					CAAddress: "something",
-					Env:       "somethig else",
+					CAAddress:  "something",
+					Env:        "somethig else",
+					CAProtocol: IstioCAService,
 				},
 			},
 			expectedErr: "invalid env somethig else specified",
