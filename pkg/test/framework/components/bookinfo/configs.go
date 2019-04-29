@@ -20,6 +20,8 @@ import (
 
 	"strings"
 
+	"fmt"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -45,39 +47,70 @@ const (
 
 	// NetworkingTcpDbRule uses "networking/virtual-service-ratings-db.yaml"
 	NetworkingTCPDbRule ConfigFile = "networking/virtual-service-ratings-db.yaml"
+
+	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
+	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
 )
 
-// LoadOrFailGatewayFileWithNamespace loads a Book Info Gateway configuration file from the system, changes it to be fit
+// LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadOrFailGatewayFileWithNamespace(t testing.TB, namespace string) string {
-	content := l.LoadOrFailWithNamespace(t, namespace)
-	if namespace != "" {
-		content = replaceGatewayAndHostAddressWithNamespace(content, namespace)
+func (l ConfigFile) LoadGatewayFileWithNamespaceOrFail(t testing.TB, namespace string) string {
+	t.Helper()
+
+	content, err := l.LoadGatewayFileWithNamespace(namespace)
+	if err != nil {
+		t.Fatalf("err:%v", err)
 	}
+
 	return content
 }
 
-// LoadOrFailWithNamespace loads a Book Info configuration file from the systemchanges it to be fit
+// LoadWithNamespaceOrFail loads a Book Info configuration file from the systemchanges it to be fit
 // for the namespace provided and returns its contents.
-func (l ConfigFile) LoadOrFailWithNamespace(t testing.TB, namespace string) string {
+func (l ConfigFile) LoadWithNamespaceOrFail(t testing.TB, namespace string) string {
 	t.Helper()
+
+	content, err := l.LoadWithNamespace(namespace)
+	if err != nil {
+		t.Fatalf("err:%v", err)
+	}
+
+	return content
+}
+
+// LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
+// for the namespace provided and returns its contents.
+func (l ConfigFile) LoadGatewayFileWithNamespace(namespace string) (string, error) {
+	content, err := l.LoadWithNamespace(namespace)
+	if err != nil {
+		return "", err
+	}
+	if namespace != "" {
+		content = replaceGatewayAndHostAddressWithNamespace(content, namespace)
+	}
+	return content, nil
+}
+
+// LoadWithNamespaceOrFail loads a Book Info configuration file from the systemchanges it to be fit
+// for the namespace provided and returns its contents.
+func (l ConfigFile) LoadWithNamespace(namespace string) (string, error) {
 	p := path.Join(env.BookInfoRoot, string(l))
 
 	content, err := test.ReadConfigFile(p)
 	if err != nil {
-		t.Fatalf("unable to load config %s at %v, err:%v", l, p, err)
+		return "", fmt.Errorf("unable to load config %s at %v, err:%v", l, p, err)
 	}
 
 	scopes.Framework.Debugf("Loaded BookInfo file: %s\n%s\n", p, content)
 	if namespace != "" {
 		content = replaceBookinfoAppAddressWithFQDNAddress(content, namespace)
 	}
-	return content
+	return content, nil
 }
 
 // LoadOrFail loads a Book Info configuration file from the system and returns its contents.
 func (l ConfigFile) LoadOrFail(t testing.TB) string {
-	return l.LoadOrFailWithNamespace(t, "")
+	return l.LoadWithNamespaceOrFail(t, "")
 }
 
 func GetDestinationRuleConfigFile(t testing.TB, ctx resource.Context) ConfigFile {
