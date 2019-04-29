@@ -45,6 +45,7 @@ spec:
           args:
             - '--storage.tsdb.retention={{ .Values.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path={{ .Values.persistentVolume.mountPath }}'
           ports:
             - containerPort: 9090
               name: http
@@ -67,6 +68,9 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
+          - name: storage-volume
+            mountPath: {{ .Values.persistentVolume.mountPath }}
+            subPath: "{{ .Values.persistentVolume.subPath }}"
       volumes:
       - name: config-volume
         configMap:
@@ -76,6 +80,13 @@ spec:
           defaultMode: 420
           optional: true
           secretName: istio.default
+      - name: storage-volume
+        {{- if .Values.persistentVolume.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ if .Values.persistentVolume.existingClaim }}{{ .Values.persistentVolume.existingClaim }}{{- else }}{{ template "prometheus.fullname" . }}{{- end }}
+        {{- else }}
+          emptyDir: {}
+        {{- end -}}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
