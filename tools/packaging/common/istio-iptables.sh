@@ -56,14 +56,12 @@ function usage() {
 }
 
 function dump {
-echo dump
-#    iptables-save
-#    ip6tables-save
+    iptables-save
+    ip6tables-save
 }
 
-ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
 function isValidIP() {
-   if [[ ${1} =~ ${ipv4regexp} ]]; then
+   if idIPv4 ${1}; then
       true
    elif isIPv6 "${1}"; then
       true
@@ -75,6 +73,7 @@ function isValidIP() {
 # Function return true if agrument is a valid ipv4 address
 #
 function isIPv4() {
+ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
    if [[ ${1} =~ ${ipv4regexp} ]]; then
       true
    else
@@ -84,8 +83,8 @@ function isIPv4() {
 #
 # Function return true if agrument is a valid ipv6 address
 #
-ipv6section="^[0-9a-fA-F]{1,4}$"
 function isIPv6() {
+  ipv6section="^[0-9a-fA-F]{1,4}$"
   addr="$1"
   number_of_parts=0
   number_of_skip=0
@@ -105,14 +104,11 @@ function isIPv6() {
           # Found empty part, no more than 2 sections '::' are allowed in ipv6 address
           if [[ "$number_of_skip" -ge 1 ]]; then
              return 1
-          else
-             ((number_of_skip++))
-             ((number_of_parts++))
           fi
+          ((number_of_skip++))
        fi
-    else
-       ((number_of_parts++))
     fi
+    ((number_of_parts++))
   done
   return 0
 }
