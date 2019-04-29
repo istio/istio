@@ -18,6 +18,9 @@ import (
 	"context"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/label"
+
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 )
 
@@ -157,4 +160,10 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 			t.Errorf("Test case [%s]: the certificate chain length (%v) is unexpected", id, len(resp))
 		}
 	}
+}
+
+// Opt-in to the test framework, implementing a TestMain and calling Run()
+func TestMain(m *testing.M) {
+	// Labels that the whole suite will be ran in post-submit.
+	framework.NewSuite("citadel_agent_vault_client_test", m).Label(label.Postsubmit).Run()
 }
