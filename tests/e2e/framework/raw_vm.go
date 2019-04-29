@@ -15,7 +15,6 @@
 package framework
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -34,14 +33,6 @@ type RawVM interface {
 }
 
 var (
-	// flags to select vm with specific configuration
-	// TODO(incfly): delete these flags.
-	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
-	projectID     = flag.String("project_id", "istio-testing", "Project ID")
-	projectNumber = flag.String("project_number", "450874614208", "Project Number")
-	zone          = flag.String("zone", "us-east4-c", "The zone in which the VM and cluster resides")
-	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
-	debURL        = flag.String("deb_url", "", "The URL where `istio-sidecar.deb` can be accessed")
 	// paths
 	setupMeshExScript  = ""
 	setupIstioVMScript = ""
