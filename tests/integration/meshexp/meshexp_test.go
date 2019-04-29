@@ -113,6 +113,7 @@ func TestIstioControlPlaneReachability(t *testing.T) {
 	// some environments yet, for example, circleci.
 	if err := setupVMInstance(testContext); err != nil {
 		t.Errorf("failed to setup VM instance: %v", err)
+		return
 	}
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
