@@ -50,11 +50,14 @@ type envoy struct {
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, componentLogLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
 		args = append(args, "-l", logLevel)
+	}
+	if componentLogLevel != "" {
+		args = append(args, "--component-log-level", componentLogLevel)
 	}
 
 	return &envoy{

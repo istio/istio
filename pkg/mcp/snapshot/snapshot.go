@@ -19,9 +19,12 @@ import (
 	"sync"
 	"time"
 
+	types "github.com/gogo/protobuf/types"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/source"
 )
 
@@ -290,6 +293,34 @@ func (c *Cache) GetSnapshotInfo(group string) []Info {
 			snapshots = append(snapshots, info)
 		}
 		return snapshots
+	}
+	return nil
+}
+
+// GetResource returns the mcp resource detailed information for the specified group
+func (c *Cache) GetResource(group string, collection string, resourceName string) *sink.Object {
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	//if the group or collection is empty, return empty
+	if group == "" || collection == "" {
+		return nil
+	}
+
+	if snapshot, ok := c.snapshots[group]; ok {
+		for _, resource := range snapshot.Resources(collection) {
+			if resource.Metadata.Name == resourceName {
+				var dynamicAny types.DynamicAny
+				if err := types.UnmarshalAny(resource.Body, &dynamicAny); err == nil {
+					return &sink.Object{
+						TypeURL:  resource.Body.TypeUrl,
+						Metadata: resource.Metadata,
+						Body:     dynamicAny.Message,
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
