@@ -15,13 +15,11 @@ nodeagent:
   enabled: true
   image: node-agent-k8s
   env:
-    # https://34.83.129.211:8200 is the IP address and the port number
-    # of a testing Vault server.
+    # The IP address and the port number of a publicly accessible example Vault server.
     CA_ADDR: "https://34.83.129.211:8200"
     CA_PROVIDER: "VaultCA"
     VALID_TOKEN: true
-    # https://34.83.129.211:8200 is the IP address and the port number
-    # of a testing Vault server.
+    # The IP address and the port number of a publicly accessible example Vault server.
     VAULT_ADDR: "https://34.83.129.211:8200"
     VAULT_AUTH_PATH: "auth/kubernetes/login"
     VAULT_ROLE: "istio-cert"
