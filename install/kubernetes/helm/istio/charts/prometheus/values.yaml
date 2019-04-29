@@ -56,3 +56,47 @@ service:
 
 security:
   enabled: true
+
+persistentVolume:
+  ## If true, Prometheus server will create/use a Persistent Volume Claim
+  ## If false, use emptyDir
+  ##
+  enabled: false
+
+  ## Prometheus server data Persistent Volume access modes
+  ## Must match those of existing PV or dynamic provisioner
+  ## Ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+  ##
+  accessModes:
+    - ReadWriteOnce
+
+  ## Prometheus server data Persistent Volume annotations
+  ##
+  annotations: {}
+
+  ## Prometheus server data Persistent Volume existing claim name
+  ## Requires server.persistentVolume.enabled: true
+  ## If defined, PVC must be created manually before volume will be bound
+  existingClaim: ""
+
+  ## Prometheus server data Persistent Volume mount root path
+  ##
+  mountPath: /data
+
+  ## Prometheus server data Persistent Volume size
+  ##
+  size: 8Gi
+
+  ## Prometheus server data Persistent Volume Storage Class
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  # storageClass: "-"
+
+  ## Subdirectory of Prometheus server data Persistent Volume to mount
+  ## Useful if the volume's root directory is not empty
+  ##
+  subPath: ""
