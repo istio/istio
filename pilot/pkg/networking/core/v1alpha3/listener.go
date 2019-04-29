@@ -1459,13 +1459,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
-	if env.Mesh.EnvoyAccesslogService != nil && env.Mesh.EnvoyAccesslogService.Address != "" {
+	if env.Mesh.envoyAccessLogService != nil && env.Mesh.envoyAccessLogService.Address != "" {
 		googleGrpc := &core.GrpcService_GoogleGrpc{
-			TargetUri:  env.Mesh.EnvoyAccesslogService.Address,
+			TargetUri:  env.Mesh.envoyAccessLogService.Address,
 			StatPrefix: httpEnvoyAccesslogName,
 		}
-		if env.Mesh.EnvoyAccesslogService.Credentials != nil {
-			c := env.Mesh.EnvoyAccesslogService.Credentials
+		if env.Mesh.EnvoyAccessLogService.Credentials != nil {
+			c := env.Mesh.EnvoyAccessLogService.Credentials
 			sslCred := &core.GrpcService_GoogleGrpc_SslCredentials{
 				RootCerts:  &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.RootCerts}},
 				PrivateKey: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: c.PrivateKey}},

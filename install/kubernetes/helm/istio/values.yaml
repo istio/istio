@@ -173,8 +173,8 @@ global:
     accessLogEncoding: TEXT
 
     # Configure envoy gRPC access log service.
-    envoyAccesslogService:
-      enable: false
+    envoyAccessLogService:
+      enabled: false
       config:
         address: ""
         credentials:
