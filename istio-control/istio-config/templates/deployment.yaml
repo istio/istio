@@ -43,7 +43,7 @@ spec:
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --insecure=true
-  {{- if .Values.galley.configValidation }}
+  {{- if .Values.global.configValidation }}
           - --enable-validation=true
   {{- else }}
           - --enable-validation=false
@@ -54,9 +54,11 @@ spec:
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort | default "15014" }}
           volumeMounts:
+  {{- if .Values.global.configValidation }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+  {{- end }}
           - name: config
             mountPath: /etc/config
             readOnly: true

@@ -24,3 +24,20 @@ resources:
 
 # Pilot options
 configValidation: true
+
+pilot:
+  resources:
+    requests:
+      cpu: 0m
+
+mixer:
+  telemetry:
+    resources:
+      requests:
+        cpu: 0m
+
+
+  policy:
+    resources:
+      requests:
+        cpu: 0m

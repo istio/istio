@@ -13,8 +13,6 @@ data:
     {{ .Values | toJson }}
 
   config: |-
-    # Deprecated: user may install or not the autoinjector.
     policy: {{ .Values.global.proxy.autoInject }}
-    template: |-
-{{ .Files.Get "files/injection-template.yaml" | indent 6 }}
+{{ .Files.Get "files/injection-template.yaml" | indent 4 }}
 {{- end }}

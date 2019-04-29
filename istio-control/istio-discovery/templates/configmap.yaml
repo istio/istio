@@ -39,6 +39,10 @@ data:
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
 
+    {{- if .Values.pilot.authPolicy }}
+    authPolicy: {{ .Values.pilot.authPolicy }}
+    {{- end }}
+
     {{- if .Values.pilot.policy.enabled }}
 
     # Set the following variable to true to disable policy checks by the Mixer.
@@ -81,7 +85,7 @@ data:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019
     {{- else }}
-    - address: istio-galley
+    - address: istio-galley:9901
     {{- end }}
     {{- end }}
     #

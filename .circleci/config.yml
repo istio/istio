@@ -12,6 +12,16 @@ integrationDefaults: &integrationDefaults
     - KUBECONFIG: /go/out/minikube.conf
     - TEST_ENV: minikube-none
 
+# remote docker environment. Appears to be faster
+integrationRemote: &integrationRemote
+  working_directory: /go/src/github.com/istio-ecosystem/istio-installer
+  docker:
+    - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+      environment:
+        GOPATH: /go
+        SKIP_CLEANUP: 1
+        TMPDIR: /go/tmp
+
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -55,21 +65,13 @@ jobs:
   # Runs the 'integration.presubmit' tests against an environment using new installer with components in same
   # namespace.
   integration-presubmit-kind:
-    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
-    docker:
-      # Image with KIND installed, based on Istio Kind node-image
-      # Should have all tools we need, recreated when we rev the tool versions.
-      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-        environment:
-          GOPATH: /go
-          SKIP_CLEANUP: 1
-          TMPDIR: /go/tmp
+    <<: *integrationRemote
 
     # Can run multiple images, first is primary, all use localhost
     steps:
       - checkout
-      - setup_remote_docker: {}
-      # Only on paid version
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           command: |
             mkdir -p $GOPATH/tmp
@@ -94,28 +96,19 @@ jobs:
           command: make kind-logs
       #    docker_layer_caching: true
       - store_test_results:
-          path: /workspace/go/out/tests
+          path: /go/out/tests
       - store_artifacts:
-          path: /workspace/go/out/logs
+          path: /go/out/logs
 
   # Old integration tests - simple (mtls strict and permissive), bookinfo
   integration-old-kind:
-    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
-    docker:
-      # Image with KIND installed, based on Istio Kind node-image
-      # Should have all tools we need, recreated when we rev the tool versions.
-      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
-        environment:
-          GOPATH: /go
-          SKIP_CLEANUP: 1
-          TMPDIR: /go/tmp
+    <<: *integrationRemote
 
     # Can run multiple images, first is primary, all use localhost
     steps:
       - checkout
-      - setup_remote_docker: {}
-      # Only on paid version
-      #    docker_layer_caching: true
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           command: |
             mkdir -p $GOPATH/tmp
@@ -133,7 +126,9 @@ jobs:
       - run:
           command: make docker-run-test TEST_TARGET="install-crds install-base install-ingress"
       - run:
-          command: make docker-run-test TEST_TARGET="run-simple run-simple-strict"
+          command: make docker-run-test TEST_TARGET="run-simple"
+      - run:
+          command: make docker-run-test TEST_TARGET="run-simple-strict"
       - run:
           command: make docker-run-test TEST_TARGET="run-bookinfo"
           # simple is currently failing
@@ -141,9 +136,43 @@ jobs:
           when: always
           command: make kind-logs
       - store_test_results:
-          path: /workspace/go/out/tests
+          path: /go/out/tests
       - store_artifacts:
-          path: /workspace/go/out/logs
+          path: /go/out/logs
+
+  # Verify a-la-carte with no certificates ( smallest possible install, and cases without certs/mtls)
+  noauth:
+    <<: *integrationRemote
+
+    # Can run multiple images, first is primary, all use localhost
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          command: |
+            mkdir -p $GOPATH/tmp
+            mkdir -p $GOPATH/src/istio.io/
+            git clone https://github.com/istio/istio.git $GOPATH/src/istio.io/istio
+            git clone https://github.com/istio/tools.git $GOPATH/src/istio.io/tools
+      - run:
+          # TODO: include in the istio base image
+          command: make ${GOPATH}/bin/kind
+      - run:
+          command: make info dep prepare
+      - run:
+          command: make sync
+      - run:
+          command: make docker-run-test TEST_TARGET="run-test-noauth-micro"
+      - run:
+          command: make docker-run-test TEST_TARGET="run-test-noauth-full"
+      - run:
+          when: always
+          command: make kind-logs
+      - store_test_results:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
 
   # Uses machine and minikube --root, using one-step installation
   # Used to verify that minikube still works, and get a baseline/compare performance.
@@ -154,12 +183,7 @@ jobs:
             - GOPATH: /go
             - ISTIO_CONTROL: istio-control
             - TEST_ENV: minikube-none
-            - RESOURCES_FLAGS: >-
-                --set global.defaultResources.requests.cpu=0m
-                --set resources.requests.cpu=0
-                --set resources.requests.memory=0
-                --set global.proxy.resources.requests.cpu=0
-                --set global.proxy.resources.requests.memory=0
+            - RESOURCES_FLAGS: "-f test/kind/user-values.yaml"
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -204,3 +228,4 @@ workflows:
       - integration-presubmit-kind
       - integration-old-kind
       - install-minikube
+      - noauth
