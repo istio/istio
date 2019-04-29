@@ -159,7 +159,7 @@ var (
 			Type:      DestinationRule.Type,
 			Version:   DestinationRule.Version,
 			Name:      "acme",
-			Namespace: "istio-config",
+			Namespace: ConfigRootNamespace,
 		},
 		Spec: &networking.DestinationRule{
 			Host: "foo.ns1",
