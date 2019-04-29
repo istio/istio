@@ -19,7 +19,7 @@
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
 function usage() {
-  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-h]"
+  echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-t] [-h]"
   echo ''
   # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
@@ -48,6 +48,7 @@ function usage() {
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
+  echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
   # shellcheck disable=SC2016
   echo ''
   # shellcheck disable=SC2016
@@ -55,33 +56,111 @@ function usage() {
 }
 
 function dump {
-    iptables-save
-    ip6tables-save
+echo dump
+#    iptables-save
+#    ip6tables-save
 }
 
-#
-#  Function check if argument is a valid ipv4 or ipv6 address
-#
+ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
 function isValidIP() {
-   if [ "$1" != "${1#*[0-9].[0-9].[0-9].[0-9]}" ]; then
+   if [[ ${1} =~ ${ipv4regexp} ]]; then
       true
-   elif [ "$1" != "${1#*:[0-9a-fA-F]}" ]; then
+   elif isIPv6 "${1}"; then
       true
    else
       false
    fi
 }
-
 #
 # Function return true if agrument is a valid ipv4 address
 #
 function isIPv4() {
-   if [ "$1" != "${1#*[0-9].[0-9].[0-9].[0-9]}" ]; then
+   if [[ ${1} =~ ${ipv4regexp} ]]; then
       true
    else
       false
   fi
 }
+#
+# Function return true if agrument is a valid ipv6 address
+#
+ipv6section="^[0-9a-fA-F]{1,4}$"
+function isIPv6() {
+  addr="$1"
+  number_of_parts=0
+  number_of_skip=0
+  IFS=':' read -r -a addr <<< "$1"
+  for part in "${addr[@]}"; do
+    # check to not exceed number of parts in ipv6 address
+    if [[ ${number_of_parts} -ge 8 ]]; then
+        return 1
+    fi
+    if [[ ${number_of_parts} -eq 0 ]] && ! [[ ${part} =~ ${ipv6section} ]]; then
+        return 1
+    fi
+    if ! [[ ${part} =~ ${ipv6section} ]]; then
+       if ! [[ "$part" == "" ]]; then
+          return 1
+       else
+          # Found empty part, no more than 2 sections '::' are allowed in ipv6 address
+          if [[ "$number_of_skip" -ge 1 ]]; then
+             return 1
+          else
+             ((number_of_skip++))
+             ((number_of_parts++))
+          fi
+       fi
+    else
+       ((number_of_parts++))
+    fi
+  done
+  return 0
+}
+
+while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
+  case ${opt} in
+    p)
+      PROXY_PORT=${OPTARG}
+      ;;
+    u)
+      PROXY_UID=${OPTARG}
+      ;;
+    g)
+      PROXY_GID=${OPTARG}
+      ;;
+    m)
+      INBOUND_INTERCEPTION_MODE=${OPTARG}
+      ;;
+    b)
+      INBOUND_PORTS_INCLUDE=${OPTARG}
+      ;;
+    d)
+      INBOUND_PORTS_EXCLUDE=${OPTARG}
+      ;;
+    i)
+      OUTBOUND_IP_RANGES_INCLUDE=${OPTARG}
+      ;;
+    x)
+      OUTBOUND_IP_RANGES_EXCLUDE=${OPTARG}
+      ;;
+    k)
+      KUBEVIRT_INTERFACES=${OPTARG}
+      ;;
+    t)
+      echo "Unit testing is specified..."
+      exit 0
+      ;;
+    h)
+      usage
+      exit 0
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
 
 trap dump EXIT
 
@@ -121,50 +200,9 @@ KUBEVIRT_INTERFACES=
 POD_IP=$(hostname --ip-address)
 # Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 # to program ip6tables
-if [ "$POD_IP" != "${POD_IP#*:[0-9a-fA-F]}" ]; then
+if isIPv6 "$POD_IP"; then
   ENABLE_INBOUND_IPV6=$POD_IP
 fi
-
-while getopts ":p:u:g:m:b:d:i:x:k:h" opt; do
-  case ${opt} in
-    p)
-      PROXY_PORT=${OPTARG}
-      ;;
-    u)
-      PROXY_UID=${OPTARG}
-      ;;
-    g)
-      PROXY_GID=${OPTARG}
-      ;;
-    m)
-      INBOUND_INTERCEPTION_MODE=${OPTARG}
-      ;;
-    b)
-      INBOUND_PORTS_INCLUDE=${OPTARG}
-      ;;
-    d)
-      INBOUND_PORTS_EXCLUDE=${OPTARG}
-      ;;
-    i)
-      OUTBOUND_IP_RANGES_INCLUDE=${OPTARG}
-      ;;
-    x)
-      OUTBOUND_IP_RANGES_EXCLUDE=${OPTARG}
-      ;;
-    k)
-      KUBEVIRT_INTERFACES=${OPTARG}
-      ;;
-    h)
-      usage
-      exit 0
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      usage
-      exit 1
-      ;;
-  esac
-done
 
 # TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 if [ -z "${PROXY_UID}" ]; then
