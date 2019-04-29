@@ -19,4 +19,8 @@ data:
       jaeger:
         url: {{ .Values.dashboard.jaegerURL }}
       grafana:
+{{- if .Values.dashboard.grafana }}
+{{ toYaml .Values.dashboard.grafana | indent 8 }}
+{{- else }}
         url: {{ .Values.dashboard.grafanaURL }}
+{{- end }}
