@@ -9,8 +9,6 @@ spec:
     - key: destination.labels[version]
       values:
       - v3
-    methods:
-    - '*'
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: AuthorizationPolicy

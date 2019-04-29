@@ -178,6 +178,6 @@ func newUpgrader(rbacFile string) (*rbac.Upgrader, error) {
 		return nil, fmt.Errorf("failed to connect to Kubernetes with error %v", err)
 	}
 	upgrader := &rbac.Upgrader{IstioConfigStore: istioClient, K8sClient: k8sClient,
-		RoleToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFile: rbacFile}
+		RoleNameToWorkloadLabels: map[string]rbac.ServiceToWorkloadLabels{}, RbacFile: rbacFile}
 	return upgrader, nil
 }
