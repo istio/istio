@@ -436,23 +436,24 @@ for internalInterface in ${KUBEVIRT_INTERFACES}; do
 done
 
 # Apply outbound IP inclusions.
-if [ "${ipv4_ranges_include[0]}" == "*" ]; then
-  # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-  iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-  for internalInterface in ${KUBEVIRT_INTERFACES}; do
-    iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
-  done
-
-elif [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
-  # User has specified a non-empty list of cidrs to be redirected to Envoy.
-  for cidr in "${ipv4_ranges_include[@]}"; do
-    for internalInterface in ${KUBEVIRT_INTERFACES}; do
-        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
-    done
-    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
-  done
-  # All other traffic is not redirected.
-  iptables -t nat -A ISTIO_OUTPUT -j RETURN
+if [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
+   if [ "${ipv4_ranges_include[0]}" == "*" ]; then
+     # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+     iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+     for internalInterface in ${KUBEVIRT_INTERFACES}; do
+       iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
+     done
+   else 
+     # User has specified a non-empty list of cidrs to be redirected to Envoy.
+     for cidr in "${ipv4_ranges_include[@]}"; do
+        for internalInterface in ${KUBEVIRT_INTERFACES}; do
+           iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+        done
+        iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+      done
+      # All other traffic is not redirected.
+      iptables -t nat -A ISTIO_OUTPUT -j RETURN
+    fi
 fi
 
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
@@ -554,22 +555,24 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     done
   fi
   # Apply outbound IPv6 inclusions.
-  if [ "${ipv6_ranges_include[0]}" == "*" ]; then
-    # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-    ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-    for internalInterface in ${KUBEVIRT_INTERFACES}; do
-      ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
-    done
-  elif  [ ${#ipv6_ranges_include[@]} -gt 0 ]; then
-    # User has specified a non-empty list of cidrs to be redirected to Envoy.
-    for cidr in "${ipv6_ranges_include[@]}"; do
-      for internalInterface in ${KUBEVIRT_INTERFACES}; do
-        ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
-      done
-      ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
-    done
-    # All other traffic is not redirected.
-    ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
+  if [ ${#ipv6_ranges_include[@]} -gt 0 ]; then
+     if [ "${ipv6_ranges_include[0]}" == "*" ]; then
+       # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+       ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+       for internalInterface in ${KUBEVIRT_INTERFACES}; do
+          ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
+       done
+     else
+       # User has specified a non-empty list of cidrs to be redirected to Envoy.
+       for cidr in "${ipv6_ranges_include[@]}"; do
+         for internalInterface in ${KUBEVIRT_INTERFACES}; do
+           ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+         done
+         ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
+       done
+       # All other traffic is not redirected.
+       ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
+    fi
   fi
 else
   # Drop all inbound traffic except established connections.
