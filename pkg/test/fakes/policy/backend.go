@@ -237,8 +237,8 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 	}
 
 	scope.Infof("Backend.HandleCheckNothing => OK")
-	validDuration := 5 * time.Second
-	validCount := int32(1)
+	validDuration := b.settings.getValidDuration()
+	validCount := b.settings.getValidCount()
 	if params.CheckParams != nil {
 		validDuration, _ = types.DurationFromProto(params.CheckParams.ValidDuration)
 		validCount = int32(params.CheckParams.ValidCount)

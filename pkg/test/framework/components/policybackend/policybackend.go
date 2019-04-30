@@ -16,6 +16,7 @@ package policybackend
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -41,6 +42,10 @@ type Instance interface {
 	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
 	// set to true.
 	DenyCheck(t testing.TB, deny bool)
+
+	// AllowCheck indicates the policy backend should allow all incoming check requests,
+	// it also indicates the valid duration and valid count in the check result.
+	AllowCheck(t testing.TB, d time.Duration, c int32)
 
 	// ExpectReport checks that the backend has received the given report requests. The requests are consumed
 	// after the call completes.

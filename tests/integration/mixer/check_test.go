@@ -45,7 +45,7 @@ func TestCheck_Allow(t *testing.T) {
 
 		// Prime the policy backend'ctx behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
-		be.DenyCheck(t, false)
+		be.AllowCheck(t, 1*time.Second, 1)
 
 		retry.UntilSuccessOrFail(t, func() error {
 			result := mxr.Check(t, map[string]interface{}{

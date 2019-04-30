@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/jsonpb"
@@ -37,6 +38,15 @@ func (c *client) DenyCheck(t testing.TB, deny bool) {
 
 	if err := c.controller.DenyCheck(deny); err != nil {
 		t.Fatalf("Error setting DenyCheck: %v", err)
+	}
+}
+
+// AllowCheck implementation
+func (c *client) AllowCheck(t testing.TB, d time.Duration, count int32) {
+	t.Helper()
+
+	if err := c.controller.AllowCheck(d, count); err != nil {
+		t.Fatalf("Error setting AllowCheck: %v", err)
 	}
 }
 
