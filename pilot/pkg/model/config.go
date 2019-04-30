@@ -23,6 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -85,6 +87,11 @@ type ConfigMeta struct {
 
 	// CreationTimestamp records the creation time
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
+
+	// OwnerReference is a list of objects which are dependent on this object.
+	// If there is a controller managing this object, there will be an
+	// entry with the controller field set to true.
+	OwnerReference []v1.OwnerReference `json:"ownerReferences,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the

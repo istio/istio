@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
 )
@@ -50,6 +52,8 @@ func TestConvert(t *testing.T) {
 	if _, err := ConvertObject(model.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err == nil {
 		t.Errorf("expected error for converting empty object")
 	}
+	blockOwnerDeletion := false
+	controller := true
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            model.VirtualService.Type,
@@ -61,6 +65,14 @@ func TestConvert(t *testing.T) {
 			ResourceVersion: "1234",
 			Labels:          map[string]string{"label": "value"},
 			Annotations:     map[string]string{"annotation": "value"},
+			OwnerReference: []v1.OwnerReference{{
+				APIVersion:         "controller.io/v1alpha1",
+				BlockOwnerDeletion: &blockOwnerDeletion,
+				Controller:         &controller,
+				Kind:               "Configuration",
+				Name:               "Controller-name",
+				UID:                "b2901f73-6082-11e9-a067-008cfac35720",
+			}},
 		},
 		Spec: mock.ExampleVirtualService,
 	}

@@ -375,7 +375,7 @@ func (cl *Client) Get(typ, name, namespace string) *model.Config {
 func (cl *Client) Create(config model.Config) (string, error) {
 	rc, ok := cl.clientset[apiVersionFromConfig(&config)]
 	if !ok {
-		return "", fmt.Errorf("unrecognized apiVersion %q", config)
+		return "", fmt.Errorf("unrecognized apiVersion %v", config)
 	}
 
 	schema, exists := rc.descriptor.GetByType(config.Type)
@@ -409,7 +409,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 func (cl *Client) Update(config model.Config) (string, error) {
 	rc, ok := cl.clientset[apiVersionFromConfig(&config)]
 	if !ok {
-		return "", fmt.Errorf("unrecognized apiVersion %q", config)
+		return "", fmt.Errorf("unrecognized apiVersion %v", config)
 	}
 	schema, exists := rc.descriptor.GetByType(config.Type)
 	if !exists {

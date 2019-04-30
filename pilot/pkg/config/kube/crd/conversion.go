@@ -50,6 +50,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 			Annotations:       meta.Annotations,
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
+			OwnerReference:    meta.OwnerReferences,
 		},
 		Spec: data,
 	}, nil
@@ -75,6 +76,7 @@ func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Un
 			Annotations:       un.GetAnnotations(),
 			ResourceVersion:   un.GetResourceVersion(),
 			CreationTimestamp: un.GetCreationTimestamp().Time,
+			OwnerReference:    un.GetOwnerReferences(),
 		},
 		Spec: data,
 	}, nil
@@ -97,6 +99,7 @@ func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 		ResourceVersion: config.ResourceVersion,
 		Labels:          config.Labels,
 		Annotations:     config.Annotations,
+		OwnerReferences: config.OwnerReference,
 	})
 	out.SetSpec(spec)
 
