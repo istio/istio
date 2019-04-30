@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -92,6 +93,160 @@ func TestMergeGateways(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOverlappingHosts(t *testing.T) {
+	tests := []struct {
+		name          string
+		configs       []Config
+		expectedHosts map[int][]string
+	}{
+		{
+			name: "https overlapping in same gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 443, Protocol: "https"},
+						Tls: &networking.Server_TLSOptions{
+							Mode: networking.Server_TLSOptions_PASSTHROUGH,
+						},
+					},
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 443, Protocol: "https"},
+						Tls: &networking.Server_TLSOptions{
+							Mode: networking.Server_TLSOptions_PASSTHROUGH,
+						},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{443: {"foo.bar.com"}},
+		},
+		{
+			name: "https overlapping in different gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 443, Protocol: "https"},
+						Tls: &networking.Server_TLSOptions{
+							Mode: networking.Server_TLSOptions_PASSTHROUGH,
+						},
+					},
+				}),
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 443, Protocol: "https"},
+						Tls: &networking.Server_TLSOptions{
+							Mode: networking.Server_TLSOptions_PASSTHROUGH,
+						},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{443: {"foo.bar.com"}},
+		},
+		{
+			name: "http overlapping in same gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 80, Protocol: "http"},
+					},
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 80, Protocol: "http"},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{80: {"foo.bar.com"}},
+		},
+		{
+			name: "http overlapping in different gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 80, Protocol: "http"},
+					},
+				}),
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 80, Protocol: "http"},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{80: {"foo.bar.com"}},
+		},
+		{
+			name: "tcp overlapping in same gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 9999, Protocol: "tcp"},
+					},
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 9999, Protocol: "tcp"},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{9999: {"foo.bar.com"}},
+		},
+		{
+			name: "tcp overlapping in different gateway config",
+			configs: []Config{
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "name1", Number: 9999, Protocol: "tcp"},
+					},
+				}),
+				makeConfigFromServer([]*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com", "other.bar.com"},
+						Port:  &networking.Port{Name: "name2", Number: 9999, Protocol: "tcp"},
+					},
+				}),
+			},
+			expectedHosts: map[int][]string{9999: {"foo.bar.com"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mgw := MergeGateways(tt.configs...)
+
+			foundHosts := map[int][]string{}
+			for port, servers := range mgw.Servers {
+				for _, server := range servers {
+					foundHosts[int(port)] = append(foundHosts[int(port)], server.Hosts...)
+				}
+			}
+			if !reflect.DeepEqual(tt.expectedHosts, foundHosts) {
+				t.Errorf("expected hosts: %v, got hosts: %v", tt.expectedHosts, foundHosts)
+			}
+		})
+	}
+}
+
+// Helper method to make creating a standard config, with just servers provided
+func makeConfigFromServer(servers []*networking.Server) Config {
+	c := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "gateway",
+			Namespace: "gateway",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers:  servers,
+		},
+	}
+	return c
 }
 
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) Config {
