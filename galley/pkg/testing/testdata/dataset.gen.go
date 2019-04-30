@@ -10,6 +10,8 @@
 // dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml
 // dataset/extensions/v1beta1/ingress_merge_1.yaml
 // dataset/extensions/v1beta1/ingress_merge_1_expected.json
+// dataset/mesh.istio.io/v1alpha1/meshconfig.yaml
+// dataset/mesh.istio.io/v1alpha1/meshconfig_expected.json
 // dataset/networking.istio.io/v1alpha3/destinationRule.yaml
 // dataset/networking.istio.io/v1alpha3/destinationRule_expected.json
 // dataset/networking.istio.io/v1alpha3/gateway.yaml
@@ -604,6 +606,63 @@ func datasetExtensionsV1beta1Ingress_merge_1_expectedJson() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_1_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetMeshIstioIoV1alpha1MeshconfigYaml = []byte(``)
+
+func datasetMeshIstioIoV1alpha1MeshconfigYamlBytes() ([]byte, error) {
+	return _datasetMeshIstioIoV1alpha1MeshconfigYaml, nil
+}
+
+func datasetMeshIstioIoV1alpha1MeshconfigYaml() (*asset, error) {
+	bytes, err := datasetMeshIstioIoV1alpha1MeshconfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/mesh.istio.io/v1alpha1/meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
+    "istio/mesh/v1alpha1/MeshConfig": [
+        {
+            "TypeURL": "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig",
+            "Metadata": {
+                "name": "istio-system/meshconfig"
+            },
+            "Body": {
+                "access_log_file": "/dev/stdout",
+                "connect_timeout": {
+                    "seconds": 1
+                },
+                "enable_tracing": true,
+                "ingress_class": "istio",
+                "ingress_controller_mode": 2,
+                "outbound_traffic_policy": {
+                    "mode": 1
+                },
+                "proxy_listen_port": 15001
+            }
+        }
+    ]
+}
+`)
+
+func datasetMeshIstioIoV1alpha1Meshconfig_expectedJsonBytes() ([]byte, error) {
+	return _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson, nil
+}
+
+func datasetMeshIstioIoV1alpha1Meshconfig_expectedJson() (*asset, error) {
+	bytes, err := datasetMeshIstioIoV1alpha1Meshconfig_expectedJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/mesh.istio.io/v1alpha1/meshconfig_expected.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1892,6 +1951,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml": datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
 	"dataset/extensions/v1beta1/ingress_merge_1.yaml": datasetExtensionsV1beta1Ingress_merge_1Yaml,
 	"dataset/extensions/v1beta1/ingress_merge_1_expected.json": datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
+	"dataset/mesh.istio.io/v1alpha1/meshconfig.yaml": datasetMeshIstioIoV1alpha1MeshconfigYaml,
+	"dataset/mesh.istio.io/v1alpha1/meshconfig_expected.json": datasetMeshIstioIoV1alpha1Meshconfig_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/destinationRule.yaml": datasetNetworkingIstioIoV1alpha3DestinationruleYaml,
 	"dataset/networking.istio.io/v1alpha3/destinationRule_expected.json": datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/gateway.yaml": datasetNetworkingIstioIoV1alpha3GatewayYaml,
@@ -1957,6 +2018,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"ingress_merge_0_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml, map[string]*bintree{}},
 				"ingress_merge_1.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_1Yaml, map[string]*bintree{}},
 				"ingress_merge_1_expected.json": &bintree{datasetExtensionsV1beta1Ingress_merge_1_expectedJson, map[string]*bintree{}},
+			}},
+		}},
+		"mesh.istio.io": &bintree{nil, map[string]*bintree{
+			"v1alpha1": &bintree{nil, map[string]*bintree{
+				"meshconfig.yaml": &bintree{datasetMeshIstioIoV1alpha1MeshconfigYaml, map[string]*bintree{}},
+				"meshconfig_expected.json": &bintree{datasetMeshIstioIoV1alpha1Meshconfig_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 		"networking.istio.io": &bintree{nil, map[string]*bintree{
