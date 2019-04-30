@@ -914,15 +914,8 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushTimeoutFailures.Add(1)
 					return
 				}
-				if !timer.Stop() {
-					<-timer.C
-				}
 				adsLog.Warnf("Done pushing an event in ADS- Retry")
-
 				goto Retry
-			}
-			if !timer.Stop() {
-				<-timer.C
 			}
 			adsLog.Warnf("Done pushing an event in ADS")
 		}()
