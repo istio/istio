@@ -273,10 +273,8 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 				sidecarTemplate = config.Template
-			} else {
-				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
-					return err
-				}
+			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+				return err
 			}
 
 			var valuesConfig string
@@ -286,10 +284,8 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 				valuesConfig = string(valuesConfigBytes)
-			} else {
-				if valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
-					return err
-				}
+			} else if valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
+				return err
 			}
 
 			if emitTemplate {
