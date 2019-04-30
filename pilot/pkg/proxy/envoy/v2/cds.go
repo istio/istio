@@ -17,8 +17,6 @@ package v2
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -80,17 +78,7 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 		return nil, err
 	}
 
-	if sdsTokenPath, found := node.Metadata[model.NodeMetadataSdsTokenPath]; found && len(sdsTokenPath) > 0 &&
-		pilot.EnableCDSPrecomputation() {
-		// If SDS_TOKEN_PATH is in the node metadata, make a copy of rawClusters so that
-		// the path of SDS token will be applied to the copied clusters.
-		rawClusters = CopyClusters(rawClusters)
-	}
-
 	for _, c := range rawClusters {
-		if pilot.EnableCDSPrecomputation() {
-			SetTokenPathForSdsFromProxyMetadata(c, node)
-		}
 		if err = c.Validate(); err != nil {
 			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node.ID, err, c)

@@ -106,14 +106,6 @@ var (
 		return time.Second * time.Duration(duration)
 	}
 
-	// EnableCDSPrecomputation provides an option to enable precomputation
-	// of CDS output for all namespaces at the start of a push cycle.
-	// While it reduces CPU, it comes at the cost of increased memory usage
-	enableCDSPrecomputationVar = env.RegisterStringVar("PILOT_ENABLE_CDS_PRECOMPUTATION", "", "")
-	EnableCDSPrecomputation    = func() bool {
-		return len(enableCDSPrecomputationVar.Get()) != 0
-	}
-
 	// EnableLocalityLoadBalancing provides an option to enable the LocalityLoadBalancerSetting feature
 	// as well as prioritizing the sending of traffic to a local locality. Set the environment variable to any value to enable.
 	// This is an experimental feature.
