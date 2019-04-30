@@ -113,6 +113,54 @@ function isIPv6() {
   return 0
 }
 
+# Use a comma as the separator for multi-value arguments.
+IFS=,
+
+# The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
+# This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
+# settings (CIDR range)
+ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
+if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
+  # shellcheck disable=SC1090
+  . "${ISTIO_CLUSTER_CONFIG}"
+fi
+
+ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
+if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
+  # shellcheck disable=SC1090
+  . "${ISTIO_SIDECAR_CONFIG}"
+fi
+
+# TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
+# Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
+
+PROXY_PORT=${ENVOY_PORT:-15001}
+PROXY_UID=
+PROXY_GID=
+INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
+INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK:-1337}
+INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE:-133}
+INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
+INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
+OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
+OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
+KUBEVIRT_INTERFACES=
+
+# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
+if [ -z "${PROXY_UID}" ]; then
+  # Default to the UID of ENVOY_USER and root
+  if ! PROXY_UID=$(id -u "${ENVOY_USER:-istio-proxy}"); then
+     PROXY_UID="1337"
+  fi
+  # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
+  # for ca agent.
+  PROXY_UID=${PROXY_UID},0
+fi
+# for TPROXY as its uid and gid are same
+if [ -z "${PROXY_GID}" ]; then
+PROXY_GID=${PROXY_UID}
+fi
+
 while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
   case ${opt} in
     p)
@@ -160,59 +208,11 @@ done
 
 trap dump EXIT
 
-# Use a comma as the separator for multi-value arguments.
-IFS=,
-
-# The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
-# This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
-# settings (CIDR range)
-ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
-if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_CLUSTER_CONFIG}"
-fi
-
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
-if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  . "${ISTIO_SIDECAR_CONFIG}"
-fi
-
-# TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
-# Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
-
-PROXY_PORT=${ENVOY_PORT:-15001}
-PROXY_UID=
-PROXY_GID=
-INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
-INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK:-1337}
-INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE:-133}
-INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
-INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
-OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
-OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
-KUBEVIRT_INTERFACES=
-
 POD_IP=$(hostname --ip-address)
 # Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 # to program ip6tables
 if isIPv6 "$POD_IP"; then
   ENABLE_INBOUND_IPV6=$POD_IP
-fi
-
-# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-if [ -z "${PROXY_UID}" ]; then
-  # Default to the UID of ENVOY_USER and root
-  if ! PROXY_UID=$(id -u "${ENVOY_USER:-istio-proxy}"); then
-     PROXY_UID="1337"
-  fi
-  # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
-  # for ca agent.
-  PROXY_UID=${PROXY_UID},0
-fi
-# for TPROXY as its uid and gid are same
-if [ -z "${PROXY_GID}" ]; then
-PROXY_GID=${PROXY_UID}
 fi
 
 #
