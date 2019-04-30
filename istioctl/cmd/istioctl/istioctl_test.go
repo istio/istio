@@ -20,6 +20,6 @@ import (
 )
 
 func TestMain(_ *testing.T) {
-	os.Args = []string{"istioctl", "version"}
+	os.Args = []string{"istioctl", "version", "--remote=false"}
 	main()
 }
