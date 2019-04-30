@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package authz
 
 import (
@@ -13,6 +27,9 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
+// permissionForKeyValues converts a key-values pair to an envoy RBAC permission. The key specify the
+// type of the permission (e.g. destination IP, header, SNI, etc.), the values specify the allowed
+// value of the key, multiple values are ORed together.
 func permissionForKeyValues(key string, values []string) *envoy_rbac.Permission {
 	var converter func(string) (*envoy_rbac.Permission, error)
 	switch {
@@ -78,23 +95,23 @@ func permissionForKeyValues(key string, values []string) *envoy_rbac.Permission 
 
 	pg := rbacfilter.PermissionGenerator{}
 	for _, v := range values {
-		if rule, err := converter(v); err != nil {
+		if permission, err := converter(v); err != nil {
 			rbacLog.Errorf("ignored invalid constraint value: %v", err)
 		} else {
-			pg.Append(rule)
+			pg.Append(permission)
 		}
 	}
 	return pg.OrPermissions()
 }
 
-// principalForKeyValues converts an Istio first class field (e.g. namespaces, groups, ips, as opposed
-// to properties fields) to Envoy RBAC config and returns said field as a Principal or returns nil
-// if the field is empty.
+// principalForKeyValues converts a key-values pair to envoy RBAC principal. The key specify the
+// type of the principal (e.g. source IP, source principals, etc.), the values specify the allowed
+// value of the key, multiple values are ORed together.
 func principalForKeyValues(key string, values []string, forTCPFilter bool) *envoy_rbac.Principal {
 	pg := rbacfilter.PrincipalGenerator{}
 	for _, value := range values {
-		id := principalForKeyValue(key, value, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValue(key, value, forTCPFilter)
+		pg.Append(principal)
 	}
 	return pg.OrPrincipals()
 }

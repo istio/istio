@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package authz
 
 import (
@@ -14,6 +28,9 @@ import (
 	"strings"
 )
 
+// Model includes a group of permission and principals defining the access control semantics. The
+// Permissions specify a list of allowed actions, the Principals specify a list of allowed source
+// identities. A request is allowed if it matches any of the permissions and any of the principals.
 type Model struct {
 	Permissions []Permission
 	Principals  []Principal
@@ -48,6 +65,8 @@ type Principal struct {
 	Properties    []KeyValues
 }
 
+// NewModel constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
+// is converted to the permission and the ServiceRoleBinding is converted to the principal.
 func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
@@ -98,6 +117,10 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 	return m
 }
 
+// Generate generates the envoy RBAC filter policy based on the permission and principals specified
+// in the model for the given service. This function only generates the policy if the constraints
+// and properties specified in the model is matched with the given service. It also validates if the
+// model is valid for TCP filter.
 func (m *Model) Generate(service *serviceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
@@ -112,7 +135,7 @@ func (m *Model) Generate(service *serviceMetadata, forTCPFilter bool) *envoy_rba
 		}
 	}
 	if len(policy.Permissions) == 0 {
-		rbacLog.Debugf("role skipped for no rule matched")
+		rbacLog.Debugf("role skipped for no permission matched")
 		return nil
 	}
 
@@ -175,6 +198,8 @@ func (permission *Permission) Match(service *serviceMetadata) bool {
 	return true
 }
 
+// ValidateForTCP checks if the permission is valid for TCP filter. A permission is not valid for TCP
+// filter if it includes any HTTP-only fields, e.g. hosts, paths, etc.
 func (permission *Permission) ValidateForTCP(forTCP bool) error {
 	if permission == nil || !forTCP {
 		return nil
@@ -208,6 +233,8 @@ func (permission *Permission) ValidateForTCP(forTCP bool) error {
 	return nil
 }
 
+// ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
+// filter if it includes any HTTP-only fields, e.g. group, etc.
 func (principal *Principal) ValidateForTCP(forTCP bool) error {
 	if principal == nil || !forTCP {
 		return nil
@@ -244,43 +271,43 @@ func (permission *Permission) generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	pg := rbacfilter.PermissionGenerator{}
 
 	if len(permission.Hosts) > 0 {
-		rule := permissionForKeyValues(hostHeader, permission.Hosts)
-		pg.Append(rule)
+		permission := permissionForKeyValues(hostHeader, permission.Hosts)
+		pg.Append(permission)
 	}
 
 	if len(permission.NotHosts) > 0 {
-		rule := permissionForKeyValues(hostHeader, permission.NotHosts)
-		pg.Append(rbacfilter.PermissionNot(rule))
+		permission := permissionForKeyValues(hostHeader, permission.NotHosts)
+		pg.Append(rbacfilter.PermissionNot(permission))
 	}
 
 	if len(permission.Methods) > 0 {
-		rule := permissionForKeyValues(methodHeader, permission.Methods)
-		pg.Append(rule)
+		permission := permissionForKeyValues(methodHeader, permission.Methods)
+		pg.Append(permission)
 	}
 
 	if len(permission.NotMethods) > 0 {
-		rule := permissionForKeyValues(methodHeader, permission.NotMethods)
-		pg.Append(rbacfilter.PermissionNot(rule))
+		permission := permissionForKeyValues(methodHeader, permission.NotMethods)
+		pg.Append(rbacfilter.PermissionNot(permission))
 	}
 
 	if len(permission.Paths) > 0 {
-		rule := permissionForKeyValues(pathHeader, permission.Paths)
-		pg.Append(rule)
+		permission := permissionForKeyValues(pathHeader, permission.Paths)
+		pg.Append(permission)
 	}
 
 	if len(permission.NotPaths) > 0 {
-		rule := permissionForKeyValues(pathHeader, permission.NotPaths)
-		pg.Append(rbacfilter.PermissionNot(rule))
+		permission := permissionForKeyValues(pathHeader, permission.NotPaths)
+		pg.Append(rbacfilter.PermissionNot(permission))
 	}
 
 	if len(permission.Ports) > 0 {
-		rule := permissionForKeyValues(attrDestPort, convertPortsToString(permission.Ports))
-		pg.Append(rule)
+		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.Ports))
+		pg.Append(permission)
 	}
 
 	if len(permission.NotPorts) > 0 {
-		rule := permissionForKeyValues(attrDestPort, convertPortsToString(permission.NotPorts))
-		pg.Append(rbacfilter.PermissionNot(rule))
+		permission := permissionForKeyValues(attrDestPort, convertPortsToString(permission.NotPorts))
+		pg.Append(rbacfilter.PermissionNot(permission))
 	}
 
 	if len(permission.Constraints) > 0 {
@@ -294,14 +321,14 @@ func (permission *Permission) generate(forTCPFilter bool) (*envoy_rbac.Permissio
 			sort.Strings(keys)
 
 			for _, k := range keys {
-				rule := permissionForKeyValues(k, constraint[k])
-				pg.Append(rule)
+				permission := permissionForKeyValues(k, constraint[k])
+				pg.Append(permission)
 			}
 		}
 	}
 
 	if pg.IsEmpty() {
-		// None of above rule satisfied means the permission applies to all paths/methods/constraints.
+		// None of above permission satisfied means the permission applies to all paths/methods/constraints.
 		pg.Append(rbacfilter.PermissionAny(true))
 	}
 
@@ -315,54 +342,54 @@ func (principal *Principal) generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 
 	pg := rbacfilter.PrincipalGenerator{}
 	if principal.User != "" {
-		id := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.Names) > 0 {
-		id := principalForKeyValues(attrSrcPrincipal, principal.Names, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValues(attrSrcPrincipal, principal.Names, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.NotNames) > 0 {
-		id := principalForKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
-		pg.Append(rbacfilter.PrincipalNot(id))
+		principal := principalForKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
+		pg.Append(rbacfilter.PrincipalNot(principal))
 	}
 
 	if principal.Group != "" {
-		id := principalForKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.Groups) > 0 {
 		// TODO: Validate attrRequestClaimGroups and principal.Groups are not used at the same time.
-		id := principalForKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.NotGroups) > 0 {
-		id := principalForKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
-		pg.Append(rbacfilter.PrincipalNot(id))
+		principal := principalForKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
+		pg.Append(rbacfilter.PrincipalNot(principal))
 	}
 
 	if len(principal.Namespaces) > 0 {
-		id := principalForKeyValues(attrSrcNamespace, principal.Namespaces, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValues(attrSrcNamespace, principal.Namespaces, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.NotNamespaces) > 0 {
-		id := principalForKeyValues(attrSrcNamespace, principal.NotNamespaces, forTCPFilter)
-		pg.Append(rbacfilter.PrincipalNot(id))
+		principal := principalForKeyValues(attrSrcNamespace, principal.NotNamespaces, forTCPFilter)
+		pg.Append(rbacfilter.PrincipalNot(principal))
 	}
 
 	if len(principal.IPs) > 0 {
-		id := principalForKeyValues(attrSrcIP, principal.IPs, forTCPFilter)
-		pg.Append(id)
+		principal := principalForKeyValues(attrSrcIP, principal.IPs, forTCPFilter)
+		pg.Append(principal)
 	}
 
 	if len(principal.NotIPs) > 0 {
-		id := principalForKeyValues(attrSrcIP, principal.NotIPs, forTCPFilter)
-		pg.Append(rbacfilter.PrincipalNot(id))
+		principal := principalForKeyValues(attrSrcIP, principal.NotIPs, forTCPFilter)
+		pg.Append(rbacfilter.PrincipalNot(principal))
 	}
 
 	for _, p := range principal.Properties {
@@ -376,20 +403,20 @@ func (principal *Principal) generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 
 		for _, k := range keys {
 			// TODO: Validate attrSrcPrincipal and principal.Names are not used at the same time.
-			id := principalForKeyValues(k, p[k], forTCPFilter)
+			principal := principalForKeyValues(k, p[k], forTCPFilter)
 			if len(p[k]) == 1 {
 				// FIXME: Temporary hack to avoid changing unit tests during code refactor. Remove once
 				// we finish the code refactor with new unit tests.
-				id = principalForKeyValue(k, p[k][0], forTCPFilter)
+				principal = principalForKeyValue(k, p[k][0], forTCPFilter)
 			}
-			pg.Append(id)
+			pg.Append(principal)
 		}
 	}
 
 	if pg.IsEmpty() {
 		// None of above principal satisfied means nobody has the permission.
-		id := rbacfilter.PrincipalNot(rbacfilter.PrincipalAny(true))
-		pg.Append(id)
+		principal := rbacfilter.PrincipalNot(rbacfilter.PrincipalAny(true))
+		pg.Append(principal)
 	}
 
 	return pg.AndPrincipals(), nil
