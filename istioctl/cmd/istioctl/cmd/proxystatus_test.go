@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 
 func TestProxyStatus(t *testing.T) {
 	cannedConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 	}
 	cases := []execTestCase{
 		{ // case 0

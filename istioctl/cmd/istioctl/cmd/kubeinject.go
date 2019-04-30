@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"errors"
@@ -156,8 +156,13 @@ var (
 	injectConfigMapName string
 )
 
-var (
-	injectCmd = &cobra.Command{
+const (
+	defaultMeshConfigMapName   = "istio"
+	defaultInjectConfigMapName = "istio-sidecar-injector"
+)
+
+func injectCommand() *cobra.Command {
+	injectCmd := &cobra.Command{
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
 		Long: `
@@ -303,15 +308,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
 		},
 	}
-)
-
-const (
-	defaultMeshConfigMapName   = "istio"
-	defaultInjectConfigMapName = "istio-sidecar-injector"
-)
-
-func init() {
-	rootCmd.AddCommand(injectCmd)
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
@@ -333,4 +329,6 @@ func init() {
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
+
+	return injectCmd
 }

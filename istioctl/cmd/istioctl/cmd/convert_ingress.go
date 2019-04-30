@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"encoding/json"
@@ -35,58 +35,6 @@ import (
 var (
 	inFilenames        []string
 	outConvertFilename string
-	convertIngressCmd  = &cobra.Command{
-		Use:   "convert-ingress",
-		Short: "Convert Ingress configuration into Istio VirtualService configuration",
-		Long: "Converts Ingresses into VirtualService configuration on a best effort basis. " +
-			"The output should be considered a starting point for your Istio configuration and probably " +
-			"require some minor modification. " +
-			"Warnings will be generated where configs cannot be converted perfectly. " +
-			"The input must be a Kubernetes Ingress. " +
-			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
-		Example: "istioctl experimental convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(inFilenames) == 0 {
-				return fmt.Errorf("no input files provided")
-			}
-
-			readers := make([]io.Reader, 0)
-			if len(inFilenames) == 1 && inFilenames[0] == "-" {
-				readers = append(readers, os.Stdin)
-			} else {
-				for _, filename := range inFilenames {
-					file, err := os.Open(filename)
-					if err != nil {
-						return err
-					}
-					defer func() {
-						if err := file.Close(); err != nil {
-							log.Errorf("Did not close input %s successfully: %v",
-								filename, err)
-						}
-					}()
-					readers = append(readers, file)
-				}
-			}
-
-			writer := os.Stdout
-			if outConvertFilename != "-" {
-				file, err := os.Create(outConvertFilename)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := file.Close(); err != nil {
-						log.Errorf("Did not close output successfully: %v", err)
-					}
-				}()
-
-				writer = file
-			}
-
-			return convertConfigs(readers, writer)
-		},
-	}
 )
 
 func convertConfigs(readers []io.Reader, writer io.Writer) error {
@@ -232,11 +180,64 @@ func parseIngress(unparsed crd.IstioKind) (*v1beta1.Ingress, error) {
 	return out, nil
 }
 
-func init() {
+func convertIngress() *cobra.Command {
+	convertIngressCmd := &cobra.Command{
+		Use:   "convert-ingress",
+		Short: "Convert Ingress configuration into Istio VirtualService configuration",
+		Long: "Converts Ingresses into VirtualService configuration on a best effort basis. " +
+			"The output should be considered a starting point for your Istio configuration and probably " +
+			"require some minor modification. " +
+			"Warnings will be generated where configs cannot be converted perfectly. " +
+			"The input must be a Kubernetes Ingress. " +
+			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
+		Example: "istioctl experimental convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(inFilenames) == 0 {
+				return fmt.Errorf("no input files provided")
+			}
+
+			readers := make([]io.Reader, 0)
+			if len(inFilenames) == 1 && inFilenames[0] == "-" {
+				readers = append(readers, os.Stdin)
+			} else {
+				for _, filename := range inFilenames {
+					file, err := os.Open(filename)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						if err := file.Close(); err != nil {
+							log.Errorf("Did not close input %s successfully: %v",
+								filename, err)
+						}
+					}()
+					readers = append(readers, file)
+				}
+			}
+
+			writer := os.Stdout
+			if outConvertFilename != "-" {
+				file, err := os.Create(outConvertFilename)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := file.Close(); err != nil {
+						log.Errorf("Did not close output successfully: %v", err)
+					}
+				}()
+
+				writer = file
+			}
+
+			return convertConfigs(readers, writer)
+		},
+	}
+
 	convertIngressCmd.PersistentFlags().StringSliceVarP(&inFilenames, "filenames", "f",
 		nil, "Input filenames")
 	convertIngressCmd.PersistentFlags().StringVarP(&outConvertFilename, "output", "o",
 		"-", "Output filename")
 
-	experimentalCmd.AddCommand(convertIngressCmd)
+	return convertIngressCmd
 }

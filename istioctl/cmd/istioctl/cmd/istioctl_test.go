@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"bytes"
@@ -345,8 +345,8 @@ func verifyOutput(t *testing.T, c testCase) {
 	clientFactory = mockClientFactoryGenerator(c.configs)
 
 	var out bytes.Buffer
+	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-	rootCmd.SetArgs(c.args)
 
 	file = "" // Clear, because we re-use
 

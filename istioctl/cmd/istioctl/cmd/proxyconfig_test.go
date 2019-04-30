@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"bytes"
@@ -47,10 +47,10 @@ type mockExecConfig struct {
 
 func TestProxyConfig(t *testing.T) {
 	cannedConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 	}
 	endpointConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/envoy/clusters/testdata/clusters.json", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../../pkg/writer/envoy/clusters/testdata/clusters.json", t),
 	}
 	cases := []execTestCase{
 		{ // case 0
@@ -141,8 +141,8 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	clientExecFactory = mockClientExecFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
+	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-	rootCmd.SetArgs(c.args)
 
 	file = "" // Clear, because we re-use
 
