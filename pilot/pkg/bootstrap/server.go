@@ -544,26 +544,28 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
 	for _, configSource := range s.mesh.ConfigSources {
-		url, err := url.Parse(configSource.Address)
-		if err != nil {
-			cancel()
-			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
-		}
-		if url.Scheme == fsScheme {
-			if url.Path == "" {
-				cancel()
-				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
-			}
-			store := memory.Make(model.IstioConfigTypes)
-			configController := memory.NewController(store)
-
-			err := s.makeFileMonitor(url.Path, configController)
+		if strings.Contains(configSource.Address, fsScheme+"://") {
+			url, err := url.Parse(configSource.Address)
 			if err != nil {
 				cancel()
-				return err
+				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 			}
-			configStores = append(configStores, configController)
-			continue
+			if url.Scheme == fsScheme {
+				if url.Path == "" {
+					cancel()
+					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
+				}
+				store := memory.Make(model.IstioConfigTypes)
+				configController := memory.NewController(store)
+
+				err := s.makeFileMonitor(url.Path, configController)
+				if err != nil {
+					cancel()
+					return err
+				}
+				configStores = append(configStores, configController)
+				continue
+			}
 		}
 
 		securityOption := grpc.WithInsecure()
