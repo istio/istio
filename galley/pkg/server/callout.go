@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const versionMetadataKey = "galley-version"
+const versionMetadataKey = "config.source.version"
 
 type callout struct {
 	address  string
