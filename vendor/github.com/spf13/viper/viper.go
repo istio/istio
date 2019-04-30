@@ -1139,6 +1139,12 @@ func (v *Viper) registerAlias(alias string, key string) {
 			// if we alias something that exists in one of the maps to another
 			// name, we'll never be able to get that value using the original
 			// name, so move the config value to the new realkey.
+			path := strings.Split(alias, v.keyDelim)
+			if val := v.searchMapWithPathPrefixes(v.config, path); val != nil {
+				parent := v.searchMapWithPathPrefixes(v.config, path[:len(path)-1])
+				delete(parent.(map[string]interface{}), path[len(path)-1])
+				v.config[key] = val
+			}
 			if val, ok := v.config[alias]; ok {
 				delete(v.config, alias)
 				v.config[key] = val

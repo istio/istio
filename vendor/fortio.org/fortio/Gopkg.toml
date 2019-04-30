@@ -1,0 +1,25 @@
+# Gopkg.toml
+#
+# Initially from "dep init"
+#
+
+# DO NOT ADD MORE DEPENDENCIES TO FORTIO
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/net"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.15.0"
+
+# Minimize vendor/
+
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true
