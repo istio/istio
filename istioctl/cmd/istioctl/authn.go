@@ -15,12 +15,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 func tlsCheck() *cobra.Command {
@@ -46,10 +48,22 @@ istioctl authn tls-check 656bd7df7c-5zp4s.default bar
 				return err
 			}
 			podName, ns := inferPodInfo(args[0], handleNamespace())
-			debug, err := kubeClient.PilotDiscoveryDo(istioNamespace, "GET",
+			results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET",
 				fmt.Sprintf("/debug/authenticationz?proxyID=%s.%s", podName, ns), nil)
 			if err != nil {
 				return err
+			}
+			var debug []v2.AuthenticationDebug
+			for i := range results {
+				if err := json.Unmarshal(results[i], &debug); err != nil {
+					return err
+				}
+				if len(debug) > 0 {
+					break
+				}
+			}
+			if len(debug) == 0 {
+				return fmt.Errorf("checked %d pilot instances and found no authentication info for this pod, check proxy status", len(results))
 			}
 			tcw := pilot.TLSCheckWriter{Writer: cmd.OutOrStdout()}
 			if len(args) >= 2 {

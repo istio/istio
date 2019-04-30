@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"testing"
 
@@ -47,8 +46,7 @@ func TestTLSCheckWriter_PrintAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
-			input, _ := json.Marshal(tt.input)
-			err := tcw.PrintAll(input)
+			err := tcw.PrintAll(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -85,8 +83,7 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
-			input, _ := json.Marshal(tt.input)
-			err := tcw.PrintSingle(input, tt.filterService)
+			err := tcw.PrintSingle(tt.input, tt.filterService)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
