@@ -96,7 +96,7 @@ func (v *validator) validateResource(un *unstructured.Unstructured) error {
 			return err
 		}
 		if _, ok := validMixerKinds[un.GetKind()]; !ok {
-			log.Warnf("deprecated Mixer kind %q, please use %q or %q, instead", un.GetKind(),
+			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
 				constant.HandlerKind, constant.InstanceKind)
 		}
 
