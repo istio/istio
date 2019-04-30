@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
+	useAutomaticInjection = flag.Bool("use_automatic_injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
 )
 
 const (
