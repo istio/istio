@@ -93,6 +93,7 @@ function check_samples() {
     echo 'Checking documentation samples with istioctl'
     bin/check_samples.sh
     echo 'Samples OK'
+}
 
 ensure_pilot_types
 check_licenses
