@@ -89,6 +89,11 @@ function check_licenses() {
     echo 'Licenses OK'
 }
 
+function check_samples() {
+    echo 'Checking documentation samples with istioctl'
+    bin/check_samples.sh
+    echo 'Samples OK'
+
 ensure_pilot_types
 check_licenses
 install_golangcilint
@@ -98,3 +103,4 @@ run_test_lint
 run_envvar_lint
 run_helm_lint
 check_grafana_dashboards
+check_samples
