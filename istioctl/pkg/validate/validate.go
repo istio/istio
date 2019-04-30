@@ -27,9 +27,11 @@ import (
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -47,6 +49,15 @@ Example resource specifications include:
 		"metadata":   {},
 		"spec":       {},
 		"status":     {},
+	}
+
+	validMixerKinds = map[string]struct{}{
+		constant.RulesKind:             {},
+		constant.AdapterKind:           {},
+		constant.TemplateKind:          {},
+		constant.HandlerKind:           {},
+		constant.InstanceKind:          {},
+		constant.AttributeManifestKind: {},
 	}
 )
 
@@ -84,6 +95,11 @@ func (v *validator) validateResource(un *unstructured.Unstructured) error {
 		if err := checkFields(un); err != nil {
 			return err
 		}
+		if _, ok := validMixerKinds[un.GetKind()]; !ok {
+			log.Warnf("deprecated Mixer kind %q, please use %q or %q, instead", un.GetKind(),
+				constant.HandlerKind, constant.InstanceKind)
+		}
+
 		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
 			Type: mixerstore.Update,
 			Key: mixerstore.Key{
