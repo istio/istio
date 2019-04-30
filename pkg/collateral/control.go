@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+NOTICE: The zsh constants are derived from the kubectl completion code,
+(k8s.io/kubernetes/pkg/kubectl/cmd/completion/completion.go), with the
+following copyright/license:
+
+Copyright 2016 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package collateral
 
 import (
@@ -46,6 +63,9 @@ type Control struct {
 	// EmitBashCompletion controls whether to produce bash completion files.
 	EmitBashCompletion bool
 
+	// EmitZshCompletion controls whether to produce zsh completion files.
+	EmitZshCompletion bool
+
 	// EmitMarkdown controls whether to produce markdown documentation files.
 	EmitMarkdown bool
 
@@ -55,6 +75,144 @@ type Control struct {
 	// ManPageInfo provides extra information necessary when emitting man pages.
 	ManPageInfo doc.GenManHeader
 }
+
+// Constants used in zsh completion file
+const (
+	zsh_initialization = `#compdef istioctl
+
+__istioctl_bash_source() {
+	alias shopt=':'
+	alias _expand=_bash_expand
+	alias _complete=_bash_comp
+	emulate -L sh
+	setopt kshglob noshglob braceexpand
+	source "$@"
+}
+__istioctl_type() {
+	# -t is not supported by zsh
+	if [ "$1" == "-t" ]; then
+		shift
+		# fake Bash 4 to disable "complete -o nospace". Instead
+		# "compopt +-o nospace" is used in the code to toggle trailing
+		# spaces. We don't support that, but leave trailing spaces on
+		# all the time
+		if [ "$1" = "__istioctl_compopt" ]; then
+			echo builtin
+			return 0
+		fi
+	fi
+	type "$@"
+}
+__istioctl_compgen() {
+	local completions w
+	completions=( $(compgen "$@") ) || return $?
+	# filter by given word as prefix
+	while [[ "$1" = -* && "$1" != -- ]]; do
+		shift
+		shift
+	done
+	if [[ "$1" == -- ]]; then
+		shift
+	fi
+	for w in "${completions[@]}"; do
+		if [[ "${w}" = "$1"* ]]; then
+			echo "${w}"
+		fi
+	done
+}
+__istioctl_compopt() {
+	true # don't do anything. Not supported by bashcompinit in zsh
+}
+__istioctl_ltrim_colon_completions()
+{
+	if [[ "$1" == *:* && "$COMP_WORDBREAKS" == *:* ]]; then
+		# Remove colon-word prefix from COMPREPLY items
+		local colon_word=${1%${1##*:}}
+		local i=${#COMPREPLY[*]}
+		while [[ $((--i)) -ge 0 ]]; do
+			COMPREPLY[$i]=${COMPREPLY[$i]#"$colon_word"}
+		done
+	fi
+}
+__istioctl_get_comp_words_by_ref() {
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[${COMP_CWORD}-1]}"
+	words=("${COMP_WORDS[@]}")
+	cword=("${COMP_CWORD[@]}")
+}
+__istioctl_filedir() {
+	local RET OLD_IFS w qw
+	__istioctl_debug "_filedir $@ cur=$cur"
+	if [[ "$1" = \~* ]]; then
+		# somehow does not work. Maybe, zsh does not call this at all
+		eval echo "$1"
+		return 0
+	fi
+	OLD_IFS="$IFS"
+	IFS=$'\n'
+	if [ "$1" = "-d" ]; then
+		shift
+		RET=( $(compgen -d) )
+	else
+		RET=( $(compgen -f) )
+	fi
+	IFS="$OLD_IFS"
+	IFS="," __istioctl_debug "RET=${RET[@]} len=${#RET[@]}"
+	for w in ${RET[@]}; do
+		if [[ ! "${w}" = "${cur}"* ]]; then
+			continue
+		fi
+		if eval "[[ \"\${w}\" = *.$1 || -d \"\${w}\" ]]"; then
+			qw="$(__istioctl_quote "${w}")"
+			if [ -d "${w}" ]; then
+				COMPREPLY+=("${qw}/")
+			else
+				COMPREPLY+=("${qw}")
+			fi
+		fi
+	done
+}
+__istioctl_quote() {
+	if [[ $1 == \'* || $1 == \"* ]]; then
+		# Leave out first character
+		printf %q "${1:1}"
+	else
+		printf %q "$1"
+	fi
+}
+autoload -U +X bashcompinit && bashcompinit
+# use word boundary patterns for BSD or GNU sed
+LWORD='[[:<:]]'
+RWORD='[[:>:]]'
+if sed --help 2>&1 | grep -q GNU; then
+	LWORD='\<'
+	RWORD='\>'
+fi
+__istioctl_convert_bash_to_zsh() {
+	sed \
+	-e 's/declare -F/whence -w/' \
+	-e 's/_get_comp_words_by_ref "\$@"/_get_comp_words_by_ref "\$*"/' \
+	-e 's/local \([a-zA-Z0-9_]*\)=/local \1; \1=/' \
+	-e 's/flags+=("\(--.*\)=")/flags+=("\1"); two_word_flags+=("\1")/' \
+	-e 's/must_have_one_flag+=("\(--.*\)=")/must_have_one_flag+=("\1")/' \
+	-e "s/${LWORD}_filedir${RWORD}/__istioctl_filedir/g" \
+	-e "s/${LWORD}_get_comp_words_by_ref${RWORD}/__istioctl_get_comp_words_by_ref/g" \
+	-e "s/${LWORD}__ltrim_colon_completions${RWORD}/__istioctl_ltrim_colon_completions/g" \
+	-e "s/${LWORD}compgen${RWORD}/__istioctl_compgen/g" \
+	-e "s/${LWORD}compopt${RWORD}/__istioctl_compopt/g" \
+	-e "s/${LWORD}declare${RWORD}/builtin declare/g" \
+	-e "s/\\\$(type${RWORD}/\$(__istioctl_type/g" \
+	<<'BASH_COMPLETION_EOF'
+`
+
+	zsh_tail = `
+BASH_COMPLETION_EOF
+}
+
+__istioctl_bash_source <(__istioctl_convert_bash_to_zsh)
+_complete istioctl 2>/dev/null
+`
+)
 
 // EmitCollateral produces a set of collateral files for a CLI command. You can
 // select to emit markdown to describe a command's function, man pages, YAML
@@ -88,6 +246,22 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 		if err := root.GenBashCompletionFile(c.OutputDir + "/" + root.Name() + ".bash"); err != nil {
 			return fmt.Errorf("unable to output bash completion file: %v", err)
 		}
+	}
+
+	if c.EmitZshCompletion {
+		// Create the output file.
+		outFile, err := os.Create(c.OutputDir + "/_" + root.Name())
+		if err != nil {
+			return fmt.Errorf("unable to create zsh completion file: %v", err)
+		}
+		defer outFile.Close()
+
+		// Concatenate the head, initialization, generated bash, and tail to the file
+		outFile.Write([]byte(zsh_initialization))
+		if err := root.GenBashCompletion(outFile); err != nil {
+			return fmt.Errorf("unable to output zsh completion file: %v", err)
+		}
+		outFile.Write([]byte(zsh_tail))
 	}
 
 	return nil
