@@ -27,6 +27,7 @@ function fail_test {
 echo "Running IPv6 and IPv4 addresses validation functions..."
 set -e
 . ./tools/packaging/common/istio-iptables.sh -t
+echo "Validation functions are loaded"
 declare -a test_good_ipv4
 declare -a test_bad_ipv4
 declare -a test_good_ipv6
@@ -38,7 +39,7 @@ test_bad_ipv4=(".1.1.1" "127.0.a.1" "1111.111.11.1" "111.111.111")
 # list of good ipv6 addresses
 test_good_ipv6=("2001:db8:1::1" "fe80::1" "fe80::5054:ff:fe6c:1c4d" "2001:470:b16e:81::11" "1111:a2a2:b3b3:c4c4:d5d5:e5e5:f6f6:a8a8")
 # list of invalid ipv6 addresses
-test_bad_ipv6=("::1" "1111:b2b21::1" "1111:ab2g::1" "1111:2222:3333:::1" "1111:2222:3333:4444:5555:6666:7777:8888:1")
+test_bad_ipv6=("" "::1" "1111:b2b21::1" "1111:ab2g::1" "1111:2222:3333:::1" "1111:2222:3333:4444:5555:6666:7777:8888:1")
 
 # Testing valid ipv4 cases
 for addr in "${test_good_ipv4[@]}"; do

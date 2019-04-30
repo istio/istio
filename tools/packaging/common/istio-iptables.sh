@@ -89,6 +89,9 @@ function isIPv6() {
   number_of_parts=0
   number_of_skip=0
   IFS=':' read -r -a addr <<< "$1"
+  if [ ${#addr[@]} -eq 0 ]; then
+     return 1
+  fi
   for part in "${addr[@]}"; do
     # check to not exceed number of parts in ipv6 address
     if [[ ${number_of_parts} -ge 8 ]]; then
@@ -146,21 +149,6 @@ OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 KUBEVIRT_INTERFACES=
 
-# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-if [ -z "${PROXY_UID}" ]; then
-  # Default to the UID of ENVOY_USER and root
-  if ! PROXY_UID=$(id -u "${ENVOY_USER:-istio-proxy}"); then
-     PROXY_UID="1337"
-  fi
-  # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
-  # for ca agent.
-  PROXY_UID=${PROXY_UID},0
-fi
-# for TPROXY as its uid and gid are same
-if [ -z "${PROXY_GID}" ]; then
-PROXY_GID=${PROXY_UID}
-fi
-
 while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
   case ${opt} in
     p)
@@ -192,7 +180,7 @@ while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
       ;;
     t)
       echo "Unit testing is specified..."
-      exit 0
+      return
       ;;
     h)
       usage
@@ -207,6 +195,21 @@ while getopts ":p:u:g:m:b:d:i:x:k:h:t" opt; do
 done
 
 trap dump EXIT
+
+# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
+if [ -z "${PROXY_UID}" ]; then
+  # Default to the UID of ENVOY_USER and root
+  if ! PROXY_UID=$(id -u "${ENVOY_USER:-istio-proxy}"); then
+     PROXY_UID="1337"
+  fi
+  # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
+  # for ca agent.
+  PROXY_UID=${PROXY_UID},0
+fi
+# for TPROXY as its uid and gid are same
+if [ -z "${PROXY_GID}" ]; then
+PROXY_GID=${PROXY_UID}
+fi
 
 POD_IP=$(hostname --ip-address)
 # Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
@@ -227,7 +230,7 @@ for range in "${OUTBOUND_IP_RANGES_EXCLUDE[@]}"; do
     if isValidIP "$r"; then
         if isIPv4 "$r"; then
             ipv4_ranges_exclude+=("$range")
-        else
+        elif isIPv6 "$r"; then
             ipv6_ranges_exclude+=("$range")
         fi
     fi
@@ -244,7 +247,7 @@ else
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
                 ipv4_ranges_include+=("$range")
-            else
+            elif isIPv6 "$r"; then
                 ipv6_ranges_include+=("$range")
             fi
         fi
@@ -459,10 +462,6 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
-  # TODO: support receiving IPv6 traffic in the same way as IPv4.
-  # Allow all ipv6 traffic inbound and outboud, whitebox mode for now
-
-
   # Remove the old chains, to generate new configs.
   ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
   ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
