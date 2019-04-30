@@ -120,7 +120,20 @@ func (c *kubeComponent) Address() string {
 	return c.address
 }
 
+func (c *kubeComponent) CallOrFail(t test.Failer, path string) CallResponse {
+	t.Helper()
+	resp, err := c.Call(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
 func (c *kubeComponent) Call(path string) (CallResponse, error) {
+	return c.CallWithHeaders(path, nil)
+}
+
+func (c *kubeComponent) CallWithHeaders(path string, headers map[string]string) (CallResponse, error) {
 	client := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
@@ -135,6 +148,11 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return CallResponse{}, err
+	}
+	if headers != nil {
+		for k, v := range headers {
+			req.Header.Add(k, v)
+		}
 	}
 
 	resp, err := client.Do(req)
@@ -160,13 +178,4 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	}
 
 	return response, nil
-}
-
-func (c *kubeComponent) CallOrFail(t test.Failer, path string) CallResponse {
-	t.Helper()
-	resp, err := c.Call(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
 }

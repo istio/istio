@@ -100,6 +100,9 @@ var (
 
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioRoot, "pkg/test/framework/components/redis/redis.yaml")
+
+	// HttpbinRoot is the root folder for the httpbin samples
+	HttpbinRoot = path.Join(IstioRoot, "samples/httpbin")
 )
 
 func getDefaultIstioTop() string {

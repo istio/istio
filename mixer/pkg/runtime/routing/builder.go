@@ -575,9 +575,11 @@ func (b *builder) getBuilderAndMapperDynamic(
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		var err error
 		ba := make([]byte, 0, defaultInstanceSize)
-		// The encoder produces
-		if ba, err = instance.Encoder.Encode(attrs, ba); err != nil {
-			return nil, err
+		if instance.Encoder != nil {
+			// The encoder produces
+			if ba, err = instance.Encoder.Encode(attrs, ba); err != nil {
+				return nil, err
+			}
 		}
 
 		return &adapter.EncodedInstance{

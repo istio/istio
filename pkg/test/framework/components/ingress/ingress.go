@@ -29,9 +29,12 @@ type Instance interface {
 	// when running under Minikube).
 	Address() string
 
-	//  Call makes an HTTP call through ingress, where the URL has the given path.
+	// Call makes an HTTP call through ingress, where the URL has the given path.
 	Call(path string) (CallResponse, error)
 	CallOrFail(t test.Failer, path string) CallResponse
+
+	// Call makes an HTTP call with the given headers through ingress, where the URL has the given path.
+	CallWithHeaders(path string, header map[string]string) (CallResponse, error)
 }
 
 type Config struct {

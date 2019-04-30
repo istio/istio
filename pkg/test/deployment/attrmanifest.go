@@ -39,15 +39,20 @@ func ExtractAttributeManifest(workDir string) (string, error) {
 
 	// Split the template into chunks
 	parts := yml.SplitString(s)
+	// Mutiple attributes manifest exists, so concatenate them
+	attributesManifest := ""
 	for _, part := range parts {
 		// Yaml contains both the CR and the CRD. We only want CR.
 		if strings.Contains(part, "kind: attributemanifest") &&
 			!strings.Contains(part, "kind: CustomResourceDefinition") {
 
 			scopes.Framework.Debugf("Extracted AttributeManifest:\n%s\n", part)
-			return part, nil
+			attributesManifest = yml.JoinString(attributesManifest, part)
 		}
 	}
 
+	if attributesManifest != "" {
+		return attributesManifest, nil
+	}
 	return "", errors.New("attribute manifest not found in generated chart")
 }

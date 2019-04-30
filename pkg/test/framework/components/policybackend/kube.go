@@ -97,6 +97,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: allowhandler
+  namespace: %s
 spec:
   adapter: policybackend
   connection:
@@ -111,6 +112,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: denyhandler
+  namespace: %s
 spec:
   adapter: policybackend
   connection:
@@ -123,6 +125,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: keyval
+  namespace: %s
 spec:
   adapter: policybackend
   connection:
@@ -244,7 +247,8 @@ func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am Ad
 	case InProcess:
 		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
 	case OutOfProcess:
-		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
+		handler := fmt.Sprintf(outOfProcessHandlerKube, namespace, c.namespace.Name(),
+			namespace, c.namespace.Name(), namespace, c.namespace.Name())
 		return handler
 	default:
 		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
