@@ -63,7 +63,7 @@ func initCitadelAgentForIstioCertificateService(cfg *Config) (*citadelAgent, err
 	}
 	na.pc = pc
 
-	// For VM, only support GoogleCA with the new CA protocol.
+	// For VM, only support GoogleCA with the IstioCertificateService CA protocol.
 	// TODO(pitlv2109): Support Citadel, Vault, etc.
 	if cfg.CAClientConfig.CAProviderName == caclient.GoogleCAName {
 		googleCA, err := caclient.NewCAClient(cfg.CAClientConfig.CAAddress, cfg.CAClientConfig.CAProviderName,

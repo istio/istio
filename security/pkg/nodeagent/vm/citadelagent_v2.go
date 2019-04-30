@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/security/pkg/platform/mock"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
@@ -59,15 +61,22 @@ const (
 	projectIDField     = "project_id"
 )
 
+// Error messages.
+const (
+	nilConfigErr      = "node Agent configuration is nil"
+	wrongPlatformErr  = "node Agent is not running on the right platform"
+	maximumRetiresErr = "node agent can't get the CSR approved from Istio CA after max number of retries (%d)"
+)
+
 // Start starts the node Agent.
 // TODO(pitlv2109: Needs refactoring.
 func (na *citadelAgent) Start() error {
 	if na.config == nil {
-		return fmt.Errorf("node Agent configuration is nil")
+		return fmt.Errorf(nilConfigErr)
 	}
 
 	if !na.pc.IsProperPlatform() {
-		return fmt.Errorf("node Agent is not running on the right platform")
+		return fmt.Errorf(wrongPlatformErr)
 	}
 
 	log.Infof("Node Agent V2 starts successfully.")
@@ -115,7 +124,7 @@ func (na *citadelAgent) Start() error {
 		if !success {
 			if retries >= na.config.CAClientConfig.CSRMaxRetries {
 				return fmt.Errorf(
-					"node agent can't get the CSR approved from Istio CA after max number of retries (%d)",
+					maximumRetiresErr,
 					na.config.CAClientConfig.CSRMaxRetries)
 			}
 			retries++
@@ -147,7 +156,7 @@ func (na *citadelAgent) sendCSRUsingCANewProtocol() ([]byte, []string, error) {
 	// TODO(pitlv2109): Periodically update the JWT and OAuth2 token.
 	projectID, err := getProjectID(string(jwt))
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get project id wit error %v", err)
+		return nil, nil, fmt.Errorf("could not get project id with error %v", err)
 	}
 	token, _, _ := stsClient.ExchangeToken(context.Background(), fmt.Sprintf("%s@%s%s", fsaPrefix, projectID, serviceAccountSuffix), string(jwt))
 	certChainPEM, err := na.caClient.CSRSign(context.Background(), csrPEM, token, int64(na.config.CAClientConfig.RequestedCertTTL.Minutes()))
@@ -159,6 +168,10 @@ func (na *citadelAgent) sendCSRUsingCANewProtocol() ([]byte, []string, error) {
 
 // getProjectID returns the project id from the provided jwt or an error.
 func getProjectID(jwt string) (string, error) {
+	// For unit tests
+	if jwt == mock.MockJWT {
+		return mock.MockJWT, nil
+	}
 	jwtSplit := strings.Split(jwt, ".")
 	if len(jwtSplit) != 3 {
 		return "", fmt.Errorf("jwt may be invalid %s", jwt)

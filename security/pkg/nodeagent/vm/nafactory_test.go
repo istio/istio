@@ -17,6 +17,8 @@ package vm
 import (
 	"testing"
 
+	caclient2 "istio.io/istio/security/pkg/nodeagent/caclient"
+
 	"istio.io/istio/security/pkg/platform"
 
 	"istio.io/istio/security/pkg/caclient"
@@ -49,11 +51,23 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				CAClientConfig: caclient.Config{
 					CAAddress:  "something",
-					Env:        "somethig else",
+					Env:        "something else",
 					CAProtocol: IstioCAService,
 				},
 			},
-			expectedErr: "invalid env somethig else specified",
+			expectedErr: "invalid env something else specified",
+		},
+		"gcp with IstioCertificateService test": {
+			config: &Config{
+				CAClientConfig: caclient.Config{
+					CAAddress:      "istioca.googleapis.com:443",
+					CAProviderName: caclient2.GoogleCAName,
+					CAProtocol:     IstioCertificateService,
+					Env:            platform.GcpVM,
+					Platform:       VMPlatform,
+				},
+			},
+			expectedErr: "",
 		},
 	}
 
