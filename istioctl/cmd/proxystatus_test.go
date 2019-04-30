@@ -24,7 +24,7 @@ import (
 
 func TestProxyStatus(t *testing.T) {
 	cannedConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 	}
 	cases := []execTestCase{
 		{ // case 0
