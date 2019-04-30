@@ -61,7 +61,7 @@ function dump {
 }
 
 function isValidIP() {
-   if isIPv4 ${1}; then
+   if isIPv4 "${1}"; then
       true
    elif isIPv6 "${1}"; then
       true
