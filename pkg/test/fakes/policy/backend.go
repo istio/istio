@@ -21,15 +21,20 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	google_rpc "github.com/gogo/googleapis/google/rpc"
+	types "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+	policy "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/test/keyval"
 	"istio.io/istio/pkg/log"
 )
 
@@ -55,6 +60,7 @@ type Backend struct {
 
 var _ metric.HandleMetricServiceServer = &Backend{}
 var _ checknothing.HandleCheckNothingServiceServer = &Backend{}
+var _ keyval.HandleKeyvalServiceServer = &Backend{}
 
 var _ v1beta1.InfrastructureBackendServer = &Backend{}
 
@@ -88,6 +94,7 @@ func (b *Backend) Start() error {
 	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)
 	metric.RegisterHandleMetricServiceServer(grpcServer, b)
 	checknothing.RegisterHandleCheckNothingServiceServer(grpcServer, b)
+	keyval.RegisterHandleKeyvalServiceServer(grpcServer, b)
 	RegisterControllerServiceServer(grpcServer, b)
 
 	go func() {
@@ -213,7 +220,13 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if b.settings.getDenyCheck() {
+	params := &Params{}
+	if req.AdapterConfig != nil {
+		if err := types.UnmarshalAny(req.AdapterConfig, params); err != nil {
+			return nil, err
+		}
+	}
+	if b.settings.getDenyCheck() || (params.CheckParams != nil && !params.CheckParams.CheckAllow) {
 		scope.Infof("Backend.HandleCheckNothing => UNAUTHENTICATED")
 		return &istio_mixer_adapter_model_v1beta11.CheckResult{
 			Status: google_rpc.Status{
@@ -224,11 +237,44 @@ func (b *Backend) HandleCheckNothing(ctx context.Context, req *checknothing.Hand
 	}
 
 	scope.Infof("Backend.HandleCheckNothing => OK")
+	validDuration := 5 * time.Second
+	validCount := int32(1)
+	if params.CheckParams != nil {
+		validDuration, _ = types.DurationFromProto(params.CheckParams.ValidDuration)
+		validCount = int32(params.CheckParams.ValidCount)
+	}
 	return &istio_mixer_adapter_model_v1beta11.CheckResult{
 		Status: google_rpc.Status{
 			Code: int32(google_rpc.OK),
 		},
-		ValidDuration: 0,
-		ValidUseCount: 1,
+		ValidDuration: validDuration,
+		ValidUseCount: validCount,
+	}, nil
+}
+
+// HandleKeyval is an implementation of HandleKeyvalServiceServer.HandleKeyval.
+func (b *Backend) HandleKeyval(ctx context.Context, req *keyval.HandleKeyvalRequest) (*keyval.HandleKeyvalResponse, error) {
+	params := &Params{}
+	if err := params.Unmarshal(req.AdapterConfig.Value); err != nil {
+		return nil, err
+	}
+	key := req.Instance.Key
+	scope.Infof("look up %q\n", key)
+	value, ok := params.Table[key]
+	if ok {
+		return &keyval.HandleKeyvalResponse{
+			Result: &v1beta1.CheckResult{ValidDuration: 5 * time.Second},
+			Output: &keyval.OutputMsg{Value: value},
+		}, nil
+	}
+	return &keyval.HandleKeyvalResponse{
+		Result: &v1beta1.CheckResult{
+			Status: google_rpc.Status{
+				Code: int32(google_rpc.NOT_FOUND),
+				Details: []*types.Any{status.PackErrorDetail(&policy.DirectHttpResponse{
+					Body: fmt.Sprintf("<error_detail>key %q not found</error_detail>", key),
+				})},
+			},
+		},
 	}, nil
 }

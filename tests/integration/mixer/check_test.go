@@ -41,7 +41,7 @@ func TestCheck_Allow(t *testing.T) {
 			t,
 			ns,
 			testCheckConfig,
-			be.CreateConfigSnippet("handler1", ns.Name()))
+			be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
 		// Prime the policy backend'ctx behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.
@@ -82,7 +82,7 @@ func TestCheck_Deny(t *testing.T) {
 			t,
 			ns,
 			testCheckConfig,
-			be.CreateConfigSnippet("handler1", ns.Name()))
+			be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
 		// Prime the policy backend'ctx behavior. It should deny all check requests.
 		// This is not strictly necessary, but it is done so for posterity.

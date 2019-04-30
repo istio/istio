@@ -23,6 +23,17 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// AdapterMode enumerates the mode of policy backend usage
+type AdapterMode int
+
+const (
+	// OutOfProcess mode uses policy backend as an out of process adapter
+	OutOfProcess AdapterMode = iota
+
+	// InProcess mode uses policy backend as an infra backend for built-in bypass adapter
+	InProcess
+)
+
 // Instance represents a deployed fake policy backend for Mixer.
 type Instance interface {
 	resource.Resource
@@ -43,8 +54,8 @@ type Instance interface {
 	GetReports(t testing.TB) []proto.Message
 
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
-	// The supplied name will be the name of the handler.
-	CreateConfigSnippet(name string, namespace string) string
+	// If adapter mode is in process, the supplied name will be the name of the handler.
+	CreateConfigSnippet(name string, namespace string, am AdapterMode) string
 }
 
 // New returns a new instance of echo.
