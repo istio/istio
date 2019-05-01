@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/security/pkg/platform/mock"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
@@ -61,25 +59,18 @@ const (
 	projectIDField     = "project_id"
 )
 
-// Error messages.
-const (
-	nilConfigErr      = "node Agent configuration is nil"
-	wrongPlatformErr  = "node Agent is not running on the right platform"
-	maximumRetiresErr = "node agent can't get the CSR approved from Istio CA after max number of retries (%d)"
-)
-
 // Start starts the node Agent.
 // TODO(pitlv2109: Needs refactoring.
 func (na *citadelAgent) Start() error {
 	if na.config == nil {
-		return fmt.Errorf(nilConfigErr)
+		return fmt.Errorf("citadel agent configuration is nil")
 	}
 
 	if !na.pc.IsProperPlatform() {
-		return fmt.Errorf(wrongPlatformErr)
+		return fmt.Errorf("citadel agent is not running on the right platform")
 	}
 
-	log.Infof("Node Agent V2 starts successfully.")
+	log.Infof("Citadel agent starts successfully.")
 
 	retries := 0
 	retrialInterval := na.config.CAClientConfig.CSRInitialRetrialInterval
@@ -112,7 +103,6 @@ func (na *citadelAgent) Start() error {
 					return err
 				}
 				log.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
-				fmt.Println(certChainPEM)
 				retries = 0
 				retrialInterval = na.config.CAClientConfig.CSRInitialRetrialInterval
 				timer := time.NewTimer(waitTime)
@@ -123,8 +113,7 @@ func (na *citadelAgent) Start() error {
 
 		if !success {
 			if retries >= na.config.CAClientConfig.CSRMaxRetries {
-				return fmt.Errorf(
-					maximumRetiresErr,
+				return fmt.Errorf("citadel agent can't get the CSR approved from Istio CA after max number of retries %d",
 					na.config.CAClientConfig.CSRMaxRetries)
 			}
 			retries++
@@ -168,13 +157,9 @@ func (na *citadelAgent) sendCSRUsingCANewProtocol() ([]byte, []string, error) {
 
 // getProjectID returns the project id from the provided jwt or an error.
 func getProjectID(jwt string) (string, error) {
-	// For unit tests
-	if jwt == mock.MockJWT {
-		return mock.MockJWT, nil
-	}
 	jwtSplit := strings.Split(jwt, ".")
 	if len(jwtSplit) != 3 {
-		return "", fmt.Errorf("jwt may be invalid %s", jwt)
+		return "", fmt.Errorf("jwt may be invalid: %s", jwt)
 	}
 	payload := jwtSplit[1]
 	payloadBytes, err := base64.StdEncoding.DecodeString(payload)

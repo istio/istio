@@ -20,11 +20,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	MockJWT       = "MOCK-JWT"
-	MockProjectID = "MOCK-PROJECT-ID"
-)
-
 // FakeClient is mocked platform metadata client.
 type FakeClient struct {
 	DialOption         []grpc.DialOption
