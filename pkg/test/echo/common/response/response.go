@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,20 +12,25 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package application
+package response
 
 import (
-	"io"
-
-	"istio.io/istio/pilot/pkg/model"
+	"net/http"
+	"strconv"
 )
 
-// Application represents a locally running application with exposed ports.
-type Application interface {
-	io.Closer
-	// GetPorts provides a list of ports that are actively listening for the application.
-	GetPorts() model.PortList
-}
+var (
+	StatusCodeOK = strconv.Itoa(http.StatusOK)
+)
 
-// Factory is a function that manufactures a running application.
-type Factory func(dialer Dialer) (Application, error)
+// Field is a list of fields returned in responses from the Echo server.
+type Field string
+
+const (
+	RequestIDField      Field = "X-Request-Id"
+	ServiceVersionField Field = "ServiceVersion"
+	ServicePortField    Field = "ServicePort"
+	StatusCodeField     Field = "StatusCode"
+	HostField           Field = "Host"
+	HostnameField       Field = "Hostname"
+)

@@ -17,7 +17,7 @@ package agent
 import (
 	"net"
 
-	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/echo/server"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -28,7 +28,7 @@ type Config struct {
 	Domain           string
 	Namespace        namespace.Instance
 	Galley           galley.Instance
-	AppFactory       application.Factory
+	EchoServer       *server.Instance
 	PortManager      reserveport.PortManager
 	ServiceName      string
 	Version          string

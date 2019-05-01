@@ -178,7 +178,7 @@ func TestAuthNJwt(t *testing.T) {
 	for _, c := range cases {
 		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
 		runRetriableTest(t, testName, defaultRetryBudget, func() error {
-			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
+			extra := fmt.Sprintf("--key \"Authorization\" --val \"Bearer %s\"", c.token)
 			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s%s", c.dst, c.port, c.path), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
@@ -212,7 +212,7 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 
 	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "--key Host --val uk.bookinfo.com")
 		if len(resp.Code) > 0 && resp.Code[0] == "401" {
 			return nil
 		}

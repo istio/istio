@@ -71,12 +71,12 @@ func TestIngressLoadBalancing(t *testing.T) {
 	g.ApplyConfigOrFail(
 		t,
 		d.Namespace(),
-		bookinfo.NetworkingBookinfoGateway.LoadOrFailGatewayFileWithNamespace(t, bookinfoNs.Name()))
+		bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
 	g.ApplyConfigOrFail(
 		t,
 		d.Namespace(),
-		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFailWithNamespace(t, bookinfoNs.Name()),
-		bookinfo.NetworkingVirtualServiceAllV1.LoadOrFailWithNamespace(t, bookinfoNs.Name()),
+		bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
+		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
 
 	prom := prometheus.NewOrFail(t, ctx)

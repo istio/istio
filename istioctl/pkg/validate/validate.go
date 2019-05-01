@@ -18,41 +18,61 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
+	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
-	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
 
 	mixercrd "istio.io/istio/mixer/pkg/config/crd"
 	mixerstore "istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
-// TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
-// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
-// the genericclioptions packages are organized under kubectl.
-
 var (
-	// Expect YAML to only include these top-level fields
-	validFields = map[string]bool{
-		"apiVersion": true,
-		"kind":       true,
-		"metadata":   true,
-		"spec":       true,
-		"status":     true,
+	mixerAPIVersion = "config.istio.io/v1alpha2"
+
+	errMissingFilename = errors.New(`error: you must specify resources by --filename.
+Example resource specifications include:
+   '-f rsrc.yaml'
+   '--filename=rsrc.json'`)
+	errKindNotSupported = errors.New("kind is not supported")
+
+	validFields = map[string]struct{}{
+		"apiVersion": {},
+		"kind":       {},
+		"metadata":   {},
+		"spec":       {},
+		"status":     {},
 	}
 
-	mixerAPIVersion = "config.istio.io/v1alpha2"
+	validMixerKinds = map[string]struct{}{
+		constant.RulesKind:             {},
+		constant.AdapterKind:           {},
+		constant.TemplateKind:          {},
+		constant.HandlerKind:           {},
+		constant.InstanceKind:          {},
+		constant.AttributeManifestKind: {},
+	}
 )
 
 type validator struct {
 	mixerValidator mixerstore.BackendValidator
+}
+
+func checkFields(un *unstructured.Unstructured) error {
+	var errs error
+	for key := range un.Object {
+		if _, ok := validFields[key]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("unknown field %q", key))
+		}
+	}
+	return errs
 }
 
 func (v *validator) validateResource(un *unstructured.Unstructured) error {
@@ -62,13 +82,24 @@ func (v *validator) validateResource(un *unstructured.Unstructured) error {
 		if err != nil {
 			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
+		if err = checkFields(un); err != nil {
+			return err
+		}
 		return schema.Validate(obj.Name, obj.Namespace, obj.Spec)
 	}
 
 	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
 		if !v.mixerValidator.SupportsKind(un.GetKind()) {
-			return fmt.Errorf("%s not implemented", un.GetKind())
+			return errKindNotSupported
 		}
+		if err := checkFields(un); err != nil {
+			return err
+		}
+		if _, ok := validMixerKinds[un.GetKind()]; !ok {
+			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
+				constant.HandlerKind, constant.InstanceKind)
+		}
+
 		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
 			Type: mixerstore.Update,
 			Key: mixerstore.Key{
@@ -79,98 +110,65 @@ func (v *validator) validateResource(un *unstructured.Unstructured) error {
 			Value: mixercrd.ToBackEndResource(un),
 		})
 	}
-	return fmt.Errorf("%s.%s validation is not supported", un.GetKind(), un.GetAPIVersion())
-}
 
-var errMissingResource = errors.New(`error: you must specify resources by --filename.
-Example resource specifications include:
-   '-f rsrc.yaml'
-   '--filename=rsrc.json'`)
-
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
-	// resource.Builder{} validates most of the CLI flags consistent
-	// with kubectl which is good. Unfortunately, it also assumes
-	// resources can be specified as '<resource> <name>' which is
-	// bad. We don't don't for file-based configuration validation. If
-	// a filename is missing, resource.Builder{} prints a warning
-	// referencing '<resource> <name>' which would be confusing to the
-	// user. Avoid this confusion by checking for missing filenames
-	// are ourselves for invoking the builder.
-	if len(options.Filenames) == 0 {
-		return errMissingResource
-	}
-
-	r := resource.NewBuilder(restClientGetter).
-		Unstructured().
-		FilenameParam(false, &options).
-		Flatten().
-		Local().
-		Do()
-	if err := r.Err(); err != nil {
-		return err
-	}
-
-	var errs error
-	v := &validator{
-		mixerValidator: mixervalidate.NewDefaultValidator(true),
-	}
-
-	_ = r.Visit(func(info *resource.Info, err error) error {
-		if err != nil {
-			return err
-		}
-		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			return nil
-		}
-
-		un := &unstructured.Unstructured{Object: content}
-		for key := range content {
-			if _, ok := validFields[key]; !ok {
-				errs = multierror.Append(errs, fmt.Errorf("%s: Unknown field %q on %s resource %s namespace %q",
-					info.Source, key, un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace()))
-			}
-		}
-
-		if err := v.validateResource(un); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error validating resource (%v Name=%v Namespace=%v): %v",
-				un.GetObjectKind().GroupVersionKind(), un.GetName(), un.GetNamespace(), err))
-		}
-		return nil
-	})
-	if errs != nil {
-		return errs
-	}
-	for _, fname := range options.Filenames {
-		fmt.Fprintf(writer, "%q is valid\n", fname)
-	}
 	return nil
 }
 
-func strPtr(val string) *string {
-	return &val
+func (v *validator) validateFile(reader io.Reader) error {
+	decoder := yaml.NewDecoder(reader)
+	var errs error
+	for {
+		// YAML allows non-string keys and the produces generic keys for nested fields
+		raw := make(map[interface{}]interface{})
+		err := decoder.Decode(&raw)
+		if err == io.EOF {
+			return errs
+		}
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			return errs
+		}
+		if len(raw) == 0 {
+			continue
+		}
+		out := transformInterfaceMap(raw)
+		un := unstructured.Unstructured{Object: out}
+		err = v.validateResource(&un)
+		if err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
+				un.GetKind(), un.GetNamespace(), un.GetName())))
+		}
+	}
 }
 
-func boolPtr(val bool) *bool {
-	return &val
+func validateFiles(filenames []string, referential bool) error {
+	if len(filenames) == 0 {
+		return errMissingFilename
+	}
+
+	v := &validator{
+		mixerValidator: mixervalidate.NewDefaultValidator(referential),
+	}
+
+	var errs error
+	for _, filename := range filenames {
+		reader, err := os.Open(filename)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
+			continue
+		}
+		err = v.validateFile(reader)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
 func NewValidateCommand() *cobra.Command {
-	var (
-		kubeConfigFlags = &genericclioptions.ConfigFlags{
-			Context:    strPtr(""),
-			Namespace:  strPtr(""),
-			KubeConfig: strPtr(""),
-		}
-
-		filenames     = []string{}
-		fileNameFlags = &genericclioptions.FileNameFlags{
-			Filenames: &filenames,
-			Recursive: boolPtr(true),
-		}
-	)
+	var filenames []string
+	var referential bool
 
 	c := &cobra.Command{
 		Use:     "validate -f FILENAME [options]",
@@ -178,13 +176,40 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return validateFiles(filenames, referential)
 		},
 	}
 
 	flags := c.PersistentFlags()
-	kubeConfigFlags.AddFlags(flags)
-	fileNameFlags.AddFlags(flags)
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
+	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c
+}
+
+func transformInterfaceArray(in []interface{}) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, v := range in {
+		out[i] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformInterfaceMap(in map[interface{}]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
+	}
+	return out
+}
+
+func transformMapValue(in interface{}) interface{} {
+	switch v := in.(type) {
+	case []interface{}:
+		return transformInterfaceArray(v)
+	case map[interface{}]interface{}:
+		return transformInterfaceMap(v)
+	default:
+		return v
+	}
 }

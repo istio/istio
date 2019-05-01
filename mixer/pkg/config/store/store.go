@@ -107,7 +107,7 @@ type Event struct {
 	Value *Resource
 }
 
-// BackendValidator defines the interface to validte unstructured event.
+// BackendValidator defines the interface to validate unstructured event.
 type BackendValidator interface {
 	Validate(ev *BackendEvent) error
 	SupportsKind(string) bool

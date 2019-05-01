@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -242,7 +242,7 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 		return nil, err
 	}
 
-	out, err := common.CallEcho(c.workloads[0].Client, &opts, common.IdentityOutboundPortSelector)
+	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 			c.Config().Service,

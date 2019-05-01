@@ -64,7 +64,7 @@ func TestEcho(t *testing.T) {
 
 		a.WaitUntilReadyOrFail(t, b)
 
-		a.CallOrFail(t, echo.CallOptions{
+		_ = a.CallOrFail(t, echo.CallOptions{
 			Target:   b,
 			PortName: "http",
 		}).CheckOKOrFail(t)
@@ -101,7 +101,7 @@ func TestEchoNoSidecar(t *testing.T) {
 
 		a.WaitUntilReadyOrFail(t, b)
 
-		a.CallOrFail(t, echo.CallOptions{
+		_ = a.CallOrFail(t, echo.CallOptions{
 			Target:   b,
 			PortName: "http",
 		}).CheckOKOrFail(t)

@@ -2,7 +2,7 @@
 
 This document introduces the Istio test framework.
 
-For an overview of the architecture as well as how to extend the framework, see the [Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide).
+For an overview of the architecture as well as how to extend the framework, see the [Developer Guide](https://github.com/istio/istio/wiki/Preparing-for-Development).
 
 ## Introduction
 

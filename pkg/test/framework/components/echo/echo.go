@@ -20,7 +20,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -46,8 +46,8 @@ type Instance interface {
 	WorkloadsOrFail(t testing.TB) []Workload
 
 	// Call makes a call from this Instance to a target Instance.
-	Call(options CallOptions) (echo.ParsedResponses, error)
-	CallOrFail(t testing.TB, options CallOptions) echo.ParsedResponses
+	Call(options CallOptions) (client.ParsedResponses, error)
+	CallOrFail(t testing.TB, options CallOptions) client.ParsedResponses
 }
 
 // Port exposed by an Echo Instance

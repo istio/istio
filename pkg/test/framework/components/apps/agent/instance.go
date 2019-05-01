@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/envoy/discovery"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -102,12 +102,14 @@ func New(cfg Config) (*Instance, error) {
 			_ = a.Close()
 		}
 	}()
-	dialer := application.Dialer{
+	cfg.EchoServer.Config.Dialer = common.Dialer{
 		GRPC:      a.dialGRPC,
 		Websocket: a.dialWebsocket,
 		HTTP:      a.doHTTP,
 	}
-	a.app, err = cfg.AppFactory(dialer)
+	if err = cfg.EchoServer.Start(); err != nil {
+		return nil, err
+	}
 
 	if err != nil {
 		return nil, err
@@ -121,7 +123,6 @@ func New(cfg Config) (*Instance, error) {
 // Instance manages the application and the sidecar proxy.
 type Instance struct {
 	cfg                       Config
-	app                       application.Application
 	envoy                     *envoy.Envoy
 	adminPort                 int
 	ports                     []*MappedPort
@@ -208,8 +209,8 @@ func (a *Instance) CheckConfiguredForService(target *Instance) error {
 
 // Close implements the agent.Instance interface.
 func (a *Instance) Close() (err error) {
-	if a.app != nil {
-		err = a.app.Close()
+	if a.cfg.EchoServer != nil {
+		err = a.cfg.EchoServer.Close()
 	}
 	if a.discoveryFilterGrpcServer != nil {
 		a.discoveryFilterGrpcServer.Stop()
@@ -301,7 +302,7 @@ func (a *Instance) start() error {
 	}()
 
 	// Generate the port mappings between Envoy and the backend service.
-	a.adminPort, a.ports, err = a.createPorts(a.app.GetPorts())
+	a.adminPort, a.ports, err = a.createPorts(a.cfg.EchoServer.Config.Ports)
 	if err != nil {
 		return err
 	}

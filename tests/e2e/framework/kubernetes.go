@@ -626,7 +626,7 @@ func (k *KubeInfo) GetRoutes(app string) (routes string, err error) {
 
 		pod := appPods[app][0]
 
-		r, e := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.Clusters[cluster])
+		r, e := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client --url %s", routesURL), true, k.Clusters[cluster])
 		if e != nil {
 			return "", errors.WithMessage(err, "failed to get routes")
 		}

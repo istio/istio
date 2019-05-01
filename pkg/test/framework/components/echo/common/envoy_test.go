@@ -25,7 +25,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pilot/pkg/model"
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -168,11 +168,11 @@ func (e *config) WaitUntilReadyOrFail(_ testing.TB, _ ...echo.Instance) {
 	panic("not implemented")
 }
 
-func (e *config) Call(_ echo.CallOptions) (appEcho.ParsedResponses, error) {
+func (e *config) Call(_ echo.CallOptions) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 
-func (e *config) CallOrFail(_ testing.TB, _ echo.CallOptions) appEcho.ParsedResponses {
+func (e *config) CallOrFail(_ testing.TB, _ echo.CallOptions) client.ParsedResponses {
 	panic("not implemented")
 }
 

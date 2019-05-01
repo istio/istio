@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -73,7 +73,7 @@ func TestNginx(t *testing.T) {
 	url := fmt.Sprintf("http://%s/%s", nginxServiceName, src)
 
 	runRetriableTest(t, "Reachable", defaultRetryBudget, func() error {
-		hostHeader := fmt.Sprintf("-key Host -val %s", dest)
+		hostHeader := fmt.Sprintf("--key Host --val %s", dest)
 		resp := tc.SendClientRequest(src, url, 1, hostHeader)
 		if !resp.IsHTTPOk() {
 			return errAgain
@@ -186,7 +186,7 @@ func (t *testConfig) SendClientRequest(app, url string, count int, extra string)
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd, true, t.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
