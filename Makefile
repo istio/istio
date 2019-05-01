@@ -1,5 +1,5 @@
 # To run locally:
-# The Makefile will run against a workspace that is expected to have the istio-installer, istio.io/istio and
+# The Makefile will run against a workspace that is expected to have the installer, istio.io/istio and
 # istio.io/tools repositories checked out. It will copy (TODO: or mount) the sources in a KIND docker container that
 # has all the tools needed to build and test.
 #
@@ -11,8 +11,8 @@
 # Example local workflow for development/testing:
 #
 # export KIND_CLUSTER=local # or other clusters if working on multiple PRs
-# export MOUNT=1            #local directories mounted in the docker running Kind and tests
-# export SKIP_KIND_SETUP=1  #don't create new cluster at each iteration
+# export MOUNT=1            # local directories mounted in the docker running Kind and tests
+# export SKIP_KIND_SETUP=1  # don't create new cluster at each iteration
 # export SKIP_CLEANUP=1     # leave cluster and tests in place, for debugging
 #
 # - prepare cluster for development:
@@ -194,7 +194,7 @@ ifeq ($(SKIP_KIND_SETUP), 0)
 endif
 
 clean:
-	kind delete cluster --name ${KIND_CLUSTER} 2>&1 || /bin/true
+	kind delete cluster --name ${KIND_CLUSTER} 2>&1 || true
 
 maybe-clean:
 ifeq ($(SKIP_CLEANUP), 0)
@@ -211,7 +211,7 @@ install-crds: crds
 # This setup is optimized for migration from 1.1 and testing - note that autoinject is enabled by default,
 # since new integration tests seem to fail to inject
 install-base: install-crds
-	kubectl create ns ${ISTIO_NS} || /bin/true
+	kubectl create ns ${ISTIO_NS} || true
 	# Autoinject global enabled - we won't be able to install injector
 	kubectl label ns ${ISTIO_NS} istio-injection=disabled --overwrite
 	bin/iop istio-system istio-system-security ${BASE}/security/citadel ${IOP_OPTS}
@@ -247,7 +247,7 @@ install-policy:
 
 # Simple bookinfo install and curl command
 run-bookinfo:
-	kubectl create ns bookinfo || /bin/true
+	kubectl create ns bookinfo || true
 	echo ${BASE} ${GOPATH}
 	# Bookinfo test
 	#kubectl label namespace bookinfo istio-env=${ISTIO_NS} --overwrite
@@ -272,7 +272,7 @@ SIMPLE_AUTH ?= false
 # Will kube-inject and test the ingress and service-to-service
 run-simple-base: ${TMPDIR}
 	mkdir -p  ${GOPATH}/out/logs
-	kubectl create ns ${NS} || /bin/true
+	kubectl create ns ${NS} || true
 	# Global default may be strict or permissive - make it explicit for this ns
 	kubectl -n ${NS} apply -f test/k8s/mtls_${MODE}.yaml
 	kubectl -n ${NS} apply -f test/k8s/sidecar-local.yaml
@@ -300,14 +300,14 @@ run-simple-strict:
 	$(MAKE) run-simple-base MODE=strict NS=simple-strict SIMPLE_AUTH=true
 
 run-bookinfo-demo:
-	kubectl create ns bookinfo-demo || /bin/true
+	kubectl create ns bookinfo-demo || true
 	kubectl -n bookinfo-demo apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n bookinfo-demo apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_bookinfo_run ${TEST_FLAGS} \
 		E2E_ARGS="${E2E_ARGS} --namespace=bookinfo-demo")
 
 run-mixer:
-	kubectl create ns mixertest || /bin/true
+	kubectl create ns mixertest || true
 	kubectl -n mixertest apply -f test/k8s/mtls_permissive.yaml
 	kubectl -n mixertest apply -f test/k8s/sidecar-local.yaml
 	(cd ${GOPATH}/src/istio.io/istio; make e2e_mixer_run ${TEST_FLAGS} \
