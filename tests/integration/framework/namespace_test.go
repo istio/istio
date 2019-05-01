@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core"
 )
 
 func TestNamespace(t *testing.T) {
@@ -47,8 +48,14 @@ func TestNamespace(t *testing.T) {
 			}
 		})
 
-	// Check after run to see that the namespace is gone.
-	if err := env.WaitForNamespaceDeletion(namespaceName); err != nil {
-		t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
+	settings, err := core.SettingsFromCommandLine("framework_test")
+	if err != nil {
+		t.Fatalf("Failed to get settings: %v", err)
+	}
+	if !settings.NoCleanup {
+		// Check after run to see that the namespace is gone.
+		if err := env.WaitForNamespaceDeletion(namespaceName); err != nil {
+			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
+		}
 	}
 }
