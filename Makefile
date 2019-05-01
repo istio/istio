@@ -152,19 +152,19 @@ run-build: dep
 # Build all templates inside the hermetic docker image. Tools are installed.
 build:
 	docker run -it --rm -v ${GOPATH}:${GOPATH} --entrypoint /bin/bash istionightly/kind:latest \
-		-c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; ls; make run-build"
+		-c "cd ${GOPATH}/src/istio.io/istio-installer; ls; make run-build"
 
 # Run a command in the docker image running kind. Command passed as "TARGET" env.
 kind-run:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf  \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make ${TARGET}"
+		bash -c "cd ${GOPATH}/src/istio.io/istio-installer; make ${TARGET}"
 
 # Runs the test in docker. Will exec into KIND and run "make $TEST_TARGET" (default: run-all-tests)
 docker-run-test:
 	docker exec -e KUBECONFIG=/etc/kubernetes/admin.conf  \
 		${KIND_CLUSTER}-control-plane \
-		bash -c "cd ${GOPATH}/src/github.com/istio-ecosystem/istio-installer; make git.dep ${TEST_TARGET}"
+		bash -c "cd ${GOPATH}/src/istio.io/istio-installer; make git.dep ${TEST_TARGET}"
 
 # Run the istio install and tests. Assumes KUBECONFIG is pointing to a valid cluster.
 # This should run inside a container and using KIND, to reduce dependency on host or k8s environment.
@@ -367,29 +367,29 @@ info:
 # Copy source code from the current machine to the docker.
 sync:
 ifneq ($(MOUNT), 1)
-	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+	docker exec ${KIND_CLUSTER}-control-plane mkdir -p ${GOPATH}/src/istio.io/istio-installer \
 		${GOPATH}/src/istio.io
-	docker cp . ${KIND_CLUSTER}-control-plane:${GOPATH}/src/github.com/istio-ecosystem/istio-installer
+	docker cp . ${KIND_CLUSTER}-control-plane:${GOPATH}/src/istio.io/istio-installer
 endif
 
 # Run an iterative shell in the docker image running the tests and k8s kind
 kind-shell:
 ifneq ($(MOUNT), 1)
 	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
-		-w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+		-w ${GOPATH}/src/istio.io/istio-installer \
 		${KIND_CLUSTER}-control-plane bash
 else
 	docker exec ${KIND_CLUSTER}-control-plane bash -c "cp /etc/kubernetes/admin.conf /tmp && chown $(shell id -u) /tmp/admin.conf"
 	docker exec -it -e KUBECONFIG=/tmp/admin.conf \
 		-u "$(shell id -u)" -e USER="${USER}" -e HOME="${GOPATH}" \
-		-w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+		-w ${GOPATH}/src/istio.io/istio-installer \
 		${KIND_CLUSTER}-control-plane bash
 endif
 
 # Run a shell in docker image, as root
 kind-shell-root:
 	docker exec -it -e KUBECONFIG=/etc/kubernetes/admin.conf \
-		-w ${GOPATH}/src/github.com/istio-ecosystem/istio-installer \
+		-w ${GOPATH}/src/istio.io/istio-installer \
 		${KIND_CLUSTER}-control-plane bash
 
 

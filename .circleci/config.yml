@@ -4,7 +4,7 @@ version: 2
 integrationDefaults: &integrationDefaults
   machine:
     image: ubuntu-1604:201903-01
-  working_directory: /go/src/github.com/istio-ecosystem/istio-installer
+  working_directory: /go/src/istio.io/istio-installer
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
     - SKIP_CLEANUP: true
@@ -14,7 +14,7 @@ integrationDefaults: &integrationDefaults
 
 # remote docker environment. Appears to be faster
 integrationRemote: &integrationRemote
-  working_directory: /go/src/github.com/istio-ecosystem/istio-installer
+  working_directory: /go/src/istio.io/istio-installer
   docker:
     - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
       environment:
@@ -43,7 +43,7 @@ jobs:
 
   # Build all the templates, verify the templates work.
   build:
-    working_directory: /go/src/github.com/istio-ecosystem/istio-installer
+    working_directory: /go/src/istio.io/istio-installer
     docker:
       # Image with KIND installed, based on Istio Kind node-image
       # Should have all tools we need, recreated when we rev the tool versions.

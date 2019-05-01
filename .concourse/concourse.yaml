@@ -11,7 +11,7 @@ resources:
   - name: istio-installer #DO NOT SET TO FORK - for testing use another pipeline and pause this one
     type: git
     source:
-      uri: "https://github.com/istio-ecosystem/istio-installer"
+      uri: "https://github.com/istio/istio-installer"
   - name: istio-release-1.1
     type: git
     source:

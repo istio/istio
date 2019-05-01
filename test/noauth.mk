@@ -42,7 +42,7 @@ run-test-noauth-micro: install-crds
 # TODO: pass meshConfigFile, injectConfigFile, valuesFile to test, or skip the kube-inject and do it manually (better)
 # Test won't work otherwise
 #	$(MAKE) run-simple-base MODE=permissive NS=simple-micro ISTIO_NS=${ISTIO_NS}-micro \
-#		SIMPLE_EXTRA="--kube_inject_configmap ${GOPATH}/src/github.com/istio-ecosystem/istio-installer/istio-control/istio-autoinject/files/injection-template.yaml"
+#		SIMPLE_EXTRA="--kube_inject_configmap ${GOPATH}/src/istio.io/istio-installer/istio-control/istio-autoinject/files/injection-template.yaml"
 
 # Galley, Pilot, Ingress, Telemetry (separate ns)
 run-test-noauth-full: install-crds
