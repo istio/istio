@@ -21,17 +21,19 @@ The Istio test framework attempts to address these problems. Some of the objecti
    
 ## Getting Started
 
-To begin using the test framework, you'll need a write a `TestMain` that simply calls `framework.Run`:
+To begin using the test framework, you'll need a write a `TestMain` that simply calls `framework.NewSuite`:
 
 ```golang
 func TestMain(m *testing.M) { 
-    framework.Main("my_test", m)
+    framework.
+        NewSuite("my_test", m).
+        Run()
 }
 ```
 
 The first parameter is a `TestID`, which can be any string. It's used mainly for creating a working directory for the test output.
 
-The call to `framework.Main` does the following:
+The call to `framework.NewSuite` does the following:
 
 1. Starts the platform-specific environment. By default, the native environment is used. To run on Kubernetes, set the flag: `--istio.test.env=kube`.
 2. Run all tests in the current package. This is the standard Go behavior for `TestMain`.
@@ -65,21 +67,22 @@ Every test will follow the pattern in the example above:
 1. Get the context. The context is the main API for the test framework.
 2. Get and use components. Each component (e.g. Pilot, Mixer, Apps) defines its own API. See the interface documentation for details on usage.
 
-If you need to do suite-level checks, then you can pass additional parameters to `framework.Main`:
+If you need to do suite-level checks, then you can pass additional parameters to `framework.TestSuite` returned from `framework.NewTest`:
 
 ```golang
 func TestMain(m *testing.M) {
-    framework.Main("my_test", m,
-    framework.RequireEnvironment(environment.Kube), // Require Kubernetes environment.
-    istio.SetupOnKube(&ist, setupIstioConfig),            // Deploy Istio, to be used by the whole suite.
-    setup)                                   // Call your setup function.
+    framework.NewTest("my_test", m).
+    RequireEnvironment(environment.Kube).                              // Require Kubernetes environment.
+    SetupOnEnv(environment.Kube, istio.Setup(&ist, setupIstioConfig)). // Deploy Istio, to be used by the whole suite.
+    Setup(setup). // Call your setup function.
+    Run()
 }
 
 func setupIstioConfig(cfg *istio.Config) {
     cfg.Values["your-feature-enabled"] = "true"
 }
 
-func setup(ctx core.SuiteContext) error {
+func setup(ctx resource.Context) error {
   // ...
 }
 

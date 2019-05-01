@@ -53,7 +53,7 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 	return t
 }
 
-// RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
+// RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {
 	if t.s.Environment().EnvironmentName() != name {
