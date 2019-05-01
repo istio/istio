@@ -25,8 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/application"
-	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/server"
 )
 
 var (
@@ -65,17 +64,21 @@ var (
 				portIndex++
 			}
 
-			f := &echo.Factory{
+			s := server.New(server.Config{
 				Ports:     ports,
 				TLSCert:   crt,
-				TLSCKey:   key,
+				TLSKey:    key,
 				Version:   version,
 				UDSServer: uds,
-			}
-			if _, err := f.NewApplication(application.Dialer{}); err != nil {
+			})
+
+			if err := s.Start(); err != nil {
 				log.Errora(err)
 				os.Exit(-1)
 			}
+			defer func() {
+				_ = s.Close()
+			}()
 
 			// Wait for the process to be shutdown.
 			sigs := make(chan os.Signal, 1)

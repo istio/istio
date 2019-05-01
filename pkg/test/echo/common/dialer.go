@@ -12,13 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package application
+package common
 
 import (
 	"context"
 	"net/http"
 
 	"github.com/gorilla/websocket"
+
 	"google.golang.org/grpc"
 )
 
@@ -58,8 +59,8 @@ type Dialer struct {
 	HTTP      HTTPDoFunc
 }
 
-// Fill any missing dial functions with defaults
-func (d Dialer) Fill() Dialer {
+// FillInDefaults fills in any missing dial functions with defaults
+func (d Dialer) FillInDefaults() Dialer {
 	ret := DefaultDialer
 
 	if d.GRPC != nil {

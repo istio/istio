@@ -15,6 +15,7 @@
 package apps
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,8 +30,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/server"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/agent"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -267,19 +269,25 @@ func newNativeApp(cfg nativeAppConfig) (a App, err error) {
 		}
 	}()
 
-	appFactory := (&echo.Factory{
-		Ports:   ports,
+	copyOfPorts := make(model.PortList, 0, len(ports))
+	for _, p := range ports {
+		copyOfPort := *p
+		copyOfPorts = append(copyOfPorts, &copyOfPort)
+	}
+
+	s := server.New(server.Config{
+		Ports:   copyOfPorts,
 		Version: cfg.version,
-		TLSCKey: cfg.tlsCKey,
 		TLSCert: cfg.tlsCert,
-	}).NewApplication
+		TLSKey:  cfg.tlsCKey,
+	})
 
 	// Create and start the agent.
 	newapp.agent, err = agent.New(agent.Config{
 		Domain:           cfg.domain,
 		Namespace:        cfg.Namespace,
 		Galley:           cfg.Galley,
-		AppFactory:       appFactory,
+		EchoServer:       s,
 		PortManager:      cfg.portManager,
 		ServiceName:      cfg.serviceName,
 		Version:          cfg.version,
@@ -312,7 +320,7 @@ func newNativeApp(cfg nativeAppConfig) (a App, err error) {
 	if grpcEndpoint == nil {
 		return nil, errors.New("unable to find grpc port for application")
 	}
-	newapp.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
+	newapp.client, err = client.New(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +332,7 @@ type nativeApp struct {
 	nativeAppConfig
 	agent     *agent.Instance
 	endpoints []AppEndpoint
-	client    *echo.Client
+	client    *client.Instance
 }
 
 func (a *nativeApp) Close() (err error) {
@@ -359,7 +367,7 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint 
 	return eps
 }
 
-func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*client.ParsedResponse, error) {
 	dst, ok := e.(*nativeEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -387,7 +395,7 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
 
-	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
+	resp, err := a.client.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
 		Url:     dstURL.String(),
 		Count:   int32(opts.Count),
 		Headers: protoHeaders,
@@ -403,7 +411,7 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 	return resp, nil
 }
 
-func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*client.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)

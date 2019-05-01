@@ -14,18 +14,11 @@
 
 package echo
 
-import "net/http"
+import (
+	"net/http"
+	"time"
 
-// CallProtocol enumerates the protocol options for calling an Endpoint endpoint.
-type CallProtocol string
-
-const (
-	HTTP       CallProtocol = "http"
-	HTTPS      CallProtocol = "https"
-	GRPC       CallProtocol = "grpc"
-	GRPCS      CallProtocol = "grpcs"
-	WebSocket  CallProtocol = "ws"
-	WebSocketS CallProtocol = "wss"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -39,9 +32,9 @@ type CallOptions struct {
 	// PortName of the port on the target Instance. Either Port or PortName must be specified.
 	PortName string
 
-	// Protocol to be used when making the call. If not provided, the protocol of the port
-	// will be used.
-	Protocol CallProtocol
+	// Scheme to be used when making the call. If not provided, an appropriate default for the
+	// port will be used (if feasible).
+	Scheme scheme.Instance
 
 	// Host specifies the host to be used on the request. If not provided, an appropriate
 	// default is chosen for the target Instance.
@@ -56,4 +49,7 @@ type CallOptions struct {
 
 	// Headers indicates headers that should be sent in the request. Ignored for WebSocket calls.
 	Headers http.Header
+
+	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
+	Timeout time.Duration
 }
