@@ -1,6 +1,6 @@
 # istio-installer
 
-[![CircleCI](https://circleci.com/gh/istio/istio-installer.svg?style=shield)](https://circleci.com/gh/istio/istio-installer)
+[![CircleCI](https://circleci.com/gh/istio/installer.svg?style=shield)](https://circleci.com/gh/istio/installer)
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a 
 fork of istio helm templates, refactored to increase modularity and isolation. 
