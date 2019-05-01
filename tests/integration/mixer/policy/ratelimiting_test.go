@@ -274,7 +274,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_policy_ratelimit", m).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(testsetup).
 		Run()
 }

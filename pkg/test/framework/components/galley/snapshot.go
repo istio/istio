@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
@@ -45,18 +46,33 @@ type SnapshotValidatorFunc func(actuals []*SnapshotObject) error
 
 // NewSingleObjectSnapshotValidator creates a SnapshotValidatorFunc that ensures only a single object
 // is found in the snapshot.
-func NewSingleObjectSnapshotValidator(fn func(actual *SnapshotObject) error) SnapshotValidatorFunc {
+func NewSingleObjectSnapshotValidator(ns string, fn func(ns string, actual *SnapshotObject) error) SnapshotValidatorFunc {
 	return func(actuals []*SnapshotObject) error {
 		if len(actuals) != 1 {
 			return fmt.Errorf("expected 1 resource, found %d", len(actuals))
 		}
-		return fn(actuals[0])
+		return fn(ns, actuals[0])
 	}
 }
 
 // NewGoldenSnapshotValidator creates a SnapshotValidatorFunc that tests for equivalence against
 // a set of golden object.
-func NewGoldenSnapshotValidator(goldens []map[string]interface{}) SnapshotValidatorFunc {
+func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) SnapshotValidatorFunc {
+	for _, g := range goldens {
+		if ns != "" {
+			name, err := extractName(g)
+			if err != nil {
+				return func(actuals []*SnapshotObject) error {
+					return err
+				}
+			}
+			if !strings.Contains(name, "/") {
+				name = fmt.Sprintf("%s/%s", ns, name)
+				g["Metadata"].(map[string]interface{})["name"] = name
+			}
+		}
+	}
+
 	return func(actuals []*SnapshotObject) error {
 		// Convert goldens to a map of JSON objects indexed by name.
 		goldenMap := make(map[string]interface{})
@@ -136,7 +152,7 @@ func NewGoldenSnapshotValidator(goldens []map[string]interface{}) SnapshotValida
 				if er != nil {
 					return er
 				}
-				err = multierror.Append(err, fmt.Errorf("expected resource not found: %s\n%v", name, js))
+				err = multierror.Append(err, fmt.Errorf("expected resource not found: %s\n%v", name, string(js)))
 				continue
 			}
 		}

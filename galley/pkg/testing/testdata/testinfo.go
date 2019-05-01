@@ -15,8 +15,10 @@
 package testdata
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 )
 
 // TestInfo about a particular test.
@@ -54,14 +56,19 @@ func (f FileSet) LoadExpectedFile() ([]byte, error) {
 }
 
 // LoadExpectedResources loads and parses the expected resources from the expected file.
-func (f FileSet) LoadExpectedResources() (map[string][]map[string]interface{}, error) {
+func (f FileSet) LoadExpectedResources(namespace string) (map[string][]map[string]interface{}, error) {
 	b, err := f.LoadExpectedFile()
 	if err != nil {
 		return nil, err
 	}
 
+	s, err := applyNamespace(string(b), namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	expectedRecord := make(map[string]interface{})
-	if err := json.Unmarshal(b, &expectedRecord); err != nil {
+	if err := json.Unmarshal([]byte(s), &expectedRecord); err != nil {
 		return nil, fmt.Errorf("error parsing expected JSON: %v", err)
 	}
 
@@ -95,4 +102,22 @@ func (f FileSet) HasMeshConfigFile() bool {
 // LoadMeshConfigFile returns the meshconfigfile for this test.
 func (f FileSet) LoadMeshConfigFile() ([]byte, error) {
 	return Asset(f.meshConfigFile)
+}
+
+func applyNamespace(txt, ns string) (string, error) {
+	t := template.New("ns")
+	t, err := t.Parse(txt)
+	if err != nil {
+		return "", err
+	}
+
+	m := make(map[string]interface{})
+	m["Namespace"] = ns
+
+	var buf bytes.Buffer
+	if err = t.Execute(&buf, m); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
