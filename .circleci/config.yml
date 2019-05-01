@@ -69,6 +69,119 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
       bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
       make dumpsys || true
 
+dind-env: &dind-env
+  GOPATH: /go
+  SKIP_CLEANUP: true
+  DOCKER_VERSION: "17.03.0-ce"
+  CNI_PLUGIN: flannel
+
+dind-env-ipv6: &dind-env-ipv6
+  GOPATH: /go
+  SKIP_CLEANUP: true
+  DOCKER_VERSION: "17.03.0-ce"
+  CNI_PLUGIN: bridge
+  IP_MODE: ipv6
+
+# dind default setup
+dind-defaults: &dind-defaults
+  docker:
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+  working_directory: ~/kubeadm-dind-cluster
+
+dind-setup: &dind-setup
+  name: Set up the environment
+  command: |
+    sudo apt-get -qq update
+    sudo apt-get install -y curl ca-certificates git liblz4-tool rsync socat tzdata
+    # Start port forwarder
+    "${PWD}/build/portforward.sh" start
+
+dind-display_cluster_state: &dind-display_cluster_state
+  command: |
+    docker exec -t kube-master sh -c "kubectl version"
+    docker exec -t kube-master sh -c "kubectl get nodes"
+    docker exec -t kube-master sh -c "kubectl get all --all-namespaces -o wide"
+
+dind-dump_cluster: &dind-dump_cluster
+  command: |
+    mkdir -p /tmp/cluster_state
+    out="/tmp/cluster_state/dump-1.gz"
+    if [[ -f ${out} ]]; then
+      out="/tmp/cluster_state/dump-2.gz"
+    fi
+    if [[ ${K8S_SRC:-} ]]; then
+      cd kubernetes
+      ../dind-cluster.sh dump | gzip >"${out}"
+    else
+      ./dind-cluster.sh dump | gzip >"${out}"
+    fi
+
+
+# The common steps for running kubeadm-dind-clusters and istio e2e tests
+e2e-dind-test: &e2e-dind-test
+  steps:
+    - setup_remote_docker
+    - checkout:
+        path: /go/src/istio.io/istio
+    - run:
+        name: Get istiocni
+        working_directory: /go/src/istio.io/cni
+        command: |
+          git clone --branch ${CNI_BRANCH:-master} https://github.com/istio/cni.git
+    - run:
+        name: Build e2e-runner container
+        working_directory: ~/e2e-runner
+        command: |
+          cp /go/src/istio.io/istio/.circleci/Dockerfile.e2e-runner Dockerfile
+          cp /go/src/istio.io/istio/.circleci/run_e2e.sh .
+          cp -r /go/src/istio.io/cni/deployments/kubernetes/helm/ helm/
+          cp -r /go/src/istio.io/istio/ istio/
+          docker build -t e2e-runner:latest
+    - run:
+        name: Get KDC
+        working_directory: ~/kubeadm-dind-cluster
+        command: |
+          git clone https://github.com/kubernetes-sigs/kubeadm-dind-cluster .
+    - run:
+        <<: *dind-setup
+    - run:
+        name: Start kubeadm in DinD (KDC)
+        command: |
+          export IP_MODE=${IP_MODE:-ipv4}
+          export DIND_PORT_FORWARDER_WAIT=1
+          export DIND_PORT_FORWARDER="${PWD}/build/portforward.sh"
+          ./fixed/dind-cluster-v1.10.sh up
+    - run:
+        name: Display cluster status (1)
+        <<: *dind-display_cluster_state
+    - run:
+        name: Dump cluster state (1)
+        when: always
+        <<: *dind-dump_cluster
+    - run:
+        name: Run e2e test
+        command: |
+          docker run --name=istio-e2e --network=container:kube-master -t -e CNI_TAG=${CIRCLE_SHA1} -e CNI_HUB='docker.io/istio' -e HUB=${ISTIO_HUB:-gcr.io/istio-release} -e TAG=${ISTIO_TAG:-master-latest-daily} -e ISTIO_REMOTE=${ISTIO_REMOTE} -e ISTIO_REMOTE_BRANCH=${ISTIO_REMOTE_BRANCH} -e CNI_ENABLE=${CNI_ENABLE:-true} -e SKIP_CLEAN='1' e2e-runner:latest /go/run_e2e.sh
+    - run:
+        name: Display cluster status (2)
+        when: always
+        <<: *dind-display_cluster_state
+    - run:
+        name: Dump cluster state (2)
+        when: always
+        <<: *dind-dump_cluster
+    - store_artifacts:
+        path: /tmp/cluster_state
+    - run:
+        name: Bring down the cluster
+        command: |
+          ./dind-cluster.sh down
+    - run:
+        name: Clean the cluster
+        command: |
+          ./dind-cluster.sh clean
+
+
 jobs:
   e2e-simple:
     <<: *integrationDefaults
@@ -622,6 +735,18 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
+  e2e-dind-ipv6:
+    <<: *dind-defaults
+    environment:
+      <<: *dind-env-ipv6
+      ISTIO_BRANCH: master
+      ISTIO_HUB: docker.io/tiswanso
+      ISTIO_TAG: ipv6-13563
+      ISTIO_REMOTE: https://github.com/tiswanso/istio.git
+      ISTIO_REMOTE_BRANCH: simpletest_ipv6
+      CNI_ENABLE: true
+    <<: *e2e-dind-test
+
 workflows:
   version: 2
   nightly:
@@ -715,6 +840,9 @@ workflows:
       - build
       - test
       - codecov
+      - e2e-dind-ipv6:
+          requires:
+            - build
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
