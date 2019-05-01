@@ -39,7 +39,7 @@ import (
 
 const (
 	fortioYaml  = "tests/e2e/tests/stackdriver/fortio-rules.yaml"
-	adapterYaml = "tests/e2e/tests/stackdriver/adapter.yaml"
+	adapterYaml = "samples/fortio/stackdriver.yaml"
 )
 
 type (
