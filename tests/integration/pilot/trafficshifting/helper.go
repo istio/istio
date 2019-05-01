@@ -54,7 +54,7 @@ const (
 
 	errorBand = 10.0
 
-	VirtualService = `
+	virtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -139,7 +139,7 @@ func RunTrafficShiftingTest(t *testing.T, weight []int32) {
 				weight[3],
 			}
 
-			tmpl, _ := template.New("VirtualServiceConfig").Parse(VirtualService)
+			tmpl, _ := template.New("VirtualServiceConfig").Parse(virtualService)
 			var buf bytes.Buffer
 			tmpl.Execute(&buf, vsc)
 
@@ -156,12 +156,8 @@ func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 	timeout := time.After(duration)
 	totalRequests := 0
 	hostnameHitCount := map[string]int{}
-
-	for _, v := range hosts {
-		hostnameHitCount[v] = 0
-	}
-
 	errorFailures := map[string]int{}
+
 	for {
 		select {
 		case <-timeout:
