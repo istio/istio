@@ -127,16 +127,16 @@ e2e-dind-test: &e2e-dind-test
         name: Get istiocni
         working_directory: /go/src/istio.io/cni
         command: |
-          git clone --branch ${CNI_BRANCH:-master} https://github.com/istio/cni.git
+          git clone --branch ${CNI_BRANCH:-master} https://github.com/istio/cni.git .
     - run:
         name: Build e2e-runner container
         working_directory: ~/e2e-runner
         command: |
           cp /go/src/istio.io/istio/.circleci/Dockerfile.e2e-runner Dockerfile
           cp /go/src/istio.io/istio/.circleci/run_e2e.sh .
-          cp -r /go/src/istio.io/cni/deployments/kubernetes/helm/ helm/
+          cp -r /go/src/istio.io/cni/deployments/kubernetes/install/helm/ helm/
           cp -r /go/src/istio.io/istio/ istio/
-          docker build -t e2e-runner:latest
+          docker build -t e2e-runner:latest .
     - run:
         name: Get KDC
         working_directory: ~/kubeadm-dind-cluster
@@ -744,7 +744,7 @@ jobs:
       ISTIO_TAG: ipv6-13563
       ISTIO_REMOTE: https://github.com/tiswanso/istio.git
       ISTIO_REMOTE_BRANCH: simpletest_ipv6
-      CNI_ENABLE: true
+      CNI_ENABLE: false
     <<: *e2e-dind-test
 
 workflows:

@@ -9,9 +9,9 @@ chartdir=/go/helm
 
 cd /go/src/istio.io/istio
 if [[ "${ISTIO_REMOTE}" != "" ]]; then
-    git remote add nonorigin ${ISTIO_REMOTE}
+    git remote add nonorigin "${ISTIO_REMOTE}"
     git fetch nonorigin
-    git checkout nonorigin/${ISTIO_REMOTE_BRANCH:-master}
+    git checkout "nonorigin/${ISTIO_REMOTE_BRANCH:-master}"
 fi
 
 echo "k8s version"
@@ -24,7 +24,7 @@ if [[ "${CNI_ENABLE}" == "true" ]]; then
     # Install istio-cni prior to executing the Istio e2e test.  Now that the helm chart for istio/istio no longer
     # depends on the istio-cni chart, we need to explicitly do this as a prereq for installing Istio
     # (the e2e_simple test installs Istio).
-    helm template --values ${chartdir}/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set hub=${CNI_HUB} --set tag=${CNI_TAG} --set pullPolicy=IfNotPresent --set logLevel=${CNI_LOGLVL:-debug}  ${chartdir}/istio-cni > istio-cni_install.yaml
+    helm template --values ${chartdir}/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" --set hub="${CNI_HUB}" --set tag="${CNI_TAG}" --set pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  ${chartdir}/istio-cni > istio-cni_install.yaml
     kubectl apply -f istio-cni_install.yaml
 fi
 

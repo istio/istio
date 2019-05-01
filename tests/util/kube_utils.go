@@ -40,8 +40,8 @@ import (
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField          = 2
-	defaultClusterSubnet = "24"
+	statusField            = 2
+	defaultClusterSubnet   = "24"
 	defaultClusterSubnetv6 = "128"
 
 	// NodePortServiceType NodePort type of Kubernetes Service
