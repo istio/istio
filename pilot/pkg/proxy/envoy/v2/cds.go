@@ -135,25 +135,3 @@ func SetTokenPathForSdsFromProxyMetadata(c *xdsapi.Cluster, node *model.Proxy) {
 		}
 	}
 }
-
-func CopyClusters(srcClusters []*xdsapi.Cluster) []*xdsapi.Cluster {
-	clusters := make([]*xdsapi.Cluster, 0)
-	if srcClusters == nil {
-		return clusters
-	}
-	for _, c := range srcClusters {
-		bytes, err := c.Marshal()
-		if err != nil {
-			adsLog.Warnf("Error when marshal cluster: %v, error: %v", c, err)
-			continue
-		}
-		cp := &xdsapi.Cluster{}
-		err = cp.Unmarshal(bytes)
-		if err != nil {
-			adsLog.Warnf("Error when unmarshal cluster, error: %v", err)
-			continue
-		}
-		clusters = append(clusters, cp)
-	}
-	return clusters
-}
