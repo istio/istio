@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	AllowHTTPRespCode = "200"
-	DenyHTTPRespCode  = "403"
-	TCPPort           = 90
+	HTTPCode200 = "200"
+	HTTPCode403 = "403"
+	TCPPort     = 90
 )
 
 type Connection struct {
@@ -44,7 +44,7 @@ func CheckConnection(t *testing.T, conn Connection) error {
 
 	results, err := conn.From.Call(ep, apps.AppCallOptions{Protocol: conn.Protocol, Path: conn.Path})
 	if conn.ExpectedSuccess {
-		if err != nil || len(results) == 0 || results[0].Code != AllowHTTPRespCode {
+		if err != nil || len(results) == 0 || results[0].Code != HTTPCode200 {
 			// Addition log for debugging purpose.
 			if err != nil {
 				t.Logf("Error: %#v\n", err)
@@ -57,7 +57,7 @@ func CheckConnection(t *testing.T, conn Connection) error {
 				conn.From.Name(), conn.To.Name(), conn.Port, conn.Protocol)
 		}
 	} else {
-		if err == nil && len(results) > 0 && results[0].Code == AllowHTTPRespCode {
+		if err == nil && len(results) > 0 && results[0].Code == HTTPCode200 {
 			return fmt.Errorf("%s to %s:%d using %s: expected failed, actually success",
 				conn.From.Name(), conn.To.Name(), conn.Port, conn.Protocol)
 		}

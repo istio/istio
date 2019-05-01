@@ -43,6 +43,12 @@ func (p TestPolicy) TearDown() {
 	}
 }
 
+func TearDownMultiplePolicies(policies []*TestPolicy) {
+	for _, policy := range policies {
+		policy.TearDown()
+	}
+}
+
 // ApplyPolicyFile applies a policy file from testdata directory of the test.
 func ApplyPolicyFile(t *testing.T, env *kube.Environment, namespace string, fileName string) *TestPolicy {
 	joinedPath := path.Join(testDataDir, fileName)

@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/security/rbac/util"
 
 	"istio.io/istio/pkg/test/framework"
@@ -26,42 +25,14 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-const (
-	rbacClusterConfigTmpl = "testdata/istio-clusterrbacconfig.yaml.tmpl"
-	rbacV2RulesTmpl       = "testdata/istio-rbac-v2-rules.yaml.tmpl"
-)
-
-var (
-	inst          istio.Instance
-	isMtlsEnabled bool
-)
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("rbac_v2", m).
-		// TODO(pitlv2109: Turn on the presubmit label once the test is stable.
-		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	isMtlsEnabled = cfg.IsMtlsEnabled()
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-}
-
-func TestRBACV2(t *testing.T) {
+// This tests Istio Authorization V2 basic features such as exclusion.
+func TestRBACV2Basic(t *testing.T) {
 	ctx := framework.NewContext(t)
 	defer ctx.Done(t)
 	ctx.RequireOrSkip(t, environment.Kube)
@@ -82,72 +53,73 @@ func TestRBACV2(t *testing.T) {
 		// Port 80 is where HTTP is served, 90 is where TCP is served. When an HTTP request is at port
 		// 90, this means it is a TCP request. The test framework uses HTTP to mimic TCP calls in this case.
 		{Request: connection.Connection{To: appA, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appA, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secret"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appB, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appB, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appB, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appB, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appB, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 
 		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/secrets/admin"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/credentials/admin"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: isMtlsEnabled, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: isMtlsEnabled},
 		{Request: connection.Connection{To: appC, From: appD, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path/admin"},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appD, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 
 		{Request: connection.Connection{To: appD, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"},
-			ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appD, From: appA, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appD, From: appB, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/"},
-			ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appD, From: appB, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appD, From: appC, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/any_path"},
-			ExpectAllowed: true, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appD, From: appC, Port: 90, Protocol: apps.AppProtocolHTTP},
-			ExpectAllowed: false, RejectionCode: connection.DenyHTTPRespCode},
+			ExpectAllowed: false},
 	}
 
 	testDir := ctx.WorkDir()
-	testNameSpace := appInst.Namespace().Name()
-	rbacTmplFiles := []string{rbacClusterConfigTmpl, rbacV2RulesTmpl}
-	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, testNameSpace, rbacTmplFiles)
+	testNamespace := appInst.Namespace().Name()
+	rbacTmplFiles := []string{rbacClusterConfigTmpl, basicRbacV2RulesTmpl}
+	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, map[string]string{"Namespace": testNamespace}, rbacTmplFiles)
 
-	policy.ApplyPolicyFiles(t, env, testNameSpace, rbacYamlFiles)
+	rbacPolicies := policy.ApplyPolicyFiles(t, env, testNamespace, rbacYamlFiles)
+	defer policy.TearDownMultiplePolicies(rbacPolicies)
 
 	// Sleep 60 seconds for the policy to take effect.
 	// TODO(pitlv2109: Check to make sure policies have been created instead.

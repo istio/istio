@@ -29,16 +29,15 @@ type TestCase struct {
 	Request       connection.Connection
 	ExpectAllowed bool
 	Jwt           string
-	RejectionCode string
 }
 
 // CheckRBACRequest checks if a request is successful under RBAC policies.
 // Under RBAC policies, a request is consider successful if:
-// * If the policy is deny:
-// *** For HTTP: response code is same as the tc.RejectionCode.
-// *** For TCP: EOF error
 // * If the policy is allow:
 // *** Response code is 200
+// * If the policy is deny:
+// *** For HTTP: response code is 403.
+// *** For TCP: EOF error and response code is 403.
 func CheckRBACRequest(tc TestCase) error {
 	req := tc.Request
 	ep := req.To.EndpointForPort(req.Port)
@@ -57,36 +56,34 @@ func CheckRBACRequest(tc TestCase) error {
 	}
 
 	if tc.ExpectAllowed {
-		if !(len(resp) > 0 && resp[0].Code == connection.AllowHTTPRespCode) {
+		if !(len(resp) > 0 && resp[0].Code == connection.HTTPCode200) {
 			return fmt.Errorf("%s to %s:%d%s using %s: expected allow, actually deny",
 				req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
 		}
 	} else {
 		if req.Port == connection.TCPPort {
-			if !strings.Contains(err.Error(), "EOF") {
+			if !(err != nil && strings.Contains(err.Error(), "EOF")) {
 				return fmt.Errorf("%s to %s:%d%s using %s: expected deny with EOF error, actually %v",
 					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol, err)
 			}
 		} else {
-			if !(len(resp) > 0 && resp[0].Code == tc.RejectionCode) {
+			if !(len(resp) > 0 && resp[0].Code == connection.HTTPCode403) {
 				return fmt.Errorf("%s to %s:%d%s using %s: expected deny, actually allow",
 					req.From.Name(), req.To.Name(), req.Port, req.Path, req.Protocol)
 			}
 		}
 	}
-	// Success
 	return nil
 }
 
 // GetRbacYamlFiles fills the template RBAC policy files with the given namespace and template files,
 // writes the files to outDir and return the list of file paths.
-func GetRbacYamlFiles(t *testing.T, outDir, namespace string, rbacTmplFiles []string) []string {
+// namespaceMapping is the mapping where the keys are the template variables in `rbacTmplFiles` and the values
+// are the desired values to replace those template variables.
+func GetRbacYamlFiles(t *testing.T, outDir string, namespaceMapping map[string]string, rbacTmplFiles []string) []string {
 	var rbacYamlFiles []string
-	namespaceParams := map[string]string{
-		"Namespace": namespace,
-	}
 	for _, rbacTmplFile := range rbacTmplFiles {
-		yamlFile, err := util.CreateAndFill(outDir, rbacTmplFile, namespaceParams)
+		yamlFile, err := util.CreateAndFill(outDir, rbacTmplFile, namespaceMapping)
 		if err != nil {
 			t.Fatalf("Cannot create and fill %v", rbacTmplFile)
 		}

@@ -18,21 +18,19 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
-
-	"istio.io/istio/tests/integration/security/rbac/util"
-
+	"istio.io/istio/pkg/test/framework/components/apps"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/util/connection"
 	"istio.io/istio/pkg/test/util/policy"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/rbac/util"
+
+	"istio.io/istio/pkg/test/framework/components/istio"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 )
 
 const (
@@ -57,7 +55,6 @@ const (
 		"NBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde" +
 		"7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRn" +
 		"emRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
-	rbacTestRejectionCode = "403"
 )
 
 var (
@@ -77,7 +74,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("rbac_v2_group_list", m).
 		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 }
@@ -102,21 +98,21 @@ func TestGroupV2RBAC(t *testing.T) {
 	cases := []util.TestCase{
 		// Port 80 is where HTTP is served
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
-			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appB, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
-			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
+			ExpectAllowed: true},
 		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: noGroupScopeJwt,
-			ExpectAllowed: false, RejectionCode: rbacTestRejectionCode},
+			ExpectAllowed: false},
 		{Request: connection.Connection{To: appC, From: appA, Port: 80, Protocol: apps.AppProtocolHTTP, Path: "/xyz"}, Jwt: groupsScopeJwt,
-			ExpectAllowed: true, RejectionCode: rbacTestRejectionCode},
+			ExpectAllowed: true},
 	}
 
 	testDir := ctx.WorkDir()
-	testNameSpace := appInst.Namespace().Name()
+	testNamespace := appInst.Namespace().Name()
 	rbacTmplFiles := []string{rbacClusterConfigTmpl, rbacGroupListRulesTmpl}
-	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, testNameSpace, rbacTmplFiles)
+	rbacYamlFiles := util.GetRbacYamlFiles(t, testDir, map[string]string{"Namespace": testNamespace}, rbacTmplFiles)
 
-	policy.ApplyPolicyFiles(t, env, testNameSpace, rbacYamlFiles)
+	policy.ApplyPolicyFiles(t, env, testNamespace, rbacYamlFiles)
 
 	// Sleep 60 seconds for the policy to take effect.
 	// TODO(lei-tang): programmatically check that policies have taken effect instead.
