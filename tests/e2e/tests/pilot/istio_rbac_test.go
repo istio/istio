@@ -214,7 +214,7 @@ func TestRBACForEgressGateway(t *testing.T) {
 			runRetriableTest(t, name, 30, func() error {
 				// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 				reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-				resp := ClientRequest(cluster, test.app, reqURL, 100, "-key Host -val eu.bookinfo.com")
+				resp := ClientRequest(cluster, test.app, reqURL, 100, "--key Host --val eu.bookinfo.com")
 				count := make(map[string]int)
 				for _, elt := range resp.Host {
 					count[elt]++
