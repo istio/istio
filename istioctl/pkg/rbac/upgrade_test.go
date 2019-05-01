@@ -26,30 +26,34 @@ const (
 )
 
 type testCases struct {
-	input    Upgrader
-	expected string
+	input                string
+	workloadLabelMapping map[string]ServiceToWorkloadLabels
+	expected             string
 }
 
 func TestUpgradeLocalFile(t *testing.T) {
 	cases := []testCases{
 		{
-			input: Upgrader{
-				RbacFile: "./testdata/rbac-policies.yaml",
-				// Data from the BookExample. productpage.svc.cluster.local is the service with pod label
-				// app: productpage.
-				RoleNameToWorkloadLabels: map[string]ServiceToWorkloadLabels{
-					"service-viewer": {
-						"productpage": map[string]string{
-							"app": "productpage",
-						},
+			input: "./testdata/rbac-policies.yaml",
+			// Data from the BookExample. productpage.svc.cluster.local is the service with pod label
+			// app: productpage.
+			workloadLabelMapping: map[string]ServiceToWorkloadLabels{
+				"service-viewer": {
+					"productpage": map[string]string{
+						"app": "productpage",
 					},
 				},
 			},
-			expected: "./testdata/rbac-policies-v2-expected.yaml",
+			expected: "./testdata/rbac-policies-v2.golden.yaml",
 		},
 	}
+
 	for _, tc := range cases {
-		gotContent, err := tc.input.UpgradeCRDs()
+		upgrader := Upgrader{
+			RbacFile:                 tc.input,
+			RoleNameToWorkloadLabels: tc.workloadLabelMapping,
+		}
+		gotContent, err := upgrader.UpgradeCRDs()
 		if err != nil {
 			t.Errorf(testFailedWithError, err)
 		}
