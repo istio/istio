@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM ruby:2.3-slim
+FROM ruby:2.6.3-slim
 
 COPY details.rb /opt/microservices/
 
