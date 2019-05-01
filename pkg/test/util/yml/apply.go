@@ -27,6 +27,9 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 
 	result := ""
 	for _, chunk := range chunks {
+		if chunk == "" {
+			continue
+		}
 		if result != "" {
 			result += yamlSeparator
 		}
