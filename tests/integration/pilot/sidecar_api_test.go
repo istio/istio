@@ -47,21 +47,11 @@ func TestSidecarListeners(t *testing.T) {
 		DNSDomain:   "testns.cluster.local",
 	}
 
-	// ... and get listeners from Pilot for that proxy
-	req := &xdsapi.DiscoveryRequest{
-		Node: &xdscore.Node{
-			Id: nodeID.ServiceNode(),
-		},
-		TypeUrl: "type.googleapis.com/envoy.api.v2.Listener",
-	}
-	// Start the xDS stream
-	err := p.StartDiscovery(req)
-	if err != nil {
-		t.Fatalf("Failed to test as no resource accepted: %v", err)
-	}
+	// Start the xDS stream containing the listeners for this node
+	p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), pilot.Listener))
 
 	// Test the empty case where no config is loaded
-	err = p.WatchDiscovery(time.Second*10,
+	p.WatchDiscoveryOrFail(t, time.Second*10,
 		func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
 			validator := structpath.ForProto(response)
 			if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
@@ -70,9 +60,6 @@ func TestSidecarListeners(t *testing.T) {
 			validateListenersNoConfig(t, validator)
 			return true, nil
 		})
-	if err != nil {
-		t.Fatalf("Failed to test as no resource accepted: %v", err)
-	}
 
 	// TODO: The code below is flaky. We should re-enable this once we have explicit config loading trigger support in Galley.
 	// Apply some config
