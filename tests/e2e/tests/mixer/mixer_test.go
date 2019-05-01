@@ -51,10 +51,9 @@ const (
 	bookinfoRatingsv2Yaml  = "bookinfo-ratings-v2"
 	bookinfoDbYaml         = "bookinfo-db"
 	sleepYaml              = "samples/sleep/sleep"
-	mixerTestDataDir       = "tests/e2e/tests/mixer/testdata"
 	mixerPromAdapterConfig = "mixer/test/prometheus/prometheus-nosession"
 	mixerMetricTemplate    = "mixer/template/metric/template"
-	oopPromDeployment      = "tests/e2e/tests/mixer/testdata/mixer-deployment-service"
+	oopPromDeployment      = "samples/bookinfo/policy/prometheus-adapter-deployment"
 
 	prometheusPort   = uint16(9090)
 	mixerMetricsPort = uint16(42422)
@@ -106,7 +105,7 @@ var (
 	bookinfoGateway              = "bookinfo-gateway"
 	redisQuotaRollingWindowRule  = "mixer-rule-ratings-redis-quota-rolling-window"
 	redisQuotaFixedWindowRule    = "mixer-rule-ratings-redis-quota-fixed-window"
-	oopPromConfigs               = "mixer-oop-rule-handler-instance-deployment"
+	oopPromConfigs               = "prometheus-oop-rule"
 	faultInjectionNetworkingRule = "fault-injection-details-v1"
 
 	defaultRules []string
@@ -148,7 +147,7 @@ func (t *testConfig) Setup() (err error) {
 
 	rs = []*string{&redisQuotaRollingWindowRule, &redisQuotaFixedWindowRule, &oopPromConfigs}
 	for _, r := range rs {
-		*r = filepath.Join(mixerTestDataDir, *r)
+		*r = filepath.Join(bookinfoSampleDir, policyDir, *r)
 		rules = append(rules, *r)
 	}
 

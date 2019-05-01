@@ -1,11 +1,13 @@
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: handler
 metadata:
-  name: redisquotahandler
+  name: redishandler
   namespace: istio-system
 spec:
   compiledAdapter: redisquota
   params:
+    redisServerUrl: redis-release-master:6379
+    connectionPoolSize: 10
     quotas:
     - name: requestcountquota.instance.istio-system
       maxAmount: 5000
@@ -25,10 +27,8 @@ spec:
       - dimensions:
           destination: ratings
         maxAmount: 100
-    redisServerUrl: "redis-release-master.istio-system.svc.cluster.local:6379"
-    connectionPoolSize: 10
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: instance
 metadata:
   name: requestcountquota
@@ -41,24 +41,10 @@ spec:
       sourceVersion: source.labels["version"] | "unknown"
       destination: destination.labels["app"] | "unknown"
       destinationVersion: destination.labels["version"] | "unknown"
-
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: quota
-  namespace: istio-system
-spec:
-  match: (destination.labels["app"]|"unknown") == "ratings"
-  actions:
-  - handler: redisquotahandler
-    instances: [ requestcountquota ]
-
 ---
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpec
 metadata:
-  creationTimestamp: null
   name: request-count
   namespace: istio-system
 spec:
@@ -66,12 +52,10 @@ spec:
   - quotas:
     - charge: 1
       quota: requestcountquota
-
 ---
 apiVersion: config.istio.io/v1alpha2
 kind: QuotaSpecBinding
 metadata:
-  creationTimestamp: null
   name: request-count
   namespace: istio-system
 spec:
@@ -83,3 +67,16 @@ spec:
   - name: reviews
   - name: details
   - name: productpage
+---
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: quota
+  namespace: istio-system
+spec:
+  match: (destination.labels["app"]|"unknown") == "ratings"
+  actions:
+  - handler: redishandler
+    instances:
+    - requestcountquota
+---
