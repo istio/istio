@@ -124,7 +124,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 
 type buildHandlerFn func(handler hndlr, instances interface{}) (h adapter.Handler, env env, err error)
 
-func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, snapshotID int64, buildHandler buildHandlerFn) (new, reused, errors int64) {
+func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, snapshotID int64, buildHandler buildHandlerFn) (added, reused, errors int64) {
 
 	sig := calculateSignature(handler, instances)
 
@@ -147,7 +147,7 @@ func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, sna
 		return
 	}
 
-	new++
+	added++
 
 	t.entries[handler.GetName()] = Entry{
 		Name:        handler.GetName(),
@@ -157,7 +157,7 @@ func createEntry(old *Table, t *Table, handler hndlr, instances interface{}, sna
 		env:         e,
 	}
 
-	return new, reused, errors
+	return added, reused, errors
 }
 
 // Cleanup the old table by selectively closing handlers that are not used in the given table.
