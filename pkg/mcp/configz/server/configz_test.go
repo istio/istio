@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
-
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
@@ -52,12 +52,18 @@ func TestConfigZ(t *testing.T) {
 	s.Cache.SetSnapshot(groups.Default, b.Build())
 
 	o := ctrlz.DefaultOptions()
-	cz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(s.Cache)})
+	o.Port = 0
+	cz, err := ctrlz.Run(o, []fw.Topic{CreateTopic(s.Cache)})
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer cz.Close()
 
-	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
+	baseURL := fmt.Sprintf("http://%v", cz.Address())
 
 	t.Run("configj with 1 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
+
+	t.Run("configj mcp resource with 1 request", func(tt *testing.T) { testConfigJResourceWithOneRequest(tt, baseURL) })
 }
 
 func testConfigJWithOneRequest(t *testing.T, baseURL string) {
@@ -91,6 +97,31 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 	}
 	if !exists {
 		t.Fatalf("Should have contained supported collections: %v", data)
+	}
+
+}
+
+func testConfigJResourceWithOneRequest(t *testing.T, baseURL string) {
+	t.Helper()
+
+	data := request(t, baseURL+"/configj/resource?group="+groups.Default+"&collection="+testK8sCollection+"&name=foo")
+
+	m := make(map[string]interface{})
+	err := json.Unmarshal([]byte(data), &m)
+	if err != nil {
+		t.Fatalf("Should have unmarshalled json: %v", err)
+	}
+
+	if m["Metadata"].(map[string]interface{})["name"] != "foo" {
+		t.Fatalf("Should have name with foo: %v", data)
+	}
+
+	if m["Metadata"].(map[string]interface{})["version"] != "v0" {
+		t.Fatalf("Should have version with v0: %v", data)
+	}
+
+	if m["TypeURL"].(string) != "type.googleapis.com/google.protobuf.Empty" {
+		t.Fatalf("Should have type_url with type.googleapis.com/google.protobuf.Empty: %v", data)
 	}
 
 }

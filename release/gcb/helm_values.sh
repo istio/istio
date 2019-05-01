@@ -34,10 +34,6 @@ function fix_values_yaml() {
   sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
 
-  # Copy helm charts (build by helm_charts.sh) to be packaged in the tarball.
-  mkdir -vp ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
-  cp /modification-tmp/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
-  
   # replace prerelease with release location for istio.io repo
   if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
     sed -i.bak "s:istio-prerelease/daily-build.*$:istio-release/releases/${CB_VERSION}/charts:g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/README.md

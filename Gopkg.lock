@@ -318,7 +318,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:837b53240a3ebcc273546e938e8fe29ebdb39c7af1ca185f933f1effcf0f48c7"
+  digest = "1:f07d607f73be36f9323afd3b704178988389510ebb675b956bfab75034db3b46"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -344,7 +344,6 @@
     "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/overload/v2alpha",
-    "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
@@ -357,8 +356,16 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "0ad6fa1cf0b9b6ca8f3617a7188a568e81f40b87"
-  version = "v0.6.9"
+  revision = "2026bb63b9164b8a7898931e2fbdf7526224d480"
+  version = "v0.7.0"
+
+[[projects]]
+  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
+  name = "github.com/envoyproxy/protoc-gen-validate"
+  packages = ["validate"]
+  pruneopts = "NUT"
+  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
+  version = "v0.0.6"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -496,13 +503,12 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  digest = "1:5c4ec7f9d044b5ab80e7e0fea1f1418158dc2a19da9663520495f8c3537fd78c"
+  digest = "1:bbee355918c8efc2107de47833af2309d236fcd402f0580124bba7779ac9c354"
   name = "github.com/golang/protobuf"
   packages = [
     "descriptor",
     "proto",
     "protoc-gen-go/descriptor",
-    "protoc-gen-go/plugin",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -540,7 +546,7 @@
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
 
 [[projects]]
-  digest = "1:eb97836c12a177bf479aa00c3c2247590eebfc252fce6d953e2cbc2405e2643c"
+  digest = "1:4d49996da7ca0a062d7a136b65608c24b258673968cc162e97183171a6cb056f"
   name = "github.com/google/cel-go"
   packages = [
     "cel",
@@ -561,8 +567,8 @@
     "parser/gen",
   ]
   pruneopts = "NUT"
-  revision = "81d826ac4515a47311b5e8734449e3a6ac7afceb"
-  version = "v0.1.0"
+  revision = "2c29ff3f5d3d7856e562e821214cc9c77657b853"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
@@ -836,14 +842,6 @@
   version = "v1.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:ea0e9c42fc8bbc0b5d8e88df4550dc6737e1a1ae2074884a6f3a46082ca872d2"
-  name = "github.com/istio/tools"
-  packages = ["protoc-gen-docs"]
-  pruneopts = "NUT"
-  revision = "5e465c4eda79c4063d08620ba8b09a3ef7fc4181"
-
-[[projects]]
   digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -865,14 +863,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
-
-[[projects]]
-  digest = "1:e361d686ef1e70b8bd268cfb3953fcc0d59b43d4e5b6ad9a80112b06bff6cb2b"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "NUT"
-  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
-  version = "v0.0.6"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
@@ -962,12 +952,12 @@
   version = "v0.8.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:61820d62888624679de099adf44bb6cf2fd55b7f9e8f4f8d320d9d9d28bee938"
+  branch = "release-3.11"
+  digest = "1:b8d1c7ce1bae7d93991ad16a581440b4257dad8c83acc41851b6203c73ece3e8"
   name = "github.com/openshift/api"
   packages = ["apps/v1"]
   pruneopts = "NUT"
-  revision = "dca24d1902afee9d2be02425a2d7c9f910063631"
+  revision = "8741ff068a473be041d7bafb4502c12e4f10aab5"
 
 [[projects]]
   digest = "1:6e36c3eab25478d363e7eb669f253d9f9a620e640b0e1d86d3e909cbb1a56ab6"
@@ -1151,14 +1141,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "ed9870dad3170c0b25ab9b11830cc57c3a7798fb"
-
-[[projects]]
-  branch = "master"
-  digest = "1:debf1a119378d059b68925f1796851b6855bfc2f55419a50d634ecce3eabd8e8"
-  name = "github.com/shurcooL/sanitized_anchor_name"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
 
 [[projects]]
   branch = "master"
@@ -1557,7 +1539,7 @@
   revision = "94acd270e44e65579b9ee3cdab25034d33fed608"
 
 [[projects]]
-  digest = "1:d2cd4383c252f450abec5772b1d3536603ee955df65fd992b767bb214c774a84"
+  digest = "1:8bd66f5d83741a82dccd6838d4e3f23df96ca36e84220129c5a0d67e6ca0636d"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -1594,8 +1576,8 @@
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "8dea3dc473e90c8179e519d91302d0597c0ca1d1"
-  version = "v1.15.0"
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   digest = "1:22b2dee6f30bc8601f087449a2a819df8388e54e9547349c658f14d8f8c590f2"
@@ -1628,14 +1610,6 @@
   pruneopts = "NUT"
   revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
   version = "v0.3.0"
-
-[[projects]]
-  digest = "1:4e5a9cf82174cea34d2a04859fa7c22444d0f597c6666ebe32397d648c03c60a"
-  name = "gopkg.in/russross/blackfriday.v2"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "cadec560ec52d93835bf2f15bd794700d3a2473b"
-  version = "v2.0.0"
 
 [[projects]]
   digest = "1:2de5f573e9a4e8c5add0b873fabbbff017875b7adc0f2ea32ad2fd4573316795"
@@ -1690,7 +1664,7 @@
   name = "istio.io/tools"
   packages = ["pkg/protocgen"]
   pruneopts = "NUT"
-  revision = "8d3bf51ec16ac15e542294bc6861f209bf19df0d"
+  revision = "3340c26d80d34bb4aa32709ac3253745a6117e4a"
 
 [[projects]]
   branch = "release-1.11"
@@ -1998,7 +1972,7 @@
   revision = "56e7a63b5e38b614bb7cb8c49ed26dc991b324c4"
 
 [[projects]]
-  digest = "1:cb964e36388b4b7d141d595794fd8e384ff69e25badbe374e62fd7dc24e82fba"
+  digest = "1:97703d78f59b1906eee5cc024d06f57053995123c3628bb8fdf16f1d090b5cae"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -2006,6 +1980,7 @@
     "pkg/ignore",
     "pkg/proto/hapi/chart",
     "pkg/proto/hapi/version",
+    "pkg/strvals",
     "pkg/sympath",
     "pkg/timeconv",
     "pkg/version",
@@ -2153,7 +2128,6 @@
     "github.com/hashicorp/go-multierror",
     "github.com/hashicorp/vault/api",
     "github.com/howeyc/fsnotify",
-    "github.com/istio/tools/protoc-gen-docs",
     "github.com/mitchellh/go-homedir",
     "github.com/natefinch/lumberjack",
     "github.com/onsi/gomega",
@@ -2257,8 +2231,8 @@
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
-    "k8s.io/api/apps/v1beta1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/authorization/v1beta1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",
@@ -2286,6 +2260,7 @@
     "k8s.io/apimachinery/pkg/util/uuid",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/util/yaml",
+    "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/fake",
@@ -2347,6 +2322,7 @@
     "k8s.io/helm/pkg/engine",
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/version",
+    "k8s.io/helm/pkg/strvals",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/kubectl/genericclioptions",

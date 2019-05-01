@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -39,7 +40,7 @@ func (versionTopic) Prefix() string {
 }
 
 func (versionTopic) Activate(context fw.TopicContext) {
-	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/version.html"))))
+	tmpl := template.Must(context.Layout().Parse(string(assets.MustAsset("templates/version.html"))))
 
 	_ = context.HTMLRouter().StrictSlash(true).NewRoute().Path("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		fw.RenderHTML(w, tmpl, &version.Info)

@@ -14,12 +14,17 @@ items:
           port: 80
           targetPort: 80
       type: LoadBalancer
-  - apiVersion: extensions/v1beta1
+  - apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: frontend
     spec:
       replicas: 1
+      selector:
+        matchLabels:
+          app: hello
+          tier: frontend
+          track: stable
       template:
         metadata:
           labels:

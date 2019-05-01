@@ -20,17 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-// Main runs the test suite. The Main will run the supplied setup functions before starting test execution.
-// It will not return, and will exit the process after running tests.
-func Main(testID string, m *testing.M, setupFn ...SetupFn) {
-	r := NewSuite(testID, m)
-	for _, fn := range setupFn {
-		r = r.Setup(fn)
-	}
-
-	r.Run()
-}
-
 // Run runs the given test.
 func Run(t *testing.T, fn func(ctx TestContext)) {
 	NewTest(t).Run(fn)

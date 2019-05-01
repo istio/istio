@@ -29,9 +29,9 @@ var (
 
 // baseIterator is the basis for list, map, and object iterators.
 //
-// An iterator in and of itself should not be a valid value for comparison, but
-// must implement the ref.Val methods in order to be well-supported within
-// instruction arguments processed by the interpreter.
+// An iterator in and of itself should not be a valid value for comparison, but must implement the
+// `ref.Val` methods in order to be well-supported within instruction arguments processed by the
+// interpreter.
 type baseIterator struct{}
 
 func (it *baseIterator) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

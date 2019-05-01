@@ -47,6 +47,7 @@ dashboard:
   secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
   usernameKey: username # This is the key name within the secret whose value is the actual username.
   passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
+  viewOnlyMode: false # Bind the service account to a role with only read access
   grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
   jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
 prometheusAddr: http://prometheus:9090

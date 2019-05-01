@@ -49,7 +49,7 @@ import (
 )
 
 var (
-	role             = &model.Proxy{}
+	role             = &model.Proxy{Metadata: map[string]string{}}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
@@ -68,6 +68,7 @@ var (
 	lightstepAccessToken       string
 	lightstepSecure            bool
 	lightstepCacertPath        string
+	datadogAgentAddress        string
 	connectTimeout             time.Duration
 	statsdUDPAddress           string
 	envoyMetricsServiceAddress string
@@ -75,6 +76,7 @@ var (
 	controlPlaneAuthPolicy     string
 	customConfigFile           string
 	proxyLogLevel              string
+	proxyComponentLogLevel     string
 	concurrency                int
 	templateFile               string
 	disableInternalTelemetry   bool
@@ -275,6 +277,14 @@ var (
 						},
 					},
 				}
+			} else if datadogAgentAddress != "" {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Datadog_{
+						Datadog: &meshconfig.Tracing_Datadog{
+							Address: datadogAgentAddress,
+						},
+					},
+				}
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -366,7 +376,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, proxyComponentLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry, pilot.TerminationDrainDuration())
 			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
@@ -517,6 +527,8 @@ func init() {
 		"Should connection to the LightStep Satellite pool be secure")
 	proxyCmd.PersistentFlags().StringVar(&lightstepCacertPath, "lightstepCacertPath", "",
 		"Path to the trusted cacert used to authenticate the pool")
+	proxyCmd.PersistentFlags().StringVar(&datadogAgentAddress, "datadogAgentAddress", "",
+		"Address of the Datadog Agent")
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),
 		"Connection timeout used by Envoy for supporting services")
@@ -534,6 +546,9 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warning", "error", "critical", "off"))
+	// See https://www.envoyproxy.io/docs/envoy/latest/operations/cli#cmdoption-component-log-level
+	proxyCmd.PersistentFlags().StringVar(&proxyComponentLogLevel, "proxyComponentLogLevel", "misc:error",
+		"The component log level used to start the Envoy proxy")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",

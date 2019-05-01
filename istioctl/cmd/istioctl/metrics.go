@@ -86,7 +86,7 @@ type workloadMetrics struct {
 func run(_ *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := kubernetes.NewClient(kubeconfig, configContext)
+	client, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}

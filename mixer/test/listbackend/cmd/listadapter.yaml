@@ -28,12 +28,16 @@ spec:
   selector:
     app: listadapter
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: listadapter
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: listadapter
+      version: v1
   template:
     metadata:
       labels:

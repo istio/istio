@@ -50,11 +50,14 @@ type envoy struct {
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, componentLogLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
 		args = append(args, "-l", logLevel)
+	}
+	if componentLogLevel != "" {
+		args = append(args, "--component-log-level", componentLogLevel)
 	}
 
 	return &envoy{
@@ -111,7 +114,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else {
 		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
 		if err != nil {
-			log.Errora("Failed to generate bootstrap config", err)
+			log.Errora("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 			return err
 		}

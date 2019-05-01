@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 )
 
@@ -33,15 +32,15 @@ and check if TLS settings are compatible between them.
 `,
 		Example: `
 # Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default:
-istioctl authn tls-check 656bd7df7c-5zp4s.default
+istioctl authn tls-check foo-656bd7df7c-5zp4s.default
 
 # Check settings for pod "foo-656bd7df7c-5zp4s" in namespace default, filtered on destintation
 service "bar" :
-istioctl authn tls-check 656bd7df7c-5zp4s.default bar
+istioctl authn tls-check foo-656bd7df7c-5zp4s.default bar
 `,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
 			}

@@ -19,12 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -64,11 +66,11 @@ func TestConversion(t *testing.T) {
 
 					t.Logf("==== Running iter: %d\n", i)
 					if len(d.FileSets()) == 1 {
-						runTest(t, fset, gal)
+						runTest(t, ctx, fset, gal)
 					} else {
 						testName := fmt.Sprintf("%d", i)
 						t.Run(testName, func(t *testing.T) {
-							runTest(t, fset, gal)
+							runTest(t, ctx, fset, gal)
 						})
 					}
 				}
@@ -77,13 +79,15 @@ func TestConversion(t *testing.T) {
 	}
 }
 
-func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
+func runTest(t *testing.T, ctx resource.Context, fset *testdata.FileSet, gal galley.Instance) {
 	input, err := fset.LoadInputFile()
 	if err != nil {
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	expected, err := fset.LoadExpectedResources()
+	ns := namespace.NewOrFail(t, ctx, "conv", true)
+
+	expected, err := fset.LoadExpectedResources(ns.Name())
 	if err != nil {
 		t.Fatalf("unable to load expected resources: %v", err)
 	}
@@ -96,7 +100,7 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	// We should do Ctrlz trigger based approach.
 	time.Sleep(time.Second)
 
-	if err = gal.ApplyConfig(nil, string(input)); err != nil {
+	if err = gal.ApplyConfig(ns, string(input)); err != nil {
 		t.Fatalf("unable to apply config to Galley: %v", err)
 	}
 
@@ -109,10 +113,10 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 			// endpoints as annotations, which are volatile. This prevents us from using
 			// golden files for validation. Instead, we use the structpath library to
 			// validate the fields manually.
-			validator = syntheticServiceEntryValidator()
+			validator = syntheticServiceEntryValidator(ns.Name())
 		default:
 			// All other collections use golden files.
-			validator = galley.NewGoldenSnapshotValidator(e)
+			validator = galley.NewGoldenSnapshotValidator(ns.Name(), e)
 		}
 
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
@@ -121,11 +125,11 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal galley.Instance) {
 	}
 }
 
-func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
-	return galley.NewSingleObjectSnapshotValidator(func(actual *galley.SnapshotObject) error {
+func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
+	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
 		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
-			Equals("kube-dns", "{.Metadata.name}").
+			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
 			Check(); err != nil {
 			return err
 		}
@@ -140,10 +144,10 @@ func syntheticServiceEntryValidator() galley.SnapshotValidatorFunc {
 		// Compare the body
 		if err := v.Select("{.Body}").
 			Equals("10.43.240.10", "{.addresses[0]}").
-			Equals("kube-dns.default.svc.cluster.local", "{.hosts[0]}").
+			Equals(fmt.Sprintf("kube-dns.%s.svc.cluster.local", ns), "{.hosts[0]}").
 			Equals(1, "{.location}").
 			Equals(1, "{.resolution}").
-			Equals("spiffe://cluster.local/ns//sa/kube-dns", "{.subject_alt_names[0]}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subject_alt_names[0]}").
 			Check(); err != nil {
 			return err
 		}

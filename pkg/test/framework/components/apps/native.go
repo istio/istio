@@ -15,6 +15,7 @@
 package apps
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -28,27 +29,34 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/server"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/components/apps/agent"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
+	localhost     = "127.0.0.1"
 )
 
 var (
 	_ Instance  = &nativeComponent{}
 	_ io.Closer = &nativeComponent{}
+
+	nativeServiceVersionMap = map[string]string{
+		"a": "v1",
+		"b": "v1",
+		"c": "unversioned",
+	}
 
 	ports = model.PortList{
 		{
@@ -81,16 +89,16 @@ var (
 type nativeComponent struct {
 	id resource.ID
 
-	//tlsCKey          string
-	//tlsCert          string
 	discoveryAddress *net.TCPAddr
-	serviceManager   *service.Manager
 	apps             []App
 }
 
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, cfg Config) (Instance, error) {
-	env := ctx.Environment().(*native.Environment)
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	c := &nativeComponent{
 		apps: make([]App, 0),
 	}
@@ -101,37 +109,46 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, errors.New("pilot does not support in-process interface")
 	}
 
-	//return NewApps(p.GetDiscoveryAddress(), e.ServiceManager)
-	cfgs := []appConfig{
-		{
-			serviceName: "a",
-			version:     "v1",
-		},
-		{
-			serviceName: "b",
-			version:     "unversioned",
-		},
-		{
-			serviceName: "c",
-			version:     "v1",
-		},
-		// TODO(nmittler): Investigate how to support multiple versions in the local environment.
-		/*{
-			serviceName: "c",
-			version:     "v2",
-		},*/
+	if len(cfg.AppParams) == 0 {
+		// Include all of the services.
+		for s := range nativeServiceVersionMap {
+			cfg.AppParams = append(cfg.AppParams, AppParam{Name: s})
+		}
 	}
 
 	c.discoveryAddress = nativePilot.GetDiscoveryAddress()
-	c.serviceManager = env.ServiceManager
 
-	for _, cfg := range cfgs {
-		//cfg.tlsCKey = c.tlsCert
-		//cfg.tlsCert = c.tlsCert
-		cfg.discoveryAddress = c.discoveryAddress
-		cfg.serviceManager = c.serviceManager
+	domain := ctx.Environment().(*native.Environment).Domain
+	tmpDir, err := ctx.CreateTmpDirectory("apps")
+	if err != nil {
+		return nil, err
+	}
 
-		app, err := newNativeApp(cfg)
+	portManager, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = portManager.Close()
+	}()
+
+	for _, appParams := range cfg.AppParams {
+		version, ok := nativeServiceVersionMap[appParams.Name]
+		if !ok {
+			return nil, fmt.Errorf("unsupported service: %s", appParams.Name)
+		}
+
+		appCfg := nativeAppConfig{
+			Config:           cfg,
+			serviceName:      appParams.Name,
+			version:          version,
+			tmpDir:           tmpDir,
+			domain:           domain,
+			discoveryAddress: c.discoveryAddress,
+			portManager:      portManager,
+		}
+
+		app, err := newNativeApp(appCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +237,7 @@ func configDumpStr(a App) (string, error) {
 
 // ConstructDiscoveryRequest returns an Envoy discovery request.
 func ConstructDiscoveryRequest(a App, typeURL string) *xdsapi.DiscoveryRequest {
-	nodeID := agent.GetNodeID(a.(*nativeApp).agent)
+	nodeID := a.(*nativeApp).agent.GetNodeID()
 	return &xdsapi.DiscoveryRequest{
 		Node: &core.Node{
 			Id: nodeID,
@@ -229,18 +246,22 @@ func ConstructDiscoveryRequest(a App, typeURL string) *xdsapi.DiscoveryRequest {
 	}
 }
 
-type appConfig struct {
+type nativeAppConfig struct {
+	Config
+	domain           string
+	tmpDir           string
 	serviceName      string
 	version          string
 	tlsCKey          string
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
-	serviceManager   *service.Manager
+	portManager      reserveport.PortManager
+	envoyLogLevel    envoy.LogLevel
 }
 
-func newNativeApp(cfg appConfig) (a App, err error) {
+func newNativeApp(cfg nativeAppConfig) (a App, err error) {
 	newapp := &nativeApp{
-		name: cfg.serviceName,
+		nativeAppConfig: cfg,
 	}
 	defer func() {
 		if err != nil {
@@ -248,19 +269,32 @@ func newNativeApp(cfg appConfig) (a App, err error) {
 		}
 	}()
 
-	appFactory := (&echo.Factory{
-		Ports:   ports,
-		Version: cfg.version,
-		TLSCKey: cfg.tlsCKey,
-		TLSCert: cfg.tlsCert,
-	}).NewApplication
+	copyOfPorts := make(model.PortList, 0, len(ports))
+	for _, p := range ports {
+		copyOfPort := *p
+		copyOfPorts = append(copyOfPorts, &copyOfPort)
+	}
 
-	agentFactory := (&agent.PilotAgentFactory{
-		DiscoveryAddress: cfg.discoveryAddress,
-	}).NewAgent
+	s := server.New(server.Config{
+		Ports:   copyOfPorts,
+		Version: cfg.version,
+		TLSCert: cfg.tlsCert,
+		TLSKey:  cfg.tlsCKey,
+	})
 
 	// Create and start the agent.
-	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory, nil)
+	newapp.agent, err = agent.New(agent.Config{
+		Domain:           cfg.domain,
+		Namespace:        cfg.Namespace,
+		Galley:           cfg.Galley,
+		EchoServer:       s,
+		PortManager:      cfg.portManager,
+		ServiceName:      cfg.serviceName,
+		Version:          cfg.version,
+		DiscoveryAddress: cfg.discoveryAddress,
+		TmpDir:           cfg.tmpDir,
+		EnvoyLogLevel:    cfg.envoyLogLevel,
+	})
 	if err != nil {
 		return
 	}
@@ -286,7 +320,7 @@ func newNativeApp(cfg appConfig) (a App, err error) {
 	if grpcEndpoint == nil {
 		return nil, errors.New("unable to find grpc port for application")
 	}
-	newapp.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
+	newapp.client, err = client.New(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
 	if err != nil {
 		return nil, err
 	}
@@ -295,10 +329,10 @@ func newNativeApp(cfg appConfig) (a App, err error) {
 }
 
 type nativeApp struct {
-	name      string
-	agent     agent.Agent
+	nativeAppConfig
+	agent     *agent.Instance
 	endpoints []AppEndpoint
-	client    *echo.Client
+	client    *client.Instance
 }
 
 func (a *nativeApp) Close() (err error) {
@@ -312,7 +346,11 @@ func (a *nativeApp) Close() (err error) {
 }
 
 func (a *nativeApp) Name() string {
-	return a.name
+	return a.serviceName
+}
+
+func (a *nativeApp) fqdn() string {
+	return fmt.Sprintf("%s.%s.%s", a.serviceName, a.Namespace.Name(), a.domain)
 }
 
 func (a *nativeApp) Endpoints() []AppEndpoint {
@@ -329,7 +367,7 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint 
 	return eps
 }
 
-func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*client.ParsedResponse, error) {
 	dst, ok := e.(*nativeEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -342,42 +380,43 @@ func (a *nativeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResp
 
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
-	dstServiceName := dst.owner.Name()
-	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
-		Count: int32(opts.Count),
-		Headers: []*proto.Header{
-			{
-				Key:   "Host",
-				Value: dstServiceName,
-			},
+
+	dstHost := e.Owner().(*nativeApp).fqdn()
+
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: dstHost,
 		},
+	}
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override dstHost
+	for k := range opts.Headers {
+		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
+	}
+
+	resp, err := a.client.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
+		Url:     dstURL.String(),
+		Count:   int32(opts.Count),
+		Headers: protoHeaders,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if len(resp) != 1 {
+	if len(resp) != opts.Count {
 		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
 }
 
-func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *nativeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*client.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 
@@ -398,6 +437,18 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
+func (e *nativeEndpoint) NetworkEndpoint() model.NetworkEndpoint {
+	return model.NetworkEndpoint{
+		Address: localhost,
+		Port:    e.port.ApplicationPort,
+		ServicePort: &model.Port{
+			Name:     e.port.Name,
+			Port:     e.port.ProxyPort,
+			Protocol: e.port.Protocol,
+		},
+	}
+}
+
 func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 	protocol := string(opts.Protocol)
 	switch protocol {
@@ -412,10 +463,9 @@ func (e *nativeEndpoint) makeURL(opts AppCallOptions) *url.URL {
 		protocol += "s"
 	}
 
-	host := "127.0.0.1"
-	port := e.port.ProxyPort
 	return &url.URL{
 		Scheme: protocol,
-		Host:   net.JoinHostPort(host, strconv.Itoa(port)),
+		Host:   net.JoinHostPort(localhost, strconv.Itoa(e.port.ProxyPort)),
+		Path:   opts.Path,
 	}
 }

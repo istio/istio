@@ -210,7 +210,9 @@ func timestampGetFullYear(t time.Time) ref.Val {
 	return Int(t.Year())
 }
 func timestampGetMonth(t time.Time) ref.Val {
-	return Int(t.Month())
+	// CEL spec indicates that the month should be 0-based, but the Time value
+	// for Month() is 1-based.
+	return Int(t.Month() - 1)
 }
 func timestampGetDayOfYear(t time.Time) ref.Val {
 	return Int(t.YearDay())

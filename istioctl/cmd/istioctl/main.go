@@ -36,13 +36,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const (
-	kubePlatform = "kube"
-)
-
 var (
-	platform string
-
 	kubeconfig       string
 	configContext    string
 	namespace        string
@@ -72,8 +66,9 @@ debug and diagnose their Istio mesh.
 	}
 
 	experimentalCmd = &cobra.Command{
-		Use:   "experimental",
-		Short: "Experimental commands that may be modified or deprecated",
+		Use:     "experimental",
+		Aliases: []string{"x", "exp"},
+		Short:   "Experimental commands that may be modified or deprecated",
 	}
 )
 
@@ -86,9 +81,6 @@ func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
-		"Istio host platform")
-
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
@@ -111,11 +103,12 @@ func init() {
 
 	cmd.AddFlags(rootCmd)
 
-	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
+	rootCmd.AddCommand(newVersionCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
 	experimentalCmd.AddCommand(install.NewVerifyCommand(&istioNamespace))
 	experimentalCmd.AddCommand(Rbac())
+	experimentalCmd.AddCommand(Auth())
 	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -144,10 +137,6 @@ func getRemoteInfo() (*version.MeshInfo, error) {
 }
 
 func main() {
-	if platform != kubePlatform {
-		log.Warnf("Platform '%s' not supported.", platform)
-	}
-
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

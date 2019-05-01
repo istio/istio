@@ -15,6 +15,9 @@
 package ref
 
 import (
+	"github.com/golang/protobuf/proto"
+
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -38,11 +41,32 @@ type TypeProvider interface {
 	// false if the field could not be found.
 	//
 	// Used during type-checking only.
-	FindFieldType(t *exprpb.Type, fieldName string) (*FieldType, bool)
+	FindFieldType(messageType string, fieldName string) (*FieldType, bool)
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
 	NewValue(typeName string, fields map[string]Val) Val
+}
+
+// TypeAdapter converts native Go values of varying type and complexity to equivalent CEL values.
+type TypeAdapter interface {
+	// NativeToValue converts the input `value` to a CEL `ref.Val`.
+	NativeToValue(value interface{}) Val
+}
+
+// TypeRegistry allows third-parties to add custom types to CEL. Not all `TypeProvider`
+// implementations support type-customization, so these features are optional. However, a
+// `TypeRegistry` should be a `TypeProvider` and a `TypeAdapter` to ensure that types
+// which are registered can be converted to CEL representations.
+type TypeRegistry interface {
+	TypeAdapter
+	TypeProvider
+
+	// RegisterDescriptor registers the contents of a protocol buffer `FileDescriptor`.
+	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
+
+	// RegisterMessage registers a protocol buffer message and its dependencies.
+	RegisterMessage(message proto.Message) error
 
 	// RegisterType registers a type value with the provider which ensures the
 	// provider is aware of how to map the type to an identifier.

@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -343,7 +343,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			var serverProtocol, clientProtocol authProtocol
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				mtls := authn_plugin.GetMutualTLS(policy)
+				mtls := authn_alpha1.GetMutualTLS(policy)
 				serverProtocol = getServerAuthProtocol(mtls)
 			} else {
 				serverProtocol = getServerAuthProtocol(nil)

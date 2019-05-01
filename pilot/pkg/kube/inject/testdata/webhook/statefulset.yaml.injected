@@ -5,6 +5,11 @@ metadata:
   name: hello
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
@@ -138,6 +143,7 @@ spec:
             memory: 10Mi
         securityContext:
           runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN

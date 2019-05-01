@@ -78,6 +78,59 @@ spec:
           initialDelaySeconds: 1
 ---
 `
+
+	inProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: %s
+spec:
+  params:
+    backend_address: policy-backend.%s.svc.cluster.local:1071
+  compiledAdapter: bypass
+---
+`
+
+	outOfProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: allowhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: true
+      validDuration: 10s
+      validCount: 1
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: denyhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: false
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: keyval
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    table:
+      jason: admin
+---
+`
 )
 
 var (
@@ -151,13 +204,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	podFetchFunc := env.NewSinglePodFetch(c.namespace.Name(), "app=policy-backend", "version=test")
-	if err = env.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
-		return nil, err
-	}
-	var pods []kubeApiCore.Pod
-	pods, err = podFetchFunc()
+	pods, err := env.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
+		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return nil, err
 	}
 	pod := pods[0]
@@ -171,13 +220,8 @@ func newKube(ctx resource.Context) (Instance, error) {
 	address := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scopes.Framework.Infof("Policy Backend in-cluster address: %s", address)
 
-	options := &testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}
-
 	if c.forwarder, err = env.NewPortForwarder(
-		options, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
+		pod, 0, uint16(svc.Spec.Ports[0].TargetPort.IntValue())); err != nil {
 		scopes.CI.Infof("Error setting up PortForwarder for PolicyBackend: %v", err)
 		return nil, err
 	}
@@ -195,15 +239,17 @@ func newKube(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) CreateConfigSnippet(name string, namespace string) string {
-	return fmt.Sprintf(
-		`apiVersion: "config.istio.io/v1alpha2"
-kind: bypass
-metadata:
-  name: %s
-spec:
-  backend_address: policy-backend.%s.svc.cluster.local:1071
-`, name, c.namespace.Name())
+func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
+	switch am {
+	case InProcess:
+		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
+	case OutOfProcess:
+		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
+		return handler
+	default:
+		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		return ""
+	}
 }
 
 func (c *kubeComponent) ID() resource.ID {

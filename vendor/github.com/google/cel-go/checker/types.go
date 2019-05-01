@@ -475,5 +475,5 @@ func substitute(m *mapping, t *exprpb.Type, typeParamToDyn bool) *exprpb.Type {
 }
 
 func typeKey(t *exprpb.Type) string {
-	return fmt.Sprintf("%v:%v", kindOf(t), t.String())
+	return FormatCheckedType(t)
 }

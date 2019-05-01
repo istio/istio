@@ -1,9 +1,14 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-volume
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: user-volume
+      tier: backend
+      track: stable
   template:
     metadata:
       labels:

@@ -56,7 +56,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	server, tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to start in-process server", err)
+		log.Errora("Failed to start in-process server: ", err)
 		panic(err)
 	}
 	return server, tearDown
@@ -158,7 +158,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			return false, nil
 		}
 		defer resp.Body.Close()
-		ioutil.ReadAll(resp.Body)
+		_, _ = ioutil.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusOK {
 			return true, nil
 		}

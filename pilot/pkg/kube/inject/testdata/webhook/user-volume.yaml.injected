@@ -1,10 +1,15 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: user-volume
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: user-volume
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
@@ -142,6 +147,7 @@ spec:
             memory: 10Mi
         securityContext:
           runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN

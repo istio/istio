@@ -17,6 +17,7 @@ package examples
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/examples/mycomponent"
 
 	"istio.io/istio/pkg/test/framework"
@@ -48,18 +49,18 @@ func TestMain(m *testing.M) {
 		Setup(mysetup).
 
 		// The following two setup methods will run conditionally, depending on the environment.
-		EnvSetup(environment.Native, setupNative).
-		EnvSetup(environment.Kube, setupKube).
+		SetupOnEnv(environment.Native, setupNative).
+		SetupOnEnv(environment.Kube, setupKube).
 
 		// The following is an example of how to deploy Istio on Kubernetes, as part of the suite setup.
 		// (Since this is an example, this will not execute as the RequireEnvironment call above will stop execution on Kube.)
-		Setup(istio.SetupOnKube(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 
 		// Finally execute the test suite
 		Run()
 }
 
-func mysetup(c framework.SuiteContext) error {
+func mysetup(c resource.Context) error {
 	// this function will be called as part of suite setup. You can do one-time setup here.
 	// returning an error from here will cause the suite to fail all-together.
 
@@ -80,11 +81,11 @@ func mysetup(c framework.SuiteContext) error {
 	return nil
 }
 
-func setupNative(_ framework.SuiteContext) error {
+func setupNative(_ resource.Context) error {
 	return nil
 }
 
-func setupKube(_ framework.SuiteContext) error {
+func setupKube(_ resource.Context) error {
 	return nil
 }
 

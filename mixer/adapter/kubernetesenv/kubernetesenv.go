@@ -40,6 +40,7 @@ import (
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -94,17 +95,9 @@ var _ ktmpl.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "kubernetesenv",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetesenv",
-		Description: "Provides platform specific functionality for the kubernetes environment",
-		SupportedTemplates: []string{
-			ktmpl.TemplateName,
-		},
-		DefaultConfig: conf,
-
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
-	}
+	info := metadata.GetInfo("kubernetesenv")
+	info.NewBuilder = func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) }
+	return info
 }
 
 func (b *builder) SetAdapterConfig(c adapter.Config) {

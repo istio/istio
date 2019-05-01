@@ -880,7 +880,6 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 }
 
 func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.ValueType, error) {
-	//return pb.VALUE_TYPE_UNSPECIFIED, nil
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}

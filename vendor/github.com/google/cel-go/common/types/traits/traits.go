@@ -24,7 +24,6 @@ const (
 	ComparerType
 
 	// ContainerType types support 'in' operations.
-
 	ContainerType
 
 	// DividerType types support '/' operations.

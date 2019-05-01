@@ -15,7 +15,7 @@
               "*"
             ],
             "port": {
-              "name": "http-80-i-foo-",
+              "name": "http-80-i-foo-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
