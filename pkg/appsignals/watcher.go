@@ -64,10 +64,13 @@ func Watch(c chan<- Signal) {
 func Notify(trigger string, signal os.Signal) {
 	handlers.Lock()
 	defer handlers.Unlock()
+	log.Infof("watcher.Notify: (trigger: %q, signal: %v)", trigger, signal)
 	for _, v := range handlers.listeners {
+		log.Debugf("watcher.Notify: Dispatching to listener '%v' (trigger: %q, signal: %v)", v, trigger, signal)
 		select {
 		case v <- Signal{trigger, signal}:
 		default:
+			log.Warnf("watcher.Notify: Signal channel is full (trigger: %q, signal: %v)", trigger, signal)
 		}
 	}
 }

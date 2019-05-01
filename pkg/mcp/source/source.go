@@ -399,6 +399,10 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.RequestResources) error {
+	if isTriggerResponse(req) {
+		return nil
+	}
+
 	collection := req.Collection
 
 	con.reporter.RecordRequestSize(collection, con.id, internal.ProtoSize(req))

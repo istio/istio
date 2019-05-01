@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"errors"
 	"io"
 	"net"
 
@@ -43,7 +44,6 @@ type nativeComponent struct {
 
 	environment *native.Environment
 	*client
-	model.ConfigStoreCache
 	server   *bootstrap.Server
 	stopChan chan struct{}
 	config   Config
@@ -51,6 +51,11 @@ type nativeComponent struct {
 
 // NewNativeComponent factory function for the component
 func newNative(ctx resource.Context, config Config) (Instance, error) {
+	if config.Galley == nil {
+		return nil, errors.New("galley must be provided")
+	}
+
+	env := ctx.Environment().(*native.Environment)
 	instance := &nativeComponent{
 		environment: ctx.Environment().(*native.Environment),
 		stopChan:    make(chan struct{}),
@@ -66,10 +71,16 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		SecureGrpcAddr: "",
 	}
 
+	tmpMesh := model.DefaultMeshConfig()
+	mesh := &tmpMesh
+	if config.MeshConfig != nil {
+		mesh = config.MeshConfig
+	}
+
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        "istio-system",
+		Namespace:        env.SystemNamespace,
 		DiscoveryOptions: options,
-		MeshConfig:       instance.environment.Mesh,
+		MeshConfig:       mesh,
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -80,23 +91,14 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		ForceStop: true,
 	}
 
-	if config.Galley != nil {
-		if bootstrapArgs.MeshConfig == nil {
-			bootstrapArgs.MeshConfig = &meshconfig.MeshConfig{}
-		}
-		// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-		bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
-			{Address: config.Galley.Address()[6:]},
-		}
-		bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
-	} else {
-		bootstrapArgs.Config = bootstrap.ConfigArgs{
-			Controller: instance.environment.ServiceManager.ConfigStore,
-		}
+	if bootstrapArgs.MeshConfig == nil {
+		bootstrapArgs.MeshConfig = &meshconfig.MeshConfig{}
 	}
-
-	// Save the config store.
-	instance.ConfigStoreCache = instance.environment.ServiceManager.ConfigStore
+	// Set as MCP address, note needs to strip 'tcp://' from the address prefix
+	bootstrapArgs.MeshConfig.ConfigSources = []*meshconfig.ConfigSource{
+		{Address: config.Galley.Address()[6:]},
+	}
+	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 
 	var err error
 	// Create the server for the discovery service.

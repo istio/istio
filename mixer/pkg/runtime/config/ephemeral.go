@@ -193,7 +193,6 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	}
 	e.lock.RUnlock()
 
-	log.Infof("Built new config.Snapshot: id='%d'", id)
 	log.Debugf("config.Snapshot creation error=%v, contents:\n%s", errs.ErrorOrNil(), s)
 	return s, errs.ErrorOrNil()
 }
@@ -487,6 +486,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 	for key, resource := range e.entries {
 		var info *template.Info
 		var found bool
+
 		var params proto.Message
 		instanceName := key.String()
 
@@ -508,7 +508,6 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 			if inst.Params == nil {
 				inst.Params = &types.Struct{Fields: make(map[string]*types.Value)}
 			}
-
 			// populate attribute bindings
 			if len(inst.AttributeBindings) > 0 {
 				bindings := &types.Struct{Fields: make(map[string]*types.Value)}
@@ -542,6 +541,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror
 		inferredType, err := info.InferType(params, func(s string) (config.ValueType, error) {
 			return e.checker(mode).EvalType(s)
 		})
+
 		if err != nil {
 			appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
 			continue
@@ -892,7 +892,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 func appendErr(ctx context.Context, errs *multierror.Error, field string, measure *stats.Int64Measure, format string, a ...interface{}) {
 	err := fmt.Errorf(format, a...)
-	log.Error(err.Error())
+	log.Debug(err.Error())
 	stats.Record(ctx, measure.M(1))
 	_ = multierror.Append(errs, adapter.ConfigError{Field: field, Underlying: err})
 }

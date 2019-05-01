@@ -128,6 +128,12 @@ type DiscoveryServer struct {
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
+
+	// mutex used for protecting proxyUpdates
+	proxyUpdatesMutex sync.RWMutex
+	// proxies that need full push during the new push epoch
+	// the key is the proxy ip address
+	proxyUpdates map[string]struct{}
 }
 
 // updateReq includes info about the requested update.
@@ -177,6 +183,7 @@ func NewDiscoveryServer(
 		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]struct{}{},
+		proxyUpdates:            map[string]struct{}{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}

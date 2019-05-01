@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -40,6 +39,7 @@ import (
 const (
 	configMapKey       = "mesh"
 	injectConfigMapKey = "config"
+	valuesConfigMapKey = "values"
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
@@ -76,6 +76,29 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 			version.Info.Version), err)
 	}
 	return cfg, err
+}
+
+// grabs the raw values from the ConfigMap. These are encoded as JSON.
+func getValuesFromConfigMap(kubeconfig string) (string, error) {
+	client, err := createInterface(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
+			injectConfigMapName, istioNamespace, err)
+	}
+
+	valuesData, exists := config.Data[valuesConfigMapKey]
+	if !exists {
+		return "", fmt.Errorf("missing configuration map key %q in %q",
+			valuesConfigMapKey, injectConfigMapName)
+	}
+
+	return valuesData, nil
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
@@ -118,45 +141,22 @@ func validateFlags() error {
 	if meshConfigFile == "" && meshConfigMapName == "" {
 		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
 	}
-
-	err = multierr.Append(err, inject.ValidateIncludeIPRanges(includeIPRanges))
-	err = multierr.Append(err, inject.ValidateExcludeIPRanges(excludeIPRanges))
-	err = multierr.Append(err, inject.ValidateIncludeInboundPorts(includeInboundPorts))
-	err = multierr.Append(err, inject.ValidateExcludeInboundPorts(excludeInboundPorts))
 	return err
 }
 
 var (
-	hub                          string
-	tag                          string
-	sidecarProxyUID              uint64
-	verbosity                    int
-	versionStr                   string // override build version
-	enableCoreDump               bool
-	rewriteAppHTTPProbe          bool
-	imagePullPolicy              string
-	statusPort                   int
-	readinessInitialDelaySeconds uint32
-	readinessPeriodSeconds       uint32
-	readinessFailureThreshold    uint32
-	includeIPRanges              string
-	excludeIPRanges              string
-	includeInboundPorts          string
-	excludeInboundPorts          string
-	debugMode                    bool
-	emitTemplate                 bool
+	emitTemplate bool
 
 	inFilename          string
 	outFilename         string
 	meshConfigFile      string
 	meshConfigMapName   string
+	valuesFile          string
 	injectConfigFile    string
 	injectConfigMapName string
 )
 
 var (
-	useBuiltinDefaultsVar = env.RegisterBoolVar("ISTIOCTL_USE_BUILTIN_DEFAULTS", false, "")
-
 	injectCmd = &cobra.Command{
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
@@ -177,10 +177,9 @@ The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
 
-To override the sidecar injection template built into istioctl, the
-parameters --injectConfigFile or --injectConfigMapName can be used.
-Both options override any other template configuration parameters, eg.
---hub and --tag.  These options would typically be used with the
+To override the sidecar injection template from kubernetes configmap
+'istio-inject', the parameters --injectConfigFile or --injectConfigMapName
+can be used. Either of options would typically be used with the
 file/configmap created with a new Istio release.
 `,
 		Example: `
@@ -247,10 +246,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}()
 			}
 
-			if versionStr == "" {
-				versionStr = version.Info.String()
-			}
-
 			var meshConfig *meshconfig.MeshConfig
 			if meshConfigFile != "" {
 				if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
@@ -263,47 +258,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			}
 
 			var sidecarTemplate string
-
-			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
-			// so must be specified together. hub and tag no longer have defaults.
-			if hub != "" || tag != "" {
-
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
-				if !useBuiltinDefaultsVar.Get() {
-					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
-						"use the following command to get the current injector file\n" +
-						"kubectl -n istio-system get configmap istio-sidecar-injector " +
-						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
-				}
-
-				if hub == "" || tag == "" {
-					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
-				}
-
-				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:                    inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
-					RewriteAppHTTPProbe:          rewriteAppHTTPProbe,
-					Verbosity:                    verbosity,
-					SidecarProxyUID:              sidecarProxyUID,
-					Version:                      versionStr,
-					EnableCoreDump:               enableCoreDump,
-					Mesh:                         meshConfig,
-					ImagePullPolicy:              imagePullPolicy,
-					StatusPort:                   statusPort,
-					ReadinessInitialDelaySeconds: readinessInitialDelaySeconds,
-					ReadinessPeriodSeconds:       readinessPeriodSeconds,
-					ReadinessFailureThreshold:    readinessFailureThreshold,
-					IncludeIPRanges:              includeIPRanges,
-					ExcludeIPRanges:              excludeIPRanges,
-					IncludeInboundPorts:          includeInboundPorts,
-					ExcludeInboundPorts:          excludeInboundPorts,
-					DebugMode:                    debugMode,
-				}); err != nil {
-					return err
-				}
-
-			} else if injectConfigFile != "" {
+			if injectConfigFile != "" {
 				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
 				if err != nil {
 					return err
@@ -315,6 +270,19 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				sidecarTemplate = config.Template
 			} else {
 				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
+			}
+
+			var valuesConfig string
+			if valuesFile != "" {
+				valuesConfigBytes, err := ioutil.ReadFile(valuesFile) // nolint: vetshadow
+				if err != nil {
+					return err
+				}
+				valuesConfig = string(valuesConfigBytes)
+			} else {
+				if valuesConfig, err = getValuesFromConfigMap(kubeconfig); err != nil {
 					return err
 				}
 			}
@@ -332,7 +300,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, meshConfig, reader, writer)
+			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
 		},
 	}
 )
@@ -345,13 +313,12 @@ const (
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", "", "Docker hub")
-	injectCmd.PersistentFlags().StringVar(&tag, "tag", "", "Docker tag")
-
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
+	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
+		"injection values configuration filename.")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false,
 		"Emit sidecar template based on parameterized flags")
@@ -361,62 +328,9 @@ func init() {
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
-	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
-		inject.DefaultVerbosity, "Runtime verbosity")
-	injectCmd.PersistentFlags().Uint64Var(&sidecarProxyUID, "sidecarProxyUID",
-		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
-	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
-		"", "Override version info injected into resource")
-	// Default --coreDump=true for pre-alpha development. Core dump
-	// settings (i.e. sysctl kernel.*) affect all pods in a node and
-	// require privileges. This option should only be used by the cluster
-	// admin (see https://kubernetes.io/docs/concepts/cluster-administration/sysctl-cluster/)
-	// injector specific params are deprecated
-	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
-		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
-			"all pods in a node and should only be used the cluster admin)")
-	// TODO(incfly): deprecate this flag once hardcoded injection template is gone. By then, everything
-	// comes from configmap injector, whose template already contains rewriteAppHTTPProbe control switch.
-	injectCmd.PersistentFlags().BoolVar(&rewriteAppHTTPProbe, "rewriteAppProbe", false, "Whether injector "+
-		"rewrites the liveness health check to let kubelet health check the app when mtls is on.")
-	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
-		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
-			"The default policy is IfNotPresent.")
-	injectCmd.PersistentFlags().IntVar(&statusPort, inject.StatusPortCmdFlagName, inject.DefaultStatusPort,
-		"HTTP Port on which to serve pilot agent status. The path /healthz/ can be used for health checking. "+
-			"If zero, agent status will not be provided.")
-	injectCmd.PersistentFlags().Uint32Var(&readinessInitialDelaySeconds, "readinessInitialDelaySeconds", inject.DefaultReadinessInitialDelaySeconds,
-		"The initial delay (in seconds) for the readiness probe.")
-	injectCmd.PersistentFlags().Uint32Var(&readinessPeriodSeconds, "readinessPeriodSeconds", inject.DefaultReadinessPeriodSeconds,
-		"The period between readiness probes (in seconds).")
-	injectCmd.PersistentFlags().Uint32Var(&readinessFailureThreshold, "readinessFailureThreshold", inject.DefaultReadinessFailureThreshold,
-		"The threshold for successive failed readiness probes.")
-	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
-		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
-			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'.")
-	injectCmd.PersistentFlags().StringVar(&excludeIPRanges, "excludeIPRanges", "",
-		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for "+
-			"these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By "+
-			"default, no IP ranges are excluded.")
-	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", inject.DefaultIncludeInboundPorts,
-		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can "+
-			"be redirected with the wildcard character '*'.")
-	injectCmd.PersistentFlags().StringVar(&excludeInboundPorts, "excludeInboundPorts", "",
-		"Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those "+
-			"ports. Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports "+
-			"are excluded.")
-	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
-
-	deprecatedFlags := []string{"coreDump", "imagePullPolicy", "includeIPRanges", "excludeIPRanges", "hub", "tag",
-		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString"}
-	for _, opt := range deprecatedFlags {
-		_ = injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
-	}
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
-			"This option overrides any other sidecar injection config options, eg. --hub",
-			injectConfigMapKey))
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 }

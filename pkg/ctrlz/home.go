@@ -25,6 +25,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"istio.io/istio/pkg/ctrlz/assets"
 	"istio.io/istio/pkg/ctrlz/fw"
 )
 
@@ -62,8 +63,8 @@ func getHomeInfo() *homeInfo {
 }
 
 func registerHome(router *mux.Router, layout *template.Template) {
-	homeTmpl := template.Must(template.Must(layout.Clone()).Parse(string(MustAsset("assets/templates/home.html"))))
-	errorTmpl := template.Must(template.Must(layout.Clone()).Parse(string(MustAsset("assets/templates/404.html"))))
+	homeTmpl := template.Must(template.Must(layout.Clone()).Parse(string(assets.MustAsset("templates/home.html"))))
+	errorTmpl := template.Must(template.Must(layout.Clone()).Parse(string(assets.MustAsset("templates/404.html"))))
 
 	_ = router.NewRoute().PathPrefix("/").Methods("GET").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/" {
@@ -71,7 +72,7 @@ func registerHome(router *mux.Router, layout *template.Template) {
 			fw.RenderHTML(w, homeTmpl, getHomeInfo())
 		} else if req.URL.Path == "/homej" || req.URL.Path == "/homej/" {
 			fw.RenderJSON(w, http.StatusOK, getHomeInfo())
-		} else if a, err := Asset("assets/static" + req.URL.Path); err == nil {
+		} else if a, err := assets.Asset("static" + req.URL.Path); err == nil {
 			// static asset
 			ext := strings.ToLower(filepath.Ext(req.URL.Path))
 			if mime, ok := mimeTypes[ext]; ok {

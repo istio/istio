@@ -43,21 +43,23 @@ type App struct {
 
 // AppManager organize and deploy apps
 type AppManager struct {
-	Apps       []*App
-	tmpDir     string
-	namespace  string
-	istioctl   *Istioctl
-	active     bool
-	Kubeconfig string
+	Apps             []*App
+	tmpDir           string
+	namespace        string
+	istioctl         *Istioctl
+	active           bool
+	Kubeconfig       string
+	checkDeployments bool
 }
 
 // NewAppManager create a new AppManager
-func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig string) *AppManager {
+func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig string, checkDeployments bool) *AppManager {
 	return &AppManager{
-		namespace:  namespace,
-		tmpDir:     tmpDir,
-		istioctl:   istioctl,
-		Kubeconfig: kubeconfig,
+		namespace:        namespace,
+		tmpDir:           tmpDir,
+		istioctl:         istioctl,
+		Kubeconfig:       kubeconfig,
+		checkDeployments: checkDeployments,
 	}
 }
 
@@ -120,7 +122,10 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	return am.CheckDeployments()
+	if am.checkDeployments {
+		return am.CheckDeployments()
+	}
+	return nil
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}

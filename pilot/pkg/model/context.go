@@ -85,7 +85,9 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where Envoy proxy runs.
+	// Locality is the location of where Envoy proxy runs. This is extracted from
+	// the registry where possible. If the registry doesn't provide a locality for the
+	// proxy it will use the one sent via ADS that can be configured in the Envoy bootstrap
 	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
@@ -117,6 +119,9 @@ type Proxy struct {
 
 	// service instances associated with the proxy
 	ServiceInstances []*ServiceInstance
+
+	// labels associated with the workload
+	WorkloadLabels LabelsCollection
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -194,8 +199,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
-	instances := node.ServiceInstances
-	node.SidecarScope = ps.getSidecarScope(node, instances)
+	labels := node.WorkloadLabels
+	node.SidecarScope = ps.getSidecarScope(node, labels)
 }
 
 func (node *Proxy) SetServiceInstances(env *Environment) error {
@@ -206,6 +211,17 @@ func (node *Proxy) SetServiceInstances(env *Environment) error {
 	}
 
 	node.ServiceInstances = instances
+	return nil
+}
+
+func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+	labels, err := env.GetProxyWorkloadLabels(node)
+	if err != nil {
+		log.Warnf("failed to get service proxy workload labels: %v, defaulting to proxy metadata", err)
+		labels = LabelsCollection{node.Metadata}
+	}
+
+	node.WorkloadLabels = labels
 	return nil
 }
 

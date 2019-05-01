@@ -123,10 +123,6 @@ resources:
             ISTIO_OPTIONS=$ISTIO_OPTIONS" --set tracing.enabled=true "
           {% endif %}
 
-          {% if  properties['enableServiceGraph'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set servicegraph.enabled=true"
-          {% endif %}
-
           helm template install/kubernetes/helm/istio --name istio --namespace istio-system $ISTIO_OPTIONS  > istio.yaml
 
           kubectl apply -f istio.yaml

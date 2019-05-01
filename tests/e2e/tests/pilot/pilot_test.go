@@ -428,7 +428,7 @@ func ClientRequestForError(cluster, app, url string, count int) error {
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d", url, count)
+	cmd := fmt.Sprintf("client --url %s --count %d", url, count)
 	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	return err
 }
@@ -444,7 +444,7 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)

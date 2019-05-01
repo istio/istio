@@ -196,7 +196,7 @@ ignored = [
   version = "0.8.2"
 
 [[constraint]]
-  branch = "master"
+  branch = "release-3.11"
   name = "github.com/openshift/api"
 
 [[constraint]]
@@ -277,7 +277,7 @@ ignored = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  version = "^1.13.0"
+  version = "=1.16.0"
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"

@@ -225,7 +225,6 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					// c.updateEDS(cur.(*v1.Endpoints))
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
@@ -604,6 +603,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	}
 
 	return out
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (model.LabelsCollection, error) {
+	// There is only one IP for kube registry
+	proxyIP := proxy.IPAddresses[0]
+
+	pod := c.pods.getPodByIP(proxyIP)
+	if pod != nil {
+		return model.LabelsCollection{pod.Labels}, nil
+	}
+	return nil, nil
 }
 
 func (c *Controller) getEndpoints(ip string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {

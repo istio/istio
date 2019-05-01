@@ -40,7 +40,7 @@ function check_licenses() {
 
 function install_golangcilint() {
     # if you want to update this version, also change the version number in .golangci.yml
-    GOLANGCI_VERSION="v1.15.0"
+    GOLANGCI_VERSION="v1.16.0"
     curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
     golangci-lint --version
 }
@@ -62,13 +62,13 @@ function run_test_lint() {
 function run_envvar_lint() {
     echo 'Running envvarlinter ...'
     go build -o bin/envvarlinter tools/checker/envvarlinter/*.go
-    bin/envvarlinter
+    bin/envvarlinter mixer pilot security galley istioctl
     echo 'envvarlinter OK'
 }
 
 function run_golangcilint() {
     echo 'Running golangci-lint ...'
-    golangci-lint run ./...
+    env GOGC=25 golangci-lint run -j 1 -v ./...
 }
 
 function run_helm_lint() {
@@ -89,6 +89,12 @@ function check_licenses() {
     echo 'Licenses OK'
 }
 
+function check_samples() {
+    echo 'Checking documentation samples with istioctl'
+    bin/check_samples.sh
+    echo 'Samples OK'
+}
+
 ensure_pilot_types
 check_licenses
 install_golangcilint
@@ -98,3 +104,4 @@ run_test_lint
 run_envvar_lint
 run_helm_lint
 check_grafana_dashboards
+check_samples

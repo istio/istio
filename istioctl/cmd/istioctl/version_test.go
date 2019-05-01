@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
@@ -72,7 +73,7 @@ func TestVersion(t *testing.T) {
 	cases := []testCase{
 		{ // case 0 client-side only, normal output
 			configs: []model.Config{},
-			args:    strings.Split("version --remote=false", " "),
+			args:    strings.Split("version --remote=false --short=false", " "),
 			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
 				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?\", " +
 				"DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
@@ -199,4 +200,12 @@ func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version
 
 func mockExecClientVersionTest(_, _ string) (kubernetes.ExecClient, error) {
 	return &mockExecVersionConfig{}, nil
+}
+
+func (client mockExecVersionConfig) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
+	return &v1.PodList{}, nil
+}
+
+func (client mockExecVersionConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+	return nil, fmt.Errorf("mock k8s does not forward")
 }

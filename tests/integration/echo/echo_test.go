@@ -20,46 +20,94 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+)
+
+var (
+	ist istio.Instance
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.
 func TestEcho(t *testing.T) {
-	ctx := framework.NewContext(t)
+	framework.Run(t, func(ctx framework.TestContext) {
+		g := galley.NewOrFail(t, ctx, galley.Config{})
+		p := pilot.NewOrFail(t, ctx, pilot.Config{
+			Galley: g,
+		})
 
-	// Echo is only supported on native environment right now, skip if we can't load that.
-	ctx.RequireOrSkip(t, environment.Native)
+		ns := namespace.NewOrFail(t, ctx, "test", true)
+		a := echoboot.NewOrFail(ctx, t, echo.Config{
+			Pilot:     p,
+			Galley:    g,
+			Namespace: ns,
+			Sidecar:   true,
+			Service:   "a",
+			Version:   "v1",
+		})
+		b := echoboot.NewOrFail(ctx, t, echo.Config{
+			Pilot:     p,
+			Galley:    g,
+			Namespace: ns,
+			Sidecar:   true,
+			Service:   "b",
+			Version:   "v2",
+			Ports: []echo.Port{
+				{
+					Name:     "http",
+					Protocol: model.ProtocolHTTP,
+				},
+			}})
 
-	echoA := echo.NewOrFail(ctx, t, echo.Config{
-		Service: "a.echo",
-		Version: "v1",
+		a.WaitUntilReadyOrFail(t, b)
+
+		_ = a.CallOrFail(t, echo.CallOptions{
+			Target:   b,
+			PortName: "http",
+		}).CheckOKOrFail(t)
 	})
-	echoB := echo.NewOrFail(ctx, t, echo.Config{
-		Service: "b.echo",
-		Version: "v2",
-		Ports: model.PortList{
-			{
-				Name:     "http",
-				Protocol: model.ProtocolHTTP,
-			},
-		}})
+}
 
-	// Verify the configuration was set appropriately.
-	if echoA.Config().Service != "a.echo" {
-		t.Fatalf("expected 'a.echo' but echoA service was %s", echoA.Config().Service)
-	}
-	if echoB.Config().Service != "b.echo" {
-		t.Fatalf("expected 'b.echo' but echoB service was %s", echoB.Config().Service)
-	}
+func TestEchoNoSidecar(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
+		g := galley.NewOrFail(t, ctx, galley.Config{})
+		p := pilot.NewOrFail(t, ctx, pilot.Config{
+			Galley: g,
+		})
 
-	be := echoB.EndpointsForProtocol(model.ProtocolHTTP)[0]
-	result := echoA.CallOrFail(be, echo.CallOptions{}, t)[0]
+		ns := namespace.NewOrFail(t, ctx, "test", true)
+		a := echoboot.NewOrFail(ctx, t, echo.Config{
+			Pilot:     p,
+			Galley:    g,
+			Namespace: ns,
+			Service:   "a",
+			Version:   "v1",
+		})
+		b := echoboot.NewOrFail(ctx, t, echo.Config{
+			Pilot:     p,
+			Galley:    g,
+			Namespace: ns,
+			Service:   "b",
+			Version:   "v2",
+			Ports: []echo.Port{
+				{
+					Name:     "http",
+					Protocol: model.ProtocolHTTP,
+				},
+			}})
 
-	if !result.IsOK() {
-		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
-	}
+		a.WaitUntilReadyOrFail(t, b)
+
+		_ = a.CallOrFail(t, echo.CallOptions{
+			Target:   b,
+			PortName: "http",
+		}).CheckOKOrFail(t)
+	})
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("echo_test", m)
+	framework.Main("echo_test", m, istio.SetupOnKube(&ist, nil))
 }

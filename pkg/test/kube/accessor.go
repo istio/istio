@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -88,8 +88,8 @@ func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 }
 
 // NewPortForwarder creates a new port forwarder.
-func (a *Accessor) NewPortForwarder(options *PodSelectOptions, localPort, remotePort uint16) (PortForwarder, error) {
-	return newPortForwarder(a.restConfig, options, localPort, remotePort)
+func (a *Accessor) NewPortForwarder(pod kubeApiCore.Pod, localPort, remotePort uint16) (PortForwarder, error) {
+	return newPortForwarder(a.restConfig, pod, localPort, remotePort)
 }
 
 // GetPods returns pods in the given namespace, based on the selectors. If no selectors are given, then
@@ -118,9 +118,13 @@ func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApi
 }
 
 // GetPod returns the pod with the given namespace and name.
-func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
-	return a.set.CoreV1().
+func (a *Accessor) GetPod(namespace, name string) (kubeApiCore.Pod, error) {
+	v, err := a.set.CoreV1().
 		Pods(namespace).Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return kubeApiCore.Pod{}, err
+	}
+	return *v, nil
 }
 
 // DeletePod deletes the given pod.
@@ -168,18 +172,19 @@ func (a *Accessor) NewSinglePodFetch(namespace string, selectors ...string) PodF
 }
 
 // WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) error {
+func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kubeApiCore.Pod, error) {
+	var pods []kubeApiCore.Pod
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		scopes.CI.Infof("Checking pods...")
+		scopes.CI.Infof("Checking pods ready...")
 
-		pods, err := fetchFunc()
+		fetched, err := fetchFunc()
 		if err != nil {
 			scopes.CI.Infof("Failed retrieving pods: %v", err)
 			return nil, false, err
 		}
 
-		for i, p := range pods {
+		for i, p := range fetched {
 			msg := "Ready"
 			if e := CheckPodReady(&p); e != nil {
 				msg = e.Error()
@@ -191,10 +196,11 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 		if err != nil {
 			return nil, false, err
 		}
+		pods = fetched
 		return nil, true, nil
 	}, newRetryOptions(opts...)...)
 
-	return err
+	return pods, err
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.

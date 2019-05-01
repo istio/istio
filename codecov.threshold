@@ -27,8 +27,10 @@ istio.io/istio/pilot/pkg/proxy/envoy/v2=10
 istio.io/istio/pilot/pkg/proxy/envoy/v2/rds.go=25
 istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
 istio.io/istio/pkg/mcp/creds/watcher.go=100
+istio.io/istio/pkg/mcp/source/client_source.go=90
 istio.io/istio/pkg/mcp/source/source.go=90
 istio.io/istio/security/pkg/nodeagent=15
+istio.io/istio/istioctl/cmd/istioctl/kubeinject.go=41
 
 # Disable codecov check for testing and proto packages
 istio.io/istio/security/proto=100

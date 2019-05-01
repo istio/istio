@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/stdio/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -138,42 +139,9 @@ func convertValueTypes(value interface{}, varName string, logEntryTypes map[stri
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "stdio",
-		Impl:        "istio.io/istio/mixer/adapter/stdio",
-		Description: "Writes logs and metrics to a standard I/O stream",
-		SupportedTemplates: []string{
-			logentry.TemplateName,
-			metric.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			LogStream:                  config.STDOUT,
-			MetricLevel:                config.INFO,
-			OutputLevel:                config.INFO,
-			OutputAsJson:               true,
-			MaxDaysBeforeRotation:      30,
-			MaxMegabytesBeforeRotation: 100 * 1024 * 1024,
-			MaxRotatedFiles:            1000,
-			SeverityLevels: map[string]config.Params_Level{
-				"INFORMATIONAL": config.INFO,
-				"informational": config.INFO,
-				"INFO":          config.INFO,
-				"info":          config.INFO,
-				"WARNING":       config.WARNING,
-				"warning":       config.WARNING,
-				"WARN":          config.WARNING,
-				"warn":          config.WARNING,
-				"ERROR":         config.ERROR,
-				"error":         config.ERROR,
-				"ERR":           config.ERROR,
-				"err":           config.ERROR,
-				"FATAL":         config.ERROR,
-				"fatal":         config.ERROR,
-			},
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("stdio")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

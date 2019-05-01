@@ -15,7 +15,6 @@
 package istio
 
 import (
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -33,8 +32,8 @@ type Instance interface {
 type SetupConfigFn func(cfg *Config)
 
 // SetupOnKube is a setup function that will deploy Istio on Kubernetes environment
-func SetupOnKube(i *Instance, cfn SetupConfigFn) framework.SetupFn {
-	return func(ctx framework.SuiteContext) error {
+func SetupOnKube(i *Instance, cfn SetupConfigFn) resource.SetupFn {
+	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
 		case environment.Native:
 			scopes.Framework.Debugf("istio.SetupOnKube: Skipping deployment of Istio on native")

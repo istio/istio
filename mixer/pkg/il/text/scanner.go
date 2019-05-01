@@ -252,10 +252,8 @@ func (s *scanner) onRune(rn rune) bool {
 	case scHexLiteral:
 		switch {
 		case unicode.IsDigit(rn):
-			fallthrough
-		case rn >= 'a' && rn <= 'f':
-			fallthrough
-		case rn >= 'A' && rn <= 'F':
+		case rn >= 'a' && rn <= 'f',
+			rn >= 'A' && rn <= 'F':
 			break
 		default:
 			s.token = tkIntegerLiteral

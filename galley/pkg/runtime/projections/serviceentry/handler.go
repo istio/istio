@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	"go.opencensus.io/tag"
@@ -30,7 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/convert"
+	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/converter"
 	"istio.io/istio/galley/pkg/runtime/projections/serviceentry/pod"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -59,7 +58,7 @@ var _ processing.Handler = &Handler{}
 
 // Handler is a processing.Handler that generates snapshots containing synthetic ServiceEntry projections.
 type Handler struct {
-	domainSuffix string
+	converter *converter.Instance
 
 	listener processing.Listener
 
@@ -67,8 +66,8 @@ type Handler struct {
 	endpoints map[resource.FullName]resource.Entry
 	ipToName  map[string]map[resource.FullName]struct{}
 
-	podAndNodeHandler processing.Handler
-	pods              pod.Cache
+	podHandler  processing.Handler
+	nodeHandler processing.Handler
 
 	// The version number for the current State of the object. Every time mcpResources or versions change,
 	// the version number also change
@@ -85,9 +84,8 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler instance.
-func NewHandler(domainSuffix string, listener processing.Listener) *Handler {
+func NewHandler(domain string, listener processing.Listener) *Handler {
 	handler := &Handler{
-		domainSuffix: domainSuffix,
 		listener:     listener,
 		services:     make(map[resource.FullName]resource.Entry),
 		endpoints:    make(map[resource.FullName]resource.Entry),
@@ -95,11 +93,16 @@ func NewHandler(domainSuffix string, listener processing.Listener) *Handler {
 		mcpResources: make(map[resource.FullName]*mcp.Resource),
 	}
 
-	handler.pods, handler.podAndNodeHandler = pod.NewCache(pod.Listener{
+	podCache, cacheHandler := pod.NewCache(pod.Listener{
 		PodAdded:   handler.podUpdated,
 		PodUpdated: handler.podUpdated,
 		PodDeleted: handler.podUpdated,
 	})
+
+	handler.podHandler = cacheHandler
+	handler.nodeHandler = cacheHandler
+
+	handler.converter = converter.New(domain, podCache)
 
 	statsCtx, err := tag.New(context.Background(), tag.Insert(monitoring.CollectionTag,
 		metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String()))
@@ -121,9 +124,12 @@ func (h *Handler) Handle(event resource.Event) {
 	case metadata.K8sCoreV1Services.Collection:
 		// Update the projections
 		h.handleServiceEvent(event)
-	case metadata.K8sCoreV1Nodes.Collection, metadata.K8sCoreV1Pods.Collection:
-		// update the pod cache.
-		h.podAndNodeHandler.Handle(event)
+	case metadata.K8sCoreV1Nodes.Collection:
+		// Update the pod cache.
+		h.nodeHandler.Handle(event)
+	case metadata.K8sCoreV1Pods.Collection:
+		// Update the pod cache.
+		h.podHandler.Handle(event)
 	default:
 		scope.Warnf("received event with unexpected collection: %v", event.Entry.ID.Collection)
 	}
@@ -231,21 +237,6 @@ func (h *Handler) versionString() string {
 	return strconv.FormatInt(h.version, 10)
 }
 
-func (h *Handler) newServiceEntry(service resource.Entry, endpoints *resource.Entry) networking.ServiceEntry {
-	se := networking.ServiceEntry{}
-
-	serviceSpec := service.Item.(*coreV1.ServiceSpec)
-
-	// Apply part of the conversion from the k8s Service.
-	convert.Service(serviceSpec, service.Metadata, service.ID.FullName, h.domainSuffix, &se)
-
-	// Apply part of the conversion from the k8s Endpoints, if available.
-	if endpoints != nil {
-		convert.Endpoints(endpoints.Item.(*coreV1.Endpoints), h.pods, &se)
-	}
-	return se
-}
-
 func (h *Handler) doUpdate(name resource.FullName) {
 	// Look up the service associated with the endpoints.
 	service, ok := h.services[name]
@@ -261,8 +252,7 @@ func (h *Handler) doUpdate(name resource.FullName) {
 	}
 
 	// Convert to an MCP resource to be used in the snapshot.
-	se := h.newServiceEntry(service, endpoints)
-	mcpEntry, ok := h.toMcpResource(name, service, endpoints, &se)
+	mcpEntry, ok := h.toMcpResource(&service, endpoints)
 	if !ok {
 		return
 	}
@@ -271,37 +261,33 @@ func (h *Handler) doUpdate(name resource.FullName) {
 	h.updateVersion()
 }
 
-func (h *Handler) toMcpResource(name resource.FullName, service resource.Entry, endpoints *resource.Entry,
-	serviceEntry proto.Message) (*mcp.Resource, bool) {
-
-	body, err := types.MarshalAny(serviceEntry)
-	if err != nil {
-		scope.Errorf("error serializing proto from source e: %v:", serviceEntry)
+func (h *Handler) toMcpResource(service *resource.Entry, endpoints *resource.Entry) (*mcp.Resource, bool) {
+	meta := mcp.Metadata{}
+	se := networking.ServiceEntry{}
+	if err := h.converter.Convert(service, endpoints, &meta, &se); err != nil {
+		scope.Errorf("error converting to ServiceEntry: %v", err)
 		return nil, false
 	}
 
-	createTime, err := types.TimestampProto(service.Metadata.CreateTime)
+	// Set the version on the metadata.
+	meta.Version = h.versionString()
+
+	body, err := types.MarshalAny(&se)
 	if err != nil {
-		scope.Errorf("error parsing resource create_time for event metadata (%v): %v", service.Metadata, err)
+		scope.Errorf("error serializing proto from source e: %v", se)
 		return nil, false
 	}
 
 	entry := &mcp.Resource{
-		Metadata: &mcp.Metadata{
-			Name:        name.String(),
-			CreateTime:  createTime,
-			Version:     h.versionString(),
-			Labels:      service.Metadata.Labels,
-			Annotations: convert.Annotations(service, endpoints),
-		},
-		Body: body,
+		Metadata: &meta,
+		Body:     body,
 	}
 
 	return entry, true
 }
 
-func (h *Handler) updateEndpointIPs(name resource.FullName, new resource.Entry) {
-	newIPs := getEndpointIPs(new)
+func (h *Handler) updateEndpointIPs(name resource.FullName, newRE resource.Entry) {
+	newIPs := getEndpointIPs(newRE)
 	var prevIPs map[string]struct{}
 
 	if prev, exists := h.endpoints[name]; exists {

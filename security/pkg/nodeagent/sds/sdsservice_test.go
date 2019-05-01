@@ -420,8 +420,7 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 func setupConnection(socket string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+	opts = append(opts, grpc.WithInsecure(), grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 		return net.DialTimeout("unix", socket, timeout)
 	}))
 
@@ -470,4 +469,8 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 		ResourceName: resourceName,
 	}
 	ms.secrets.Delete(key)
+}
+
+func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
+	return false
 }

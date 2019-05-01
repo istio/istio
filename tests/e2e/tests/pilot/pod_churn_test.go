@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/e2e/framework"
 )
@@ -157,11 +158,12 @@ func forwardToGrpcPort(t *testing.T, app string) kube.PortForwarder {
 		t.Fatalf("missing pod names for app %q from %s cluster", app, primaryCluster)
 	}
 
+	pod, err := tc.Kube.KubeAccessor.GetPod(tc.Kube.Namespace, pods[0])
+	if err != nil {
+		t.Fatalf("failed retrieving pod %s/%s: %v", tc.Kube.Namespace, pods[0], err)
+	}
 	// Create a port forwarder so that we can send commands app "a" to talk to the churn app.
-	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(&kube.PodSelectOptions{
-		PodNamespace: tc.Kube.Namespace,
-		PodName:      pods[0],
-	}, 0, uint16(grpcPort))
+	forwarder, err := tc.Kube.KubeAccessor.NewPortForwarder(pod, 0, uint16(grpcPort))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,13 +218,13 @@ func (g *trafficGeneratorImpl) start() {
 		defer g.wg.Done()
 
 		// Create a gRPC client to the source pod.
-		client, err := echo.NewClient(g.forwarder.Address())
+		c, err := client.New(g.forwarder.Address())
 		if err != nil {
 			g.err = multierror.Append(g.err, err)
 			return
 		}
 		defer func() {
-			_ = client.Close()
+			_ = c.Close()
 		}()
 
 		// Send traffic from the source pod to the churned pods for a period of time.
@@ -237,7 +239,7 @@ func (g *trafficGeneratorImpl) start() {
 				}
 				return
 			default:
-				responses, err := client.ForwardEcho(&request)
+				responses, err := c.ForwardEcho(context.Background(), &request)
 				if err != nil {
 					// Retry on RPC errors.
 					log.Infof("retrying failed control RPC to app: %s. Error: %v", g.srcApp, err)
@@ -282,7 +284,7 @@ func newChurnApp(t *testing.T) *churnApp {
 	}
 
 	fetchFn := tc.Kube.KubeAccessor.NewPodFetch(tc.Kube.Namespace, churnAppSelector)
-	if err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+	if _, err := tc.Kube.KubeAccessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		app.stop()
 		t.Fatal(err)
 		return nil

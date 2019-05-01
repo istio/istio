@@ -112,6 +112,7 @@
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         
@@ -148,6 +149,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [

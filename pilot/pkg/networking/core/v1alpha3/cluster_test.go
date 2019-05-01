@@ -302,7 +302,39 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
 	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(2)))
 	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
-	//g.Expect(cluster.Type).To(Equal(apiv2.Cluster_EDS))
+	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
+}
+
+func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ttl := time.Nanosecond * 100
+	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+						ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+							HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+								HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+									Name: "hash-cookie",
+									Ttl:  &ttl,
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(len(clusters)).To(Equal(3))
+
+	cluster := clusters[0]
+	g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_RING_HASH))
+	g.Expect(cluster.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(1024)))
+	g.Expect(cluster.Name).To(Equal("outbound|8080||*.example.org"))
 	g.Expect(cluster.ConnectTimeout).To(Equal(time.Duration(10000000001)))
 }
 
@@ -732,4 +764,27 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
 	}
+}
+
+func TestClusterDiscoveryTypeAndLbPolicy(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+				},
+			},
+		})
+
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
+	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
 }

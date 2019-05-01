@@ -15,6 +15,7 @@
 package apps
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -22,14 +23,15 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/proto"
 	deployment2 "istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -102,6 +104,9 @@ spec:
       labels:
         app: {{ .service }}
         version: {{ .version }}
+{{- if ne .locality "" }}
+        istio-locality: {{ .locality }}
+{{- end }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -154,6 +159,25 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sdstokensecret
+type: Opaque
+stringData:
+  sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
+VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
+wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
+EtdG9rZW4tNzR0d3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
+5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
+ljZS1hY2NvdW50LnVpZCI6IjJhYzAzYmEyLTY5MTUtMTFlOS05NjkwLTQyMDEwYThhMDExNCIsInN1Yi\
+I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.pZ8SiyNeO0p\
+1p8HB9oXvXOAI1XCJZKk2wVHXBsTSzKWxlVD9HrHbAcSbO2dlhFpeCgknt6eZywvhShZJh2F6-iHP_Yo\
+UVoCqQmzjPoB3c3JoYFpJo-9jTN1_mNRtZUcNvYl-tDlTmBlaKEvoC5P2WGVUF3AoLsES66u4FG9Wllm\
+LV92LG1WNqx_ltkT1tahSy9WiHQgyzPqwtwE72T1jAGdgVIoJy1lfSaLam_bo9rqkRlgSg-au9BAjZiD\
+Gtm9tf3lwrcgfbxccdlG4jAsTFa2aNs3dW4NLk7mFnWCJa-iWj-TgFxf9TW-9XPK0g3oYIQ0Id0CIW2S\
+iFxKGPAjB-g"
+---
 `
 )
 
@@ -185,6 +209,7 @@ var (
 			injectProxy:    false,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "a",
@@ -199,6 +224,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: false,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "b",
@@ -213,6 +239,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v1",
@@ -227,6 +254,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "c-v2",
@@ -241,6 +269,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "d",
@@ -255,6 +284,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 		{
 			deployment:     "headless",
@@ -269,6 +299,7 @@ var (
 			injectProxy:    true,
 			headless:       true,
 			serviceAccount: true,
+			locality:       "region.zone.subzone",
 		},
 	}
 )
@@ -278,6 +309,10 @@ func appSelector(serviceName string) string {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	if err := cfg.fillInDefaults(ctx); err != nil {
+		return nil, err
+	}
+
 	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		apps:        make([]App, 0),
@@ -288,9 +323,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	var err error
 
-	// Wait for the pods to transition to running.
-	if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
-		return nil, err
+	c.namespace = cfg.Namespace
+	if c.namespace == nil {
+		if c.namespace, err = namespace.New(ctx, "apps", true); err != nil {
+			return nil, err
+		}
 	}
 
 	params := cfg.AppParams
@@ -309,11 +346,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 			}
-			client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+			app, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 			if err != nil {
 				return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 			}
-			c.apps = append(c.apps, client)
+			c.apps = append(c.apps, app)
 		}
 		return c, nil
 	}
@@ -324,6 +361,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		dfs[i] = deploymentFactory{
 			deployment:     param.Name,
 			service:        param.Name,
+			locality:       param.Locality,
 			version:        "v1",
 			port1:          8080,
 			port2:          80,
@@ -346,11 +384,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed waiting for deployment %s: %v", d.deployment, err)
 		}
-		client, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
+		app, err := newKubeApp(d.service, c.namespace.Name(), pod, env)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating client for deployment %s: %v", d.deployment, err)
 		}
-		c.apps = append(c.apps, client)
+		c.apps = append(c.apps, app)
 	}
 
 	return c, nil
@@ -404,12 +442,12 @@ func (c *kubeComponent) Close() (err error) {
 }
 
 type endpoint struct {
-	port  *model.Port
-	owner *kubeApp
+	networkEndpoint model.NetworkEndpoint
+	owner           *kubeApp
 }
 
 func (e *endpoint) Name() string {
-	return e.port.Name
+	return e.networkEndpoint.ServicePort.Name
 }
 
 func (e *endpoint) Owner() App {
@@ -417,7 +455,11 @@ func (e *endpoint) Owner() App {
 }
 
 func (e *endpoint) Protocol() model.Protocol {
-	return e.port.Protocol
+	return e.networkEndpoint.ServicePort.Protocol
+}
+
+func (e *endpoint) NetworkEndpoint() model.NetworkEndpoint {
+	return e.networkEndpoint
 }
 
 func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
@@ -440,7 +482,8 @@ func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
 	}
 	return &url.URL{
 		Scheme: protocol,
-		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
+		Host:   net.JoinHostPort(host, strconv.Itoa(e.networkEndpoint.ServicePort.Port)),
+		Path:   opts.Path,
 	}
 }
 
@@ -455,7 +498,7 @@ type kubeApp struct {
 	appName     string
 	endpoints   []*endpoint
 	forwarder   testKube.PortForwarder
-	client      *echo.Client
+	client      *client.Instance
 }
 
 var _ App = &kubeApp{}
@@ -482,8 +525,13 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
-	// Extract the endpoints from the service definition.
-	a.endpoints = getEndpoints(a, service)
+	eps, err := e.GetEndpoints(namespace, serviceName, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the endpoints from the endpoints definition.
+	a.endpoints = getEndpoints(a, eps)
 
 	var grpcPort uint16
 	grpcPort, err = a.getGrpcPort()
@@ -492,10 +540,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	}
 
 	// Create a forwarder to the command port of the app.
-	a.forwarder, err = e.NewPortForwarder(&testKube.PodSelectOptions{
-		PodNamespace: pod.Namespace,
-		PodName:      pod.Name,
-	}, 0, grpcPort)
+	a.forwarder, err = e.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +548,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, err
 	}
 
-	a.client, err = echo.NewClient(a.forwarder.Address())
+	a.client, err = client.New(a.forwarder.Address())
 	out = a
 	return
 }
@@ -523,23 +568,31 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
+	return uint16(commandEndpoints[0].(*endpoint).networkEndpoint.ServicePort.Port), nil
 }
 
 func (a *kubeApp) Name() string {
 	return a.serviceName
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
-	out := make([]*endpoint, len(service.Spec.Ports))
-	for i, servicePort := range service.Spec.Ports {
-		out[i] = &endpoint{
-			owner: owner,
-			port: &model.Port{
-				Name:     servicePort.Name,
-				Port:     int(servicePort.Port),
-				Protocol: serviceRegistryKube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
-			},
+func getEndpoints(owner *kubeApp, endpoints *kubeApiCore.Endpoints) []*endpoint {
+	out := make([]*endpoint, 0)
+	for _, subset := range endpoints.Subsets {
+		for _, address := range subset.Addresses {
+			for _, port := range subset.Ports {
+				out = append(out, &endpoint{
+					owner: owner,
+					networkEndpoint: model.NetworkEndpoint{
+						Address: address.IP,
+						Port:    int(port.Port),
+						ServicePort: &model.Port{
+							Name:     port.Name,
+							Port:     int(port.Port),
+							Protocol: serviceRegistryKube.ConvertProtocol(port.Name, port.Protocol),
+						},
+					},
+				})
+			}
 		}
 	}
 	return out
@@ -565,7 +618,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []AppEndpoint {
 
 func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 	for _, e := range a.endpoints {
-		if e.port.Port == port {
+		if e.networkEndpoint.ServicePort.Port == port {
 			return e
 		}
 	}
@@ -573,15 +626,10 @@ func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*client.ParsedResponse, error) {
 	dst, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
 	}
 
 	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
@@ -593,41 +641,42 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
-	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
-		Count: int32(opts.Count),
-		Headers: []*proto.Header{
-			{
-				Key:   "Host",
-				Value: dstServiceName,
-			},
+
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: dstServiceName,
 		},
+	}
+
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override dstServiceName
+	for k := range opts.Headers {
+		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
+	}
+
+	resp, err := a.client.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
+		Url:     dstURL.String(),
+		Count:   int32(opts.Count),
+		Headers: protoHeaders,
 	})
+
 	if err != nil {
 		return nil, err
 	}
-
-	if len(resp) != 1 {
+	if len(resp) != opts.Count {
 		return nil, fmt.Errorf("unexpected number of responses: %d", len(resp))
-	}
-	if !resp[0].IsOK() {
-		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
-	}
-	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
-	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
 }
 
-func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*client.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return r
 }
 
@@ -644,10 +693,10 @@ type deploymentFactory struct {
 	injectProxy    bool
 	headless       bool
 	serviceAccount bool
+	locality       string
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespace.Instance) (*deployment.Instance, error) {
-
 	s, err := deployment2.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
@@ -671,6 +720,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 		"injectProxy":     strconv.FormatBool(d.injectProxy),
 		"headless":        strconv.FormatBool(d.headless),
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+		"locality":        d.locality,
 	})
 	if err != nil {
 		return nil, err
@@ -685,11 +735,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, namespace namespa
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, ns namespace.Instance) (kubeApiCore.Pod, error) {
 	podFetchFunc := e.NewSinglePodFetch(ns.Name(), appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
-		return kubeApiCore.Pod{}, err
-	}
-
-	pods, err := podFetchFunc()
+	pods, err := e.WaitUntilPodsAreReady(podFetchFunc)
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}

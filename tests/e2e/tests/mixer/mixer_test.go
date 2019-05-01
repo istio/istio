@@ -96,7 +96,7 @@ var (
 	rateLimitRule                = "mixer-rule-ratings-ratelimit"
 	denialRule                   = "mixer-rule-ratings-denial"
 	ingressDenialRule            = "mixer-rule-ingress-denial"
-	newTelemetryRule             = "mixer-rule-additional-telemetry"
+	newTelemetryRule             = "../telemetry/metrics"
 	kubeenvTelemetryRule         = "mixer-rule-kubernetesenv-telemetry"
 	destinationRuleAll           = "destination-rule-all"
 	routeAllRule                 = "virtual-service-all-v1"
@@ -131,8 +131,7 @@ func (t *testConfig) Setup() (err error) {
 		defaultRules = append(defaultRules, *dr)
 	}
 	// Append default metric template and prometheus adapter config for out of process adapter dynamic encoding
-	defaultRules = append(defaultRules, mixerPromAdapterConfig)
-	defaultRules = append(defaultRules, mixerMetricTemplate)
+	defaultRules = append(defaultRules, mixerPromAdapterConfig, mixerMetricTemplate)
 
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule}
@@ -333,16 +332,16 @@ func podLogs(labelSelector string, container string) {
 // portForward sets up local port forward to the pod specified by the "app" label
 func (p *promProxy) portForward(labelSelector string, localPort, remotePort uint16) error {
 	log.Infof("Setting up %s proxy", labelSelector)
-	options := &kube.PodSelectOptions{
-		PodNamespace:  p.namespace,
-		LabelSelector: labelSelector,
-	}
 	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
 	}
-	forwarder, err := accessor.NewPortForwarder(options, localPort, remotePort)
+	pod, err := accessor.FindPodBySelectors(p.namespace, labelSelector)
+	if err != nil {
+		log.Errorf("error finding pods: %v", err)
+	}
+	forwarder, err := accessor.NewPortForwarder(pod, localPort, remotePort)
 	if err != nil {
 		log.Errorf("Error creating port forwarder: %v", err)
 		return err

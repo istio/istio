@@ -231,8 +231,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   compiledTemplate: logentry
   params:
@@ -292,8 +290,6 @@ metadata:
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  annotations:
-    policy.istio.io/lang: COMPAT
 spec:
   compiledTemplate: logentry
   params:
@@ -587,6 +583,11 @@ kind: instance
 metadata:
   name: tcpconnectionsopened
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledTemplate: metric
   params:
@@ -615,6 +616,11 @@ kind: instance
 metadata:
   name: tcpconnectionsclosed
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   compiledTemplate: metric
   params:
@@ -893,6 +899,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     policy.istio.io/lang: COMPAT
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "open")
   actions:
@@ -907,6 +918,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     policy.istio.io/lang: COMPAT
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ template "mixer.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp" && ((connection.event | "na") == "close")
   actions:

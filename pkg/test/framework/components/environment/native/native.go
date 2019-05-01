@@ -15,13 +15,20 @@
 package native
 
 import (
-	meshConfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"io"
+
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
+
+const (
+	systemNamespace = "istio-system"
+	domain          = "svc.local"
+)
+
+var _ io.Closer = &Environment{}
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
 // hosts publicly accessible methods that are specific to local environment.
@@ -29,25 +36,30 @@ type Environment struct {
 	id  resource.ID
 	ctx api.Context
 
-	// TODO: It is not correct to have fixed meshconfig at the environment level. We should align this with Galley's
-	// mesh usage as well, which is per-component instantiation.
+	// SystemNamespace is the namespace used for all Istio system components.
+	SystemNamespace string
 
-	// Mesh for configuring pilot.
-	Mesh *meshConfig.MeshConfig
+	// Domain used by components in the native environment.
+	Domain string
 
-	// ServiceManager for all deployed services.
-	ServiceManager *service.Manager
+	// PortManager provides free ports on-demand.
+	PortManager reserveport.PortManager
 }
 
 var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
 func New(ctx api.Context) (resource.Environment, error) {
-	mesh := model.DefaultMeshConfig()
+	portMgr, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, err
+	}
+
 	e := &Environment{
-		ctx:            ctx,
-		Mesh:           &mesh,
-		ServiceManager: service.NewManager(),
+		ctx:             ctx,
+		SystemNamespace: systemNamespace,
+		Domain:          domain,
+		PortManager:     portMgr,
 	}
 	e.id = ctx.TrackResource(e)
 
@@ -69,4 +81,8 @@ func (e *Environment) Case(name environment.Name, fn func()) {
 // ID implements resource.Instance
 func (e *Environment) ID() resource.ID {
 	return e.id
+}
+
+func (e *Environment) Close() error {
+	return e.PortManager.Close()
 }

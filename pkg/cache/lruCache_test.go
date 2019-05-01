@@ -30,7 +30,7 @@ func TestLRUConcurrent(t *testing.T) {
 }
 
 func TestLRUExpiration(t *testing.T) {
-	lru := NewLRU(5*time.Second, 100*time.Second, 500).(*lruWrapper)
+	lru := NewLRU(5*time.Second, 0, 500).(*lruCache)
 	testCacheExpiration(lru, lru.evictExpired, t)
 }
 
