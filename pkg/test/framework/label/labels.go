@@ -20,8 +20,13 @@ const (
 
 	// Postsubmit indicates that the test should be run as part of a postsubmit run.
 	Postsubmit Instance = "postsubmit"
+
+	// Flaky indicates that a test is currently flaky and should not be run as part
+	// of presubmit or postsubmit.
+	Flaky Instance = "flaky"
 )
 
 var all = NewSet(
 	Presubmit,
-	Postsubmit)
+	Postsubmit,
+	Flaky)
