@@ -769,17 +769,17 @@ benchcheck:
 # Target: istio-ecosystem installer
 #-----------------------------------------------------------------------------
 
-export ISTIO_INSTALLER?=${GOPATH}/src/github.com/istio-ecosystem/istio-installer
+export ISTIO_INSTALLER?=${GOPATH}/src/github.com/istio/installer
 INSTALLER_OPTS="-f install/kubernetes/helm/istio/test-values/values-installer-e2e.yaml"
-INSTALLER_REPOSRC=git://github.com/istio-ecosystem/istio-installer.git
+INSTALLER_REPOSRC=git://github.com/istio/installer.git
 
 force: ;
 
-${GOPATH}/src/github.com/istio-ecosystem/istio-installer: force
+${GOPATH}/src/github.com/istio/installer: force
 	mkdir -p ${GOPATH}/src/istio-ecosystem
 	git clone -b master "${INSTALLER_REPOSRC}" "${ISTIO_INSTALLER}" 2> /dev/null || (cd "${ISTIO_INSTALLER}" ; git pull)
 
-generate_installer_e2e_yaml: ${GOPATH}/src/github.com/istio-ecosystem/istio-installer istio-init.yaml
+generate_installer_e2e_yaml: ${GOPATH}/src/github.com/istio/installer istio-init.yaml
 	rm -f install/kubernetes/istio-installer.yaml
 	for f in ${ISTIO_INSTALLER}/crds/*.yaml; do (cat $$f; echo '---') >> install/kubernetes/istio-installer.yaml; done
 	BASE=${ISTIO_INSTALLER} ${ISTIO_INSTALLER}/bin/iop istio-system istio-citadel ${ISTIO_INSTALLER}/security/citadel ${ARGS} -t ${INSTALLER_OPTS} >> install/kubernetes/istio-citadel.yaml
