@@ -15,180 +15,24 @@
 package trafficshifting
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"net/http"
 	"strings"
 	"testing"
-	"text/template"
-	"time"
 
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/apps"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-//	Virtual service topology
-//
-//						 a
-//						|-------|
-//						| Host0 |
-//						|-------|
-//							|
-//							|
-//							|
-//		-------------------------------------
-//		|weight1	|weight2	|weight3	|weight4
-//		|a			|b			|c			|d
-//	|-------|	|-------|	|-------|	|-------|
-//	| Host0 |	| Host1	|	| Host2 |	| Host3 |
-//	|-------|	|-------|	|-------|	|-------|
-//
-//
+func sendTraffic(t *testing.T, batchSize int, from apps.KubeApp, to string, hosts []string, weight []int32, errorBand float64) {
 
-const (
-	testDuration = 10 * time.Second
-
-	errorBand = 10.0
-
-	virtualService = `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
- name: {{.Name}}
- namespace: {{.Namespace}}
-spec:
- hosts:
- - {{.Host0}}
- http:
- - route:
-   - destination:
-       host: {{.Host0}}
-     weight: {{.Weight0}}
-   - destination:
-       host: {{.Host1}}
-     weight: {{.Weight1}}
-   - destination:
-       host: {{.Host2}}
-     weight: {{.Weight2}}
-   - destination:
-       host: {{.Host3}}
-     weight: {{.Weight3}}
-`
-)
-
-var (
-	hosts = []string{"a", "b", "c", "d"}
-)
-
-type VirtualServiceConfig struct {
-	Name      string
-	Host0     string
-	Host1     string
-	Host2     string
-	Host3     string
-	Namespace string
-	Weight0   int32
-	Weight1   int32
-	Weight2   int32
-	Weight3   int32
-}
-
-// RunTrafficShiftingTest configs virtual service and runs traffic shifting test.
-func RunTrafficShiftingTest(t *testing.T, weight []int32) {
-	if len(weight) == 0 || len(weight) > 4 {
-		t.Error("Input parameter is invalid. The length of weight is in [1, 4].")
-	}
-
-	var sum int32
-	for _, v := range weight {
-		if v < 0 || 100 < v {
-			t.Error("Input parameter is invalid. The weight should be in [0, 100].")
-		}
-		sum += v
-	}
-
-	if sum != 100 {
-		t.Error("Input parameter is invalid. The sum of the weight should be 100.0.")
-	}
-
-	weight = append(weight, make([]int32, 4-len(weight))...)
-
-	framework.
-		NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
-
-			instance := apps.NewOrFail(t, ctx, apps.Config{Pilot: p, Galley: g})
-
-			vsc := VirtualServiceConfig{
-				"traffic-shifting-rule",
-				hosts[0],
-				hosts[1],
-				hosts[2],
-				hosts[3],
-				instance.Namespace().Name(),
-				weight[0],
-				weight[1],
-				weight[2],
-				weight[3],
-			}
-
-			tmpl, _ := template.New("VirtualServiceConfig").Parse(virtualService)
-			var buf bytes.Buffer
-			tmpl.Execute(&buf, vsc)
-
-			g.ApplyConfigOrFail(t, instance.Namespace(), buf.String())
-			time.Sleep(10 * time.Second)
-
-			from := instance.GetAppOrFail(hosts[0], t).(apps.KubeApp)
-
-			sendTraffic(t, testDuration, from, hosts[0], weight)
-		})
-}
-
-func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to string, weight []int32) {
-	timeout := time.After(duration)
+	stop := make(chan bool, 1)
 	totalRequests := 0
 	hostnameHitCount := map[string]int{}
 	errorFailures := map[string]int{}
 
-	for {
-		select {
-		case <-timeout:
-			if totalRequests < 1 {
-				t.Error("No requests made.")
-			}
-			if len(errorFailures) > 0 {
-				t.Errorf("Total requests: %v, requests failed: %v.", totalRequests, errorFailures)
-			}
-
-			for i, v := range hosts {
-				var actual = float64(hostnameHitCount[v] * 100 / totalRequests)
-				if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
-					t.Errorf(
-						"Traffic weight doesn't match. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
-						totalRequests,
-						weight[i],
-						actual,
-						errorBand)
-				}
-
-				t.Logf(
-					"Traffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
-					totalRequests,
-					weight[i],
-					actual,
-					errorBand)
-			}
-
-			return
-		default:
+	go func() {
+		for totalRequests < batchSize {
 			headers := http.Header{}
 			headers.Add("Host", to)
 			// This is a hack to remain infrastructure agnostic when running these tests
@@ -210,5 +54,34 @@ func sendTraffic(t *testing.T, duration time.Duration, from apps.KubeApp, to str
 				errorFailures[fmt.Sprintf("send to %v failed: %v", to, err)]++
 			}
 		}
+
+		stop <- true
+	}()
+
+	<-stop
+	if totalRequests < 1 {
+		t.Error("No requests made.")
+	}
+	if len(errorFailures) > 0 {
+		t.Errorf("Total requests: %v, requests failed: %v.", totalRequests, errorFailures)
+	}
+
+	for i, v := range hosts {
+		var actual = float64(hostnameHitCount[v] * 100 / totalRequests)
+		if errorBand-math.Abs(float64(weight[i])-actual) < 0 {
+			t.Errorf(
+				"Traffic weight doesn't match. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
+				totalRequests,
+				weight[i],
+				actual,
+				errorBand)
+		}
+
+		t.Logf(
+			"Traffic weight matches. Total request: %v, expected: %d%%, actually: %.2f%%, error band: %.2f%%",
+			totalRequests,
+			weight[i],
+			actual,
+			errorBand)
 	}
 }
