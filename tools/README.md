@@ -51,7 +51,7 @@ __Option B:__ (Advanced users, not recommended, from source) Build the deploymen
 ```
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source and may or may not work/need additional hub/tags/...
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide) to build the `istioctl` binary.
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/wiki/Preparing-for-Development) to build the `istioctl` binary.
 Make sure the binary is first in to your PATH.
 Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 
@@ -240,7 +240,7 @@ canonical,fortio2,echo1,1200,1s,24,0.003420898,0.086621239,0.0248239801951,0.020
 ```
 
 To test the affects of your change, simply update your cluster with your binaries by following the
-[Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide) and rerun the tests again. To ensure
+[Developer Guide](https://github.com/istio/istio/wiki/Preparing-for-Development) and rerun the tests again. To ensure
 you're tracking the results of your changes correctly, you can explicitly specify a label:
 
 ```
