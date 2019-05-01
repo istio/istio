@@ -202,6 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 				StatPrefix:       util.PassthroughCluster,
 				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 			}
+			setAccessLog(env, node, tcpProxy)
 		}
 		var transparent *google_protobuf.BoolValue
 		if node.GetInterceptionMode() == model.InterceptionTproxy {
