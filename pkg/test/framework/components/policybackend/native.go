@@ -28,6 +28,48 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const (
+	inProcessHandlerNative = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  params:
+    backend_address: 127.0.0.1:%d
+  compiledAdapter: bypass
+`
+
+	outOfProcessHandlerNative = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: allowhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: 127.0.0.1:%d
+  params:
+    checkParams:
+      checkAllow: true
+      validDuration: 10s
+      validCount: 1
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: denyhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: 127.0.0.1:%d
+  params:
+    checkParams:
+      checkAllow: false
+`
+)
+
 var (
 	retryDelay = retry.Delay(time.Second)
 
@@ -87,18 +129,16 @@ func newNative(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *nativeComponent) CreateConfigSnippet(name string, namespace string) string {
-	return fmt.Sprintf(
-		`apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: %s
-  namespace: %s
-spec:
-  params:
-    backend_address: 127.0.0.1:%d
-  compiledAdapter: bypass
-`, name, namespace, c.backend.Port())
+func (c *nativeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
+	switch am {
+	case InProcess:
+		return fmt.Sprintf(inProcessHandlerNative, name, namespace, c.backend.Port())
+	case OutOfProcess:
+		return fmt.Sprintf(outOfProcessHandlerNative, c.backend.Port(), c.backend.Port())
+	default:
+		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		return ""
+	}
 }
 
 func (c *nativeComponent) Reset() error {
