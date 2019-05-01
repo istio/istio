@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -41,6 +43,19 @@ type MergedGateway struct {
 	// Inverse of ServersByRouteName. Returning this as part of merge result allows to keep route name generation logic
 	// encapsulated within the model and, as a side effect, to avoid generating route names twice.
 	RouteNamesByServer map[*networking.Server]string
+}
+
+var totalRejectedConfigs = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "pilot_total_rejected_configs",
+	Help: "Total number of configs that Pilot had to reject or ignore.",
+}, []string{"type", "name"})
+
+func rejectConfig(gateway string) {
+	totalRejectedConfigs.With(prometheus.Labels{"type": "gateway", "name": gateway}).Inc()
+}
+
+func init() {
+	prometheus.MustRegister(totalRejectedConfigs)
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
@@ -78,7 +93,8 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					tlsHostsByPort[s.Port.Number] = map[string]struct{}{}
 				}
 				if duplicateHosts := checkDuplicates(s.Hosts, tlsHostsByPort[s.Port.Number]); len(duplicateHosts) != 0 {
-					log.Warnf("MergeGateways: skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+					log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+					rejectConfig(gatewayName)
 					continue
 				}
 			}
@@ -93,14 +109,16 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 				if p, exists := plaintextServers[s.Port.Number]; exists {
 					currentProto := ParseProtocol(p[0].Port.Protocol)
 					if currentProto != protocol || !protocol.IsHTTP() {
-						log.Warnf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
+						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
+						rejectConfig(gatewayName)
 						continue
 					}
 					routeName := gatewayRDSRouteName(s, config)
 					if routeName == "" {
-						log.Warnf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
+						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 							config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+						rejectConfig(gatewayName)
 						continue
 					}
 					serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
@@ -113,6 +131,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						if routeName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+							rejectConfig(gatewayName)
 							continue
 						}
 
@@ -125,6 +144,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						if _, exists := serversByRouteName[routeName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								config.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+							rejectConfig(gatewayName)
 							continue
 						}
 						serversByRouteName[routeName] = []*networking.Server{s}
