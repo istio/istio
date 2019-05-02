@@ -29,10 +29,10 @@ import (
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
-	defaultTimeout = time.Second * 30
+	defaultConfigTimeout = time.Second * 30
 
 	// DefaultDelay the default delay between successive retry attempts
-	defaultDelay = time.Second * 2
+	defaultConfigDelay = time.Second * 2
 )
 
 // ConfigFetchFunc retrieves the config dump from Envoy.
@@ -44,7 +44,7 @@ type ConfigFetchFunc func() (*envoyAdmin.ConfigDump, error)
 type ConfigAcceptFunc func(*envoyAdmin.ConfigDump) (bool, error)
 
 func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...retry.Option) error {
-	options = append([]retry.Option{retry.Delay(defaultDelay), retry.Timeout(defaultTimeout)}, options...)
+	options = append([]retry.Option{retry.Delay(defaultConfigDelay), retry.Timeout(defaultConfigTimeout)}, options...)
 
 	var cfg *envoyAdmin.ConfigDump
 	_, err := retry.Do(func() (result interface{}, completed bool, err error) {

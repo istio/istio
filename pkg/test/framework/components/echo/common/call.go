@@ -15,6 +15,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -23,8 +24,10 @@ import (
 	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
-	appEcho "istio.io/istio/pkg/test/application/echo"
-	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
@@ -39,7 +42,7 @@ var (
 // requests to a target service.
 type OutboundPortSelectorFunc func(servicePort int) (int, error)
 
-func CallEcho(client *appEcho.Client, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (appEcho.ParsedResponses, error) {
+func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (client.ParsedResponses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -51,7 +54,7 @@ func CallEcho(client *appEcho.Client, opts *echo.CallOptions, outboundPortSelect
 
 	// Forward a request from 'this' service to the destination service.
 	targetURL := &url.URL{
-		Scheme: string(opts.Protocol),
+		Scheme: string(opts.Scheme),
 		Host:   net.JoinHostPort(opts.Host, strconv.Itoa(port)),
 		Path:   opts.Path,
 	}
@@ -70,12 +73,13 @@ func CallEcho(client *appEcho.Client, opts *echo.CallOptions, outboundPortSelect
 	}
 
 	req := &proto.ForwardEchoRequest{
-		Url:     targetURL.String(),
-		Count:   int32(opts.Count),
-		Headers: protoHeaders,
+		Url:           targetURL.String(),
+		Count:         int32(opts.Count),
+		Headers:       protoHeaders,
+		TimeoutMicros: common.DurationToMicros(opts.Timeout),
 	}
 
-	resp, err := client.ForwardEcho(req)
+	resp, err := c.ForwardEcho(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +129,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		}
 	}
 
-	if opts.Protocol == "" {
+	if opts.Scheme == "" {
 		// No protocol, fill it in.
 		var err error
-		if opts.Protocol, err = protocolForPort(opts.Port); err != nil {
+		if opts.Scheme, err = schemeForPort(opts.Port); err != nil {
 			return err
 		}
 	}
@@ -138,21 +142,25 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		opts.Host = opts.Target.Config().FQDN()
 	}
 
+	if opts.Timeout <= 0 {
+		opts.Timeout = common.DefaultRequestTimeout
+	}
+
 	if opts.Count <= 0 {
-		opts.Count = 1
+		opts.Count = common.DefaultCount
 	}
 
 	return nil
 }
 
-func protocolForPort(port *echo.Port) (echo.CallProtocol, error) {
+func schemeForPort(port *echo.Port) (scheme.Instance, error) {
 	switch port.Protocol {
 	case model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolHTTP2:
-		return echo.GRPC, nil
+		return scheme.GRPC, nil
 	case model.ProtocolHTTP, model.ProtocolTCP:
-		return echo.HTTP, nil
+		return scheme.HTTP, nil
 	case model.ProtocolHTTPS, model.ProtocolTLS:
-		return echo.HTTPS, nil
+		return scheme.HTTPS, nil
 	default:
 		return "", fmt.Errorf("failed creating call for port %s: unsupported protocol %s",
 			port.Name, port.Protocol)

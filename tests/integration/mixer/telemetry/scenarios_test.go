@@ -185,5 +185,8 @@ func TestTcpMetric(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Main("mixer_policy_ratelimit", m, istio.SetupOnKube(&ist, nil))
+	framework.
+		NewSuite("mixer_policy_ratelimit", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Run()
 }

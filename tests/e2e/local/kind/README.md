@@ -3,7 +3,7 @@
 1. No need to worry about kubernetes cluster setup.
 
 # Prereqs:
-1. Set up Istio Dev environment using https://github.com/istio/istio/wiki/Dev-Guide.
+1. Set up Istio Dev environment using https://github.com/istio/istio/wiki/Preparing-for-Development.
 
 1. Install
   * [docker](https://docs.docker.com/)

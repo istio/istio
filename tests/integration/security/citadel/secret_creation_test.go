@@ -72,6 +72,6 @@ func TestMain(m *testing.M) {
 		NewSuite("citadel_test", m).
 		Label(label.Presubmit).
 		RequireEnvironment(environment.Kube).
-		EnvSetup(environment.Kube, istio.SetupOnKube(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Run()
 }

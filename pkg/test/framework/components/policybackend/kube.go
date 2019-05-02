@@ -78,6 +78,59 @@ spec:
           initialDelaySeconds: 1
 ---
 `
+
+	inProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: %s
+spec:
+  params:
+    backend_address: policy-backend.%s.svc.cluster.local:1071
+  compiledAdapter: bypass
+---
+`
+
+	outOfProcessHandlerKube = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: allowhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: true
+      validDuration: 10s
+      validCount: 1
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: denyhandler
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    checkParams:
+      checkAllow: false
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: keyval
+spec:
+  adapter: policybackend
+  connection:
+    address: policy-backend.%s.svc.cluster.local:1071
+  params:
+    table:
+      jason: admin
+---
+`
 )
 
 var (
@@ -186,17 +239,17 @@ func newKube(ctx resource.Context) (Instance, error) {
 	return c, nil
 }
 
-func (c *kubeComponent) CreateConfigSnippet(name string, namespace string) string {
-	return fmt.Sprintf(
-		`apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: %s
-spec:
-  params:
-    backend_address: policy-backend.%s.svc.cluster.local:1071
-  compiledAdapter: bypass
-`, name, c.namespace.Name())
+func (c *kubeComponent) CreateConfigSnippet(name string, namespace string, am AdapterMode) string {
+	switch am {
+	case InProcess:
+		return fmt.Sprintf(inProcessHandlerKube, name, c.namespace.Name())
+	case OutOfProcess:
+		handler := fmt.Sprintf(outOfProcessHandlerKube, c.namespace.Name(), c.namespace.Name(), c.namespace.Name())
+		return handler
+	default:
+		scopes.CI.Errorf("Error generating config snippet for policy backend: unsupported adapter mode")
+		return ""
+	}
 }
 
 func (c *kubeComponent) ID() resource.ID {

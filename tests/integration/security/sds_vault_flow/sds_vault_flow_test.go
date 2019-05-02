@@ -35,22 +35,22 @@ var (
 )
 
 const (
-	tlsRootCert = "-----BEGIN CERTIFICATE-----\\\\nMIIC3jCCAcagAwIBAgIRAIcSFH1jneS0XPz5r2Q" +
-		"DbigwDQYJKoZIhvcNAQELBQAw\\\\nEDEOMAwGA1UEChMFVmF1bHQwIBcNMTgxMjI2MDkwM" +
-		"DU3WhgPMjExODEyMDIwOTAw\\\\nNTdaMBAxDjAMBgNVBAoTBVZhdWx0MIIBIjANBgkqhki" +
-		"G9w0BAQEFAAOCAQ8AMIIB\\\\nCgKCAQEA2q5lfJCLAOTEjX3xV8qMLEX8zUQpd0AjD6zzO" +
-		"Mzx51GVM7Plf7CJmaDq\\\\nyloRz3zcrTEltHUrln5fvouvp4TetOlqEU979vvccnFLgXr" +
-		"Spn+Zt/EyjE0rUYY3\\\\n5e2qxy9bP2E7zJSKONIT6zRDd2zUQGH3zUem1ZG0GFY1ZL5qF" +
-		"SOIy+PvuQ4u8HCa\\\\n1CcnHmI613fVDbFbaxuF2G2MIwCZ/Fg6KBd9kgU7uCOvkbR4AtR" +
-		"e0ntwweIjOIas\\\\nFiohPQzVY4obrYZiTV43HT4lGti7ySn2c96UnRSnmHLWyBb7cafd4" +
-		"WZN/t+OmYSd\\\\nooxCVQ2Zqub6NlZ5OySYOz/0BJq6DQIDAQABozEwLzAOBgNVHQ8BAf8" +
-		"EBAMCBaAw\\\\nDAYDVR0TAQH/BAIwADAPBgNVHREECDAGhwQj6fn5MA0GCSqGSIb3DQEBC" +
-		"wUAA4IB\\\\nAQBORvUcW0wgg/Wo1aKFaZQuPPFVLjOZat0QpCJYNDhsSIO4Y0JS+Y1cEIk" +
-		"vXB3S\\\\nQ3D7IfNP0gh1fhtP/d45LQSPqpyJF5vKWAvwa/LSPKpw2+Zys4oDahcH+SEKi" +
-		"Qco\\\\nIhkkHNEgC4LEKEaGvY4A8Cw7uWWquUJB16AapSSnkeD2vTcxErfCO59yR7yEWDa" +
-		"6\\\\n8j6QNzmGNj2YXtT86+Mmedhfh65Rrh94mhAPQHBAdCNGCUwZ6zHPQ6Z1rj+x3" +
-		"Wm9\\\\ngqpveVq2olloNbnLNmM3V6F9mqSZACgADmRqf42bixeHczkTfRDKThJcpY5" +
-		"U44vy\\\\nw4Nm32yDWhD6AC68rDkXX68m\\\\n-----END CERTIFICATE-----"
+	tlsRootCert = "-----BEGIN CERTIFICATE-----\\\\nMIIC3jCCAcagAwIBAgIRAO1S7vuRQmo2He+RtBq3" +
+		"fv8wDQYJKoZIhvcNAQELBQAw\\\\nEDEOMAwGA1UEChMFVmF1bHQwIBcNMTkwNDI3MTY1ODE1WhgPMjExO" +
+		"TA0MDMxNjU4\\\\nMTVaMBAxDjAMBgNVBAoTBVZhdWx0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\\\\nCg" +
+		"KCAQEA7/CTbnENEIvFZg9hmVtYnOx3OfMy/GNCuP7sqtAeVVTopAKKkcAAWQck\\\\nrhpBooEGpCugNxXGNCuJ" +
+		"h/2nu0AfGFRfdafwSJRoI6yHwQouDm0o4r3h9uL3tu5N\\\\nD+x9j+eejbFsoZVn84CxGkEB6oyeXYHjc6eWh3" +
+		"PFGMtKuOQD4pezvDH0yNCx5waK\\\\nhtPuYtl0ebfdbyh+WQuptO+Q9VSaQNqE3ipZ461y8PduwRRll241W0gQ" +
+		"B2iasX03\\\\nD36F2ZrMz3KEVRVKM1yCUDCy2RPJqkXPdnVMWmDGbe8Uw69zr25JltzuRZFT9HL3\\\\nY1RnM" +
+		"TecmSc4ikTUHcMhFX3PYbfR5wIDAQABozEwLzAOBgNVHQ8BAf8EBAMCBaAw\\\\nDAYDVR0TAQH/BAIwADAPBgN" +
+		"VHREECDAGhwQiU4HTMA0GCSqGSIb3DQEBCwUAA4IB\\\\nAQCdLh6olDVQB71LD6srbfAE4EsxLEBbIRnv7Nf1S" +
+		"0KQwgW/QxK8DHBwJBxJkr1N\\\\nzgEPx86f2Fo2UsY9m6rvgP3+iquyMsKi0ooUah3y3LSnONuZcdfSTl/HYd3" +
+		"8S6Dp\\\\nVkVOZ7781xxpFVUqQ5voQX1Y1Ipn5qw0FyIcNYWLkNX+iMf1b9kpEIWQNhRC/Yiv\\\\nTS0VA/Bz" +
+		"QemGyf2UB6QsuZLH+JFEZnzU859qURnNIITa1Wf4YUtka5Sp1kDnEll3\\\\nwj4IlXKU+Wl1CzxJyn4SSQAXy/" +
+		"Lb08ZKrF/YSzcIISnRX5j+wa8ApOSwwA/B7iaT\\\\nTWz1g+RlV9qHap70eIjPsQvb\\\\n-----END CERTIFICATE-----"
+
+	vaultAddr      = "https://34.83.129.211:8200"
+	excludeIPRange = "34.83.129.211/32"
 )
 
 func TestSdsVaultCaFlow(t *testing.T) {
@@ -109,19 +109,21 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["global.sds.customTokenDirectory"] = "/etc/sdstoken"
 	cfg.Values["nodeagent.enabled"] = "true"
 	cfg.Values["nodeagent.image"] = "node-agent-k8s"
-	cfg.Values["nodeagent.env.CA_ADDR"] = "https://35.233.249.249:8200"
+	cfg.Values["nodeagent.env.CA_ADDR"] = vaultAddr
 	cfg.Values["nodeagent.env.CA_PROVIDER"] = "VaultCA"
 	cfg.Values["nodeagent.env.VALID_TOKEN"] = "true"
-	cfg.Values["nodeagent.env.VAULT_ADDR"] = "https://35.233.249.249:8200"
+	cfg.Values["nodeagent.env.VAULT_ADDR"] = vaultAddr
 	cfg.Values["nodeagent.env.VAULT_AUTH_PATH"] = "auth/kubernetes/login"
 	cfg.Values["nodeagent.env.VAULT_ROLE"] = "istio-cert"
 	cfg.Values["nodeagent.env.VAULT_SIGN_CSR_PATH"] = "istio_ca/sign/istio-pki-role"
 	cfg.Values["nodeagent.env.VAULT_TLS_ROOT_CERT"] = tlsRootCert
-	cfg.Values["global.proxy.excludeIPRanges"] = "35.233.249.249/32"
+	cfg.Values["global.proxy.excludeIPRanges"] = excludeIPRange
 }
 
 func TestMain(m *testing.M) {
 	// Integration test for the SDS Vault CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Vault CA flow.
-	framework.Main("sds_vault_flow_test", m, istio.SetupOnKube(&inst, setupConfig))
+	framework.NewSuite("sds_vault_flow_test", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Run()
 }

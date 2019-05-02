@@ -22,7 +22,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	appEcho "istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -101,7 +101,7 @@ func (c *instance) WorkloadsOrFail(t testing.TB) []echo.Workload {
 	return out
 }
 
-func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
+func (c *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
 	out, err := c.workload.Call(&opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
@@ -115,7 +115,7 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 	return out, nil
 }
 
-func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t testing.TB, opts echo.CallOptions) client.ParsedResponses {
 	r, err := c.Call(opts)
 	if err != nil {
 		t.Fatal(err)

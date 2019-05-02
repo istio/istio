@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 		NewSuite("rbac_v2", m).
 		// TODO(pitlv2109: Turn on the presubmit label once the test is stable.
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

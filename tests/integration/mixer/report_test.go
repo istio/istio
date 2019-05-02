@@ -41,7 +41,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 	g.ApplyConfigOrFail(t,
 		ns,
 		testReportConfig,
-		be.CreateConfigSnippet("handler1", ns.Name()))
+		be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
 	expected := tmpl.EvaluateOrFail(t, `
 {

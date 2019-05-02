@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("rbac_v2_group_list", m).
 		RequireEnvironment(environment.Kube).
-		Setup(istio.SetupOnKube(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

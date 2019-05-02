@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,10 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package echo
+package client
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -24,63 +23,18 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"google.golang.org/grpc"
-
-	"istio.io/istio/pkg/test/application/echo/proto"
-)
-
-const (
-	codeOK = "200"
+	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var (
-	idRegex       = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex  = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex     = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex     = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex     = regexp.MustCompile("Host=(.*)")
-	hostnameRegex = regexp.MustCompile("Hostname=(.*)")
+	requestIDFieldRegex      = regexp.MustCompile("(?i)" + string(response.RequestIDField) + "=(.*)")
+	serviceVersionFieldRegex = regexp.MustCompile(string(response.ServiceVersionField) + "=(.*)")
+	servicePortFieldRegex    = regexp.MustCompile(string(response.ServicePortField) + "=(.*)")
+	statusCodeFieldRegex     = regexp.MustCompile(string(response.StatusCodeField) + "=(.*)")
+	hostFieldRegex           = regexp.MustCompile(string(response.HostField) + "=(.*)")
+	hostnameFieldRegex       = regexp.MustCompile(string(response.HostnameField) + "=(.*)")
 )
-
-// Client is a simple client for forwarding echo requests between echo applications.
-type Client struct {
-	conn   *grpc.ClientConn
-	client proto.EchoTestServiceClient
-}
-
-// NewClient creates a new EchoClient instance that is connected to the given address.
-func NewClient(address string) (*Client, error) {
-	// Connect to the GRPC (command) endpoint of 'this' app.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	client := proto.NewEchoTestServiceClient(conn)
-
-	return &Client{
-		conn:   conn,
-		client: client,
-	}, nil
-}
-
-// Close the EchoClient and free any resources.
-func (c *Client) Close() error {
-	if c.conn != nil {
-		return c.conn.Close()
-	}
-	return nil
-}
-
-// ForwardEcho sends the given forward request and parses the response for easier processing. Only fails if the request fails.
-func (c *Client) ForwardEcho(request *proto.ForwardEchoRequest) (ParsedResponses, error) {
-	// Forward a request from 'this' service to the destination service.
-	resp, err := c.client.ForwardEcho(context.Background(), request)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseForwardedResponse(resp), nil
-}
 
 // ParsedResponse represents a response to a single echo request.
 type ParsedResponse struct {
@@ -102,7 +56,7 @@ type ParsedResponse struct {
 
 // IsOK indicates whether or not the code indicates a successful request.
 func (r *ParsedResponse) IsOK() bool {
-	return r.Code == codeOK
+	return r.Code == response.StatusCodeOK
 }
 
 // Count occurrences of the given text within the body of this response.
@@ -123,18 +77,19 @@ func (r ParsedResponses) Check(check func(int, *ParsedResponse) error) (err erro
 		return fmt.Errorf("no responses received")
 	}
 
-	for i, response := range r {
-		if e := check(i, response); e != nil {
+	for i, resp := range r {
+		if e := check(i, resp); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
 	return
 }
 
-func (r ParsedResponses) CheckOrFail(t testing.TB, check func(int, *ParsedResponse) error) {
+func (r ParsedResponses) CheckOrFail(t testing.TB, check func(int, *ParsedResponse) error) ParsedResponses {
 	if err := r.Check(check); err != nil {
 		t.Fatal(err)
 	}
+	return r
 }
 
 func (r ParsedResponses) CheckOK() error {
@@ -146,10 +101,11 @@ func (r ParsedResponses) CheckOK() error {
 	})
 }
 
-func (r ParsedResponses) CheckOKOrFail(t testing.TB) {
+func (r ParsedResponses) CheckOKOrFail(t testing.TB) ParsedResponses {
 	if err := r.CheckOK(); err != nil {
 		t.Fatal(err)
 	}
+	return r
 }
 
 func (r ParsedResponses) CheckHost(expected string) error {
@@ -161,10 +117,11 @@ func (r ParsedResponses) CheckHost(expected string) error {
 	})
 }
 
-func (r ParsedResponses) CheckHostOrFail(t testing.TB, expected string) {
+func (r ParsedResponses) CheckHostOrFail(t testing.TB, expected string) ParsedResponses {
 	if err := r.CheckHost(expected); err != nil {
 		t.Fatal(err)
 	}
+	return r
 }
 
 func (r ParsedResponses) CheckPort(expected int) error {
@@ -177,10 +134,11 @@ func (r ParsedResponses) CheckPort(expected int) error {
 	})
 }
 
-func (r ParsedResponses) CheckPortOrFail(t testing.TB, expected int) {
+func (r ParsedResponses) CheckPortOrFail(t testing.TB, expected int) ParsedResponses {
 	if err := r.CheckPort(expected); err != nil {
 		t.Fatal(err)
 	}
+	return r
 }
 
 // Count occurrences of the given text within the bodies of all responses.
@@ -205,32 +163,32 @@ func parseResponse(output string) *ParsedResponse {
 		Body: output,
 	}
 
-	match := idRegex.FindStringSubmatch(output)
+	match := requestIDFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.ID = match[1]
 	}
 
-	match = versionRegex.FindStringSubmatch(output)
+	match = serviceVersionFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Version = match[1]
 	}
 
-	match = portRegex.FindStringSubmatch(output)
+	match = servicePortFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Port = match[1]
 	}
 
-	match = codeRegex.FindStringSubmatch(output)
+	match = statusCodeFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Code = match[1]
 	}
 
-	match = hostRegex.FindStringSubmatch(output)
+	match = hostFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Host = match[1]
 	}
 
-	match = hostnameRegex.FindStringSubmatch(output)
+	match = hostnameFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Hostname = match[1]
 	}

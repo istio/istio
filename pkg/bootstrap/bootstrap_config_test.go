@@ -399,7 +399,29 @@ func TestNodeMetadata(t *testing.T) {
 	if !reflect.DeepEqual(nm, merged) {
 		t.Fatalf("Maps are not equal.\ngot: %v\nwant: %v", nm, merged)
 	}
+}
 
+func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
+	originalKey := "foo"
+	notIstioMetaKey := "NOT_AN_" + IstioMetaPrefix + originalKey
+	anIstioMetaKey := IstioMetaPrefix + originalKey
+	envs := []string{
+		notIstioMetaKey + "=bar",
+		anIstioMetaKey + "=baz",
+	}
+	nm := getNodeMetaData(envs)
+	if _, ok := nm[notIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata", notIstioMetaKey)
+	}
+
+	if _, ok := nm[anIstioMetaKey]; ok {
+		t.Fatalf("%s should not be encoded in node metadata. The prefix '%s' should be stripped", anIstioMetaKey, IstioMetaPrefix)
+	}
+	if val, ok := nm[originalKey]; !ok {
+		t.Fatalf("%s has the prefix %s and it should be encoded in the node metadata", originalKey, IstioMetaPrefix)
+	} else if val != "baz" {
+		t.Fatalf("unexpected value node metadata %s. got %s, want: %s", originalKey, val, "baz")
+	}
 }
 
 func mergeMap(to map[string]string, from map[string]string) {

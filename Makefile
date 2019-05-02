@@ -460,7 +460,7 @@ GOTEST_PARALLEL ?= '-test.parallel=1'
 GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
-TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-application-echo-server ${ISTIO_OUT}/pkg-test-application-echo-client
+TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-echo-cmd-server ${ISTIO_OUT}/pkg-test-echo-cmd-client
 .PHONY: $(TEST_APP_BINS)
 $(TEST_APP_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
@@ -509,6 +509,8 @@ security-test:
 .PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
+	# Execute bash shell unit tests scripts
+	./tests/scripts/scripts_test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:

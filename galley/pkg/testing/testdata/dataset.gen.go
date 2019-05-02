@@ -169,7 +169,7 @@ var _datasetExtensionsV1beta1Ingress_basic_expectedJson = []byte(`{
               "*"
             ],
             "port": {
-              "name": "http-80-i-foo-",
+              "name": "http-80-i-foo-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
@@ -285,7 +285,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
               "*"
             ],
             "port": {
-              "name": "http-80-i-bar-ns",
+              "name": "http-80-i-bar-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
@@ -308,7 +308,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
               "*"
             ],
             "port": {
-              "name": "http-80-i-foo-ns",
+              "name": "http-80-i-foo-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
@@ -345,7 +345,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
             "route": [
               {
                 "destination": {
-                  "host": "service2.ns.svc.cluster.local",
+                  "host": "service2.{{.Namespace}}.svc.cluster.local",
                   "port": {
                     "Port": {
                       "Number": 2400
@@ -369,7 +369,7 @@ var _datasetExtensionsV1beta1Ingress_merge_0_expectedJson = []byte(`{
             "route": [
               {
                 "destination": {
-                  "host": "service1.ns.svc.cluster.local",
+                  "host": "service1.{{.Namespace}}.svc.cluster.local",
                   "port": {
                     "Port": {
                       "Number": 4200
@@ -490,7 +490,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
               "*"
             ],
             "port": {
-              "name": "http-80-i-bar-ns",
+              "name": "http-80-i-bar-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
@@ -513,7 +513,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
               "*"
             ],
             "port": {
-              "name": "http-80-i-foo-ns",
+              "name": "http-80-i-foo-{{.Namespace}}",
               "number": 80,
               "protocol": "HTTP"
             }
@@ -550,7 +550,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
             "route": [
               {
                 "destination": {
-                  "host": "service5.ns.svc.cluster.local",
+                  "host": "service5.{{.Namespace}}.svc.cluster.local",
                   "port": {
                     "Port": {
                       "Number": 5000
@@ -574,7 +574,7 @@ var _datasetExtensionsV1beta1Ingress_merge_1_expectedJson = []byte(`{
             "route": [
               {
                 "destination": {
-                  "host": "service1.ns.svc.cluster.local",
+                  "host": "service1.{{.Namespace}}.svc.cluster.local",
                   "port": {
                     "Port": {
                       "Number": 4200
